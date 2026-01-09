@@ -318,3 +318,73 @@ export {
   DecisionAgent,
   extractDecisions,
 } from "./decision/index.js";
+
+// =============================================================================
+// RELATIONSHIP INTELLIGENCE AGENT (Agent 4)
+// =============================================================================
+
+export type {
+  // Identity resolution
+  EmailAlias,
+  IdentityResolutionResult,
+  MergeCandidate,
+  // Profile enrichment
+  SignatureExtraction,
+  EnrichedProfile,
+  // Communication analytics
+  TimePeriod,
+  FrequencyMetrics,
+  ResponsivenessMetrics,
+  DirectionMetrics,
+  TopicAssociation,
+  // Relationship scoring
+  ImportanceScore,
+  HealthScore,
+  VIPDetection,
+  RiskFlagging,
+  // Context generation
+  ContactOpenLoop,
+  RecentInteraction,
+  MeetingBrief,
+  ResponseTimePrediction,
+  // Agent context
+  ContactContext,
+  ThreadContext as RelationshipThreadContext,
+} from "./relationship/index.js";
+export {
+  // Agent
+  RelationshipAgent,
+  createRelationshipAgent,
+  analyzeRelationship,
+  generateMeetingBrief,
+  // Schemas
+  SignatureExtractionResponseSchema,
+  ProfileEnrichmentResponseSchema,
+  RecentHistorySummaryResponseSchema,
+  VIPSignalResponseSchema,
+  MeetingBriefResponseSchema,
+  // Analyzers - Identity
+  parseEmail,
+  normalizeEmail,
+  extractDomain,
+  isFreeEmailProvider,
+  parseName,
+  calculateNameSimilarity,
+  areEmailsRelated,
+  resolveIdentity,
+  findMergeCandidates,
+  // Analyzers - Communication
+  calculateFrequency,
+  calculateResponsiveness,
+  calculateDirection,
+  calculateTopicAssociation,
+  calculateCommunicationMetrics,
+  // Analyzers - Scoring
+  calculateImportanceScore,
+  calculateHealthScore,
+  isExecutiveTitle,
+  isHighValueDomain,
+  detectVIP,
+  flagRisk,
+  calculateEngagementScore,
+} from "./relationship/index.js";

@@ -3,6 +3,7 @@ import { adminRouter } from "./admin";
 import { apiKeysRouter } from "./api-keys";
 import { auditRouter } from "./audit";
 import { commitmentsRouter } from "./commitments";
+import { contactsRouter } from "./contacts";
 import { creditsRouter } from "./credits";
 import { decisionsRouter } from "./decisions";
 import { emailAccountsRouter } from "./email-accounts";
@@ -36,6 +37,8 @@ export const appRouter = router({
   commitments: commitmentsRouter,
   // Decisions API (MEMORYSTACK PRD-04)
   decisions: decisionsRouter,
+  // Contacts API (MEMORYSTACK PRD-05)
+  contacts: contactsRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)
