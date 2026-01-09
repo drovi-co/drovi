@@ -230,3 +230,91 @@ Be precise with numbers and always cite your sources when referencing data.`,
 }
 
 export { BaseAgent as Agent };
+
+// =============================================================================
+// THREAD UNDERSTANDING AGENT (Agent 1)
+// =============================================================================
+
+export type {
+  AnalysisOptions,
+  BaseClaim,
+  Claim,
+  ClaimEvidence,
+  ClaimType,
+  DbClaimFormat,
+  DecisionClaim,
+  ExtractedClaims,
+  FactClaim,
+  IntentCategory,
+  IntentClassification,
+  OpenLoop,
+  PromiseClaim,
+  QuestionClaim,
+  RequestClaim,
+  SentimentAnalysis,
+  ThreadAnalysis,
+  ThreadBrief,
+  ThreadInput,
+  ThreadMessage,
+  ThreadType,
+  ThreadTypeResult,
+  TimelineEvent,
+  UrgencyScore,
+  WaitingOn,
+} from "./thread-understanding/index.js";
+export {
+  analyzeThread,
+  claimsToDbFormat,
+  createThreadUnderstandingAgent,
+  ThreadUnderstandingAgent,
+} from "./thread-understanding/index.js";
+
+// =============================================================================
+// COMMITMENT AGENT (Agent 2)
+// =============================================================================
+
+export type {
+  CommitmentDirection,
+  CommitmentPriority,
+  CommitmentStatus,
+  CommitmentThreadContext,
+  DailyDigest,
+  DueDateExtraction,
+  DueDateSource,
+  ExtractedCommitment,
+  FollowUpDraft,
+  OverdueCommitment,
+  PartiesResult,
+  PartyIdentification,
+  PromiseClaimInput,
+  RequestClaimInput,
+  StatusChange,
+} from "./commitment/index.js";
+export {
+  CommitmentAgent,
+  createCommitmentAgent,
+  extractCommitments,
+  extractDueDate,
+  identifyParties,
+  mergeDateExtractions,
+  mergePartyIdentifications,
+} from "./commitment/index.js";
+
+// =============================================================================
+// DECISION AGENT (Agent 3)
+// =============================================================================
+
+export type {
+  Alternative,
+  DecisionClaimInput,
+  DecisionParticipant,
+  DecisionSearchResult,
+  DecisionThreadContext,
+  ExtractedDecision,
+  Supersession,
+} from "./decision/index.js";
+export {
+  createDecisionAgent,
+  DecisionAgent,
+  extractDecisions,
+} from "./decision/index.js";

@@ -2,11 +2,14 @@ import { protectedProcedure, publicProcedure, router } from "../index";
 import { adminRouter } from "./admin";
 import { apiKeysRouter } from "./api-keys";
 import { auditRouter } from "./audit";
+import { commitmentsRouter } from "./commitments";
 import { creditsRouter } from "./credits";
+import { decisionsRouter } from "./decisions";
 import { emailAccountsRouter } from "./email-accounts";
 import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { notificationsRouter } from "./notifications";
+import { threadsRouter } from "./threads";
 import { uploadsRouter } from "./uploads";
 import { userRouter } from "./user";
 import { webhooksRouter } from "./webhooks";
@@ -27,6 +30,12 @@ export const appRouter = router({
   emailAccounts: emailAccountsRouter,
   // Email sync control (MEMORYSTACK)
   emailSync: emailSyncRouter,
+  // Thread intelligence API (MEMORYSTACK PRD-03)
+  threads: threadsRouter,
+  // Commitments API (MEMORYSTACK PRD-04)
+  commitments: commitmentsRouter,
+  // Decisions API (MEMORYSTACK PRD-04)
+  decisions: decisionsRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)
