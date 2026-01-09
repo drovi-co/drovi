@@ -19,6 +19,10 @@
     "./tools": {
       "import": "./src/tools/index.ts",
       "types": "./src/tools/index.ts"
+    },
+    "./embeddings": {
+      "import": "./src/embeddings/index.ts",
+      "types": "./src/embeddings/index.ts"
     }
   },
   "dependencies": {

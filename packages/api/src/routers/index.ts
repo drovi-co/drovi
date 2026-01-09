@@ -10,6 +10,7 @@ import { emailAccountsRouter } from "./email-accounts";
 import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { notificationsRouter } from "./notifications";
+import { searchRouter } from "./search";
 import { threadsRouter } from "./threads";
 import { uploadsRouter } from "./uploads";
 import { userRouter } from "./user";
@@ -39,6 +40,8 @@ export const appRouter = router({
   decisions: decisionsRouter,
   // Contacts API (MEMORYSTACK PRD-05)
   contacts: contactsRouter,
+  // Search & Knowledge API (MEMORYSTACK PRD-06)
+  search: searchRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)

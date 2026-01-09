@@ -12,9 +12,11 @@ export * from "./email-backfill.js";
 export * from "./email-process.js";
 // Email sync tasks (PRD-02)
 export * from "./email-sync.js";
+// Embedding generation tasks (PRD-06)
+export * from "./embedding-generation.js";
+// Relationship analysis tasks (PRD-05)
+export * from "./relationship-analysis.js";
 export * from "./send-email.js";
 // Thread analysis tasks (PRD-03)
 export * from "./thread-analysis.js";
 export * from "./token-refresh.js";
-// Relationship analysis tasks (PRD-05)
-export * from "./relationship-analysis.js";

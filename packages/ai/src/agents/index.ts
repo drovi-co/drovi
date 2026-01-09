@@ -324,67 +324,109 @@ export {
 // =============================================================================
 
 export type {
-  // Identity resolution
-  EmailAlias,
-  IdentityResolutionResult,
-  MergeCandidate,
-  // Profile enrichment
-  SignatureExtraction,
-  EnrichedProfile,
-  // Communication analytics
-  TimePeriod,
-  FrequencyMetrics,
-  ResponsivenessMetrics,
-  DirectionMetrics,
-  TopicAssociation,
-  // Relationship scoring
-  ImportanceScore,
-  HealthScore,
-  VIPDetection,
-  RiskFlagging,
-  // Context generation
-  ContactOpenLoop,
-  RecentInteraction,
-  MeetingBrief,
-  ResponseTimePrediction,
   // Agent context
   ContactContext,
+  // Context generation
+  ContactOpenLoop,
+  DirectionMetrics,
+  // Identity resolution
+  EmailAlias,
+  EnrichedProfile,
+  FrequencyMetrics,
+  HealthScore,
+  IdentityResolutionResult,
+  // Relationship scoring
+  ImportanceScore,
+  MeetingBrief,
+  MergeCandidate,
+  RecentInteraction,
+  ResponseTimePrediction,
+  ResponsivenessMetrics,
+  RiskFlagging,
+  // Profile enrichment
+  SignatureExtraction,
   ThreadContext as RelationshipThreadContext,
+  // Communication analytics
+  TimePeriod,
+  TopicAssociation,
+  VIPDetection,
 } from "./relationship/index.js";
 export {
-  // Agent
-  RelationshipAgent,
-  createRelationshipAgent,
   analyzeRelationship,
-  generateMeetingBrief,
-  // Schemas
-  SignatureExtractionResponseSchema,
-  ProfileEnrichmentResponseSchema,
-  RecentHistorySummaryResponseSchema,
-  VIPSignalResponseSchema,
-  MeetingBriefResponseSchema,
-  // Analyzers - Identity
-  parseEmail,
-  normalizeEmail,
-  extractDomain,
-  isFreeEmailProvider,
-  parseName,
-  calculateNameSimilarity,
   areEmailsRelated,
-  resolveIdentity,
-  findMergeCandidates,
+  calculateCommunicationMetrics,
+  calculateDirection,
+  calculateEngagementScore,
   // Analyzers - Communication
   calculateFrequency,
-  calculateResponsiveness,
-  calculateDirection,
-  calculateTopicAssociation,
-  calculateCommunicationMetrics,
+  calculateHealthScore,
   // Analyzers - Scoring
   calculateImportanceScore,
-  calculateHealthScore,
-  isExecutiveTitle,
-  isHighValueDomain,
+  calculateNameSimilarity,
+  calculateResponsiveness,
+  calculateTopicAssociation,
+  createRelationshipAgent,
   detectVIP,
+  extractDomain,
+  findMergeCandidates,
   flagRisk,
-  calculateEngagementScore,
+  generateMeetingBrief,
+  isExecutiveTitle,
+  isFreeEmailProvider,
+  isHighValueDomain,
+  MeetingBriefResponseSchema,
+  normalizeEmail,
+  ProfileEnrichmentResponseSchema,
+  // Analyzers - Identity
+  parseEmail,
+  parseName,
+  RecentHistorySummaryResponseSchema,
+  // Agent
+  RelationshipAgent,
+  resolveIdentity,
+  // Schemas
+  SignatureExtractionResponseSchema,
+  VIPSignalResponseSchema,
 } from "./relationship/index.js";
+
+// =============================================================================
+// SEARCH AGENT (Agent 5 - Search)
+// =============================================================================
+
+export type {
+  AnswerResult,
+  EvidenceItem,
+  GeneratedAnswer,
+  ParsedQuery,
+  QueryIntent,
+  SearchAgentConfig,
+  SearchOptions,
+  SearchResult,
+} from "./search/index.js";
+export {
+  createSearchAgent,
+  GeneratedAnswerSchema,
+  ParsedQuerySchema,
+  QueryIntentSchema,
+  SearchAgent,
+} from "./search/index.js";
+
+// =============================================================================
+// KNOWLEDGE AGENT (Agent 5 - Knowledge)
+// =============================================================================
+
+export type {
+  CrossThreadConnection,
+  DetectedPattern,
+  Insight,
+  KnowledgeAgentConfig,
+  PatternInput,
+  TopicSummary,
+} from "./knowledge/index.js";
+export {
+  createKnowledgeAgent,
+  InsightResponseSchema,
+  KnowledgeAgent,
+  PatternResponseSchema,
+  TopicSummaryResponseSchema,
+} from "./knowledge/index.js";
