@@ -35,6 +35,14 @@
     "./prompts/drafting": {
       "import": "./src/prompts/drafting/index.ts",
       "types": "./src/prompts/drafting/index.ts"
+    },
+    "./prompts/risk": {
+      "import": "./src/prompts/risk/index.ts",
+      "types": "./src/prompts/risk/index.ts"
+    },
+    "./detectors": {
+      "import": "./src/detectors/index.ts",
+      "types": "./src/detectors/index.ts"
     }
   },
   "dependencies": {

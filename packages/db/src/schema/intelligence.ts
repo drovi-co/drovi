@@ -853,3 +853,346 @@ export type TriageResult = typeof triageResult.$inferSelect;
 export type NewTriageResult = typeof triageResult.$inferInsert;
 export type TriageRule = typeof triageRule.$inferSelect;
 export type NewTriageRule = typeof triageRule.$inferInsert;
+
+// =============================================================================
+// RISK ANALYSIS ENUMS (Agent 8: Policy & Risk)
+// =============================================================================
+
+export const riskLevelEnum = pgEnum("risk_level", [
+  "low",
+  "medium",
+  "high",
+  "critical",
+]);
+
+export const riskAnalysisStatusEnum = pgEnum("risk_analysis_status", [
+  "pending",
+  "analyzing",
+  "completed",
+  "approved",
+  "blocked",
+  "error",
+]);
+
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "not_required",
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const policyCategoryEnum = pgEnum("policy_category", [
+  "communication",
+  "data_handling",
+  "financial",
+  "compliance",
+  "security",
+  "custom",
+]);
+
+export const policySeverityEnum = pgEnum("policy_severity", [
+  "info",
+  "warning",
+  "violation",
+  "critical",
+]);
+
+// =============================================================================
+// RISK ANALYSIS TABLE (Agent 8: Policy & Risk)
+// =============================================================================
+
+export interface RiskAnalysisDetails {
+  contradictions?: Array<{
+    draftStatement: string;
+    conflictingSource: string;
+    sourceId: string;
+    severity: string;
+    suggestion?: string;
+  }>;
+  sensitiveData?: {
+    piiFindings: Array<{
+      type: string;
+      location: string;
+      severity: string;
+    }>;
+    confidentialFindings: Array<{
+      category: string;
+      location: string;
+      severity: string;
+    }>;
+    recipientWarnings: Array<{
+      recipient: string;
+      reason: string;
+      recommendation: string;
+    }>;
+  };
+  fraudSignals?: {
+    impersonation: Array<{
+      type: string;
+      details: string;
+      severity: string;
+    }>;
+    invoiceFraud: Array<{
+      type: string;
+      details: string;
+      severity: string;
+    }>;
+    phishing: Array<{
+      type: string;
+      details: string;
+      severity: string;
+    }>;
+  };
+  policyViolations?: Array<{
+    ruleId: string;
+    ruleName: string;
+    category: string;
+    severity: string;
+    description: string;
+    matchedContent?: string;
+  }>;
+  recommendations?: string[];
+}
+
+/**
+ * Stores risk analysis results for emails and drafts.
+ * Created by the Risk Agent with fraud, sensitivity, and policy checks.
+ */
+export const riskAnalysis = pgTable(
+  "risk_analysis",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => emailAccount.id, { onDelete: "cascade" }),
+    threadId: text("thread_id").references(() => emailThread.id, {
+      onDelete: "set null",
+    }),
+    messageId: text("message_id").references(() => emailMessage.id, {
+      onDelete: "set null",
+    }),
+
+    // Analysis type
+    analysisType: text("analysis_type").notNull(), // 'incoming' | 'draft'
+
+    // Status tracking
+    status: riskAnalysisStatusEnum("status").notNull().default("pending"),
+
+    // Overall risk scores
+    overallRiskScore: real("overall_risk_score").default(0),
+    overallRiskLevel: riskLevelEnum("overall_risk_level"),
+
+    // Risk category flags
+    hasContradictions: boolean("has_contradictions").default(false),
+    hasSensitiveData: boolean("has_sensitive_data").default(false),
+    hasFraudSignals: boolean("has_fraud_signals").default(false),
+    hasPolicyViolations: boolean("has_policy_violations").default(false),
+
+    // Category scores
+    contradictionScore: real("contradiction_score").default(0),
+    sensitiveDataScore: real("sensitive_data_score").default(0),
+    fraudScore: real("fraud_score").default(0),
+    policyScore: real("policy_score").default(0),
+
+    // Approval workflow
+    requiresApproval: boolean("requires_approval").default(false),
+    approvalStatus: approvalStatusEnum("approval_status").default("not_required"),
+    approvalRequestedBy: text("approval_requested_by"),
+    approvalRequestedAt: timestamp("approval_requested_at"),
+    approvalReason: text("approval_reason"),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at"),
+    approvalComments: text("approval_comments"),
+
+    // Draft content (for draft analysis)
+    draftContent: text("draft_content"),
+    draftSubject: text("draft_subject"),
+    draftRecipients: jsonb("draft_recipients").$type<
+      Array<{
+        email: string;
+        name?: string;
+        domain: string;
+        isExternal: boolean;
+      }>
+    >(),
+
+    // Detailed results
+    details: jsonb("details").$type<RiskAnalysisDetails>(),
+
+    // Processing info
+    processingTimeMs: integer("processing_time_ms"),
+    analyzedAt: timestamp("analyzed_at"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("risk_analysis_account_idx").on(table.accountId),
+    index("risk_analysis_thread_idx").on(table.threadId),
+    index("risk_analysis_message_idx").on(table.messageId),
+    index("risk_analysis_status_idx").on(table.status),
+    index("risk_analysis_risk_level_idx").on(table.overallRiskLevel),
+    index("risk_analysis_approval_idx").on(table.approvalStatus),
+    index("risk_analysis_created_idx").on(table.createdAt),
+  ]
+);
+
+// =============================================================================
+// POLICY RULE TABLE (Agent 8: Policy & Risk)
+// =============================================================================
+
+export interface PolicyCondition {
+  type: string;
+  field: string;
+  operator: string;
+  value: string | number | string[];
+  caseSensitive?: boolean;
+}
+
+export interface PolicyAction {
+  type: "block" | "warn" | "require_approval" | "notify" | "audit_log" | "redact" | "encrypt";
+  config?: Record<string, unknown>;
+}
+
+/**
+ * Stores organization-defined policy rules for risk detection.
+ */
+export const policyRule = pgTable(
+  "policy_rule",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
+    // Rule identity
+    name: text("name").notNull(),
+    description: text("description"),
+    category: policyCategoryEnum("category").notNull(),
+
+    // Rule definition
+    conditions: jsonb("conditions").$type<PolicyCondition[]>().notNull(),
+    actions: jsonb("actions").$type<PolicyAction[]>().notNull(),
+
+    // Severity
+    severity: policySeverityEnum("severity").notNull(),
+
+    // State
+    enabled: boolean("enabled").notNull().default(true),
+
+    // Usage stats
+    hitCount: integer("hit_count").notNull().default(0),
+    lastHitAt: timestamp("last_hit_at"),
+
+    // Audit
+    createdBy: text("created_by"),
+    lastModifiedBy: text("last_modified_by"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("policy_rule_org_idx").on(table.organizationId),
+    index("policy_rule_category_idx").on(table.category),
+    index("policy_rule_severity_idx").on(table.severity),
+    index("policy_rule_enabled_idx").on(table.enabled),
+  ]
+);
+
+// =============================================================================
+// AUDIT LOG TABLE (Agent 8: Policy & Risk)
+// =============================================================================
+
+/**
+ * Stores audit log entries for security and compliance tracking.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
+
+    // Action info
+    action: text("action").notNull(),
+    resourceType: text("resource_type"),
+    resourceId: text("resource_id"),
+
+    // Details
+    details: jsonb("details").$type<Record<string, unknown>>(),
+
+    // Context
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+
+    // Timestamp
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_log_org_idx").on(table.organizationId),
+    index("audit_log_user_idx").on(table.userId),
+    index("audit_log_action_idx").on(table.action),
+    index("audit_log_resource_idx").on(table.resourceType, table.resourceId),
+    index("audit_log_created_idx").on(table.createdAt),
+  ]
+);
+
+// =============================================================================
+// RISK RELATIONS
+// =============================================================================
+
+export const riskAnalysisRelations = relations(riskAnalysis, ({ one }) => ({
+  account: one(emailAccount, {
+    fields: [riskAnalysis.accountId],
+    references: [emailAccount.id],
+  }),
+  thread: one(emailThread, {
+    fields: [riskAnalysis.threadId],
+    references: [emailThread.id],
+  }),
+  message: one(emailMessage, {
+    fields: [riskAnalysis.messageId],
+    references: [emailMessage.id],
+  }),
+}));
+
+export const policyRuleRelations = relations(policyRule, ({ one }) => ({
+  organization: one(organization, {
+    fields: [policyRule.organizationId],
+    references: [organization.id],
+  }),
+}));
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  organization: one(organization, {
+    fields: [auditLog.organizationId],
+    references: [organization.id],
+  }),
+}));
+
+// =============================================================================
+// RISK TYPE EXPORTS
+// =============================================================================
+
+export type RiskAnalysis = typeof riskAnalysis.$inferSelect;
+export type NewRiskAnalysis = typeof riskAnalysis.$inferInsert;
+export type PolicyRule = typeof policyRule.$inferSelect;
+export type NewPolicyRule = typeof policyRule.$inferInsert;
+export type AuditLog = typeof auditLog.$inferSelect;
+export type NewAuditLog = typeof auditLog.$inferInsert;

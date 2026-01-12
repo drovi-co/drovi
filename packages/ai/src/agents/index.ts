@@ -486,3 +486,28 @@ export {
   ReminderScheduleSchema,
   ToneAnalysisSchema,
 } from "./drafting/index.js";
+
+// =============================================================================
+// RISK AGENT (Agent 8)
+// =============================================================================
+
+export type {
+  CombinedRiskInput,
+  CombinedRiskResult,
+  ContradictionAnalysisResult,
+  ContradictionResult,
+  DraftRiskCheckRequest,
+  DraftRiskCheckResponse,
+  FraudAnalysisResult,
+  FraudDetectionResult,
+  HistoricalStatement,
+  PolicyResult,
+  PolicyRule,
+  RiskAgentConfig,
+  RiskAnalysisContext,
+  RiskAnalysisRequest,
+  RiskAnalysisResponse,
+  SemanticAnalysisResult,
+  SensitiveDataResult,
+} from "./risk/index.js";
+export { createRiskAgent, RiskAgent } from "./risk/index.js";

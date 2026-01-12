@@ -11,6 +11,7 @@ import { emailAccountsRouter } from "./email-accounts";
 import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { notificationsRouter } from "./notifications";
+import { riskRouter } from "./risk";
 import { searchRouter } from "./search";
 import { threadsRouter } from "./threads";
 import { triageRouter } from "./triage";
@@ -48,6 +49,8 @@ export const appRouter = router({
   triage: triageRouter,
   // Drafts API (MEMORYSTACK PRD-08)
   drafts: draftsRouter,
+  // Risk & Policy API (MEMORYSTACK PRD-09)
+  risk: riskRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)

@@ -22,3 +22,5 @@ export * from "./thread-analysis.js";
 export * from "./token-refresh.js";
 // Triage analysis tasks (PRD-07)
 export * from "./triage-analysis.js";
+// Risk analysis tasks (PRD-09)
+export * from "./risk-analysis.js";
