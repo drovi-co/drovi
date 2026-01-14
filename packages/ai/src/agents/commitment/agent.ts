@@ -8,7 +8,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../observability";
-import { getModel } from "../../providers/index";
+import { getDefaultModel } from "../../providers/index";
 import { extractDueDate, mergeDateExtractions } from "./extractors/dates";
 import {
   identifyParties,
@@ -73,7 +73,7 @@ export class CommitmentAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: CommitmentExtractionResponseSchema,
         prompt,
         temperature: 0.3,
@@ -201,7 +201,7 @@ export class CommitmentAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: StatusDetectionResponseSchema,
         prompt,
         temperature: 0.2,
@@ -303,6 +303,10 @@ export class CommitmentAgent {
       debtorName?: string;
       debtorEmail?: string;
     },
+    sender: {
+      name?: string;
+      email?: string;
+    },
     daysOverdue: number,
     reminderCount: number,
     originalContext?: string
@@ -327,6 +331,7 @@ export class CommitmentAgent {
     try {
       const prompt = buildFollowUpPrompt(
         commitment,
+        sender,
         daysOverdue,
         reminderCount,
         tone,
@@ -334,7 +339,7 @@ export class CommitmentAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: FollowUpGenerationResponseSchema,
         prompt,
         temperature: 0.5,

@@ -2,7 +2,7 @@
 // EMAIL CLIENT FACTORY
 // =============================================================================
 
-import type { EmailAccount } from "@saas-template/db/schema";
+import type { EmailAccount } from "@memorystack/db/schema";
 import { GmailEmailClient } from "./gmail";
 import { OutlookEmailClient } from "./outlook";
 import type { EmailClient, EmailProvider } from "./types";

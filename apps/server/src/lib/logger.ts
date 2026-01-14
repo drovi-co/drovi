@@ -1,4 +1,4 @@
-import { env } from "@saas-template/env/server";
+import { env } from "@memorystack/env/server";
 import pino from "pino";
 
 // Create base logger with appropriate configuration
@@ -21,7 +21,7 @@ export const logger = pino({
   // Base fields included in every log
   base: {
     env: env.NODE_ENV,
-    service: "saas-template-server",
+    service: "memorystack-server",
   },
 
   // Redact sensitive fields

@@ -1,4 +1,4 @@
-import { env } from "@saas-template/env/server";
+import { env } from "@memorystack/env/server";
 
 // =============================================================================
 // GMAIL OAUTH CONFIGURATION
@@ -17,11 +17,18 @@ export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   // Create, read, update, and delete drafts
   "https://www.googleapis.com/auth/gmail.compose",
+  // Full read/write access to Google Calendar events
+  "https://www.googleapis.com/auth/calendar",
   // Get user's email address
   "https://www.googleapis.com/auth/userinfo.email",
   // Get user's profile info
   "https://www.googleapis.com/auth/userinfo.profile",
 ] as const;
+
+/**
+ * Google Calendar API base URL
+ */
+export const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
 /**
  * Google OAuth 2.0 endpoints

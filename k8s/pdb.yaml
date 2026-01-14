@@ -1,25 +1,25 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: saas-template-server-pdb
-  namespace: saas-template
+  name: memorystack-server-pdb
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-server
+    app.kubernetes.io/name: memorystack-server
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: saas-template-server
+      app.kubernetes.io/name: memorystack-server
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: saas-template-web-pdb
-  namespace: saas-template
+  name: memorystack-web-pdb
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-web
+    app.kubernetes.io/name: memorystack-web
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: saas-template-web
+      app.kubernetes.io/name: memorystack-web

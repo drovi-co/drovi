@@ -9,13 +9,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
-import { AnimatePresence, motion } from "framer-motion";
+import { format, startOfMonth, subMonths } from "date-fns";
 import {
   Download,
   GitBranch,
-  MessageSquare,
   RefreshCw,
+  Search,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -31,15 +30,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   DecisionCard,
+  DecisionDetailSheet,
+  type DecisionDetailData,
   DecisionStats,
   type DecisionCardData,
 } from "@/components/dashboards";
+import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -72,9 +73,12 @@ function DecisionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [showSupersessionDialog, setShowSupersessionDialog] = useState(false);
   const [supersessionDecisionId, setSupersessionDecisionId] = useState<string | null>(null);
   const [includeSuperseded, setIncludeSuperseded] = useState(false);
+  const [evidenceSheetOpen, setEvidenceSheetOpen] = useState(false);
+  const [evidenceDecisionId, setEvidenceDecisionId] = useState<string | null>(null);
 
   // Calculate date filters
   const getDateFilter = () => {
@@ -120,6 +124,15 @@ function DecisionsPage() {
     enabled: !!organizationId && isSearching && searchQuery.length > 2,
   });
 
+  // Fetch detailed decision for sheet
+  const { data: detailData } = useQuery({
+    ...trpc.decisions.get.queryOptions({
+      organizationId,
+      decisionId: selectedDecision ?? "",
+    }),
+    enabled: !!organizationId && !!selectedDecision && detailSheetOpen,
+  });
+
   // Supersession chain query
   const { data: supersessionData, isLoading: isLoadingSupersession } = useQuery({
     ...trpc.decisions.getSupersessionChain.queryOptions({
@@ -127,6 +140,15 @@ function DecisionsPage() {
       decisionId: supersessionDecisionId ?? "",
     }),
     enabled: !!organizationId && !!supersessionDecisionId,
+  });
+
+  // Evidence detail query
+  const { data: evidenceDecisionData } = useQuery({
+    ...trpc.decisions.get.queryOptions({
+      organizationId,
+      decisionId: evidenceDecisionId ?? "",
+    }),
+    enabled: !!organizationId && !!evidenceDecisionId && evidenceSheetOpen,
   });
 
   // Keyboard shortcuts
@@ -154,20 +176,28 @@ function DecisionsPage() {
           setSelectedDecision(decisions[currentIndex - 1]?.id ?? null);
         }
       }
+      if (e.key === "Enter" && selectedDecision && !detailSheetOpen) {
+        e.preventDefault();
+        setDetailSheetOpen(true);
+      }
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         document.getElementById("decision-search")?.focus();
       }
       if (e.key === "r") refetch();
       if (e.key === "Escape") {
-        setIsSearching(false);
-        setSearchQuery("");
+        if (detailSheetOpen) {
+          setDetailSheetOpen(false);
+        } else {
+          setIsSearching(false);
+          setSearchQuery("");
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [decisionsData, selectedDecision, refetch]);
+  }, [decisionsData, selectedDecision, detailSheetOpen, refetch]);
 
   // Handlers
   const handleSearch = useCallback((query: string) => {
@@ -196,6 +226,11 @@ function DecisionsPage() {
   const handleViewSupersession = useCallback((decisionId: string) => {
     setSupersessionDecisionId(decisionId);
     setShowSupersessionDialog(true);
+  }, []);
+
+  const handleShowEvidence = useCallback((decisionId: string) => {
+    setEvidenceDecisionId(decisionId);
+    setEvidenceSheetOpen(true);
   }, []);
 
   const handleExport = useCallback(() => {
@@ -237,7 +272,7 @@ function DecisionsPage() {
 
   // Display search results or regular list
   const displayDecisions: DecisionCardData[] = isSearching && searchResults?.relevantDecisions
-    ? searchResults.relevantDecisions.map((d: { id: string; title: string; statement: string; rationale?: string | null; decidedAt: Date }) => {
+    ? searchResults.relevantDecisions.map((d) => {
         const full = decisions.find((fd) => fd.id === d.id);
         return full ?? {
           id: d.id,
@@ -260,6 +295,43 @@ function DecisionsPage() {
     topTopics: [],
   };
 
+  // Transform detail data for sheet
+  const detailDecision: DecisionDetailData | null = detailData
+    ? {
+        id: detailData.id,
+        title: detailData.title,
+        statement: detailData.statement,
+        rationale: detailData.rationale,
+        decidedAt: new Date(detailData.decidedAt),
+        confidence: detailData.confidence,
+        isUserVerified: detailData.isUserVerified ?? undefined,
+        isSuperseded: !!detailData.supersededById,
+        evidence: detailData.metadata?.originalText ? [detailData.metadata.originalText] : undefined,
+        owners: detailData.owners as DecisionDetailData["owners"],
+        sourceThread: detailData.sourceThread,
+        supersededBy: detailData.supersededBy
+          ? {
+              id: detailData.supersededBy.id,
+              title: detailData.supersededBy.title,
+              decidedAt: new Date(detailData.supersededBy.decidedAt),
+            }
+          : null,
+        supersedes: detailData.supersedes
+          ? {
+              id: detailData.supersedes.id,
+              title: detailData.supersedes.title,
+              decidedAt: new Date(detailData.supersedes.decidedAt),
+            }
+          : null,
+        alternatives: detailData.alternatives?.map((a) => ({
+          option: a.title,
+          reason: a.description ?? undefined,
+        })),
+        topics: detailData.topics,
+        metadata: detailData.metadata,
+      }
+    : null;
+
   if (orgLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -277,165 +349,168 @@ function DecisionsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold">Decision Log</h1>
-              <p className="text-sm text-muted-foreground">
-                Your institutional memory - searchable decision archive
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          {isLoadingStats ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-24" />
-              ))}
-            </div>
-          ) : (
-            <DecisionStats stats={stats} />
-          )}
-        </div>
-      </div>
-
-      {/* Search Bar - Prominent "Ask My Decisions" */}
-      <div className="border-b bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 px-4 py-4">
-        <div className="container">
-          <div className="relative max-w-2xl mx-auto">
-            <MessageSquare className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-purple-500" />
-            <Input
-              id="decision-search"
-              placeholder="Ask a question... e.g., 'What did we decide about pricing?'"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-12 pr-10 py-6 text-lg bg-white dark:bg-background border-purple-200 dark:border-purple-800 focus-visible:ring-purple-500"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2"
-                onClick={() => {
-                  setSearchQuery("");
-                  setIsSearching(false);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          {isSearching && searchResults?.answer && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-2xl mx-auto mt-4 p-4 bg-white dark:bg-background rounded-lg border"
-            >
-              <p className="text-sm font-medium text-purple-700 dark:text-purple-400 mb-2">
-                AI Summary:
-              </p>
-              <p className="text-sm text-foreground">{searchResults.answer}</p>
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="border-b bg-muted/30 px-4 py-3">
-        <div className="container flex items-center gap-4">
-          {/* Time Filter */}
+    <div data-no-shell-padding className="h-full">
+      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+        {/* Header */}
+        <div className="border-b bg-background">
+        <div className="flex items-center justify-between px-4 py-2">
+          {/* Time Filter Tabs */}
           <Tabs value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
-            <TabsList>
-              <TabsTrigger value="all">All Time</TabsTrigger>
-              <TabsTrigger value="this_week">This Week</TabsTrigger>
-              <TabsTrigger value="this_month">This Month</TabsTrigger>
-              <TabsTrigger value="last_3_months">Last 3 Months</TabsTrigger>
+            <TabsList className="h-8 bg-transparent gap-1">
+              <TabsTrigger
+                value="all"
+                className="text-sm px-3 data-[state=active]:bg-accent"
+              >
+                All
+              </TabsTrigger>
+              <TabsTrigger
+                value="this_week"
+                className="text-sm px-3 data-[state=active]:bg-accent"
+              >
+                This Week
+                {stats.thisWeek > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                    {stats.thisWeek}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="this_month"
+                className="text-sm px-3 data-[state=active]:bg-accent"
+              >
+                This Month
+              </TabsTrigger>
+              <TabsTrigger
+                value="last_3_months"
+                className="text-sm px-3 data-[state=active]:bg-accent"
+              >
+                Last 3 Months
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          {/* Include Superseded Toggle */}
-          <Button
-            variant={includeSuperseded ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setIncludeSuperseded(!includeSuperseded)}
-          >
-            <GitBranch className="h-4 w-4 mr-2" />
-            {includeSuperseded ? "Hiding" : "Show"} Superseded
-          </Button>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="decision-search"
+                placeholder="Search decisions..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="h-8 w-[200px] pl-8 text-sm"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setIsSearching(false);
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
 
-          {/* Spacer */}
-          <div className="flex-1" />
+            {/* Include Superseded Toggle */}
+            <Button
+              variant={includeSuperseded ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 text-sm"
+              onClick={() => setIncludeSuperseded(!includeSuperseded)}
+            >
+              <GitBranch className="h-4 w-4 mr-1" />
+              Superseded
+            </Button>
 
-          {/* Keyboard hints */}
-          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">/</kbd>
-            <span>search</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
-            <span>navigate</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">esc</kbd>
-            <span>clear</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleExport}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+
+            {/* Keyboard hints */}
+            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">/</kbd>
+              <span>search</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
+              <span>nav</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="container py-6">
-            {isLoadingDecisions || (isSearching && isLoadingSearch) ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-32" />
-                ))}
-              </div>
-            ) : (
-              <AnimatePresence mode="popLayout">
-                <div className="space-y-3">
-                  {displayDecisions.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center py-12"
-                    >
-                      <p className="text-muted-foreground">
-                        {isSearching ? "No decisions match your search" : "No decisions found"}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Decisions are automatically extracted from your emails
-                      </p>
-                    </motion.div>
-                  ) : (
-                    displayDecisions.map((decision) => (
-                      <DecisionCard
-                        key={decision.id}
-                        decision={decision}
-                        isSelected={selectedDecision === decision.id}
-                        onSelect={() => setSelectedDecision(decision.id)}
-                        onThreadClick={handleThreadClick}
-                        onContactClick={handleContactClick}
-                        onViewSupersession={handleViewSupersession}
-                      />
-                    ))
-                  )}
+      {/* AI Summary (if searching) */}
+      {isSearching && searchResults?.answer && (
+        <div className="border-b px-4 py-3 bg-purple-50/50 dark:bg-purple-900/10">
+          <p className="text-sm">
+            <span className="font-medium text-purple-700 dark:text-purple-400">AI: </span>
+            {searchResults.answer}
+          </p>
+        </div>
+      )}
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          {isLoadingDecisions || (isSearching && isLoadingSearch) ? (
+            <div>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
+                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
+                  <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-16 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-12 h-4 bg-muted rounded animate-pulse" />
                 </div>
-              </AnimatePresence>
-            )}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          ) : displayDecisions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+                <GitBranch className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium">
+                {isSearching ? "No decisions match your search" : "No decisions found"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Decisions are automatically extracted from your emails
+              </p>
+            </div>
+          ) : (
+            <div>
+              {displayDecisions.map((decision) => (
+                <DecisionCard
+                  key={decision.id}
+                  decision={decision}
+                  isSelected={selectedDecision === decision.id}
+                  onSelect={() => {
+                    setSelectedDecision(decision.id);
+                    setDetailSheetOpen(true);
+                  }}
+                  onShowEvidence={handleShowEvidence}
+                  onThreadClick={handleThreadClick}
+                  onContactClick={handleContactClick}
+                  onViewSupersession={handleViewSupersession}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Supersession Chain Dialog */}
@@ -464,12 +539,9 @@ function DecisionsPage() {
 
                 {/* Chain items */}
                 <div className="space-y-4">
-                  {supersessionData.chain.map((item, index) => (
-                    <motion.div
+                  {supersessionData.chain.map((item) => (
+                    <div
                       key={item.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
                       className={cn(
                         "relative pl-10",
                         !item.isCurrent && "opacity-60"
@@ -515,7 +587,7 @@ function DecisionsPage() {
                           )}
                         </p>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -525,6 +597,46 @@ function DecisionsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Decision Detail Sheet */}
+      <DecisionDetailSheet
+        decision={detailDecision}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        onThreadClick={handleThreadClick}
+        onContactClick={handleContactClick}
+        onViewSupersession={(decisionId) => {
+          setSupersessionDecisionId(decisionId);
+          setShowSupersessionDialog(true);
+        }}
+      />
+
+      {/* Evidence Detail Sheet */}
+      <EvidenceDetailSheet
+        open={evidenceSheetOpen}
+        onOpenChange={setEvidenceSheetOpen}
+        evidence={
+          evidenceDecisionData
+            ? {
+                id: evidenceDecisionData.id,
+                type: "decision",
+                title: evidenceDecisionData.title,
+                extractedText: evidenceDecisionData.statement,
+                confidence: evidenceDecisionData.confidence,
+                isUserVerified: evidenceDecisionData.isUserVerified ?? false,
+                quotedText: evidenceDecisionData.metadata?.originalText ?? null,
+                extractedAt: new Date(evidenceDecisionData.decidedAt),
+                modelVersion: "gpt-4o",
+                confidenceFactors: [
+                  { name: "Text Clarity", score: evidenceDecisionData.confidence, explanation: "How clear the extracted text is", weight: 0.4 },
+                  { name: "Context Relevance", score: 0.8, explanation: "How relevant the context is", weight: 0.35 },
+                  { name: "Historical Accuracy", score: 0.85, explanation: "Historical accuracy of extractions", weight: 0.25 },
+                ],
+              }
+            : null
+        }
+        onThreadClick={handleThreadClick}
+      />
     </div>
   );
 }

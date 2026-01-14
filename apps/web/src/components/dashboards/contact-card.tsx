@@ -7,28 +7,24 @@
 // relationship intelligence surface.
 //
 
-import { formatDistanceToNow } from "date-fns";
-import { motion } from "framer-motion";
+import { formatDistanceToNow, isToday, isYesterday, format } from "date-fns";
 import {
   Calendar,
-  ChevronDown,
-  ChevronRight,
   Heart,
   Linkedin,
   Mail,
   MoreHorizontal,
   Phone,
+  Sparkles,
   Star,
   StarOff,
   TrendingDown,
-  TrendingUp,
   User,
 } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +32,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -106,6 +101,16 @@ function getInitials(name: string | null | undefined, email: string): string {
   return email.slice(0, 2).toUpperCase();
 }
 
+function formatLastInteraction(date: Date): string {
+  if (isToday(date)) {
+    return format(date, "h:mm a");
+  }
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+  return format(date, "MMM d");
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -118,317 +123,200 @@ export function ContactCard({
   onEmailClick,
   onViewProfile,
   onGenerateMeetingBrief,
-  compact = false,
 }: ContactCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const displayName = contact.displayName ?? contact.primaryEmail.split("@")[0];
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+    <div
       className={cn(
-        "group relative rounded-lg border bg-card transition-all",
-        "hover:shadow-md cursor-pointer",
-        contact.isAtRisk && "border-l-4 border-l-red-500",
-        contact.isVip && !contact.isAtRisk && "border-l-4 border-l-amber-500",
-        isSelected && "ring-2 ring-primary",
-        compact ? "p-3" : "p-4"
+        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
+        "border-b border-border/40",
+        isHovered && !isSelected && "bg-accent/50",
+        isSelected && "bg-accent"
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={onSelect}
     >
-      {/* Main Content */}
-      <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <Avatar className={cn(compact ? "h-10 w-10" : "h-12 w-12")}>
-          <AvatarImage src={contact.avatarUrl ?? undefined} alt={displayName} />
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {getInitials(contact.displayName, contact.primaryEmail)}
-          </AvatarFallback>
-        </Avatar>
+      {/* Priority indicator bar */}
+      {contact.isAtRisk && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+      )}
+      {contact.isVip && !contact.isAtRisk && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+      )}
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {/* Name */}
-            <h3 className={cn(
-              "font-medium text-foreground truncate",
-              compact ? "text-sm" : "text-base"
-            )}>
-              {displayName}
-            </h3>
+      {/* Avatar */}
+      <Avatar className="h-9 w-9 shrink-0">
+        <AvatarImage src={contact.avatarUrl ?? undefined} alt={displayName} />
+        <AvatarFallback className="text-xs bg-muted font-medium">
+          {getInitials(contact.displayName, contact.primaryEmail)}
+        </AvatarFallback>
+      </Avatar>
 
-            {/* VIP Badge */}
-            {contact.isVip && (
-              <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />
-            )}
-
-            {/* At-Risk Badge */}
-            {contact.isAtRisk && (
-              <Badge variant="destructive" className="text-xs shrink-0">
-                <TrendingDown className="h-3 w-3 mr-1" />
-                At Risk
-              </Badge>
-            )}
-          </div>
-
-          {/* Title & Company */}
-          {(contact.title || contact.company) && (
-            <p className="text-sm text-muted-foreground truncate">
-              {contact.title}
-              {contact.title && contact.company && " at "}
-              {contact.company}
-            </p>
-          )}
-
-          {/* Email */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEmailClick?.(contact.primaryEmail);
-            }}
-            className="text-sm text-primary hover:underline truncate block"
-          >
-            {contact.primaryEmail}
-          </button>
-
-          {/* Stats Row */}
-          <div className="flex items-center gap-4 mt-2">
-            {/* Health Score */}
-            {contact.healthScore !== null && contact.healthScore !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <Heart className={cn("h-3.5 w-3.5", getHealthColor(contact.healthScore))} />
-                <span className={cn("text-xs font-medium", getHealthColor(contact.healthScore))}>
-                  {Math.round(contact.healthScore * 100)}%
-                </span>
-              </div>
-            )}
-
-            {/* Importance Score */}
-            {contact.importanceScore !== null && contact.importanceScore !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {Math.round(contact.importanceScore * 100)}% importance
-                </span>
-              </div>
-            )}
-
-            {/* Last Interaction */}
-            {contact.lastInteractionAt && (
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(contact.lastInteractionAt, { addSuffix: true })}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Open Loops Warning */}
-          {((contact.openCommitmentsCount ?? 0) > 0 || (contact.pendingQuestionsCount ?? 0) > 0) && (
-            <div className="flex items-center gap-2 mt-2">
-              {(contact.openCommitmentsCount ?? 0) > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {contact.openCommitmentsCount} open commitments
-                </Badge>
-              )}
-              {(contact.pendingQuestionsCount ?? 0) > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {contact.pendingQuestionsCount} pending questions
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Expand Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </Button>
-
-          {/* VIP Toggle */}
-          {onToggleVip && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleVip(contact.id);
-              }}
-              title={contact.isVip ? "Remove VIP" : "Mark as VIP"}
-            >
-              {contact.isVip ? (
-                <StarOff className="h-4 w-4" />
-              ) : (
-                <Star className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-
-          {/* More Actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onViewProfile?.(contact.id)}>
-                <User className="h-4 w-4 mr-2" />
-                View Full Profile
-              </DropdownMenuItem>
-              {onGenerateMeetingBrief && (
-                <DropdownMenuItem onClick={() => onGenerateMeetingBrief(contact.id)}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Generate Meeting Brief
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onEmailClick?.(contact.primaryEmail)}>
-                <Mail className="h-4 w-4 mr-2" />
-                Send Email
-              </DropdownMenuItem>
-              {contact.phone && (
-                <DropdownMenuItem asChild>
-                  <a href={`tel:${contact.phone}`}>
-                    <Phone className="h-4 w-4 mr-2" />
-                    Call
-                  </a>
-                </DropdownMenuItem>
-              )}
-              {contact.linkedinUrl && (
-                <DropdownMenuItem asChild>
-                  <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer">
-                    <Linkedin className="h-4 w-4 mr-2" />
-                    LinkedIn
-                  </a>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              {onToggleVip && (
-                <DropdownMenuItem onClick={() => onToggleVip(contact.id)}>
-                  {contact.isVip ? (
-                    <>
-                      <StarOff className="h-4 w-4 mr-2" />
-                      Remove VIP Status
-                    </>
-                  ) : (
-                    <>
-                      <Star className="h-4 w-4 mr-2" />
-                      Mark as VIP
-                    </>
-                  )}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      {/* Name */}
+      <div className="w-40 shrink-0 truncate">
+        <span className="text-sm font-medium text-foreground/80">
+          {displayName}
+        </span>
+        {contact.isVip && (
+          <Star className="h-3 w-3 text-amber-500 fill-amber-500 inline ml-1" />
+        )}
       </div>
 
-      {/* Expanded Content */}
-      {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="mt-4 pt-4 border-t space-y-4"
+      {/* Title & Company */}
+      <div className="w-48 shrink-0 truncate text-sm text-muted-foreground">
+        {contact.title || contact.company ? (
+          <>
+            {contact.title}
+            {contact.title && contact.company && " at "}
+            {contact.company}
+          </>
+        ) : (
+          <span className="opacity-50">-</span>
+        )}
+      </div>
+
+      {/* Email with AI indicator */}
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        {(contact.healthScore !== null || contact.importanceScore !== null) && (
+          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEmailClick?.(contact.primaryEmail);
+          }}
+          className="text-sm text-muted-foreground hover:text-foreground truncate text-left"
         >
-          {/* Health & Importance Bars */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Relationship Health</span>
-                <span className={getHealthColor(contact.healthScore)}>
-                  {contact.healthScore !== null && contact.healthScore !== undefined
-                    ? `${Math.round(contact.healthScore * 100)}%`
-                    : "N/A"
-                  }
-                </span>
-              </div>
-              <Progress
-                value={(contact.healthScore ?? 0) * 100}
-                className="h-2"
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Importance</span>
-                <span className="text-foreground">
-                  {contact.importanceScore !== null && contact.importanceScore !== undefined
-                    ? `${Math.round(contact.importanceScore * 100)}%`
-                    : "N/A"
-                  }
-                </span>
-              </div>
-              <Progress
-                value={(contact.importanceScore ?? 0) * 100}
-                className="h-2"
-              />
-            </div>
-          </div>
+          {contact.primaryEmail}
+        </button>
+      </div>
 
-          {/* Communication Stats */}
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-lg font-semibold text-foreground">
-                {contact.totalThreads ?? 0}
-              </div>
-              <div className="text-xs text-muted-foreground">Threads</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold text-foreground">
-                {contact.totalMessages ?? 0}
-              </div>
-              <div className="text-xs text-muted-foreground">Messages</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold text-foreground">
-                {contact.avgResponseTimeHours !== null && contact.avgResponseTimeHours !== undefined
-                  ? `${Math.round(contact.avgResponseTimeHours)}h`
-                  : "N/A"
-                }
-              </div>
-              <div className="text-xs text-muted-foreground">Avg Response</div>
-            </div>
-          </div>
-
-          {/* Tags */}
-          {contact.tags && contact.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {contact.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </motion.div>
+      {/* Health Score as colored pill */}
+      {contact.healthScore !== null && contact.healthScore !== undefined && !isHovered && (
+        <span className={cn(
+          "flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0",
+          contact.healthScore >= 0.7 && "bg-green-500/10 text-green-600 dark:text-green-400",
+          contact.healthScore >= 0.4 && contact.healthScore < 0.7 && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+          contact.healthScore < 0.4 && "bg-red-500/10 text-red-600 dark:text-red-400"
+        )}>
+          <Heart className="h-3 w-3" />
+          {Math.round(contact.healthScore * 100)}%
+        </span>
       )}
-    </motion.div>
+
+      {/* At-Risk Badge */}
+      {contact.isAtRisk && !isHovered && (
+        <Badge variant="destructive" className="text-[10px] shrink-0">
+          <TrendingDown className="h-3 w-3 mr-1" />
+          At Risk
+        </Badge>
+      )}
+
+      {/* Last Interaction */}
+      {contact.lastInteractionAt && !isHovered && (
+        <span className="text-xs text-muted-foreground font-medium shrink-0 w-24 text-right whitespace-nowrap">
+          {formatLastInteraction(contact.lastInteractionAt)}
+        </span>
+      )}
+
+      {/* Quick actions (on hover) */}
+      <div className="w-24 shrink-0 flex items-center justify-end gap-1">
+        {isHovered ? (
+          <>
+            {onToggleVip && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVip(contact.id);
+                }}
+                className="p-1.5 rounded-md hover:bg-background transition-colors"
+              >
+                {contact.isVip ? (
+                  <StarOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEmailClick?.(contact.primaryEmail);
+              }}
+              className="p-1.5 rounded-md hover:bg-background transition-colors"
+            >
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-md hover:bg-background transition-colors"
+                >
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onViewProfile?.(contact.id)}>
+                  <User className="h-4 w-4 mr-2" />
+                  View Full Profile
+                </DropdownMenuItem>
+                {onGenerateMeetingBrief && (
+                  <DropdownMenuItem onClick={() => onGenerateMeetingBrief(contact.id)}>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Generate Meeting Brief
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onEmailClick?.(contact.primaryEmail)}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Email
+                </DropdownMenuItem>
+                {contact.phone && (
+                  <DropdownMenuItem asChild>
+                    <a href={`tel:${contact.phone}`}>
+                      <Phone className="h-4 w-4 mr-2" />
+                      Call
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {contact.linkedinUrl && (
+                  <DropdownMenuItem asChild>
+                    <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer">
+                      <Linkedin className="h-4 w-4 mr-2" />
+                      LinkedIn
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {onToggleVip && (
+                  <DropdownMenuItem onClick={() => onToggleVip(contact.id)}>
+                    {contact.isVip ? (
+                      <>
+                        <StarOff className="h-4 w-4 mr-2" />
+                        Remove VIP Status
+                      </>
+                    ) : (
+                      <>
+                        <Star className="h-4 w-4 mr-2" />
+                        Mark as VIP
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }

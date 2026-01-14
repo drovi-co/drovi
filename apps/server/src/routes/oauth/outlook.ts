@@ -2,15 +2,15 @@
 // OUTLOOK OAUTH CALLBACK HANDLER
 // =============================================================================
 
-import { parseOAuthState } from "@saas-template/api/routers/email-accounts";
+import { parseOAuthState } from "@memorystack/api/routers/email-accounts";
 import {
   exchangeOutlookCode,
   getOutlookUserInfo,
   validateOutlookScopes,
-} from "@saas-template/auth/providers";
-import { db } from "@saas-template/db";
-import { emailAccount } from "@saas-template/db/schema";
-import { env } from "@saas-template/env/server";
+} from "@memorystack/auth/providers";
+import { db } from "@memorystack/db";
+import { emailAccount } from "@memorystack/db/schema";
+import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -60,12 +60,15 @@ outlookOAuth.get("/callback", async (c) => {
     );
   }
 
-  const { userId, organizationId, provider } = parsedState;
+  const { userId, organizationId, provider, redirectTo } = parsedState;
+
+  // Use custom redirect or default to dashboard email accounts
+  const redirectPath = redirectTo || "/dashboard/email-accounts";
 
   if (provider !== "outlook") {
     log.warn("Outlook OAuth state has wrong provider", { provider });
     return c.redirect(
-      `${env.CORS_ORIGIN}/dashboard/email-accounts?error=invalid_provider`
+      `${env.CORS_ORIGIN}${redirectPath}?error=invalid_provider`
     );
   }
 
@@ -85,7 +88,7 @@ outlookOAuth.get("/callback", async (c) => {
         scopes: tokens.scope,
       });
       return c.redirect(
-        `${env.CORS_ORIGIN}/dashboard/email-accounts?error=insufficient_scopes`
+        `${env.CORS_ORIGIN}${redirectPath}?error=insufficient_scopes`
       );
     }
 
@@ -176,23 +179,22 @@ outlookOAuth.get("/callback", async (c) => {
       accountId = newAccount.id;
     }
 
-    // Trigger initial sync job (will be implemented in PRD-02)
+    // Trigger initial sync job - starts multi-phase backfill orchestration
     try {
-      await tasks.trigger("email-backfill", {
+      await tasks.trigger("email-backfill-orchestrator", {
         accountId,
-        provider: "outlook",
       });
-      log.info("Triggered email backfill job", { accountId });
+      log.info("Triggered email backfill orchestrator", { accountId });
     } catch (triggerError) {
       // Don't fail the OAuth flow if trigger fails
-      log.error("Failed to trigger email backfill job", triggerError, {
+      log.error("Failed to trigger email backfill orchestrator", triggerError, {
         accountId,
       });
     }
 
     // Redirect to success page
     return c.redirect(
-      `${env.CORS_ORIGIN}/dashboard/email-accounts?success=true&provider=outlook&accountId=${accountId}`
+      `${env.CORS_ORIGIN}${redirectPath}?success=true&provider=outlook&accountId=${accountId}`
     );
   } catch (error) {
     log.error("Outlook OAuth callback error", error, {
@@ -204,7 +206,7 @@ outlookOAuth.get("/callback", async (c) => {
       error instanceof Error ? error.message : "Unknown error";
 
     return c.redirect(
-      `${env.CORS_ORIGIN}/dashboard/email-accounts?error=${encodeURIComponent(errorMessage)}`
+      `${env.CORS_ORIGIN}${redirectPath}?error=${encodeURIComponent(errorMessage)}`
     );
   }
 });

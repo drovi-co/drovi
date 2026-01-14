@@ -23,16 +23,21 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OnboardingInviteTeamRouteImport } from './routes/onboarding/invite-team'
 import { Route as OnboardingCreateOrgRouteImport } from './routes/onboarding/create-org'
+import { Route as OnboardingConnectEmailRouteImport } from './routes/onboarding/connect-email'
 import { Route as OnboardingCompleteRouteImport } from './routes/onboarding/complete'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard/notifications'
 import { Route as DashboardEmailAccountsRouteImport } from './routes/dashboard/email-accounts'
+import { Route as DashboardCalendarRouteImport } from './routes/dashboard/calendar'
 import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
+import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as DashboardAiRouteImport } from './routes/dashboard/ai'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizations'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as DashboardTodayIndexRouteImport } from './routes/dashboard/today/index'
 import { Route as DashboardTeamIndexRouteImport } from './routes/dashboard/team/index'
+import { Route as DashboardSearchIndexRouteImport } from './routes/dashboard/search/index'
 import { Route as DashboardEmailIndexRouteImport } from './routes/dashboard/email/index'
 import { Route as DashboardDecisionsIndexRouteImport } from './routes/dashboard/decisions/index'
 import { Route as DashboardContactsIndexRouteImport } from './routes/dashboard/contacts/index'
@@ -112,6 +117,11 @@ const OnboardingCreateOrgRoute = OnboardingCreateOrgRouteImport.update({
   path: '/onboarding/create-org',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingConnectEmailRoute = OnboardingConnectEmailRouteImport.update({
+  id: '/onboarding/connect-email',
+  path: '/onboarding/connect-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingCompleteRoute = OnboardingCompleteRouteImport.update({
   id: '/onboarding/complete',
   path: '/onboarding/complete',
@@ -132,9 +142,19 @@ const DashboardEmailAccountsRoute = DashboardEmailAccountsRouteImport.update({
   path: '/email-accounts',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardCalendarRoute = DashboardCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardBillingRoute = DashboardBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardAiRoute = DashboardAiRouteImport.update({
@@ -157,9 +177,19 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const DashboardTodayIndexRoute = DashboardTodayIndexRouteImport.update({
+  id: '/today/',
+  path: '/today/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardTeamIndexRoute = DashboardTeamIndexRouteImport.update({
   id: '/team/',
   path: '/team/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSearchIndexRoute = DashboardSearchIndexRouteImport.update({
+  id: '/search/',
+  path: '/search/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardEmailIndexRoute = DashboardEmailIndexRouteImport.update({
@@ -220,11 +250,14 @@ export interface FileRoutesByFullPath {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/dashboard/ai': typeof DashboardAiRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
+  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin/': typeof AdminIndexRoute
@@ -237,7 +270,9 @@ export interface FileRoutesByFullPath {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/email': typeof DashboardEmailIndexRoute
+  '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
+  '/dashboard/today': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
@@ -252,11 +287,14 @@ export interface FileRoutesByTo {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/dashboard/ai': typeof DashboardAiRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
+  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin': typeof AdminIndexRoute
@@ -269,7 +307,9 @@ export interface FileRoutesByTo {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/email': typeof DashboardEmailIndexRoute
+  '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
+  '/dashboard/today': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRoutesById {
@@ -287,11 +327,14 @@ export interface FileRoutesById {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/dashboard/ai': typeof DashboardAiRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
+  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin/': typeof AdminIndexRoute
@@ -304,7 +347,9 @@ export interface FileRoutesById {
   '/dashboard/contacts/': typeof DashboardContactsIndexRoute
   '/dashboard/decisions/': typeof DashboardDecisionsIndexRoute
   '/dashboard/email/': typeof DashboardEmailIndexRoute
+  '/dashboard/search/': typeof DashboardSearchIndexRoute
   '/dashboard/team/': typeof DashboardTeamIndexRoute
+  '/dashboard/today/': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRouteTypes {
@@ -323,11 +368,14 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/admin/users'
     | '/dashboard/ai'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
+    | '/dashboard/calendar'
     | '/dashboard/email-accounts'
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
+    | '/onboarding/connect-email'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin/'
@@ -340,7 +388,9 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/email'
+    | '/dashboard/search'
     | '/dashboard/team'
+    | '/dashboard/today'
     | '/dashboard/email/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -355,11 +405,14 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/admin/users'
     | '/dashboard/ai'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
+    | '/dashboard/calendar'
     | '/dashboard/email-accounts'
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
+    | '/onboarding/connect-email'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin'
@@ -372,7 +425,9 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/email'
+    | '/dashboard/search'
     | '/dashboard/team'
+    | '/dashboard/today'
     | '/dashboard/email/thread/$threadId'
   id:
     | '__root__'
@@ -389,11 +444,14 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/admin/users'
     | '/dashboard/ai'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
+    | '/dashboard/calendar'
     | '/dashboard/email-accounts'
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
+    | '/onboarding/connect-email'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin/'
@@ -406,7 +464,9 @@ export interface FileRouteTypes {
     | '/dashboard/contacts/'
     | '/dashboard/decisions/'
     | '/dashboard/email/'
+    | '/dashboard/search/'
     | '/dashboard/team/'
+    | '/dashboard/today/'
     | '/dashboard/email/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
@@ -421,6 +481,7 @@ export interface RootRouteChildren {
   SuccessRoute: typeof SuccessRoute
   Verify2faRoute: typeof Verify2faRoute
   OnboardingCompleteRoute: typeof OnboardingCompleteRoute
+  OnboardingConnectEmailRoute: typeof OnboardingConnectEmailRoute
   OnboardingCreateOrgRoute: typeof OnboardingCreateOrgRoute
   OnboardingInviteTeamRoute: typeof OnboardingInviteTeamRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
@@ -526,6 +587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingCreateOrgRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/connect-email': {
+      id: '/onboarding/connect-email'
+      path: '/onboarding/connect-email'
+      fullPath: '/onboarding/connect-email'
+      preLoaderRoute: typeof OnboardingConnectEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding/complete': {
       id: '/onboarding/complete'
       path: '/onboarding/complete'
@@ -554,11 +622,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEmailAccountsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/calendar': {
+      id: '/dashboard/calendar'
+      path: '/calendar'
+      fullPath: '/dashboard/calendar'
+      preLoaderRoute: typeof DashboardCalendarRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/billing': {
       id: '/dashboard/billing'
       path: '/billing'
       fullPath: '/dashboard/billing'
       preLoaderRoute: typeof DashboardBillingRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/analytics': {
+      id: '/dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/ai': {
@@ -589,11 +671,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/dashboard/today/': {
+      id: '/dashboard/today/'
+      path: '/today'
+      fullPath: '/dashboard/today'
+      preLoaderRoute: typeof DashboardTodayIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/team/': {
       id: '/dashboard/team/'
       path: '/team'
       fullPath: '/dashboard/team'
       preLoaderRoute: typeof DashboardTeamIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/search/': {
+      id: '/dashboard/search/'
+      path: '/search'
+      fullPath: '/dashboard/search'
+      preLoaderRoute: typeof DashboardSearchIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/email/': {
@@ -675,7 +771,9 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 
 interface DashboardRouteRouteChildren {
   DashboardAiRoute: typeof DashboardAiRoute
+  DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBillingRoute: typeof DashboardBillingRoute
+  DashboardCalendarRoute: typeof DashboardCalendarRoute
   DashboardEmailAccountsRoute: typeof DashboardEmailAccountsRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -687,13 +785,17 @@ interface DashboardRouteRouteChildren {
   DashboardContactsIndexRoute: typeof DashboardContactsIndexRoute
   DashboardDecisionsIndexRoute: typeof DashboardDecisionsIndexRoute
   DashboardEmailIndexRoute: typeof DashboardEmailIndexRoute
+  DashboardSearchIndexRoute: typeof DashboardSearchIndexRoute
   DashboardTeamIndexRoute: typeof DashboardTeamIndexRoute
+  DashboardTodayIndexRoute: typeof DashboardTodayIndexRoute
   DashboardEmailThreadThreadIdRoute: typeof DashboardEmailThreadThreadIdRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAiRoute: DashboardAiRoute,
+  DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBillingRoute: DashboardBillingRoute,
+  DashboardCalendarRoute: DashboardCalendarRoute,
   DashboardEmailAccountsRoute: DashboardEmailAccountsRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
@@ -705,7 +807,9 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardContactsIndexRoute: DashboardContactsIndexRoute,
   DashboardDecisionsIndexRoute: DashboardDecisionsIndexRoute,
   DashboardEmailIndexRoute: DashboardEmailIndexRoute,
+  DashboardSearchIndexRoute: DashboardSearchIndexRoute,
   DashboardTeamIndexRoute: DashboardTeamIndexRoute,
+  DashboardTodayIndexRoute: DashboardTodayIndexRoute,
   DashboardEmailThreadThreadIdRoute: DashboardEmailThreadThreadIdRoute,
 }
 
@@ -724,6 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuccessRoute: SuccessRoute,
   Verify2faRoute: Verify2faRoute,
   OnboardingCompleteRoute: OnboardingCompleteRoute,
+  OnboardingConnectEmailRoute: OnboardingConnectEmailRoute,
   OnboardingCreateOrgRoute: OnboardingCreateOrgRoute,
   OnboardingInviteTeamRoute: OnboardingInviteTeamRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,

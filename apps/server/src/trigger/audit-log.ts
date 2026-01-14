@@ -21,8 +21,8 @@ export const createAuditLogTask = task({
     ipAddress?: string;
     userAgent?: string;
   }) => {
-    const { db } = await import("@saas-template/db");
-    const { auditLog } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { auditLog } = await import("@memorystack/db/schema");
 
     const [log] = await db
       .insert(auditLog)
@@ -63,8 +63,8 @@ export const batchAuditLogTask = task({
       userAgent?: string;
     }>;
   }) => {
-    const { db } = await import("@saas-template/db");
-    const { auditLog } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { auditLog } = await import("@memorystack/db/schema");
 
     const insertValues = payload.logs.map((log) => ({
       id: randomUUID(),

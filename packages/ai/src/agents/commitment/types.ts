@@ -222,6 +222,7 @@ export interface DailyDigest {
 
 /**
  * LLM response for commitment extraction.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const CommitmentExtractionResponseSchema = z.object({
   commitments: z.array(
@@ -229,38 +230,37 @@ export const CommitmentExtractionResponseSchema = z.object({
       title: z.string().describe("Short, actionable title for the commitment"),
       description: z
         .string()
-        .optional()
+        .nullable()
         .describe("Detailed description if needed"),
       debtorEmail: z
         .string()
-        .optional()
+        .nullable()
         .describe("Email of person who owes the commitment"),
-      debtorName: z.string().optional().describe("Name of debtor if known"),
+      debtorName: z.string().nullable().describe("Name of debtor if known"),
       creditorEmail: z
         .string()
-        .optional()
+        .nullable()
         .describe("Email of person owed the commitment"),
-      creditorName: z.string().optional().describe("Name of creditor if known"),
+      creditorName: z.string().nullable().describe("Name of creditor if known"),
       dueDateText: z
         .string()
-        .optional()
+        .nullable()
         .describe("Original text mentioning due date"),
       dueDate: z
         .string()
-        .optional()
+        .nullable()
         .describe("Parsed due date in ISO format if determinable"),
       dueDateConfidence: z
         .number()
         .min(0)
         .max(1)
-        .optional()
+        .nullable()
         .describe("Confidence in the due date"),
       priority: CommitmentPriority.describe("Inferred priority level"),
       isConditional: z
         .boolean()
-        .default(false)
         .describe("Whether commitment has conditions"),
-      condition: z.string().optional().describe("The condition if applicable"),
+      condition: z.string().nullable().describe("The condition if applicable"),
       confidence: z
         .number()
         .min(0)
@@ -276,6 +276,7 @@ export type CommitmentExtractionResponse = z.infer<
 
 /**
  * LLM response for status detection.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const StatusDetectionResponseSchema = z.object({
   statusChanges: z.array(
@@ -288,7 +289,7 @@ export const StatusDetectionResponseSchema = z.object({
       confidence: z.number().min(0).max(1).describe("Confidence in detection"),
       evidenceQuote: z
         .string()
-        .optional()
+        .nullable()
         .describe("Quote from message supporting this"),
     })
   ),

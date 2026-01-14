@@ -249,38 +249,45 @@ export function buildStatusDetectionPrompt(
  */
 export const FOLLOWUP_GENERATION_PROMPT = `You are generating a follow-up email for an overdue commitment.
 
+## CRITICAL: Email Direction
+FROM (sender, the person writing): {sender_name} ({sender_email})
+TO (recipient, the person who owes something): {debtor_name} ({debtor_email})
+
+The sender is waiting on a response/action from the recipient and needs to follow up.
+
 ## Commitment Details
-Title: {commitment_title}
+What is owed: {commitment_title}
 Description: {commitment_description}
-Due Date: {due_date}
+Original Due Date: {due_date}
 Days Overdue: {days_overdue}
-Owed By: {debtor_name} ({debtor_email})
-Previous Reminders: {reminder_count}
+Previous Reminders Sent: {reminder_count}
 
-## Original Context
+## Original Conversation Context
 {original_context}
-
-## Relationship Context
-Communication frequency: {communication_frequency}
-Last interaction: {last_interaction}
 
 ## Instructions
 
-Generate a follow-up email that:
-1. Is {tone} in tone
-2. References the original commitment
-3. Provides context without being accusatory
-4. Has a clear ask
+Generate a follow-up email that the sender ({sender_name}) will send TO {debtor_name} to:
+1. Politely ask for an update on the pending item
+2. Reference the original commitment/request
+3. Be {tone} in tone
+4. Have a clear, actionable ask
+
+IMPORTANT:
+- Write the email in the voice of {sender_name} (first person)
+- The email is going TO {debtor_name}
+- Do NOT write as if you are {debtor_name}
+- The sender is following up because they are waiting on a response/action
 
 Tone guidelines:
-- friendly: Casual, assumes good intent, uses soft language
+- friendly: Casual, assumes good intent, "just checking in", "wanted to follow up"
 - professional: Business-appropriate, factual, polite
 - urgent: Direct, emphasizes importance, requests immediate response
 
 Respond with JSON only:
 {
-  "subject": "<email subject line>",
-  "body": "<email body>",
+  "subject": "<email subject line - typically 'Re: [original topic]' or 'Following up: [topic]'>",
+  "body": "<email body written FROM {sender_name} TO {debtor_name}>",
   "tone": "friendly" | "professional" | "urgent"
 }`;
 
@@ -294,6 +301,10 @@ export function buildFollowUpPrompt(
     dueDate?: Date;
     debtorName?: string;
     debtorEmail?: string;
+  },
+  sender: {
+    name?: string;
+    email?: string;
   },
   daysOverdue: number,
   reminderCount: number,
@@ -310,11 +321,11 @@ export function buildFollowUpPrompt(
       commitment.dueDate?.toISOString().split("T")[0] ?? "Not specified"
     )
     .replace("{days_overdue}", String(daysOverdue))
-    .replace("{debtor_name}", commitment.debtorName || "Unknown")
-    .replace("{debtor_email}", commitment.debtorEmail || "Unknown")
+    .replace(/{debtor_name}/g, commitment.debtorName || "the recipient")
+    .replace(/{debtor_email}/g, commitment.debtorEmail || "Unknown")
+    .replace(/{sender_name}/g, sender.name || "Me")
+    .replace(/{sender_email}/g, sender.email || "Unknown")
     .replace("{reminder_count}", String(reminderCount))
     .replace("{original_context}", originalContext || "Not available")
-    .replace("{communication_frequency}", "Unknown")
-    .replace("{last_interaction}", "Unknown")
     .replace("{tone}", tone);
 }

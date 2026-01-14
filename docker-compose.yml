@@ -9,18 +9,18 @@
 #   docker-compose up -d --build      # Rebuild and start
 # =============================================================================
 
-name: saas-template
+name: memorystack
 
 services:
   # ---------------------------------------------------------------------------
   # PostgreSQL Database
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
-    container_name: saas-template-postgres
+    image: pgvector/pgvector:pg16
+    container_name: memorystack-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-saas-template}
+      POSTGRES_DB: ${POSTGRES_DB:-memorystack}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
@@ -28,19 +28,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-saas-template}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-memorystack}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - saas-template-network
+      - memorystack-network
 
   # ---------------------------------------------------------------------------
   # Redis (Caching, Rate Limiting, Session Store)
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: saas-template-redis
+    container_name: memorystack-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
@@ -53,7 +53,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - saas-template-network
+      - memorystack-network
 
   # ---------------------------------------------------------------------------
   # API Server (Hono + tRPC)
@@ -63,7 +63,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: server
-    container_name: saas-template-server
+    container_name: memorystack-server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -72,7 +72,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-saas-template}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-memorystack}
       REDIS_URL: redis://redis:6379
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
@@ -104,7 +104,7 @@ services:
     ports:
       - "${SERVER_PORT:-3000}:3000"
     networks:
-      - saas-template-network
+      - memorystack-network
 
   # ---------------------------------------------------------------------------
   # Web Application (Nginx + Static Files)
@@ -114,14 +114,14 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web
-    container_name: saas-template-web
+    container_name: memorystack-web
     restart: unless-stopped
     depends_on:
       - server
     ports:
       - "${WEB_PORT:-3001}:80"
     networks:
-      - saas-template-network
+      - memorystack-network
 
   # ---------------------------------------------------------------------------
   # Trigger.dev Worker (Background Jobs)
@@ -131,7 +131,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: server
-    container_name: saas-template-trigger
+    container_name: memorystack-trigger
     restart: unless-stopped
     depends_on:
       postgres:
@@ -141,14 +141,14 @@ services:
     command: ["bun", "x", "trigger.dev@latest", "dev", "--config", "apps/server/trigger.config.ts"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-saas-template}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-memorystack}
       REDIS_URL: redis://redis:6379
       TRIGGER_SECRET_KEY: ${TRIGGER_SECRET_KEY}
       # Email (for email tasks)
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
     networks:
-      - saas-template-network
+      - memorystack-network
     profiles:
       - with-trigger
 
@@ -165,5 +165,5 @@ volumes:
 # Networks
 # =============================================================================
 networks:
-  saas-template-network:
+  memorystack-network:
     driver: bridge

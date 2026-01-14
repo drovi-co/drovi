@@ -7,13 +7,17 @@ import {
   isOutlookConfigured,
   revokeGmailToken,
   revokeOutlookToken,
-} from "@saas-template/auth/providers";
-import { db } from "@saas-template/db";
+} from "@memorystack/auth/providers";
+import {
+  safeSignPayload,
+  safeVerifySignedPayload,
+} from "@memorystack/auth/lib/crypto";
+import { db } from "@memorystack/db";
 import {
   type EmailAccountSettings,
   emailAccount,
   member,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -26,23 +30,25 @@ import { protectedProcedure, router } from "../index";
 const providerSchema = z.enum(["gmail", "outlook"]);
 
 const listInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
 });
 
 const connectInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   provider: providerSchema,
   /** Optional: Pre-fill user's email in consent screen */
   loginHint: z.string().email().optional(),
+  /** Optional: URL to redirect to after OAuth completes */
+  redirectTo: z.string().optional(),
 });
 
 const disconnectInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
 });
 
 const updateSettingsInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
   settings: z.object({
     syncEnabled: z.boolean().optional(),
@@ -55,12 +61,12 @@ const updateSettingsInputSchema = z.object({
 });
 
 const setPrimaryInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
 });
 
 const getByIdInputSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
 });
 
@@ -130,14 +136,17 @@ async function verifyOrgAdmin(
 function generateOAuthState(
   userId: string,
   organizationId: string,
-  provider: EmailProvider
+  provider: EmailProvider,
+  redirectTo?: string
 ): string {
   const randomPart = randomBytes(16).toString("hex");
   const timestamp = Date.now();
-  // Encode state as: random:userId:organizationId:provider:timestamp
-  const payload = `${randomPart}:${userId}:${organizationId}:${provider}:${timestamp}`;
-  // In production, this should be encrypted/signed
-  return Buffer.from(payload).toString("base64url");
+  // Encode state as: random:userId:organizationId:provider:timestamp:redirectTo
+  const redirectPath = redirectTo || "";
+  const payload = `${randomPart}:${userId}:${organizationId}:${provider}:${timestamp}:${redirectPath}`;
+  const base64Payload = Buffer.from(payload).toString("base64url");
+  // Sign the payload to prevent tampering
+  return safeSignPayload(base64Payload);
 }
 
 function parseOAuthState(state: string): {
@@ -145,16 +154,32 @@ function parseOAuthState(state: string): {
   organizationId: string;
   provider: EmailProvider;
   timestamp: number;
+  redirectTo: string | null;
   isValid: boolean;
 } {
   try {
-    const payload = Buffer.from(state, "base64url").toString();
-    const parts = payload.split(":");
+    // Verify the signature first - returns null if tampered
+    const verifiedPayload = safeVerifySignedPayload(state);
+    if (!verifiedPayload) {
+      return {
+        userId: "",
+        organizationId: "",
+        provider: "gmail",
+        timestamp: 0,
+        redirectTo: null,
+        isValid: false,
+      };
+    }
+
+    // Decode the verified base64 payload
+    const decodedPayload = Buffer.from(verifiedPayload, "base64url").toString();
+    const parts = decodedPayload.split(":");
     const userId = parts[1] ?? "";
     const organizationId = parts[2] ?? "";
     const provider = (parts[3] ?? "gmail") as EmailProvider;
     const timestampStr = parts[4] ?? "0";
     const timestamp = Number.parseInt(timestampStr, 10);
+    const redirectTo = parts[5] || null;
 
     // State expires after 10 minutes
     const isExpired = Date.now() - timestamp > 10 * 60 * 1000;
@@ -164,6 +189,7 @@ function parseOAuthState(state: string): {
       organizationId,
       provider,
       timestamp,
+      redirectTo,
       isValid: !isExpired && !!userId && !!organizationId && !!provider,
     };
   } catch {
@@ -172,6 +198,7 @@ function parseOAuthState(state: string): {
       organizationId: "",
       provider: "gmail",
       timestamp: 0,
+      redirectTo: null,
       isValid: false,
     };
   }
@@ -290,7 +317,7 @@ export const emailAccountsRouter = router({
     .input(connectInputSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const { organizationId, provider, loginHint } = input;
+      const { organizationId, provider, loginHint, redirectTo } = input;
 
       // Verify user is an admin of this organization
       await verifyOrgAdmin(userId, organizationId);
@@ -327,8 +354,8 @@ export const emailAccountsRouter = router({
         }
       }
 
-      // Generate secure state token with org context
-      const state = generateOAuthState(userId, organizationId, provider);
+      // Generate secure state token with org context and redirect info
+      const state = generateOAuthState(userId, organizationId, provider, redirectTo);
 
       // Generate authorization URL
       let authorizationUrl: string;
@@ -594,6 +621,123 @@ export const emailAccountsRouter = router({
         createdAt: account.createdAt,
         updatedAt: account.updatedAt,
       };
+    }),
+
+  /**
+   * Get calendar events from connected Google accounts
+   */
+  getCalendarEvents: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1).optional(),
+        timeMin: z.string().datetime().optional(),
+        timeMax: z.string().datetime().optional(),
+        maxResults: z.number().int().min(1).max(50).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const { timeMin, timeMax, maxResults } = input;
+
+      // Get all Gmail accounts for this user (across all orgs if no org specified)
+      const accounts = await db.query.emailAccount.findMany({
+        where: and(
+          eq(emailAccount.addedByUserId, userId),
+          eq(emailAccount.provider, "gmail"),
+          eq(emailAccount.status, "active")
+        ),
+      });
+
+      if (accounts.length === 0) {
+        return { events: [] };
+      }
+
+      const allEvents: Array<{
+        id: string;
+        title: string;
+        startTime: string;
+        endTime: string;
+        isAllDay: boolean;
+        location?: string;
+        attendees: string[];
+        isVideoCall: boolean;
+        accountEmail: string;
+      }> = [];
+
+      // Default to today's events
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+
+      const effectiveTimeMin = timeMin || startOfDay.toISOString();
+      const effectiveTimeMax = timeMax || endOfDay.toISOString();
+
+      for (const account of accounts) {
+        try {
+          const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+              new URLSearchParams({
+                timeMin: effectiveTimeMin,
+                timeMax: effectiveTimeMax,
+                maxResults: String(maxResults),
+                singleEvents: "true",
+                orderBy: "startTime",
+              }),
+            {
+              headers: {
+                Authorization: `Bearer ${account.accessToken}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            console.warn(`Failed to fetch calendar for ${account.email}:`, response.status);
+            continue;
+          }
+
+          const data = await response.json() as {
+            items?: Array<{
+              id: string;
+              summary?: string;
+              start?: { dateTime?: string; date?: string };
+              end?: { dateTime?: string; date?: string };
+              location?: string;
+              attendees?: Array<{ email: string }>;
+              conferenceData?: { entryPoints?: Array<{ entryPointType: string }> };
+              hangoutLink?: string;
+            }>;
+          };
+
+          for (const event of data.items ?? []) {
+            const isAllDay = !event.start?.dateTime;
+            const startTime = event.start?.dateTime || event.start?.date || "";
+            const endTime = event.end?.dateTime || event.end?.date || "";
+            const isVideoCall = !!(event.hangoutLink || event.conferenceData?.entryPoints?.some(
+              (e) => e.entryPointType === "video"
+            ));
+
+            allEvents.push({
+              id: event.id,
+              title: event.summary || "Untitled Event",
+              startTime,
+              endTime,
+              isAllDay,
+              location: event.location,
+              attendees: event.attendees?.map((a) => a.email) ?? [],
+              isVideoCall,
+              accountEmail: account.email,
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching calendar for ${account.email}:`, error);
+        }
+      }
+
+      // Sort by start time
+      allEvents.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+      return { events: allEvents };
     }),
 });
 

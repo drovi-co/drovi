@@ -9,7 +9,6 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   RefreshCw,
@@ -23,7 +22,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -289,63 +287,42 @@ function ContactsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold">Relationship Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
-                Intelligence-first view of your network
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          {isLoadingStats ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-24" />
-              ))}
-            </div>
-          ) : (
-            <ContactStats stats={stats} />
-          )}
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="border-b bg-muted/30 px-4 py-3">
-        <div className="container flex items-center gap-4">
+    <div data-no-shell-padding className="h-full">
+      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+        {/* Header */}
+        <div className="border-b bg-background">
+          <div className="flex items-center justify-between px-4 py-2">
           {/* View Filter Tabs */}
           <Tabs value={viewFilter} onValueChange={(v) => setViewFilter(v as ViewFilter)}>
-            <TabsList>
-              <TabsTrigger value="all">
-                <Users className="h-4 w-4 mr-2" />
+            <TabsList className="h-8 bg-transparent gap-1">
+              <TabsTrigger
+                value="all"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
+                <Users className="h-4 w-4" />
                 All
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                   {stats.total}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="vip">
-                <Star className="h-4 w-4 mr-2" />
+              <TabsTrigger
+                value="vip"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
+                <Star className="h-4 w-4" />
                 VIPs
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                   {stats.vipCount}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="at_risk">
-                <AlertTriangle className="h-4 w-4 mr-2" />
+              <TabsTrigger
+                value="at_risk"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
                 At Risk
                 {stats.atRiskCount > 0 && (
-                  <Badge variant="destructive" className="ml-2 text-xs">
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">
                     {stats.atRiskCount}
                   </Badge>
                 )}
@@ -353,83 +330,91 @@ function ContactsPage() {
             </TabsList>
           </Tabs>
 
-          {/* Search */}
-          <div className="flex-1 max-w-xs">
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="contact-search"
                 placeholder="Search contacts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="h-8 w-[200px] pl-8 text-sm"
               />
             </div>
-          </div>
 
-          {/* Keyboard hints */}
-          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">/</kbd>
-            <span>search</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
-            <span>navigate</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">1-3</kbd>
-            <span>tabs</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+
+            {/* Keyboard hints */}
+            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">/</kbd>
+              <span>search</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
+              <span>nav</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">1-3</kbd>
+              <span>tabs</span>
+            </div>
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="container py-6">
-            {isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-32" />
-                ))}
-              </div>
-            ) : (
-              <AnimatePresence mode="popLayout">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {contacts.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="col-span-full text-center py-12"
-                    >
-                      <p className="text-muted-foreground">
-                        {searchQuery.length > 2
-                          ? "No contacts match your search"
-                          : viewFilter === "vip"
-                            ? "No VIP contacts yet"
-                            : viewFilter === "at_risk"
-                              ? "No at-risk relationships"
-                              : "No contacts found"}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Contacts are automatically extracted from your emails
-                      </p>
-                    </motion.div>
-                  ) : (
-                    contacts.map((contact) => (
-                      <ContactCard
-                        key={contact.id}
-                        contact={contact}
-                        isSelected={selectedContact === contact.id}
-                        onSelect={() => setSelectedContact(contact.id)}
-                        onToggleVip={handleToggleVip}
-                        onEmailClick={handleEmailClick}
-                        onViewProfile={handleViewProfile}
-                        onGenerateMeetingBrief={handleGenerateMeetingBrief}
-                      />
-                    ))
-                  )}
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          {isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
+            <div>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
+                  <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+                  <div className="w-40 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-48 h-4 bg-muted rounded animate-pulse" />
+                  <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-24 h-4 bg-muted rounded animate-pulse" />
                 </div>
-              </AnimatePresence>
-            )}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          ) : contacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+                <Users className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium">
+                {searchQuery.length > 2
+                  ? "No contacts match your search"
+                  : viewFilter === "vip"
+                    ? "No VIP contacts yet"
+                    : viewFilter === "at_risk"
+                      ? "No at-risk relationships"
+                      : "No contacts found"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Contacts are automatically extracted from your emails
+              </p>
+            </div>
+          ) : (
+            <div>
+              {contacts.map((contact) => (
+                <ContactCard
+                  key={contact.id}
+                  contact={contact}
+                  isSelected={selectedContact === contact.id}
+                  onSelect={() => setSelectedContact(contact.id)}
+                  onToggleVip={handleToggleVip}
+                  onEmailClick={handleEmailClick}
+                  onViewProfile={handleViewProfile}
+                  onGenerateMeetingBrief={handleGenerateMeetingBrief}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Contact Profile Sheet */}

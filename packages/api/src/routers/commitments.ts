@@ -6,9 +6,9 @@
 // Supports CRUD operations, status updates, and digest generation.
 //
 
-import { createCommitmentAgent } from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
-import { commitment, member } from "@saas-template/db/schema";
+import { createCommitmentAgent } from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
+import { commitment, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -19,7 +19,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const listCommitmentsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
   // Filters
@@ -45,12 +45,12 @@ const listCommitmentsSchema = z.object({
 });
 
 const getCommitmentSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   commitmentId: z.string().uuid(),
 });
 
 const updateCommitmentSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   commitmentId: z.string().uuid(),
   // Status
   status: z
@@ -78,16 +78,16 @@ const updateCommitmentSchema = z.object({
 });
 
 const generateFollowUpSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   commitmentId: z.string().uuid(),
 });
 
 const getDigestSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
 });
 
 const getOverdueSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   direction: z.enum(["owed_by_me", "owed_to_me"]).optional(),
   limit: z.number().int().min(1).max(50).default(20),
 });
@@ -197,7 +197,16 @@ export const commitmentsRouter = router({
         limit: input.limit,
         offset: input.offset,
         orderBy: [
-          // Sort by: overdue first, then by due date
+          // Sort by: priority (urgent > high > medium > low), then overdue, then due date
+          desc(
+            sql`CASE
+              WHEN ${commitment.priority} = 'urgent' THEN 4
+              WHEN ${commitment.priority} = 'high' THEN 3
+              WHEN ${commitment.priority} = 'medium' THEN 2
+              WHEN ${commitment.priority} = 'low' THEN 1
+              ELSE 0
+            END`
+          ),
           desc(
             sql`CASE WHEN ${commitment.status} = 'overdue' THEN 1 ELSE 0 END`
           ),
@@ -366,7 +375,7 @@ export const commitmentsRouter = router({
   snooze: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         commitmentId: z.string().uuid(),
         until: z.date(),
       })
@@ -456,7 +465,19 @@ export const commitmentsRouter = router({
       const overdueCommitments = await db.query.commitment.findMany({
         where: and(...conditions),
         limit: input.limit,
-        orderBy: [desc(commitment.dueDate)],
+        orderBy: [
+          // Sort by priority first
+          desc(
+            sql`CASE
+              WHEN ${commitment.priority} = 'urgent' THEN 4
+              WHEN ${commitment.priority} = 'high' THEN 3
+              WHEN ${commitment.priority} = 'medium' THEN 2
+              WHEN ${commitment.priority} = 'low' THEN 1
+              ELSE 0
+            END`
+          ),
+          desc(commitment.dueDate),
+        ],
         with: {
           debtor: {
             columns: {
@@ -586,6 +607,10 @@ export const commitmentsRouter = router({
         .filter(Boolean)
         .join("\n\n---\n\n");
 
+      // Get the current user's info as the sender
+      const senderName = ctx.session.user.name ?? undefined;
+      const senderEmail = ctx.session.user.email ?? undefined;
+
       // Generate follow-up
       const agent = createCommitmentAgent();
       const followUp = await agent.generateFollowUp(
@@ -596,6 +621,10 @@ export const commitmentsRouter = router({
           dueDate: found.dueDate ?? undefined,
           debtorName: found.debtor?.displayName ?? undefined,
           debtorEmail: found.debtor?.primaryEmail ?? undefined,
+        },
+        {
+          name: senderName,
+          email: senderEmail,
         },
         daysOverdue,
         found.reminderCount,
@@ -611,7 +640,7 @@ export const commitmentsRouter = router({
   getByDirection: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         direction: z.enum(["owed_by_me", "owed_to_me"]),
         limit: z.number().int().min(1).max(50).default(20),
       })
@@ -630,7 +659,19 @@ export const commitmentsRouter = router({
           inArray(commitment.status, ["pending", "in_progress", "waiting"])
         ),
         limit: input.limit,
-        orderBy: [desc(commitment.dueDate)],
+        orderBy: [
+          // Sort by priority first
+          desc(
+            sql`CASE
+              WHEN ${commitment.priority} = 'urgent' THEN 4
+              WHEN ${commitment.priority} = 'high' THEN 3
+              WHEN ${commitment.priority} = 'medium' THEN 2
+              WHEN ${commitment.priority} = 'low' THEN 1
+              ELSE 0
+            END`
+          ),
+          desc(commitment.dueDate),
+        ],
         with: {
           debtor: {
             columns: {
@@ -678,7 +719,7 @@ export const commitmentsRouter = router({
   getStats: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
       })
     )
     .query(async ({ ctx, input }) => {

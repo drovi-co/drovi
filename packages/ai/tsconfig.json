@@ -1,5 +1,5 @@
 {
-  "extends": "@saas-template/config/base.json",
+  "extends": "@memorystack/config/base.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"

@@ -1,4 +1,4 @@
-import { useTRPC } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import type {
@@ -23,7 +23,6 @@ export interface UseInboxOptions {
 // =============================================================================
 
 export function useInbox(options: UseInboxOptions = {}) {
-  const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   // State
@@ -54,7 +53,7 @@ export function useInbox(options: UseInboxOptions = {}) {
     isRefetching,
     refetch,
   } = useQuery({
-    ...trpc.threads.list.queryOptions(queryFilters),
+    ...trpc.threads.listInbox.queryOptions(queryFilters),
     staleTime: 30000, // 30 seconds
   });
 

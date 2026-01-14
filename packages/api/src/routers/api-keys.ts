@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { db } from "@saas-template/db";
-import { apiKey } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { apiKey } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";

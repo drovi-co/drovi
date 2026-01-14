@@ -1,5 +1,5 @@
-import { db } from "@saas-template/db";
-import { auditLog, member, organization, user } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { auditLog, member, organization, user } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";

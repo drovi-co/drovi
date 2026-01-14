@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 // Mock the database
-vi.mock("@saas-template/db", () => ({
+vi.mock("@memorystack/db", () => ({
   db: {
     query: {
       featureFlag: {
@@ -32,7 +32,7 @@ describe("Feature Flags", () => {
 
   describe("isFeatureEnabled", () => {
     it("should return false when flag does not exist", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue(undefined);
 
       const { isFeatureEnabled } = await import("../lib/feature-flags");
@@ -43,7 +43,7 @@ describe("Feature Flags", () => {
     });
 
     it("should return false when flag is disabled", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue({
         id: "test",
         key: "test-flag",
@@ -65,7 +65,7 @@ describe("Feature Flags", () => {
     });
 
     it("should return true when flag is enabled globally (100%)", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue({
         id: "test",
         key: "test-flag",
@@ -87,7 +87,7 @@ describe("Feature Flags", () => {
     });
 
     it("should return true when user is in allowed users list", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue({
         id: "test",
         key: "test-flag",
@@ -111,7 +111,7 @@ describe("Feature Flags", () => {
     });
 
     it("should return false when user is not in allowed users list", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue({
         id: "test",
         key: "test-flag",
@@ -135,7 +135,7 @@ describe("Feature Flags", () => {
     });
 
     it("should return true when organization is in allowed organizations list", async () => {
-      const { db } = await import("@saas-template/db");
+      const { db } = await import("@memorystack/db");
       (db.query.featureFlag.findFirst as Mock).mockResolvedValue({
         id: "test",
         key: "test-flag",

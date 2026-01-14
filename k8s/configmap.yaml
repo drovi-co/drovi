@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: saas-template-config
-  namespace: saas-template
+  name: memorystack-config
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template
+    app.kubernetes.io/name: memorystack
 data:
   NODE_ENV: "production"
-  BETTER_AUTH_URL: "https://api.saas-template.example.com"
-  CORS_ORIGIN: "https://saas-template.example.com"
-  POLAR_SUCCESS_URL: "https://saas-template.example.com/billing/success"
+  BETTER_AUTH_URL: "https://api.memorystack.example.com"
+  CORS_ORIGIN: "https://memorystack.example.com"
+  POLAR_SUCCESS_URL: "https://memorystack.example.com/billing/success"
   AI_PROVIDER: "google"
   S3_REGION: "auto"
   SENTRY_ENVIRONMENT: "production"

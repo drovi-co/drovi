@@ -7,7 +7,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildSentimentPrompt } from "../prompts/classification";
 import {
   type SentimentAnalysis,
@@ -31,7 +31,7 @@ export async function analyzeSentiment(
     const prompt = buildSentimentPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: SentimentAnalysisSchema,
       prompt,
       temperature: 0.3,

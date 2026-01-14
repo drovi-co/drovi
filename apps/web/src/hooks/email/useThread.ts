@@ -1,4 +1,4 @@
-import { useTRPC } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
@@ -15,8 +15,7 @@ export interface UseThreadOptions {
 // HOOK
 // =============================================================================
 
-export function useThread({ threadId, accountId }: UseThreadOptions) {
-  const trpc = useTRPC();
+export function useThread({ threadId }: UseThreadOptions) {
   const queryClient = useQueryClient();
 
   // Fetch thread details

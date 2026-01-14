@@ -5,7 +5,7 @@ const UPLOADS_KEY_PATTERN = /^uploads\/.+-test-file\.pdf$/;
 const DOCUMENTS_KEY_PATTERN = /^documents\/.+-doc\.pdf$/;
 
 // Mock environment
-vi.mock("@saas-template/env/server", () => ({
+vi.mock("@memorystack/env/server", () => ({
   env: {
     NODE_ENV: "test",
     S3_ENDPOINT: "https://s3.test.com",

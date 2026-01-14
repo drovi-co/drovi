@@ -9,14 +9,15 @@
 import {
   createRelationshipAgent,
   type RelationshipThreadContext,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
 import {
   contact,
+  emailAccount,
   emailMessage,
   emailThread,
   threadTopic,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -104,8 +105,8 @@ export const analyzeContactTask = task({
       const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
       if (
         !force &&
-        contactRecord.analyzedAt &&
-        contactRecord.analyzedAt > staleCutoff
+        contactRecord.lastEnrichedAt &&
+        contactRecord.lastEnrichedAt > staleCutoff
       ) {
         log.info("Contact analysis is fresh, skipping", { contactId });
         return {
@@ -127,9 +128,34 @@ export const analyzeContactTask = task({
       // Find threads where the contact participated
       const contactEmail = contactRecord.primaryEmail.toLowerCase();
 
+      // First get account IDs for this organization (emailThread doesn't have organizationId directly)
+      const orgAccounts = await db.query.emailAccount.findMany({
+        where: eq(emailAccount.organizationId, contactRecord.organizationId),
+        columns: { id: true },
+      });
+      const accountIds = orgAccounts.map((a) => a.id);
+
+      if (accountIds.length === 0) {
+        log.info("No accounts found for organization", {
+          contactId,
+          organizationId: contactRecord.organizationId,
+        });
+        return {
+          success: true,
+          contactId,
+          metrics: {
+            importanceScore: 0,
+            healthScore: 0,
+            engagementScore: 0,
+            isVip: false,
+            isAtRisk: false,
+          },
+        };
+      }
+
       const threads = await db.query.emailThread.findMany({
         where: and(
-          eq(emailThread.organizationId, contactRecord.organizationId),
+          inArray(emailThread.accountId, accountIds),
           gte(emailThread.lastMessageAt, ninetyDaysAgo)
         ),
         with: {
@@ -158,7 +184,8 @@ export const analyzeContactTask = task({
         await db
           .update(contact)
           .set({
-            analyzedAt: new Date(),
+            lastEnrichedAt: new Date(),
+            enrichmentSource: "relationship-analysis",
             updatedAt: new Date(),
           })
           .where(eq(contact.id, contactId));
@@ -247,10 +274,10 @@ export const analyzeContactTask = task({
           healthScore: analysis.healthScore.overall,
           engagementScore: analysis.engagementScore,
           isVip: analysis.vipDetection.isVip,
-          vipConfidence: analysis.vipDetection.confidence,
           isAtRisk: analysis.riskFlagging.isAtRisk,
-          riskLevel: analysis.riskFlagging.riskLevel,
-          frequencyTrend: analysis.metrics.frequency.trend,
+          riskReason: analysis.riskFlagging.isAtRisk
+            ? `${analysis.riskFlagging.riskLevel}: ${analysis.riskFlagging.reason ?? "No recent interaction"}`
+            : null,
           responseRate: analysis.metrics.responsiveness.responseRate,
           avgResponseTimeMinutes:
             analysis.metrics.responsiveness.avgResponseTimeMinutes,
@@ -258,7 +285,8 @@ export const analyzeContactTask = task({
           totalMessages: analysis.metrics.summary.totalMessages,
           firstInteractionAt: analysis.metrics.summary.firstInteractionAt,
           lastInteractionAt: analysis.metrics.summary.lastInteractionAt,
-          analyzedAt: new Date(),
+          lastEnrichedAt: new Date(),
+          enrichmentSource: "relationship-analysis",
           updatedAt: new Date(),
         })
         .where(eq(contact.id, contactId));
@@ -350,7 +378,7 @@ export const batchAnalyzeContactsTask = task({
         where: and(
           eq(contact.organizationId, organizationId),
           onlyStale
-            ? sql`(${contact.analyzedAt} IS NULL OR ${contact.analyzedAt} < ${staleCutoff})`
+            ? sql`(${contact.lastEnrichedAt} IS NULL OR ${contact.lastEnrichedAt} < ${staleCutoff})`
             : undefined
         ),
         columns: { id: true },
@@ -460,9 +488,28 @@ export const generateMeetingBriefTask = task({
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const contactEmail = contactRecord.primaryEmail.toLowerCase();
 
+      // First get account IDs for this organization (emailThread doesn't have organizationId directly)
+      const orgAccounts = await db.query.emailAccount.findMany({
+        where: eq(emailAccount.organizationId, organizationId),
+        columns: { id: true },
+      });
+      const accountIds = orgAccounts.map((a) => a.id);
+
+      if (accountIds.length === 0) {
+        return {
+          success: true,
+          brief: {
+            talkingPoints: [],
+            suggestedTopics: [],
+            healthScore: 0,
+            isVip: false,
+          },
+        };
+      }
+
       const threads = await db.query.emailThread.findMany({
         where: and(
-          eq(emailThread.organizationId, organizationId),
+          inArray(emailThread.accountId, accountIds),
           gte(emailThread.lastMessageAt, thirtyDaysAgo)
         ),
         with: {

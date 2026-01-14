@@ -3,13 +3,14 @@ import { Check, Sparkles } from "lucide-react";
 
 interface OnboardingLayoutProps {
   children: React.ReactNode;
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
 }
 
 const steps = [
   { number: 1, label: "Create Organization" },
-  { number: 2, label: "Invite Team" },
-  { number: 3, label: "Get Started" },
+  { number: 2, label: "Connect Email" },
+  { number: 3, label: "Invite Team" },
+  { number: 4, label: "Get Started" },
 ];
 
 export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
@@ -25,7 +26,7 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Sparkles className="h-4 w-4" />
             </div>
-            <span>SaaS Template</span>
+            <span>MEMORYSTACK</span>
           </Link>
 
           {/* Steps */}
@@ -88,7 +89,7 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
           </div>
 
           <p className="text-center text-muted-foreground text-xs">
-            &copy; {new Date().getFullYear()} SaaS Template. All rights
+            &copy; {new Date().getFullYear()} MEMORYSTACK. All rights
             reserved.
           </p>
         </div>
@@ -102,10 +103,10 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Sparkles className="h-3.5 w-3.5" />
             </div>
-            <span>SaaS Template</span>
+            <span>MEMORYSTACK</span>
           </Link>
           <span className="text-muted-foreground text-sm">
-            Step {step} of 3
+            Step {step} of 4
           </span>
         </div>
 

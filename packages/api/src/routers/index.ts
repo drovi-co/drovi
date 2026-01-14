@@ -2,7 +2,9 @@ import { protectedProcedure, publicProcedure, router } from "../index";
 import { adminRouter } from "./admin";
 import { apiKeysRouter } from "./api-keys";
 import { auditRouter } from "./audit";
+import { calendarRouter } from "./calendar";
 import { commitmentsRouter } from "./commitments";
+import { composeRouter } from "./compose";
 import { contactsRouter } from "./contacts";
 import { creditsRouter } from "./credits";
 import { decisionsRouter } from "./decisions";
@@ -31,6 +33,8 @@ export const appRouter = router({
   }),
   // Audit logs
   audit: auditRouter,
+  // Calendar API (Google Calendar & Outlook)
+  calendar: calendarRouter,
   // Email accounts management (MEMORYSTACK)
   emailAccounts: emailAccountsRouter,
   // Email sync control (MEMORYSTACK)
@@ -49,6 +53,8 @@ export const appRouter = router({
   triage: triageRouter,
   // Drafts API (MEMORYSTACK PRD-08)
   drafts: draftsRouter,
+  // Email Compose/Send API
+  compose: composeRouter,
   // Risk & Policy API (MEMORYSTACK PRD-09)
   risk: riskRouter,
   // Credits management

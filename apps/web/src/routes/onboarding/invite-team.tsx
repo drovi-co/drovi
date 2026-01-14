@@ -106,7 +106,7 @@ function InviteTeamPage() {
 
   if (!activeOrg) {
     return (
-      <OnboardingLayout step={2}>
+      <OnboardingLayout step={3}>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -115,7 +115,7 @@ function InviteTeamPage() {
   }
 
   return (
-    <OnboardingLayout step={2}>
+    <OnboardingLayout step={3}>
       <Card className="border-0 shadow-none lg:border lg:shadow-sm">
         <CardHeader className="pb-2 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">

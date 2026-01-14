@@ -23,24 +23,24 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <span>SaaS Template</span>
+          <span>MEMORYSTACK</span>
         </Link>
 
         <div className="relative z-10 space-y-6">
           <blockquote className="space-y-4">
             <p className="text-xl text-zinc-300 leading-relaxed">
-              "This platform has transformed how we manage our leads. The
-              AI-powered insights are incredible and have helped us close 3x
-              more deals."
+              "MEMORYSTACK transformed how I manage my inbox. I never miss commitments,
+              and the AI summaries save me hours every week. It's like having a
+              perfect memory for all my email conversations."
             </p>
             <footer className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 font-semibold text-sm">
-                SD
+                MK
               </div>
               <div>
-                <div className="font-medium">Sofia Davis</div>
+                <div className="font-medium">Michael Kim</div>
                 <div className="text-sm text-zinc-500">
-                  VP of Sales at TechCorp
+                  Product Lead at Stripe
                 </div>
               </div>
             </footer>
@@ -48,7 +48,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
         </div>
 
         <div className="relative z-10 flex items-center gap-4 text-sm text-zinc-500">
-          <span>&copy; {new Date().getFullYear()} SaaS Template</span>
+          <span>&copy; {new Date().getFullYear()} MEMORYSTACK</span>
           <span className="text-zinc-700">&middot;</span>
           <Link className="transition-colors hover:text-zinc-300" to="/">
             Privacy Policy
@@ -72,7 +72,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <span>SaaS Template</span>
+              <span>MEMORYSTACK</span>
             </Link>
           </div>
 

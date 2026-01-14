@@ -6,14 +6,14 @@
 // Supports profile viewing, VIP management, and meeting brief generation.
 //
 
-import { createRelationshipAgent } from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+import { createRelationshipAgent } from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
 import {
   contact,
   emailThread,
   member,
   threadTopic,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +24,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const listContactsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
   // Search
@@ -48,12 +48,12 @@ const listContactsSchema = z.object({
 });
 
 const getContactSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   contactId: z.string().uuid(),
 });
 
 const updateContactSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   contactId: z.string().uuid(),
   // Profile updates
   displayName: z.string().optional(),
@@ -62,7 +62,7 @@ const updateContactSchema = z.object({
   phone: z.string().optional(),
   linkedinUrl: z.string().url().optional(),
   // VIP override
-  isVipOverride: z.boolean().optional(),
+  userOverrideVip: z.boolean().optional(),
   // Notes
   notes: z.string().optional(),
   // Tags
@@ -70,18 +70,18 @@ const updateContactSchema = z.object({
 });
 
 const generateMeetingBriefSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   contactId: z.string().uuid(),
 });
 
 const mergeContactsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   primaryContactId: z.string().uuid(),
   secondaryContactId: z.string().uuid(),
 });
 
 const searchContactsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   query: z.string().min(1),
   limit: z.number().int().min(1).max(20).default(10),
 });
@@ -308,9 +308,9 @@ export const contactsRouter = router({
         updates.linkedinUrl = input.linkedinUrl;
       }
 
-      if (input.isVipOverride !== undefined) {
-        updates.isVipOverride = input.isVipOverride;
-        updates.isVip = input.isVipOverride;
+      if (input.userOverrideVip !== undefined) {
+        updates.userOverrideVip = input.userOverrideVip;
+        updates.isVip = input.userOverrideVip;
       }
 
       if (input.notes !== undefined) {
@@ -348,7 +348,7 @@ export const contactsRouter = router({
         .update(contact)
         .set({
           isVip: newVipStatus,
-          isVipOverride: newVipStatus,
+          userOverrideVip: newVipStatus,
           updatedAt: new Date(),
         })
         .where(eq(contact.id, input.contactId));
@@ -491,7 +491,7 @@ export const contactsRouter = router({
   getVips: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(50).default(20),
       })
     )
@@ -520,7 +520,7 @@ export const contactsRouter = router({
   getAtRisk: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(50).default(20),
       })
     )
@@ -665,17 +665,17 @@ export const contactsRouter = router({
         updates.avatarUrl = secondaryContact.avatarUrl;
       }
 
-      // Merge aliases
-      const existingAliases = (primaryContact.aliases ?? []) as string[];
-      const secondaryAliases = (secondaryContact.aliases ?? []) as string[];
-      const allAliases = [
+      // Merge emails
+      const existingEmails = (primaryContact.emails ?? []) as string[];
+      const secondaryEmails = (secondaryContact.emails ?? []) as string[];
+      const allEmails = [
         ...new Set([
-          ...existingAliases,
-          ...secondaryAliases,
+          ...existingEmails,
+          ...secondaryEmails,
           secondaryContact.primaryEmail,
         ]),
       ];
-      updates.aliases = allAliases;
+      updates.emails = allEmails;
 
       // Merge totals
       updates.totalThreads =
@@ -719,16 +719,10 @@ export const contactsRouter = router({
 
       // 2. Update all references to secondary contact to point to primary
       // This would include: commitments, decisions, etc.
-      // For now, we'll just mark the secondary as merged
+      // TODO: Update references when those tables have foreign keys
 
-      // 3. Mark secondary as merged (soft delete)
-      await db
-        .update(contact)
-        .set({
-          mergedIntoContactId: input.primaryContactId,
-          updatedAt: new Date(),
-        })
-        .where(eq(contact.id, input.secondaryContactId));
+      // 3. Delete secondary contact after merge
+      await db.delete(contact).where(eq(contact.id, input.secondaryContactId));
 
       return {
         success: true,
@@ -743,7 +737,7 @@ export const contactsRouter = router({
   getStats: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -754,10 +748,7 @@ export const contactsRouter = router({
 
       // Get all contacts
       const allContacts = await db.query.contact.findMany({
-        where: and(
-          eq(contact.organizationId, input.organizationId),
-          sql`${contact.mergedIntoContactId} IS NULL`
-        ),
+        where: eq(contact.organizationId, input.organizationId),
       });
 
       const vipCount = allContacts.filter((c) => c.isVip).length;

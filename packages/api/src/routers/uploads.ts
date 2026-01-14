@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@saas-template/db";
-import { fileUpload } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { fileUpload } from "@memorystack/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";

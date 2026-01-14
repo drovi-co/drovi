@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: saas-template
+  name: memorystack
   labels:
-    app.kubernetes.io/name: saas-template
-    app.kubernetes.io/part-of: saas-template
+    app.kubernetes.io/name: memorystack
+    app.kubernetes.io/part-of: memorystack

@@ -1,4 +1,4 @@
-import { env } from "@saas-template/env/server";
+import { env } from "@memorystack/env/server";
 import {
   httpIntegration,
   init,
@@ -9,6 +9,7 @@ import {
   setUser as sentrySetUser,
   startInactiveSpan,
 } from "@sentry/node";
+import { log } from "./logger";
 
 let sentryInitialized = false;
 
@@ -57,7 +58,7 @@ export function initSentry() {
   });
 
   sentryInitialized = true;
-  console.log("Sentry initialized for error tracking");
+  log.info("Sentry initialized for error tracking");
 }
 
 /**
@@ -68,7 +69,7 @@ export function captureException(
   context?: Record<string, unknown>
 ) {
   if (!env.SENTRY_DSN) {
-    console.error("Error (Sentry not configured):", error);
+    log.error("Error (Sentry not configured)", error);
     return;
   }
 
@@ -86,7 +87,7 @@ export function captureMessage(
   context?: Record<string, unknown>
 ) {
   if (!env.SENTRY_DSN) {
-    console.log(`[${level}] ${message}`, context);
+    log[level === "warning" ? "warn" : level](message, context);
     return;
   }
 

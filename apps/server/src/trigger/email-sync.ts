@@ -6,8 +6,8 @@
 // Runs on schedule and on-demand to keep Evidence Store current.
 //
 
-import { db } from "@saas-template/db";
-import { emailAccount } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, lte, or } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -17,6 +17,7 @@ import {
   performIncrementalSync,
   type SyncResult,
 } from "../lib/sync";
+import { batchAnalyzeThreadsTask } from "./thread-analysis";
 
 // =============================================================================
 // TYPES
@@ -129,6 +130,20 @@ export const syncEmailsTask = task({
 
         if (syncResult.success) {
           result.successful++;
+
+          // Trigger AI analysis for new threads
+          if (syncResult.newThreads > 0) {
+            log.info("Triggering AI analysis for new threads", {
+              accountId: account.id,
+              newThreads: syncResult.newThreads,
+            });
+
+            await batchAnalyzeThreadsTask.trigger({
+              accountId: account.id,
+              limit: Math.min(syncResult.newThreads, 50),
+              force: false,
+            });
+          }
         } else {
           result.failed++;
         }
@@ -137,6 +152,7 @@ export const syncEmailsTask = task({
           accountId: account.id,
           success: syncResult.success,
           threadsProcessed: syncResult.threadsProcessed,
+          newThreads: syncResult.newThreads,
           errors: syncResult.errors.length,
         });
       } catch (error) {
@@ -188,10 +204,25 @@ export const syncEmailsOnDemandTask = task({
 
     const result = await performIncrementalSync(payload.accountId);
 
+    // Trigger AI analysis for new threads
+    if (result.success && result.newThreads > 0) {
+      log.info("Triggering AI analysis for new threads", {
+        accountId: payload.accountId,
+        newThreads: result.newThreads,
+      });
+
+      await batchAnalyzeThreadsTask.trigger({
+        accountId: payload.accountId,
+        limit: Math.min(result.newThreads, 50),
+        force: false,
+      });
+    }
+
     log.info("On-demand sync completed", {
       accountId: payload.accountId,
       success: result.success,
       threadsProcessed: result.threadsProcessed,
+      newThreads: result.newThreads,
     });
 
     return result;

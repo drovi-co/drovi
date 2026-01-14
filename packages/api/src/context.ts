@@ -1,4 +1,4 @@
-import { auth } from "@saas-template/auth";
+import { auth } from "@memorystack/auth";
 import type { Context as HonoContext } from "hono";
 
 export interface CreateContextOptions {

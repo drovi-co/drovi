@@ -1,5 +1,5 @@
 {
-  "name": "@saas-template/auth",
+  "name": "@memorystack/auth",
   "type": "module",
   "exports": {
     ".": {
@@ -14,9 +14,9 @@
   },
   "scripts": {},
   "dependencies": {
-    "@saas-template/db": "workspace:*",
-    "@saas-template/email": "workspace:*",
-    "@saas-template/env": "workspace:*",
+    "@memorystack/db": "workspace:*",
+    "@memorystack/email": "workspace:*",
+    "@memorystack/env": "workspace:*",
     "@polar-sh/better-auth": "catalog:",
     "@polar-sh/sdk": "^0.34.16",
     "better-auth": "catalog:",
@@ -24,7 +24,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@saas-template/config": "workspace:*",
+    "@memorystack/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

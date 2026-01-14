@@ -114,6 +114,10 @@ interface MemoryPanelProps {
   onCommitmentClick?: (commitmentId: string, threadId: string) => void;
   onContactClick?: (email: string) => void;
   className?: string;
+  /** Compact display mode for side panels */
+  compact?: boolean;
+  /** Only show the timeline view (hide tabs) */
+  showTimelineOnly?: boolean;
 }
 
 // =============================================================================
@@ -132,10 +136,12 @@ export function MemoryPanel({
   onCommitmentClick,
   onContactClick,
   className,
+  compact = false,
+  showTimelineOnly = false,
 }: MemoryPanelProps) {
   const [activeTab, setActiveTab] = useState<
     "context" | "related" | "timeline"
-  >("context");
+  >(showTimelineOnly ? "timeline" : "context");
 
   if (isLoading) {
     return <MemoryPanelSkeleton />;
@@ -167,43 +173,45 @@ export function MemoryPanel({
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Header with tabs */}
-      <div className="border-b p-2">
-        <div className="flex items-center gap-1">
-          <Button
-            variant={activeTab === "context" ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs"
-            onClick={() => setActiveTab("context")}
-          >
-            <Brain className="h-3.5 w-3.5 mr-1" />
-            Context
-          </Button>
-          <Button
-            variant={activeTab === "related" ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs"
-            onClick={() => setActiveTab("related")}
-          >
-            <Link2 className="h-3.5 w-3.5 mr-1" />
-            Related
-            {relatedThreads.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-[10px]">
-                {relatedThreads.length}
-              </Badge>
-            )}
-          </Button>
-          <Button
-            variant={activeTab === "timeline" ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs"
-            onClick={() => setActiveTab("timeline")}
-          >
-            <History className="h-3.5 w-3.5 mr-1" />
-            Timeline
-          </Button>
+      {/* Header with tabs - hidden when showTimelineOnly */}
+      {!showTimelineOnly && (
+        <div className={cn("border-b", compact ? "p-1.5" : "p-2")}>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={activeTab === "context" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn("text-xs", compact && "h-7 px-2")}
+              onClick={() => setActiveTab("context")}
+            >
+              <Brain className="h-3.5 w-3.5 mr-1" />
+              Context
+            </Button>
+            <Button
+              variant={activeTab === "related" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn("text-xs", compact && "h-7 px-2")}
+              onClick={() => setActiveTab("related")}
+            >
+              <Link2 className="h-3.5 w-3.5 mr-1" />
+              Related
+              {relatedThreads.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-[10px]">
+                  {relatedThreads.length}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              variant={activeTab === "timeline" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn("text-xs", compact && "h-7 px-2")}
+              onClick={() => setActiveTab("timeline")}
+            >
+              <History className="h-3.5 w-3.5 mr-1" />
+              Timeline
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <ScrollArea className="flex-1">
@@ -214,7 +222,7 @@ export function MemoryPanel({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
-              className="p-4 space-y-4"
+              className={cn("space-y-4", compact ? "p-3" : "p-4")}
             >
               {/* Contact contexts */}
               {contactContexts.length > 0 && (
@@ -279,7 +287,7 @@ export function MemoryPanel({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
-              className="p-4 space-y-4"
+              className={cn("space-y-4", compact ? "p-3" : "p-4")}
             >
               {relatedThreads.length > 0 ? (
                 <div className="space-y-2">
@@ -307,10 +315,10 @@ export function MemoryPanel({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
-              className="p-4"
+              className={compact ? "p-3" : "p-4"}
             >
               {timeline.length > 0 ? (
-                <Timeline events={timeline} onEventClick={onThreadClick} />
+                <Timeline events={timeline} onEventClick={(threadId) => threadId && onThreadClick?.(threadId)} />
               ) : (
                 <div className="text-center py-8">
                   <p className="text-sm text-muted-foreground">

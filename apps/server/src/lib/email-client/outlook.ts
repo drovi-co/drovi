@@ -1,18 +1,22 @@
 import {
   GRAPH_API_BASE,
   refreshOutlookToken as refreshOutlookOAuth,
-} from "@saas-template/auth/providers";
+} from "@memorystack/auth/providers";
 import type {
   AccountInfo,
   AttachmentData,
   AttachmentMetadata,
+  DraftInput,
+  DraftResult,
   EmailClient,
+  EmailComposeInput,
   EmailMessageData,
   EmailRecipient,
   EmailThreadData,
   EmailThreadWithMessages,
   ListOptions,
   ListResponse,
+  SendResult,
   SyncDelta,
   TokenInfo,
 } from "./types";
@@ -135,6 +139,25 @@ function extractNextCursor(nextLink?: string): string | undefined {
     return nextLink;
   }
   return nextLink;
+}
+
+/**
+ * Convert EmailRecipient to Graph API recipient format
+ */
+function toGraphRecipient(recipient: EmailRecipient): GraphRecipient {
+  return {
+    emailAddress: {
+      address: recipient.email,
+      name: recipient.name,
+    },
+  };
+}
+
+/**
+ * Convert EmailRecipient array to Graph API recipient array
+ */
+function toGraphRecipients(recipients?: EmailRecipient[]): GraphRecipient[] {
+  return (recipients ?? []).map(toGraphRecipient);
 }
 
 // =============================================================================
@@ -627,5 +650,168 @@ export class OutlookEmailClient implements EmailClient {
       name: folder.displayName,
       type: "folder",
     }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compose Operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send an email message via Microsoft Graph API
+   */
+  async sendMessage(input: EmailComposeInput): Promise<SendResult> {
+    // Build message object
+    const message: Record<string, unknown> = {
+      subject: input.subject,
+      body: {
+        contentType: input.bodyHtml ? "html" : "text",
+        content: input.bodyHtml || input.bodyText || "",
+      },
+      toRecipients: toGraphRecipients(input.to),
+      ccRecipients: toGraphRecipients(input.cc),
+      bccRecipients: toGraphRecipients(input.bcc),
+    };
+
+    // Add attachments if present
+    if (input.attachments && input.attachments.length > 0) {
+      message.attachments = input.attachments.map((att) => ({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: att.filename,
+        contentType: att.mimeType,
+        contentBytes: att.content, // Already base64 encoded
+        isInline: att.isInline ?? false,
+        contentId: att.contentId,
+      }));
+    }
+
+    // For replies, add conversation ID
+    if (input.threadId) {
+      message.conversationId = input.threadId;
+    }
+
+    // Send the message
+    await this.request("/me/sendMail", {
+      method: "POST",
+      body: JSON.stringify({
+        message,
+        saveToSentItems: true,
+      }),
+    });
+
+    // sendMail returns 202 Accepted with no body, so we need to find the sent message
+    // Fetch the most recent message from sent items
+    const sentItems = await this.request<GraphMessageListResponse>(
+      "/me/mailFolders/sentitems/messages?$top=1&$orderby=sentDateTime desc&$select=id,conversationId,sentDateTime"
+    );
+
+    const sentMessage = sentItems.value[0];
+
+    return {
+      messageId: sentMessage?.id ?? "",
+      threadId: sentMessage?.conversationId ?? input.threadId ?? "",
+      sentAt: sentMessage?.sentDateTime
+        ? new Date(sentMessage.sentDateTime)
+        : new Date(),
+    };
+  }
+
+  /**
+   * Create a draft email in Outlook
+   */
+  async createDraft(input: DraftInput): Promise<DraftResult> {
+    const message: Record<string, unknown> = {
+      subject: input.subject,
+      body: {
+        contentType: input.bodyHtml ? "html" : "text",
+        content: input.bodyHtml || input.bodyText || "",
+      },
+      toRecipients: toGraphRecipients(input.to),
+      ccRecipients: toGraphRecipients(input.cc),
+      bccRecipients: toGraphRecipients(input.bcc),
+      isDraft: true,
+    };
+
+    // Add attachments if present
+    if (input.attachments && input.attachments.length > 0) {
+      message.attachments = input.attachments.map((att) => ({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: att.filename,
+        contentType: att.mimeType,
+        contentBytes: att.content,
+        isInline: att.isInline ?? false,
+        contentId: att.contentId,
+      }));
+    }
+
+    const response = await this.request<GraphMessage>(
+      "/me/mailFolders/drafts/messages",
+      {
+        method: "POST",
+        body: JSON.stringify(message),
+      }
+    );
+
+    return {
+      draftId: response.id,
+      messageId: response.id,
+      threadId: response.conversationId,
+    };
+  }
+
+  /**
+   * Update an existing draft in Outlook
+   */
+  async updateDraft(draftId: string, input: DraftInput): Promise<DraftResult> {
+    const message = {
+      subject: input.subject,
+      body: {
+        contentType: input.bodyHtml ? "html" : "text",
+        content: input.bodyHtml || input.bodyText || "",
+      },
+      toRecipients: toGraphRecipients(input.to),
+      ccRecipients: toGraphRecipients(input.cc),
+      bccRecipients: toGraphRecipients(input.bcc),
+    };
+
+    const response = await this.request<GraphMessage>(
+      `/me/messages/${draftId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(message),
+      }
+    );
+
+    return {
+      draftId: response.id,
+      messageId: response.id,
+      threadId: response.conversationId,
+    };
+  }
+
+  /**
+   * Delete a draft from Outlook
+   */
+  async deleteDraft(draftId: string): Promise<void> {
+    await this.request(`/me/messages/${draftId}`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Get a draft by ID from Outlook
+   */
+  async getDraft(draftId: string): Promise<EmailMessageData | null> {
+    try {
+      const message = await this.request<GraphMessage>(
+        `/me/messages/${draftId}?$select=id,conversationId,subject,bodyPreview,body,from,toRecipients,ccRecipients,bccRecipients,sentDateTime,receivedDateTime,isRead,isDraft,flag,hasAttachments,internetMessageId,parentFolderId,categories&$expand=attachments($select=id,name,contentType,size,isInline,contentId)`
+      );
+
+      return this.convertMessage(message);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
   }
 }

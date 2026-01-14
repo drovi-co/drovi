@@ -10,7 +10,7 @@
 #   docker-compose -f docker-compose.dev.yml down -v   # Stop and remove volumes
 # =============================================================================
 
-name: saas-template-dev
+name: memorystack-dev
 
 services:
   # ---------------------------------------------------------------------------
@@ -18,10 +18,10 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: saas-template-dev-postgres
+    container_name: memorystack-dev-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: saas-template
+      POSTGRES_DB: memorystack
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -29,7 +29,7 @@ services:
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d saas-template"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d memorystack"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +39,7 @@ services:
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: saas-template-dev-redis
+    container_name: memorystack-dev-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
@@ -57,7 +57,7 @@ services:
   # ---------------------------------------------------------------------------
   mailpit:
     image: axllent/mailpit:latest
-    container_name: saas-template-dev-mailpit
+    container_name: memorystack-dev-mailpit
     restart: unless-stopped
     ports:
       - "8025:8025"  # Web UI
@@ -71,7 +71,7 @@ services:
   # ---------------------------------------------------------------------------
   langfuse:
     image: langfuse/langfuse:latest
-    container_name: saas-template-dev-langfuse
+    container_name: memorystack-dev-langfuse
     restart: unless-stopped
     depends_on:
       postgres:

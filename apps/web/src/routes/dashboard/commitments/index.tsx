@@ -9,21 +9,21 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Calendar,
+  CheckCircle2,
   List,
   RefreshCw,
   Search,
-  Settings,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useCommandBar } from "@/components/email/command-bar";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -31,23 +31,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   CommitmentCard,
+  CommitmentDetailSheet,
+  type CommitmentDetailData,
   CommitmentStats,
   CommitmentTimeline,
   type CommitmentCardData,
 } from "@/components/dashboards";
+import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 
@@ -73,6 +68,7 @@ type ViewMode = "list" | "timeline";
 
 function CommitmentsPage() {
   const navigate = useNavigate();
+  const { openCompose } = useCommandBar();
   const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
@@ -82,6 +78,10 @@ function CommitmentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedCommitment, setSelectedCommitment] = useState<string | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [evidenceSheetOpen, setEvidenceSheetOpen] = useState(false);
+  const [evidenceCommitmentId, setEvidenceCommitmentId] = useState<string | null>(null);
+  const [pendingFollowUpCommitmentId, setPendingFollowUpCommitmentId] = useState<string | null>(null);
 
   // Fetch stats
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
@@ -105,6 +105,24 @@ function CommitmentsPage() {
       includeDismissed: false,
     }),
     enabled: !!organizationId,
+  });
+
+  // Fetch detailed commitment for sheet
+  const { data: detailData } = useQuery({
+    ...trpc.commitments.get.queryOptions({
+      organizationId,
+      commitmentId: selectedCommitment ?? "",
+    }),
+    enabled: !!organizationId && !!selectedCommitment && detailSheetOpen,
+  });
+
+  // Evidence detail query
+  const { data: evidenceCommitmentData } = useQuery({
+    ...trpc.commitments.get.queryOptions({
+      organizationId,
+      commitmentId: evidenceCommitmentId ?? "",
+    }),
+    enabled: !!organizationId && !!evidenceCommitmentId && evidenceSheetOpen,
   });
 
   // Mutations
@@ -154,12 +172,39 @@ function CommitmentsPage() {
 
   const followUpMutation = useMutation({
     ...trpc.commitments.generateFollowUp.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Follow-up draft generated", {
-        description: "Check your drafts to send",
-      });
+    onSuccess: (data) => {
+      // Dismiss loading toast
+      toast.dismiss("followup-generating");
+
+      // Look up the commitment to get the debtor's email
+      const commitment = commitmentsData?.commitments?.find(
+        (c) => c.id === pendingFollowUpCommitmentId
+      );
+      const debtor = commitment?.debtor;
+
+      if (debtor?.primaryEmail) {
+        openCompose({
+          to: [{
+            email: debtor.primaryEmail,
+            name: debtor.displayName ?? undefined,
+          }],
+          subject: data.subject,
+          body: data.body,
+        });
+        toast.success("Follow-up draft ready to send!");
+      } else {
+        // Fallback if no recipient - just show the draft in compose
+        openCompose({
+          subject: data.subject,
+          body: data.body,
+        });
+        toast.success("Follow-up draft generated - please add recipient");
+      }
+      setPendingFollowUpCommitmentId(null);
     },
     onError: () => {
+      toast.dismiss("followup-generating");
+      setPendingFollowUpCommitmentId(null);
       toast.error("Failed to generate follow-up");
     },
   });
@@ -189,6 +234,13 @@ function CommitmentsPage() {
           setSelectedCommitment(commitments[currentIndex - 1]?.id ?? null);
         }
       }
+      if (e.key === "Enter" && selectedCommitment) {
+        e.preventDefault();
+        setDetailSheetOpen(true);
+      }
+      if (e.key === "Escape" && detailSheetOpen) {
+        setDetailSheetOpen(false);
+      }
       if (e.key === "1") setDirection("all");
       if (e.key === "2") setDirection("owed_by_me");
       if (e.key === "3") setDirection("owed_to_me");
@@ -198,7 +250,7 @@ function CommitmentsPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [commitmentsData, selectedCommitment, refetch]);
+  }, [commitmentsData, selectedCommitment, detailSheetOpen, refetch]);
 
   // Handlers
   const handleComplete = useCallback(
@@ -233,6 +285,10 @@ function CommitmentsPage() {
 
   const handleGenerateFollowUp = useCallback(
     (commitmentId: string) => {
+      // Store the commitment ID so we can look it up in onSuccess
+      setPendingFollowUpCommitmentId(commitmentId);
+      // Show generating toast immediately
+      toast.loading("Generating follow-up...", { id: "followup-generating" });
       followUpMutation.mutate({ organizationId, commitmentId });
     },
     [followUpMutation, organizationId]
@@ -251,6 +307,11 @@ function CommitmentsPage() {
     },
     [navigate]
   );
+
+  const handleShowEvidence = useCallback((commitmentId: string) => {
+    setEvidenceCommitmentId(commitmentId);
+    setEvidenceSheetOpen(true);
+  }, []);
 
   // Transform data for components
   const commitments: CommitmentCardData[] = (commitmentsData?.commitments ?? []).map((c) => ({
@@ -287,6 +348,27 @@ function CommitmentsPage() {
     completedThisMonth: 0,
   };
 
+  // Transform detail data for sheet
+  const detailCommitment: CommitmentDetailData | null = detailData
+    ? {
+        id: detailData.id,
+        title: detailData.title,
+        description: detailData.description,
+        status: detailData.status as CommitmentDetailData["status"],
+        priority: detailData.priority as CommitmentDetailData["priority"],
+        direction: detailData.direction as CommitmentDetailData["direction"],
+        dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
+        createdAt: new Date(detailData.createdAt),
+        confidence: detailData.confidence,
+        isUserVerified: detailData.isUserVerified ?? undefined,
+        evidence: detailData.metadata?.originalText ? [detailData.metadata.originalText] : undefined,
+        debtor: detailData.debtor,
+        creditor: detailData.creditor,
+        sourceThread: detailData.sourceThread,
+        metadata: detailData.metadata,
+      }
+    : null;
+
   if (orgLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -304,199 +386,215 @@ function CommitmentsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold">Commitment Ledger</h1>
-              <p className="text-sm text-muted-foreground">
-                Track obligations and follow through
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Digest Settings
-                  </Button>
-                </SheetTrigger>
-                <SheetContent>
-                  <SheetHeader>
-                    <SheetTitle>Daily Digest Settings</SheetTitle>
-                    <SheetDescription>
-                      Configure how and when you receive commitment summaries
-                    </SheetDescription>
-                  </SheetHeader>
-                  <div className="py-6 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Digest configuration coming soon...
-                    </p>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-          </div>
-
-          {/* Stats */}
-          {isLoadingStats ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-24" />
-              ))}
-            </div>
-          ) : (
-            <CommitmentStats stats={stats} />
-          )}
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="border-b bg-muted/30 px-4 py-3">
-        <div className="container flex items-center gap-4">
+    <div data-no-shell-padding className="h-full">
+      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+        {/* Header */}
+        <div className="border-b bg-background">
+        <div className="flex items-center justify-between px-4 py-2">
           {/* Direction Tabs */}
           <Tabs value={direction} onValueChange={(v) => setDirection(v as Direction)}>
-            <TabsList>
-              <TabsTrigger value="all">
+            <TabsList className="h-8 bg-transparent gap-1">
+              <TabsTrigger
+                value="all"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
                 All
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                   {stats.total}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="owed_by_me">
+              <TabsTrigger
+                value="owed_by_me"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
                 I Owe
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                   {stats.owedByMe}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="owed_to_me">
+              <TabsTrigger
+                value="owed_to_me"
+                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
+              >
                 Owed to Me
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                   {stats.owedToMe}
                 </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          {/* Status Filter */}
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="snoozed">Snoozed</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Status Filter */}
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+            >
+              <SelectTrigger className="h-8 w-[120px] text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="snoozed">Snoozed</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* Search */}
-          <div className="flex-1 max-w-xs">
+            {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search commitments..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="h-8 w-[180px] pl-8 text-sm"
               />
             </div>
-          </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 border rounded-lg p-1">
+            {/* View Toggle */}
+            <div className="flex items-center gap-0.5 border rounded-md p-0.5">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "timeline" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode("timeline")}
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
+
             <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
+              variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => setViewMode("list")}
+              onClick={() => refetch()}
             >
-              <List className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button
-              variant={viewMode === "timeline" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setViewMode("timeline")}
-            >
-              <Calendar className="h-4 w-4" />
-            </Button>
-          </div>
 
-          {/* Keyboard hints */}
-          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
-            <span>navigate</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">1-3</kbd>
-            <span>tabs</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-muted">v</kbd>
-            <span>view</span>
+            {/* Keyboard hints */}
+            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
+              <span>nav</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">1-3</kbd>
+              <span>tabs</span>
+            </div>
           </div>
+        </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          {isLoadingCommitments ? (
+            <div>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
+                  <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-32 h-4 bg-muted rounded animate-pulse" />
+                  <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : viewMode === "list" ? (
+            filteredCommitments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+                  <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium">No commitments found</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Commitments are automatically extracted from your emails
+                </p>
+              </div>
+            ) : (
+              <div>
+                {filteredCommitments.map((commitment) => (
+                  <CommitmentCard
+                    key={commitment.id}
+                    commitment={commitment}
+                    isSelected={selectedCommitment === commitment.id}
+                    onSelect={() => {
+                      setSelectedCommitment(commitment.id);
+                      setDetailSheetOpen(true);
+                    }}
+                    onComplete={handleComplete}
+                    onSnooze={handleSnooze}
+                    onDismiss={handleDismiss}
+                    onVerify={handleVerify}
+                    onThreadClick={handleThreadClick}
+                    onContactClick={handleContactClick}
+                    onGenerateFollowUp={handleGenerateFollowUp}
+                    onShowEvidence={handleShowEvidence}
+                  />
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="p-4">
+              <CommitmentTimeline
+                commitments={filteredCommitments}
+                onCommitmentClick={(c) => {
+                  setSelectedCommitment(c.id);
+                  setDetailSheetOpen(true);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="container py-6">
-            {isLoadingCommitments ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-32" />
-                ))}
-              </div>
-            ) : viewMode === "list" ? (
-              <AnimatePresence mode="popLayout">
-                <div className="space-y-3">
-                  {filteredCommitments.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center py-12"
-                    >
-                      <p className="text-muted-foreground">No commitments found</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Commitments are automatically extracted from your emails
-                      </p>
-                    </motion.div>
-                  ) : (
-                    filteredCommitments.map((commitment) => (
-                      <CommitmentCard
-                        key={commitment.id}
-                        commitment={commitment}
-                        isSelected={selectedCommitment === commitment.id}
-                        onSelect={() => setSelectedCommitment(commitment.id)}
-                        onComplete={handleComplete}
-                        onSnooze={handleSnooze}
-                        onDismiss={handleDismiss}
-                        onVerify={handleVerify}
-                        onThreadClick={handleThreadClick}
-                        onContactClick={handleContactClick}
-                        onGenerateFollowUp={handleGenerateFollowUp}
-                      />
-                    ))
-                  )}
-                </div>
-              </AnimatePresence>
-            ) : (
-              <CommitmentTimeline
-                commitments={filteredCommitments}
-                onCommitmentClick={(c) => setSelectedCommitment(c.id)}
-              />
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+      {/* Commitment Detail Sheet */}
+      <CommitmentDetailSheet
+        commitment={detailCommitment}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        onComplete={handleComplete}
+        onSnooze={handleSnooze}
+        onDismiss={handleDismiss}
+        onVerify={handleVerify}
+        onThreadClick={handleThreadClick}
+        onContactClick={handleContactClick}
+        onGenerateFollowUp={handleGenerateFollowUp}
+      />
+
+      {/* Evidence Detail Sheet */}
+      <EvidenceDetailSheet
+        open={evidenceSheetOpen}
+        onOpenChange={setEvidenceSheetOpen}
+        evidence={
+          evidenceCommitmentData
+            ? {
+                id: evidenceCommitmentData.id,
+                type: "commitment",
+                title: evidenceCommitmentData.title,
+                extractedText: evidenceCommitmentData.description ?? evidenceCommitmentData.title,
+                confidence: evidenceCommitmentData.confidence,
+                isUserVerified: evidenceCommitmentData.isUserVerified ?? false,
+                quotedText: evidenceCommitmentData.metadata?.originalText ?? null,
+                extractedAt: new Date(evidenceCommitmentData.createdAt),
+                modelVersion: "gpt-4o",
+                confidenceFactors: [
+                  { name: "Text Clarity", score: evidenceCommitmentData.confidence, explanation: "How clear the extracted text is", weight: 0.4 },
+                  { name: "Context Relevance", score: 0.8, explanation: "How relevant the context is", weight: 0.35 },
+                  { name: "Historical Accuracy", score: 0.85, explanation: "Historical accuracy of extractions", weight: 0.25 },
+                ],
+              }
+            : null
+        }
+        onThreadClick={handleThreadClick}
+      />
     </div>
   );
 }

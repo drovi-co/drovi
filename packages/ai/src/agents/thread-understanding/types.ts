@@ -83,17 +83,19 @@ export type ThreadType = z.infer<typeof ThreadType>;
 
 /**
  * Intent classification result.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const IntentClassificationSchema = z.object({
   intent: IntentCategory,
   confidence: z.number().min(0).max(1),
   reasoning: z.string(),
-  secondaryIntents: z.array(IntentCategory).optional(),
+  secondaryIntents: z.array(IntentCategory).nullable(),
 });
 export type IntentClassification = z.infer<typeof IntentClassificationSchema>;
 
 /**
  * Urgency scoring result.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const UrgencyScoreSchema = z.object({
   score: z.number().min(0).max(1),
@@ -108,7 +110,7 @@ export const UrgencyScoreSchema = z.object({
         "time_sensitive",
         "escalation",
       ]),
-      text: z.string().optional(),
+      text: z.string().nullable(),
       weight: z.number().min(0).max(1),
     })
   ),
@@ -117,6 +119,7 @@ export type UrgencyScore = z.infer<typeof UrgencyScoreSchema>;
 
 /**
  * Sentiment analysis result.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const SentimentAnalysisSchema = z.object({
   overall: z.number().min(-1).max(1),
@@ -135,23 +138,24 @@ export const SentimentAnalysisSchema = z.object({
           "urgent",
           "confused",
         ])
-        .optional(),
+        .nullable(),
     })
   ),
   escalationDetected: z.boolean(),
-  escalationReason: z.string().optional(),
+  escalationReason: z.string().nullable(),
 });
 export type SentimentAnalysis = z.infer<typeof SentimentAnalysisSchema>;
 
 /**
  * Thread type detection result.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const ThreadTypeResultSchema = z.object({
   type: ThreadType,
   confidence: z.number().min(0).max(1),
   messageCount: z.number(),
   participantCount: z.number(),
-  backAndForthCount: z.number().optional(),
+  backAndForthCount: z.number().nullable(),
   hasForward: z.boolean(),
 });
 export type ThreadTypeResult = z.infer<typeof ThreadTypeResultSchema>;
@@ -180,22 +184,24 @@ export type ClaimType = z.infer<typeof ClaimType>;
 
 /**
  * Evidence linking a claim to its source.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const ClaimEvidenceSchema = z.object({
   messageId: z.string(),
   quotedText: z.string(),
-  startIndex: z.number().optional(),
-  endIndex: z.number().optional(),
+  startIndex: z.number().nullable(),
+  endIndex: z.number().nullable(),
 });
 export type ClaimEvidence = z.infer<typeof ClaimEvidenceSchema>;
 
 /**
  * Base claim structure.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const BaseClaimSchema = z.object({
   type: ClaimType,
   text: z.string(),
-  normalizedText: z.string().optional(),
+  normalizedText: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   evidence: z.array(ClaimEvidenceSchema),
 });
@@ -213,8 +219,8 @@ export const FactClaimSchema = BaseClaimSchema.extend({
         value: z.string(),
       })
     )
-    .optional(),
-  temporalReference: z.string().optional(),
+    .nullable(),
+  temporalReference: z.string().nullable(),
 });
 export type FactClaim = z.infer<typeof FactClaimSchema>;
 
@@ -224,11 +230,11 @@ export type FactClaim = z.infer<typeof FactClaimSchema>;
 export const PromiseClaimSchema = BaseClaimSchema.extend({
   type: z.literal("promise"),
   promisor: z.string(), // Email of person making promise
-  promisee: z.string().optional(), // Email of recipient
-  deadline: z.string().optional(),
-  deadlineConfidence: z.number().min(0).max(1).optional(),
+  promisee: z.string().nullable(), // Email of recipient
+  deadline: z.string().nullable(),
+  deadlineConfidence: z.number().min(0).max(1).nullable(),
   isConditional: z.boolean(),
-  condition: z.string().optional(),
+  condition: z.string().nullable(),
 });
 export type PromiseClaim = z.infer<typeof PromiseClaimSchema>;
 
@@ -238,10 +244,10 @@ export type PromiseClaim = z.infer<typeof PromiseClaimSchema>;
 export const RequestClaimSchema = BaseClaimSchema.extend({
   type: z.literal("request"),
   requester: z.string(), // Email of person making request
-  requestee: z.string().optional(), // Email of recipient
+  requestee: z.string().nullable(), // Email of recipient
   isExplicit: z.boolean(), // "Can you..." vs implied
-  deadline: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]).optional(),
+  deadline: z.string().nullable(),
+  priority: z.enum(["low", "medium", "high"]).nullable(),
 });
 export type RequestClaim = z.infer<typeof RequestClaimSchema>;
 
@@ -253,8 +259,8 @@ export const QuestionClaimSchema = BaseClaimSchema.extend({
   asker: z.string(), // Email of person asking
   isRhetorical: z.boolean(),
   isAnswered: z.boolean(),
-  answerMessageId: z.string().optional(),
-  answerText: z.string().optional(),
+  answerMessageId: z.string().nullable(),
+  answerText: z.string().nullable(),
 });
 export type QuestionClaim = z.infer<typeof QuestionClaimSchema>;
 
@@ -263,10 +269,10 @@ export type QuestionClaim = z.infer<typeof QuestionClaimSchema>;
  */
 export const DecisionClaimSchema = BaseClaimSchema.extend({
   type: z.literal("decision"),
-  decisionMaker: z.string().optional(), // Email of decision maker
+  decisionMaker: z.string().nullable(), // Email of decision maker
   decision: z.string(),
-  rationale: z.string().optional(),
-  alternatives: z.array(z.string()).optional(),
+  rationale: z.string().nullable(),
+  alternatives: z.array(z.string()).nullable(),
 });
 export type DecisionClaim = z.infer<typeof DecisionClaimSchema>;
 
@@ -310,16 +316,17 @@ export interface ExtractedClaims {
 
 /**
  * Thread brief (3-line summary).
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const ThreadBriefSchema = z.object({
   summary: z.string(),
   keyPoints: z.array(z.string()),
   actionRequired: z.boolean(),
-  actionDescription: z.string().optional(),
+  actionDescription: z.string().nullable(),
   participants: z.array(
     z.object({
       email: z.string(),
-      name: z.string().optional(),
+      name: z.string().nullable(),
       role: z.enum(["initiator", "responder", "cc", "key_participant"]),
     })
   ),
@@ -348,6 +355,7 @@ export type TimelineEvent = z.infer<typeof TimelineEventSchema>;
 
 /**
  * Open loop (unanswered question or pending item).
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const OpenLoopSchema = z.object({
   type: z.enum([
@@ -357,16 +365,17 @@ export const OpenLoopSchema = z.object({
     "awaiting_response",
   ]),
   description: z.string(),
-  owner: z.string().optional(), // Who owns resolving this
+  owner: z.string().nullable(), // Who owns resolving this
   sourceMessageId: z.string(),
   sourceQuotedText: z.string(),
-  age: z.number().optional(), // Days since created
-  priority: z.enum(["low", "medium", "high"]).optional(),
+  age: z.number().nullable(), // Days since created
+  priority: z.enum(["low", "medium", "high"]).nullable(),
 });
 export type OpenLoop = z.infer<typeof OpenLoopSchema>;
 
 /**
  * Waiting-on analysis.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const WaitingOnSchema = z.object({
   isWaitingOnOthers: z.boolean(),
@@ -375,14 +384,14 @@ export const WaitingOnSchema = z.object({
     z.object({
       person: z.string(),
       description: z.string(),
-      since: z.string().optional(),
+      since: z.string().nullable(),
     })
   ),
   waitingFor: z.array(
     z.object({
       person: z.string(),
       description: z.string(),
-      since: z.string().optional(),
+      since: z.string().nullable(),
     })
   ),
 });

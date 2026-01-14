@@ -51,11 +51,20 @@ export function SocialButtons() {
   const handleGoogleSignIn = async () => {
     setIsLoadingGoogle(true);
     try {
-      await authClient.signIn.social({
+      const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/dashboard",
+        callbackURL: `${window.location.origin}/dashboard`,
       });
-    } catch (_error) {
+
+      // If we get a URL back, redirect manually
+      if (result?.data?.url) {
+        window.location.href = result.data.url;
+      } else if (result?.error) {
+        toast.error(result.error.message || "Failed to sign in with Google");
+        setIsLoadingGoogle(false);
+      }
+    } catch (error) {
+      console.error("Google sign-in error:", error);
       toast.error("Failed to sign in with Google");
       setIsLoadingGoogle(false);
     }

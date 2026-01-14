@@ -6,7 +6,7 @@
 //
 // Usage:
 //
-//   import { extractDecisions, createDecisionAgent } from "@saas-template/ai/agents";
+//   import { extractDecisions, createDecisionAgent } from "@memorystack/ai/agents";
 //
 //   // Simple usage
 //   const decisions = await extractDecisions(context, decisionClaims);

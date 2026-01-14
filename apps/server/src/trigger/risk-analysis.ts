@@ -9,12 +9,12 @@ import {
   createRiskAgent,
   type CombinedRiskResult,
   type HistoricalStatement,
-} from "@saas-template/ai/agents";
+} from "@memorystack/ai/agents";
 import {
   createCombinedRiskAnalyzer,
   type CombinedRiskInput,
-} from "@saas-template/ai/detectors";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/detectors";
+import { db } from "@memorystack/db";
 import {
   commitment,
   decision,
@@ -24,7 +24,7 @@ import {
   policyRule,
   riskAnalysis,
   type RiskAnalysisDetails,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { log } from "../lib/logger";

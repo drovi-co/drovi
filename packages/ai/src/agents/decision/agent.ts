@@ -8,7 +8,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../observability";
-import { getModel } from "../../providers/index";
+import { getDefaultModel } from "../../providers/index";
 import {
   buildDecisionExtractionPrompt,
   buildDecisionQueryPrompt,
@@ -63,7 +63,7 @@ export class DecisionAgent {
       const prompt = buildDecisionExtractionPrompt(context, decisionClaims);
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: DecisionExtractionResponseSchema,
         prompt,
         temperature: 0.3,
@@ -187,7 +187,7 @@ export class DecisionAgent {
       const prompt = buildRationaleExtractionPrompt(decision, threadContent);
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: RationaleExtractionResponseSchema,
         prompt,
         temperature: 0.3,
@@ -270,7 +270,7 @@ export class DecisionAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: SupersessionDetectionResponseSchema,
         prompt,
         temperature: 0.2,
@@ -348,7 +348,7 @@ export class DecisionAgent {
       const prompt = buildDecisionQueryPrompt(query, decisions);
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: DecisionQueryResponseSchema,
         prompt,
         temperature: 0.3,

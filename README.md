@@ -37,7 +37,7 @@ A production-ready SaaS starter kit built with modern technologies. Ship your ne
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd saas-template
+cd memorystack
 ```
 
 2. Install dependencies:

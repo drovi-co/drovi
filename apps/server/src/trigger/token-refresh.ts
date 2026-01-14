@@ -9,9 +9,9 @@
 import {
   refreshGmailToken,
   refreshOutlookToken,
-} from "@saas-template/auth/providers";
-import { db } from "@saas-template/db";
-import { emailAccount } from "@saas-template/db/schema";
+} from "@memorystack/auth/providers";
+import { db } from "@memorystack/db";
+import { emailAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, gt, lt, or } from "drizzle-orm";
 import { safeDecryptToken, safeEncryptToken } from "../lib/crypto/tokens";

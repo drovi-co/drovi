@@ -202,7 +202,7 @@ export function ThreadBrief({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "group relative rounded-lg border transition-all duration-200",
+        "group relative rounded-lg border transition-all duration-200 overflow-hidden",
         "hover:shadow-md hover:border-foreground/20",
         thread.isUnread && "bg-accent/30 border-accent",
         isSelected && "ring-2 ring-primary border-primary",
@@ -223,7 +223,7 @@ export function ThreadBrief({
       )}
 
       <div
-        className="flex items-start gap-3 p-4 pl-5 cursor-pointer"
+        className="flex items-start gap-3 p-3 pl-4 cursor-pointer"
         onClick={() => onClick?.(thread.id)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -264,7 +264,7 @@ export function ThreadBrief({
         </div>
 
         {/* Main content */}
-        <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex-1 min-w-0 space-y-1">
           {/* Header row */}
           <div className="flex items-center gap-2">
             {/* Sender name */}

@@ -3,21 +3,24 @@
 // =============================================================================
 //
 // Background tasks for email triage and inbox automation.
+// Updated: 2026-01-13 - Uses AI_PROVIDER from environment
 //
 
 import {
   createTriageAgent,
   type TriageRule as TriageRuleType,
   type TriageSuggestion,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { createNotification } from "@memorystack/api/routers/notifications";
+import { db } from "@memorystack/db";
 import {
   claim,
   contact,
+  emailAccount,
   emailThread,
   triageResult,
   triageRule,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -237,6 +240,50 @@ export const triageThreadTask = task({
         action: suggestion.action,
         priority: suggestion.priority.tier,
       });
+
+      // Create notifications for urgent or high-priority emails
+      if (
+        suggestion.priority.tier === "urgent" ||
+        suggestion.priority.importanceScore > 0.8
+      ) {
+        // Get the user ID from the account
+        const account = await db.query.emailAccount.findFirst({
+          where: eq(emailAccount.id, accountId),
+          columns: { addedByUserId: true },
+        });
+
+        if (account) {
+          const senderName =
+            thread.messages[0]?.fromName ?? senderEmail ?? "Unknown sender";
+          const subcategory =
+            suggestion.priority.tier === "urgent" ? "urgent" : "important";
+
+          await createNotification(
+            account.addedByUserId,
+            {
+              type: "warning",
+              category: "email",
+              title:
+                suggestion.priority.tier === "urgent"
+                  ? "Urgent Email Requires Attention"
+                  : "Important Email",
+              message: `From ${senderName}: ${thread.subject ?? "No subject"}`,
+              link: `/dashboard/email/thread/${threadId}`,
+              priority: suggestion.priority.tier === "urgent" ? "urgent" : "high",
+              actionRequired: suggestion.action === "respond",
+              actionType: suggestion.action === "respond" ? "respond" : "review",
+              entityId: threadId,
+              entityType: "thread",
+              metadata: {
+                senderEmail,
+                urgencyScore: suggestion.priority.urgencyScore,
+                importanceScore: suggestion.priority.importanceScore,
+              },
+            },
+            subcategory
+          );
+        }
+      }
 
       return { success: true, threadId, suggestion };
     } catch (error) {

@@ -62,7 +62,7 @@ function CreateOrgPage() {
       }
 
       toast.success("Organization created!");
-      navigate({ to: "/onboarding/invite-team" });
+      navigate({ to: "/onboarding/connect-email" });
     } catch {
       toast.error("An unexpected error occurred");
     } finally {
@@ -118,7 +118,7 @@ function CreateOrgPage() {
                 />
               </div>
               <p className="text-muted-foreground text-xs">
-                saas-template.com/
+                memorystack.com/
                 <span className="font-medium">{slug || "your-org"}</span>
               </p>
             </div>

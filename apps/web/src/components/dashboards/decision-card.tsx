@@ -7,28 +7,23 @@
 // evolve, and this component shows that history.
 //
 
-import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { format, isToday, isYesterday } from "date-fns";
 import {
-  AlertTriangle,
-  ArrowRight,
-  Check,
-  ChevronDown,
-  ChevronRight,
   Copy,
   ExternalLink,
+  Eye,
   GitBranch,
-  MessageSquare,
   MoreHorizontal,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
-  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ConfidenceBadge } from "@/components/evidence";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +81,33 @@ interface DecisionCardProps {
   onThreadClick?: (threadId: string) => void;
   onContactClick?: (email: string) => void;
   onViewSupersession?: (decisionId: string) => void;
+  onShowEvidence?: (decisionId: string) => void;
   compact?: boolean;
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function formatDecisionDate(date: Date): string {
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+  return format(date, "MMM d");
+}
+
+function getInitials(name: string | null | undefined, email: string): string {
+  if (name) {
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  return email.slice(0, 2).toUpperCase();
 }
 
 // =============================================================================
@@ -102,9 +123,9 @@ export function DecisionCard({
   onThreadClick,
   onContactClick,
   onViewSupersession,
-  compact = false,
+  onShowEvidence,
 }: DecisionCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleCopyStatement = () => {
     navigator.clipboard.writeText(decision.statement);
@@ -112,295 +133,161 @@ export function DecisionCard({
   };
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+    <div
       className={cn(
-        "group relative border-l-4 rounded-lg bg-card transition-all",
-        "hover:shadow-md cursor-pointer",
-        decision.isSuperseded || decision.supersededBy
-          ? "border-l-muted opacity-70"
-          : "border-l-purple-500",
-        isSelected && "ring-2 ring-primary",
-        compact ? "p-3" : "p-4"
+        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
+        "border-b border-border/40",
+        decision.isSuperseded || decision.supersededBy ? "opacity-60" : "",
+        isHovered && !isSelected && "bg-accent/50",
+        isSelected && "bg-accent"
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={onSelect}
     >
-      {/* Superseded Warning */}
-      {decision.supersededBy && (
-        <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded flex items-center gap-2 text-xs">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-          <span className="text-amber-700 dark:text-amber-400">
-            Superseded by: {decision.supersededBy.title}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 ml-auto text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewSupersession?.(decision.id);
-            }}
-          >
-            View chain
-            <ArrowRight className="h-3 w-3 ml-1" />
-          </Button>
+      {/* Priority indicator bar */}
+      {!decision.isSuperseded && !decision.supersededBy && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500" />
+      )}
+
+      {/* Avatar for first owner or decision icon */}
+      {decision.owners && decision.owners.length > 0 ? (
+        <Avatar className="h-9 w-9 shrink-0">
+          <AvatarFallback className="text-xs bg-muted font-medium">
+            {getInitials(decision.owners[0]?.displayName, decision.owners[0]?.primaryEmail ?? "")}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <div className="h-9 w-9 shrink-0 rounded-full bg-purple-500/10 flex items-center justify-center">
+          <GitBranch className="h-4 w-4 text-purple-500" />
         </div>
       )}
 
-      {/* Header Row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          {/* Expand/Collapse Toggle */}
+      {/* Date */}
+      <span className="w-20 shrink-0 text-xs font-medium text-muted-foreground">
+        {formatDecisionDate(decision.decidedAt)}
+      </span>
+
+      {/* Title - main content with AI indicator */}
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        <span className={cn(
+          "text-sm truncate text-muted-foreground",
+          decision.supersededBy && "line-through opacity-60"
+        )}>
+          {decision.title}
+        </span>
+      </div>
+
+      {/* Topics */}
+      {decision.topics && decision.topics.length > 0 && !isHovered && (
+        <div className="flex items-center gap-1 shrink-0">
+          {decision.topics.slice(0, 2).map((topic) => (
+            <Badge key={topic.id} variant="secondary" className="text-[10px]">
+              {topic.name}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Quick actions - always visible */}
+      <div className="shrink-0 flex items-center gap-1">
+        {/* Confidence Badge */}
+        <ConfidenceBadge
+          confidence={decision.confidence}
+          isUserVerified={decision.isUserVerified}
+          size="sm"
+          showDetails={false}
+        />
+
+        {/* Show Me - Evidence button */}
+        {onShowEvidence && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setIsExpanded(!isExpanded);
+              onShowEvidence(decision.id);
             }}
-            className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 rounded-md hover:bg-background transition-colors"
+            title="Show evidence"
           >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
+            <Eye className="h-4 w-4 text-purple-500" />
           </button>
+        )}
 
-          <div className="flex-1 min-w-0">
-            {/* Title */}
-            <h3 className={cn(
-              "font-medium text-foreground",
-              compact ? "text-sm" : "text-base",
-              decision.supersededBy && "line-through opacity-75"
-            )}>
-              {decision.title}
-            </h3>
-
-            {/* Statement */}
-            <p className={cn(
-              "text-sm text-muted-foreground mt-1 line-clamp-2",
-              decision.supersededBy && "line-through"
-            )}>
-              {decision.statement}
-            </p>
-
-            {/* Meta Row */}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {/* Date */}
-              <span className="text-xs text-muted-foreground">
-                {format(decision.decidedAt, "MMM d, yyyy")}
-              </span>
-
-              <span className="text-muted-foreground">•</span>
-
-              {/* Owners */}
-              {decision.owners && decision.owners.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <Users className="h-3 w-3 text-muted-foreground" />
-                  {decision.owners.slice(0, 2).map((owner, i) => (
-                    <button
-                      key={owner.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onContactClick?.(owner.primaryEmail);
-                      }}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {owner.displayName ?? owner.primaryEmail.split("@")[0]}
-                      {i < Math.min(decision.owners!.length - 1, 1) && ", "}
-                    </button>
-                  ))}
-                  {decision.owners.length > 2 && (
-                    <span className="text-xs text-muted-foreground">
-                      +{decision.owners.length - 2}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Confidence */}
-              <span className={cn(
-                "text-xs",
-                decision.confidence >= 0.8 && "text-green-600 dark:text-green-400",
-                decision.confidence >= 0.5 && decision.confidence < 0.8 && "text-amber-600 dark:text-amber-400",
-                decision.confidence < 0.5 && "text-red-600 dark:text-red-400"
-              )}>
-                {Math.round(decision.confidence * 100)}%
-              </span>
-
-              {/* User Verified Badge */}
-              {decision.isUserVerified && (
-                <Badge variant="outline" className="text-xs h-5">
-                  <Check className="h-3 w-3 mr-1" />
-                  Verified
-                </Badge>
-              )}
-            </div>
-
-            {/* Topics */}
-            {decision.topics && decision.topics.length > 0 && (
-              <div className="flex items-center gap-1 mt-2">
-                {decision.topics.map((topic) => (
-                  <Badge key={topic.id} variant="secondary" className="text-xs">
-                    {topic.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Side: Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Supersession indicator */}
-          {(decision.supersededBy || decision.isSuperseded) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewSupersession?.(decision.id);
-              }}
-              title="View decision evolution"
-            >
-              <GitBranch className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          )}
-
-          {/* Copy */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+        {/* Source thread link */}
+        {decision.sourceThread && (
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
-              handleCopyStatement();
+              onThreadClick?.(decision.sourceThread!.id);
             }}
-            title="Copy statement"
+            className="p-1.5 rounded-md hover:bg-background transition-colors"
+            title="View source thread"
           >
-            <Copy className="h-4 w-4" />
-          </Button>
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
 
-          {/* More Actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCopyStatement}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Statement
-              </DropdownMenuItem>
-              {decision.sourceThread && (
-                <DropdownMenuItem
-                  onClick={() => onThreadClick?.(decision.sourceThread!.id)}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Source Thread
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              {!decision.isUserVerified && onVerify && (
-                <DropdownMenuItem onClick={() => onVerify(decision.id)}>
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                  Verify (Correct)
-                </DropdownMenuItem>
-              )}
-              {onDismiss && (
-                <DropdownMenuItem onClick={() => onDismiss(decision.id)} className="text-destructive">
-                  <ThumbsDown className="h-4 w-4 mr-2" />
-                  Dismiss (Incorrect)
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Expanded Content */}
-      {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="mt-4 pt-4 border-t space-y-4"
-        >
-          {/* Rationale */}
-          {decision.rationale && (
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">Rationale:</span>
-              <p className="text-sm text-foreground">
-                {decision.rationale}
-              </p>
-            </div>
-          )}
-
-          {/* Alternatives Considered */}
-          {decision.alternatives && decision.alternatives.length > 0 && (
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Alternatives Considered:
-              </span>
-              <div className="space-y-1.5">
-                {decision.alternatives.map((alt, i) => (
-                  <div
-                    key={i}
-                    className="text-sm pl-3 border-l-2 border-muted"
-                  >
-                    <span className="font-medium">{alt.option}</span>
-                    {alt.reason && (
-                      <span className="text-muted-foreground">
-                        {" - "}{alt.reason}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Source Thread */}
-          {decision.sourceThread && (
+        {/* More actions menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onThreadClick?.(decision.sourceThread!.id);
-              }}
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 rounded-md hover:bg-background transition-colors"
             >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span className="truncate">
-                From: {decision.sourceThread.subject ?? "Email thread"}
-              </span>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
-          )}
-
-          {/* Evidence */}
-          {decision.evidence && decision.evidence.length > 0 && (
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">Evidence:</span>
-              {decision.evidence.map((e, i) => (
-                <p key={i} className="text-xs text-muted-foreground italic pl-2 border-l-2 border-muted">
-                  "{e}"
-                </p>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      )}
-    </motion.div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onShowEvidence && (
+              <>
+                <DropdownMenuItem onClick={() => onShowEvidence(decision.id)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Show Evidence
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={handleCopyStatement}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy Statement
+            </DropdownMenuItem>
+            {decision.sourceThread && (
+              <DropdownMenuItem
+                onClick={() => onThreadClick?.(decision.sourceThread!.id)}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Source Thread
+              </DropdownMenuItem>
+            )}
+            {onViewSupersession && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onViewSupersession(decision.id)}>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  View Decision History
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            {!decision.isUserVerified && onVerify && (
+              <DropdownMenuItem onClick={() => onVerify(decision.id)}>
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Verify (Correct)
+              </DropdownMenuItem>
+            )}
+            {onDismiss && (
+              <DropdownMenuItem onClick={() => onDismiss(decision.id)} className="text-destructive">
+                <ThumbsDown className="h-4 w-4 mr-2" />
+                Dismiss (Incorrect)
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
 }

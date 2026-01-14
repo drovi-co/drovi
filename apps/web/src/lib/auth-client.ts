@@ -1,5 +1,5 @@
 // import { polarClient } from "@polar-sh/better-auth";
-import { env } from "@saas-template/env/web";
+import { env } from "@memorystack/env/web";
 import {
   adminClient,
   magicLinkClient,

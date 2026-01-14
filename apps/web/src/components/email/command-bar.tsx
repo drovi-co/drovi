@@ -1,5 +1,6 @@
 "use client";
 
+import { ComposeDialog } from "@/components/compose";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,8 +9,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTRPC } from "@/utils/trpc";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useActiveOrganization } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+import { trpc, useTRPC } from "@/utils/trpc";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -17,21 +21,226 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
-  Calendar,
   CheckCircle2,
   Clock,
+  Eye,
+  EyeOff,
   FileText,
   Inbox,
   Loader2,
+  Mail,
   MessageSquare,
+  Reply,
   Search,
+  Send,
+  Settings,
   Sparkles,
   Star,
-  Tag,
+  StarOff,
+  Trash2,
   Users,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, createContext, useContext } from "react";
+import { toast } from "sonner";
+
+// =============================================================================
+// CONTEXT FOR GLOBAL COMMAND BAR STATE
+// =============================================================================
+
+interface ForwardContext {
+  subject: string;
+  body: string;
+  originalFrom: string;
+  originalDate: string;
+  originalTo: string;
+}
+
+interface ComposeContext {
+  to?: Array<{ email: string; name?: string }>;
+  subject?: string;
+  body?: string;
+}
+
+interface CommandBarContextType {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  openCompose: (context?: ComposeContext) => void;
+  openReply: (threadId: string) => void;
+  openForward: (context: ForwardContext) => void;
+}
+
+const CommandBarContext = createContext<CommandBarContextType | null>(null);
+
+export function CommandBarProvider({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [replyThreadId, setReplyThreadId] = useState<string | null>(null);
+  const [forwardContext, setForwardContext] = useState<ForwardContext | null>(null);
+  const [composeContext, setComposeContext] = useState<ComposeContext | null>(null);
+
+  const openCompose = useCallback((context?: ComposeContext) => {
+    setReplyThreadId(null);
+    setForwardContext(null);
+    setComposeContext(context ?? null);
+    setComposeOpen(true);
+  }, []);
+
+  const openReply = useCallback((threadId: string) => {
+    setReplyThreadId(threadId);
+    setForwardContext(null);
+    setComposeOpen(true);
+  }, []);
+
+  const openForward = useCallback((context: ForwardContext) => {
+    setReplyThreadId(null);
+    setForwardContext(context);
+    setComposeOpen(true);
+  }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === "INPUT" ||
+                       target.tagName === "TEXTAREA" ||
+                       target.isContentEditable;
+
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((o) => !o);
+        return;
+      }
+
+      // C for compose (when not typing)
+      if (e.key === "c" && !e.metaKey && !e.ctrlKey && !isTyping) {
+        e.preventDefault();
+        openCompose();
+        return;
+      }
+
+      // R for reply (when not typing)
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey && !isTyping) {
+        // Get thread ID from URL if on thread page
+        const threadIdMatch = window.location.pathname.match(/\/thread\/([a-f0-9-]{36})/);
+        if (threadIdMatch?.[1]) {
+          e.preventDefault();
+          openReply(threadIdMatch[1]);
+        }
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [openCompose, openReply]);
+
+  return (
+    <CommandBarContext.Provider value={{ open, setOpen, openCompose, openReply, openForward }}>
+      {children}
+      {/* Provider-level compose state for global shortcuts */}
+      <ComposeDialogGlobal
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        replyThreadId={replyThreadId}
+        forwardContext={forwardContext}
+        composeContext={composeContext}
+      />
+    </CommandBarContext.Provider>
+  );
+}
+
+/**
+ * Global compose dialog component that gets organization/account from hooks
+ */
+function ComposeDialogGlobal({
+  open,
+  onOpenChange,
+  replyThreadId,
+  forwardContext,
+  composeContext,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  replyThreadId: string | null;
+  forwardContext: ForwardContext | null;
+  composeContext: ComposeContext | null;
+}) {
+  const { data: activeOrg } = useActiveOrganization();
+  const organizationId = activeOrg?.id ?? "";
+  const trpcClient = useTRPC();
+
+  // Always fetch email accounts when we have an org (not just when dialog is open)
+  // This ensures the data is ready when user presses 'c'
+  const { data: accounts, isLoading } = useQuery({
+    ...trpcClient.emailAccounts.list.queryOptions({
+      organizationId,
+    }),
+    enabled: !!organizationId,
+  });
+
+  // emailAccounts.list returns an array directly
+  const primaryAccountId = accounts?.find((a) => a.isPrimary)?.id
+    ?? accounts?.[0]?.id
+    ?? "";
+
+  // Don't render anything if dialog is not open
+  if (!open) {
+    return null;
+  }
+
+  // Show loading or error state if no account
+  if (!organizationId) {
+    return null;
+  }
+
+  if (isLoading) {
+    // Dialog is open but accounts still loading - show dialog with loading state
+    return (
+      <ComposeDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        organizationId={organizationId}
+        accountId=""
+        replyToThreadId={replyThreadId ?? undefined}
+        initialTo={composeContext?.to}
+        initialSubject={forwardContext?.subject ?? composeContext?.subject}
+        initialBody={forwardContext?.body ?? composeContext?.body}
+      />
+    );
+  }
+
+  if (!primaryAccountId) {
+    // No email account connected - close dialog and show toast
+    if (open) {
+      onOpenChange(false);
+      toast.error("No email account connected. Please connect an email account first.");
+    }
+    return null;
+  }
+
+  return (
+    <ComposeDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      organizationId={organizationId}
+      accountId={primaryAccountId}
+      replyToThreadId={replyThreadId ?? undefined}
+      initialTo={composeContext?.to}
+      initialSubject={forwardContext?.subject ?? composeContext?.subject}
+      initialBody={forwardContext?.body ?? composeContext?.body}
+    />
+  );
+}
+
+export function useCommandBar() {
+  const context = useContext(CommandBarContext);
+  if (!context) {
+    throw new Error("useCommandBar must be used within a CommandBarProvider");
+  }
+  return context;
+}
 
 // =============================================================================
 // TYPES
@@ -55,15 +264,6 @@ interface SearchResult {
   };
 }
 
-interface QuickAction {
-  id: string;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-  shortcut?: string;
-  action: () => void;
-}
-
 interface AIResponse {
   answer: string;
   citations: Array<{
@@ -78,51 +278,156 @@ interface AIResponse {
 
 type CommandMode = "search" | "ask" | "navigate" | "action";
 
+const MODES: CommandMode[] = ["search", "ask", "navigate", "action"];
+
 // =============================================================================
-// COMMAND BAR COMPONENT
+// MAIN COMMAND BAR COMPONENT
 // =============================================================================
 
 export function CommandBar({ open, onOpenChange }: CommandBarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const trpcClient = useTRPC();
+  const { data: activeOrg } = useActiveOrganization();
+  const organizationId = activeOrg?.id ?? "";
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<CommandMode>("search");
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [isAskingAI, setIsAskingAI] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showSnoozePicker, setShowSnoozePicker] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeReplyThreadId, setComposeReplyThreadId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const trpc = useTRPC();
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Detect mode from query
+  // Detect current thread from URL (e.g., /dashboard/email/thread/uuid)
+  const currentThreadId = location.pathname.match(/\/thread\/([a-f0-9-]{36})/)?.[1] ?? null;
+
+  // Get primary email account for composing
+  const { data: emailAccounts } = useQuery({
+    ...trpcClient.emailAccounts.list.queryOptions({
+      organizationId,
+    }),
+    enabled: !!organizationId,
+  });
+  // emailAccounts.list returns an array directly
+  const primaryAccountId = emailAccounts?.find((a) => a.isPrimary)?.id
+    ?? emailAccounts?.[0]?.id
+    ?? "";
+
+  // ==========================================================================
+  // ACTION MUTATIONS
+  // ==========================================================================
+
+  const archiveMutation = useMutation({
+    ...trpc.threads.archive.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Thread archived");
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      onOpenChange(false);
+      navigate({ to: "/dashboard/email" });
+    },
+    onError: (err) => toast.error(`Failed to archive: ${err.message}`),
+  });
+
+  const starMutation = useMutation({
+    ...trpc.threads.star.mutationOptions(),
+    onSuccess: (_, variables) => {
+      toast.success(variables.starred ? "Thread starred" : "Star removed");
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      onOpenChange(false);
+    },
+    onError: (err) => toast.error(`Failed to update star: ${err.message}`),
+  });
+
+  const markReadMutation = useMutation({
+    ...trpc.threads.markRead.mutationOptions(),
+    onSuccess: (_, variables) => {
+      toast.success(variables.read ? "Marked as read" : "Marked as unread");
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      onOpenChange(false);
+    },
+    onError: (err) => toast.error(`Failed to update: ${err.message}`),
+  });
+
+  const snoozeMutation = useMutation({
+    ...trpc.threads.snooze.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Thread snoozed");
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      onOpenChange(false);
+      setShowSnoozePicker(false);
+      navigate({ to: "/dashboard/email" });
+    },
+    onError: (err) => toast.error(`Failed to snooze: ${err.message}`),
+  });
+
+  const deleteMutation = useMutation({
+    ...trpc.threads.delete.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Thread deleted");
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      onOpenChange(false);
+      navigate({ to: "/dashboard/email" });
+    },
+    onError: (err) => toast.error(`Failed to delete: ${err.message}`),
+  });
+
+  // Get current thread data if we're on a thread page
+  const { data: currentThread } = useQuery({
+    ...trpc.threads.getById.queryOptions({ threadId: currentThreadId ?? "" }),
+    enabled: !!currentThreadId && open,
+  });
+
+  // Detect mode from query prefix
   useEffect(() => {
-    if (query.startsWith("?") || query.startsWith("ask ")) {
+    if (query.startsWith("?") || query.toLowerCase().startsWith("ask ")) {
       setMode("ask");
-    } else if (query.startsWith(">") || query.startsWith("go ")) {
+    } else if (query.startsWith(">") || query.toLowerCase().startsWith("go ")) {
       setMode("navigate");
-    } else if (query.startsWith("!") || query.startsWith("do ")) {
+    } else if (query.startsWith("!") || query.toLowerCase().startsWith("do ")) {
       setMode("action");
     } else {
       setMode("search");
     }
   }, [query]);
 
-  // Search query
+  // Clean query for searching
   const cleanQuery = query
     .replace(/^[?!>]/, "")
     .replace(/^(ask|go|do)\s+/i, "")
     .trim();
 
+  // Search query - uses semantic search across messages, threads, and claims
   const { data: searchResults, isLoading: isSearching } = useQuery({
-    ...trpc.search.query.queryOptions({
+    ...trpc.search.search.queryOptions({
+      organizationId,
       query: cleanQuery,
       limit: 10,
-      includeTypes: ["thread", "message", "commitment", "decision"],
+      types: ["thread", "message", "claim"],
     }),
-    enabled: mode === "search" && cleanQuery.length > 2,
+    enabled: mode === "search" && cleanQuery.length > 2 && open && !!organizationId,
   });
 
-  // Ask AI mutation
+  // Ask AI mutation - uses knowledge agent for Q&A with citations
   const askAIMutation = useMutation({
-    ...trpc.search.askQuestion.mutationOptions(),
+    ...trpc.search.ask.mutationOptions(),
     onSuccess: (data) => {
-      setAiResponse(data as AIResponse);
+      // Map API response to our AIResponse type
+      const mappedResponse: AIResponse = {
+        answer: data.answer,
+        confidence: data.confidence,
+        citations: (data.citations ?? []).map((c: { id: string; text: string; sourceThreadId?: string; subject?: string }) => ({
+          id: c.id,
+          text: c.text,
+          source: c.subject ?? "Email",
+          threadId: c.sourceThreadId,
+        })),
+        followUpQuestions: [],
+      };
+      setAiResponse(mappedResponse);
       setIsAskingAI(false);
     },
     onError: () => {
@@ -130,147 +435,311 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
     },
   });
 
+  // Handle navigation - use React Router for instant nav
+  const handleNavigate = useCallback(
+    (path: string) => {
+      onOpenChange(false);
+      navigate({ to: path });
+    },
+    [navigate, onOpenChange]
+  );
+
   // Handle ask AI
   const handleAskAI = useCallback(() => {
-    if (cleanQuery.length < 3) return;
+    if (cleanQuery.length < 3 || !organizationId) return;
     setIsAskingAI(true);
-    askAIMutation.mutate({ question: cleanQuery });
-  }, [cleanQuery, askAIMutation]);
+    setAiResponse(null);
+    askAIMutation.mutate({ organizationId, question: cleanQuery });
+  }, [cleanQuery, organizationId, askAIMutation]);
 
-  // Quick actions
-  const quickActions: QuickAction[] = [
-    {
-      id: "inbox",
-      label: "Go to Inbox",
-      description: "View your email inbox",
-      icon: <Inbox className="h-4 w-4" />,
-      shortcut: "G I",
-      action: () => {
-        onOpenChange(false);
-        window.location.href = "/dashboard/email";
-      },
-    },
-    {
-      id: "commitments",
-      label: "View Commitments",
-      description: "See all tracked commitments",
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      shortcut: "G C",
-      action: () => {
-        onOpenChange(false);
-        window.location.href = "/dashboard/commitments";
-      },
-    },
-    {
-      id: "decisions",
-      label: "View Decisions",
-      description: "Browse decision history",
-      icon: <BookOpen className="h-4 w-4" />,
-      shortcut: "G D",
-      action: () => {
-        onOpenChange(false);
-        window.location.href = "/dashboard/decisions";
-      },
-    },
-    {
-      id: "contacts",
-      label: "View Contacts",
-      description: "Relationship intelligence",
-      icon: <Users className="h-4 w-4" />,
-      shortcut: "G R",
-      action: () => {
-        onOpenChange(false);
-        window.location.href = "/dashboard/contacts";
-      },
-    },
-  ];
-
-  // Keyboard shortcuts
+  // Reset state when closed
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        onOpenChange(!open);
-      }
-      if (e.key === "Escape" && open) {
-        onOpenChange(false);
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [open, onOpenChange]);
+    if (!open) {
+      setQuery("");
+      setAiResponse(null);
+      setMode("search");
+      setSelectedIndex(0);
+      setShowSnoozePicker(false);
+    }
+  }, [open]);
 
   // Focus input when opened
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
-      setQuery("");
-      setAiResponse(null);
-      setMode("search");
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   }, [open]);
 
-  const getModeIcon = () => {
-    switch (mode) {
-      case "ask":
-        return <Sparkles className="h-4 w-4 text-purple-500" />;
-      case "navigate":
-        return <ArrowRight className="h-4 w-4 text-blue-500" />;
-      case "action":
-        return <Zap className="h-4 w-4 text-amber-500" />;
-      default:
-        return <Search className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
+  // Keyboard handling
+  useEffect(() => {
+    if (!open) return;
 
-  const getModeLabel = () => {
-    switch (mode) {
-      case "ask":
-        return "Ask your email";
-      case "navigate":
-        return "Navigate to...";
-      case "action":
-        return "Quick action";
-      default:
-        return "Search everything";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Tab to cycle modes
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const currentIndex = MODES.indexOf(mode);
+        if (e.shiftKey) {
+          const prevIndex = (currentIndex - 1 + MODES.length) % MODES.length;
+          setMode(MODES[prevIndex]);
+          // Set query prefix based on mode
+          setQuery(getModePrefix(MODES[prevIndex]));
+        } else {
+          const nextIndex = (currentIndex + 1) % MODES.length;
+          setMode(MODES[nextIndex]);
+          setQuery(getModePrefix(MODES[nextIndex]));
+        }
+        return;
+      }
+
+      // Enter to submit AI query in ask mode
+      if (e.key === "Enter" && mode === "ask" && cleanQuery.length > 2 && !isAskingAI) {
+        e.preventDefault();
+        handleAskAI();
+        return;
+      }
+
+      // Escape to close
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onOpenChange(false);
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, mode, cleanQuery, isAskingAI, handleAskAI, onOpenChange]);
+
+  // Navigation items
+  const navigationItems = [
+    { id: "inbox", label: "Inbox", description: "All your emails", icon: Inbox, path: "/dashboard/email" },
+    { id: "unread", label: "Unread", description: "Unread messages", icon: Bell, path: "/dashboard/email?filter=unread" },
+    { id: "starred", label: "Starred", description: "Important threads", icon: Star, path: "/dashboard/email?filter=starred" },
+    { id: "sent", label: "Sent", description: "Sent messages", icon: Send, path: "/dashboard/email?filter=sent" },
+    { id: "commitments", label: "Commitments", description: "Track promises & tasks", icon: CheckCircle2, path: "/dashboard/commitments" },
+    { id: "decisions", label: "Decisions", description: "Decision history", icon: BookOpen, path: "/dashboard/decisions" },
+    { id: "contacts", label: "Contacts", description: "Relationship intelligence", icon: Users, path: "/dashboard/contacts" },
+    { id: "settings", label: "Settings", description: "Account settings", icon: Settings, path: "/dashboard/settings" },
+  ];
+
+  // Quick actions (shown when no query)
+  const quickActions = [
+    { id: "go-inbox", label: "Go to Inbox", description: "View your emails", icon: Inbox, shortcut: "G I", action: () => handleNavigate("/dashboard/email") },
+    { id: "go-commitments", label: "View Commitments", description: "See tracked commitments", icon: CheckCircle2, shortcut: "G C", action: () => handleNavigate("/dashboard/commitments") },
+    { id: "go-decisions", label: "View Decisions", description: "Browse decision history", icon: BookOpen, shortcut: "G D", action: () => handleNavigate("/dashboard/decisions") },
+    { id: "go-contacts", label: "View Contacts", description: "Relationship intelligence", icon: Users, shortcut: "G R", action: () => handleNavigate("/dashboard/contacts") },
+  ];
+
+  // ==========================================================================
+  // ACTION HANDLERS
+  // ==========================================================================
+
+  const handleArchive = useCallback(() => {
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
     }
-  };
+    archiveMutation.mutate({ threadId: currentThreadId });
+  }, [currentThreadId, archiveMutation]);
+
+  const handleStar = useCallback((star: boolean) => {
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
+    }
+    starMutation.mutate({ threadId: currentThreadId, starred: star });
+  }, [currentThreadId, starMutation]);
+
+  const handleMarkRead = useCallback((read: boolean) => {
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
+    }
+    markReadMutation.mutate({ threadId: currentThreadId, read });
+  }, [currentThreadId, markReadMutation]);
+
+  const handleSnooze = useCallback((until: Date) => {
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
+    }
+    snoozeMutation.mutate({ threadId: currentThreadId, until });
+  }, [currentThreadId, snoozeMutation]);
+
+  const handleDelete = useCallback(() => {
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
+    }
+    deleteMutation.mutate({ threadId: currentThreadId });
+  }, [currentThreadId, deleteMutation]);
+
+  const handleCompose = useCallback(() => {
+    if (!primaryAccountId) {
+      toast.error("No email account connected. Please connect an account first.");
+      return;
+    }
+    setComposeReplyThreadId(null);
+    setShowCompose(true);
+    onOpenChange(false);
+  }, [primaryAccountId, onOpenChange]);
+
+  const handleReply = useCallback(() => {
+    if (!primaryAccountId) {
+      toast.error("No email account connected. Please connect an account first.");
+      return;
+    }
+    if (!currentThreadId) {
+      toast.error("No thread selected. Navigate to a thread first.");
+      return;
+    }
+    setComposeReplyThreadId(currentThreadId);
+    setShowCompose(true);
+    onOpenChange(false);
+  }, [primaryAccountId, currentThreadId, onOpenChange]);
+
+  // Snooze duration options
+  const snoozeOptions = [
+    { label: "Later today", getDate: () => { const d = new Date(); d.setHours(d.getHours() + 3); return d; } },
+    { label: "Tomorrow", getDate: () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; } },
+    { label: "Next week", getDate: () => { const d = new Date(); d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0); return d; } },
+    { label: "In 2 weeks", getDate: () => { const d = new Date(); d.setDate(d.getDate() + 14); d.setHours(9, 0, 0, 0); return d; } },
+    { label: "Next month", getDate: () => { const d = new Date(); d.setMonth(d.getMonth() + 1); d.setHours(9, 0, 0, 0); return d; } },
+  ];
+
+  // Determine if current thread is starred/read
+  const isStarred = currentThread?.thread?.isStarred ?? false;
+  const isRead = currentThread?.thread?.isRead ?? true;
+
+  // Action items - fully functional with thread context
+  const actionItems = [
+    {
+      id: "compose",
+      label: "Compose Email",
+      description: "Start a new conversation",
+      icon: Mail,
+      implemented: true,
+      requiresThread: false,
+      action: handleCompose,
+      shortcut: "C",
+    },
+    {
+      id: "reply",
+      label: "Reply to Thread",
+      description: currentThreadId ? "Reply to current thread" : "Select a thread first",
+      icon: Reply,
+      implemented: true,
+      requiresThread: true,
+      action: handleReply,
+      shortcut: "R",
+    },
+    {
+      id: "archive",
+      label: "Archive Thread",
+      description: currentThreadId ? "Move to archive" : "Select a thread first",
+      icon: Archive,
+      implemented: true,
+      requiresThread: true,
+      action: handleArchive,
+      loading: archiveMutation.isPending,
+    },
+    {
+      id: "star",
+      label: isStarred ? "Remove Star" : "Star Thread",
+      description: currentThreadId ? (isStarred ? "Remove star from thread" : "Mark as important") : "Select a thread first",
+      icon: isStarred ? StarOff : Star,
+      implemented: true,
+      requiresThread: true,
+      action: () => handleStar(!isStarred),
+      loading: starMutation.isPending,
+    },
+    {
+      id: "read",
+      label: isRead ? "Mark as Unread" : "Mark as Read",
+      description: currentThreadId ? (isRead ? "Mark thread as unread" : "Mark thread as read") : "Select a thread first",
+      icon: isRead ? EyeOff : Eye,
+      implemented: true,
+      requiresThread: true,
+      action: () => handleMarkRead(!isRead),
+      loading: markReadMutation.isPending,
+    },
+    {
+      id: "snooze",
+      label: "Snooze Thread",
+      description: currentThreadId ? "Remind me later" : "Select a thread first",
+      icon: Clock,
+      implemented: true,
+      requiresThread: true,
+      action: () => setShowSnoozePicker(true),
+      loading: snoozeMutation.isPending,
+    },
+    {
+      id: "delete",
+      label: "Delete Thread",
+      description: currentThreadId ? "Move to trash" : "Select a thread first",
+      icon: Trash2,
+      implemented: true,
+      requiresThread: true,
+      action: handleDelete,
+      loading: deleteMutation.isPending,
+      danger: true,
+    },
+  ];
+
+  // Filter items based on query
+  const filteredNavItems = cleanQuery
+    ? navigationItems.filter(
+        (item) =>
+          item.label.toLowerCase().includes(cleanQuery.toLowerCase()) ||
+          item.description.toLowerCase().includes(cleanQuery.toLowerCase())
+      )
+    : navigationItems;
+
+  const filteredActions = cleanQuery
+    ? actionItems.filter(
+        (item) =>
+          item.label.toLowerCase().includes(cleanQuery.toLowerCase()) ||
+          item.description.toLowerCase().includes(cleanQuery.toLowerCase())
+      )
+    : actionItems;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 shadow-2xl border-0 bg-background/95 backdrop-blur-xl max-w-2xl">
+      <DialogContent className="overflow-hidden p-0 shadow-2xl border-0 bg-background/98 backdrop-blur-xl w-[800px] max-w-[90vw] gap-0">
         <DialogTitle className="sr-only">Command Bar</DialogTitle>
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-          {/* Input */}
-          <div className="flex items-center border-b px-3 py-2">
-            <div className="mr-2 flex items-center gap-2">
-              {getModeIcon()}
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                {getModeLabel()}
-              </span>
+        <Command
+          className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          shouldFilter={false}
+          loop
+        >
+          {/* Input Area */}
+          <div className="flex items-center border-b px-4 py-3">
+            <div className="mr-3 flex items-center gap-2">
+              <ModeIcon mode={mode} />
             </div>
             <Command.Input
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder="Search, ask questions, or navigate..."
-              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={getPlaceholder(mode)}
+              className="flex-1 h-12 text-lg bg-transparent outline-hidden placeholder:text-muted-foreground/60"
             />
             {mode === "ask" && cleanQuery.length > 2 && (
               <Button
                 size="sm"
-                variant="ghost"
                 onClick={handleAskAI}
                 disabled={isAskingAI}
-                className="ml-2 shrink-0"
+                className="ml-3 shrink-0"
               >
                 {isAskingAI ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-1" />
+                    <Sparkles className="h-4 w-4 mr-2" />
                     Ask AI
                   </>
                 )}
@@ -278,43 +747,64 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
             )}
           </div>
 
-          {/* Mode hints */}
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
-            <Badge
-              variant={mode === "search" ? "default" : "outline"}
-              className="text-[10px] cursor-pointer"
-              onClick={() => setQuery("")}
-            >
-              search
-            </Badge>
-            <Badge
-              variant={mode === "ask" ? "default" : "outline"}
-              className="text-[10px] cursor-pointer"
-              onClick={() => setQuery("? ")}
-            >
-              ? ask AI
-            </Badge>
-            <Badge
-              variant={mode === "navigate" ? "default" : "outline"}
-              className="text-[10px] cursor-pointer"
-              onClick={() => setQuery("> ")}
-            >
-              {">"} navigate
-            </Badge>
-            <Badge
-              variant={mode === "action" ? "default" : "outline"}
-              className="text-[10px] cursor-pointer"
-              onClick={() => setQuery("! ")}
-            >
-              ! action
-            </Badge>
+          {/* Mode Tabs */}
+          <div className="flex items-center gap-1 px-4 py-2 border-b bg-muted/30">
+            {MODES.map((m, index) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setQuery(getModePrefix(m));
+                  inputRef.current?.focus();
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  mode === m
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <ModeIcon mode={m} size="sm" />
+                <span className="capitalize">{m}</span>
+                <kbd className="ml-1 text-[10px] opacity-60">{index + 1}</kbd>
+              </button>
+            ))}
+            <div className="ml-auto text-xs text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted">Tab</kbd> to switch
+            </div>
           </div>
 
-          {/* Results */}
-          <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+          {/* Results Area */}
+          <Command.List
+            ref={listRef}
+            className="max-h-[500px] overflow-y-auto overflow-x-hidden scroll-py-2"
+          >
             <AnimatePresence mode="wait">
+              {/* Loading State */}
+              {(isSearching || isAskingAI) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="p-6"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {isAskingAI ? "AI is thinking..." : "Searching..."}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-3/4" />
+                  </div>
+                </motion.div>
+              )}
+
               {/* AI Response */}
-              {aiResponse && mode === "ask" && (
+              {aiResponse && mode === "ask" && !isAskingAI && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -324,9 +814,8 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                   <AIResponseView
                     response={aiResponse}
                     onCitationClick={(threadId) => {
-                      onOpenChange(false);
                       if (threadId) {
-                        window.location.href = `/dashboard/email/thread/${threadId}`;
+                        handleNavigate(`/dashboard/email/thread/${threadId}`);
                       }
                     }}
                     onFollowUp={(q) => setQuery(`? ${q}`)}
@@ -334,255 +823,367 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                 </motion.div>
               )}
 
-              {/* Loading */}
-              {(isSearching || isAskingAI) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="p-4"
-                >
-                  <div className="space-y-3">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-3/4" />
-                  </div>
-                </motion.div>
-              )}
-
               {/* Search Results */}
-              {!isSearching &&
-                !isAskingAI &&
-                searchResults?.results &&
-                searchResults.results.length > 0 && (
-                  <Command.Group heading="Results">
-                    {searchResults.results.map((result) => (
-                      <SearchResultItem
+              {mode === "search" && !isSearching && searchResults?.results && searchResults.results.length > 0 && (
+                <Command.Group heading="Search Results">
+                  {searchResults.results.map((result) => {
+                    // Map API response to display format
+                    const threadId = (result.metadata?.threadId as string) ?? result.id;
+                    const title = (result.metadata?.subject as string) ??
+                                  (result.metadata?.threadSubject as string) ??
+                                  result.content?.slice(0, 60) ?? "Untitled";
+                    const snippet = result.content?.slice(0, 150) ?? "";
+
+                    return (
+                      <CommandItem
                         key={result.id}
-                        result={result as SearchResult}
                         onSelect={() => {
-                          onOpenChange(false);
-                          if (result.metadata?.threadId) {
-                            window.location.href = `/dashboard/email/thread/${result.metadata.threadId}`;
+                          if (result.type === "thread") {
+                            handleNavigate(`/dashboard/email/thread/${result.id}`);
+                          } else if (threadId) {
+                            handleNavigate(`/dashboard/email/thread/${threadId}`);
                           }
                         }}
-                      />
-                    ))}
-                  </Command.Group>
-                )}
+                      >
+                        <ResultIcon type={result.type} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{title}</span>
+                            <ConfidenceBadge confidence={result.score} />
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-1">
+                            {snippet}
+                          </p>
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </Command.Group>
+              )}
 
-              {/* Quick Actions */}
-              {!query && (
-                <Command.Group heading="Quick Actions">
-                  {quickActions.map((action) => (
-                    <Command.Item
-                      key={action.id}
-                      value={action.label}
-                      onSelect={action.action}
-                      className="flex items-center gap-3 cursor-pointer"
+              {/* Navigate Mode */}
+              {mode === "navigate" && !isSearching && (
+                <Command.Group heading="Navigate To">
+                  {filteredNavItems.map((item) => (
+                    <CommandItem
+                      key={item.id}
+                      onSelect={() => handleNavigate(item.path)}
                     >
-                      <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background">
-                        {action.icon}
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background">
+                        <item.icon className="h-5 w-5" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{action.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {action.description}
+                        <span className="font-medium">{item.label}</span>
+                        <p className="text-sm text-muted-foreground">
+                          {item.description}
                         </p>
                       </div>
-                      {action.shortcut && (
-                        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-                          {action.shortcut}
-                        </kbd>
-                      )}
-                    </Command.Item>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </CommandItem>
                   ))}
                 </Command.Group>
               )}
 
-              {/* Navigation */}
-              {mode === "navigate" && (
-                <Command.Group heading="Navigate">
-                  <NavigationItem
-                    icon={<Inbox />}
-                    label="Inbox"
-                    description="All your emails"
-                    href="/dashboard/email"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<Star />}
-                    label="Starred"
-                    description="Important threads"
-                    href="/dashboard/email?filter=starred"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<Clock />}
-                    label="Snoozed"
-                    description="Come back later"
-                    href="/dashboard/email?filter=snoozed"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<Archive />}
-                    label="Archive"
-                    description="Archived threads"
-                    href="/dashboard/email?filter=archived"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<CheckCircle2 />}
-                    label="Commitments"
-                    description="Track promises & tasks"
-                    href="/dashboard/commitments"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<BookOpen />}
-                    label="Decisions"
-                    description="Decision history"
-                    href="/dashboard/decisions"
-                    onSelect={() => onOpenChange(false)}
-                  />
-                  <NavigationItem
-                    icon={<Users />}
-                    label="Contacts"
-                    description="Relationship intelligence"
-                    href="/dashboard/contacts"
-                    onSelect={() => onOpenChange(false)}
-                  />
+              {/* Action Mode */}
+              {mode === "action" && !isSearching && !showSnoozePicker && (
+                <Command.Group heading={currentThreadId ? `Actions for "${currentThread?.thread?.subject?.slice(0, 30) ?? 'Thread'}..."` : "Actions"}>
+                  {!currentThreadId && (
+                    <div className="px-4 py-2 mb-2 bg-amber-500/10 border border-amber-500/20 rounded-lg mx-2">
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
+                        Navigate to a thread to enable thread actions
+                      </p>
+                    </div>
+                  )}
+                  {filteredActions.length > 0 ? (
+                    filteredActions.map((item) => {
+                      const isDisabled = !item.implemented || (item.requiresThread && !currentThreadId);
+                      const isLoading = 'loading' in item && item.loading;
+                      const isDanger = 'danger' in item && item.danger;
+
+                      return (
+                        <CommandItem
+                          key={item.id}
+                          onSelect={() => {
+                            if (isDisabled || isLoading) return;
+                            item.action();
+                          }}
+                        >
+                          <div className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-lg border bg-background shrink-0",
+                            isDisabled && "opacity-50",
+                            isDanger && "border-red-500/30 bg-red-500/5"
+                          )}>
+                            {isLoading ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <item.icon className={cn("h-5 w-5", isDanger && "text-red-500")} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <span className={cn(
+                              "font-medium",
+                              isDisabled && "text-muted-foreground",
+                              isDanger && "text-red-500"
+                            )}>
+                              {item.label}
+                            </span>
+                            <p className="text-sm text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                          {!item.implemented ? (
+                            <Badge variant="outline" className="text-xs">Soon</Badge>
+                          ) : item.requiresThread && !currentThreadId ? (
+                            <Badge variant="outline" className="text-xs text-amber-500">Needs thread</Badge>
+                          ) : (
+                            <Zap className={cn("h-4 w-4", isDanger ? "text-red-500" : "text-amber-500")} />
+                          )}
+                        </CommandItem>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No actions match your search
+                    </div>
+                  )}
                 </Command.Group>
               )}
 
-              {/* Actions */}
-              {mode === "action" && (
-                <Command.Group heading="Actions">
-                  <ActionItem
-                    icon={<MessageSquare />}
-                    label="Compose new email"
-                    description="Start a new conversation"
-                    onSelect={() => {
-                      onOpenChange(false);
-                      // TODO: Open compose modal
-                    }}
-                  />
-                  <ActionItem
-                    icon={<Bell />}
-                    label="Mark all as read"
-                    description="Clear unread notifications"
-                    onSelect={() => {
-                      onOpenChange(false);
-                      // TODO: Mark all read
-                    }}
-                  />
-                  <ActionItem
-                    icon={<Calendar />}
-                    label="Schedule follow-up"
-                    description="Set a reminder"
-                    onSelect={() => {
-                      onOpenChange(false);
-                      // TODO: Open scheduler
-                    }}
-                  />
-                  <ActionItem
-                    icon={<Tag />}
-                    label="Apply label"
-                    description="Organize with labels"
-                    onSelect={() => {
-                      onOpenChange(false);
-                      // TODO: Open label picker
-                    }}
-                  />
+              {/* Snooze Picker */}
+              {mode === "action" && showSnoozePicker && (
+                <Command.Group heading="Snooze Until">
+                  <div className="px-4 py-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSnoozePicker(false)}
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      ← Back to actions
+                    </button>
+                  </div>
+                  {snoozeOptions.map((option) => (
+                    <CommandItem
+                      key={option.label}
+                      onSelect={() => handleSnooze(option.getDate())}
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background shrink-0">
+                        <Clock className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-medium">{option.label}</span>
+                        <p className="text-sm text-muted-foreground">
+                          {option.getDate().toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </CommandItem>
+                  ))}
                 </Command.Group>
               )}
 
-              {/* Empty state */}
-              {!isSearching &&
-                !isAskingAI &&
+              {/* Quick Actions (No Query) */}
+              {!query && mode === "search" && (
+                <>
+                  <Command.Group heading="Quick Actions">
+                    {quickActions.map((action) => (
+                      <CommandItem key={action.id} onSelect={action.action}>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background">
+                          <action.icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium">{action.label}</span>
+                          <p className="text-sm text-muted-foreground">
+                            {action.description}
+                          </p>
+                        </div>
+                        {action.shortcut && (
+                          <kbd className="hidden sm:flex h-6 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
+                            {action.shortcut}
+                          </kbd>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </Command.Group>
+                  <Command.Group heading="Tips">
+                    <div className="px-4 py-3 text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">?</kbd> Ask AI a question about your emails
+                      </p>
+                      <p>
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">{">"}</kbd> Navigate to any page
+                      </p>
+                      <p>
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">!</kbd> Execute an action
+                      </p>
+                    </div>
+                  </Command.Group>
+                </>
+              )}
+
+              {/* Empty State */}
+              {mode === "search" &&
+                !isSearching &&
                 cleanQuery.length > 2 &&
-                searchResults?.results?.length === 0 && (
-                  <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
-                    No results found. Try asking AI with "? {cleanQuery}"
-                  </Command.Empty>
+                (!searchResults?.results || searchResults.results.length === 0) && (
+                  <div className="py-12 text-center">
+                    <Search className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                    <p className="text-sm text-muted-foreground">
+                      No results found for "{cleanQuery}"
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Try asking AI: <button
+                        type="button"
+                        onClick={() => setQuery(`? ${cleanQuery}`)}
+                        className="text-primary hover:underline"
+                      >
+                        ? {cleanQuery}
+                      </button>
+                    </p>
+                  </div>
                 )}
             </AnimatePresence>
           </Command.List>
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <kbd className="rounded bg-muted px-1">↵</kbd> select
+          <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-muted-foreground bg-muted/30">
+            <div className="flex items-center gap-6">
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-background border">↵</kbd>
+                <span>select</span>
               </span>
-              <span className="flex items-center gap-1">
-                <kbd className="rounded bg-muted px-1">↑↓</kbd> navigate
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-background border">↑↓</kbd>
+                <span>navigate</span>
               </span>
-              <span className="flex items-center gap-1">
-                <kbd className="rounded bg-muted px-1">esc</kbd> close
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-background border">Tab</kbd>
+                <span>switch mode</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-background border">Esc</kbd>
+                <span>close</span>
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              <Sparkles className="h-3 w-3" />
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-purple-500" />
               <span>AI-powered search</span>
             </div>
           </div>
         </Command>
       </DialogContent>
     </Dialog>
+
+    {/* Compose Dialog */}
+    {organizationId && primaryAccountId && (
+      <ComposeDialog
+        open={showCompose}
+        onOpenChange={setShowCompose}
+        organizationId={organizationId}
+        accountId={primaryAccountId}
+        replyToThreadId={composeReplyThreadId ?? undefined}
+      />
+    )}
+    </>
   );
 }
 
 // =============================================================================
-// SUB-COMPONENTS
+// HELPER COMPONENTS
 // =============================================================================
 
-function SearchResultItem({
-  result,
+function CommandItem({
+  children,
   onSelect,
+  className,
 }: {
-  result: SearchResult;
+  children: React.ReactNode;
   onSelect: () => void;
+  className?: string;
 }) {
-  const getTypeIcon = () => {
-    switch (result.type) {
-      case "thread":
-        return <MessageSquare className="h-4 w-4" />;
-      case "commitment":
-        return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
-      case "decision":
-        return <BookOpen className="h-4 w-4 text-purple-500" />;
-      case "contact":
-        return <Users className="h-4 w-4 text-green-500" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
-
   return (
     <Command.Item
-      value={result.title}
       onSelect={onSelect}
-      className="flex items-start gap-3 cursor-pointer"
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 cursor-pointer rounded-lg mx-2 my-0.5",
+        "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        "data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground",
+        "hover:bg-accent/50 transition-colors",
+        className
+      )}
     >
-      <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background shrink-0 mt-0.5">
-        {getTypeIcon()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium truncate">{result.title}</p>
-          <ConfidenceBadge confidence={result.confidence} />
-        </div>
-        <p className="text-xs text-muted-foreground line-clamp-2">
-          {result.snippet}
-        </p>
-        {result.metadata?.date && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {result.metadata.sender} • {result.metadata.date}
-          </p>
-        )}
-      </div>
+      {children}
     </Command.Item>
   );
+}
+
+function ModeIcon({ mode, size = "md" }: { mode: CommandMode; size?: "sm" | "md" }) {
+  const sizeClass = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+
+  switch (mode) {
+    case "ask":
+      return <Sparkles className={cn(sizeClass, "text-purple-500")} />;
+    case "navigate":
+      return <ArrowRight className={cn(sizeClass, "text-blue-500")} />;
+    case "action":
+      return <Zap className={cn(sizeClass, "text-amber-500")} />;
+    default:
+      return <Search className={cn(sizeClass, "text-muted-foreground")} />;
+  }
+}
+
+function ResultIcon({ type }: { type: string }) {
+  const iconClass = "h-5 w-5";
+  const wrapperClass = "flex h-10 w-10 items-center justify-center rounded-lg border bg-background shrink-0";
+
+  switch (type) {
+    case "thread":
+      return (
+        <div className={wrapperClass}>
+          <MessageSquare className={iconClass} />
+        </div>
+      );
+    case "message":
+      return (
+        <div className={cn(wrapperClass, "border-sky-500/30 bg-sky-500/5")}>
+          <FileText className={cn(iconClass, "text-sky-500")} />
+        </div>
+      );
+    case "claim":
+      return (
+        <div className={cn(wrapperClass, "border-purple-500/30 bg-purple-500/5")}>
+          <Sparkles className={cn(iconClass, "text-purple-500")} />
+        </div>
+      );
+    case "commitment":
+      return (
+        <div className={cn(wrapperClass, "border-blue-500/30 bg-blue-500/5")}>
+          <CheckCircle2 className={cn(iconClass, "text-blue-500")} />
+        </div>
+      );
+    case "decision":
+      return (
+        <div className={cn(wrapperClass, "border-amber-500/30 bg-amber-500/5")}>
+          <BookOpen className={cn(iconClass, "text-amber-500")} />
+        </div>
+      );
+    case "contact":
+      return (
+        <div className={cn(wrapperClass, "border-green-500/30 bg-green-500/5")}>
+          <Users className={cn(iconClass, "text-green-500")} />
+        </div>
+      );
+    default:
+      return (
+        <div className={wrapperClass}>
+          <FileText className={iconClass} />
+        </div>
+      );
+  }
 }
 
 function AIResponseView({
@@ -597,15 +1198,13 @@ function AIResponseView({
   return (
     <div className="space-y-4">
       {/* Answer */}
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
-          <Sparkles className="h-4 w-4 text-purple-500" />
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
+          <Sparkles className="h-5 w-5 text-purple-500" />
         </div>
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-purple-500">
-              AI Answer
-            </span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-semibold text-purple-500">AI Answer</span>
             <ConfidenceBadge confidence={response.confidence} />
           </div>
           <p className="text-sm leading-relaxed">{response.answer}</p>
@@ -614,27 +1213,28 @@ function AIResponseView({
 
       {/* Citations */}
       {response.citations.length > 0 && (
-        <div className="pl-11 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Sources:</p>
-          <div className="space-y-1.5">
+        <div className="pl-14 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Sources
+          </p>
+          <div className="grid gap-2">
             {response.citations.map((citation, i) => (
               <button
                 key={citation.id}
                 type="button"
                 onClick={() => onCitationClick(citation.threadId)}
-                className="flex items-start gap-2 w-full text-left p-2 rounded-md border bg-muted/30 hover:bg-muted/50 transition-colors"
+                className="flex items-start gap-3 w-full text-left p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
               >
-                <span className="flex items-center justify-center h-5 w-5 rounded bg-purple-500/10 text-purple-500 text-[10px] font-medium shrink-0">
+                <span className="flex items-center justify-center h-6 w-6 rounded-md bg-purple-500/10 text-purple-500 text-xs font-bold shrink-0">
                   {i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">
-                    {citation.source}
-                  </p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">
+                  <p className="text-sm font-medium truncate">{citation.source}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                     {citation.text}
                   </p>
                 </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </button>
             ))}
           </div>
@@ -643,17 +1243,17 @@ function AIResponseView({
 
       {/* Follow-up questions */}
       {response.followUpQuestions && response.followUpQuestions.length > 0 && (
-        <div className="pl-11 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Related questions:
+        <div className="pl-14 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Related Questions
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {response.followUpQuestions.map((q) => (
               <button
                 key={q}
                 type="button"
                 onClick={() => onFollowUp(q)}
-                className="text-xs px-2 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
+                className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted transition-colors"
               >
                 {q}
               </button>
@@ -665,103 +1265,47 @@ function AIResponseView({
   );
 }
 
-function NavigationItem({
-  icon,
-  label,
-  description,
-  href,
-  onSelect,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  href: string;
-  onSelect: () => void;
-}) {
-  return (
-    <Command.Item
-      value={label}
-      onSelect={() => {
-        onSelect();
-        window.location.href = href;
-      }}
-      className="flex items-center gap-3 cursor-pointer"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-    </Command.Item>
-  );
-}
-
-function ActionItem({
-  icon,
-  label,
-  description,
-  onSelect,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  onSelect: () => void;
-}) {
-  return (
-    <Command.Item
-      value={label}
-      onSelect={onSelect}
-      className="flex items-center gap-3 cursor-pointer"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-    </Command.Item>
-  );
-}
-
 function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const level =
-    confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
+  const level = confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
   const colors = {
-    high: "bg-green-500/10 text-green-600 border-green-500/20",
-    medium: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    low: "bg-red-500/10 text-red-600 border-red-500/20",
+    high: "bg-green-500/10 text-green-600 border-green-500/30",
+    medium: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+    low: "bg-red-500/10 text-red-600 border-red-500/30",
   };
 
   return (
-    <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${colors[level]}`}
-    >
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border", colors[level])}>
       {Math.round(confidence * 100)}%
     </span>
   );
 }
 
 // =============================================================================
-// HOOK FOR GLOBAL COMMAND BAR
+// HELPERS
 // =============================================================================
 
-export function useCommandBar() {
-  const [open, setOpen] = useState(false);
+function getModePrefix(mode: CommandMode): string {
+  switch (mode) {
+    case "ask":
+      return "? ";
+    case "navigate":
+      return "> ";
+    case "action":
+      return "! ";
+    default:
+      return "";
+  }
+}
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
-
-  return { open, setOpen };
+function getPlaceholder(mode: CommandMode): string {
+  switch (mode) {
+    case "ask":
+      return "Ask a question about your emails...";
+    case "navigate":
+      return "Navigate to...";
+    case "action":
+      return "Execute an action...";
+    default:
+      return "Search emails, commitments, decisions...";
+  }
 }

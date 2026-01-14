@@ -1,5 +1,5 @@
 {
-  "name": "@saas-template/env",
+  "name": "@memorystack/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@saas-template/config": "workspace:*",
+    "@memorystack/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

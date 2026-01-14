@@ -1,4 +1,4 @@
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   creditPackage,
   creditTransaction,
@@ -6,7 +6,7 @@ import {
   PLAN_CREDITS,
   TOKEN_TO_CREDIT_RATIO,
   TRIAL_CONFIG,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 // ============================================================================

@@ -1,5 +1,5 @@
-import { db } from "@saas-template/db";
-import { featureFlag } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { featureFlag } from "@memorystack/db/schema";
 import { eq } from "drizzle-orm";
 
 export interface FeatureFlagContext {

@@ -66,9 +66,31 @@ export async function fetchThreadsParallel(
 
     // Process results
     for (const result of results) {
-      if (result.status === "fulfilled" && result.value.thread) {
-        threads.push(result.value.thread);
-        fetchedCount++;
+      if (result.status === "fulfilled") {
+        if (result.value.thread) {
+          // Verify thread has messages before adding
+          const msgCount = result.value.thread.messages?.length ?? 0;
+          if (msgCount > 0) {
+            threads.push(result.value.thread);
+            fetchedCount++;
+          } else {
+            log.warn("Thread fetched but has no messages", {
+              threadId: result.value.threadId,
+              messageCount: msgCount,
+            });
+            errors.push({
+              code: "NO_MESSAGES",
+              message: `Thread ${result.value.threadId} has no messages`,
+              threadId: result.value.threadId,
+              retryable: true,
+            });
+          }
+        } else {
+          // Thread returned null (not found or empty)
+          log.debug("Thread fetch returned null", {
+            threadId: result.value.threadId,
+          });
+        }
       } else if (result.status === "rejected") {
         errors.push({
           code: "FETCH_ERROR",

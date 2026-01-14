@@ -6,8 +6,8 @@
 // Handles job management, concurrency control, and error recovery.
 //
 
-import { db } from "@saas-template/db";
-import { emailAccount } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailAccount } from "@memorystack/db/schema";
 import { and, eq, or } from "drizzle-orm";
 import { safeDecryptToken } from "../crypto/tokens";
 import {

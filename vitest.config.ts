@@ -22,10 +22,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@saas-template/db": path.resolve(__dirname, "./packages/db/src"),
-      "@saas-template/api": path.resolve(__dirname, "./packages/api/src"),
-      "@saas-template/auth": path.resolve(__dirname, "./packages/auth/src"),
-      "@saas-template/env": path.resolve(__dirname, "./packages/env/src"),
+      "@memorystack/db": path.resolve(__dirname, "./packages/db/src"),
+      "@memorystack/api": path.resolve(__dirname, "./packages/api/src"),
+      "@memorystack/auth": path.resolve(__dirname, "./packages/auth/src"),
+      "@memorystack/env": path.resolve(__dirname, "./packages/env/src"),
     },
   },
 });

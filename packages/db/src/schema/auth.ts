@@ -1,5 +1,40 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+// =============================================================================
+// USER AI SETTINGS TYPE
+// =============================================================================
+
+/**
+ * AI settings for email composition and responses
+ */
+export interface UserAISettings {
+  /** User's job title (e.g., "Software Engineer", "Product Manager") */
+  title?: string;
+  /** User's company name */
+  company?: string;
+  /** User's department */
+  department?: string;
+  /** Email signature to use in AI-generated emails */
+  signature?: string;
+  /** Preferred tone for AI responses */
+  preferredTone?: "formal" | "casual" | "professional" | "friendly";
+  /** Default email sign-off (e.g., "Best regards", "Thanks") */
+  signOff?: string;
+  /** Phone number for inclusion in emails */
+  phone?: string;
+  /** LinkedIn URL for inclusion in signature */
+  linkedinUrl?: string;
+  /** Calendar booking link (e.g., Calendly URL) */
+  calendarBookingLink?: string;
+  /** Working hours for availability suggestions */
+  workingHours?: {
+    timezone: string;
+    start: string; // e.g., "09:00"
+    end: string;   // e.g., "17:00"
+    workDays: number[]; // 0-6, where 0 is Sunday
+  };
+}
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -14,6 +49,8 @@ export const user = pgTable("user", {
   banExpires: timestamp("ban_expires"),
   // Two-factor authentication field
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  // AI settings for email composition
+  aiSettings: jsonb("ai_settings").$type<UserAISettings>().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -218,17 +255,76 @@ export const notification = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     type: text("type").notNull(), // info, success, warning, error, system
+    category: text("category").notNull().default("system"), // commitment, decision, calendar, email, system
     title: text("title").notNull(),
     message: text("message").notNull(),
     link: text("link"), // Optional link to navigate to
     read: boolean("read").default(false).notNull(),
     metadata: text("metadata"), // JSON string for additional data
+    // Enhanced fields for smart notifications
+    priority: text("priority").default("normal"), // low, normal, high, urgent
+    groupKey: text("group_key"), // For grouping similar notifications
+    entityId: text("entity_id"), // Reference to commitment/decision/thread ID
+    entityType: text("entity_type"), // commitment, decision, thread, contact
+    actionRequired: boolean("action_required").default(false),
+    actionType: text("action_type"), // respond, review, snooze
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("notification_userId_idx").on(table.userId),
     index("notification_userId_read_idx").on(table.userId, table.read),
+    index("notification_userId_category_idx").on(table.userId, table.category),
+    index("notification_groupKey_idx").on(table.groupKey),
   ]
+);
+
+// Notification preferences table
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" })
+      .unique(),
+
+    // Channel preferences
+    inAppEnabled: boolean("in_app_enabled").default(true).notNull(),
+    emailDigestEnabled: boolean("email_digest_enabled").default(true).notNull(),
+    emailDigestFrequency: text("email_digest_frequency").default("daily"), // daily, weekly, realtime, never
+
+    // Commitment notifications
+    commitmentsNewEnabled: boolean("commitments_new_enabled").default(true).notNull(),
+    commitmentsDueEnabled: boolean("commitments_due_enabled").default(true).notNull(),
+    commitmentsOverdueEnabled: boolean("commitments_overdue_enabled").default(true).notNull(),
+
+    // Decision notifications
+    decisionsNewEnabled: boolean("decisions_new_enabled").default(true).notNull(),
+    decisionsSupersededEnabled: boolean("decisions_superseded_enabled").default(true).notNull(),
+
+    // Calendar notifications
+    calendarRemindersEnabled: boolean("calendar_reminders_enabled").default(true).notNull(),
+
+    // Email notifications
+    emailUrgentEnabled: boolean("email_urgent_enabled").default(true).notNull(),
+    emailImportantEnabled: boolean("email_important_enabled").default(true).notNull(),
+
+    // System notifications
+    syncStatusEnabled: boolean("sync_status_enabled").default(false).notNull(),
+
+    // Quiet hours
+    quietHoursEnabled: boolean("quiet_hours_enabled").default(false).notNull(),
+    quietHoursStart: text("quiet_hours_start").default("22:00"),
+    quietHoursEnd: text("quiet_hours_end").default("08:00"),
+    quietHoursTimezone: text("quiet_hours_timezone"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("notification_preferences_userId_idx").on(table.userId)]
 );
 
 // File uploads table
@@ -287,6 +383,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   webhooks: many(webhook),
   fileUploads: many(fileUpload),
   notifications: many(notification),
+  notificationPreferences: one(notificationPreferences),
 }));
 
 export const apiKeyRelations = relations(apiKey, ({ one }) => ({
@@ -358,3 +455,13 @@ export const notificationRelations = relations(notification, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const notificationPreferencesRelations = relations(
+  notificationPreferences,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [notificationPreferences.userId],
+      references: [user.id],
+    }),
+  })
+);

@@ -2,7 +2,16 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+// Skip validation during Trigger.dev build/indexing process or when explicitly requested
+// Trigger.dev indexing runs in a worker context without env vars loaded
+const skipValidation =
+  !!process.env.SKIP_ENV_VALIDATION ||
+  process.env.NODE_ENV === "test" ||
+  // Detect Trigger.dev indexing context (no DATABASE_URL but has trigger-specific indicators)
+  (!process.env.DATABASE_URL && !process.env.BETTER_AUTH_SECRET);
+
 export const env = createEnv({
+  skipValidation,
   server: {
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
@@ -40,6 +49,12 @@ export const env = createEnv({
 
     // Token encryption key (32 bytes, base64 encoded for AES-256-GCM)
     TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
+
+    // Gmail Push Notifications (Google Cloud Pub/Sub)
+    // Topic name for Gmail to send notifications to (e.g., "projects/my-project/topics/gmail-push")
+    GMAIL_PUBSUB_TOPIC: z.string().optional(),
+    // Secret token to verify webhook requests come from Google
+    GMAIL_WEBHOOK_SECRET: z.string().optional(),
 
     // Email (Resend)
     RESEND_API_KEY: z.string().optional(),

@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { CommandBarProvider } from "@/components/email/command-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { trpc } from "@/utils/trpc";
@@ -23,12 +24,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "SaaS Template - Find and convert leads at lightning speed",
+        title: "MEMORYSTACK - AI Email Intelligence Platform",
       },
       {
         name: "description",
         content:
-          "SaaS Template streamlines your prospecting workflow. Discover high-quality leads, automate outreach, and close deals faster with AI-powered intelligence.",
+          "MEMORYSTACK transforms your inbox into an intelligent memory system. Never forget commitments, track decisions, and get AI-powered insights from your email history.",
       },
     ],
     links: [
@@ -50,7 +51,9 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <Outlet />
+        <CommandBarProvider>
+          <Outlet />
+        </CommandBarProvider>
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />

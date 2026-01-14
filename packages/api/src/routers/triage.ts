@@ -5,7 +5,7 @@
 // API for triage automation - action suggestions, rules, and inbox summaries.
 //
 
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   emailAccount,
   emailThread,
@@ -13,7 +13,7 @@ import {
   type TriageRuleTrigger,
   triageResult,
   triageRule,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +24,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const listSuggestionsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
@@ -43,12 +43,12 @@ const listSuggestionsSchema = z.object({
 });
 
 const getSuggestionSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
 });
 
 const applySuggestionSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
   accepted: z.boolean(),
   feedback: z.string().optional(),
@@ -56,13 +56,13 @@ const applySuggestionSchema = z.object({
 });
 
 const listRulesSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
   enabled: z.boolean().optional(),
 });
 
 const createRuleSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
   name: z.string().min(1).max(100),
   description: z.string().optional(),
@@ -77,7 +77,7 @@ const createRuleSchema = z.object({
 });
 
 const updateRuleSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   ruleId: z.string().uuid(),
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
@@ -95,12 +95,12 @@ const updateRuleSchema = z.object({
 });
 
 const deleteRuleSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   ruleId: z.string().uuid(),
 });
 
 const getInboxSummarySchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
 });
 
@@ -431,7 +431,7 @@ export const triageRouter = router({
   getRule: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         ruleId: z.string().uuid(),
       })
     )
@@ -566,7 +566,7 @@ export const triageRouter = router({
   toggleRule: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         ruleId: z.string().uuid(),
       })
     )
@@ -605,7 +605,7 @@ export const triageRouter = router({
   getSuggestedRules: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
       })
     )
@@ -634,7 +634,7 @@ export const triageRouter = router({
   acceptSuggestedRule: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         ruleId: z.string().uuid(),
       })
     )

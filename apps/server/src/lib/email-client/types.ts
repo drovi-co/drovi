@@ -207,6 +207,86 @@ export interface SyncDelta {
 }
 
 // =============================================================================
+// COMPOSE INPUT TYPES
+// =============================================================================
+
+/**
+ * Attachment for composing/sending an email
+ */
+export interface ComposeAttachment {
+  /** Original filename */
+  filename: string;
+  /** MIME type (e.g., "application/pdf", "image/png") */
+  mimeType: string;
+  /** Size in bytes */
+  size: number;
+  /** Base64-encoded file content */
+  content: string;
+  /** Optional content ID for inline attachments */
+  contentId?: string;
+  /** Whether this is an inline attachment (embedded in HTML) */
+  isInline?: boolean;
+}
+
+/**
+ * Input for composing/sending an email
+ */
+export interface EmailComposeInput {
+  /** Recipients */
+  to: EmailRecipient[];
+  /** CC recipients */
+  cc?: EmailRecipient[];
+  /** BCC recipients */
+  bcc?: EmailRecipient[];
+  /** Email subject */
+  subject: string;
+  /** Plain text body */
+  bodyText?: string;
+  /** HTML body */
+  bodyHtml?: string;
+  /** Message-ID header for threading (In-Reply-To) */
+  inReplyTo?: string;
+  /** Reference message IDs for threading */
+  references?: string[];
+  /** Provider thread ID for replies */
+  threadId?: string;
+  /** File attachments */
+  attachments?: ComposeAttachment[];
+}
+
+/**
+ * Input for creating/updating a draft
+ */
+export interface DraftInput extends EmailComposeInput {
+  /** Existing draft ID (for updates) */
+  draftId?: string;
+}
+
+/**
+ * Result of sending an email
+ */
+export interface SendResult {
+  /** Provider message ID */
+  messageId: string;
+  /** Provider thread ID */
+  threadId: string;
+  /** Timestamp when sent */
+  sentAt: Date;
+}
+
+/**
+ * Result of creating/updating a draft
+ */
+export interface DraftResult {
+  /** Provider draft ID */
+  draftId: string;
+  /** Provider message ID */
+  messageId: string;
+  /** Provider thread ID (if part of a thread) */
+  threadId?: string;
+}
+
+// =============================================================================
 // EMAIL CLIENT INTERFACE
 // =============================================================================
 
@@ -320,6 +400,45 @@ export interface EmailClient {
    * @returns Array of label objects with id and name
    */
   listLabels(): Promise<Array<{ id: string; name: string; type: string }>>;
+
+  // ---------------------------------------------------------------------------
+  // Compose Operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send an email message
+   * @param input - Email compose input
+   * @returns Send result with message ID and thread ID
+   */
+  sendMessage(input: EmailComposeInput): Promise<SendResult>;
+
+  /**
+   * Create a draft email
+   * @param input - Draft input
+   * @returns Draft result with draft ID
+   */
+  createDraft(input: DraftInput): Promise<DraftResult>;
+
+  /**
+   * Update an existing draft
+   * @param draftId - Provider draft ID
+   * @param input - Updated draft input
+   * @returns Updated draft result
+   */
+  updateDraft(draftId: string, input: DraftInput): Promise<DraftResult>;
+
+  /**
+   * Delete a draft
+   * @param draftId - Provider draft ID
+   */
+  deleteDraft(draftId: string): Promise<void>;
+
+  /**
+   * Get a draft by ID
+   * @param draftId - Provider draft ID
+   * @returns Draft message data, or null if not found
+   */
+  getDraft(draftId: string): Promise<EmailMessageData | null>;
 }
 
 // =============================================================================

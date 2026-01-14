@@ -12,12 +12,18 @@ import {
   type DbClaimFormat,
   type OpenLoop,
   type ThreadInput,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
-import { claim, emailThread } from "@saas-template/db/schema";
+} from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
+import { claim, contact, emailThread } from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { log } from "../lib/logger";
+import { extractCommitmentsTask } from "./commitment-extraction";
+import { extractDecisionsTask } from "./decision-extraction";
+import { embedThreadTask } from "./embedding-generation";
+import { analyzeContactTask } from "./relationship-analysis";
+import { analyzeIncomingMessageTask } from "./risk-analysis";
+import { triageThreadTask } from "./triage-analysis";
 
 // =============================================================================
 // TYPES
@@ -135,6 +141,73 @@ export const analyzeThreadTask = task({
         analysis.claims.requests.length +
         analysis.claims.questions.length +
         analysis.claims.decisions.length;
+
+      // Trigger downstream AI agents for deeper extraction
+      const hasPromisesOrRequests =
+        analysis.claims.promises.length > 0 ||
+        analysis.claims.requests.length > 0;
+      const hasDecisions = analysis.claims.decisions.length > 0;
+
+      // 1. Commitment Extraction (if promises/requests found)
+      if (hasPromisesOrRequests) {
+        log.info("Triggering commitment extraction", { threadId });
+        await extractCommitmentsTask.trigger({ threadId });
+      }
+
+      // 2. Decision Extraction (if decisions found)
+      if (hasDecisions) {
+        log.info("Triggering decision extraction", { threadId });
+        await extractDecisionsTask.trigger({ threadId });
+      }
+
+      // 3. Triage Analysis (always - for inbox automation)
+      log.info("Triggering triage analysis", { threadId });
+      await triageThreadTask.trigger({
+        threadId,
+        accountId: thread.accountId,
+      });
+
+      // 4. Embedding Generation (always - for semantic search)
+      log.info("Triggering embedding generation", { threadId });
+      await embedThreadTask.trigger({ threadId });
+
+      // 5. Risk Analysis (for each new message in thread)
+      const newMessages = thread.messages.filter(
+        (m) => !m.isFromUser // Analyze incoming messages for risk
+      );
+      for (const message of newMessages.slice(-3)) {
+        // Last 3 incoming messages
+        log.info("Triggering risk analysis for message", {
+          threadId,
+          messageId: message.id,
+        });
+        await analyzeIncomingMessageTask.trigger({
+          messageId: message.id,
+          accountId: thread.accountId,
+          threadId,
+        });
+      }
+
+      // 6. Extract and create contacts, then trigger relationship analysis
+      const extractedContactIds = await extractAndUpsertContacts(
+        thread.account.organizationId,
+        thread.messages,
+        thread.account.email
+      );
+
+      log.info("Extracted contacts from thread", {
+        threadId,
+        contactCount: extractedContactIds.length,
+      });
+
+      // Trigger relationship analysis for each contact
+      for (const contactId of extractedContactIds) {
+        log.info("Triggering relationship analysis for contact", {
+          threadId,
+          contactId,
+        });
+        await analyzeContactTask.trigger({ contactId });
+      }
 
       return {
         success: true,
@@ -482,4 +555,105 @@ function getSuggestedAction(
     default:
       return "review";
   }
+}
+
+/**
+ * Extract and upsert contacts from thread messages.
+ * Returns the list of created/updated contact IDs.
+ */
+async function extractAndUpsertContacts(
+  organizationId: string,
+  messages: Array<{
+    fromEmail: string;
+    fromName: string | null;
+    isFromUser: boolean;
+    toRecipients: unknown;
+    ccRecipients: unknown;
+  }>,
+  userEmail: string
+): Promise<string[]> {
+  const contactIds: string[] = [];
+  const seenEmails = new Set<string>();
+  const userEmailLower = userEmail.toLowerCase();
+
+  // Extract all participants (excluding user)
+  const participants: Array<{ email: string; name?: string }> = [];
+
+  for (const message of messages) {
+    // Add sender if not user
+    if (!message.isFromUser && message.fromEmail) {
+      const email = message.fromEmail.toLowerCase();
+      if (!seenEmails.has(email) && email !== userEmailLower) {
+        seenEmails.add(email);
+        participants.push({
+          email: message.fromEmail,
+          name: message.fromName ?? undefined,
+        });
+      }
+    }
+
+    // Add recipients
+    const toRecipients =
+      (message.toRecipients as Array<{ email: string; name?: string }>) || [];
+    const ccRecipients =
+      (message.ccRecipients as Array<{ email: string; name?: string }>) || [];
+
+    for (const recipient of [...toRecipients, ...ccRecipients]) {
+      if (recipient.email) {
+        const email = recipient.email.toLowerCase();
+        if (!seenEmails.has(email) && email !== userEmailLower) {
+          seenEmails.add(email);
+          participants.push(recipient);
+        }
+      }
+    }
+  }
+
+  // Upsert contacts
+  for (const participant of participants) {
+    const email = participant.email.toLowerCase();
+
+    // Check if contact exists
+    const existing = await db.query.contact.findFirst({
+      where: eq(contact.primaryEmail, email),
+    });
+
+    if (existing) {
+      // Update last interaction
+      await db
+        .update(contact)
+        .set({
+          lastInteractionAt: new Date(),
+          totalMessages: (existing.totalMessages ?? 0) + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(contact.id, existing.id));
+
+      contactIds.push(existing.id);
+    } else {
+      // Create new contact
+      const [newContact] = await db
+        .insert(contact)
+        .values({
+          organizationId,
+          primaryEmail: email,
+          displayName: participant.name ?? email.split("@")[0],
+          firstInteractionAt: new Date(),
+          lastInteractionAt: new Date(),
+          totalMessages: 1,
+          totalThreads: 1,
+        })
+        .returning();
+
+      if (newContact) {
+        contactIds.push(newContact.id);
+        log.info("Created new contact", {
+          contactId: newContact.id,
+          email,
+        });
+      }
+    }
+  }
+
+  return contactIds;
 }

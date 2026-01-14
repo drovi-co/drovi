@@ -24,7 +24,7 @@ export function BillingFailedEmail({
   planName,
   amount,
   retryDate,
-  billingUrl = "https://app.saas-template.app/dashboard/billing",
+  billingUrl = "https://app.memorystack.app/dashboard/billing",
 }: BillingFailedEmailProps) {
   return (
     <Html>

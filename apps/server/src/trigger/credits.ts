@@ -13,7 +13,7 @@ export const processMonthlyCredits = schedules.task({
   cron: "0 1 1 * *", // 1st of every month at 1 AM
   run: async () => {
     const { processMonthlyAllocations } = await import(
-      "@saas-template/api/lib/credits"
+      "@memorystack/api/lib/credits"
     );
 
     const results = await processMonthlyAllocations();
@@ -35,7 +35,7 @@ export const processExpiredTrials = schedules.task({
   cron: "0 * * * *", // Every hour
   run: async () => {
     const { getExpiredTrials, expireTrial } = await import(
-      "@saas-template/api/lib/credits"
+      "@memorystack/api/lib/credits"
     );
 
     const expiredTrials = await getExpiredTrials();
@@ -66,9 +66,9 @@ export const sendLowBalanceNotifications = schedules.task({
   cron: "0 9 * * *", // 9 AM every day
   run: async () => {
     const { getOrganizationsWithLowBalance, markLowBalanceNotified } =
-      await import("@saas-template/api/lib/credits");
-    const { db } = await import("@saas-template/db");
-    const { organization, member } = await import("@saas-template/db/schema");
+      await import("@memorystack/api/lib/credits");
+    const { db } = await import("@memorystack/db");
+    const { organization, member } = await import("@memorystack/db/schema");
     const { eq } = await import("drizzle-orm");
 
     const lowBalanceOrgs = await getOrganizationsWithLowBalance(10);
@@ -132,7 +132,7 @@ export const handleCreditPurchaseTask = task({
     polarCheckoutId: string;
   }) => {
     const { processCreditPurchase } = await import(
-      "@saas-template/api/lib/credits"
+      "@memorystack/api/lib/credits"
     );
 
     const result = await processCreditPurchase({
@@ -160,7 +160,7 @@ export const handleSubscriptionChangeTask = task({
     plan: "free" | "pro" | "enterprise";
     polarSubscriptionId?: string;
   }) => {
-    const { updateOrgPlan } = await import("@saas-template/api/lib/credits");
+    const { updateOrgPlan } = await import("@memorystack/api/lib/credits");
 
     const result = await updateOrgPlan(payload.organizationId, payload.plan);
 
@@ -184,10 +184,10 @@ export const sendCreditUsageSummary = task({
     period: "weekly" | "monthly";
   }) => {
     const { getUsageAnalytics, getCreditStatus } = await import(
-      "@saas-template/api/lib/credits"
+      "@memorystack/api/lib/credits"
     );
-    const { db } = await import("@saas-template/db");
-    const { organization } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { organization } = await import("@memorystack/db/schema");
     const { eq } = await import("drizzle-orm");
 
     const days = payload.period === "weekly" ? 7 : 30;

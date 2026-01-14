@@ -8,7 +8,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildTimelinePrompt } from "../prompts/summarization";
 import {
   type ThreadMessage,
@@ -37,7 +37,7 @@ export async function generateTimeline(
     const prompt = buildTimelinePrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ events: z.array(TimelineEventSchema) }),
       prompt,
       temperature: 0.3,

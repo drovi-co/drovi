@@ -6,8 +6,8 @@
 // Uses provider message IDs as the unique identifier.
 //
 
-import { db } from "@saas-template/db";
-import { emailMessage, emailThread } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailMessage, emailThread } from "@memorystack/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
 // =============================================================================
@@ -29,6 +29,7 @@ export interface DeduplicationResult {
 
 /**
  * Check which thread IDs already exist in the database.
+ * Threads without actual message records (orphaned) are treated as "new" for reprocessing.
  *
  * @param accountId - Email account ID
  * @param providerThreadIds - Provider thread IDs to check
@@ -54,17 +55,56 @@ export async function deduplicateThreads(
     },
   });
 
+  if (existingThreads.length === 0) {
+    return {
+      newIds: providerThreadIds,
+      existingIds: [],
+      existingMap: new Map(),
+    };
+  }
+
   const existingMap = new Map<string, string>();
-  const existingProviderIds = new Set<string>();
+  const threadIdToProviderMap = new Map<string, string>();
 
   for (const thread of existingThreads) {
     existingMap.set(thread.providerThreadId, thread.id);
-    existingProviderIds.add(thread.providerThreadId);
+    threadIdToProviderMap.set(thread.id, thread.providerThreadId);
   }
 
-  const newIds = providerThreadIds.filter((id) => !existingProviderIds.has(id));
-  const existingIds = providerThreadIds.filter((id) =>
-    existingProviderIds.has(id)
+  // Get all thread IDs that have at least one message (batch query)
+  const threadIdsWithMessages = await db
+    .selectDistinct({ threadId: emailMessage.threadId })
+    .from(emailMessage)
+    .where(
+      inArray(
+        emailMessage.threadId,
+        existingThreads.map((t) => t.id)
+      )
+    );
+
+  const threadsWithMessagesSet = new Set(
+    threadIdsWithMessages.map((t) => t.threadId)
+  );
+
+  // Categorize threads
+  const existingProviderIds = new Set<string>();
+  const orphanedProviderIds = new Set<string>();
+
+  for (const thread of existingThreads) {
+    if (threadsWithMessagesSet.has(thread.id)) {
+      existingProviderIds.add(thread.providerThreadId);
+    } else {
+      // Thread exists but has no messages - treat as orphaned
+      orphanedProviderIds.add(thread.providerThreadId);
+    }
+  }
+
+  // New = not in database OR orphaned (no actual message records)
+  const newIds = providerThreadIds.filter(
+    (id) => !existingProviderIds.has(id) || orphanedProviderIds.has(id)
+  );
+  const existingIds = providerThreadIds.filter(
+    (id) => existingProviderIds.has(id) && !orphanedProviderIds.has(id)
   );
 
   return { newIds, existingIds, existingMap };

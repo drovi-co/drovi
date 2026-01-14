@@ -1111,47 +1111,8 @@ export const policyRule = pgTable(
   ]
 );
 
-// =============================================================================
-// AUDIT LOG TABLE (Agent 8: Policy & Risk)
-// =============================================================================
-
-/**
- * Stores audit log entries for security and compliance tracking.
- */
-export const auditLog = pgTable(
-  "audit_log",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => randomUUID()),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    userId: text("user_id"),
-
-    // Action info
-    action: text("action").notNull(),
-    resourceType: text("resource_type"),
-    resourceId: text("resource_id"),
-
-    // Details
-    details: jsonb("details").$type<Record<string, unknown>>(),
-
-    // Context
-    ipAddress: text("ip_address"),
-    userAgent: text("user_agent"),
-
-    // Timestamp
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("audit_log_org_idx").on(table.organizationId),
-    index("audit_log_user_idx").on(table.userId),
-    index("audit_log_action_idx").on(table.action),
-    index("audit_log_resource_idx").on(table.resourceType, table.resourceId),
-    index("audit_log_created_idx").on(table.createdAt),
-  ]
-);
+// NOTE: AuditLog table is defined in ./audit.ts to avoid duplication
+// Import from there for Policy & Risk agent audit logging needs
 
 // =============================================================================
 // RISK RELATIONS
@@ -1179,12 +1140,7 @@ export const policyRuleRelations = relations(policyRule, ({ one }) => ({
   }),
 }));
 
-export const auditLogRelations = relations(auditLog, ({ one }) => ({
-  organization: one(organization, {
-    fields: [auditLog.organizationId],
-    references: [organization.id],
-  }),
-}));
+// NOTE: auditLogRelations is defined in ./audit.ts
 
 // =============================================================================
 // RISK TYPE EXPORTS
@@ -1194,5 +1150,4 @@ export type RiskAnalysis = typeof riskAnalysis.$inferSelect;
 export type NewRiskAnalysis = typeof riskAnalysis.$inferInsert;
 export type PolicyRule = typeof policyRule.$inferSelect;
 export type NewPolicyRule = typeof policyRule.$inferInsert;
-export type AuditLog = typeof auditLog.$inferSelect;
-export type NewAuditLog = typeof auditLog.$inferInsert;
+// NOTE: AuditLog types are exported from ./audit.ts

@@ -5,24 +5,94 @@
 // API for accessing thread intelligence from the Thread Understanding Agent.
 //
 
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   claim,
   emailAccount,
+  emailMessage,
   emailThread,
   member,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
 // =============================================================================
+// HELPERS
+// =============================================================================
+
+/**
+ * Extract a friendly display name from an email address.
+ * Handles common patterns like "noreply@example.com", "john.doe@company.com", etc.
+ */
+function extractFriendlyName(email: string): string {
+  const localPart = email.split("@")[0] ?? "";
+  const domain = email.split("@")[1] ?? "";
+
+  // Known service patterns - map to friendly names
+  const servicePatterns: Record<string, string> = {
+    "messaging-digest-noreply": "LinkedIn",
+    "invitations-noreply": "LinkedIn",
+    "invitations": "LinkedIn",
+    "jobalerts-noreply": "LinkedIn",
+    "jobs-noreply": "LinkedIn",
+    "notifications-noreply": "LinkedIn",
+    "inmail-hit-reply": "LinkedIn",
+    "noreply": domain.includes("linkedin") ? "LinkedIn" : domain.split(".")[0] ?? "Unknown",
+    "no-reply": domain.split(".")[0] ?? "Unknown",
+    "notification": domain.split(".")[0] ?? "Unknown",
+    "notifications": domain.split(".")[0] ?? "Unknown",
+    "newsletter": domain.split(".")[0] ?? "Newsletter",
+    "billing": domain.split(".")[0] ?? "Billing",
+    "support": domain.split(".")[0] ?? "Support",
+    "info": domain.split(".")[0] ?? "Info",
+    "hello": domain.split(".")[0] ?? "Hello",
+    "team": domain.split(".")[0] ?? "Team",
+    "mail": domain.split(".")[0] ?? "Mail",
+  };
+
+  // Check if local part matches a known service pattern
+  for (const [pattern, name] of Object.entries(servicePatterns)) {
+    if (localPart.toLowerCase().includes(pattern.toLowerCase())) {
+      // Capitalize the name
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+  }
+
+  // Check domain for known services
+  if (domain.includes("linkedin")) return "LinkedIn";
+  if (domain.includes("github")) return "GitHub";
+  if (domain.includes("google") || domain.includes("gmail")) return "Google";
+  if (domain.includes("slack")) return "Slack";
+  if (domain.includes("notion")) return "Notion";
+  if (domain.includes("figma")) return "Figma";
+  if (domain.includes("stripe")) return "Stripe";
+  if (domain.includes("vercel")) return "Vercel";
+  if (domain.includes("netlify")) return "Netlify";
+  if (domain.includes("heroku")) return "Heroku";
+  if (domain.includes("aws") || domain.includes("amazon")) return "AWS";
+  if (domain.includes("microsoft") || domain.includes("outlook")) return "Microsoft";
+  if (domain.includes("apple")) return "Apple";
+  if (domain.includes("dropbox")) return "Dropbox";
+
+  // For regular email addresses, try to format the local part nicely
+  // Replace dots, underscores, and hyphens with spaces and capitalize
+  const formatted = localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
+  return formatted || localPart;
+}
+
+// =============================================================================
 // INPUT SCHEMAS
 // =============================================================================
 
 const listThreadsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
@@ -38,12 +108,12 @@ const listThreadsSchema = z.object({
 });
 
 const getThreadSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
 });
 
 const getThreadClaimsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
   type: z
     .enum([
@@ -64,7 +134,7 @@ const getThreadClaimsSchema = z.object({
 });
 
 const updateClaimSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   claimId: z.string().uuid(),
   // User verification
   isUserVerified: z.boolean().optional(),
@@ -89,7 +159,7 @@ const updateClaimSchema = z.object({
 });
 
 const triggerAnalysisSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
   force: z.boolean().default(false),
 });
@@ -104,6 +174,18 @@ const listThreadsInboxSchema = z.object({
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
 });
+
+// Helper to get organization ID from session
+async function getActiveOrgId(ctx: { session: { session: { activeOrganizationId: string | null } } }): Promise<string> {
+  const orgId = ctx.session.session.activeOrganizationId;
+  if (!orgId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "No organization selected. Please select an organization first.",
+    });
+  }
+  return orgId;
+}
 
 const threadIdSchema = z.object({
   threadId: z.string().uuid(),
@@ -276,6 +358,208 @@ export const threadsRouter = router({
 
       return {
         threads,
+        total,
+        hasMore: input.offset + threads.length < total,
+      };
+    }),
+
+  /**
+   * List threads for inbox UI - uses session's active organization.
+   */
+  listInbox: protectedProcedure
+    .input(listThreadsInboxSchema)
+    .query(async ({ ctx, input }) => {
+      const orgId = await getActiveOrgId(ctx);
+
+      // Get account IDs for this organization
+      const accountIds = await db
+        .select({ id: emailAccount.id })
+        .from(emailAccount)
+        .where(
+          and(
+            eq(emailAccount.organizationId, orgId),
+            input.accountId ? eq(emailAccount.id, input.accountId) : undefined
+          )
+        );
+
+      if (accountIds.length === 0) {
+        return { threads: [], total: 0, hasMore: false };
+      }
+
+      // Build conditions
+      const conditions = [
+        inArray(
+          emailThread.accountId,
+          accountIds.map((a) => a.id)
+        ),
+      ];
+
+      // Apply filter
+      switch (input.filter) {
+        case "unread":
+          conditions.push(eq(emailThread.isRead, false));
+          break;
+        case "starred":
+          conditions.push(eq(emailThread.isStarred, true));
+          break;
+        case "archived":
+          conditions.push(eq(emailThread.isArchived, true));
+          break;
+        case "sent":
+          // Sent emails are threads where the user sent at least one message
+          conditions.push(
+            sql`EXISTS (
+              SELECT 1 FROM "email_message" em
+              WHERE em."thread_id" = ${emailThread.id}
+              AND em."is_from_user" = true
+            )`
+          );
+          break;
+      }
+
+      // Apply intelligence filter
+      switch (input.intelligenceFilter) {
+        case "has_commitments":
+          // Would need a claim count column or subquery
+          break;
+        case "has_decisions":
+          // Would need a claim count column or subquery
+          break;
+        case "needs_response":
+          conditions.push(eq(emailThread.suggestedAction, "respond"));
+          break;
+        case "has_risk":
+          // Would need risk warning detection
+          break;
+      }
+
+      // Filter out archived by default unless explicitly requested
+      if (input.filter !== "archived" && input.filter !== "trash") {
+        conditions.push(eq(emailThread.isArchived, false));
+      }
+
+      // Count total
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(emailThread)
+        .where(and(...conditions));
+
+      const total = countResult?.count ?? 0;
+
+      // Build order by
+      const orderByColumns = [];
+      switch (input.sort) {
+        case "date":
+          orderByColumns.push(
+            input.sortDirection === "desc"
+              ? desc(emailThread.lastMessageAt)
+              : emailThread.lastMessageAt
+          );
+          break;
+        case "priority":
+          orderByColumns.push(
+            input.sortDirection === "desc"
+              ? desc(emailThread.urgencyScore)
+              : emailThread.urgencyScore
+          );
+          break;
+        default:
+          orderByColumns.push(desc(emailThread.lastMessageAt));
+      }
+
+      // Get threads with first message for participant names
+      const threads = await db.query.emailThread.findMany({
+        where: and(...conditions),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: orderByColumns,
+        columns: {
+          id: true,
+          accountId: true,
+          subject: true,
+          snippet: true,
+          participantEmails: true,
+          messageCount: true,
+          hasAttachments: true,
+          lastMessageAt: true,
+          isRead: true,
+          isStarred: true,
+          isArchived: true,
+          // Intelligence
+          briefSummary: true,
+          intentClassification: true,
+          urgencyScore: true,
+          importanceScore: true,
+          sentimentScore: true,
+          hasOpenLoops: true,
+          openLoopCount: true,
+          suggestedAction: true,
+          priorityTier: true,
+        },
+        with: {
+          messages: {
+            columns: {
+              fromEmail: true,
+              fromName: true,
+            },
+            orderBy: (m, { asc }) => [asc(m.messageIndex)],
+            limit: 5, // Get a few messages to build participant list
+          },
+        },
+      });
+
+      // Transform to inbox format
+      const transformedThreads = threads.map((t) => {
+        // Build participant list from messages with actual names
+        const participantMap = new Map<string, string>();
+        for (const msg of t.messages ?? []) {
+          if (msg.fromEmail && !participantMap.has(msg.fromEmail)) {
+            // Use fromName if available, otherwise try to extract a friendly name
+            const name = msg.fromName || extractFriendlyName(msg.fromEmail);
+            participantMap.set(msg.fromEmail, name);
+          }
+        }
+
+        // Add any remaining emails from participantEmails that weren't in messages
+        for (const email of t.participantEmails ?? []) {
+          if (!participantMap.has(email as string)) {
+            participantMap.set(
+              email as string,
+              extractFriendlyName(email as string)
+            );
+          }
+        }
+
+        const participants = Array.from(participantMap.entries()).map(
+          ([email, name]) => ({ email, name })
+        );
+
+        return {
+          id: t.id,
+          subject: t.subject ?? "No subject",
+          brief: t.briefSummary ?? t.snippet ?? "",
+          snippet: t.snippet ?? "",
+          lastMessageDate: t.lastMessageAt ?? new Date(),
+          messageCount: t.messageCount ?? 1,
+          isUnread: !t.isRead,
+          isStarred: t.isStarred ?? false,
+          isSnoozed: false,
+          snoozeUntil: undefined,
+          participants,
+          priority: t.priorityTier ?? "medium",
+          suggestedAction: t.suggestedAction,
+          commitmentCount: 0,
+          decisionCount: 0,
+          openQuestionCount: t.openLoopCount ?? 0,
+          hasRiskWarning: false,
+          riskLevel: undefined,
+          labels: [],
+          briefConfidence: 0.8,
+        };
+      });
+
+      return {
+        threads: transformedThreads,
         total,
         hasMore: input.offset + threads.length < total,
       };
@@ -515,7 +799,7 @@ export const threadsRouter = router({
   dismissClaim: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         claimId: z.string().uuid(),
       })
     )
@@ -554,7 +838,7 @@ export const threadsRouter = router({
   verifyClaim: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         claimId: z.string().uuid(),
       })
     )
@@ -594,7 +878,7 @@ export const threadsRouter = router({
   getByAction: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         action: z.enum([
           "respond",
           "review",
@@ -654,7 +938,7 @@ export const threadsRouter = router({
   getWithOpenLoops: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(50).default(20),
       })
     )
@@ -767,23 +1051,47 @@ export const threadsRouter = router({
       }
 
       return {
-        messages: thread.messages.map((m) => ({
-          id: m.id,
-          threadId: input.threadId,
-          subject: m.subject,
-          from: {
-            email: m.fromEmail,
-            name: m.fromName ?? m.fromEmail,
-          },
-          to: (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
-          cc: m.ccRecipients as Array<{ email: string; name?: string }> | undefined,
-          date: m.sentAt ?? m.receivedAt ?? new Date(),
-          body: m.bodyText ?? "",
-          bodyHtml: m.bodyHtml,
-          snippet: m.bodyText?.slice(0, 200) ?? "",
-          isUnread: !thread.isRead,
-          attachments: [],
-        })),
+        messages: thread.messages.map((m) => {
+          // Extract text from HTML if no plain text body
+          const plainBody = m.bodyText ?? "";
+          const htmlBody = m.bodyHtml;
+
+          // Create snippet from plain text or extract from HTML
+          let snippet = plainBody.slice(0, 200);
+          if (!snippet && htmlBody) {
+            // Basic HTML to text extraction for snippet
+            snippet = htmlBody
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/&nbsp;/g, " ")
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 200);
+          }
+
+          return {
+            id: m.id,
+            threadId: input.threadId,
+            subject: m.subject,
+            from: {
+              email: m.fromEmail,
+              name: m.fromName ?? extractFriendlyName(m.fromEmail),
+            },
+            to: (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
+            cc: m.ccRecipients as Array<{ email: string; name?: string }> | undefined,
+            date: m.sentAt ?? m.receivedAt ?? new Date(),
+            body: plainBody || snippet, // Use extracted text as fallback body
+            bodyHtml: htmlBody,
+            snippet,
+            isUnread: !thread.isRead,
+            attachments: [],
+          };
+        }),
       };
     }),
 

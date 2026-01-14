@@ -1,10 +1,10 @@
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { google } from "@ai-sdk/google";
 import { trpcServer } from "@hono/trpc-server";
-import { createContext } from "@saas-template/api/context";
-import { appRouter } from "@saas-template/api/routers/index";
-import { auth } from "@saas-template/auth";
-import { env } from "@saas-template/env/server";
+import { createContext } from "@memorystack/api/context";
+import { appRouter } from "@memorystack/api/routers/index";
+import { auth } from "@memorystack/auth";
+import { env } from "@memorystack/env/server";
 import { convertToModelMessages, streamText, wrapLanguageModel } from "ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -16,8 +16,10 @@ import {
   strictRateLimit,
 } from "./middleware/rate-limit";
 import { requestLogger } from "./middleware/request-logger";
+import { composeRoutes } from "./routes/compose";
 import { oauthRoutes } from "./routes/oauth";
 import { publicApi } from "./routes/public-api";
+import { gmailWebhook } from "./routes/webhooks/gmail";
 import { polarWebhook } from "./routes/webhooks/polar";
 
 // Initialize Sentry for error tracking
@@ -105,8 +107,14 @@ app.route("/api/v1", publicApi);
 // OAuth callback routes (for email provider integration)
 app.route("/api/oauth", oauthRoutes);
 
+// Compose routes (send email, manage drafts)
+app.route("/api/compose", composeRoutes);
+
 // Polar webhooks (for credit purchases and subscriptions)
 app.route("/api/webhooks/polar", polarWebhook);
+
+// Gmail webhooks (for push notifications via Google Pub/Sub)
+app.route("/api/webhooks/gmail", gmailWebhook);
 
 app.get("/", (c) => {
   return c.text("OK");

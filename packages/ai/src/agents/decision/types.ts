@@ -53,23 +53,25 @@ export interface DecisionThreadContext {
 
 /**
  * Alternative considered for a decision.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const AlternativeSchema = z.object({
   title: z.string().describe("Short title for the alternative"),
-  description: z.string().optional().describe("Detailed description"),
-  pros: z.array(z.string()).optional().describe("Advantages of this option"),
-  cons: z.array(z.string()).optional().describe("Disadvantages of this option"),
-  rejected: z.boolean().default(true).describe("Whether this was rejected"),
-  rejectionReason: z.string().optional().describe("Why it was rejected"),
+  description: z.string().nullable().describe("Detailed description"),
+  pros: z.array(z.string()).nullable().describe("Advantages of this option"),
+  cons: z.array(z.string()).nullable().describe("Disadvantages of this option"),
+  rejected: z.boolean().describe("Whether this was rejected"),
+  rejectionReason: z.string().nullable().describe("Why it was rejected"),
 });
 export type Alternative = z.infer<typeof AlternativeSchema>;
 
 /**
  * Owner/participant in a decision.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const DecisionParticipantSchema = z.object({
-  email: z.string().optional(),
-  name: z.string().optional(),
+  email: z.string().nullable(),
+  name: z.string().nullable(),
   isUser: z.boolean(),
   role: z.enum(["decision_maker", "approver", "participant", "stakeholder"]),
   confidence: z.number().min(0).max(1),
@@ -78,31 +80,32 @@ export type DecisionParticipant = z.infer<typeof DecisionParticipantSchema>;
 
 /**
  * Extracted decision from a claim.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const ExtractedDecisionSchema = z.object({
   // Core content
   title: z.string().describe("Short, descriptive title"),
   statement: z.string().describe("The actual decision statement"),
-  rationale: z.string().optional().describe("Why the decision was made"),
+  rationale: z.string().nullable().describe("Why the decision was made"),
 
   // Context
-  topic: z.string().optional().describe("Topic/area of the decision"),
+  topic: z.string().nullable().describe("Topic/area of the decision"),
   impactAreas: z
     .array(z.string())
-    .optional()
+    .nullable()
     .describe("Areas impacted by decision"),
 
   // Alternatives
-  alternatives: z.array(AlternativeSchema).optional(),
+  alternatives: z.array(AlternativeSchema).nullable(),
 
   // People
   owners: z
     .array(DecisionParticipantSchema)
-    .optional()
+    .nullable()
     .describe("Decision makers"),
   participants: z
     .array(DecisionParticipantSchema)
-    .optional()
+    .nullable()
     .describe("Other participants"),
 
   // Timing
@@ -119,13 +122,12 @@ export const ExtractedDecisionSchema = z.object({
   // Decision characteristics
   isExplicit: z
     .boolean()
-    .default(true)
     .describe("Explicitly stated vs inferred"),
-  isTentative: z.boolean().default(false).describe("Subject to change"),
-  requiresApproval: z.boolean().default(false).describe("Needs approval"),
+  isTentative: z.boolean().describe("Subject to change"),
+  requiresApproval: z.boolean().describe("Needs approval"),
 
   // Metadata
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).nullable(),
 });
 export type ExtractedDecision = z.infer<typeof ExtractedDecisionSchema>;
 
@@ -162,6 +164,7 @@ export interface DecisionSearchResult {
 
 /**
  * LLM response for decision extraction.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const DecisionExtractionResponseSchema = z.object({
   decisions: z.array(
@@ -170,48 +173,46 @@ export const DecisionExtractionResponseSchema = z.object({
       statement: z.string().describe("The decision itself - what was decided"),
       rationale: z
         .string()
-        .optional()
+        .nullable()
         .describe("Why this decision was made - reasoning"),
       topic: z
         .string()
-        .optional()
+        .nullable()
         .describe("Topic area (e.g., 'pricing', 'architecture')"),
       impactAreas: z
         .array(z.string())
-        .optional()
+        .nullable()
         .describe("Areas affected by this decision"),
       alternatives: z
         .array(
           z.object({
             title: z.string(),
-            description: z.string().optional(),
-            pros: z.array(z.string()).optional(),
-            cons: z.array(z.string()).optional(),
-            rejectionReason: z.string().optional(),
+            description: z.string().nullable(),
+            pros: z.array(z.string()).nullable(),
+            cons: z.array(z.string()).nullable(),
+            rejectionReason: z.string().nullable(),
           })
         )
-        .optional()
+        .nullable()
         .describe("Other options that were considered"),
       decisionMakerEmail: z
         .string()
-        .optional()
+        .nullable()
         .describe("Email of primary decision maker"),
       decisionMakerName: z
         .string()
-        .optional()
+        .nullable()
         .describe("Name of primary decision maker"),
       participantEmails: z
         .array(z.string())
-        .optional()
+        .nullable()
         .describe("Emails of other participants"),
       decidedAt: z.string().describe("When decided (ISO date from message)"),
       isExplicit: z
         .boolean()
-        .default(true)
         .describe("Whether explicitly stated"),
       isTentative: z
         .boolean()
-        .default(false)
         .describe("Whether provisional/subject to change"),
       confidence: z
         .number()
@@ -263,6 +264,7 @@ export type SupersessionDetectionResponse = z.infer<
 
 /**
  * LLM response for decision querying.
+ * Note: Using .nullable() instead of .optional() for OpenAI structured outputs compatibility.
  */
 export const DecisionQueryResponseSchema = z.object({
   relevantDecisions: z.array(
@@ -275,7 +277,7 @@ export const DecisionQueryResponseSchema = z.object({
   ),
   answer: z
     .string()
-    .optional()
+    .nullable()
     .describe("Direct answer to query if applicable"),
 });
 export type DecisionQueryResponse = z.infer<typeof DecisionQueryResponseSchema>;

@@ -7,7 +7,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildIntentPrompt } from "../prompts/classification";
 import {
   type IntentClassification,
@@ -31,7 +31,7 @@ export async function classifyIntent(
     const prompt = buildIntentPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: IntentClassificationSchema,
       prompt,
       temperature: 0.3,

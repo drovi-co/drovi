@@ -17,6 +17,28 @@ export const Route = createFileRoute("/dashboard")({
       });
     }
 
+    // Check if user has an active organization
+    const activeOrgResult = await authClient.organization.getActiveMember();
+
+    // If no active organization, try to get list of orgs
+    if (!activeOrgResult.data) {
+      const orgsResult = await authClient.organization.list();
+
+      // If user has no organizations, redirect to onboarding
+      if (!orgsResult.data || orgsResult.data.length === 0) {
+        throw redirect({
+          to: "/onboarding/create-org",
+        });
+      }
+
+      // If user has organizations but none active, set the first one as active
+      if (orgsResult.data.length > 0) {
+        await authClient.organization.setActive({
+          organizationId: orgsResult.data[0].id,
+        });
+      }
+    }
+
     // Check if user is admin
     const isAdmin = session.data.user.role === "admin";
 
@@ -69,6 +91,53 @@ function getBreadcrumbs(pathname: string) {
   // Email Accounts
   if (pathname === "/dashboard/email-accounts") {
     breadcrumbs.push({ label: "Email Accounts" });
+    return breadcrumbs;
+  }
+
+  // Today section
+  if (pathname === "/dashboard/today") {
+    breadcrumbs.push({ label: "Today" });
+    return breadcrumbs;
+  }
+
+  // Calendar section
+  if (pathname === "/dashboard/calendar") {
+    breadcrumbs.push({ label: "Calendar" });
+    return breadcrumbs;
+  }
+
+  // Email/Inbox section
+  if (pathname.startsWith("/dashboard/email")) {
+    if (pathname === "/dashboard/email") {
+      breadcrumbs.push({ label: "Inbox" });
+    } else if (pathname.startsWith("/dashboard/email/thread")) {
+      breadcrumbs.push({ label: "Inbox", href: "/dashboard/email" });
+      breadcrumbs.push({ label: "Thread" });
+    }
+    return breadcrumbs;
+  }
+
+  // Search section
+  if (pathname === "/dashboard/search") {
+    breadcrumbs.push({ label: "Search" });
+    return breadcrumbs;
+  }
+
+  // Decisions section
+  if (pathname === "/dashboard/decisions") {
+    breadcrumbs.push({ label: "Decisions" });
+    return breadcrumbs;
+  }
+
+  // Commitments section
+  if (pathname === "/dashboard/commitments") {
+    breadcrumbs.push({ label: "Commitments" });
+    return breadcrumbs;
+  }
+
+  // Contacts section
+  if (pathname === "/dashboard/contacts") {
+    breadcrumbs.push({ label: "Contacts" });
     return breadcrumbs;
   }
 

@@ -1,6 +1,6 @@
-import type { AppRouter } from "@saas-template/api/routers/index";
+import type { AppRouter } from "@memorystack/api/routers/index";
 
-import { env } from "@saas-template/env/web";
+import { env } from "@memorystack/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
@@ -37,3 +37,14 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
   queryClient,
 });
+
+/**
+ * Hook to get the tRPC options proxy
+ * Use with React Query's useQuery/useMutation:
+ *
+ * const trpc = useTRPC();
+ * const { data } = useQuery(trpc.threads.list.queryOptions({ ... }));
+ */
+export function useTRPC() {
+  return trpc;
+}

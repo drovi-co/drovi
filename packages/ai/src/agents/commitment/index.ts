@@ -6,7 +6,7 @@
 //
 // Usage:
 //
-//   import { extractCommitments, createCommitmentAgent } from "@saas-template/ai/agents";
+//   import { extractCommitments, createCommitmentAgent } from "@memorystack/ai/agents";
 //
 //   // Simple usage
 //   const commitments = await extractCommitments(context, promiseClaims, requestClaims);

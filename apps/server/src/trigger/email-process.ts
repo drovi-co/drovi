@@ -6,8 +6,8 @@
 // These tasks feed into the intelligence pipeline (PRD-03, PRD-06).
 //
 
-import { db } from "@saas-template/db";
-import { emailMessage, emailThread } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailMessage, emailThread } from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, eq, isNull } from "drizzle-orm";
 import { log } from "../lib/logger";

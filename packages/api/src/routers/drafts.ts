@@ -12,8 +12,8 @@ import {
   type FollowUpContext,
   type ImprovementType,
   type VariationType,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
 import {
   claim,
   commitment,
@@ -23,7 +23,7 @@ import {
   emailMessage,
   emailThread,
   member,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -34,7 +34,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const generateDraftSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
   userIntent: z.string().min(1).max(2000),
   options: z
@@ -51,7 +51,7 @@ const generateDraftSchema = z.object({
 });
 
 const refineDraftSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid().optional(),
   originalDraft: z.string().min(1).max(10_000),
   feedback: z.string().min(1).max(2000),
@@ -59,7 +59,7 @@ const refineDraftSchema = z.object({
 });
 
 const generateVariationsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   baseDraft: z.string().min(1).max(10_000),
   intent: z.string().min(1).max(500),
   variationTypes: z
@@ -69,12 +69,12 @@ const generateVariationsSchema = z.object({
 });
 
 const generateFollowUpSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   commitmentId: z.string().uuid(),
 });
 
 const adjustLengthSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   draft: z.string().min(1).max(10_000),
   target: z.union([
     z.enum(["shorter", "longer"]),
@@ -87,7 +87,7 @@ const adjustLengthSchema = z.object({
 });
 
 const improveDraftSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   draft: z.string().min(1).max(10_000),
   improvementType: z.enum([
     "clarity",
@@ -99,7 +99,7 @@ const improveDraftSchema = z.object({
 });
 
 const quickActionSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   draft: z.string().min(1).max(10_000),
   action: z.enum([
     "add-greeting",
@@ -112,12 +112,12 @@ const quickActionSchema = z.object({
 });
 
 const analyzeToneSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   samples: z.array(z.string().min(1).max(5000)).min(1).max(10),
 });
 
 const checkConsistencySchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   draft: z.string().min(1).max(10_000),
   threadId: z.string().uuid().optional(),
 });
@@ -697,7 +697,7 @@ export const draftsRouter = router({
   getReminderSchedule: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         commitmentId: z.string().uuid(),
       })
     )

@@ -12,8 +12,8 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   generateClaimEmbedding,
   generateMessageEmbedding,
-} from "@saas-template/ai/embeddings";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/embeddings";
+import { db } from "@memorystack/db";
 import {
   claim,
   claimEmbedding,
@@ -21,7 +21,7 @@ import {
   emailThread,
   messageEmbedding,
   threadEmbedding,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { log } from "../lib/logger";

@@ -1,6 +1,6 @@
 # Better-T-Stack Project Rules
 
-This is a saas-template project created with Better-T-Stack CLI.
+This is a memorystack project created with Better-T-Stack CLI.
 
 ## Project Structure
 

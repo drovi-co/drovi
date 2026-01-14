@@ -441,7 +441,7 @@
       "title": "Create Schema Index File",
       "description": "Create the barrel export file that exports all schemas.",
       "details": "Implementation Steps:\n1. Update `packages/db/src/schema/index.ts`:\n   ```typescript\n   // Existing exports\n   export * from './auth';\n   export * from './organization';\n   export * from './audit';\n   export * from './credits';\n   \n   // New MEMORYSTACK exports\n   export * from './email';\n   export * from './intelligence';\n   export * from './vectors';\n   export * from './processing';\n   ```\n2. Ensure all relations are exported\n3. Ensure all types are exported",
-      "testStrategy": "Unit Tests:\n- All exports accessible from index\n- No circular dependencies\n- TypeScript compilation succeeds\n\nIntegration Tests:\n- Import * from '@saas-template/db/schema' works\n- All tables accessible",
+      "testStrategy": "Unit Tests:\n- All exports accessible from index\n- No circular dependencies\n- TypeScript compilation succeeds\n\nIntegration Tests:\n- Import * from '@memorystack/db/schema' works\n- All tables accessible",
       "priority": "high",
       "dependencies": [
         3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19

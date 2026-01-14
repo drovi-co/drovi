@@ -6,8 +6,8 @@
 // Each encryption produces unique output due to random IV.
 //
 
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { env } from "@saas-template/env/server";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { env } from "@memorystack/env/server";
 
 // =============================================================================
 // CONSTANTS
@@ -241,10 +241,16 @@ export function isTokenEncryptionConfigured(): boolean {
  */
 export function safeEncryptToken(plaintext: string): string {
   if (!isTokenEncryptionConfigured()) {
-    console.warn(
-      "TOKEN_ENCRYPTION_KEY not configured - storing tokens in plaintext. " +
-        "This is insecure for production use."
-    );
+    // Only warn once per process to avoid log spam
+    if (typeof globalThis !== "undefined" && !(globalThis as Record<string, boolean>).__encryptionWarned) {
+      (globalThis as Record<string, boolean>).__encryptionWarned = true;
+      // Can't import logger here due to circular deps, but this warning is important for dev
+      // biome-ignore lint/suspicious/noConsole: Warning for dev only
+      console.warn(
+        "TOKEN_ENCRYPTION_KEY not configured - storing tokens in plaintext. " +
+          "This is insecure for production use."
+      );
+    }
     return plaintext;
   }
   return encryptToken(plaintext);
@@ -259,4 +265,91 @@ export function safeDecryptToken(maybeEncrypted: string): string {
     return maybeEncrypted;
   }
   return decryptToken(maybeEncrypted);
+}
+
+// =============================================================================
+// HMAC SIGNING FOR OAUTH STATE
+// =============================================================================
+
+/**
+ * Sign a payload using HMAC-SHA256.
+ * Used for OAuth state to prevent tampering.
+ *
+ * @param payload - The data to sign
+ * @returns Signed string in format: payload.signature
+ */
+export function signPayload(payload: string): string {
+  const key = getEncryptionKey();
+  const signature = createHmac("sha256", key)
+    .update(payload)
+    .digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+/**
+ * Verify and extract a signed payload.
+ *
+ * @param signedPayload - The signed string (payload.signature)
+ * @returns The original payload if valid, null if invalid
+ */
+export function verifySignedPayload(signedPayload: string): string | null {
+  const lastDotIndex = signedPayload.lastIndexOf(".");
+  if (lastDotIndex === -1) {
+    return null;
+  }
+
+  const payload = signedPayload.substring(0, lastDotIndex);
+  const providedSignature = signedPayload.substring(lastDotIndex + 1);
+
+  // Recompute signature
+  const key = getEncryptionKey();
+  const expectedSignature = createHmac("sha256", key)
+    .update(payload)
+    .digest("base64url");
+
+  // Timing-safe comparison to prevent timing attacks
+  try {
+    const providedBuffer = Buffer.from(providedSignature, "base64url");
+    const expectedBuffer = Buffer.from(expectedSignature, "base64url");
+
+    if (providedBuffer.length !== expectedBuffer.length) {
+      return null;
+    }
+
+    if (!timingSafeEqual(providedBuffer, expectedBuffer)) {
+      return null;
+    }
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely sign payload, returning unsigned if encryption key not configured.
+ */
+export function safeSignPayload(payload: string): string {
+  if (!isTokenEncryptionConfigured()) {
+    return payload;
+  }
+  return signPayload(payload);
+}
+
+/**
+ * Safely verify signed payload, accepting unsigned if encryption key not configured.
+ */
+export function safeVerifySignedPayload(signedPayload: string): string | null {
+  if (!isTokenEncryptionConfigured()) {
+    // No signing configured, return as-is (for backwards compat)
+    return signedPayload;
+  }
+
+  // Check if it looks signed (has a dot for signature)
+  if (!signedPayload.includes(".")) {
+    // Not signed - might be legacy unsigned state
+    return signedPayload;
+  }
+
+  return verifySignedPayload(signedPayload);
 }

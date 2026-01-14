@@ -1,34 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: saas-template-server
-  namespace: saas-template
+  name: memorystack-server
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-server
+    app.kubernetes.io/name: memorystack-server
     app.kubernetes.io/component: server
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: saas-template-server
+      app.kubernetes.io/name: memorystack-server
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: saas-template-server
+        app.kubernetes.io/name: memorystack-server
         app.kubernetes.io/component: server
     spec:
       containers:
         - name: server
-          image: saas-template/server:latest
+          image: memorystack/server:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
               name: http
           envFrom:
             - configMapRef:
-                name: saas-template-config
+                name: memorystack-config
             - secretRef:
-                name: saas-template-secrets
+                name: memorystack-secrets
           resources:
             requests:
               cpu: "100m"
@@ -67,16 +67,16 @@ spec:
                     - key: app.kubernetes.io/name
                       operator: In
                       values:
-                        - saas-template-server
+                        - memorystack-server
                 topologyKey: kubernetes.io/hostname
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: saas-template-server
-  namespace: saas-template
+  name: memorystack-server
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-server
+    app.kubernetes.io/name: memorystack-server
 spec:
   type: ClusterIP
   ports:
@@ -85,4 +85,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: saas-template-server
+    app.kubernetes.io/name: memorystack-server

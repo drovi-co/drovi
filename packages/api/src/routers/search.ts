@@ -10,9 +10,9 @@ import {
   createSearchAgent,
   type EvidenceItem,
   type ParsedQuery,
-} from "@saas-template/ai/agents";
-import { generateQueryEmbedding } from "@saas-template/ai/embeddings";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { generateQueryEmbedding } from "@memorystack/ai/embeddings";
+import { db } from "@memorystack/db";
 import {
   claim,
   emailAccount,
@@ -20,7 +20,7 @@ import {
   emailThread,
   member,
   threadEmbedding,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -31,7 +31,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const searchSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   query: z.string().min(1).max(1000),
   limit: z.number().int().min(1).max(50).default(20),
   threshold: z.number().min(0).max(1).default(0.5),
@@ -45,7 +45,7 @@ const searchSchema = z.object({
 });
 
 const askSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   question: z.string().min(1).max(2000),
   accountId: z.string().uuid().optional(),
   after: z.date().optional(),
@@ -53,14 +53,14 @@ const askSchema = z.object({
 });
 
 const findRelatedSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   threadId: z.string().uuid(),
   limit: z.number().int().min(1).max(20).default(10),
   threshold: z.number().min(0).max(1).default(0.7),
 });
 
 const summarizeTopicSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   topic: z.string().min(1).max(500),
   accountId: z.string().uuid().optional(),
   after: z.date().optional(),
@@ -68,7 +68,7 @@ const summarizeTopicSchema = z.object({
 });
 
 const getInsightsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
   limit: z.number().int().min(1).max(10).default(5),
 });
@@ -76,6 +76,14 @@ const getInsightsSchema = z.object({
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+/**
+ * Format embedding array for pgvector.
+ * pgvector expects format: '[0.1,0.2,0.3]'
+ */
+function formatEmbedding(embedding: number[]): string {
+  return `[${embedding.join(",")}]`;
+}
 
 /**
  * Get account IDs for an organization that the user has access to.
@@ -142,10 +150,13 @@ async function searchMessages(
   }>
 > {
   // Use pgvector cosine similarity
+  // Format embedding for pgvector (safe since embedding is generated internally)
+  const embeddingStr = formatEmbedding(queryEmbedding);
+
   const results = await db.execute(sql`
     SELECT
       me.message_id as id,
-      1 - (me.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as score,
+      1 - (me.embedding <=> ${embeddingStr}::vector) as score,
       em.body_text as content,
       em.subject,
       em.sent_at,
@@ -160,8 +171,8 @@ async function searchMessages(
       AND me.status = 'completed'
       ${options.after ? sql`AND em.sent_at >= ${options.after}` : sql``}
       ${options.before ? sql`AND em.sent_at <= ${options.before}` : sql``}
-      AND 1 - (me.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) >= ${options.threshold}
-    ORDER BY me.embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+      AND 1 - (me.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
+    ORDER BY me.embedding <=> ${embeddingStr}::vector
     LIMIT ${options.limit}
   `);
 
@@ -199,10 +210,12 @@ async function searchThreads(
     metadata: Record<string, unknown>;
   }>
 > {
+  const embeddingStr = formatEmbedding(queryEmbedding);
+
   const results = await db.execute(sql`
     SELECT
       te.thread_id as id,
-      1 - (te.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as score,
+      1 - (te.embedding <=> ${embeddingStr}::vector) as score,
       et.subject as content,
       et.snippet,
       et.last_message_at,
@@ -215,8 +228,8 @@ async function searchThreads(
       AND te.status = 'completed'
       ${options.after ? sql`AND et.last_message_at >= ${options.after}` : sql``}
       ${options.before ? sql`AND et.last_message_at <= ${options.before}` : sql``}
-      AND 1 - (te.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) >= ${options.threshold}
-    ORDER BY te.embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+      AND 1 - (te.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
+    ORDER BY te.embedding <=> ${embeddingStr}::vector
     LIMIT ${options.limit}
   `);
 
@@ -254,10 +267,12 @@ async function searchClaims(
     metadata: Record<string, unknown>;
   }>
 > {
+  const embeddingStr = formatEmbedding(queryEmbedding);
+
   const results = await db.execute(sql`
     SELECT
       ce.claim_id as id,
-      1 - (ce.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as score,
+      1 - (ce.embedding <=> ${embeddingStr}::vector) as score,
       c.content,
       c.type as claim_type,
       c.confidence,
@@ -272,8 +287,8 @@ async function searchClaims(
       AND ce.status = 'completed'
       ${options.after ? sql`AND c.created_at >= ${options.after}` : sql``}
       ${options.before ? sql`AND c.created_at <= ${options.before}` : sql``}
-      AND 1 - (ce.embedding <=> ${JSON.stringify(queryEmbedding)}::vector) >= ${options.threshold}
-    ORDER BY ce.embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+      AND 1 - (ce.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
+    ORDER BY ce.embedding <=> ${embeddingStr}::vector
     LIMIT ${options.limit}
   `);
 
@@ -443,15 +458,17 @@ export const searchRouter = router({
         where: eq(threadEmbedding.threadId, input.threadId),
       });
 
-      if (!sourceEmbedding) {
+      if (!sourceEmbedding || !sourceEmbedding.embedding) {
         return { relatedThreads: [] };
       }
 
       // Find similar threads
+      const embeddingStr = formatEmbedding(sourceEmbedding.embedding as number[]);
+
       const results = await db.execute(sql`
         SELECT
           te.thread_id as id,
-          1 - (te.embedding <=> ${JSON.stringify(sourceEmbedding.embedding)}::vector) as score,
+          1 - (te.embedding <=> ${embeddingStr}::vector) as score,
           et.subject,
           et.snippet,
           et.last_message_at,
@@ -462,8 +479,8 @@ export const searchRouter = router({
           et.account_id = ANY(${accountIds}::text[])
           AND te.thread_id != ${input.threadId}
           AND te.status = 'completed'
-          AND 1 - (te.embedding <=> ${JSON.stringify(sourceEmbedding.embedding)}::vector) >= ${input.threshold}
-        ORDER BY te.embedding <=> ${JSON.stringify(sourceEmbedding.embedding)}::vector
+          AND 1 - (te.embedding <=> ${embeddingStr}::vector) >= ${input.threshold}
+        ORDER BY te.embedding <=> ${embeddingStr}::vector
         LIMIT ${input.limit}
       `);
 

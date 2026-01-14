@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@saas-template/db";
-import { AuditActions, auditLog } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { AuditActions, auditLog } from "@memorystack/db/schema";
 
 export type AuditLogLevel = "info" | "warning" | "error" | "critical";
 

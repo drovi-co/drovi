@@ -10,14 +10,15 @@ import {
   createDecisionAgent,
   type DecisionClaimInput,
   type DecisionThreadContext,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { createNotification } from "@memorystack/api/routers/notifications";
+import { db } from "@memorystack/db";
 import {
   claim,
   contact,
   decision,
   emailThread,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -205,6 +206,53 @@ export const extractDecisionsTask = task({
           supersessionsDetected = count;
         }
       );
+
+      // Create notifications for new decisions
+      if (savedCount > 0) {
+        const userId = thread.account.addedByUserId;
+        for (const d of extractedDecisions) {
+          await createNotification(
+            userId,
+            {
+              type: "success",
+              category: "decision",
+              title: "Decision Recorded",
+              message: d.title,
+              link: `/dashboard/decisions`,
+              entityId: d.sourceClaimId ?? undefined,
+              entityType: "decision",
+              priority: "normal",
+              metadata: {
+                topic: d.topic,
+                confidence: d.confidence,
+                threadId,
+              },
+            },
+            "new"
+          );
+        }
+      }
+
+      // Create notifications for superseded decisions
+      if (supersessionsDetected > 0) {
+        const userId = thread.account.addedByUserId;
+        await createNotification(
+          userId,
+          {
+            type: "info",
+            category: "decision",
+            title: "Decision Updated",
+            message: `${supersessionsDetected} previous decision${supersessionsDetected > 1 ? "s have" : " has"} been superseded`,
+            link: `/dashboard/decisions`,
+            priority: "normal",
+            metadata: {
+              supersessionsCount: supersessionsDetected,
+              threadId,
+            },
+          },
+          "superseded"
+        );
+      }
 
       log.info("Decision extraction completed", {
         threadId,

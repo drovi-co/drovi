@@ -1,18 +1,114 @@
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   account,
   auditLog,
   dataExportRequest,
   session,
   user,
-} from "@saas-template/db/schema";
+  type UserAISettings,
+} from "@memorystack/db/schema";
 import { tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
+// AI Settings schema for validation
+const aiSettingsSchema = z.object({
+  title: z.string().max(100).optional(),
+  company: z.string().max(100).optional(),
+  department: z.string().max(100).optional(),
+  signature: z.string().max(2000).optional(),
+  preferredTone: z.enum(["formal", "casual", "professional", "friendly"]).optional(),
+  signOff: z.string().max(100).optional(),
+  phone: z.string().max(50).optional(),
+  linkedinUrl: z.string().url().max(200).optional().or(z.literal("")),
+  calendarBookingLink: z.string().url().max(200).optional().or(z.literal("")),
+  workingHours: z.object({
+    timezone: z.string(),
+    start: z.string().regex(/^\d{2}:\d{2}$/),
+    end: z.string().regex(/^\d{2}:\d{2}$/),
+    workDays: z.array(z.number().min(0).max(6)),
+  }).optional(),
+});
+
 export const userRouter = router({
+  // ===========================================================================
+  // AI SETTINGS
+  // ===========================================================================
+
+  /**
+   * Get the current user's AI settings
+   */
+  getAISettings: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    const userData = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+      columns: {
+        name: true,
+        email: true,
+        aiSettings: true,
+      },
+    });
+
+    if (!userData) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    // Return settings with user name as fallback
+    const settings = (userData.aiSettings as UserAISettings) ?? {};
+    return {
+      ...settings,
+      // Provide user name as default for signature generation
+      userName: userData.name,
+      userEmail: userData.email,
+    };
+  }),
+
+  /**
+   * Update the current user's AI settings
+   */
+  updateAISettings: protectedProcedure
+    .input(aiSettingsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      // Get current settings to merge with updates
+      const userData = await db.query.user.findFirst({
+        where: eq(user.id, userId),
+        columns: { aiSettings: true },
+      });
+
+      if (!userData) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      const currentSettings = (userData.aiSettings as UserAISettings) ?? {};
+      const newSettings: UserAISettings = {
+        ...currentSettings,
+        ...input,
+      };
+
+      // Update user with new AI settings
+      await db
+        .update(user)
+        .set({ aiSettings: newSettings })
+        .where(eq(user.id, userId));
+
+      return newSettings;
+    }),
+
+  // ===========================================================================
+  // DATA EXPORT
+  // ===========================================================================
+
   /**
    * Request a data export (GDPR compliance)
    * Creates a new export request that will be processed asynchronously

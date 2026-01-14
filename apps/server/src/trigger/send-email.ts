@@ -22,7 +22,7 @@ export const sendEmailTask = task({
 
     const result = await resend.emails.send({
       from:
-        payload.from ?? process.env.EMAIL_FROM ?? "noreply@saas-template.app",
+        payload.from ?? process.env.EMAIL_FROM ?? "noreply@memorystack.app",
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
@@ -47,18 +47,18 @@ export const sendWelcomeEmailTask = task({
   id: "send-welcome-email",
   run: async (payload: { userId: string; userName: string; email: string }) => {
     const { render } = await import("@react-email/render");
-    const { WelcomeEmail } = await import("@saas-template/email/templates");
+    const { WelcomeEmail } = await import("@memorystack/email/templates");
 
     const html = await render(
       WelcomeEmail({
         userName: payload.userName,
-        appUrl: process.env.APP_URL ?? "https://app.saas-template.app",
+        appUrl: process.env.APP_URL ?? "https://app.memorystack.app",
       })
     );
 
     await sendEmailTask.triggerAndWait({
       to: payload.email,
-      subject: "Welcome to LeadMiner!",
+      subject: "Welcome to MemoryStack!",
       html,
       tags: [
         { name: "type", value: "welcome" },
@@ -82,7 +82,7 @@ export const sendInvitationEmailTask = task({
     inviteLink: string;
   }) => {
     const { render } = await import("@react-email/render");
-    const { InvitationEmail } = await import("@saas-template/email/templates");
+    const { InvitationEmail } = await import("@memorystack/email/templates");
 
     const html = await render(
       InvitationEmail({

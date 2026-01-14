@@ -6,9 +6,9 @@
 // Supports CRUD operations, querying, and supersession tracking.
 //
 
-import { createDecisionAgent } from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
-import { contact, decision, member, topic } from "@saas-template/db/schema";
+import { createDecisionAgent } from "@memorystack/ai/agents";
+import { db } from "@memorystack/db";
+import { contact, decision, member, topic } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -19,7 +19,7 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const listDecisionsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
   // Filters
@@ -37,12 +37,12 @@ const listDecisionsSchema = z.object({
 });
 
 const getDecisionSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   decisionId: z.string().uuid(),
 });
 
 const updateDecisionSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   decisionId: z.string().uuid(),
   // Content updates
   title: z.string().optional(),
@@ -56,13 +56,13 @@ const updateDecisionSchema = z.object({
 });
 
 const queryDecisionsSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   query: z.string().min(1).max(500),
   limit: z.number().int().min(1).max(20).default(10),
 });
 
 const getSupersessionChainSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   decisionId: z.string().uuid(),
 });
 
@@ -537,7 +537,7 @@ export const decisionsRouter = router({
   getByTopic: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         topicId: z.string().uuid(),
         limit: z.number().int().min(1).max(50).default(20),
       })
@@ -581,7 +581,7 @@ export const decisionsRouter = router({
   getRecent: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(20).default(10),
       })
     )
@@ -616,7 +616,7 @@ export const decisionsRouter = router({
   getStats: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
       })
     )
     .query(async ({ ctx, input }) => {

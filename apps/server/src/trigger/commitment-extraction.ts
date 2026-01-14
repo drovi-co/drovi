@@ -12,14 +12,15 @@ import {
   createCommitmentAgent,
   type PromiseClaimInput,
   type RequestClaimInput,
-} from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
+} from "@memorystack/ai/agents";
+import { createNotification } from "@memorystack/api/routers/notifications";
+import { db } from "@memorystack/db";
 import {
   claim,
   commitment,
   contact,
   emailThread,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -212,6 +213,35 @@ export const extractCommitmentsTask = task({
         extractedCommitments,
         thread.account.organizationId
       );
+
+      // Create notifications for new commitments
+      if (savedCount > 0) {
+        const userId = thread.account.addedByUserId;
+        for (const c of extractedCommitments) {
+          const isOwedByMe = c.direction === "owed_by_me";
+          await createNotification(
+            userId,
+            {
+              type: isOwedByMe ? "warning" : "info",
+              category: "commitment",
+              title: isOwedByMe
+                ? "New Commitment Made"
+                : "New Commitment to Track",
+              message: c.title,
+              link: `/dashboard/commitments`,
+              entityId: c.sourceClaimId ?? undefined,
+              entityType: "commitment",
+              priority: c.dueDate ? "high" : "normal",
+              metadata: {
+                confidence: c.confidence,
+                direction: c.direction,
+                threadId,
+              },
+            },
+            "new"
+          );
+        }
+      }
 
       log.info("Commitment extraction completed", {
         threadId,

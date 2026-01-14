@@ -22,7 +22,7 @@ export function InvitationAcceptedEmail({
   memberName,
   memberEmail,
   organizationName,
-  dashboardUrl = "https://app.saas-template.app/dashboard/team/members",
+  dashboardUrl = "https://app.memorystack.app/dashboard/team/members",
 }: InvitationAcceptedEmailProps) {
   return (
     <Html>

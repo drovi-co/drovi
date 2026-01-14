@@ -7,7 +7,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildBriefPrompt } from "../prompts/summarization";
 import {
   type ThreadBrief,
@@ -32,7 +32,7 @@ export async function generateBrief(
     const prompt = buildBriefPrompt(messages, userEmail, subject);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: ThreadBriefSchema,
       prompt,
       temperature: 0.4,
@@ -40,15 +40,18 @@ export async function generateBrief(
 
     trace.generation({
       name: "generate-brief",
-      model: "claude-3-5-haiku",
+      model: "default",
       output: result.object,
     });
 
     return result.object;
   } catch (error) {
+    console.error("[generateBrief] Error:", error instanceof Error ? error.message : error);
+    console.error("[generateBrief] Stack:", error instanceof Error ? error.stack : "");
+
     trace.generation({
       name: "generate-brief-error",
-      model: "claude-3-5-haiku",
+      model: "default",
       output: error instanceof Error ? error.message : "Unknown error",
       level: "ERROR",
     });

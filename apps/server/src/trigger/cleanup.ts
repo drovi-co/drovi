@@ -6,8 +6,8 @@ export const cleanupExpiredInvitations = schedules.task({
   id: "cleanup-expired-invitations",
   cron: "0 3 * * *", // Run at 3 AM every day
   run: async () => {
-    const { db } = await import("@saas-template/db");
-    const { invitation } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { invitation } = await import("@memorystack/db/schema");
 
     const now = new Date();
 
@@ -30,8 +30,8 @@ export const cleanupOldAuditLogs = schedules.task({
   id: "cleanup-old-audit-logs",
   cron: "0 4 * * 0", // Run at 4 AM every Sunday
   run: async () => {
-    const { db } = await import("@saas-template/db");
-    const { auditLog } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { auditLog } = await import("@memorystack/db/schema");
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
@@ -55,8 +55,8 @@ export const updateExpiredInvitationStatus = schedules.task({
   id: "update-expired-invitation-status",
   cron: "0 0 * * *", // Run at midnight every day
   run: async () => {
-    const { db } = await import("@saas-template/db");
-    const { invitation } = await import("@saas-template/db/schema");
+    const { db } = await import("@memorystack/db");
+    const { invitation } = await import("@memorystack/db/schema");
     const { and, lt } = await import("drizzle-orm");
 
     const now = new Date();

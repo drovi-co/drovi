@@ -6,9 +6,10 @@
 // Summarizes overdue items, due today, and upcoming commitments.
 //
 
-import { createCommitmentAgent } from "@saas-template/ai/agents";
-import { db } from "@saas-template/db";
-import { commitment, emailAccount } from "@saas-template/db/schema";
+import { createCommitmentAgent } from "@memorystack/ai/agents";
+import { createNotification } from "@memorystack/api/routers/notifications";
+import { db } from "@memorystack/db";
+import { commitment, emailAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { log } from "../lib/logger";
@@ -124,6 +125,42 @@ export const generateDigestTask = task({
         digest.owedByMe.dueToday.length + digest.owedToMe.dueToday.length;
       const upcomingCount =
         digest.owedByMe.upcoming.length + digest.owedToMe.upcoming.length;
+
+      // Create in-app notifications for overdue items
+      if (overdueCount > 0) {
+        await createNotification(
+          userId,
+          {
+            type: "error",
+            category: "commitment",
+            title: `${overdueCount} Overdue Commitment${overdueCount > 1 ? "s" : ""}`,
+            message: "You have commitments that need attention",
+            link: "/dashboard/commitments?filter=overdue",
+            priority: "urgent",
+            actionRequired: true,
+            actionType: "review",
+            groupKey: `overdue-${new Date().toISOString().split("T")[0]}`,
+          },
+          "overdue"
+        );
+      }
+
+      // Create in-app notifications for items due today
+      if (dueTodayCount > 0) {
+        await createNotification(
+          userId,
+          {
+            type: "warning",
+            category: "commitment",
+            title: `${dueTodayCount} Commitment${dueTodayCount > 1 ? "s" : ""} Due Today`,
+            message: "Review your commitments due today",
+            link: "/dashboard/commitments?filter=today",
+            priority: "high",
+            groupKey: `due-today-${new Date().toISOString().split("T")[0]}`,
+          },
+          "due"
+        );
+      }
 
       // Only send email if there are items to report and sendEmail is enabled
       let emailSent = false;

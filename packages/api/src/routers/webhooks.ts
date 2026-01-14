@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { db } from "@saas-template/db";
-import { webhook, webhookDelivery } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { webhook, webhookDelivery } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";

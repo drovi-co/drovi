@@ -19,19 +19,19 @@ interface WelcomeEmailProps {
 
 export function WelcomeEmail({
   userName,
-  appUrl = "https://app.saas-template.app",
+  appUrl = "https://app.memorystack.app",
 }: WelcomeEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Welcome to LeadMiner - Let's get started!</Preview>
+      <Preview>Welcome to MemoryStack - Let's get started!</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to LeadMiner!</Heading>
+          <Heading style={h1}>Welcome to MemoryStack!</Heading>
           <Text style={text}>Hi {userName},</Text>
           <Text style={text}>
-            We're excited to have you on board! LeadMiner helps you streamline
-            your workflow and boost your productivity.
+            We're excited to have you on board! MemoryStack helps you turn your
+            email into actionable intelligence with AI-powered insights.
           </Text>
           <Section style={buttonContainer}>
             <Button href={`${appUrl}/dashboard`} style={button}>
@@ -47,7 +47,7 @@ export function WelcomeEmail({
           <Hr style={hr} />
           <Text style={footer}>
             If you have any questions, feel free to{" "}
-            <Link href="mailto:support@saas-template.app" style={link}>
+            <Link href="mailto:support@memorystack.app" style={link}>
               contact our support team
             </Link>
             .
@@ -55,7 +55,7 @@ export function WelcomeEmail({
           <Text style={footer}>
             Best regards,
             <br />
-            The LeadMiner Team
+            The MemoryStack Team
           </Text>
         </Container>
       </Body>

@@ -1,10 +1,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: saas-template-ingress
-  namespace: saas-template
+  name: memorystack-ingress
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template
+    app.kubernetes.io/name: memorystack
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -15,27 +15,27 @@ metadata:
 spec:
   tls:
     - hosts:
-        - saas-template.example.com
-        - api.saas-template.example.com
-      secretName: saas-template-tls
+        - memorystack.example.com
+        - api.memorystack.example.com
+      secretName: memorystack-tls
   rules:
-    - host: saas-template.example.com
+    - host: memorystack.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: saas-template-web
+                name: memorystack-web
                 port:
                   number: 80
-    - host: api.saas-template.example.com
+    - host: api.memorystack.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: saas-template-server
+                name: memorystack-server
                 port:
                   number: 80

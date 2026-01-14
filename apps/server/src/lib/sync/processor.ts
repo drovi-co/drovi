@@ -7,13 +7,13 @@
 // and attachment metadata processing.
 //
 
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   emailAttachment,
   emailMessage,
   emailParticipant,
   emailThread,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { and, eq } from "drizzle-orm";
 import type {
   AttachmentMetadata,
@@ -43,6 +43,24 @@ export async function processThread(
 ): Promise<ProcessedThread> {
   const { skipExisting = true, forceUpdate = false } = options;
 
+  // Validate that we have messages to process
+  const hasMessagesInPayload = threadData.messages && threadData.messages.length > 0;
+
+  if (!hasMessagesInPayload && threadData.messageCount > 0) {
+    log.warn("Thread has messageCount but no messages in payload - skipping to avoid orphaned thread", {
+      providerThreadId: threadData.providerThreadId,
+      expectedMessageCount: threadData.messageCount,
+      actualMessageCount: threadData.messages?.length ?? 0,
+    });
+    // Return early - don't create orphaned thread
+    return {
+      thread: threadData,
+      messages: [],
+      isNew: false,
+      wasUpdated: false,
+    };
+  }
+
   // Check if thread exists
   const existingThread = await db.query.emailThread.findFirst({
     where: and(
@@ -53,8 +71,18 @@ export async function processThread(
 
   const isNew = !existingThread;
 
-  // Skip if exists and not forcing update
-  if (existingThread && skipExisting && !forceUpdate) {
+  // Check if thread has messages (to handle orphaned threads from crashed syncs)
+  let hasMessagesInDb = false;
+  if (existingThread) {
+    const messageCount = await db.query.emailMessage.findFirst({
+      where: eq(emailMessage.threadId, existingThread.id),
+      columns: { id: true },
+    });
+    hasMessagesInDb = !!messageCount;
+  }
+
+  // Skip only if thread exists WITH messages and not forcing update
+  if (existingThread && hasMessagesInDb && skipExisting && !forceUpdate) {
     return {
       thread: threadData,
       messages: threadData.messages,
@@ -65,7 +93,10 @@ export async function processThread(
 
   // Upsert thread
   const threadId = existingThread?.id ?? crypto.randomUUID();
-  const threadRecord = mapThreadToRecord(accountId, threadId, threadData);
+
+  // Use actual message count from payload, not metadata
+  const actualMessageCount = threadData.messages?.length ?? 0;
+  const threadRecord = mapThreadToRecord(accountId, threadId, threadData, actualMessageCount);
 
   if (existingThread) {
     await db
@@ -76,9 +107,37 @@ export async function processThread(
     await db.insert(emailThread).values(threadRecord);
   }
 
-  // Process messages
-  for (const message of threadData.messages) {
-    await processMessage(threadId, message, { skipExisting, forceUpdate });
+  // Process messages with index for ordering
+  let processedCount = 0;
+  for (let idx = 0; idx < (threadData.messages?.length ?? 0); idx++) {
+    const message = threadData.messages[idx];
+    if (!message) continue;
+
+    try {
+      // Add message index for ordering within thread
+      const messageWithIndex = {
+        ...message,
+        messageIndex: idx,
+      };
+      await processMessage(threadId, messageWithIndex, { skipExisting, forceUpdate });
+      processedCount++;
+    } catch (error) {
+      log.error("Failed to process message", error, {
+        threadId,
+        providerMessageId: message.providerMessageId,
+        messageIndex: idx,
+      });
+    }
+  }
+
+  // Log if we didn't process all expected messages
+  if (processedCount < actualMessageCount) {
+    log.warn("Not all messages were processed", {
+      threadId,
+      providerThreadId: threadData.providerThreadId,
+      expected: actualMessageCount,
+      processed: processedCount,
+    });
   }
 
   return {
@@ -95,7 +154,8 @@ export async function processThread(
 function mapThreadToRecord(
   accountId: string,
   threadId: string,
-  thread: EmailThreadData
+  thread: EmailThreadData,
+  actualMessageCount?: number
 ) {
   return {
     id: threadId,
@@ -104,7 +164,8 @@ function mapThreadToRecord(
     subject: thread.subject,
     snippet: thread.snippet,
     participantEmails: thread.participants.map((p) => p.email),
-    messageCount: thread.messageCount,
+    // Use actual message count if provided, otherwise fall back to metadata
+    messageCount: actualMessageCount ?? thread.messageCount,
     hasAttachments: thread.hasAttachments,
     firstMessageAt: thread.firstMessageAt,
     lastMessageAt: thread.lastMessageAt,
@@ -178,7 +239,7 @@ export async function processMessage(
 function mapMessageToRecord(
   threadId: string,
   messageId: string,
-  message: EmailMessageData
+  message: EmailMessageData & { messageIndex?: number }
 ) {
   return {
     id: messageId,
@@ -186,10 +247,11 @@ function mapMessageToRecord(
     providerMessageId: message.providerMessageId,
     inReplyTo: message.inReplyTo,
     references: message.references,
-    from: { email: message.from.email, name: message.from.name },
-    to: message.to.map((r) => ({ email: r.email, name: r.name })),
-    cc: message.cc.map((r) => ({ email: r.email, name: r.name })),
-    bcc: message.bcc.map((r) => ({ email: r.email, name: r.name })),
+    fromEmail: message.from.email,
+    fromName: message.from.name ?? null,
+    toRecipients: message.to.map((r) => ({ email: r.email, name: r.name })),
+    ccRecipients: message.cc.map((r) => ({ email: r.email, name: r.name })),
+    bccRecipients: message.bcc.map((r) => ({ email: r.email, name: r.name })),
     subject: message.subject,
     bodyText: message.bodyText,
     bodyHtml: message.bodyHtml,
@@ -199,6 +261,7 @@ function mapMessageToRecord(
     headers: message.headers,
     labelIds: message.labels,
     sizeBytes: message.sizeBytes,
+    messageIndex: message.messageIndex ?? 0,
     isFromUser: message.isFromUser,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -298,7 +361,7 @@ export async function processAttachments(
     providerAttachmentId: attachment.id,
     filename: attachment.filename,
     mimeType: attachment.mimeType,
-    size: attachment.size,
+    sizeBytes: attachment.size,
     contentId: attachment.contentId,
     isInline: attachment.isInline,
     createdAt: new Date(),

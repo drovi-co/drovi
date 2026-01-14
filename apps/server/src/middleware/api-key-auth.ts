@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { db } from "@saas-template/db";
-import { apiKey } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { apiKey } from "@memorystack/db/schema";
 import { eq } from "drizzle-orm";
 import type { Context, MiddlewareHandler } from "hono";
 

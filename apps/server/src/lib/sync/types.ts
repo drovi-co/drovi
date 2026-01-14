@@ -38,19 +38,19 @@ export const BACKFILL_PHASE_RANGES = {
  */
 export const BACKFILL_CONCURRENCY = {
   priority: {
-    threadFetchConcurrency: 20, // High concurrency for wow effect
-    batchSize: 100,
-    queueConcurrency: 10,
-  },
-  extended: {
-    threadFetchConcurrency: 10,
-    batchSize: 100,
+    threadFetchConcurrency: 5, // Reduced to avoid OOM on Trigger.dev
+    batchSize: 25,
     queueConcurrency: 5,
   },
-  archive: {
-    threadFetchConcurrency: 5,
-    batchSize: 50,
+  extended: {
+    threadFetchConcurrency: 3,
+    batchSize: 20,
     queueConcurrency: 3,
+  },
+  archive: {
+    threadFetchConcurrency: 2,
+    batchSize: 15,
+    queueConcurrency: 2,
   },
 } as const;
 

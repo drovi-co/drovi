@@ -23,17 +23,17 @@ export function MagicLinkEmail({
   return (
     <Html>
       <Head />
-      <Preview>Your sign-in link for LeadMiner</Preview>
+      <Preview>Your sign-in link for MemoryStack</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Sign in to LeadMiner</Heading>
+          <Heading style={h1}>Sign in to MemoryStack</Heading>
           <Text style={text}>
-            Click the button below to sign in to your LeadMiner account. This
+            Click the button below to sign in to your MemoryStack account. This
             link will expire in {expiresIn}.
           </Text>
           <Section style={buttonContainer}>
             <Button href={magicLink} style={button}>
-              Sign in to LeadMiner
+              Sign in to MemoryStack
             </Button>
           </Section>
           <Text style={text}>

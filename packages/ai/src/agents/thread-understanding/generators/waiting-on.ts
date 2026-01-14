@@ -7,7 +7,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildWaitingOnPrompt } from "../prompts/summarization";
 import {
   type ExtractedClaims,
@@ -41,7 +41,7 @@ export async function analyzeWaitingOn(
     const prompt = buildWaitingOnPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: WaitingOnSchema,
       prompt,
       temperature: 0.3,

@@ -10,9 +10,9 @@ export const processDataExportTask = task({
     factor: 2,
   },
   run: async (payload: { requestId: string }) => {
-    const { db } = await import("@saas-template/db");
+    const { db } = await import("@memorystack/db");
     const { dataExportRequest, user, session, account, auditLog } =
-      await import("@saas-template/db/schema");
+      await import("@memorystack/db/schema");
     const { eq, desc } = await import("drizzle-orm");
 
     // Get the export request

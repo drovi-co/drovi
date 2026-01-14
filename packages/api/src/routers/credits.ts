@@ -1,7 +1,9 @@
 import { Polar } from "@polar-sh/sdk";
-import { PLAN_CREDITS } from "@saas-template/db/schema";
-import { env } from "@saas-template/env/server";
+import { db } from "@memorystack/db";
+import { PLAN_CREDITS, member } from "@memorystack/db/schema";
+import { env } from "@memorystack/env/server";
 import { TRPCError } from "@trpc/server";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 import {
@@ -11,6 +13,36 @@ import {
   getTransactionHistory,
   getUsageAnalytics,
 } from "../lib/credits";
+
+// =============================================================================
+// ROLE VERIFICATION HELPERS
+// =============================================================================
+
+async function verifyOrgAdmin(
+  userId: string,
+  organizationId: string
+): Promise<void> {
+  const membership = await db.query.member.findFirst({
+    where: and(
+      eq(member.userId, userId),
+      eq(member.organizationId, organizationId)
+    ),
+  });
+
+  if (!membership) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You are not a member of this organization.",
+    });
+  }
+
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only organization owners and admins can perform this action.",
+    });
+  }
+}
 
 // Initialize Polar client for credit purchases
 const polarClient = env.POLAR_ACCESS_TOKEN
@@ -24,23 +56,46 @@ export const creditsRouter = router({
   getStatus: protectedProcedure.query(async ({ ctx }) => {
     const orgId = ctx.session.session.activeOrganizationId;
 
+    // Return default status if no organization is selected yet
+    // This handles the case where user just signed up and hasn't completed onboarding
     if (!orgId) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "No organization selected",
-      });
+      return {
+        balance: 0,
+        lifetimeCredits: 0,
+        lifetimeUsed: 0,
+        trialStatus: "none" as const,
+        isTrialActive: false,
+        trialDaysRemaining: 0,
+        trialProgress: 0,
+        trialCreditsGranted: 0,
+        isLowBalance: false,
+        lowBalanceThreshold: 0,
+        monthlyAllocationDate: null,
+        noOrganization: true,
+      };
     }
 
     const status = await getCreditStatus(orgId);
 
     if (!status) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Credit status not found",
-      });
+      // Return default status if credits not found (will be created on first use)
+      return {
+        balance: 0,
+        lifetimeCredits: 0,
+        lifetimeUsed: 0,
+        trialStatus: "none" as const,
+        isTrialActive: false,
+        trialDaysRemaining: 0,
+        trialProgress: 0,
+        trialCreditsGranted: 0,
+        isLowBalance: false,
+        lowBalanceThreshold: 0,
+        monthlyAllocationDate: null,
+        noOrganization: false,
+      };
     }
 
-    return status;
+    return { ...status, noOrganization: false };
   }),
 
   /**
@@ -125,6 +180,7 @@ export const creditsRouter = router({
 
   /**
    * Admin: Adjust credits for an organization
+   * Only organization owners and admins can perform this action.
    */
   adminAdjustCredits: protectedProcedure
     .input(
@@ -134,28 +190,11 @@ export const creditsRouter = router({
         reason: z.string().min(1).max(500),
       })
     )
-    .mutation(({ ctx, input }) => {
-      // Check if user is admin (you may want to add proper admin check)
+    .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      // For now, just check that user is part of the org as owner/admin
-      // In production, you'd want a proper admin role check
-      const orgId = ctx.session.session.activeOrganizationId;
-
-      if (!orgId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No organization selected",
-        });
-      }
-
-      // Only allow adjusting own organization for now
-      if (input.organizationId !== orgId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Cannot adjust credits for another organization",
-        });
-      }
+      // Verify user is admin/owner of the organization
+      await verifyOrgAdmin(userId, input.organizationId);
 
       return adminAdjustCredits({
         organizationId: input.organizationId,

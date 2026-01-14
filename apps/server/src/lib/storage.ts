@@ -7,7 +7,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { env } from "@saas-template/env/server";
+import { env } from "@memorystack/env/server";
 import { log } from "./logger";
 
 // S3 client singleton

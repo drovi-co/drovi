@@ -17,11 +17,11 @@ This directory contains Kubernetes manifests for deploying the SaaS Template app
 
    ```bash
    # Update domains in configmap.yaml
-   sed -i 's/saas-template.example.com/your-domain.com/g' configmap.yaml ingress.yaml
+   sed -i 's/memorystack.example.com/your-domain.com/g' configmap.yaml ingress.yaml
 
    # Update secrets (use base64 for actual deployment)
-   kubectl create secret generic saas-template-secrets \
-     --namespace=saas-template \
+   kubectl create secret generic memorystack-secrets \
+     --namespace=memorystack \
      --from-literal=DATABASE_URL='your-database-url' \
      --from-literal=BETTER_AUTH_SECRET='your-secret' \
      # ... other secrets
@@ -50,7 +50,7 @@ This directory contains Kubernetes manifests for deploying the SaaS Template app
 
 | File | Description |
 |------|-------------|
-| `namespace.yaml` | Creates the saas-template namespace |
+| `namespace.yaml` | Creates the memorystack namespace |
 | `configmap.yaml` | Non-sensitive configuration |
 | `secrets.yaml` | Sensitive configuration (passwords, API keys) |
 | `server-deployment.yaml` | Backend API deployment and service |
@@ -121,17 +121,17 @@ metadata:
 
 ```bash
 # Check pod status
-kubectl get pods -n saas-template
+kubectl get pods -n memorystack
 
 # View logs
-kubectl logs -f deployment/saas-template-server -n saas-template
+kubectl logs -f deployment/memorystack-server -n memorystack
 
 # Describe pod for events
-kubectl describe pod <pod-name> -n saas-template
+kubectl describe pod <pod-name> -n memorystack
 
 # Check ingress
-kubectl get ingress -n saas-template
+kubectl get ingress -n memorystack
 
 # Test connectivity
-kubectl port-forward svc/saas-template-server 3000:80 -n saas-template
+kubectl port-forward svc/memorystack-server 3000:80 -n memorystack
 ```

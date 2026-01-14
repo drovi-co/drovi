@@ -14,4 +14,12 @@ export default defineConfig({
   server: {
     port: 3001,
   },
+  optimizeDeps: {
+    include: ["react-resizable-panels"],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/react-resizable-panels/, /node_modules/],
+    },
+  },
 });

@@ -2,8 +2,9 @@ import {
   checkCredits,
   deductCredits,
   tokensToCredits,
-} from "@saas-template/api/lib/credits";
+} from "@memorystack/api/lib/credits";
 import type { Context, MiddlewareHandler } from "hono";
+import { log } from "../lib/logger";
 
 export interface CreditContext {
   creditCheck: {
@@ -123,7 +124,7 @@ export async function processAICredits(params: {
       ...result,
     };
   } catch (error) {
-    console.error("Failed to deduct credits:", error);
+    log.error("Failed to deduct credits", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

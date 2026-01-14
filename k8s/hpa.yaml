@@ -1,15 +1,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: saas-template-server-hpa
-  namespace: saas-template
+  name: memorystack-server-hpa
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-server
+    app.kubernetes.io/name: memorystack-server
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: saas-template-server
+    name: memorystack-server
   minReplicas: 2
   maxReplicas: 10
   metrics:
@@ -46,15 +46,15 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: saas-template-web-hpa
-  namespace: saas-template
+  name: memorystack-web-hpa
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-web
+    app.kubernetes.io/name: memorystack-web
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: saas-template-web
+    name: memorystack-web
   minReplicas: 2
   maxReplicas: 5
   metrics:

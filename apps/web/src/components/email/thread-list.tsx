@@ -120,7 +120,7 @@ export function ThreadList({
   const rowVirtualizer = useVirtualizer({
     count: threads.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 160, // Estimated row height
+    estimateSize: () => 140, // Estimated row height with padding (brief + badges)
     overscan: 5,
   });
 
@@ -424,7 +424,7 @@ export function ThreadList({
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  className="p-2"
+                  className="px-3 py-2 overflow-hidden"
                 >
                   <ThreadBrief
                     thread={thread}

@@ -2,8 +2,8 @@ import {
   validateEvent,
   WebhookVerificationError,
 } from "@polar-sh/sdk/webhooks";
-import { processCreditPurchase } from "@saas-template/api/lib/credits";
-import { env } from "@saas-template/env/server";
+import { processCreditPurchase } from "@memorystack/api/lib/credits";
+import { env } from "@memorystack/env/server";
 import { Hono } from "hono";
 import { log } from "../../lib/logger";
 

@@ -8,7 +8,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildOpenLoopPrompt } from "../prompts/summarization";
 import {
   type ExtractedClaims,
@@ -42,7 +42,7 @@ export async function detectOpenLoops(
     const prompt = buildOpenLoopPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ openLoops: z.array(OpenLoopSchema) }),
       prompt,
       temperature: 0.3,

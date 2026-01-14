@@ -1,12 +1,16 @@
 import {
   GMAIL_API_BASE,
   refreshGmailToken as refreshGmailOAuth,
-} from "@saas-template/auth/providers";
+} from "@memorystack/auth/providers";
+import { log } from "../logger";
 import type {
   AccountInfo,
   AttachmentData,
   AttachmentMetadata,
+  DraftInput,
+  DraftResult,
   EmailClient,
+  EmailComposeInput,
   EmailMessageData,
   EmailRecipient,
   EmailThreadData,
@@ -14,6 +18,7 @@ import type {
   ListOptions,
   ListResponse,
   MessagePart,
+  SendResult,
   SyncDelta,
   TokenInfo,
 } from "./types";
@@ -202,6 +207,195 @@ function convertGmailMessagePart(part: GmailMessagePart): MessagePart {
       : undefined,
     parts: part.parts?.map((p) => convertGmailMessagePart(p)),
   };
+}
+
+/**
+ * Format an email recipient for MIME headers
+ */
+function formatRecipient(recipient: EmailRecipient): string {
+  if (recipient.name) {
+    // Encode name if it contains special characters
+    const encodedName = recipient.name.includes(",") || recipient.name.includes('"')
+      ? `"${recipient.name.replace(/"/g, '\\"')}"`
+      : recipient.name;
+    return `${encodedName} <${recipient.email}>`;
+  }
+  return recipient.email;
+}
+
+/**
+ * Format an array of recipients for MIME headers
+ */
+function formatRecipients(recipients: EmailRecipient[]): string {
+  return recipients.map(formatRecipient).join(", ");
+}
+
+/**
+ * Strip HTML tags for plain text fallback
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+/**
+ * Encode filename for Content-Disposition header (RFC 2231)
+ */
+function encodeFilename(filename: string): string {
+  // Check if filename needs encoding
+  if (/^[\x20-\x7E]+$/.test(filename) && !filename.includes('"')) {
+    return `"${filename}"`;
+  }
+  // Use RFC 2231 encoding for non-ASCII filenames
+  const encoded = encodeURIComponent(filename).replace(/'/g, "%27");
+  return `*=UTF-8''${encoded}`;
+}
+
+/**
+ * Build an RFC 2822 MIME message for Gmail API
+ * Supports attachments via multipart/mixed structure
+ */
+function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
+  const hasAttachments = input.attachments && input.attachments.length > 0;
+  const mixedBoundary = `----=_Mixed_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const lines: string[] = [];
+
+  // Headers
+  lines.push(`From: ${fromEmail}`);
+  lines.push(`To: ${formatRecipients(input.to)}`);
+
+  if (input.cc && input.cc.length > 0) {
+    lines.push(`Cc: ${formatRecipients(input.cc)}`);
+  }
+
+  if (input.bcc && input.bcc.length > 0) {
+    lines.push(`Bcc: ${formatRecipients(input.bcc)}`);
+  }
+
+  // Encode subject for non-ASCII characters
+  const subject = input.subject;
+  if (/[^\x00-\x7F]/.test(subject)) {
+    lines.push(`Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`);
+  } else {
+    lines.push(`Subject: ${subject}`);
+  }
+
+  lines.push("MIME-Version: 1.0");
+
+  // Threading headers
+  if (input.inReplyTo) {
+    lines.push(`In-Reply-To: ${input.inReplyTo}`);
+  }
+
+  if (input.references && input.references.length > 0) {
+    lines.push(`References: ${input.references.join(" ")}`);
+  }
+
+  // Structure depends on whether we have attachments
+  if (hasAttachments) {
+    // multipart/mixed (top level) containing:
+    //   1. multipart/alternative (body with text + HTML)
+    //   2. attachment parts
+    lines.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+    lines.push("");
+
+    // Body part (multipart/alternative for text + HTML)
+    lines.push(`--${mixedBoundary}`);
+
+    if (input.bodyHtml) {
+      lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      lines.push("");
+
+      // Plain text part
+      lines.push(`--${altBoundary}`);
+      lines.push("Content-Type: text/plain; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString("base64"));
+
+      // HTML part
+      lines.push(`--${altBoundary}`);
+      lines.push("Content-Type: text/html; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyHtml).toString("base64"));
+
+      lines.push(`--${altBoundary}--`);
+    } else {
+      // Plain text only
+      lines.push("Content-Type: text/plain; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyText || "").toString("base64"));
+    }
+
+    // Attachment parts
+    for (const attachment of input.attachments ?? []) {
+      lines.push(`--${mixedBoundary}`);
+
+      // Content-Type with filename
+      lines.push(`Content-Type: ${attachment.mimeType}; name=${encodeFilename(attachment.filename)}`);
+
+      // Content-Disposition
+      const disposition = attachment.isInline ? "inline" : "attachment";
+      lines.push(`Content-Disposition: ${disposition}; filename=${encodeFilename(attachment.filename)}`);
+
+      // Content-ID for inline attachments
+      if (attachment.contentId) {
+        lines.push(`Content-ID: <${attachment.contentId}>`);
+      }
+
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+
+      // Split base64 content into 76-character lines per RFC 2045
+      const base64Content = attachment.content;
+      for (let i = 0; i < base64Content.length; i += 76) {
+        lines.push(base64Content.slice(i, i + 76));
+      }
+    }
+
+    lines.push(`--${mixedBoundary}--`);
+  } else {
+    // No attachments - simple structure
+    if (input.bodyHtml) {
+      lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      lines.push("");
+
+      // Plain text part
+      lines.push(`--${altBoundary}`);
+      lines.push("Content-Type: text/plain; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString("base64"));
+
+      // HTML part
+      lines.push(`--${altBoundary}`);
+      lines.push("Content-Type: text/html; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyHtml).toString("base64"));
+
+      lines.push(`--${altBoundary}--`);
+    } else {
+      // Plain text only
+      lines.push("Content-Type: text/plain; charset=UTF-8");
+      lines.push("Content-Transfer-Encoding: base64");
+      lines.push("");
+      lines.push(Buffer.from(input.bodyText || "").toString("base64"));
+    }
+  }
+
+  return lines.join("\r\n");
 }
 
 // =============================================================================
@@ -475,8 +669,12 @@ export class GmailEmailClient implements EmailClient {
 
       const messages = thread.messages ?? [];
       if (messages.length === 0) {
+        log.warn("Thread returned with 0 messages from API", { threadId });
         return null;
       }
+
+      // Log successful fetch for debugging
+      log.debug("Fetched thread with messages", { threadId, messageCount: messages.length });
 
       const firstMessage = messages[0];
       const lastMessage = messages.at(-1);
@@ -755,5 +953,171 @@ export class GmailEmailClient implements EmailClient {
       name: label.name,
       type: label.type ?? "user",
     }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Watch API - Real-time Push Notifications
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set up a watch on the user's mailbox to receive push notifications.
+   *
+   * Gmail will send notifications to the specified Pub/Sub topic when changes occur.
+   * Watch expires after 7 days and must be renewed.
+   *
+   * @param topicName - Full Pub/Sub topic name (e.g., "projects/my-project/topics/gmail-notifications")
+   * @param labelIds - Optional array of label IDs to watch (default: INBOX)
+   * @returns Watch details including expiration and historyId
+   */
+  async setupWatch(
+    topicName: string,
+    labelIds: string[] = ["INBOX"]
+  ): Promise<{
+    historyId: string;
+    expiration: string; // Unix timestamp in milliseconds
+  }> {
+    const response = await this.request<{
+      historyId: string;
+      expiration: string;
+    }>("/watch", {
+      method: "POST",
+      body: JSON.stringify({
+        topicName,
+        labelIds,
+        labelFilterBehavior: "include",
+      }),
+    });
+
+    return {
+      historyId: response.historyId,
+      expiration: response.expiration,
+    };
+  }
+
+  /**
+   * Stop receiving push notifications for this mailbox.
+   * Call this when disconnecting an account.
+   */
+  async stopWatch(): Promise<void> {
+    await this.request("/stop", {
+      method: "POST",
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compose Operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send an email message via Gmail API
+   */
+  async sendMessage(input: EmailComposeInput): Promise<SendResult> {
+    const mimeMessage = buildMimeMessage(input, this.email);
+    const raw = Buffer.from(mimeMessage).toString("base64url");
+
+    const body: { raw: string; threadId?: string } = { raw };
+    if (input.threadId) {
+      body.threadId = input.threadId;
+    }
+
+    const response = await this.request<{
+      id: string;
+      threadId: string;
+      labelIds: string[];
+    }>("/messages/send", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    return {
+      messageId: response.id,
+      threadId: response.threadId,
+      sentAt: new Date(),
+    };
+  }
+
+  /**
+   * Create a draft email in Gmail
+   */
+  async createDraft(input: DraftInput): Promise<DraftResult> {
+    const mimeMessage = buildMimeMessage(input, this.email);
+    const raw = Buffer.from(mimeMessage).toString("base64url");
+
+    const messageBody: { raw: string; threadId?: string } = { raw };
+    if (input.threadId) {
+      messageBody.threadId = input.threadId;
+    }
+
+    const response = await this.request<{
+      id: string;
+      message: {
+        id: string;
+        threadId?: string;
+        labelIds?: string[];
+      };
+    }>("/drafts", {
+      method: "POST",
+      body: JSON.stringify({ message: messageBody }),
+    });
+
+    return {
+      draftId: response.id,
+      messageId: response.message.id,
+      threadId: response.message.threadId,
+    };
+  }
+
+  /**
+   * Update an existing draft in Gmail
+   */
+  async updateDraft(draftId: string, input: DraftInput): Promise<DraftResult> {
+    const mimeMessage = buildMimeMessage(input, this.email);
+    const raw = Buffer.from(mimeMessage).toString("base64url");
+
+    const response = await this.request<{
+      id: string;
+      message: {
+        id: string;
+        threadId?: string;
+        labelIds?: string[];
+      };
+    }>(`/drafts/${draftId}`, {
+      method: "PUT",
+      body: JSON.stringify({ message: { raw } }),
+    });
+
+    return {
+      draftId: response.id,
+      messageId: response.message.id,
+      threadId: response.message.threadId,
+    };
+  }
+
+  /**
+   * Delete a draft from Gmail
+   */
+  async deleteDraft(draftId: string): Promise<void> {
+    await this.request(`/drafts/${draftId}`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Get a draft by ID from Gmail
+   */
+  async getDraft(draftId: string): Promise<EmailMessageData | null> {
+    try {
+      const response = await this.request<{
+        id: string;
+        message: GmailMessage;
+      }>(`/drafts/${draftId}?format=full`);
+
+      return this.convertMessage(response.message);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
   }
 }

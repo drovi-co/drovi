@@ -7,26 +7,24 @@
 // surface showing the full context of the promise.
 //
 
-import { format, formatDistanceToNow, isPast, isToday, isTomorrow, isThisWeek } from "date-fns";
-import { motion } from "framer-motion";
+import { format, isPast, isToday, isTomorrow, isThisWeek } from "date-fns";
 import {
-  Calendar,
   Check,
-  ChevronDown,
-  ChevronRight,
   Clock,
   ExternalLink,
+  Eye,
   Mail,
   MoreHorizontal,
   Pause,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
-  User,
 } from "lucide-react";
 import { useState } from "react";
 
+import { ConfidenceBadge } from "@/components/evidence";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +78,7 @@ interface CommitmentCardProps {
   onThreadClick?: (threadId: string) => void;
   onContactClick?: (email: string) => void;
   onGenerateFollowUp?: (commitmentId: string) => void;
+  onShowEvidence?: (commitmentId: string) => void;
   compact?: boolean;
 }
 
@@ -142,6 +141,17 @@ function getStatusBadge(status: string): { variant: "default" | "secondary" | "d
   }
 }
 
+function getInitials(name: string | null | undefined, email: string): string {
+  if (name) {
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  return email.slice(0, 2).toUpperCase();
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -157,12 +167,11 @@ export function CommitmentCard({
   onThreadClick,
   onContactClick,
   onGenerateFollowUp,
-  compact = false,
+  onShowEvidence,
 }: CommitmentCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const urgency = getUrgencyLevel(commitment.dueDate, commitment.status);
-  const priorityBadge = getPriorityBadge(commitment.priority);
   const statusBadge = getStatusBadge(commitment.status);
 
   // The person responsible or expecting
@@ -171,257 +180,218 @@ export function CommitmentCard({
     : commitment.debtor;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+    <div
       className={cn(
-        "group relative border-l-4 rounded-lg bg-card transition-all",
-        "hover:shadow-md cursor-pointer",
-        getUrgencyStyles(urgency),
-        isSelected && "ring-2 ring-primary",
-        compact ? "p-3" : "p-4"
+        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
+        "border-b border-border/40",
+        isHovered && !isSelected && "bg-accent/50",
+        isSelected && "bg-accent"
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={onSelect}
     >
-      {/* Header Row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          {/* Expand/Collapse Toggle */}
+      {/* Priority indicator bar */}
+      {urgency === "overdue" && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+      )}
+      {urgency === "urgent" && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500" />
+      )}
+      {urgency === "soon" && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+      )}
+
+      {/* Avatar */}
+      {otherPerson ? (
+        <Avatar className="h-9 w-9 shrink-0">
+          <AvatarFallback className="text-xs bg-muted font-medium">
+            {getInitials(otherPerson.displayName, otherPerson.primaryEmail)}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <div className="h-9 w-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+          <Check className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+
+      {/* Direction badge */}
+      <span className={cn(
+        "text-xs font-medium px-1.5 py-0.5 rounded shrink-0",
+        commitment.direction === "owed_by_me"
+          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+          : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+      )}>
+        {commitment.direction === "owed_by_me" ? "I owe" : "Owed to me"}
+      </span>
+
+      {/* Other Person */}
+      {otherPerson && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onContactClick?.(otherPerson.primaryEmail);
+          }}
+          className="w-32 shrink-0 truncate text-sm font-medium text-foreground/80 hover:text-foreground transition-colors text-left"
+        >
+          {otherPerson.displayName ?? otherPerson.primaryEmail}
+        </button>
+      )}
+
+      {/* Title - main content with AI indicator */}
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        <span className="text-sm truncate text-muted-foreground">
+          {commitment.title}
+        </span>
+      </div>
+
+      {/* Due Date */}
+      {commitment.dueDate && !isHovered && (
+        <span className={cn(
+          "text-xs shrink-0",
+          urgency === "overdue" && "text-red-600 dark:text-red-400 font-medium",
+          urgency === "urgent" && "text-orange-600 dark:text-orange-400",
+          urgency === "soon" && "text-amber-600 dark:text-amber-400",
+          urgency === "normal" && "text-muted-foreground"
+        )}>
+          {isPast(commitment.dueDate)
+            ? `${commitment.daysOverdue ?? Math.floor((Date.now() - commitment.dueDate.getTime()) / (1000 * 60 * 60 * 24))}d overdue`
+            : isToday(commitment.dueDate)
+              ? "Today"
+              : isTomorrow(commitment.dueDate)
+                ? "Tomorrow"
+                : format(commitment.dueDate, "MMM d")
+          }
+        </span>
+      )}
+
+      {/* Quick actions - always visible */}
+      <div className="shrink-0 flex items-center gap-1">
+        {/* Status badge */}
+        <Badge variant={statusBadge.variant} className="text-[10px] shrink-0">
+          {statusBadge.label}
+        </Badge>
+
+        {/* Confidence Badge */}
+        <ConfidenceBadge
+          confidence={commitment.confidence}
+          isUserVerified={commitment.isUserVerified}
+          size="sm"
+          showDetails={false}
+        />
+
+        {/* Show Me - Evidence button */}
+        {onShowEvidence && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setIsExpanded(!isExpanded);
+              onShowEvidence(commitment.id);
             }}
-            className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 rounded-md hover:bg-background transition-colors"
+            title="Show evidence"
           >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
+            <Eye className="h-4 w-4 text-purple-500" />
           </button>
+        )}
 
-          <div className="flex-1 min-w-0">
-            {/* Title */}
-            <h3 className={cn(
-              "font-medium text-foreground line-clamp-2",
-              compact ? "text-sm" : "text-base"
-            )}>
-              {commitment.title}
-            </h3>
+        {/* Complete button for active commitments */}
+        {commitment.status !== "completed" && commitment.status !== "cancelled" && onComplete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onComplete(commitment.id);
+            }}
+            className="p-1.5 rounded-md hover:bg-background transition-colors"
+            title="Mark complete"
+          >
+            <Check className="h-4 w-4 text-green-600" />
+          </button>
+        )}
 
-            {/* Meta Row */}
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {/* Direction Indicator */}
-              <span className={cn(
-                "text-xs font-medium px-1.5 py-0.5 rounded",
-                commitment.direction === "owed_by_me"
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-              )}>
-                {commitment.direction === "owed_by_me" ? "I owe" : "Owed to me"}
-              </span>
-
-              {/* Other Person */}
-              {otherPerson && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onContactClick?.(otherPerson.primaryEmail);
-                  }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <User className="h-3 w-3" />
-                  <span className="truncate max-w-[120px]">
-                    {otherPerson.displayName ?? otherPerson.primaryEmail}
-                  </span>
-                </button>
-              )}
-
-              {/* Due Date */}
-              {commitment.dueDate && (
-                <span className={cn(
-                  "flex items-center gap-1 text-xs",
-                  urgency === "overdue" && "text-red-600 dark:text-red-400 font-medium",
-                  urgency === "urgent" && "text-orange-600 dark:text-orange-400",
-                  urgency === "soon" && "text-amber-600 dark:text-amber-400",
-                  urgency === "normal" && "text-muted-foreground"
-                )}>
-                  <Calendar className="h-3 w-3" />
-                  {isPast(commitment.dueDate)
-                    ? `${commitment.daysOverdue ?? Math.floor((Date.now() - commitment.dueDate.getTime()) / (1000 * 60 * 60 * 24))}d overdue`
-                    : isToday(commitment.dueDate)
-                      ? "Today"
-                      : isTomorrow(commitment.dueDate)
-                        ? "Tomorrow"
-                        : formatDistanceToNow(commitment.dueDate, { addSuffix: true })
-                  }
-                </span>
-              )}
-
-              {/* Confidence Indicator */}
-              <span className={cn(
-                "text-xs",
-                commitment.confidence >= 0.8 && "text-green-600 dark:text-green-400",
-                commitment.confidence >= 0.5 && commitment.confidence < 0.8 && "text-amber-600 dark:text-amber-400",
-                commitment.confidence < 0.5 && "text-red-600 dark:text-red-400"
-              )}>
-                {Math.round(commitment.confidence * 100)}% confident
-              </span>
-
-              {/* User Verified Badge */}
-              {commitment.isUserVerified && (
-                <Badge variant="outline" className="text-xs h-5">
-                  <Check className="h-3 w-3 mr-1" />
-                  Verified
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Badges & Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge variant={statusBadge.variant} className="text-xs">
-            {statusBadge.label}
-          </Badge>
-
-          {commitment.priority !== "medium" && (
-            <Badge variant={priorityBadge.variant} className="text-xs">
-              {priorityBadge.label}
-            </Badge>
-          )}
-
-          {/* Quick Complete Button */}
-          {commitment.status !== "completed" && commitment.status !== "cancelled" && onComplete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(commitment.id);
-              }}
-              title="Mark complete"
-            >
-              <Check className="h-4 w-4 text-green-600" />
-            </Button>
-          )}
-
-          {/* More Actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {commitment.status !== "completed" && (
-                <>
-                  {onComplete && (
-                    <DropdownMenuItem onClick={() => onComplete(commitment.id)}>
-                      <Check className="h-4 w-4 mr-2" />
-                      Mark Complete
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  {onSnooze && (
-                    <>
-                      <DropdownMenuItem onClick={() => onSnooze(commitment.id, 1)}>
-                        <Clock className="h-4 w-4 mr-2" />
-                        Snooze 1 day
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onSnooze(commitment.id, 3)}>
-                        <Pause className="h-4 w-4 mr-2" />
-                        Snooze 3 days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onSnooze(commitment.id, 7)}>
-                        <Pause className="h-4 w-4 mr-2" />
-                        Snooze 1 week
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                </>
-              )}
-              {commitment.direction === "owed_to_me" && urgency === "overdue" && onGenerateFollowUp && (
-                <DropdownMenuItem onClick={() => onGenerateFollowUp(commitment.id)}>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Generate Follow-up
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              {!commitment.isUserVerified && onVerify && (
-                <DropdownMenuItem onClick={() => onVerify(commitment.id)}>
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                  Verify (Correct)
-                </DropdownMenuItem>
-              )}
-              {onDismiss && (
-                <DropdownMenuItem onClick={() => onDismiss(commitment.id)} className="text-destructive">
-                  <ThumbsDown className="h-4 w-4 mr-2" />
-                  Dismiss (Incorrect)
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Expanded Content */}
-      {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="mt-4 pt-4 border-t space-y-3"
-        >
-          {/* Description */}
-          {commitment.description && (
-            <p className="text-sm text-muted-foreground">
-              {commitment.description}
-            </p>
-          )}
-
-          {/* Source Thread */}
-          {commitment.sourceThread && (
+        {/* More actions menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onThreadClick?.(commitment.sourceThread!.id);
-              }}
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 rounded-md hover:bg-background transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span className="truncate">
-                From: {commitment.sourceThread.subject ?? "Email thread"}
-              </span>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
-          )}
-
-          {/* Evidence */}
-          {commitment.evidence && commitment.evidence.length > 0 && (
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">Evidence:</span>
-              {commitment.evidence.map((e, i) => (
-                <p key={i} className="text-xs text-muted-foreground italic pl-2 border-l-2 border-muted">
-                  "{e}"
-                </p>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      )}
-    </motion.div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onShowEvidence && (
+              <>
+                <DropdownMenuItem onClick={() => onShowEvidence(commitment.id)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Show Evidence
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {commitment.sourceThread && (
+              <DropdownMenuItem onClick={() => onThreadClick?.(commitment.sourceThread!.id)}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Source Thread
+              </DropdownMenuItem>
+            )}
+            {commitment.status !== "completed" && (
+              <>
+                {onComplete && (
+                  <DropdownMenuItem onClick={() => onComplete(commitment.id)}>
+                    <Check className="h-4 w-4 mr-2" />
+                    Mark Complete
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {onSnooze && (
+                  <>
+                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 1)}>
+                      <Clock className="h-4 w-4 mr-2" />
+                      Snooze 1 day
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 3)}>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Snooze 3 days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 7)}>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Snooze 1 week
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+              </>
+            )}
+            {commitment.direction === "owed_to_me" && urgency === "overdue" && onGenerateFollowUp && (
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onGenerateFollowUp(commitment.id);
+              }}>
+                <Mail className="h-4 w-4 mr-2" />
+                Generate Follow-up
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            {!commitment.isUserVerified && onVerify && (
+              <DropdownMenuItem onClick={() => onVerify(commitment.id)}>
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Verify (Correct)
+              </DropdownMenuItem>
+            )}
+            {onDismiss && (
+              <DropdownMenuItem onClick={() => onDismiss(commitment.id)} className="text-destructive">
+                <ThumbsDown className="h-4 w-4 mr-2" />
+                Dismiss (Incorrect)
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
 }

@@ -3,8 +3,10 @@ import { User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AccountDeletion } from "@/components/settings/account-deletion";
+import { AISettings } from "@/components/settings/ai-settings";
 import { ApiKeys } from "@/components/settings/api-keys";
 import { DataExport } from "@/components/settings/data-export";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 import { SessionManagement } from "@/components/settings/session-management";
 import { TwoFactorSettings } from "@/components/settings/two-factor-settings";
 import { Webhooks } from "@/components/settings/webhooks";
@@ -124,6 +126,16 @@ function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Separator />
+
+        {/* AI Settings */}
+        <AISettings />
+
+        <Separator />
+
+        {/* Notification Settings */}
+        <NotificationSettings />
 
         <Separator />
 

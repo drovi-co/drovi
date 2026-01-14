@@ -10,8 +10,8 @@
 // Phase 3 (Archive):   1+ years → ALL   - Steady concurrency, full history
 //
 
-import { db } from "@saas-template/db";
-import { type BackfillProgress, emailAccount } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { type BackfillProgress, emailAccount } from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { eq } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";

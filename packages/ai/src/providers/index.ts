@@ -10,6 +10,7 @@ export type AIProvider = "openai" | "anthropic" | "google" | "groq";
 // Model configurations per provider
 export const MODELS = {
   openai: {
+    "gpt-5.2": "gpt-5.2",
     "gpt-4o": "gpt-4o",
     "gpt-4o-mini": "gpt-4o-mini",
     "gpt-4-turbo": "gpt-4-turbo",
@@ -82,7 +83,7 @@ export function getModel(
 ): LanguageModel {
   switch (provider) {
     case "openai": {
-      const model = modelName ?? "gpt-4o";
+      const model = modelName ?? "gpt-5.2";
       return getOpenAI()(model);
     }
     case "anthropic": {

@@ -1,5 +1,5 @@
 import { useChat } from "@ai-sdk/react";
-import { env } from "@saas-template/env/web";
+import { env } from "@memorystack/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { DefaultChatTransport } from "ai";
 import { Send } from "lucide-react";

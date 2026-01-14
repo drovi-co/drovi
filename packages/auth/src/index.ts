@@ -1,8 +1,8 @@
 import { checkout, polar, portal } from "@polar-sh/better-auth";
-import { db } from "@saas-template/db";
-import * as schema from "@saas-template/db/schema";
-import { InvitationEmail, sendEmail } from "@saas-template/email";
-import { env } from "@saas-template/env/server";
+import { db } from "@memorystack/db";
+import * as schema from "@memorystack/db/schema";
+import { InvitationEmail, sendEmail } from "@memorystack/email";
+import { env } from "@memorystack/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins/admin";
@@ -139,29 +139,31 @@ export const auth = betterAuth({
       },
     },
   },
-  // More permissive rate limiting
-  rateLimit: {
-    window: 60, // 60 seconds
-    max: 100, // 100 requests per window
-    customRules: {
-      "/sign-in/*": {
-        window: 60,
-        max: 10, // 10 sign-in attempts per minute (instead of default 3 per 10s)
+  // Disable rate limiting in development, use permissive limits in production
+  rateLimit: env.NODE_ENV === "development"
+    ? { enabled: false }
+    : {
+        window: 60, // 60 seconds
+        max: 100, // 100 requests per window
+        customRules: {
+          "/sign-in/*": {
+            window: 60,
+            max: 10,
+          },
+          "/sign-up/*": {
+            window: 60,
+            max: 10,
+          },
+          "/magic-link/*": {
+            window: 60,
+            max: 10,
+          },
+          "/forgot-password/*": {
+            window: 60,
+            max: 5,
+          },
+        },
       },
-      "/sign-up/*": {
-        window: 60,
-        max: 10,
-      },
-      "/magic-link/*": {
-        window: 60,
-        max: 10,
-      },
-      "/forgot-password/*": {
-        window: 60,
-        max: 5,
-      },
-    },
-  },
   // MEMORYSTACK: OAuth-only authentication with Google and Microsoft
   // These same credentials are used for email access (Gmail/Outlook)
   socialProviders: {

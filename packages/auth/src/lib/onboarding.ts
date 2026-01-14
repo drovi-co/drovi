@@ -7,8 +7,8 @@
 //
 
 import { randomUUID } from "node:crypto";
-import { db } from "@saas-template/db";
-import { emailAccount, member, organization } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailAccount, member, organization } from "@memorystack/db/schema";
 
 // =============================================================================
 // TYPES

@@ -1,36 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: saas-template-web
-  namespace: saas-template
+  name: memorystack-web
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-web
+    app.kubernetes.io/name: memorystack-web
     app.kubernetes.io/component: web
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: saas-template-web
+      app.kubernetes.io/name: memorystack-web
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: saas-template-web
+        app.kubernetes.io/name: memorystack-web
         app.kubernetes.io/component: web
     spec:
       containers:
         - name: web
-          image: saas-template/web:latest
+          image: memorystack/web:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
               name: http
           env:
             - name: VITE_SERVER_URL
-              value: "https://api.saas-template.example.com"
+              value: "https://api.memorystack.example.com"
             - name: VITE_SENTRY_DSN
               valueFrom:
                 secretKeyRef:
-                  name: saas-template-secrets
+                  name: memorystack-secrets
                   key: SENTRY_DSN
                   optional: true
             - name: VITE_SENTRY_ENVIRONMENT
@@ -69,16 +69,16 @@ spec:
                     - key: app.kubernetes.io/name
                       operator: In
                       values:
-                        - saas-template-web
+                        - memorystack-web
                 topologyKey: kubernetes.io/hostname
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: saas-template-web
-  namespace: saas-template
+  name: memorystack-web
+  namespace: memorystack
   labels:
-    app.kubernetes.io/name: saas-template-web
+    app.kubernetes.io/name: memorystack-web
 spec:
   type: ClusterIP
   ports:
@@ -87,4 +87,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: saas-template-web
+    app.kubernetes.io/name: memorystack-web

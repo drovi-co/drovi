@@ -140,7 +140,7 @@ function CompletePage() {
   return (
     <>
       {showConfetti && <Confetti />}
-      <OnboardingLayout step={3}>
+      <OnboardingLayout step={4}>
         <Card className="border-0 shadow-none lg:border lg:shadow-sm">
           <CardHeader className="pb-2 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
@@ -150,7 +150,7 @@ function CompletePage() {
             <CardDescription className="text-base">
               Welcome to{" "}
               <span className="font-medium text-foreground">
-                {activeOrg?.name || "SaaS Template"}
+                {activeOrg?.name || "MEMORYSTACK"}
               </span>
             </CardDescription>
           </CardHeader>

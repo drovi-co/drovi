@@ -13,7 +13,7 @@
 //
 // Usage:
 //
-//   import { analyzeThread, createThreadUnderstandingAgent } from "@saas-template/ai/agents";
+//   import { analyzeThread, createThreadUnderstandingAgent } from "@memorystack/ai/agents";
 //
 //   // Simple usage
 //   const analysis = await analyzeThread(threadInput);

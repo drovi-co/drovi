@@ -7,7 +7,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import { buildUrgencyPrompt } from "../prompts/classification";
 import {
   type ThreadMessage,
@@ -31,7 +31,7 @@ export async function scoreUrgency(
     const prompt = buildUrgencyPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: UrgencyScoreSchema,
       prompt,
       temperature: 0.3,

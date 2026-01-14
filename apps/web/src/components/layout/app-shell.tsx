@@ -28,9 +28,11 @@ export function AppShell({
       }
     >
       <AppSidebar showAdmin={showAdmin} />
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
         <SiteHeader breadcrumbs={breadcrumbs} />
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+        <div className="flex-1 overflow-hidden overflow-y-auto px-6 py-4 [&:has(>[data-no-shell-padding])]:p-0">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

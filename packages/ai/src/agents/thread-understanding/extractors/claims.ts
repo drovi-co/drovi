@@ -8,7 +8,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { observability } from "../../../observability";
-import { getModel } from "../../../providers/index";
+import { getDefaultModel } from "../../../providers/index";
 import {
   buildCombinedExtractionPrompt,
   buildDecisionPrompt,
@@ -64,7 +64,7 @@ export async function extractAllClaims(
     const prompt = buildCombinedExtractionPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-sonnet-20241022"),
+      model: getDefaultModel(),
       schema: CombinedExtractionSchema,
       prompt,
       temperature: 0.2,
@@ -100,6 +100,9 @@ export async function extractAllClaims(
       other: [],
     };
   } catch (error) {
+    console.error("[extractAllClaims] Error:", error instanceof Error ? error.message : error);
+    console.error("[extractAllClaims] Stack:", error instanceof Error ? error.stack : "");
+
     trace.generation({
       name: "extract-all-claims-error",
       model: "claude-3-5-sonnet",
@@ -139,7 +142,7 @@ export async function extractFacts(
     const prompt = buildFactPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ facts: z.array(FactClaimSchema) }),
       prompt,
       temperature: 0.2,
@@ -179,7 +182,7 @@ export async function extractPromises(
     const prompt = buildPromisePrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ promises: z.array(PromiseClaimSchema) }),
       prompt,
       temperature: 0.2,
@@ -219,7 +222,7 @@ export async function extractRequests(
     const prompt = buildRequestPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ requests: z.array(RequestClaimSchema) }),
       prompt,
       temperature: 0.2,
@@ -259,7 +262,7 @@ export async function extractQuestions(
     const prompt = buildQuestionPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ questions: z.array(QuestionClaimSchema) }),
       prompt,
       temperature: 0.2,
@@ -299,7 +302,7 @@ export async function extractDecisions(
     const prompt = buildDecisionPrompt(messages, userEmail);
 
     const result = await generateObject({
-      model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+      model: getDefaultModel(),
       schema: z.object({ decisions: z.array(DecisionClaimSchema) }),
       prompt,
       temperature: 0.2,

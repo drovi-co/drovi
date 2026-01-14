@@ -22,7 +22,7 @@ export async function sendEmail({
   to,
   subject,
   template,
-  from = process.env.EMAIL_FROM ?? "noreply@saas-template.app",
+  from = process.env.EMAIL_FROM ?? "noreply@memorystack.app",
   replyTo,
   cc,
   bcc,
@@ -73,7 +73,7 @@ export async function sendBatchEmails(
   }
 
   const emailPromises = emails.map(async (email) => ({
-    from: email.from ?? process.env.EMAIL_FROM ?? "noreply@saas-template.app",
+    from: email.from ?? process.env.EMAIL_FROM ?? "noreply@memorystack.app",
     to: email.to,
     subject: email.subject,
     html: await render(email.template),

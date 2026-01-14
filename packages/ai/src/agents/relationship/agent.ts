@@ -8,7 +8,7 @@
 
 import { generateObject } from "ai";
 import { observability } from "../../observability";
-import { getModel } from "../../providers/index";
+import { getDefaultModel } from "../../providers/index";
 import {
   type CommunicationMetrics,
   calculateCommunicationMetrics,
@@ -136,7 +136,7 @@ export class RelationshipAgent {
       const prompt = buildSignatureExtractionPrompt(emails);
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: SignatureExtractionResponseSchema,
         prompt,
         temperature: 0.2,
@@ -192,7 +192,7 @@ export class RelationshipAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: ProfileEnrichmentResponseSchema,
         prompt,
         temperature: 0.3,
@@ -334,7 +334,7 @@ export class RelationshipAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: VIPSignalResponseSchema,
         prompt,
         temperature: 0.2,
@@ -445,7 +445,7 @@ export class RelationshipAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: RecentHistorySummaryResponseSchema,
         prompt,
         temperature: 0.3,
@@ -501,7 +501,7 @@ export class RelationshipAgent {
       const prompt = buildOpenLoopDetectionPrompt(contactName, threads);
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: {
           type: "object",
           properties: {
@@ -658,7 +658,7 @@ export class RelationshipAgent {
       );
 
       const result = await generateObject({
-        model: getModel("anthropic", "claude-3-5-haiku-20241022"),
+        model: getDefaultModel(),
         schema: MeetingBriefResponseSchema,
         prompt,
         temperature: 0.4,

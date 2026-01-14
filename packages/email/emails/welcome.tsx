@@ -32,7 +32,7 @@ export default function WelcomeEmail({
           </Text>
           <Section style={buttonContainer}>
             <Link
-              href={`${process.env.CORS_ORIGIN ?? "https://app.saas-template.app"}/dashboard`}
+              href={`${process.env.CORS_ORIGIN ?? "https://app.memorystack.app"}/dashboard`}
               style={button}
             >
               Go to Dashboard

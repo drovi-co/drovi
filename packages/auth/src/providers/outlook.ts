@@ -1,4 +1,4 @@
-import { env } from "@saas-template/env/server";
+import { env } from "@memorystack/env/server";
 
 // =============================================================================
 // OUTLOOK/MICROSOFT OAUTH CONFIGURATION
@@ -17,6 +17,8 @@ export const OUTLOOK_SCOPES = [
   "Mail.Send",
   // Read mailbox settings (folders, rules, etc.)
   "MailboxSettings.Read",
+  // Full read/write access to calendars
+  "Calendars.ReadWrite",
   // Read user profile
   "User.Read",
   // Required for refresh tokens

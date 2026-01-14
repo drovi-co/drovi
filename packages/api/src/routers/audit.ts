@@ -1,5 +1,5 @@
-import { db } from "@saas-template/db";
-import { AuditActions, auditLog } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { AuditActions, auditLog } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";

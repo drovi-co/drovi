@@ -6,8 +6,8 @@
 // Organization-scoped access control for all operations.
 //
 
-import { db } from "@saas-template/db";
-import { emailAccount, emailThread, member } from "@saas-template/db/schema";
+import { db } from "@memorystack/db";
+import { emailAccount, emailThread, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -53,7 +53,7 @@ export const emailSyncRouter = router({
   getStatus: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -119,7 +119,7 @@ export const emailSyncRouter = router({
   getAccountStatus: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
       })
     )
@@ -192,7 +192,7 @@ export const emailSyncRouter = router({
   triggerSync: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
       })
     )
@@ -248,7 +248,7 @@ export const emailSyncRouter = router({
   triggerBackfill: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
         backfillDays: z.number().min(1).max(365).optional(),
         force: z.boolean().optional(),
@@ -324,7 +324,7 @@ export const emailSyncRouter = router({
   updateSettings: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
         settings: z.object({
           syncEnabled: z.boolean().optional(),
@@ -379,7 +379,7 @@ export const emailSyncRouter = router({
   getSyncHistory: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid(),
         limit: z.number().min(1).max(100).default(20),
       })

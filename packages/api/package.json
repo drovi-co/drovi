@@ -1,5 +1,5 @@
 {
-  "name": "@saas-template/api",
+  "name": "@memorystack/api",
   "type": "module",
   "exports": {
     ".": {
@@ -14,9 +14,10 @@
   },
   "scripts": {},
   "dependencies": {
-    "@saas-template/auth": "workspace:*",
-    "@saas-template/db": "workspace:*",
-    "@saas-template/env": "workspace:*",
+    "@memorystack/ai": "workspace:*",
+    "@memorystack/auth": "workspace:*",
+    "@memorystack/db": "workspace:*",
+    "@memorystack/env": "workspace:*",
     "@trigger.dev/sdk": "^4.3.1",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
@@ -26,7 +27,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@saas-template/config": "workspace:*",
+    "@memorystack/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

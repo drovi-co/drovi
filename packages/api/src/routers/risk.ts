@@ -6,7 +6,7 @@
 // and policy enforcement.
 //
 
-import { db } from "@saas-template/db";
+import { db } from "@memorystack/db";
 import {
   emailAccount,
   emailMessage,
@@ -15,7 +15,7 @@ import {
   riskAnalysis,
   policyRule,
   auditLog,
-} from "@saas-template/db/schema";
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -26,12 +26,12 @@ import { protectedProcedure, router } from "../index";
 // =============================================================================
 
 const analyzeEmailSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   messageId: z.string().uuid(),
 });
 
 const analyzeDraftSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid(),
   content: z.string().min(1),
   subject: z.string().optional(),
@@ -45,7 +45,7 @@ const analyzeDraftSchema = z.object({
 });
 
 const listAnalysesSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   accountId: z.string().uuid().optional(),
   riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
   category: z
@@ -56,12 +56,12 @@ const listAnalysesSchema = z.object({
 });
 
 const getAnalysisSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   analysisId: z.string().uuid(),
 });
 
 const listPoliciesSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   category: z
     .enum([
       "communication",
@@ -76,7 +76,7 @@ const listPoliciesSchema = z.object({
 });
 
 const createPolicySchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   name: z.string().min(1).max(100),
   description: z.string().optional(),
   category: z.enum([
@@ -114,7 +114,7 @@ const createPolicySchema = z.object({
 });
 
 const updatePolicySchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   policyId: z.string().uuid(),
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
@@ -150,12 +150,12 @@ const updatePolicySchema = z.object({
 });
 
 const deletePolicySchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   policyId: z.string().uuid(),
 });
 
 const getAuditLogSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   from: z.date().optional(),
   to: z.date().optional(),
   action: z.string().optional(),
@@ -164,13 +164,13 @@ const getAuditLogSchema = z.object({
 });
 
 const requestApprovalSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   analysisId: z.string().uuid(),
   reason: z.string().min(1),
 });
 
 const processApprovalSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.string().min(1),
   analysisId: z.string().uuid(),
   approved: z.boolean(),
   comments: z.string().optional(),
@@ -183,7 +183,7 @@ const processApprovalSchema = z.object({
 async function verifyOrgMembership(
   userId: string,
   organizationId: string
-): Promise<void> {
+): Promise<{ role: string }> {
   const membership = await db.query.member.findFirst({
     where: and(
       eq(member.userId, userId),
@@ -195,6 +195,27 @@ async function verifyOrgMembership(
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "You are not a member of this organization.",
+    });
+  }
+
+  return { role: membership.role };
+}
+
+/**
+ * Verify user can approve risk analyses (owner, admin, or approver role)
+ */
+async function verifyApproverRole(
+  userId: string,
+  organizationId: string
+): Promise<void> {
+  const { role } = await verifyOrgMembership(userId, organizationId);
+
+  // Approvers can be: owners, admins, or users with explicit "approver" role
+  const approverRoles = ["owner", "admin", "approver"];
+  if (!approverRoles.includes(role)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only organization owners, admins, and designated approvers can process risk approvals.",
     });
   }
 }
@@ -436,7 +457,7 @@ export const riskRouter = router({
   getRiskSummary: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         accountId: z.string().uuid().optional(),
         days: z.number().int().min(1).max(90).default(7),
       })
@@ -577,7 +598,7 @@ export const riskRouter = router({
   getPolicy: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         policyId: z.string().uuid(),
       })
     )
@@ -735,7 +756,7 @@ export const riskRouter = router({
   togglePolicy: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         policyId: z.string().uuid(),
       })
     )
@@ -829,14 +850,15 @@ export const riskRouter = router({
 
   /**
    * Process an approval request.
+   * Only organization owners, admins, and designated approvers can process approvals.
    */
   processApproval: protectedProcedure
     .input(processApprovalSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      await verifyOrgMembership(userId, input.organizationId);
 
-      // TODO: Check if user has approver role
+      // Verify user has approver permissions
+      await verifyApproverRole(userId, input.organizationId);
 
       const analysis = await db.query.riskAnalysis.findFirst({
         where: eq(riskAnalysis.id, input.analysisId),
@@ -890,7 +912,7 @@ export const riskRouter = router({
   listPendingApprovals: protectedProcedure
     .input(
       z.object({
-        organizationId: z.string().uuid(),
+        organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(100).default(50),
         offset: z.number().int().min(0).default(0),
       })
