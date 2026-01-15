@@ -15,9 +15,13 @@ import {
   riskAnalysis,
   policyRule,
   auditLog,
+  commitment,
+  decision,
+  claim,
+  contact,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, gte, ne, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -31,6 +35,21 @@ const analyzeEmailSchema = z.object({
 });
 
 const analyzeDraftSchema = z.object({
+  organizationId: z.string().min(1),
+  accountId: z.string().uuid(),
+  content: z.string().min(1),
+  subject: z.string().optional(),
+  recipients: z.array(
+    z.object({
+      email: z.string().email(),
+      name: z.string().optional(),
+    })
+  ),
+  threadId: z.string().uuid().optional(),
+});
+
+// Schema for synchronous pre-send check
+const checkDraftSchema = z.object({
   organizationId: z.string().min(1),
   accountId: z.string().uuid(),
   content: z.string().min(1),
@@ -354,6 +373,271 @@ export const riskRouter = router({
         .returning();
 
       return analysis;
+    }),
+
+  /**
+   * Check draft for contradictions before sending (synchronous).
+   * This is the pre-send safety check that blocks mistakes before they happen.
+   */
+  checkDraft: protectedProcedure
+    .input(checkDraftSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+      await verifyAccountAccess(input.organizationId, input.accountId);
+
+      // Get recipient emails for context
+      const recipientEmails = input.recipients.map((r) => r.email.toLowerCase());
+
+      // Fetch recent commitments (last 90 days) that are relevant
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+      const recentCommitments = await db
+        .select({
+          id: commitment.id,
+          title: commitment.title,
+          description: commitment.description,
+          dueDate: commitment.dueDate,
+          direction: commitment.direction,
+          status: commitment.status,
+          sourceThreadId: commitment.sourceThreadId,
+          createdAt: commitment.createdAt,
+          creditorEmail: contact.primaryEmail,
+          creditorName: contact.displayName,
+          debtorEmail: sql<string>`debtor_contact.primary_email`,
+          debtorName: sql<string>`debtor_contact.display_name`,
+        })
+        .from(commitment)
+        .leftJoin(contact, eq(commitment.creditorContactId, contact.id))
+        .leftJoin(
+          sql`${contact} as debtor_contact`,
+          sql`${commitment.debtorContactId} = debtor_contact.id`
+        )
+        .where(
+          and(
+            eq(commitment.organizationId, input.organizationId),
+            gte(commitment.createdAt, ninetyDaysAgo),
+            ne(commitment.status, "completed"),
+            ne(commitment.status, "cancelled")
+          )
+        )
+        .limit(100);
+
+      // Fetch recent decisions (last 90 days)
+      const recentDecisions = await db
+        .select({
+          id: decision.id,
+          title: decision.title,
+          statement: decision.statement,
+          rationale: decision.rationale,
+          decidedAt: decision.decidedAt,
+          sourceThreadId: decision.sourceThreadId,
+        })
+        .from(decision)
+        .where(
+          and(
+            eq(decision.organizationId, input.organizationId),
+            gte(decision.decidedAt, ninetyDaysAgo),
+            eq(decision.isUserDismissed, false)
+          )
+        )
+        .limit(100);
+
+      // Build historical statements for contradiction checking
+      const historicalStatements: Array<{
+        id: string;
+        text: string;
+        type: "commitment" | "decision";
+        date: Date;
+        source: string;
+        party?: string;
+        threadId?: string | null;
+      }> = [];
+
+      // Add commitments
+      for (const c of recentCommitments) {
+        const partyEmail =
+          c.direction === "owed_by_me" ? c.creditorEmail : c.debtorEmail;
+        const partyName =
+          c.direction === "owed_by_me" ? c.creditorName : c.debtorName;
+
+        historicalStatements.push({
+          id: c.id,
+          text: c.description
+            ? `${c.title}: ${c.description}`
+            : c.title,
+          type: "commitment",
+          date: c.createdAt,
+          source: c.direction === "owed_by_me" ? "You committed" : "They committed",
+          party: partyName ?? partyEmail ?? undefined,
+          threadId: c.sourceThreadId,
+        });
+      }
+
+      // Add decisions
+      for (const d of recentDecisions) {
+        historicalStatements.push({
+          id: d.id,
+          text: d.rationale ? `${d.statement} (${d.rationale})` : d.statement,
+          type: "decision",
+          date: d.decidedAt,
+          source: "Decision made",
+          threadId: d.sourceThreadId,
+        });
+      }
+
+      // Perform simple contradiction detection
+      // This is a fast rule-based check - can be enhanced with AI later
+      const contradictions: Array<{
+        id: string;
+        severity: "low" | "medium" | "high" | "critical";
+        draftStatement: string;
+        conflictingStatement: string;
+        conflictingType: "commitment" | "decision";
+        conflictingId: string;
+        conflictingDate: Date;
+        conflictingParty?: string;
+        conflictingThreadId?: string | null;
+        suggestion: string;
+      }> = [];
+
+      const contentLower = input.content.toLowerCase();
+      const subjectLower = input.subject?.toLowerCase() ?? "";
+
+      // Check for timeline contradictions
+      const timelinePatterns = [
+        { pattern: /by\s+(\w+\s+\d+|\d+\/\d+|\d+-\d+)/, extract: "deadline" },
+        { pattern: /deliver\s+by|complete\s+by|finish\s+by|ready\s+by/i, extract: "deadline" },
+        { pattern: /earliest\s+(is|would be|could be)\s+/i, extract: "availability" },
+        { pattern: /can('t|not)\s+meet|unable\s+to\s+meet|won't\s+be\s+able/i, extract: "inability" },
+      ];
+
+      // Check for contradictory dates/timelines
+      for (const statement of historicalStatements) {
+        const statementLower = statement.text.toLowerCase();
+
+        // Check for date mentions in both draft and historical statement
+        const dateInDraft = contentLower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i);
+        const dateInStatement = statementLower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i);
+
+        if (dateInDraft && dateInStatement && dateInDraft[0] !== dateInStatement[0]) {
+          // Check if they're about similar topics (simple word overlap)
+          const draftWords = new Set(contentLower.split(/\s+/).filter(w => w.length > 4));
+          const statementWords = new Set(statementLower.split(/\s+/).filter(w => w.length > 4));
+          const overlap = [...draftWords].filter(w => statementWords.has(w)).length;
+
+          if (overlap >= 3) {
+            contradictions.push({
+              id: `date-${statement.id}`,
+              severity: "high",
+              draftStatement: `You mentioned "${dateInDraft[0]}"`,
+              conflictingStatement: statement.text,
+              conflictingType: statement.type,
+              conflictingId: statement.id,
+              conflictingDate: statement.date,
+              conflictingParty: statement.party,
+              conflictingThreadId: statement.threadId,
+              suggestion: `You previously mentioned "${dateInStatement[0]}" for a similar topic. Verify the dates are consistent.`,
+            });
+          }
+        }
+
+        // Check for contradictory "can" vs "can't" statements
+        const canPattern = /\bcan\s+(deliver|complete|meet|do|handle|finish)/i;
+        const cantPattern = /\b(can't|cannot|won't|unable\s+to)\s+(deliver|complete|meet|do|handle|finish)/i;
+
+        const draftCan = contentLower.match(canPattern);
+        const draftCant = contentLower.match(cantPattern);
+        const statementCan = statementLower.match(canPattern);
+        const statementCant = statementLower.match(cantPattern);
+
+        if ((draftCan && statementCant) || (draftCant && statementCan)) {
+          contradictions.push({
+            id: `ability-${statement.id}`,
+            severity: "critical",
+            draftStatement: draftCan ? `You're saying you can ${draftCan[1]}` : `You're saying you cannot ${draftCant?.[2]}`,
+            conflictingStatement: statement.text,
+            conflictingType: statement.type,
+            conflictingId: statement.id,
+            conflictingDate: statement.date,
+            conflictingParty: statement.party,
+            conflictingThreadId: statement.threadId,
+            suggestion: `This contradicts a previous statement. Make sure your message is consistent with past communications.`,
+          });
+        }
+
+        // Check for price/amount contradictions
+        const pricePattern = /\$\s*[\d,]+(\.\d{2})?|\b\d+k?\s*(dollars?|usd)/i;
+        const draftPrice = contentLower.match(pricePattern);
+        const statementPrice = statementLower.match(pricePattern);
+
+        if (draftPrice && statementPrice) {
+          const extractNumber = (match: string) => {
+            const num = match.replace(/[^0-9.]/g, "");
+            return Number.parseFloat(num) * (match.toLowerCase().includes("k") ? 1000 : 1);
+          };
+
+          const draftAmount = extractNumber(draftPrice[0]);
+          const statementAmount = extractNumber(statementPrice[0]);
+
+          // If amounts differ by more than 10%
+          if (Math.abs(draftAmount - statementAmount) / Math.max(draftAmount, statementAmount) > 0.1) {
+            contradictions.push({
+              id: `price-${statement.id}`,
+              severity: "high",
+              draftStatement: `You mentioned "${draftPrice[0]}"`,
+              conflictingStatement: statement.text,
+              conflictingType: statement.type,
+              conflictingId: statement.id,
+              conflictingDate: statement.date,
+              conflictingParty: statement.party,
+              conflictingThreadId: statement.threadId,
+              suggestion: `The amount differs from a previous communication ("${statementPrice[0]}"). Verify this is intentional.`,
+            });
+          }
+        }
+      }
+
+      // Check for new commitments being made
+      const newCommitmentPatterns = [
+        /i('ll| will)\s+(send|deliver|complete|finish|have|get)/i,
+        /we('ll| will)\s+(send|deliver|complete|finish|have|get)/i,
+        /i\s+promise/i,
+        /you\s+(can|will)\s+have\s+it\s+by/i,
+        /expect\s+(it|this|the)\s+by/i,
+      ];
+
+      const newCommitments: string[] = [];
+      for (const pattern of newCommitmentPatterns) {
+        const match = input.content.match(pattern);
+        if (match) {
+          // Extract surrounding context
+          const matchIndex = input.content.indexOf(match[0]);
+          const contextStart = Math.max(0, matchIndex - 20);
+          const contextEnd = Math.min(input.content.length, matchIndex + match[0].length + 50);
+          newCommitments.push(input.content.slice(contextStart, contextEnd).trim());
+        }
+      }
+
+      // Determine overall risk
+      const hasCritical = contradictions.some((c) => c.severity === "critical");
+      const hasHigh = contradictions.some((c) => c.severity === "high");
+
+      const canSend = !hasCritical;
+      const riskLevel = hasCritical ? "critical" : hasHigh ? "high" : contradictions.length > 0 ? "medium" : "low";
+
+      return {
+        canSend,
+        riskLevel,
+        contradictions,
+        newCommitments,
+        checkedAgainst: {
+          commitments: recentCommitments.length,
+          decisions: recentDecisions.length,
+        },
+        timestamp: new Date(),
+      };
     }),
 
   /**

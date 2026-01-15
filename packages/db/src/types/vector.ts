@@ -38,6 +38,9 @@ export const vector = customType<{
  * SQL helper for cosine similarity distance
  * Returns distance (lower = more similar), use 1 - result for similarity score
  *
+ * IMPORTANT: Uses sql.raw() to inject vector literal directly into SQL.
+ * pgvector cannot cast parameterized text values to vector type.
+ *
  * Usage:
  * ```typescript
  * db.select({
@@ -46,7 +49,9 @@ export const vector = customType<{
  * ```
  */
 export function cosineDistance(queryVector: number[]) {
-  return sql`${JSON.stringify(queryVector)}::vector`;
+  // Must use sql.raw() - pgvector can't cast text parameters to vector
+  const vecStr = `[${queryVector.join(",")}]`;
+  return sql.raw(`'${vecStr}'::vector`);
 }
 
 /**

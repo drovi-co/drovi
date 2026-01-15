@@ -270,9 +270,13 @@ export const embedThreadTask = task({
           missingCount: missingIds.length,
         });
 
-        // Generate embeddings for messages that don't have them
-        for (const msgId of missingIds) {
-          await embedMessageTask.triggerAndWait({ messageId: msgId });
+        // Generate embeddings for messages in parallel using batchTriggerAndWait
+        if (missingIds.length > 0) {
+          await embedMessageTask.batchTriggerAndWait(
+            missingIds.map((msgId) => ({
+              payload: { messageId: msgId },
+            }))
+          );
         }
 
         // Re-fetch embeddings
@@ -541,19 +545,26 @@ export const embedBatchTask = task({
           )
           .limit(limit);
 
-        for (const msg of messages) {
-          const result = await embedMessageTask.triggerAndWait({
-            messageId: msg.id,
-            force,
-          });
+        if (messages.length > 0) {
+          // Use batchTriggerAndWait for parallel processing
+          const batchResult = await embedMessageTask.batchTriggerAndWait(
+            messages.map((msg) => ({
+              payload: { messageId: msg.id, force },
+            }))
+          );
 
-          if (result.success) {
-            processed++;
-            totalTokens += result.tokenCount ?? 0;
-          } else {
-            failed++;
-            if (result.error) {
-              errors.push(`${msg.id}: ${result.error}`);
+          for (const run of batchResult.runs) {
+            if (run.ok && run.output.success) {
+              processed++;
+              totalTokens += run.output.tokenCount ?? 0;
+            } else {
+              failed++;
+              const errorMsg = run.ok
+                ? run.output.error
+                : String(run.error ?? "Unknown error");
+              if (errorMsg) {
+                errors.push(errorMsg);
+              }
             }
           }
         }
@@ -574,19 +585,26 @@ export const embedBatchTask = task({
           )
           .limit(limit);
 
-        for (const thread of threads) {
-          const result = await embedThreadTask.triggerAndWait({
-            threadId: thread.id,
-            force,
-          });
+        if (threads.length > 0) {
+          // Use batchTriggerAndWait for parallel processing
+          const batchResult = await embedThreadTask.batchTriggerAndWait(
+            threads.map((thread) => ({
+              payload: { threadId: thread.id, force },
+            }))
+          );
 
-          if (result.success) {
-            processed++;
-            totalTokens += result.tokenCount ?? 0;
-          } else {
-            failed++;
-            if (result.error) {
-              errors.push(`${thread.id}: ${result.error}`);
+          for (const run of batchResult.runs) {
+            if (run.ok && run.output.success) {
+              processed++;
+              totalTokens += run.output.tokenCount ?? 0;
+            } else {
+              failed++;
+              const errorMsg = run.ok
+                ? run.output.error
+                : String(run.error ?? "Unknown error");
+              if (errorMsg) {
+                errors.push(errorMsg);
+              }
             }
           }
         }
@@ -605,19 +623,26 @@ export const embedBatchTask = task({
           )
           .limit(limit);
 
-        for (const c of claims) {
-          const result = await embedClaimTask.triggerAndWait({
-            claimId: c.id,
-            force,
-          });
+        if (claims.length > 0) {
+          // Use batchTriggerAndWait for parallel processing
+          const batchResult = await embedClaimTask.batchTriggerAndWait(
+            claims.map((c) => ({
+              payload: { claimId: c.id, force },
+            }))
+          );
 
-          if (result.success) {
-            processed++;
-            totalTokens += result.tokenCount ?? 0;
-          } else {
-            failed++;
-            if (result.error) {
-              errors.push(`${c.id}: ${result.error}`);
+          for (const run of batchResult.runs) {
+            if (run.ok && run.output.success) {
+              processed++;
+              totalTokens += run.output.tokenCount ?? 0;
+            } else {
+              failed++;
+              const errorMsg = run.ok
+                ? run.output.error
+                : String(run.error ?? "Unknown error");
+              if (errorMsg) {
+                errors.push(errorMsg);
+              }
             }
           }
         }

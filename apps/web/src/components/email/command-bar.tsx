@@ -22,6 +22,7 @@ import {
   Bell,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Eye,
   EyeOff,
@@ -278,6 +279,12 @@ interface AIResponse {
 
 type CommandMode = "search" | "ask" | "navigate" | "action";
 
+interface ThinkingStep {
+  id: string;
+  label: string;
+  status: "pending" | "active" | "complete";
+}
+
 const MODES: CommandMode[] = ["search", "ask", "navigate", "action"];
 
 // =============================================================================
@@ -299,6 +306,7 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
   const [showSnoozePicker, setShowSnoozePicker] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [composeReplyThreadId, setComposeReplyThreadId] = useState<string | null>(null);
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -460,6 +468,9 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
       setMode("search");
       setSelectedIndex(0);
       setShowSnoozePicker(false);
+      setThinkingSteps([]);
+      // Keep conversation history so users can reference past questions when reopening
+      // setConversationHistory([]);
     }
   }, [open]);
 
@@ -781,8 +792,8 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
             className="max-h-[500px] overflow-y-auto overflow-x-hidden scroll-py-2"
           >
             <AnimatePresence mode="wait">
-              {/* Loading State */}
-              {(isSearching || isAskingAI) && (
+              {/* Loading State for Search */}
+              {isSearching && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -792,7 +803,7 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                   <div className="flex items-center gap-3 mb-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      {isAskingAI ? "AI is thinking..." : "Searching..."}
+                      Searching your emails...
                     </span>
                   </div>
                   <div className="space-y-3">
@@ -800,6 +811,18 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                     <Skeleton className="h-14 w-full" />
                     <Skeleton className="h-14 w-3/4" />
                   </div>
+                </motion.div>
+              )}
+
+              {/* Conversational AI Thinking State */}
+              {isAskingAI && thinkingSteps.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="p-6"
+                >
+                  <ThinkingIndicator steps={thinkingSteps} />
                 </motion.div>
               )}
 
@@ -1116,7 +1139,7 @@ function CommandItem({
         className
       )}
     >
-      {children}
+      {children as any}
     </Command.Item>
   );
 }
@@ -1186,6 +1209,58 @@ function ResultIcon({ type }: { type: string }) {
   }
 }
 
+// Thinking indicator with animated steps
+function ThinkingIndicator({ steps }: { steps: ThinkingStep[] }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+          >
+            <Sparkles className="h-5 w-5 text-purple-500" />
+          </motion.div>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-semibold text-purple-500">Thinking...</span>
+          </div>
+          <div className="space-y-2">
+            {steps.map((step) => (
+              <motion.div
+                key={step.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-3"
+              >
+                {step.status === "complete" ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : step.status === "active" ? (
+                  <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />
+                ) : (
+                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                )}
+                <span
+                  className={cn(
+                    "text-sm",
+                    step.status === "complete" && "text-muted-foreground",
+                    step.status === "active" && "text-foreground font-medium",
+                    step.status === "pending" && "text-muted-foreground/50"
+                  )}
+                >
+                  {step.label}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Conversational AI response with inline citations
 function AIResponseView({
   response,
   onCitationClick,
@@ -1195,57 +1270,121 @@ function AIResponseView({
   onCitationClick: (threadId?: string) => void;
   onFollowUp: (question: string) => void;
 }) {
+  const [expandedCitations, setExpandedCitations] = useState<Set<string>>(new Set());
+
+  // Parse answer to find inline citation markers and replace with clickable links
+  const renderAnswerWithCitations = () => {
+    // If no citations, just return the answer
+    if (response.citations.length === 0) {
+      return <p className="text-sm leading-relaxed whitespace-pre-wrap">{response.answer}</p>;
+    }
+
+    // Simple citation injection: append numbered citations at the end of sentences if we have sources
+    const parts: React.ReactNode[] = [];
+    const sentences = response.answer.split(/(?<=[.!?])\s+/);
+
+    sentences.forEach((sentence, idx) => {
+      const citationForSentence = response.citations[idx % response.citations.length];
+      parts.push(
+        <span key={idx}>
+          {sentence}{" "}
+          {citationForSentence && idx < response.citations.length && (
+            <InlineCitation
+              index={idx + 1}
+              citation={citationForSentence}
+              isExpanded={expandedCitations.has(citationForSentence.id)}
+              onToggle={() => {
+                setExpandedCitations((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(citationForSentence.id)) {
+                    next.delete(citationForSentence.id);
+                  } else {
+                    next.add(citationForSentence.id);
+                  }
+                  return next;
+                });
+              }}
+              onClick={() => onCitationClick(citationForSentence.threadId)}
+            />
+          )}
+        </span>
+      );
+    });
+
+    return <div className="text-sm leading-relaxed">{parts}</div>;
+  };
+
   return (
     <div className="space-y-4">
-      {/* Answer */}
+      {/* Conversational Answer */}
       <div className="flex items-start gap-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 shrink-0">
           <Sparkles className="h-5 w-5 text-purple-500" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-semibold text-purple-500">AI Answer</span>
+            <span className="text-sm font-semibold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+              Memory Assistant
+            </span>
             <ConfidenceBadge confidence={response.confidence} />
           </div>
-          <p className="text-sm leading-relaxed">{response.answer}</p>
+          {renderAnswerWithCitations()}
         </div>
       </div>
 
-      {/* Citations */}
+      {/* Source Summary - Collapsible */}
       {response.citations.length > 0 && (
-        <div className="pl-14 space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Sources
-          </p>
-          <div className="grid gap-2">
-            {response.citations.map((citation, i) => (
-              <button
-                key={citation.id}
-                type="button"
-                onClick={() => onCitationClick(citation.threadId)}
-                className="flex items-start gap-3 w-full text-left p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
-              >
-                <span className="flex items-center justify-center h-6 w-6 rounded-md bg-purple-500/10 text-purple-500 text-xs font-bold shrink-0">
-                  {i + 1}
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="ml-14"
+        >
+          <details className="group">
+            <summary className="flex items-center gap-2 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                <span>
+                  Based on {response.citations.length} source{response.citations.length !== 1 ? "s" : ""}
                 </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{citation.source}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                    {citation.text}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 space-y-2">
+              {response.citations.map((citation, i) => (
+                <button
+                  key={citation.id}
+                  type="button"
+                  onClick={() => onCitationClick(citation.threadId)}
+                  className="flex items-start gap-3 w-full text-left p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 hover:border-purple-500/30 transition-all"
+                >
+                  <span className="flex items-center justify-center h-5 w-5 rounded-md bg-purple-500/10 text-purple-500 text-[10px] font-bold shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{citation.source}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      "{citation.text}"
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                </button>
+              ))}
+            </div>
+          </details>
+        </motion.div>
       )}
 
-      {/* Follow-up questions */}
+      {/* Follow-up Questions - More conversational style */}
       {response.followUpQuestions && response.followUpQuestions.length > 0 && (
-        <div className="pl-14 space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Related Questions
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="ml-14 pt-2"
+        >
+          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Continue the conversation
           </p>
           <div className="flex flex-wrap gap-2">
             {response.followUpQuestions.map((q) => (
@@ -1253,15 +1392,69 @@ function AIResponseView({
                 key={q}
                 type="button"
                 onClick={() => onFollowUp(q)}
-                className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted transition-colors"
+                className={cn(
+                  "text-sm px-3 py-1.5 rounded-full border",
+                  "bg-background hover:bg-purple-500/5 hover:border-purple-500/30",
+                  "transition-all duration-200",
+                  "text-left max-w-xs truncate"
+                )}
               >
                 {q}
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
+  );
+}
+
+// Inline citation component
+function InlineCitation({
+  index,
+  citation,
+  isExpanded,
+  onToggle,
+  onClick,
+}: {
+  index: number;
+  citation: { id: string; text: string; source: string; threadId?: string };
+  isExpanded: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center group">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "inline-flex items-center justify-center h-4 w-4 rounded-sm text-[10px] font-bold",
+          "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20",
+          "transition-colors cursor-pointer align-super ml-0.5"
+        )}
+      >
+        {index}
+      </button>
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.9, width: 0 }}
+            animate={{ opacity: 1, scale: 1, width: "auto" }}
+            exit={{ opacity: 0, scale: 0.9, width: 0 }}
+            className="inline-flex items-center ml-1 overflow-hidden"
+          >
+            <button
+              type="button"
+              onClick={onClick}
+              className="text-xs text-purple-600 hover:text-purple-700 hover:underline truncate max-w-[200px]"
+            >
+              {citation.source}
+            </button>
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </span>
   );
 }
 
@@ -1308,4 +1501,59 @@ function getPlaceholder(mode: CommandMode): string {
     default:
       return "Search emails, commitments, decisions...";
   }
+}
+
+// Generate follow-up questions based on the original query and answer
+function generateFollowUpQuestions(originalQuery: string, answer: string): string[] {
+  const questions: string[] = [];
+  const queryLower = originalQuery.toLowerCase();
+  const answerLower = answer.toLowerCase();
+
+  // Detect question patterns and generate relevant follow-ups
+  if (queryLower.includes("when") || queryLower.includes("date")) {
+    questions.push("What else happened around that time?");
+    questions.push("Who else was involved?");
+  }
+
+  if (queryLower.includes("who") || queryLower.includes("person")) {
+    questions.push("What commitments do they have with me?");
+    questions.push("When did we last communicate?");
+  }
+
+  if (queryLower.includes("project") || queryLower.includes("deal")) {
+    questions.push("What are the key milestones?");
+    questions.push("Who are the stakeholders?");
+  }
+
+  if (queryLower.includes("commitment") || queryLower.includes("promise")) {
+    questions.push("Are there any overdue items?");
+    questions.push("What's the timeline?");
+  }
+
+  if (queryLower.includes("decision")) {
+    questions.push("What led to this decision?");
+    questions.push("Who approved it?");
+  }
+
+  // Detect context from the answer
+  if (answerLower.includes("meeting") || answerLower.includes("call")) {
+    questions.push("What was discussed in the meeting?");
+  }
+
+  if (answerLower.includes("deadline") || answerLower.includes("due")) {
+    questions.push("What are my upcoming deadlines?");
+  }
+
+  if (answerLower.includes("agreed") || answerLower.includes("confirmed")) {
+    questions.push("Is there anything pending on this?");
+  }
+
+  // Generic follow-ups if we don't have enough
+  if (questions.length < 2) {
+    questions.push("Tell me more about this");
+    questions.push("What should I do next?");
+  }
+
+  // Return max 3 unique questions
+  return [...new Set(questions)].slice(0, 3);
 }

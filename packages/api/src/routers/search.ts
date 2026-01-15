@@ -11,20 +11,70 @@ import {
   type EvidenceItem,
   type ParsedQuery,
 } from "@memorystack/ai/agents";
-import { generateQueryEmbedding } from "@memorystack/ai/embeddings";
+import {
+  calculateInputHash,
+  generateQueryEmbedding,
+} from "@memorystack/ai/embeddings";
 import { db } from "@memorystack/db";
 import {
   claim,
+  claimEmbedding,
   emailAccount,
   emailMessage,
   emailThread,
   member,
+  messageEmbedding,
+  queryEmbeddingCache,
   threadEmbedding,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lte,
+  sql,
+  type SQL,
+} from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
+
+// =============================================================================
+// VECTOR HELPERS
+// =============================================================================
+
+/**
+ * Create a cosine distance SQL expression for pgvector.
+ * pgvector cannot cast parameterized text values to vector type,
+ * so we inject the vector as a raw SQL literal while keeping the column reference.
+ *
+ * Returns distance (lower = more similar).
+ */
+function pgCosineDistance(
+  column: PgColumn,
+  embedding: number[]
+): SQL<number> {
+  const vecStr = `'[${embedding.join(",")}]'::vector`;
+  // Use sql template to properly reference the column, then raw for the vector
+  return sql<number>`${column} <=> ${sql.raw(vecStr)}`;
+}
+
+/**
+ * Create a cosine similarity SQL expression (1 - distance).
+ * Returns similarity score (higher = more similar, 0-1 range).
+ */
+function pgCosineSimilarity(
+  column: PgColumn,
+  embedding: number[]
+): SQL<number> {
+  const vecStr = `'[${embedding.join(",")}]'::vector`;
+  return sql<number>`1 - (${column} <=> ${sql.raw(vecStr)})`;
+}
 
 // =============================================================================
 // INPUT SCHEMAS
@@ -78,11 +128,66 @@ const getInsightsSchema = z.object({
 // =============================================================================
 
 /**
- * Format embedding array for pgvector.
- * pgvector expects format: '[0.1,0.2,0.3]'
+ * Cache TTL for query embeddings (15 minutes).
  */
-function formatEmbedding(embedding: number[]): string {
-  return `[${embedding.join(",")}]`;
+const QUERY_CACHE_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Get query embedding from cache or generate new one.
+ * Caches embeddings for 15 minutes to reduce API calls.
+ */
+async function getCachedQueryEmbedding(query: string): Promise<number[]> {
+  const queryHash = calculateInputHash(query);
+
+  // Check cache first
+  const cached = await db.query.queryEmbeddingCache.findFirst({
+    where: and(
+      eq(queryEmbeddingCache.queryHash, queryHash),
+      gt(queryEmbeddingCache.expiresAt, new Date())
+    ),
+  });
+
+  if (cached?.embedding) {
+    // Update hit count
+    await db
+      .update(queryEmbeddingCache)
+      .set({
+        hitCount: (cached.hitCount ?? 0) + 1,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(queryEmbeddingCache.id, cached.id));
+
+    return cached.embedding as number[];
+  }
+
+  // Generate new embedding
+  const embeddingResult = await generateQueryEmbedding(query);
+  const expiresAt = new Date(Date.now() + QUERY_CACHE_TTL_MS);
+
+  // Cache it (upsert)
+  await db
+    .insert(queryEmbeddingCache)
+    .values({
+      queryHash,
+      queryText: query,
+      embedding: embeddingResult.embedding,
+      model: embeddingResult.model,
+      hitCount: 1,
+      lastUsedAt: new Date(),
+      expiresAt,
+    })
+    .onConflictDoUpdate({
+      target: queryEmbeddingCache.queryHash,
+      set: {
+        embedding: embeddingResult.embedding,
+        model: embeddingResult.model,
+        hitCount: 1,
+        lastUsedAt: new Date(),
+        expiresAt,
+      },
+    });
+
+  return embeddingResult.embedding;
 }
 
 /**
@@ -149,45 +254,56 @@ async function searchMessages(
     metadata: Record<string, unknown>;
   }>
 > {
-  // Use pgvector cosine similarity
-  // Format embedding for pgvector (safe since embedding is generated internally)
-  const embeddingStr = formatEmbedding(queryEmbedding);
+  // Use custom pgvector helpers that inject vector as raw SQL literal
+  const distance = pgCosineDistance(messageEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(messageEmbedding.embedding, queryEmbedding);
 
-  const results = await db.execute(sql`
-    SELECT
-      me.message_id as id,
-      1 - (me.embedding <=> ${embeddingStr}::vector) as score,
-      em.body_text as content,
-      em.subject,
-      em.sent_at,
-      em.from_address,
-      et.id as thread_id,
-      et.subject as thread_subject
-    FROM message_embedding me
-    JOIN email_message em ON me.message_id = em.id
-    JOIN email_thread et ON em.thread_id = et.id
-    WHERE
-      et.account_id = ANY(${accountIds}::text[])
-      AND me.status = 'completed'
-      ${options.after ? sql`AND em.sent_at >= ${options.after}` : sql``}
-      ${options.before ? sql`AND em.sent_at <= ${options.before}` : sql``}
-      AND 1 - (me.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
-    ORDER BY me.embedding <=> ${embeddingStr}::vector
-    LIMIT ${options.limit}
-  `);
+  // Build conditions
+  const conditions = [eq(messageEmbedding.status, "completed")];
 
-  return (results.rows as Array<Record<string, unknown>>).map((row) => ({
-    id: row.id as string,
-    score: row.score as number,
-    content: row.content as string,
-    metadata: {
-      subject: row.subject,
-      sentAt: row.sent_at,
-      fromAddress: row.from_address,
-      threadId: row.thread_id,
-      threadSubject: row.thread_subject,
-    },
-  }));
+  if (accountIds.length > 0) {
+    conditions.push(inArray(emailThread.accountId, accountIds));
+  }
+  if (options.after) {
+    conditions.push(gte(emailMessage.sentAt, options.after));
+  }
+  if (options.before) {
+    conditions.push(lte(emailMessage.sentAt, options.before));
+  }
+
+  const results = await db
+    .select({
+      id: messageEmbedding.messageId,
+      score: similarity,
+      content: emailMessage.bodyText,
+      subject: emailMessage.subject,
+      sentAt: emailMessage.sentAt,
+      fromEmail: emailMessage.fromEmail,
+      threadId: emailThread.id,
+      threadSubject: emailThread.subject,
+    })
+    .from(messageEmbedding)
+    .innerJoin(emailMessage, eq(messageEmbedding.messageId, emailMessage.id))
+    .innerJoin(emailThread, eq(emailMessage.threadId, emailThread.id))
+    .where(and(...conditions))
+    .orderBy(asc(distance))
+    .limit(options.limit);
+
+  // Filter by threshold after query (Drizzle doesn't support computed column in WHERE)
+  return results
+    .filter((row) => (row.score ?? 0) >= options.threshold)
+    .map((row) => ({
+      id: row.id,
+      score: row.score ?? 0,
+      content: row.content ?? "",
+      metadata: {
+        subject: row.subject,
+        sentAt: row.sentAt,
+        fromAddress: row.fromEmail,
+        threadId: row.threadId,
+        threadSubject: row.threadSubject,
+      },
+    }));
 }
 
 /**
@@ -210,41 +326,51 @@ async function searchThreads(
     metadata: Record<string, unknown>;
   }>
 > {
-  const embeddingStr = formatEmbedding(queryEmbedding);
+  const distance = pgCosineDistance(threadEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(threadEmbedding.embedding, queryEmbedding);
 
-  const results = await db.execute(sql`
-    SELECT
-      te.thread_id as id,
-      1 - (te.embedding <=> ${embeddingStr}::vector) as score,
-      et.subject as content,
-      et.snippet,
-      et.last_message_at,
-      et.message_count,
-      et.brief_summary
-    FROM thread_embedding te
-    JOIN email_thread et ON te.thread_id = et.id
-    WHERE
-      et.account_id = ANY(${accountIds}::text[])
-      AND te.status = 'completed'
-      ${options.after ? sql`AND et.last_message_at >= ${options.after}` : sql``}
-      ${options.before ? sql`AND et.last_message_at <= ${options.before}` : sql``}
-      AND 1 - (te.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
-    ORDER BY te.embedding <=> ${embeddingStr}::vector
-    LIMIT ${options.limit}
-  `);
+  const conditions = [eq(threadEmbedding.status, "completed")];
 
-  return (results.rows as Array<Record<string, unknown>>).map((row) => ({
-    id: row.id as string,
-    score: row.score as number,
-    content: `${row.content ?? ""}\n${row.snippet ?? ""}`,
-    metadata: {
-      subject: row.content,
-      snippet: row.snippet,
-      lastMessageAt: row.last_message_at,
-      messageCount: row.message_count,
-      briefSummary: row.brief_summary,
-    },
-  }));
+  if (accountIds.length > 0) {
+    conditions.push(inArray(emailThread.accountId, accountIds));
+  }
+  if (options.after) {
+    conditions.push(gte(emailThread.lastMessageAt, options.after));
+  }
+  if (options.before) {
+    conditions.push(lte(emailThread.lastMessageAt, options.before));
+  }
+
+  const results = await db
+    .select({
+      id: threadEmbedding.threadId,
+      score: similarity,
+      subject: emailThread.subject,
+      snippet: emailThread.snippet,
+      lastMessageAt: emailThread.lastMessageAt,
+      messageCount: emailThread.messageCount,
+      briefSummary: emailThread.briefSummary,
+    })
+    .from(threadEmbedding)
+    .innerJoin(emailThread, eq(threadEmbedding.threadId, emailThread.id))
+    .where(and(...conditions))
+    .orderBy(asc(distance))
+    .limit(options.limit);
+
+  return results
+    .filter((row) => (row.score ?? 0) >= options.threshold)
+    .map((row) => ({
+      id: row.id,
+      score: row.score ?? 0,
+      content: `${row.subject ?? ""}\n${row.snippet ?? ""}`,
+      metadata: {
+        subject: row.subject,
+        snippet: row.snippet,
+        lastMessageAt: row.lastMessageAt,
+        messageCount: row.messageCount,
+        briefSummary: row.briefSummary,
+      },
+    }));
 }
 
 /**
@@ -267,43 +393,53 @@ async function searchClaims(
     metadata: Record<string, unknown>;
   }>
 > {
-  const embeddingStr = formatEmbedding(queryEmbedding);
+  const distance = pgCosineDistance(claimEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(claimEmbedding.embedding, queryEmbedding);
 
-  const results = await db.execute(sql`
-    SELECT
-      ce.claim_id as id,
-      1 - (ce.embedding <=> ${embeddingStr}::vector) as score,
-      c.content,
-      c.type as claim_type,
-      c.confidence,
-      c.thread_id,
-      et.subject as thread_subject,
-      c.created_at
-    FROM claim_embedding ce
-    JOIN claim c ON ce.claim_id = c.id
-    JOIN email_thread et ON c.thread_id = et.id
-    WHERE
-      et.account_id = ANY(${accountIds}::text[])
-      AND ce.status = 'completed'
-      ${options.after ? sql`AND c.created_at >= ${options.after}` : sql``}
-      ${options.before ? sql`AND c.created_at <= ${options.before}` : sql``}
-      AND 1 - (ce.embedding <=> ${embeddingStr}::vector) >= ${options.threshold}
-    ORDER BY ce.embedding <=> ${embeddingStr}::vector
-    LIMIT ${options.limit}
-  `);
+  const conditions = [eq(claimEmbedding.status, "completed")];
 
-  return (results.rows as Array<Record<string, unknown>>).map((row) => ({
-    id: row.id as string,
-    score: row.score as number,
-    content: row.content as string,
-    metadata: {
-      claimType: row.claim_type,
-      confidence: row.confidence,
-      threadId: row.thread_id,
-      threadSubject: row.thread_subject,
-      createdAt: row.created_at,
-    },
-  }));
+  if (accountIds.length > 0) {
+    conditions.push(inArray(emailThread.accountId, accountIds));
+  }
+  if (options.after) {
+    conditions.push(gte(claim.createdAt, options.after));
+  }
+  if (options.before) {
+    conditions.push(lte(claim.createdAt, options.before));
+  }
+
+  const results = await db
+    .select({
+      id: claimEmbedding.claimId,
+      score: similarity,
+      text: claim.text,
+      claimType: claim.type,
+      confidence: claim.confidence,
+      threadId: claim.threadId,
+      threadSubject: emailThread.subject,
+      createdAt: claim.createdAt,
+    })
+    .from(claimEmbedding)
+    .innerJoin(claim, eq(claimEmbedding.claimId, claim.id))
+    .innerJoin(emailThread, eq(claim.threadId, emailThread.id))
+    .where(and(...conditions))
+    .orderBy(asc(distance))
+    .limit(options.limit);
+
+  return results
+    .filter((row) => (row.score ?? 0) >= options.threshold)
+    .map((row) => ({
+      id: row.id,
+      score: row.score ?? 0,
+      content: row.text ?? "",
+      metadata: {
+        claimType: row.claimType,
+        confidence: row.confidence,
+        threadId: row.threadId,
+        threadSubject: row.threadSubject,
+        createdAt: row.createdAt,
+      },
+    }));
 }
 
 // =============================================================================
@@ -327,9 +463,8 @@ export const searchRouter = router({
         return { results: [], total: 0 };
       }
 
-      // Generate query embedding
-      const embeddingResult = await generateQueryEmbedding(input.query);
-      const queryEmbedding = embeddingResult.embedding;
+      // Get cached or generate query embedding
+      const queryEmbedding = await getCachedQueryEmbedding(input.query);
 
       const searchOptions = {
         limit: input.limit,
@@ -462,39 +597,45 @@ export const searchRouter = router({
         return { relatedThreads: [] };
       }
 
-      // Find similar threads
-      const embeddingStr = formatEmbedding(sourceEmbedding.embedding as number[]);
+      const sourceVector = sourceEmbedding.embedding as number[];
+      const distance = pgCosineDistance(threadEmbedding.embedding, sourceVector);
+      const similarity = pgCosineSimilarity(threadEmbedding.embedding, sourceVector);
 
-      const results = await db.execute(sql`
-        SELECT
-          te.thread_id as id,
-          1 - (te.embedding <=> ${embeddingStr}::vector) as score,
-          et.subject,
-          et.snippet,
-          et.last_message_at,
-          et.message_count
-        FROM thread_embedding te
-        JOIN email_thread et ON te.thread_id = et.id
-        WHERE
-          et.account_id = ANY(${accountIds}::text[])
-          AND te.thread_id != ${input.threadId}
-          AND te.status = 'completed'
-          AND 1 - (te.embedding <=> ${embeddingStr}::vector) >= ${input.threshold}
-        ORDER BY te.embedding <=> ${embeddingStr}::vector
-        LIMIT ${input.limit}
-      `);
+      const conditions = [
+        eq(threadEmbedding.status, "completed"),
+        sql`${threadEmbedding.threadId} != ${input.threadId}`,
+      ];
+
+      if (accountIds.length > 0) {
+        conditions.push(inArray(emailThread.accountId, accountIds));
+      }
+
+      const results = await db
+        .select({
+          id: threadEmbedding.threadId,
+          score: similarity,
+          subject: emailThread.subject,
+          snippet: emailThread.snippet,
+          lastMessageAt: emailThread.lastMessageAt,
+          messageCount: emailThread.messageCount,
+        })
+        .from(threadEmbedding)
+        .innerJoin(emailThread, eq(threadEmbedding.threadId, emailThread.id))
+        .where(and(...conditions))
+        .orderBy(asc(distance))
+        .limit(input.limit);
 
       return {
-        relatedThreads: (results.rows as Array<Record<string, unknown>>).map(
-          (row) => ({
-            id: row.id as string,
-            similarity: row.score as number,
-            subject: row.subject as string,
-            snippet: row.snippet as string | null,
-            lastMessageAt: row.last_message_at as Date,
-            messageCount: row.message_count as number,
-          })
-        ),
+        relatedThreads: results
+          .filter((row) => (row.score ?? 0) >= input.threshold)
+          .map((row) => ({
+            id: row.id,
+            similarity: row.score ?? 0,
+            subject: row.subject ?? "",
+            snippet: row.snippet,
+            lastMessageAt: row.lastMessageAt,
+            messageCount: row.messageCount ?? 0,
+          })),
       };
     }),
 
@@ -517,9 +658,8 @@ export const searchRouter = router({
         });
       }
 
-      // Generate query embedding
-      const embeddingResult = await generateQueryEmbedding(input.topic);
-      const queryEmbedding = embeddingResult.embedding;
+      // Get cached or generate query embedding
+      const queryEmbedding = await getCachedQueryEmbedding(input.topic);
 
       // Search for relevant messages
       const messageResults = await searchMessages(queryEmbedding, accountIds, {
@@ -560,7 +700,7 @@ export const searchRouter = router({
         threadId: m.threadId,
         threadSubject: m.thread?.subject ?? "",
         date: m.sentAt ?? new Date(),
-        participants: m.participants.map((p) => p.address),
+        participants: m.participants.map((p) => p.email),
       }));
 
       const knowledgeAgent = createKnowledgeAgent();
@@ -602,14 +742,29 @@ export const searchRouter = router({
         ),
         orderBy: desc(claim.createdAt),
         limit: 100,
-        with: {
-          claimEmbedding: true,
-        },
       });
 
+      if (recentClaims.length < 5) {
+        return { insights: [] };
+      }
+
+      // Fetch embeddings for these claims
+      const claimIds = recentClaims.map((c) => c.id);
+      const embeddings = await db.query.claimEmbedding.findMany({
+        where: and(
+          inArray(claimEmbedding.claimId, claimIds),
+          eq(claimEmbedding.status, "completed")
+        ),
+      });
+
+      // Create a map of claimId -> embedding
+      const embeddingMap = new Map(
+        embeddings.map((e) => [e.claimId, e.embedding as number[]])
+      );
+
       // Filter claims with embeddings
-      const claimsWithEmbeddings = recentClaims.filter(
-        (c) => c.claimEmbedding?.status === "completed"
+      const claimsWithEmbeddings = recentClaims.filter((c) =>
+        embeddingMap.has(c.id)
       );
 
       if (claimsWithEmbeddings.length < 5) {
@@ -621,8 +776,8 @@ export const searchRouter = router({
       // Detect patterns
       const patternInputs = claimsWithEmbeddings.map((c) => ({
         id: c.id,
-        content: c.content,
-        embedding: c.claimEmbedding?.embedding as number[],
+        content: c.text,
+        embedding: embeddingMap.get(c.id) as number[],
         metadata: {
           date: c.createdAt,
           threadId: c.threadId ?? "",
@@ -644,7 +799,7 @@ export const searchRouter = router({
       // Generate insights
       const recentActivity = claimsWithEmbeddings.slice(0, 10).map((c) => ({
         type: c.type,
-        content: c.content,
+        content: c.text,
         date: c.createdAt,
       }));
 

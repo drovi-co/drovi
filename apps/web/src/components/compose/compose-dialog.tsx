@@ -230,6 +230,7 @@ import {
   Loader2,
   Paperclip,
   Send,
+  Shield,
   Sparkles,
   Trash2,
   Wand2,
@@ -242,6 +243,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Recipient, RecipientField } from "./recipient-field";
 import { Badge } from "@/components/ui/badge";
+import {
+  ContradictionWarning,
+  type ContradictionCheckResult,
+} from "./contradiction-warning";
 
 // =============================================================================
 // ATTACHMENT TYPES & HELPERS
@@ -415,6 +420,11 @@ export function ComposeDialog({
   const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
 
+  // Pre-send contradiction check state
+  const [contradictionResult, setContradictionResult] = useState<ContradictionCheckResult | null>(null);
+  const [showContradictionWarning, setShowContradictionWarning] = useState(false);
+  const [isCheckingContradictions, setIsCheckingContradictions] = useState(false);
+
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const aiInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -515,6 +525,29 @@ export function ComposeDialog({
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete draft: ${error.message}`);
+    },
+  });
+
+  // Pre-send contradiction check mutation
+  const checkDraftMutation = useMutation({
+    ...trpc.risk.checkDraft.mutationOptions(),
+    onSuccess: (data) => {
+      setContradictionResult(data);
+      setIsCheckingContradictions(false);
+
+      if (data.contradictions.length > 0) {
+        // Show warning if contradictions found
+        setShowContradictionWarning(true);
+      } else {
+        // No contradictions - proceed with send
+        performSend();
+      }
+    },
+    onError: (error: Error) => {
+      setIsCheckingContradictions(false);
+      // If check fails, allow sending anyway with a warning
+      toast.error(`Contradiction check failed: ${error.message}. Proceeding with send.`);
+      performSend();
     },
   });
 
@@ -650,17 +683,8 @@ export function ComposeDialog({
   }, []);
 
   // Handle send
-  const handleSend = useCallback(() => {
-    if (to.length === 0) {
-      toast.error("Please add at least one recipient");
-      return;
-    }
-
-    if (!subject.trim()) {
-      toast.error("Please enter a subject");
-      return;
-    }
-
+  // The actual send function (called after contradiction check passes)
+  const performSend = useCallback(() => {
     sendMutation.mutate({
       organizationId,
       accountId,
@@ -692,6 +716,42 @@ export function ComposeDialog({
     replyToThreadId,
     replyContext,
     sendMutation,
+  ]);
+
+  // Handle send - first check for contradictions, then send
+  const handleSend = useCallback(() => {
+    if (to.length === 0) {
+      toast.error("Please add at least one recipient");
+      return;
+    }
+
+    if (!subject.trim()) {
+      toast.error("Please enter a subject");
+      return;
+    }
+
+    // Reset previous contradiction state
+    setShowContradictionWarning(false);
+    setContradictionResult(null);
+    setIsCheckingContradictions(true);
+
+    // Run contradiction check before sending
+    checkDraftMutation.mutate({
+      organizationId,
+      accountId,
+      content: body,
+      subject,
+      recipients: to.map((r) => ({ email: r.email, name: r.name })),
+      threadId: replyToThreadId,
+    });
+  }, [
+    to,
+    subject,
+    body,
+    organizationId,
+    accountId,
+    replyToThreadId,
+    checkDraftMutation,
   ]);
 
   // Handle save draft
@@ -963,16 +1023,56 @@ export function ComposeDialog({
           accept="*/*"
         />
 
+        {/* Contradiction Warning - Pre-send safety check */}
+        {(showContradictionWarning || isCheckingContradictions) && (
+          <div className="border-t px-4 py-3 bg-muted/30">
+            <ContradictionWarning
+              result={contradictionResult}
+              isLoading={isCheckingContradictions}
+              onDismiss={() => {
+                setShowContradictionWarning(false);
+                setContradictionResult(null);
+              }}
+              onProceedAnyway={() => {
+                setShowContradictionWarning(false);
+                performSend();
+              }}
+              onEditDraft={() => {
+                setShowContradictionWarning(false);
+                bodyRef.current?.focus();
+              }}
+              onViewThread={(threadId) => {
+                // TODO: Open thread in new tab or side panel
+                window.open(`/threads/${threadId}`, "_blank");
+              }}
+            />
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="flex items-center justify-between border-t px-4 py-3">
           <div className="flex items-center gap-2">
             <Button
               onClick={handleSend}
-              disabled={sendMutation.isPending || to.length === 0}
+              disabled={sendMutation.isPending || isCheckingContradictions || to.length === 0}
               className="gap-2"
             >
-              <Send className="h-4 w-4" />
-              {sendMutation.isPending ? "Sending..." : "Send"}
+              {isCheckingContradictions ? (
+                <>
+                  <Shield className="h-4 w-4 animate-pulse" />
+                  Checking...
+                </>
+              ) : sendMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send
+                </>
+              )}
             </Button>
             <Button
               variant="ghost"

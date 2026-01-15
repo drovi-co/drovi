@@ -20,3 +20,6 @@ export type { ShowMeButtonProps } from "./show-me-button";
 
 export { ConfidenceBadge } from "./confidence-badge";
 export type { ConfidenceBadgeProps } from "./confidence-badge";
+
+export { EvidencePopover } from "./evidence-popover";
+export type { EvidencePopoverData } from "./evidence-popover";

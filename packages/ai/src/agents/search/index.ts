@@ -28,6 +28,7 @@ import {
   type AIProvider,
   getDefaultModel,
   getModel,
+  isReasoningModel,
 } from "../../providers/index.js";
 
 // =============================================================================
@@ -102,6 +103,13 @@ export class SearchAgent {
   }
 
   /**
+   * Get the model name being used (for checking if it's a reasoning model).
+   */
+  private getModelName(): string {
+    return this.config.model ?? "gpt-5.2";
+  }
+
+  /**
    * Parse a natural language query into structured format.
    */
   async parseQuery(query: string): Promise<ParsedQuery> {
@@ -121,7 +129,8 @@ export class SearchAgent {
           { role: "system", content: buildQueryUnderstandingSystemPrompt() },
           { role: "user", content: buildQueryUnderstandingUserPrompt(query) },
         ],
-        temperature: 0.2,
+        // Reasoning models don't support temperature
+        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: 0.2 }),
         maxTokens: 1024,
       });
 
@@ -267,7 +276,8 @@ export class SearchAgent {
             { role: "system", content: buildAnswerGenerationSystemPrompt() },
             { role: "user", content: buildNoAnswerPrompt(query) },
           ],
-          temperature: 0.3,
+          // Reasoning models don't support temperature
+          ...(isReasoningModel(this.getModelName()) ? {} : { temperature: 0.3 }),
           maxTokens: 1024,
         });
 
@@ -285,7 +295,8 @@ export class SearchAgent {
             content: buildAnswerGenerationUserPrompt(query, evidence),
           },
         ],
-        temperature: this.config.temperature ?? 0.3,
+        // Reasoning models don't support temperature
+        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: this.config.temperature ?? 0.3 }),
         maxTokens: this.config.maxTokens ?? 2048,
       });
 

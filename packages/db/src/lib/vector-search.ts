@@ -2,6 +2,15 @@ import { inArray, sql } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import { emailMessage, emailThread } from "../schema/email";
 
+/**
+ * Create a SQL literal for pgvector embedding.
+ * Must use sql.raw() to prevent parameterization - pgvector can't cast text params to vector.
+ */
+function vectorLiteral(embedding: number[]) {
+  const vectorStr = `[${embedding.join(",")}]`;
+  return sql.raw(`'${vectorStr}'::vector`);
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -71,7 +80,7 @@ export async function searchSimilarMessages(
   } = {}
 ): Promise<MessageSearchResult[]> {
   const { limit = 10, threshold = 0.5, accountIds, threadIds } = options;
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const vec = vectorLiteral(queryEmbedding);
 
   // Build dynamic WHERE conditions
   const conditions: unknown[] = [];
@@ -104,15 +113,15 @@ export async function searchSimilarMessages(
       m.snippet,
       m.sent_at,
       m.body_text,
-      1 - (me.embedding <=> ${vectorStr}::vector) as similarity,
-      me.embedding <=> ${vectorStr}::vector as distance
+      1 - (me.embedding <=> ${vec}) as similarity,
+      me.embedding <=> ${vec} as distance
     FROM message_embedding me
     JOIN email_message m ON m.id = me.message_id
     JOIN email_thread t ON t.id = m.thread_id
-    WHERE 1 - (me.embedding <=> ${vectorStr}::vector) > ${threshold}
+    WHERE 1 - (me.embedding <=> ${vec}) > ${threshold}
     ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
     ${threadIds?.length ? sql`AND m.thread_id = ANY(${threadIds})` : sql``}
-    ORDER BY me.embedding <=> ${vectorStr}::vector
+    ORDER BY me.embedding <=> ${vec}
     LIMIT ${limit}
   `);
 
@@ -145,7 +154,7 @@ export async function searchSimilarThreads(
   } = {}
 ): Promise<ThreadSearchResult[]> {
   const { limit = 10, threshold = 0.5, accountIds } = options;
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const vec = vectorLiteral(queryEmbedding);
 
   const results = await db.execute<{
     id: string;
@@ -166,13 +175,13 @@ export async function searchSimilarThreads(
       t.brief_summary,
       t.last_message_at,
       t.message_count,
-      1 - (te.embedding <=> ${vectorStr}::vector) as similarity,
-      te.embedding <=> ${vectorStr}::vector as distance
+      1 - (te.embedding <=> ${vec}) as similarity,
+      te.embedding <=> ${vec} as distance
     FROM thread_embedding te
     JOIN email_thread t ON t.id = te.thread_id
-    WHERE 1 - (te.embedding <=> ${vectorStr}::vector) > ${threshold}
+    WHERE 1 - (te.embedding <=> ${vec}) > ${threshold}
     ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
-    ORDER BY te.embedding <=> ${vectorStr}::vector
+    ORDER BY te.embedding <=> ${vec}
     LIMIT ${limit}
   `);
 
@@ -206,7 +215,7 @@ export async function searchSimilarClaims(
   } = {}
 ): Promise<ClaimSearchResult[]> {
   const { limit = 10, threshold = 0.5, organizationId, claimTypes } = options;
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const vec = vectorLiteral(queryEmbedding);
 
   const results = await db.execute<{
     id: string;
@@ -223,14 +232,14 @@ export async function searchSimilarClaims(
       c.text,
       c.thread_id,
       c.confidence,
-      1 - (ce.embedding <=> ${vectorStr}::vector) as similarity,
-      ce.embedding <=> ${vectorStr}::vector as distance
+      1 - (ce.embedding <=> ${vec}) as similarity,
+      ce.embedding <=> ${vec} as distance
     FROM claim_embedding ce
     JOIN claim c ON c.id = ce.claim_id
-    WHERE 1 - (ce.embedding <=> ${vectorStr}::vector) > ${threshold}
+    WHERE 1 - (ce.embedding <=> ${vec}) > ${threshold}
     ${organizationId ? sql`AND c.organization_id = ${organizationId}` : sql``}
     ${claimTypes?.length ? sql`AND c.type = ANY(${claimTypes})` : sql``}
-    ORDER BY ce.embedding <=> ${vectorStr}::vector
+    ORDER BY ce.embedding <=> ${vec}
     LIMIT ${limit}
   `);
 
@@ -273,7 +282,7 @@ export async function hybridSearchMessages(
     threshold = 0.3,
   } = options;
   const keywordWeight = 1 - vectorWeight;
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const vec = vectorLiteral(queryEmbedding);
 
   // RRF constant (commonly 60)
   const k = 60;
@@ -293,12 +302,12 @@ export async function hybridSearchMessages(
     WITH vector_results AS (
       SELECT
         m.id,
-        ROW_NUMBER() OVER (ORDER BY me.embedding <=> ${vectorStr}::vector) as v_rank,
-        1 - (me.embedding <=> ${vectorStr}::vector) as similarity
+        ROW_NUMBER() OVER (ORDER BY me.embedding <=> ${vec}) as v_rank,
+        1 - (me.embedding <=> ${vec}) as similarity
       FROM message_embedding me
       JOIN email_message m ON m.id = me.message_id
       JOIN email_thread t ON t.id = m.thread_id
-      WHERE 1 - (me.embedding <=> ${vectorStr}::vector) > ${threshold}
+      WHERE 1 - (me.embedding <=> ${vec}) > ${threshold}
       ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
       LIMIT 100
     ),
@@ -373,7 +382,7 @@ export async function findKNN<T extends "message" | "thread" | "claim">(
   queryEmbedding: number[],
   k = 10
 ): Promise<Array<{ id: string; distance: number }>> {
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const vec = vectorLiteral(queryEmbedding);
 
   const tableMap = {
     message: { table: "message_embedding", idCol: "message_id" },
@@ -386,9 +395,9 @@ export async function findKNN<T extends "message" | "thread" | "claim">(
   const results = await db.execute<{ id: string; distance: number }>(sql`
     SELECT
       ${sql.identifier(idCol)} as id,
-      embedding <=> ${vectorStr}::vector as distance
+      embedding <=> ${vec} as distance
     FROM ${sql.identifier(table)}
-    ORDER BY embedding <=> ${vectorStr}::vector
+    ORDER BY embedding <=> ${vec}
     LIMIT ${k}
   `);
 

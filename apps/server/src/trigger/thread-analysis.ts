@@ -20,7 +20,7 @@ import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { log } from "../lib/logger";
 import { extractCommitmentsTask } from "./commitment-extraction";
 import { extractDecisionsTask } from "./decision-extraction";
-import { embedThreadTask } from "./embedding-generation";
+import { embedClaimTask, embedThreadTask } from "./embedding-generation";
 import { analyzeContactTask } from "./relationship-analysis";
 import { analyzeIncomingMessageTask } from "./risk-analysis";
 import { triageThreadTask } from "./triage-analysis";
@@ -120,7 +120,11 @@ export const analyzeThreadTask = task({
       const analysis = await analyzeThread(threadInput);
 
       // Save results to database
-      await saveAnalysisResults(thread.id, analysis, thread.account);
+      const createdClaimIds = await saveAnalysisResults(
+        thread.id,
+        analysis,
+        thread.account
+      );
 
       log.info("Thread analysis completed", {
         threadId,
@@ -170,6 +174,18 @@ export const analyzeThreadTask = task({
       // 4. Embedding Generation (always - for semantic search)
       log.info("Triggering embedding generation", { threadId });
       await embedThreadTask.trigger({ threadId });
+
+      // 4b. Claim Embedding Generation (for all created claims)
+      if (createdClaimIds.length > 0) {
+        log.info("Triggering claim embedding generation", {
+          threadId,
+          claimCount: createdClaimIds.length,
+        });
+        // Trigger in parallel for efficiency
+        await Promise.all(
+          createdClaimIds.map((claimId) => embedClaimTask.trigger({ claimId }))
+        );
+      }
 
       // 5. Risk Analysis (for each new message in thread)
       const newMessages = thread.messages.filter(
@@ -456,31 +472,38 @@ function buildThreadInput(
 
 /**
  * Save analysis results to database.
+ * Returns the IDs of created claims for embedding generation.
  */
 async function saveAnalysisResults(
   threadId: string,
   analysis: Awaited<ReturnType<typeof analyzeThread>>,
   account: { organizationId: string }
-): Promise<void> {
+): Promise<string[]> {
   const organizationId = account.organizationId;
 
   // Convert claims to database format
   const dbClaims = claimsToDbFormat(analysis.claims, threadId, organizationId);
+  let createdClaimIds: string[] = [];
 
   await db.transaction(async (tx) => {
     // Delete existing claims for this thread (to handle re-analysis)
     await tx.delete(claim).where(eq(claim.threadId, threadId));
 
-    // Insert new claims
+    // Insert new claims and get their IDs
     if (dbClaims.length > 0) {
-      await tx.insert(claim).values(
-        dbClaims.map((c: DbClaimFormat) => ({
-          ...c,
-          extractedAt: new Date(),
-          extractionModel: "claude-3-5-sonnet",
-          extractionVersion: analysis.modelVersion,
-        }))
-      );
+      const insertedClaims = await tx
+        .insert(claim)
+        .values(
+          dbClaims.map((c: DbClaimFormat) => ({
+            ...c,
+            extractedAt: new Date(),
+            extractionModel: "claude-3-5-sonnet",
+            extractionVersion: analysis.modelVersion,
+          }))
+        )
+        .returning({ id: claim.id });
+
+      createdClaimIds = insertedClaims.map((c) => c.id);
     }
 
     // Update thread with analysis results
@@ -512,6 +535,8 @@ async function saveAnalysisResults(
       })
       .where(eq(emailThread.id, threadId));
   });
+
+  return createdClaimIds;
 }
 
 /**

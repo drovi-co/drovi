@@ -17,6 +17,7 @@ import {
   type AIProvider,
   getDefaultModel,
   getModel,
+  isReasoningModel,
 } from "../../providers/index.js";
 
 // =============================================================================
@@ -150,6 +151,13 @@ export class KnowledgeAgent {
     };
   }
 
+  /**
+   * Get the model name being used (for checking if it's a reasoning model).
+   */
+  private getModelName(): string {
+    return this.config.model ?? "gpt-5.2";
+  }
+
   // ===========================================================================
   // PATTERN DETECTION
   // ===========================================================================
@@ -266,7 +274,8 @@ Respond with JSON:
       const { text } = await generateText({
         model,
         messages: [{ role: "user", content: prompt }],
-        temperature: this.config.temperature ?? 0.4,
+        // Reasoning models don't support temperature
+        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: this.config.temperature ?? 0.4 }),
         maxTokens: 512,
       });
 
@@ -465,7 +474,8 @@ Respond with JSON:
       const { text } = await generateText({
         model,
         messages: [{ role: "user", content: prompt }],
-        temperature: this.config.temperature ?? 0.4,
+        // Reasoning models don't support temperature
+        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: this.config.temperature ?? 0.4 }),
         maxTokens: this.config.maxTokens ?? 2048,
       });
 
@@ -580,7 +590,8 @@ For each insight, respond with JSON array:
       const { text } = await generateText({
         model,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.5,
+        // Reasoning models don't support temperature
+        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: 0.5 }),
         maxTokens: 1024,
       });
 

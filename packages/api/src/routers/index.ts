@@ -12,9 +12,11 @@ import { draftsRouter } from "./drafts";
 import { emailAccountsRouter } from "./email-accounts";
 import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
+import { feedbackRouter } from "./feedback";
 import { notificationsRouter } from "./notifications";
 import { riskRouter } from "./risk";
 import { searchRouter } from "./search";
+import { sourcesRouter } from "./sources";
 import { threadsRouter } from "./threads";
 import { triageRouter } from "./triage";
 import { uploadsRouter } from "./uploads";
@@ -49,6 +51,8 @@ export const appRouter = router({
   contacts: contactsRouter,
   // Search & Knowledge API (MEMORYSTACK PRD-06)
   search: searchRouter,
+  // Multi-Source Intelligence API (MEMORYSTACK PRD-12)
+  sources: sourcesRouter,
   // Triage & Routing API (MEMORYSTACK PRD-07)
   triage: triageRouter,
   // Drafts API (MEMORYSTACK PRD-08)
@@ -57,6 +61,8 @@ export const appRouter = router({
   compose: composeRouter,
   // Risk & Policy API (MEMORYSTACK PRD-09)
   risk: riskRouter,
+  // User Feedback API (accuracy tracking)
+  feedback: feedbackRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)

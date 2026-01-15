@@ -7,8 +7,8 @@ import {
   pgTable,
   text,
   timestamp,
+  vector,
 } from "drizzle-orm/pg-core";
-import { vector } from "../types/vector";
 import { emailMessage, emailThread } from "./email";
 import { claim } from "./intelligence";
 

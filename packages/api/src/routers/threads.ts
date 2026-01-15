@@ -1318,4 +1318,81 @@ export const threadsRouter = router({
 
       return { success: true };
     }),
+
+  /**
+   * Get thread statistics for dashboard.
+   */
+  getStats: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().min(1),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      // Get account IDs for this organization
+      const accountIds = await db
+        .select({ id: emailAccount.id })
+        .from(emailAccount)
+        .where(eq(emailAccount.organizationId, input.organizationId));
+
+      if (accountIds.length === 0) {
+        return {
+          total: 0,
+          unread: 0,
+          starred: 0,
+          archived: 0,
+        };
+      }
+
+      const accountIdList = accountIds.map((a) => a.id);
+
+      // Get counts in parallel
+      const [totalResult, unreadResult, starredResult, archivedResult] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(emailThread)
+          .where(
+            and(
+              inArray(emailThread.accountId, accountIdList),
+              eq(emailThread.isArchived, false)
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(emailThread)
+          .where(
+            and(
+              inArray(emailThread.accountId, accountIdList),
+              eq(emailThread.isArchived, false),
+              eq(emailThread.isRead, false)
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(emailThread)
+          .where(
+            and(
+              inArray(emailThread.accountId, accountIdList),
+              eq(emailThread.isStarred, true)
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(emailThread)
+          .where(
+            and(
+              inArray(emailThread.accountId, accountIdList),
+              eq(emailThread.isArchived, true)
+            )
+          ),
+      ]);
+
+      return {
+        total: totalResult[0]?.count ?? 0,
+        unread: unreadResult[0]?.count ?? 0,
+        starred: starredResult[0]?.count ?? 0,
+        archived: archivedResult[0]?.count ?? 0,
+      };
+    }),
 });

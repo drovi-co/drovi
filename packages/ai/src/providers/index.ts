@@ -76,6 +76,21 @@ export function getGroq() {
   return groqProvider;
 }
 
+// Reasoning models that don't support temperature parameter
+export const REASONING_MODELS = new Set([
+  "gpt-5.2",
+  "o1",
+  "o1-mini",
+  "o1-preview",
+  "o3",
+  "o3-mini",
+]);
+
+// Check if a model is a reasoning model
+export function isReasoningModel(modelName: string): boolean {
+  return REASONING_MODELS.has(modelName);
+}
+
 // Get model by provider and model name
 export function getModel(
   provider: AIProvider,
