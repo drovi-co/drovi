@@ -1,8 +1,19 @@
+"use client";
+
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Scroll Area component
+ *
+ * Features:
+ * - 8px scrollbar width
+ * - Border color scrollbar thumb
+ * - Hover state for better visibility
+ * - Smooth transitions
+ */
 function ScrollArea({
   className,
   children,
@@ -10,12 +21,12 @@ function ScrollArea({
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
   return (
     <ScrollAreaPrimitive.Root
-      className={cn("relative", className)}
+      className={cn("relative overflow-hidden", className)}
       data-slot="scroll-area"
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
-        className="size-full rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="size-full rounded-[inherit]"
         data-slot="scroll-area-viewport"
       >
         {children}
@@ -34,11 +45,9 @@ function ScrollBar({
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
       className={cn(
-        "flex touch-none select-none p-px transition-colors",
-        orientation === "vertical" &&
-          "h-full w-2.5 border-l border-l-transparent",
-        orientation === "horizontal" &&
-          "h-2.5 flex-col border-t border-t-transparent",
+        "flex touch-none select-none transition-colors",
+        orientation === "vertical" && "h-full w-2 border-l border-l-transparent p-px",
+        orientation === "horizontal" && "h-2 flex-col border-t border-t-transparent p-px",
         className
       )}
       data-slot="scroll-area-scrollbar"
@@ -46,7 +55,12 @@ function ScrollBar({
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
-        className="relative flex-1 rounded-full bg-border"
+        className={cn(
+          "relative flex-1 rounded-full",
+          "bg-border",
+          "hover:bg-border-hover",
+          "transition-colors duration-150"
+        )}
         data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>

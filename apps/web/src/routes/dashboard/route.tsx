@@ -106,12 +106,18 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
-  // Email/Inbox section
+  // Unified Inbox section
+  if (pathname === "/dashboard/inbox") {
+    breadcrumbs.push({ label: "Smart Inbox" });
+    return breadcrumbs;
+  }
+
+  // Email/Inbox section (legacy)
   if (pathname.startsWith("/dashboard/email")) {
     if (pathname === "/dashboard/email") {
-      breadcrumbs.push({ label: "Inbox" });
+      breadcrumbs.push({ label: "Email Inbox" });
     } else if (pathname.startsWith("/dashboard/email/thread")) {
-      breadcrumbs.push({ label: "Inbox", href: "/dashboard/email" });
+      breadcrumbs.push({ label: "Smart Inbox", href: "/dashboard/inbox" });
       breadcrumbs.push({ label: "Thread" });
     }
     return breadcrumbs;
@@ -138,6 +144,18 @@ function getBreadcrumbs(pathname: string) {
   // Contacts section
   if (pathname === "/dashboard/contacts") {
     breadcrumbs.push({ label: "Contacts" });
+    return breadcrumbs;
+  }
+
+  // Sources section
+  if (pathname === "/dashboard/sources") {
+    breadcrumbs.push({ label: "Connected Sources" });
+    return breadcrumbs;
+  }
+
+  // Analytics section
+  if (pathname === "/dashboard/analytics") {
+    breadcrumbs.push({ label: "Analytics" });
     return breadcrumbs;
   }
 

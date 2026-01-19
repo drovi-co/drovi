@@ -24,6 +24,7 @@ import { useState } from "react";
 
 import { ConfidenceBadge } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -33,6 +34,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import {
+  TaskStatusDropdown,
+  TaskPriorityDropdown,
+  TaskAssigneeDropdown,
+  type TaskStatus,
+  type TaskPriority,
+  type TaskAssignee,
+} from "@/components/tasks";
 
 // =============================================================================
 // TYPES
@@ -65,6 +74,16 @@ export interface CommitmentCardData {
     snippet?: string | null;
   } | null;
   daysOverdue?: number;
+  // Multi-source support
+  sourceType?: SourceType;
+  sourceAccountName?: string | null;
+  /** Linked task data - if present, shows task controls */
+  task?: {
+    id: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    assignee: TaskAssignee | null;
+  };
 }
 
 interface CommitmentCardProps {
@@ -80,6 +99,8 @@ interface CommitmentCardProps {
   onGenerateFollowUp?: (commitmentId: string) => void;
   onShowEvidence?: (commitmentId: string) => void;
   compact?: boolean;
+  /** Organization ID - required if task controls should be editable */
+  organizationId?: string;
 }
 
 // =============================================================================
@@ -168,11 +189,13 @@ export function CommitmentCard({
   onContactClick,
   onGenerateFollowUp,
   onShowEvidence,
+  organizationId,
 }: CommitmentCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const urgency = getUrgencyLevel(commitment.dueDate, commitment.status);
   const statusBadge = getStatusBadge(commitment.status);
+  const hasTaskData = commitment.task && organizationId;
 
   // The person responsible or expecting
   const otherPerson = commitment.direction === "owed_by_me"
@@ -239,9 +262,26 @@ export function CommitmentCard({
         </button>
       )}
 
-      {/* Title - main content with AI indicator */}
+      {/* Title - main content with AI indicator and source */}
       <div className="flex-1 min-w-0 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        {/* Source indicator */}
+        {commitment.sourceType && (() => {
+          const config = getSourceConfig(commitment.sourceType);
+          const color = getSourceColor(commitment.sourceType);
+          const SourceIcon = config.icon;
+          return (
+            <div
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+              style={{ backgroundColor: `${color}15` }}
+              title={`From ${config.label}`}
+            >
+              <SourceIcon className="h-3 w-3" style={{ color }} />
+            </div>
+          );
+        })()}
+        {!commitment.sourceType && (
+          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        )}
         <span className="text-sm truncate text-muted-foreground">
           {commitment.title}
         </span>
@@ -269,10 +309,45 @@ export function CommitmentCard({
 
       {/* Quick actions - always visible */}
       <div className="shrink-0 flex items-center gap-1">
-        {/* Status badge */}
-        <Badge variant={statusBadge.variant} className="text-[10px] shrink-0">
-          {statusBadge.label}
-        </Badge>
+        {/* Task controls - shown if task data exists */}
+        {hasTaskData && (
+          <>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskAssigneeDropdown
+                taskId={commitment.task!.id}
+                organizationId={organizationId!}
+                currentAssignee={commitment.task!.assignee}
+                compact
+                align="end"
+              />
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskPriorityDropdown
+                taskId={commitment.task!.id}
+                organizationId={organizationId!}
+                currentPriority={commitment.task!.priority}
+                compact
+                align="end"
+              />
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskStatusDropdown
+                taskId={commitment.task!.id}
+                organizationId={organizationId!}
+                currentStatus={commitment.task!.status}
+                compact
+                align="end"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Status badge - only show if no task controls */}
+        {!hasTaskData && (
+          <Badge variant={statusBadge.variant} className="text-[10px] shrink-0">
+            {statusBadge.label}
+          </Badge>
+        )}
 
         {/* Confidence Badge */}
         <ConfidenceBadge

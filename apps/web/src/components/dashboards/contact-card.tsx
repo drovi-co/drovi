@@ -25,6 +25,7 @@ import { useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +67,8 @@ export interface ContactCardData {
   openCommitmentsCount?: number;
   pendingQuestionsCount?: number;
   tags?: string[] | null;
+  // Multi-source support - which sources this contact appears in
+  sources?: SourceType[];
 }
 
 interface ContactCardProps {
@@ -156,13 +159,35 @@ export function ContactCard({
         </AvatarFallback>
       </Avatar>
 
-      {/* Name */}
-      <div className="w-40 shrink-0 truncate">
-        <span className="text-sm font-medium text-foreground/80">
-          {displayName}
-        </span>
-        {contact.isVip && (
-          <Star className="h-3 w-3 text-amber-500 fill-amber-500 inline ml-1" />
+      {/* Name with source indicators */}
+      <div className="w-40 shrink-0">
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium text-foreground/80 truncate">
+            {displayName}
+          </span>
+          {contact.isVip && (
+            <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+          )}
+        </div>
+        {/* Source badges */}
+        {contact.sources && contact.sources.length > 0 && (
+          <div className="flex items-center gap-0.5 mt-0.5">
+            {contact.sources.slice(0, 4).map((sourceType) => {
+              const config = getSourceConfig(sourceType);
+              const color = getSourceColor(sourceType);
+              const SourceIcon = config.icon;
+              return (
+                <div
+                  key={sourceType}
+                  className="flex h-4 w-4 items-center justify-center rounded"
+                  style={{ backgroundColor: `${color}15` }}
+                  title={config.label}
+                >
+                  <SourceIcon className="h-2.5 w-2.5" style={{ color }} />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

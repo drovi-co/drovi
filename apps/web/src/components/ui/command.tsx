@@ -3,6 +3,15 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 import type * as React from "react";
 
+/**
+ * Linear-style Command Bar (⌘K)
+ *
+ * Features:
+ * - Dark popover background (#292A35)
+ * - Purple accent for selected items
+ * - 13px font size
+ * - Keyboard shortcut badges
+ */
 function Command({
   className,
   ...props
@@ -10,7 +19,9 @@ function Command({
   return (
     <CommandPrimitive
       className={cn(
-        "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+        "flex h-full w-full flex-col overflow-hidden",
+        "rounded-lg bg-popover text-popover-foreground",
+        "shadow-dropdown",
         className
       )}
       data-slot="command"
@@ -19,16 +30,42 @@ function Command({
   );
 }
 
+function CommandDialog({
+  children,
+  className,
+  ...props
+}: React.ComponentProps<typeof CommandPrimitive> & {
+  children: React.ReactNode;
+}) {
+  return (
+    <Command
+      className={cn(
+        "mx-auto max-w-[640px] rounded-lg border border-border",
+        "[&_[cmdk-group-heading]]:text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </Command>
+  );
+}
+
 function CommandInput({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div className="flex items-center border-b px-3" data-slot="command-input-wrapper">
-      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+    <div
+      className="flex items-center gap-2 border-b border-border px-3"
+      data-slot="command-input-wrapper"
+    >
+      <Search className="size-4 shrink-0 text-muted-foreground" />
       <CommandPrimitive.Input
         className={cn(
-          "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-11 w-full bg-transparent py-3",
+          "text-[13px] text-foreground placeholder:text-muted-foreground",
+          "outline-none disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         data-slot="command-input"
@@ -45,7 +82,7 @@ function CommandList({
   return (
     <CommandPrimitive.List
       className={cn(
-        "max-h-[300px] overflow-y-auto overflow-x-hidden",
+        "max-h-[300px] overflow-y-auto overflow-x-hidden p-1",
         className
       )}
       data-slot="command-list"
@@ -60,7 +97,7 @@ function CommandEmpty({
 }: React.ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
-      className={cn("py-6 text-center text-sm", className)}
+      className={cn("py-6 text-center text-[13px] text-muted-foreground", className)}
       data-slot="command-empty"
       {...props}
     />
@@ -74,7 +111,11 @@ function CommandGroup({
   return (
     <CommandPrimitive.Group
       className={cn(
-        "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+        "overflow-hidden py-1 text-foreground",
+        "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5",
+        "[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium",
+        "[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider",
+        "[&_[cmdk-group-heading]]:text-muted-foreground",
         className
       )}
       data-slot="command-group"
@@ -89,7 +130,7 @@ function CommandSeparator({
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
   return (
     <CommandPrimitive.Separator
-      className={cn("-mx-1 h-px bg-border", className)}
+      className={cn("-mx-1 my-1 h-px bg-border", className)}
       data-slot="command-separator"
       {...props}
     />
@@ -103,10 +144,17 @@ function CommandItem({
   return (
     <CommandPrimitive.Item
       className={cn(
-        "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-        "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+        "relative flex cursor-default select-none items-center gap-2",
+        "rounded-[4px] px-2 py-1.5",
+        "text-[13px] text-foreground outline-none",
+        "transition-colors duration-75",
+        // Selected state
         "data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground",
-        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        // Disabled state
+        "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+        // Icon styling
+        "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "[&_svg]:text-muted-foreground data-[selected=true]:[&_svg]:text-accent-foreground",
         className
       )}
       data-slot="command-item"
@@ -122,7 +170,7 @@ function CommandShortcut({
   return (
     <span
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
+        "ml-auto flex items-center gap-1",
         className
       )}
       data-slot="command-shortcut"
@@ -131,8 +179,30 @@ function CommandShortcut({
   );
 }
 
+/**
+ * Keyboard shortcut badge for command items
+ */
+function Kbd({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLElement>) {
+  return (
+    <kbd
+      className={cn(
+        "inline-flex h-5 min-w-5 items-center justify-center",
+        "rounded px-1.5",
+        "bg-muted text-[10px] font-medium text-muted-foreground",
+        "border border-border",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
 export {
   Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -140,4 +210,5 @@ export {
   CommandList,
   CommandSeparator,
   CommandShortcut,
+  Kbd,
 };

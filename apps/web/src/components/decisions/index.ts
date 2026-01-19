@@ -21,3 +21,11 @@ export {
   LinkedCommitments,
   LinkedDecisions,
 } from "./linked-intelligence";
+
+export {
+  DecisionRow,
+  DecisionListHeader,
+  type DecisionRowData,
+  type DecisionRowProps,
+  type DecisionListHeaderProps,
+} from "./decision-row";

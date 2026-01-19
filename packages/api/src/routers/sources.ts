@@ -2,54 +2,63 @@
 // MULTI-SOURCE ABSTRACTION ROUTER
 // =============================================================================
 //
-// Source abstraction layer for multi-channel intelligence:
-// - Email (primary)
+// Source management for multi-channel intelligence platform.
+// Handles connecting, disconnecting, and syncing intelligence sources:
+// - Email (Gmail, Outlook)
 // - Calendar (Google Calendar, Outlook)
 // - Slack
-// - Future: Teams, Notion, etc.
+// - WhatsApp
+// - Notion
+// - Google Workspace (Docs, Sheets)
+// - Meeting Transcripts
+// - And more...
 //
-// Each source provides:
-// - Commitments
-// - Decisions
-// - Context for AI understanding
-//
-// This is the foundation for MEMORYSTACK's multi-source intelligence.
+// This router manages source accounts and provides unified intelligence queries.
 //
 
 import { db } from "@memorystack/db";
-import { member } from "@memorystack/db/schema";
+import {
+  claim,
+  commitment,
+  conversation,
+  decision,
+  emailAccount,
+  member,
+  sourceAccount,
+} from "@memorystack/db/schema";
+import { SOURCE_DISPLAY_CONFIG, type SourceType } from "@memorystack/ai";
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { tasks } from "@trigger.dev/sdk";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
+import { randomUUID } from "node:crypto";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-// Unified source type
-export type SourceType = "email" | "calendar" | "slack" | "notion" | "teams";
-
-// Source configuration stored per organization
+/**
+ * Source configuration for UI display.
+ */
 export interface SourceConfig {
   type: SourceType;
   enabled: boolean;
-  connectionStatus: "connected" | "disconnected" | "error";
-  lastSyncAt?: Date;
-  settings: Record<string, unknown>;
-  credentials?: {
-    accessToken?: string;
-    refreshToken?: string;
-    expiresAt?: Date;
-  };
+  connectionStatus: "connected" | "disconnected" | "error" | "syncing";
+  lastSyncAt?: Date | null;
+  provider?: string;
+  displayName?: string;
+  settings?: Record<string, unknown>;
 }
 
-// Unified intelligence item that can come from any source
+/**
+ * Unified intelligence item from any source.
+ */
 export interface UnifiedIntelligenceItem {
   id: string;
   sourceType: SourceType;
-  sourceId: string; // ID in the source system
-  type: "commitment" | "decision" | "mention" | "context";
+  sourceId: string;
+  type: "commitment" | "decision" | "mention" | "context" | "claim";
   title: string;
   description?: string;
   confidence: number;
@@ -62,13 +71,31 @@ export interface UnifiedIntelligenceItem {
 // INPUT SCHEMAS
 // =============================================================================
 
+const sourceTypeSchema = z.enum([
+  "email",
+  "slack",
+  "calendar",
+  "whatsapp",
+  "notion",
+  "google_docs",
+  "google_sheets",
+  "meeting_transcript",
+  "teams",
+  "discord",
+  "linear",
+  "github",
+]);
+
 const listSourcesSchema = z.object({
   organizationId: z.string().min(1),
 });
 
 const connectSourceSchema = z.object({
   organizationId: z.string().min(1),
-  sourceType: z.enum(["email", "calendar", "slack", "notion", "teams"]),
+  sourceType: sourceTypeSchema,
+  provider: z.string().optional(),
+  externalId: z.string().optional(),
+  displayName: z.string().optional(),
   credentials: z
     .object({
       accessToken: z.string().optional(),
@@ -76,21 +103,19 @@ const connectSourceSchema = z.object({
       apiKey: z.string().optional(),
     })
     .optional(),
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 const disconnectSourceSchema = z.object({
   organizationId: z.string().min(1),
-  sourceType: z.enum(["email", "calendar", "slack", "notion", "teams"]),
+  sourceAccountId: z.string(),
 });
 
 const getSourceIntelligenceSchema = z.object({
   organizationId: z.string().min(1),
-  sourceTypes: z
-    .array(z.enum(["email", "calendar", "slack", "notion", "teams"]))
-    .optional(),
+  sourceTypes: z.array(sourceTypeSchema).optional(),
   intelligenceTypes: z
-    .array(z.enum(["commitment", "decision", "mention", "context"]))
+    .array(z.enum(["commitment", "decision", "mention", "context", "claim"]))
     .optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
@@ -133,58 +158,19 @@ async function verifyOrgAdmin(
   return !!memberRecord;
 }
 
-// Default sources configuration
-const defaultSources: Record<SourceType, Omit<SourceConfig, "credentials">> = {
-  email: {
-    type: "email",
-    enabled: true,
-    connectionStatus: "connected",
-    settings: {},
-  },
-  calendar: {
-    type: "calendar",
-    enabled: false,
-    connectionStatus: "disconnected",
-    settings: {
-      provider: "google", // or "outlook"
-      syncEvents: true,
-      extractCommitments: true,
-      extractDecisions: false,
-    },
-  },
-  slack: {
-    type: "slack",
-    enabled: false,
-    connectionStatus: "disconnected",
-    settings: {
-      syncChannels: [],
-      syncDMs: false,
-      extractCommitments: true,
-      extractDecisions: true,
-    },
-  },
-  notion: {
-    type: "notion",
-    enabled: false,
-    connectionStatus: "disconnected",
-    settings: {
-      syncDatabases: [],
-      extractCommitments: true,
-      extractDecisions: true,
-    },
-  },
-  teams: {
-    type: "teams",
-    enabled: false,
-    connectionStatus: "disconnected",
-    settings: {
-      syncChannels: [],
-      syncChats: false,
-      extractCommitments: true,
-      extractDecisions: true,
-    },
-  },
-};
+/**
+ * Get source display configuration.
+ */
+function getSourceDisplay(type: SourceType) {
+  return (
+    SOURCE_DISPLAY_CONFIG[type] ?? {
+      icon: "file",
+      color: "#666666",
+      label: type,
+      description: `${type} integration`,
+    }
+  );
+}
 
 // =============================================================================
 // ROUTER
@@ -212,21 +198,132 @@ export const sourcesRouter = router({
         });
       }
 
-      // Get organization's source configurations
-      // In a real implementation, this would come from the database
-      // For now, return default sources with email connected
+      // Get connected source accounts from database
+      const connectedSources = await db.query.sourceAccount.findMany({
+        where: eq(sourceAccount.organizationId, organizationId),
+      });
 
-      const sources = Object.values(defaultSources).map((source) => ({
-        ...source,
-        // Email is always connected via existing email accounts
-        connectionStatus:
-          source.type === "email" ? "connected" : source.connectionStatus,
-        isAvailable: source.type === "email" || source.type === "calendar", // Only email and calendar implemented
-      }));
+      // Also get legacy email accounts
+      const emailAccounts = await db.query.emailAccount.findMany({
+        where: eq(emailAccount.organizationId, organizationId),
+      });
+
+      // Build source configurations
+      const sources: SourceConfig[] = [];
+
+      // Add connected source accounts
+      for (const source of connectedSources) {
+        const display = getSourceDisplay(source.type as SourceType);
+        sources.push({
+          type: source.type as SourceType,
+          enabled: source.status === "connected" || source.status === "syncing",
+          connectionStatus: source.status as SourceConfig["connectionStatus"],
+          lastSyncAt: source.lastSyncAt,
+          provider: source.provider,
+          displayName: source.displayName ?? display.label,
+        });
+      }
+
+      // Add email accounts that aren't yet migrated
+      for (const email of emailAccounts) {
+        const alreadyAdded = connectedSources.some(
+          (s) => s.type === "email" && s.externalId === email.email
+        );
+        if (!alreadyAdded) {
+          sources.push({
+            type: "email",
+            enabled: email.status === "active" || email.status === "syncing",
+            connectionStatus: (email.status ?? "disconnected") as SourceConfig["connectionStatus"],
+            lastSyncAt: email.lastSyncAt,
+            provider: email.provider ?? "gmail",
+            displayName: email.email,
+          });
+        }
+      }
+
+      // Add available but unconnected sources
+      const availableTypes: SourceType[] = [
+        "email",
+        "slack",
+        "calendar",
+        "whatsapp",
+        "notion",
+        "google_docs",
+        "google_sheets",
+        "meeting_transcript",
+        "teams",
+        "discord",
+        "linear",
+        "github",
+      ];
+
+      const unconnectedSources = availableTypes
+        .filter((type) => !sources.some((s) => s.type === type))
+        .map((type) => ({
+          type,
+          enabled: false,
+          connectionStatus: "disconnected" as const,
+          lastSyncAt: null,
+          ...getSourceDisplay(type),
+        }));
 
       return {
-        sources,
+        sources: [...sources, ...unconnectedSources],
+        connectedCount: sources.filter((s) => s.enabled).length,
         isAdmin: await verifyOrgAdmin(userId, organizationId),
+      };
+    }),
+
+  // ===========================================================================
+  // GET SOURCE ACCOUNT
+  // ===========================================================================
+  //
+  // Get a specific source account by ID.
+  //
+  get: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        sourceAccountId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { organizationId, sourceAccountId } = input;
+      const userId = ctx.session.user.id;
+
+      const isMember = await verifyOrgMembership(userId, organizationId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Not a member of this organization",
+        });
+      }
+
+      const source = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, sourceAccountId),
+          eq(sourceAccount.organizationId, organizationId)
+        ),
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
+      }
+
+      return {
+        id: source.id,
+        type: source.type as SourceType,
+        provider: source.provider,
+        externalId: source.externalId,
+        displayName: source.displayName,
+        status: source.status,
+        lastSyncAt: source.lastSyncAt,
+        syncCursor: source.syncCursor,
+        settings: source.settings as Record<string, unknown> | null,
+        createdAt: source.createdAt,
       };
     }),
 
@@ -239,7 +336,8 @@ export const sourcesRouter = router({
   connect: protectedProcedure
     .input(connectSourceSchema)
     .mutation(async ({ ctx, input }) => {
-      const { organizationId, sourceType, credentials, settings } = input;
+      const { organizationId, sourceType, provider, externalId, displayName, settings } =
+        input;
       const userId = ctx.session.user.id;
 
       // Verify org admin
@@ -251,41 +349,76 @@ export const sourcesRouter = router({
         });
       }
 
-      // Validate source type is implemented
-      if (!["email", "calendar"].includes(sourceType)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Source type "${sourceType}" is not yet implemented`,
+      // Check if already connected
+      if (externalId) {
+        const existing = await db.query.sourceAccount.findFirst({
+          where: and(
+            eq(sourceAccount.organizationId, organizationId),
+            eq(sourceAccount.type, sourceType),
+            eq(sourceAccount.externalId, externalId)
+          ),
         });
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This source is already connected",
+          });
+        }
       }
 
-      // For calendar, initiate OAuth flow
-      if (sourceType === "calendar") {
-        // In a real implementation, this would:
-        // 1. Store the credentials securely
-        // 2. Initiate background sync
-        // 3. Return OAuth URL if needed
+      // Determine provider and OAuth requirements
+      const sourceConfig = getSourceDisplay(sourceType);
+      const requiresOAuth = ["email", "calendar", "slack", "google_docs", "google_sheets"].includes(
+        sourceType
+      );
+
+      // For OAuth sources, return OAuth URL
+      if (requiresOAuth && !input.credentials?.accessToken) {
+        const oauthPaths: Record<string, string> = {
+          email: "/api/auth/gmail",
+          calendar: "/api/auth/calendar",
+          slack: "/api/auth/slack",
+          google_docs: "/api/auth/google-docs",
+          google_sheets: "/api/auth/google-sheets",
+        };
 
         return {
           success: true,
-          message: "Calendar connection initiated",
+          message: `${sourceConfig.label} requires OAuth authentication`,
           requiresOAuth: true,
-          oauthUrl: `/api/auth/calendar?organizationId=${organizationId}`,
+          oauthUrl: `${oauthPaths[sourceType] ?? "/api/auth/oauth"}?organizationId=${organizationId}&sourceType=${sourceType}`,
         };
       }
 
-      // Email is connected via existing email accounts flow
-      if (sourceType === "email") {
-        return {
-          success: true,
-          message: "Email is connected via Email Accounts settings",
-          requiresOAuth: false,
-        };
-      }
+      // Create source account
+      const sourceAccountId = randomUUID();
+
+      // Build settings with proper defaults
+      const defaultSettings: typeof sourceAccount.$inferInsert.settings = {
+        syncEnabled: true,
+        syncFrequencyMinutes: 15,
+      };
+      const accountSettings = settings
+        ? ({ ...defaultSettings, ...settings } as typeof sourceAccount.$inferInsert.settings)
+        : defaultSettings;
+
+      await db.insert(sourceAccount).values({
+        organizationId,
+        addedByUserId: userId,
+        type: sourceType,
+        provider: provider ?? sourceType,
+        externalId: externalId ?? "",
+        displayName: displayName ?? sourceConfig.label,
+        status: "disconnected" as const,
+        settings: accountSettings,
+      });
 
       return {
-        success: false,
-        message: "Source type not implemented",
+        success: true,
+        message: `${sourceConfig.label} source created`,
+        sourceAccountId,
+        requiresOAuth: false,
       };
     }),
 
@@ -298,7 +431,7 @@ export const sourcesRouter = router({
   disconnect: protectedProcedure
     .input(disconnectSourceSchema)
     .mutation(async ({ ctx, input }) => {
-      const { organizationId, sourceType } = input;
+      const { organizationId, sourceAccountId } = input;
       const userId = ctx.session.user.id;
 
       // Verify org admin
@@ -310,22 +443,81 @@ export const sourcesRouter = router({
         });
       }
 
-      // Can't disconnect email (primary source)
-      if (sourceType === "email") {
+      // Get source account
+      const source = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, sourceAccountId),
+          eq(sourceAccount.organizationId, organizationId)
+        ),
+      });
+
+      if (!source) {
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Cannot disconnect email - it is the primary source",
+          code: "NOT_FOUND",
+          message: "Source account not found",
         });
       }
 
-      // In a real implementation, this would:
-      // 1. Revoke OAuth tokens
-      // 2. Mark source as disconnected
-      // 3. Optionally delete extracted data
+      // Update status to disconnected and clear tokens
+      await db
+        .update(sourceAccount)
+        .set({
+          status: "disconnected",
+          accessToken: null,
+          refreshToken: null,
+          tokenExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(sourceAccount.id, sourceAccountId));
 
       return {
         success: true,
-        message: `${sourceType} disconnected`,
+        message: `${source.displayName ?? source.type} disconnected`,
+      };
+    }),
+
+  // ===========================================================================
+  // DELETE SOURCE
+  // ===========================================================================
+  //
+  // Permanently delete a source and all its data.
+  //
+  delete: protectedProcedure
+    .input(disconnectSourceSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { organizationId, sourceAccountId } = input;
+      const userId = ctx.session.user.id;
+
+      // Verify org admin
+      const isAdmin = await verifyOrgAdmin(userId, organizationId);
+      if (!isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only organization admins can delete sources",
+        });
+      }
+
+      // Verify source exists
+      const source = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, sourceAccountId),
+          eq(sourceAccount.organizationId, organizationId)
+        ),
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
+      }
+
+      // Delete source account (cascades to conversations, messages, etc.)
+      await db.delete(sourceAccount).where(eq(sourceAccount.id, sourceAccountId));
+
+      return {
+        success: true,
+        message: `${source.displayName ?? source.type} deleted`,
       };
     }),
 
@@ -334,7 +526,7 @@ export const sourcesRouter = router({
   // ===========================================================================
   //
   // Get intelligence items from all connected sources.
-  // This is the core multi-source query.
+  // This aggregates commitments, decisions, and claims across all sources.
   //
   getIntelligence: protectedProcedure
     .input(getSourceIntelligenceSchema)
@@ -358,28 +550,137 @@ export const sourcesRouter = router({
         });
       }
 
-      // Currently only email is fully implemented
-      // In a real implementation, this would query multiple tables
-      // and merge results from different sources
+      const items: UnifiedIntelligenceItem[] = [];
+      const activeTypes = intelligenceTypes ?? ["commitment", "decision", "claim"];
 
-      const activeSources = sourceTypes ?? ["email"];
-      const activeTypes = intelligenceTypes ?? [
-        "commitment",
-        "decision",
-      ];
+      // Get source account IDs if filtering by type
+      let sourceAccountIds: string[] | undefined;
+      if (sourceTypes && sourceTypes.length > 0) {
+        const accounts = await db.query.sourceAccount.findMany({
+          where: and(
+            eq(sourceAccount.organizationId, organizationId),
+            inArray(sourceAccount.type, sourceTypes)
+          ),
+          columns: { id: true },
+        });
+        sourceAccountIds = accounts.map((a) => a.id);
+      }
 
-      // For now, return placeholder data structure
-      // Real implementation would query commitments, decisions, etc.
-      // and map them to UnifiedIntelligenceItem format
+      // Query commitments
+      if (activeTypes.includes("commitment")) {
+        const commitmentConditions = [eq(commitment.organizationId, organizationId)];
+
+        if (sourceAccountIds) {
+          commitmentConditions.push(
+            inArray(commitment.sourceAccountId, sourceAccountIds)
+          );
+        }
+
+        if (dateRange) {
+          commitmentConditions.push(gte(commitment.createdAt, dateRange.from));
+        }
+
+        const commitments = await db.query.commitment.findMany({
+          where: and(...commitmentConditions),
+          limit: Math.ceil(limit / activeTypes.length),
+          orderBy: [desc(commitment.createdAt)],
+        });
+
+        for (const c of commitments) {
+          items.push({
+            id: c.id,
+            sourceType: "email", // Default, would need to join to get actual source type
+            sourceId: c.sourceConversationId ?? c.sourceThreadId ?? "",
+            type: "commitment",
+            title: c.title,
+            description: c.description ?? undefined,
+            confidence: c.confidence ?? 0.8,
+            metadata: (c.metadata ?? {}) as Record<string, unknown>,
+            extractedAt: c.createdAt ?? new Date(),
+          });
+        }
+      }
+
+      // Query decisions
+      if (activeTypes.includes("decision")) {
+        const decisionConditions = [eq(decision.organizationId, organizationId)];
+
+        if (sourceAccountIds) {
+          decisionConditions.push(
+            inArray(decision.sourceAccountId, sourceAccountIds)
+          );
+        }
+
+        if (dateRange) {
+          decisionConditions.push(gte(decision.createdAt, dateRange.from));
+        }
+
+        const decisions = await db.query.decision.findMany({
+          where: and(...decisionConditions),
+          limit: Math.ceil(limit / activeTypes.length),
+          orderBy: [desc(decision.createdAt)],
+        });
+
+        for (const d of decisions) {
+          items.push({
+            id: d.id,
+            sourceType: "email",
+            sourceId: d.sourceConversationId ?? "",
+            type: "decision",
+            title: d.statement,
+            description: d.rationale ?? undefined,
+            confidence: d.confidence ?? 0.8,
+            metadata: (d.metadata ?? {}) as Record<string, unknown>,
+            extractedAt: d.createdAt ?? new Date(),
+          });
+        }
+      }
+
+      // Query claims
+      if (activeTypes.includes("claim")) {
+        const claimConditions = [
+          eq(claim.organizationId, organizationId),
+          eq(claim.isUserDismissed, false),
+        ];
+
+        if (sourceAccountIds) {
+          claimConditions.push(inArray(claim.sourceAccountId, sourceAccountIds));
+        }
+
+        if (dateRange) {
+          claimConditions.push(gte(claim.extractedAt, dateRange.from));
+        }
+
+        const claims = await db.query.claim.findMany({
+          where: and(...claimConditions),
+          limit: Math.ceil(limit / activeTypes.length),
+          orderBy: [desc(claim.extractedAt)],
+        });
+
+        for (const c of claims) {
+          items.push({
+            id: c.id,
+            sourceType: "email",
+            sourceId: c.conversationId ?? c.threadId ?? "",
+            type: "claim",
+            title: c.text,
+            description: c.quotedText ?? undefined,
+            confidence: c.confidence ?? 0.8,
+            metadata: (c.metadata ?? {}) as Record<string, unknown>,
+            extractedAt: c.extractedAt ?? new Date(),
+          });
+        }
+      }
+
+      // Sort by extracted date
+      items.sort((a, b) => b.extractedAt.getTime() - a.extractedAt.getTime());
 
       return {
-        items: [] as UnifiedIntelligenceItem[],
-        sources: activeSources,
+        items: items.slice(offset, offset + limit),
+        sources: sourceTypes ?? ["email"],
         types: activeTypes,
-        total: 0,
-        hasMore: false,
-        message:
-          "Multi-source intelligence is aggregated from email. Connect more sources to expand coverage.",
+        total: items.length,
+        hasMore: offset + limit < items.length,
       };
     }),
 
@@ -404,25 +705,45 @@ export const sourcesRouter = router({
         });
       }
 
-      // In a real implementation, this would count items from each source
-      return {
-        stats: [
-          {
-            sourceType: "email" as SourceType,
-            commitments: 0, // Would query actual count
-            decisions: 0,
-            lastSync: new Date(),
-            health: "healthy" as const,
-          },
-          {
-            sourceType: "calendar" as SourceType,
-            commitments: 0,
-            decisions: 0,
-            lastSync: null,
-            health: "disconnected" as const,
-          },
-        ],
-      };
+      // Get source accounts
+      const sources = await db.query.sourceAccount.findMany({
+        where: eq(sourceAccount.organizationId, organizationId),
+      });
+
+      const stats = [];
+
+      for (const source of sources) {
+        // Count conversations
+        const [convCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversation)
+          .where(eq(conversation.sourceAccountId, source.id));
+
+        // Count commitments
+        const [commitmentCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(commitment)
+          .where(eq(commitment.sourceAccountId, source.id));
+
+        // Count decisions
+        const [decisionCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(decision)
+          .where(eq(decision.sourceAccountId, source.id));
+
+        stats.push({
+          sourceAccountId: source.id,
+          sourceType: source.type as SourceType,
+          displayName: source.displayName,
+          conversations: convCount?.count ?? 0,
+          commitments: commitmentCount?.count ?? 0,
+          decisions: decisionCount?.count ?? 0,
+          lastSync: source.lastSyncAt,
+          health: source.status === "connected" ? ("healthy" as const) : ("disconnected" as const),
+        });
+      }
+
+      return { stats };
     }),
 
   // ===========================================================================
@@ -435,11 +756,11 @@ export const sourcesRouter = router({
     .input(
       z.object({
         organizationId: z.string().min(1),
-        sourceType: z.enum(["email", "calendar", "slack", "notion", "teams"]),
+        sourceAccountId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { organizationId, sourceType } = input;
+      const { organizationId, sourceAccountId } = input;
       const userId = ctx.session.user.id;
 
       // Verify org membership
@@ -451,28 +772,152 @@ export const sourcesRouter = router({
         });
       }
 
-      // Email sync is handled by existing email sync flow
-      if (sourceType === "email") {
-        return {
-          success: true,
-          message: "Email sync triggered via existing flow",
-          syncId: null,
-        };
+      // Get source account
+      const source = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, sourceAccountId),
+          eq(sourceAccount.organizationId, organizationId)
+        ),
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
       }
 
-      // Calendar sync would be implemented separately
-      if (sourceType === "calendar") {
-        // In real implementation, this would trigger a background job
-        return {
-          success: true,
-          message: "Calendar sync is not yet implemented",
-          syncId: null,
-        };
+      // Update status to syncing
+      await db
+        .update(sourceAccount)
+        .set({ status: "syncing", updatedAt: new Date() })
+        .where(eq(sourceAccount.id, sourceAccountId));
+
+      // Trigger the appropriate sync task based on source type
+      let syncHandle: { id: string } | null = null;
+      try {
+        switch (source.type) {
+          case "slack":
+            syncHandle = await tasks.trigger("slack-sync", {
+              sourceAccountId: source.id,
+              fullSync: true,
+            });
+            break;
+          case "whatsapp":
+            syncHandle = await tasks.trigger("whatsapp-sync", {
+              sourceAccountId: source.id,
+            });
+            break;
+          case "calendar": {
+            // Calendar uses email account for OAuth
+            const emailAcct = await db.query.emailAccount.findFirst({
+              where: eq(emailAccount.organizationId, organizationId),
+              columns: { id: true },
+            });
+            if (emailAcct) {
+              syncHandle = await tasks.trigger("calendar-sync", {
+                emailAccountId: emailAcct.id,
+              });
+            }
+            break;
+          }
+          case "email":
+            // Email sync is handled by email-sync task
+            if (source.externalId) {
+              syncHandle = await tasks.trigger("email-sync", {
+                accountId: source.externalId,
+                fullSync: true,
+              });
+            }
+            break;
+          default:
+            // Unknown source type, just mark as connected
+            await db
+              .update(sourceAccount)
+              .set({ status: "connected", updatedAt: new Date() })
+              .where(eq(sourceAccount.id, sourceAccountId));
+            break;
+        }
+      } catch (syncError) {
+        // If sync trigger fails, reset status
+        await db
+          .update(sourceAccount)
+          .set({ status: "error", updatedAt: new Date() })
+          .where(eq(sourceAccount.id, sourceAccountId));
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to trigger sync task",
+          cause: syncError,
+        });
       }
 
       return {
-        success: false,
-        message: `Sync for ${sourceType} is not implemented`,
+        success: true,
+        message: `Sync triggered for ${source.displayName ?? source.type}`,
+        syncId: syncHandle?.id ?? null,
+      };
+    }),
+
+  // ===========================================================================
+  // UPDATE SOURCE SETTINGS
+  // ===========================================================================
+  //
+  // Update settings for a source account.
+  //
+  updateSettings: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        sourceAccountId: z.string(),
+        settings: z.record(z.string(), z.unknown()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { organizationId, sourceAccountId, settings } = input;
+      const userId = ctx.session.user.id;
+
+      // Verify org admin
+      const isAdmin = await verifyOrgAdmin(userId, organizationId);
+      if (!isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only organization admins can update source settings",
+        });
+      }
+
+      // Get existing source
+      const source = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, sourceAccountId),
+          eq(sourceAccount.organizationId, organizationId)
+        ),
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
+      }
+
+      // Merge settings
+      const existingSettings = (source.settings ?? {
+        syncEnabled: true,
+        syncFrequencyMinutes: 15,
+      }) as typeof sourceAccount.$inferInsert.settings;
+      const newSettings = {
+        ...existingSettings,
+        ...settings,
+      } as typeof sourceAccount.$inferInsert.settings;
+
+      await db
+        .update(sourceAccount)
+        .set({ settings: newSettings, updatedAt: new Date() })
+        .where(eq(sourceAccount.id, sourceAccountId));
+
+      return {
+        success: true,
+        message: "Settings updated",
       };
     }),
 });

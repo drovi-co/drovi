@@ -35,13 +35,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
-  CommitmentCard,
   CommitmentDetailSheet,
   type CommitmentDetailData,
   CommitmentStats,
   CommitmentTimeline,
   type CommitmentCardData,
 } from "@/components/dashboards";
+import {
+  CommitmentRow,
+  CommitmentListHeader,
+  type CommitmentRowData,
+} from "@/components/commitments";
 import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
@@ -82,6 +86,7 @@ function CommitmentsPage() {
   const [evidenceSheetOpen, setEvidenceSheetOpen] = useState(false);
   const [evidenceCommitmentId, setEvidenceCommitmentId] = useState<string | null>(null);
   const [pendingFollowUpCommitmentId, setPendingFollowUpCommitmentId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Fetch stats
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
@@ -313,22 +318,43 @@ function CommitmentsPage() {
     setEvidenceSheetOpen(true);
   }, []);
 
+  // Selection handlers
+  const handleSelectItem = useCallback((id: string, selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
   // Transform data for components
-  const commitments: CommitmentCardData[] = (commitmentsData?.commitments ?? []).map((c) => ({
-    id: c.id,
-    title: c.title,
-    description: c.description,
-    status: c.status as CommitmentCardData["status"],
-    priority: c.priority as CommitmentCardData["priority"],
-    direction: c.direction as CommitmentCardData["direction"],
-    dueDate: c.dueDate ? new Date(c.dueDate) : null,
-    confidence: c.confidence,
-    isUserVerified: c.isUserVerified ?? undefined,
-    evidence: c.metadata?.originalText ? [c.metadata.originalText] : undefined,
-    debtor: c.debtor,
-    creditor: c.creditor,
-    sourceThread: c.sourceThread,
-  }));
+  const commitments: CommitmentCardData[] = (commitmentsData?.commitments ?? []).map((c) => {
+    const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+    const daysOverdue = dueDate && dueDate < new Date()
+      ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : undefined;
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      status: c.status as CommitmentCardData["status"],
+      priority: c.priority as CommitmentCardData["priority"],
+      direction: c.direction as CommitmentCardData["direction"],
+      dueDate,
+      confidence: c.confidence,
+      isUserVerified: c.isUserVerified ?? undefined,
+      evidence: c.metadata?.originalText ? [c.metadata.originalText] : undefined,
+      debtor: c.debtor,
+      creditor: c.creditor,
+      sourceThread: c.sourceThread,
+      sourceType: undefined, // Not available in list response
+      daysOverdue,
+    };
+  });
 
   // Filter by search
   const filteredCommitments = searchQuery
@@ -338,6 +364,15 @@ function CommitmentsPage() {
           c.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : commitments;
+
+  // Select all handler (must be after filteredCommitments is defined)
+  const handleSelectAll = useCallback((selected: boolean) => {
+    if (selected) {
+      setSelectedIds(new Set(filteredCommitments.map((c) => c.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }, [filteredCommitments]);
 
   const stats = statsData ?? {
     total: 0,
@@ -497,13 +532,30 @@ function CommitmentsPage() {
         <div className="flex-1 overflow-auto">
           {isLoadingCommitments ? (
             <div>
+              {/* Row skeletons - matching inbox style */}
               {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
-                  <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
-                  <div className="w-32 h-4 bg-muted rounded animate-pulse" />
-                  <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
-                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
+                <div key={i} className="flex items-center h-10 px-3 border-b border-[#191A23]">
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-3.5 w-3.5 rounded-[3px]" />
+                  </div>
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <div className="w-6 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                  </div>
+                  <div className="w-[120px] shrink-0 px-1">
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <div className="flex-1 min-w-0 px-2">
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                  <div className="shrink-0 w-[140px] flex items-center justify-end gap-1.5">
+                    <Skeleton className="h-3 w-12" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -520,23 +572,43 @@ function CommitmentsPage() {
               </div>
             ) : (
               <div>
-                {filteredCommitments.map((commitment) => (
-                  <CommitmentCard
+                {/* List Header */}
+                <CommitmentListHeader
+                  onSelectAll={handleSelectAll}
+                  allSelected={selectedIds.size === filteredCommitments.length && filteredCommitments.length > 0}
+                  someSelected={selectedIds.size > 0 && selectedIds.size < filteredCommitments.length}
+                />
+                {/* Commitment Rows */}
+                {filteredCommitments.map((commitment, index) => (
+                  <CommitmentRow
                     key={commitment.id}
-                    commitment={commitment}
-                    isSelected={selectedCommitment === commitment.id}
-                    onSelect={() => {
+                    commitment={{
+                      id: commitment.id,
+                      title: commitment.title,
+                      description: commitment.description,
+                      status: commitment.status,
+                      priority: commitment.priority,
+                      direction: commitment.direction,
+                      dueDate: commitment.dueDate,
+                      confidence: commitment.confidence,
+                      isUserVerified: commitment.isUserVerified,
+                      debtor: commitment.debtor,
+                      creditor: commitment.creditor,
+                      sourceType: commitment.sourceType,
+                      daysOverdue: commitment.daysOverdue,
+                    }}
+                    isSelected={selectedIds.has(commitment.id)}
+                    isActive={selectedCommitment === commitment.id}
+                    onSelect={handleSelectItem}
+                    onClick={() => {
                       setSelectedCommitment(commitment.id);
                       setDetailSheetOpen(true);
                     }}
-                    onComplete={handleComplete}
-                    onSnooze={handleSnooze}
-                    onDismiss={handleDismiss}
-                    onVerify={handleVerify}
-                    onThreadClick={handleThreadClick}
-                    onContactClick={handleContactClick}
-                    onGenerateFollowUp={handleGenerateFollowUp}
-                    onShowEvidence={handleShowEvidence}
+                    onComplete={() => handleComplete(commitment.id)}
+                    onSnooze={(days) => handleSnooze(commitment.id, days)}
+                    onShowEvidence={() => handleShowEvidence(commitment.id)}
+                    onDismiss={() => handleDismiss(commitment.id)}
+                    onVerify={() => handleVerify(commitment.id)}
                   />
                 ))}
               </div>

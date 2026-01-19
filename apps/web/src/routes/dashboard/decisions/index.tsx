@@ -34,12 +34,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
-  DecisionCard,
   DecisionDetailSheet,
   type DecisionDetailData,
   DecisionStats,
   type DecisionCardData,
 } from "@/components/dashboards";
+import {
+  DecisionRow,
+  DecisionListHeader,
+  type DecisionRowData,
+} from "@/components/decisions";
 import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -73,6 +77,7 @@ function DecisionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [showSupersessionDialog, setShowSupersessionDialog] = useState(false);
   const [supersessionDecisionId, setSupersessionDecisionId] = useState<string | null>(null);
@@ -251,8 +256,24 @@ function DecisionsPage() {
     toast.success("Decisions exported");
   }, [decisionsData]);
 
-  // Transform data
-  const decisions: DecisionCardData[] = (decisionsData?.decisions ?? []).map((d) => ({
+  // Transform data for DecisionRow
+  const decisions: DecisionRowData[] = (decisionsData?.decisions ?? []).map((d) => ({
+    id: d.id,
+    title: d.title,
+    statement: d.statement,
+    rationale: d.rationale,
+    decidedAt: new Date(d.decidedAt),
+    confidence: d.confidence,
+    isUserVerified: d.isUserVerified ?? undefined,
+    isSuperseded: !!d.supersededById,
+    supersededBy: null, // Will be populated from detail view if needed
+    owners: d.owners as DecisionRowData["owners"],
+    topics: undefined, // Topics not included in list response
+    sourceType: (d as { sourceType?: string }).sourceType as DecisionRowData["sourceType"],
+  }));
+
+  // Legacy format for detail sheet and search results
+  const decisionsLegacy: DecisionCardData[] = (decisionsData?.decisions ?? []).map((d) => ({
     id: d.id,
     title: d.title,
     statement: d.statement,
@@ -271,7 +292,7 @@ function DecisionsPage() {
   }));
 
   // Display search results or regular list
-  const displayDecisions: DecisionCardData[] = isSearching && searchResults?.relevantDecisions
+  const displayDecisions: DecisionRowData[] = isSearching && searchResults?.relevantDecisions
     ? searchResults.relevantDecisions.map((d) => {
         const full = decisions.find((fd) => fd.id === d.id);
         return full ?? {
@@ -281,9 +302,30 @@ function DecisionsPage() {
           rationale: d.rationale ?? null,
           decidedAt: new Date(d.decidedAt),
           confidence: 0.8,
-        } as DecisionCardData;
+        } as DecisionRowData;
       })
     : decisions;
+
+  // Selection handlers - must be defined after displayDecisions
+  const handleSelectItem = useCallback((id: string, selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback((selected: boolean) => {
+    if (selected) {
+      setSelectedIds(new Set(displayDecisions.map((d) => d.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }, [displayDecisions]);
 
   const stats = statsData ?? {
     total: 0,
@@ -470,12 +512,30 @@ function DecisionsPage() {
         <div className="flex-1 overflow-auto">
           {isLoadingDecisions || (isSearching && isLoadingSearch) ? (
             <div>
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
-                  <div className="w-20 h-4 bg-muted rounded animate-pulse" />
-                  <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
-                  <div className="w-16 h-4 bg-muted rounded animate-pulse" />
-                  <div className="w-12 h-4 bg-muted rounded animate-pulse" />
+              {/* Row skeletons - matching inbox style */}
+              {[...Array(15)].map((_, i) => (
+                <div key={i} className="flex items-center h-10 px-3 border-b border-[#191A23]">
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-3.5 w-3.5 rounded-[3px]" />
+                  </div>
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <div className="w-6 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <div className="w-7 shrink-0 flex items-center justify-center">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                  </div>
+                  <div className="w-[120px] shrink-0 px-1">
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <div className="flex-1 min-w-0 px-2">
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                  <div className="shrink-0 w-[140px] flex items-center justify-end gap-1.5">
+                    <Skeleton className="h-3 w-12" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -493,19 +553,26 @@ function DecisionsPage() {
             </div>
           ) : (
             <div>
+              {/* List header */}
+              <DecisionListHeader
+                onSelectAll={handleSelectAll}
+                allSelected={selectedIds.size === displayDecisions.length && displayDecisions.length > 0}
+                someSelected={selectedIds.size > 0 && selectedIds.size < displayDecisions.length}
+              />
+              {/* Decision rows */}
               {displayDecisions.map((decision) => (
-                <DecisionCard
+                <DecisionRow
                   key={decision.id}
                   decision={decision}
-                  isSelected={selectedDecision === decision.id}
-                  onSelect={() => {
+                  isSelected={selectedIds.has(decision.id)}
+                  isActive={selectedDecision === decision.id}
+                  onSelect={handleSelectItem}
+                  onClick={() => {
                     setSelectedDecision(decision.id);
                     setDetailSheetOpen(true);
                   }}
-                  onShowEvidence={handleShowEvidence}
-                  onThreadClick={handleThreadClick}
-                  onContactClick={handleContactClick}
-                  onViewSupersession={handleViewSupersession}
+                  onShowEvidence={() => handleShowEvidence(decision.id)}
+                  onViewSupersession={() => handleViewSupersession(decision.id)}
                 />
               ))}
             </div>

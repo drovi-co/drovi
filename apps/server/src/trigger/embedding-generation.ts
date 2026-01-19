@@ -11,14 +11,19 @@ import {
   calculateInputHash,
   DEFAULT_EMBEDDING_MODEL,
   generateClaimEmbedding,
+  generateGenericMessageEmbedding,
   generateMessageEmbedding,
 } from "@memorystack/ai/embeddings";
 import { db } from "@memorystack/db";
 import {
   claim,
   claimEmbedding,
+  conversation,
+  conversationEmbedding,
   emailMessage,
   emailThread,
+  genericMessageEmbedding,
+  message,
   messageEmbedding,
   threadEmbedding,
 } from "@memorystack/db/schema";
@@ -50,6 +55,17 @@ interface EmbedBatchPayload {
   accountId: string;
   type: "messages" | "threads" | "claims";
   limit?: number;
+  force?: boolean;
+}
+
+interface EmbedConversationPayload {
+  conversationId: string;
+  force?: boolean;
+  aggregationMethod?: "mean" | "max_pool";
+}
+
+interface EmbedGenericMessagePayload {
+  messageId: string;
   force?: boolean;
 }
 
@@ -449,7 +465,7 @@ export const embedClaimTask = task({
       // Generate embedding
       const result = await generateClaimEmbedding(
         claimRecord.type,
-        claimRecord.content,
+        claimRecord.text,
         claimRecord.threadId ?? undefined
       );
 
@@ -490,6 +506,339 @@ export const embedClaimTask = task({
       return {
         success: false,
         id: claimId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// =============================================================================
+// CONVERSATION EMBEDDING TASK (Multi-source: WhatsApp, Slack, etc.)
+// =============================================================================
+
+/**
+ * Generate embedding for a multi-source conversation.
+ * Works with WhatsApp, Slack, Calendar, and other non-email conversations.
+ */
+export const embedConversationTask = task({
+  id: "embedding-conversation",
+  queue: {
+    name: "embeddings",
+    concurrencyLimit: 15,
+  },
+  retry: {
+    maxAttempts: 3,
+    minTimeoutInMs: 3000,
+    maxTimeoutInMs: 20_000,
+    factor: 2,
+  },
+  maxDuration: 60,
+  run: async (payload: EmbedConversationPayload): Promise<EmbeddingResult> => {
+    const {
+      conversationId,
+      force = false,
+      aggregationMethod = "mean",
+    } = payload;
+
+    log.info("Generating conversation embedding", {
+      conversationId,
+      force,
+      aggregationMethod,
+    });
+
+    try {
+      // Get conversation with messages and source account
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, conversationId),
+        with: {
+          messages: {
+            orderBy: (m, { asc }) => [asc(m.sentAt)],
+          },
+          sourceAccount: true,
+        },
+      });
+
+      if (!conv) {
+        return {
+          success: false,
+          id: conversationId,
+          error: "Conversation not found",
+        };
+      }
+
+      if (conv.messages.length === 0) {
+        return {
+          success: false,
+          id: conversationId,
+          error: "Conversation has no messages",
+        };
+      }
+
+      // Get embeddings for all messages
+      const messageIds = conv.messages.map((m) => m.id);
+      const existingEmbeddings = await db.query.genericMessageEmbedding.findMany(
+        {
+          where: and(
+            inArray(genericMessageEmbedding.messageId, messageIds),
+            eq(genericMessageEmbedding.status, "completed")
+          ),
+        }
+      );
+
+      // If not all messages have embeddings, generate them first
+      if (existingEmbeddings.length < messageIds.length) {
+        const embeddedIds = new Set(existingEmbeddings.map((e) => e.messageId));
+        const missingIds = messageIds.filter((id) => !embeddedIds.has(id));
+
+        log.info("Generating missing message embeddings for conversation", {
+          conversationId,
+          missingCount: missingIds.length,
+        });
+
+        // Generate embeddings for messages in parallel
+        if (missingIds.length > 0) {
+          await embedGenericMessageTask.batchTriggerAndWait(
+            missingIds.map((msgId) => ({
+              payload: { messageId: msgId },
+            }))
+          );
+        }
+      }
+
+      // Re-fetch all embeddings
+      const allEmbeddings = await db.query.genericMessageEmbedding.findMany({
+        where: and(
+          inArray(genericMessageEmbedding.messageId, messageIds),
+          eq(genericMessageEmbedding.status, "completed")
+        ),
+      });
+
+      if (allEmbeddings.length === 0) {
+        return {
+          success: false,
+          id: conversationId,
+          error: "No message embeddings available",
+        };
+      }
+
+      // Aggregate embeddings
+      const embeddingVectors = allEmbeddings.map(
+        (e) => e.embedding as number[]
+      );
+      const aggregatedEmbedding = aggregateEmbeddings(
+        embeddingVectors,
+        aggregationMethod
+      );
+
+      // Calculate total tokens
+      const totalTokens = allEmbeddings.reduce(
+        (sum, e) => sum + (e.tokenCount ?? 0),
+        0
+      );
+
+      // Build input hash for the conversation
+      const inputHash = calculateInputHash(
+        `${conv.id}:${conv.messages.length}:${conv.updatedAt?.toISOString()}`
+      );
+
+      // Check if we need to update
+      if (!force) {
+        const existing = await db.query.conversationEmbedding.findFirst({
+          where: eq(conversationEmbedding.conversationId, conversationId),
+        });
+
+        if (
+          existing &&
+          existing.inputHash === inputHash &&
+          existing.messageCount === conv.messages.length
+        ) {
+          log.info("Conversation embedding already up to date", {
+            conversationId,
+          });
+          return {
+            success: true,
+            id: conversationId,
+            tokenCount: existing.totalTokens ?? 0,
+          };
+        }
+      }
+
+      // Upsert conversation embedding
+      await db
+        .insert(conversationEmbedding)
+        .values({
+          conversationId,
+          embedding: aggregatedEmbedding,
+          aggregationMethod,
+          model: DEFAULT_EMBEDDING_MODEL,
+          messageCount: conv.messages.length,
+          totalTokens,
+          inputHash,
+          status: "completed",
+        })
+        .onConflictDoUpdate({
+          target: conversationEmbedding.conversationId,
+          set: {
+            embedding: aggregatedEmbedding,
+            aggregationMethod,
+            messageCount: conv.messages.length,
+            totalTokens,
+            inputHash,
+            status: "completed",
+            updatedAt: new Date(),
+          },
+        });
+
+      log.info("Conversation embedding generated", {
+        conversationId,
+        sourceType: conv.sourceAccount.type,
+        messageCount: conv.messages.length,
+        totalTokens,
+      });
+
+      return { success: true, id: conversationId, tokenCount: totalTokens };
+    } catch (error) {
+      log.error("Failed to generate conversation embedding", {
+        conversationId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+
+      return {
+        success: false,
+        id: conversationId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// =============================================================================
+// GENERIC MESSAGE EMBEDDING TASK (Multi-source messages)
+// =============================================================================
+
+/**
+ * Generate embedding for a generic message (WhatsApp, Slack, etc.).
+ */
+export const embedGenericMessageTask = task({
+  id: "embedding-generic-message",
+  queue: {
+    name: "embeddings",
+    concurrencyLimit: 20,
+  },
+  retry: {
+    maxAttempts: 3,
+    minTimeoutInMs: 2000,
+    maxTimeoutInMs: 15_000,
+    factor: 2,
+  },
+  maxDuration: 30,
+  run: async (payload: EmbedGenericMessagePayload): Promise<EmbeddingResult> => {
+    const { messageId, force = false } = payload;
+
+    log.info("Generating generic message embedding", { messageId, force });
+
+    try {
+      // Get message
+      const msg = await db.query.message.findFirst({
+        where: eq(message.id, messageId),
+      });
+
+      if (!msg) {
+        return { success: false, id: messageId, error: "Message not found" };
+      }
+
+      // Check if embedding already exists
+      if (!force) {
+        const existing = await db.query.genericMessageEmbedding.findFirst({
+          where: eq(genericMessageEmbedding.messageId, messageId),
+        });
+
+        if (existing) {
+          // Check if content changed by comparing hashes
+          const textToEmbed = buildGenericMessageText(
+            msg.senderName,
+            msg.bodyText ?? ""
+          );
+          const currentHash = calculateInputHash(textToEmbed);
+
+          if (existing.inputHash === currentHash) {
+            log.info("Generic message embedding already up to date", {
+              messageId,
+            });
+            return {
+              success: true,
+              id: messageId,
+              tokenCount: existing.tokenCount ?? 0,
+            };
+          }
+        }
+      }
+
+      // Generate embedding
+      const result = await generateGenericMessageEmbedding(
+        msg.senderName,
+        msg.bodyText ?? ""
+      );
+
+      // Upsert embedding
+      await db
+        .insert(genericMessageEmbedding)
+        .values({
+          messageId,
+          embedding: result.embedding,
+          model: result.model,
+          tokenCount: result.tokenCount,
+          inputHash: result.inputHash,
+          status: "completed",
+        })
+        .onConflictDoUpdate({
+          target: genericMessageEmbedding.messageId,
+          set: {
+            embedding: result.embedding,
+            model: result.model,
+            tokenCount: result.tokenCount,
+            inputHash: result.inputHash,
+            status: "completed",
+            updatedAt: new Date(),
+          },
+        });
+
+      log.info("Generic message embedding generated", {
+        messageId,
+        tokenCount: result.tokenCount,
+      });
+
+      return { success: true, id: messageId, tokenCount: result.tokenCount };
+    } catch (error) {
+      log.error("Failed to generate generic message embedding", {
+        messageId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+
+      // Mark as failed
+      await db
+        .insert(genericMessageEmbedding)
+        .values({
+          messageId,
+          embedding: new Array(1536).fill(0), // Placeholder
+          model: DEFAULT_EMBEDDING_MODEL,
+          status: "failed",
+          errorMessage:
+            error instanceof Error ? error.message : "Unknown error",
+        })
+        .onConflictDoUpdate({
+          target: genericMessageEmbedding.messageId,
+          set: {
+            status: "failed",
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+            updatedAt: new Date(),
+          },
+        });
+
+      return {
+        success: false,
+        id: messageId,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
@@ -707,8 +1056,28 @@ function buildMessageText(subject: string | null, body: string | null): string {
  */
 function buildClaimText(claimRecord: {
   type: string;
-  content: string;
+  text: string;
   threadId: string | null;
 }): string {
-  return `[${claimRecord.type.toUpperCase()}] ${claimRecord.content}`;
+  return `[${claimRecord.type.toUpperCase()}] ${claimRecord.text}`;
+}
+
+/**
+ * Build text for generic message embedding (WhatsApp, Slack, etc.).
+ */
+function buildGenericMessageText(
+  senderName: string | null,
+  body: string
+): string {
+  const parts: string[] = [];
+
+  if (senderName) {
+    parts.push(`From: ${senderName}`);
+  }
+
+  if (body) {
+    parts.push(body);
+  }
+
+  return parts.join("\n\n");
 }

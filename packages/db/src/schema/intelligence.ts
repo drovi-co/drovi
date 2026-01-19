@@ -20,6 +20,11 @@ import {
   emailThread,
 } from "./email";
 import { organization } from "./organization";
+import {
+  conversation,
+  message,
+  sourceAccount,
+} from "./sources";
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -30,6 +35,8 @@ export interface ClaimMetadata {
   entities?: Array<{ type: string; value: string }>;
   temporalReferences?: string[];
   relatedClaimIds?: string[];
+  // Multi-source support
+  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
 }
 
 export interface CommitmentMetadata {
@@ -40,6 +47,37 @@ export interface CommitmentMetadata {
     enabled: boolean;
     daysBefore: number[];
   };
+  // Multi-source support
+  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceQuote?: string;
+  commitmentType?: "promise" | "request";
+  // WhatsApp-specific
+  debtorWaId?: string;
+  creditorWaId?: string;
+  isConditional?: boolean;
+  condition?: string;
+  isExplicit?: boolean;
+  priority?: string;
+  // Slack-specific
+  promisorSlackId?: string;
+  promiseeSlackId?: string;
+  requesterSlackId?: string;
+  requesteeSlackId?: string;
+  // Notion-specific
+  promisorNotionId?: string;
+  promiseeNotionId?: string;
+  requesterNotionId?: string;
+  requesteeNotionId?: string;
+  // Google Docs-specific
+  promisorGoogleId?: string;
+  promiseeGoogleId?: string;
+  requesterGoogleId?: string;
+  requesteeGoogleId?: string;
+  // Email-based (for Google Docs and other email-identified sources)
+  promisorEmail?: string;
+  promiseeEmail?: string;
+  requesterEmail?: string;
+  requesteeEmail?: string;
 }
 
 export interface DecisionAlternative {
@@ -55,17 +93,45 @@ export interface DecisionMetadata {
   context?: string;
   impactAreas?: string[];
   stakeholders?: string[];
+  // Multi-source support
+  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceQuote?: string;
+  decision?: string;
+  rationale?: string;
+  // WhatsApp-specific
+  decisionMakerWaId?: string;
+  // Slack-specific
+  decisionMakerSlackId?: string;
+  // Notion-specific
+  decisionMakerNotionId?: string;
+  // Google Docs-specific
+  decisionMakerGoogleId?: string;
+  // Email-based (for Google Docs and other email-identified sources)
+  decisionMakerEmail?: string;
 }
 
 export interface ContactMetadata {
   timezone?: string;
-  preferredContactMethod?: "email" | "phone" | "slack";
+  preferredContactMethod?: "email" | "phone" | "slack" | "whatsapp" | "notion";
   communicationPreferences?: {
     formalityLevel?: "formal" | "casual" | "professional";
     responseExpectation?: "quick" | "normal" | "flexible";
   };
   enrichmentSources?: string[];
   customFields?: Record<string, string>;
+  // Multi-source support
+  source?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceAccountId?: string;
+  // WhatsApp-specific
+  waId?: string;
+  // Slack-specific
+  slackUserId?: string;
+  slackTeamId?: string;
+  // Notion-specific
+  notionUserId?: string;
+  notionWorkspaceId?: string;
+  // Google Docs-specific
+  googleId?: string;
 }
 
 // =============================================================================
@@ -231,6 +297,18 @@ export const claim = pgTable(
       onDelete: "set null",
     }),
 
+    // Generic source references (for multi-source support)
+    sourceAccountId: text("source_account_id").references(
+      () => sourceAccount.id,
+      { onDelete: "set null" }
+    ),
+    conversationId: text("conversation_id").references(() => conversation.id, {
+      onDelete: "cascade",
+    }),
+    genericMessageId: text("generic_message_id").references(() => message.id, {
+      onDelete: "set null",
+    }),
+
     // Claim content
     type: claimTypeEnum("type").notNull(),
     text: text("text").notNull(),
@@ -268,6 +346,9 @@ export const claim = pgTable(
     index("claim_org_idx").on(table.organizationId),
     index("claim_thread_idx").on(table.threadId),
     index("claim_message_idx").on(table.messageId),
+    index("claim_source_account_idx").on(table.sourceAccountId),
+    index("claim_conversation_idx").on(table.conversationId),
+    index("claim_generic_message_idx").on(table.genericMessageId),
     index("claim_type_idx").on(table.type),
     index("claim_confidence_idx").on(table.confidence),
     index("claim_extracted_idx").on(table.extractedAt),
@@ -334,7 +415,7 @@ export const commitment = pgTable(
     reminderCount: integer("reminder_count").notNull().default(0),
     nextReminderAt: timestamp("next_reminder_at"),
 
-    // Source evidence
+    // Source evidence (email-specific - legacy)
     sourceThreadId: text("source_thread_id").references(() => emailThread.id, {
       onDelete: "set null",
     }),
@@ -343,6 +424,20 @@ export const commitment = pgTable(
       {
         onDelete: "set null",
       }
+    ),
+
+    // Generic source references (for multi-source support)
+    sourceAccountId: text("source_account_id").references(
+      () => sourceAccount.id,
+      { onDelete: "set null" }
+    ),
+    sourceConversationId: text("source_conversation_id").references(
+      () => conversation.id,
+      { onDelete: "set null" }
+    ),
+    sourceGenericMessageId: text("source_generic_message_id").references(
+      () => message.id,
+      { onDelete: "set null" }
     ),
 
     // Confidence
@@ -371,6 +466,8 @@ export const commitment = pgTable(
     index("commitment_priority_idx").on(table.priority),
     index("commitment_due_idx").on(table.dueDate),
     index("commitment_source_thread_idx").on(table.sourceThreadId),
+    index("commitment_source_account_idx").on(table.sourceAccountId),
+    index("commitment_source_conversation_idx").on(table.sourceConversationId),
   ]
 );
 
@@ -419,11 +516,24 @@ export const decision = pgTable(
     supersededAt: timestamp("superseded_at"),
     supersedes: text("supersedes"), // ID of decision this supersedes
 
-    // Source evidence
+    // Source evidence (email-specific - legacy)
     sourceThreadId: text("source_thread_id").references(() => emailThread.id, {
       onDelete: "set null",
     }),
     sourceMessageIds: text("source_message_ids").array().default([]),
+
+    // Generic source references (for multi-source support)
+    sourceAccountId: text("source_account_id").references(
+      () => sourceAccount.id,
+      { onDelete: "set null" }
+    ),
+    sourceConversationId: text("source_conversation_id").references(
+      () => conversation.id,
+      { onDelete: "set null" }
+    ),
+    sourceGenericMessageIds: text("source_generic_message_ids")
+      .array()
+      .default([]),
 
     // Topics (array of topic IDs)
     topicIds: text("topic_ids").array().default([]),
@@ -448,6 +558,8 @@ export const decision = pgTable(
     index("decision_superseded_idx").on(table.supersededById),
     index("decision_source_thread_idx").on(table.sourceThreadId),
     index("decision_confidence_idx").on(table.confidence),
+    index("decision_source_account_idx").on(table.sourceAccountId),
+    index("decision_source_conversation_idx").on(table.sourceConversationId),
   ]
 );
 

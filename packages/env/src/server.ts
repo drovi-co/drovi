@@ -56,6 +56,30 @@ export const env = createEnv({
     // Secret token to verify webhook requests come from Google
     GMAIL_WEBHOOK_SECRET: z.string().optional(),
 
+    // Slack OAuth (for Slack integration)
+    SLACK_CLIENT_ID: z.string().optional(),
+    SLACK_CLIENT_SECRET: z.string().optional(),
+    // Signing secret for verifying webhook requests from Slack
+    SLACK_SIGNING_SECRET: z.string().optional(),
+
+    // WhatsApp Business API (Meta Graph API)
+    // Requires a Meta Business account and WhatsApp Business app
+    WHATSAPP_APP_ID: z.string().optional(),
+    WHATSAPP_APP_SECRET: z.string().optional(),
+    // Verify token for webhook verification
+    WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+
+    // Notion OAuth (for Notion integration)
+    // Create app at: https://www.notion.so/my-integrations
+    NOTION_CLIENT_ID: z.string().optional(),
+    NOTION_CLIENT_SECRET: z.string().optional(),
+    // Optional: Override redirect URI (defaults to BETTER_AUTH_URL/api/oauth/notion/callback)
+    NOTION_REDIRECT_URI: z.string().url().optional(),
+
+    // Google Docs (uses existing Google OAuth credentials with additional scopes)
+    // Set to true to enable Google Docs integration
+    GOOGLE_DOCS_ENABLED: z.coerce.boolean().optional().default(false),
+
     // Email (Resend)
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().email().optional(),

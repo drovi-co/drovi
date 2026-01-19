@@ -4,19 +4,61 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Badge component
+ *
+ * Features:
+ * - Subtle, small badges
+ * - 11px font size
+ * - Pill shape (rounded-full)
+ * - Color-coded variants
+ */
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-full border px-2 py-0.5 font-medium text-xs transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  [
+    "inline-flex w-fit shrink-0 items-center justify-center gap-1",
+    "overflow-hidden whitespace-nowrap",
+    "rounded-full border px-2 py-0.5",
+    "font-medium text-[11px]",
+    "transition-colors duration-150",
+    "[&>svg]:pointer-events-none [&>svg]:size-3",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive:
-          "border-transparent bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
-        outline:
-          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        // Default - Primary purple
+        default: [
+          "border-primary/30 bg-primary/10 text-primary",
+        ].join(" "),
+
+        // Secondary - Subtle grey
+        secondary: [
+          "border-border bg-secondary text-secondary-foreground",
+        ].join(" "),
+
+        // Destructive - Red for warnings/errors
+        destructive: [
+          "border-destructive/30 bg-destructive/10 text-destructive",
+        ].join(" "),
+
+        // Outline - Border only
+        outline: [
+          "border-border bg-transparent text-muted-foreground",
+        ].join(" "),
+
+        // Success - Green
+        success: [
+          "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
+        ].join(" "),
+
+        // Warning - Amber
+        warning: [
+          "border-amber-500/30 bg-amber-500/10 text-amber-500",
+        ].join(" "),
+
+        // Info - Blue
+        info: [
+          "border-blue-500/30 bg-blue-500/10 text-blue-500",
+        ].join(" "),
       },
     },
     defaultVariants: {

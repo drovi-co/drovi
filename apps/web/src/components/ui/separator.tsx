@@ -3,6 +3,14 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Separator component
+ *
+ * Features:
+ * - Uses border color from design system
+ * - Subtle 1px line
+ * - Horizontal and vertical orientations
+ */
 function Separator({
   className,
   orientation = "horizontal",
@@ -12,7 +20,8 @@ function Separator({
   return (
     <SeparatorPrimitive.Root
       className={cn(
-        "shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-px",
+        "shrink-0 bg-border",
+        orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
         className
       )}
       data-slot="separator"

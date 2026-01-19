@@ -4,6 +4,16 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Select component
+ *
+ * Pixel-perfect values from Figma:
+ * - Trigger: bg #292A35, border #444556, radius 6px, height 30px
+ * - Content: bg #1D1E2B, border #393A4B, radius 8px
+ * - Item: padding 8px 3px 8px 6px, hover bg #26273B, radius 6px
+ * - Text: #D2D3E0, Inter Regular 13px
+ * - Shadow: 0px 7px 32px rgba(0,0,0,0.35)
+ */
 function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -33,7 +43,26 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex w-fit items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[size=default]:h-9 data-[size=sm]:h-8 data-[placeholder]:text-muted-foreground *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:hover:bg-input/50 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex w-full items-center justify-between gap-2",
+        "whitespace-nowrap outline-none",
+        // Linear input styling - pixel perfect from Figma
+        "rounded-[6px] border border-input-border",
+        "bg-input pl-[10px] pr-[12px] py-[2px]",
+        "text-[13px] text-foreground",
+        "transition-colors duration-150",
+        // Size variants
+        "data-[size=default]:h-[30px] data-[size=sm]:h-[26px]",
+        // Placeholder
+        "data-[placeholder]:text-muted-foreground",
+        // Focus state
+        "focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50",
+        // Disabled state
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        // Error state
+        "aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/30",
+        // Icon styling
+        "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "[&_svg:not([class*='text-'])]:text-muted-foreground",
         className
       )}
       data-size={size}
@@ -42,7 +71,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 opacity-50" />
+        <ChevronDownIcon className="size-[10px] opacity-70" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -51,18 +80,28 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "item-aligned",
-  align = "center",
+  position = "popper",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
-        align={align}
         className={cn(
-          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in",
+          "relative z-50 overflow-hidden",
+          // Linear dropdown styling - pixel perfect from Figma
+          "min-w-[var(--radix-select-trigger-width)]",
+          "rounded-[8px] border border-border",
+          "bg-[#1D1E2B] text-popover-foreground",
+          "p-1",
+          // Figma shadow: 0px 7px 32px rgba(0,0,0,0.35)
+          "shadow-[0px_7px_32px_rgba(0,0,0,0.35)]",
+          // Animations
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+          "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+          "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
           position === "popper" &&
-            "data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
+            "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
           className
         )}
         data-slot="select-content"
@@ -72,7 +111,6 @@ function SelectContent({
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
           className={cn(
-            "p-1",
             position === "popper" &&
               "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
           )}
@@ -91,7 +129,12 @@ function SelectLabel({
 }: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
-      className={cn("px-2 py-1.5 text-muted-foreground text-xs", className)}
+      className={cn(
+        "px-[6px] py-1.5",
+        "text-[11px] font-medium uppercase tracking-wider",
+        "text-muted-foreground",
+        className
+      )}
       data-slot="select-label"
       {...props}
     />
@@ -106,21 +149,31 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex w-full cursor-default select-none items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default select-none items-center",
+        // Linear item styling - pixel perfect from Figma
+        "rounded-[6px] py-[8px] pl-[6px] pr-[3px]",
+        "text-[13px] text-[#D2D3E0] outline-none",
+        "transition-colors duration-75",
+        // Focus/hover state - Figma: #26273B
+        "focus:bg-[#26273B] focus:text-foreground",
+        // Disabled state
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        // Icon styling
+        "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       data-slot="select-item"
       {...props}
     >
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <span
-        className="absolute right-2 flex size-3.5 items-center justify-center"
+        className="ml-auto flex size-4 items-center justify-center"
         data-slot="select-item-indicator"
       >
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <CheckIcon className="size-4 text-muted-foreground" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   );
 }
@@ -146,6 +199,7 @@ function SelectScrollUpButton({
     <SelectPrimitive.ScrollUpButton
       className={cn(
         "flex cursor-default items-center justify-center py-1",
+        "text-muted-foreground",
         className
       )}
       data-slot="select-scroll-up-button"
@@ -164,6 +218,7 @@ function SelectScrollDownButton({
     <SelectPrimitive.ScrollDownButton
       className={cn(
         "flex cursor-default items-center justify-center py-1",
+        "text-muted-foreground",
         className
       )}
       data-slot="select-scroll-down-button"

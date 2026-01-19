@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { ConfidenceBadge } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -32,6 +33,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import {
+  TaskStatusDropdown,
+  TaskPriorityDropdown,
+  TaskAssigneeDropdown,
+  type TaskStatus,
+  type TaskPriority,
+  type TaskAssignee,
+} from "@/components/tasks";
 
 // =============================================================================
 // TYPES
@@ -70,6 +79,16 @@ export interface DecisionCardData {
     id: string;
     name: string;
   }>;
+  // Multi-source support
+  sourceType?: SourceType;
+  sourceAccountName?: string | null;
+  /** Linked task data - if present, shows task controls */
+  task?: {
+    id: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    assignee: TaskAssignee | null;
+  };
 }
 
 interface DecisionCardProps {
@@ -83,6 +102,8 @@ interface DecisionCardProps {
   onViewSupersession?: (decisionId: string) => void;
   onShowEvidence?: (decisionId: string) => void;
   compact?: boolean;
+  /** Organization ID - required if task controls should be editable */
+  organizationId?: string;
 }
 
 // =============================================================================
@@ -124,8 +145,10 @@ export function DecisionCard({
   onContactClick,
   onViewSupersession,
   onShowEvidence,
+  organizationId,
 }: DecisionCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const hasTaskData = decision.task && organizationId;
 
   const handleCopyStatement = () => {
     navigator.clipboard.writeText(decision.statement);
@@ -168,9 +191,26 @@ export function DecisionCard({
         {formatDecisionDate(decision.decidedAt)}
       </span>
 
-      {/* Title - main content with AI indicator */}
+      {/* Title - main content with AI indicator and source */}
       <div className="flex-1 min-w-0 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        {/* Source indicator */}
+        {decision.sourceType && (() => {
+          const config = getSourceConfig(decision.sourceType);
+          const color = getSourceColor(decision.sourceType);
+          const SourceIcon = config.icon;
+          return (
+            <div
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+              style={{ backgroundColor: `${color}15` }}
+              title={`From ${config.label}`}
+            >
+              <SourceIcon className="h-3 w-3" style={{ color }} />
+            </div>
+          );
+        })()}
+        {!decision.sourceType && (
+          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        )}
         <span className={cn(
           "text-sm truncate text-muted-foreground",
           decision.supersededBy && "line-through opacity-60"
@@ -192,6 +232,39 @@ export function DecisionCard({
 
       {/* Quick actions - always visible */}
       <div className="shrink-0 flex items-center gap-1">
+        {/* Task controls - shown if task data exists */}
+        {hasTaskData && (
+          <>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskAssigneeDropdown
+                taskId={decision.task!.id}
+                organizationId={organizationId!}
+                currentAssignee={decision.task!.assignee}
+                compact
+                align="end"
+              />
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskPriorityDropdown
+                taskId={decision.task!.id}
+                organizationId={organizationId!}
+                currentPriority={decision.task!.priority}
+                compact
+                align="end"
+              />
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <TaskStatusDropdown
+                taskId={decision.task!.id}
+                organizationId={organizationId!}
+                currentStatus={decision.task!.status}
+                compact
+                align="end"
+              />
+            </div>
+          </>
+        )}
+
         {/* Confidence Badge */}
         <ConfidenceBadge
           confidence={decision.confidence}

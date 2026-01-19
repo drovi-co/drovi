@@ -8,3 +8,11 @@ export * from "./intelligence";
 export * from "./organization";
 export * from "./processing";
 export * from "./vectors";
+// Multi-source exports
+export * from "./sources";
+export * from "./slack";
+export * from "./whatsapp";
+export * from "./notion";
+export * from "./google-docs";
+// Task management
+export * from "./tasks";

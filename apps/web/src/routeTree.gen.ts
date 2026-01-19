@@ -37,7 +37,10 @@ import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizat
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as DashboardTodayIndexRouteImport } from './routes/dashboard/today/index'
 import { Route as DashboardTeamIndexRouteImport } from './routes/dashboard/team/index'
+import { Route as DashboardTasksIndexRouteImport } from './routes/dashboard/tasks/index'
+import { Route as DashboardSourcesIndexRouteImport } from './routes/dashboard/sources/index'
 import { Route as DashboardSearchIndexRouteImport } from './routes/dashboard/search/index'
+import { Route as DashboardInboxIndexRouteImport } from './routes/dashboard/inbox/index'
 import { Route as DashboardEmailIndexRouteImport } from './routes/dashboard/email/index'
 import { Route as DashboardDecisionsIndexRouteImport } from './routes/dashboard/decisions/index'
 import { Route as DashboardContactsIndexRouteImport } from './routes/dashboard/contacts/index'
@@ -45,6 +48,7 @@ import { Route as DashboardCommitmentsIndexRouteImport } from './routes/dashboar
 import { Route as DashboardTeamSettingsRouteImport } from './routes/dashboard/team/settings'
 import { Route as DashboardTeamMembersRouteImport } from './routes/dashboard/team/members'
 import { Route as DashboardTeamInvitationsRouteImport } from './routes/dashboard/team/invitations'
+import { Route as DashboardTasksTaskIdRouteImport } from './routes/dashboard/tasks/$taskId'
 import { Route as DashboardEmailThreadThreadIdRouteImport } from './routes/dashboard/email/thread.$threadId'
 
 const Verify2faRoute = Verify2faRouteImport.update({
@@ -187,9 +191,24 @@ const DashboardTeamIndexRoute = DashboardTeamIndexRouteImport.update({
   path: '/team/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardTasksIndexRoute = DashboardTasksIndexRouteImport.update({
+  id: '/tasks/',
+  path: '/tasks/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSourcesIndexRoute = DashboardSourcesIndexRouteImport.update({
+  id: '/sources/',
+  path: '/sources/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSearchIndexRoute = DashboardSearchIndexRouteImport.update({
   id: '/search/',
   path: '/search/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardInboxIndexRoute = DashboardInboxIndexRouteImport.update({
+  id: '/inbox/',
+  path: '/inbox/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardEmailIndexRoute = DashboardEmailIndexRouteImport.update({
@@ -229,6 +248,11 @@ const DashboardTeamInvitationsRoute =
     path: '/team/invitations',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardTasksTaskIdRoute = DashboardTasksTaskIdRouteImport.update({
+  id: '/tasks/$taskId',
+  path: '/tasks/$taskId',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardEmailThreadThreadIdRoute =
   DashboardEmailThreadThreadIdRouteImport.update({
     id: '/email/thread/$threadId',
@@ -263,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
+  '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
@@ -270,7 +295,10 @@ export interface FileRoutesByFullPath {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/email': typeof DashboardEmailIndexRoute
+  '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
+  '/dashboard/sources': typeof DashboardSourcesIndexRoute
+  '/dashboard/tasks': typeof DashboardTasksIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
   '/dashboard/today': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
@@ -300,6 +328,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
+  '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
@@ -307,7 +336,10 @@ export interface FileRoutesByTo {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/email': typeof DashboardEmailIndexRoute
+  '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
+  '/dashboard/sources': typeof DashboardSourcesIndexRoute
+  '/dashboard/tasks': typeof DashboardTasksIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
   '/dashboard/today': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
@@ -340,6 +372,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
@@ -347,7 +380,10 @@ export interface FileRoutesById {
   '/dashboard/contacts/': typeof DashboardContactsIndexRoute
   '/dashboard/decisions/': typeof DashboardDecisionsIndexRoute
   '/dashboard/email/': typeof DashboardEmailIndexRoute
+  '/dashboard/inbox/': typeof DashboardInboxIndexRoute
   '/dashboard/search/': typeof DashboardSearchIndexRoute
+  '/dashboard/sources/': typeof DashboardSourcesIndexRoute
+  '/dashboard/tasks/': typeof DashboardTasksIndexRoute
   '/dashboard/team/': typeof DashboardTeamIndexRoute
   '/dashboard/today/': typeof DashboardTodayIndexRoute
   '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
@@ -381,6 +417,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/dashboard/'
     | '/onboarding'
+    | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
@@ -388,7 +425,10 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/email'
+    | '/dashboard/inbox'
     | '/dashboard/search'
+    | '/dashboard/sources'
+    | '/dashboard/tasks'
     | '/dashboard/team'
     | '/dashboard/today'
     | '/dashboard/email/thread/$threadId'
@@ -418,6 +458,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/onboarding'
+    | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
@@ -425,7 +466,10 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/email'
+    | '/dashboard/inbox'
     | '/dashboard/search'
+    | '/dashboard/sources'
+    | '/dashboard/tasks'
     | '/dashboard/team'
     | '/dashboard/today'
     | '/dashboard/email/thread/$threadId'
@@ -457,6 +501,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/dashboard/'
     | '/onboarding/'
+    | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
@@ -464,7 +509,10 @@ export interface FileRouteTypes {
     | '/dashboard/contacts/'
     | '/dashboard/decisions/'
     | '/dashboard/email/'
+    | '/dashboard/inbox/'
     | '/dashboard/search/'
+    | '/dashboard/sources/'
+    | '/dashboard/tasks/'
     | '/dashboard/team/'
     | '/dashboard/today/'
     | '/dashboard/email/thread/$threadId'
@@ -685,11 +733,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTeamIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/tasks/': {
+      id: '/dashboard/tasks/'
+      path: '/tasks'
+      fullPath: '/dashboard/tasks'
+      preLoaderRoute: typeof DashboardTasksIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/sources/': {
+      id: '/dashboard/sources/'
+      path: '/sources'
+      fullPath: '/dashboard/sources'
+      preLoaderRoute: typeof DashboardSourcesIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/search/': {
       id: '/dashboard/search/'
       path: '/search'
       fullPath: '/dashboard/search'
       preLoaderRoute: typeof DashboardSearchIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/inbox/': {
+      id: '/dashboard/inbox/'
+      path: '/inbox'
+      fullPath: '/dashboard/inbox'
+      preLoaderRoute: typeof DashboardInboxIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/email/': {
@@ -741,6 +810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTeamInvitationsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/tasks/$taskId': {
+      id: '/dashboard/tasks/$taskId'
+      path: '/tasks/$taskId'
+      fullPath: '/dashboard/tasks/$taskId'
+      preLoaderRoute: typeof DashboardTasksTaskIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/email/thread/$threadId': {
       id: '/dashboard/email/thread/$threadId'
       path: '/email/thread/$threadId'
@@ -778,6 +854,7 @@ interface DashboardRouteRouteChildren {
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardTasksTaskIdRoute: typeof DashboardTasksTaskIdRoute
   DashboardTeamInvitationsRoute: typeof DashboardTeamInvitationsRoute
   DashboardTeamMembersRoute: typeof DashboardTeamMembersRoute
   DashboardTeamSettingsRoute: typeof DashboardTeamSettingsRoute
@@ -785,7 +862,10 @@ interface DashboardRouteRouteChildren {
   DashboardContactsIndexRoute: typeof DashboardContactsIndexRoute
   DashboardDecisionsIndexRoute: typeof DashboardDecisionsIndexRoute
   DashboardEmailIndexRoute: typeof DashboardEmailIndexRoute
+  DashboardInboxIndexRoute: typeof DashboardInboxIndexRoute
   DashboardSearchIndexRoute: typeof DashboardSearchIndexRoute
+  DashboardSourcesIndexRoute: typeof DashboardSourcesIndexRoute
+  DashboardTasksIndexRoute: typeof DashboardTasksIndexRoute
   DashboardTeamIndexRoute: typeof DashboardTeamIndexRoute
   DashboardTodayIndexRoute: typeof DashboardTodayIndexRoute
   DashboardEmailThreadThreadIdRoute: typeof DashboardEmailThreadThreadIdRoute
@@ -800,6 +880,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardTasksTaskIdRoute: DashboardTasksTaskIdRoute,
   DashboardTeamInvitationsRoute: DashboardTeamInvitationsRoute,
   DashboardTeamMembersRoute: DashboardTeamMembersRoute,
   DashboardTeamSettingsRoute: DashboardTeamSettingsRoute,
@@ -807,7 +888,10 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardContactsIndexRoute: DashboardContactsIndexRoute,
   DashboardDecisionsIndexRoute: DashboardDecisionsIndexRoute,
   DashboardEmailIndexRoute: DashboardEmailIndexRoute,
+  DashboardInboxIndexRoute: DashboardInboxIndexRoute,
   DashboardSearchIndexRoute: DashboardSearchIndexRoute,
+  DashboardSourcesIndexRoute: DashboardSourcesIndexRoute,
+  DashboardTasksIndexRoute: DashboardTasksIndexRoute,
   DashboardTeamIndexRoute: DashboardTeamIndexRoute,
   DashboardTodayIndexRoute: DashboardTodayIndexRoute,
   DashboardEmailThreadThreadIdRoute: DashboardEmailThreadThreadIdRoute,

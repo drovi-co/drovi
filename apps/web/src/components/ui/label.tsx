@@ -3,6 +3,14 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Label component
+ *
+ * Features:
+ * - 13px font size
+ * - Medium weight
+ * - Muted color
+ */
 function Label({
   className,
   ...props
@@ -10,7 +18,12 @@ function Label({
   return (
     <LabelPrimitive.Root
       className={cn(
-        "flex select-none items-center gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50",
+        "flex select-none items-center gap-2",
+        "text-[13px] font-medium leading-none",
+        "text-foreground",
+        // Disabled state (from peer or group)
+        "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
+        "group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50",
         className
       )}
       data-slot="label"

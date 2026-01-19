@@ -24,6 +24,7 @@ import {
 import { task } from "@trigger.dev/sdk";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { log } from "../lib/logger";
+import { createTaskForCommitmentTask } from "./task-sync";
 
 // =============================================================================
 // TYPES
@@ -518,26 +519,36 @@ async function saveCommitments(
       creditorContactId = creditorContact?.id;
     }
 
-    // Insert commitment
-    await db.insert(commitment).values({
-      organizationId,
-      claimId: c.sourceClaimId || null,
-      debtorContactId: debtorContactId || null,
-      creditorContactId: creditorContactId || null,
-      direction: c.direction,
-      title: c.title,
-      description: c.description,
-      dueDate: c.dueDate?.date ? new Date(c.dueDate.date) : null,
-      dueDateConfidence: c.dueDate?.confidence,
-      dueDateSource: c.dueDate?.source,
-      dueDateOriginalText: c.dueDate?.originalText,
-      status: c.status,
-      priority: c.priority,
-      sourceThreadId: c.sourceThreadId,
-      sourceMessageId: c.sourceMessageId,
-      confidence: c.confidence,
-      metadata: c.metadata as Record<string, unknown>,
-    });
+    // Insert commitment and get the ID
+    const [insertedCommitment] = await db
+      .insert(commitment)
+      .values({
+        organizationId,
+        claimId: c.sourceClaimId || null,
+        debtorContactId: debtorContactId || null,
+        creditorContactId: creditorContactId || null,
+        direction: c.direction,
+        title: c.title,
+        description: c.description,
+        dueDate: c.dueDate?.date ? new Date(c.dueDate.date) : null,
+        dueDateConfidence: c.dueDate?.confidence,
+        dueDateSource: c.dueDate?.source,
+        dueDateOriginalText: c.dueDate?.originalText,
+        status: c.status,
+        priority: c.priority,
+        sourceThreadId: c.sourceThreadId,
+        sourceMessageId: c.sourceMessageId,
+        confidence: c.confidence,
+        metadata: c.metadata as Record<string, unknown>,
+      })
+      .returning({ id: commitment.id });
+
+    // Trigger task creation for the new commitment
+    if (insertedCommitment?.id) {
+      await createTaskForCommitmentTask.trigger({
+        commitmentId: insertedCommitment.id,
+      });
+    }
 
     saved++;
   }

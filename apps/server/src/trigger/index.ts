@@ -1,6 +1,8 @@
 // Export all trigger tasks for easy importing
 
 export * from "./audit-log.js";
+// Calendar sync tasks (Multi-Source Intelligence)
+export * from "./calendar-sync.js";
 export * from "./cleanup.js";
 // Commitment and decision extraction tasks (PRD-04)
 export * from "./commitment-extraction.js";
@@ -24,3 +26,13 @@ export * from "./token-refresh.js";
 export * from "./triage-analysis.js";
 // Risk analysis tasks (PRD-09)
 export * from "./risk-analysis.js";
+// Slack sync tasks (Multi-Source Intelligence)
+export * from "./slack-sync.js";
+// WhatsApp sync tasks (Multi-Source Intelligence)
+export * from "./whatsapp-sync.js";
+// Notion sync tasks (Multi-Source Intelligence)
+export * from "./notion-sync.js";
+// Google Docs sync tasks (Multi-Source Intelligence)
+export * from "./google-docs-sync.js";
+// Task sync (auto-create tasks for conversations, commitments, decisions)
+export * from "./task-sync.js";

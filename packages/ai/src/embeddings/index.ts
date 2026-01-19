@@ -21,8 +21,11 @@ export {
   // Types
   type EmbeddingResult,
   generateClaimEmbedding,
+  // Multi-source generation functions
+  generateConversationEmbedding,
   // Generation functions
   generateEmbedding,
+  generateGenericMessageEmbedding,
   generateMessageEmbedding,
   generateQueryEmbedding,
   MAX_BATCH_SIZE,

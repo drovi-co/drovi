@@ -7,6 +7,8 @@ import {
   CreditCard,
   FileText,
   Inbox,
+  Link2,
+  ListTodo,
   Mail,
   Search,
   Settings,
@@ -28,7 +30,7 @@ import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { TeamSwitcher } from "./team-switcher";
 
-// Intelligence navigation items (MEMORYSTACK)
+// Intelligence navigation items (MEMORYSTACK - Multi-Source)
 const intelligenceNavItems: NavItem[] = [
   {
     title: "Today",
@@ -36,15 +38,24 @@ const intelligenceNavItems: NavItem[] = [
     icon: Sparkles,
   },
   {
-    title: "Inbox",
-    url: "/dashboard/email",
+    title: "Smart Inbox",
+    url: "/dashboard/inbox",
     icon: Inbox,
+  },
+  {
+    title: "Tasks",
+    url: "/dashboard/tasks",
+    icon: ListTodo,
   },
   {
     title: "Calendar",
     url: "/dashboard/calendar",
     icon: Calendar,
   },
+];
+
+// Memory & Intelligence items
+const memoryNavItems: NavItem[] = [
   {
     title: "Commitments",
     url: "/dashboard/commitments",
@@ -55,8 +66,12 @@ const intelligenceNavItems: NavItem[] = [
     url: "/dashboard/decisions",
     icon: BookOpen,
   },
+];
+
+// People & Search items
+const discoveryNavItems: NavItem[] = [
   {
-    title: "Contacts",
+    title: "People",
     url: "/dashboard/contacts",
     icon: Users,
   },
@@ -70,15 +85,24 @@ const intelligenceNavItems: NavItem[] = [
     url: "/dashboard/analytics",
     icon: BarChart3,
   },
+];
+
+// Sources & Settings items
+const sourcesNavItems: NavItem[] = [
   {
-    title: "Notifications",
-    url: "/dashboard/notifications",
-    icon: Bell,
+    title: "Connected Sources",
+    url: "/dashboard/sources",
+    icon: Link2,
   },
   {
     title: "Email Accounts",
     url: "/dashboard/email-accounts",
     icon: Mail,
+  },
+  {
+    title: "Notifications",
+    url: "/dashboard/notifications",
+    icon: Bell,
   },
 ];
 
@@ -157,7 +181,10 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={intelligenceNavItems} label="Email Intelligence" />
+        <NavMain items={intelligenceNavItems} label="Intelligence" />
+        <NavMain items={memoryNavItems} label="Memory" />
+        <NavMain items={discoveryNavItems} label="Discovery" />
+        <NavMain items={sourcesNavItems} label="Sources" />
         <NavMain items={teamNavItems} label="Management" />
         {showAdmin && <NavMain items={adminNavItems} label="Administration" />}
       </SidebarContent>

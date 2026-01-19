@@ -6,6 +6,15 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Checkbox component
+ *
+ * Pixel-perfect values from Figma:
+ * - Size: 14x14px
+ * - Unchecked: bg transparent, border #393A4B
+ * - Checked: bg #575BC7, border #37466C, check icon #FFFFFF
+ * - Border radius: 3px
+ */
 function Checkbox({
   className,
   ...props
@@ -13,17 +22,30 @@ function Checkbox({
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:data-[state=checked]:bg-primary dark:aria-invalid:ring-destructive/40",
+        "peer shrink-0",
+        // Linear checkbox styling - pixel perfect from Figma
+        "size-[14px] rounded-[3px]",
+        "border border-[#393A4B]",
+        "bg-transparent",
+        "outline-none transition-colors duration-150",
+        // Focus state
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        // Disabled state
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        // Checked state - Figma: bg #575BC7, border #37466C
+        "data-[state=checked]:border-[#37466C] data-[state=checked]:bg-primary",
+        // Error state
+        "aria-invalid:border-destructive",
         className
       )}
       data-slot="checkbox"
       {...props}
     >
       <CheckboxPrimitive.Indicator
-        className="grid place-content-center text-current transition-none"
+        className="flex items-center justify-center text-white"
         data-slot="checkbox-indicator"
       >
-        <CheckIcon className="size-3.5" />
+        <CheckIcon className="size-[10px] stroke-[3]" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

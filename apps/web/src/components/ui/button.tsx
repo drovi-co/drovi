@@ -4,29 +4,117 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Button component
+ *
+ * Variants:
+ * - default (primary): Purple background, white text
+ * - secondary: Dark grey background with border
+ * - tertiary: Border only, no background
+ * - destructive: Red for dangerous actions
+ * - ghost: No background, subtle hover
+ * - link: Text link style
+ *
+ * Sizes match Linear's button scale:
+ * - xs: Extra small (24px height)
+ * - sm: Small (28px height)
+ * - default: Medium (32px height)
+ * - lg: Large (40px height)
+ */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium text-sm outline-none transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  [
+    // Base styles
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap",
+    "rounded-[4px] font-medium text-[13px] leading-none",
+    "outline-none transition-colors duration-150",
+    // Focus state - Linear uses ring
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+    // Disabled state
+    "disabled:pointer-events-none disabled:opacity-60",
+    // Icon sizing
+    "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        // Primary - Purple filled button
+        default: [
+          "bg-primary text-primary-foreground",
+          "border border-primary",
+          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "hover:bg-primary-hover",
+        ].join(" "),
+
+        // Secondary - Dark grey with border
+        secondary: [
+          "bg-secondary text-secondary-foreground",
+          "border border-border",
+          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
+          "hover:bg-secondary-hover hover:border-border-hover",
+        ].join(" "),
+
+        // Tertiary - Border only
+        tertiary: [
+          "bg-transparent text-muted-foreground",
+          "border border-border",
+          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "hover:border-border-hover hover:text-foreground",
+        ].join(" "),
+
+        // Destructive - Red for dangerous actions
+        destructive: [
+          "bg-destructive text-destructive-foreground",
+          "border border-destructive",
+          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "hover:bg-destructive-hover",
+          "focus-visible:ring-destructive/50",
+        ].join(" "),
+
+        // Outline - Similar to tertiary but different hover
+        outline: [
+          "bg-transparent text-foreground",
+          "border border-border",
+          "hover:bg-accent hover:text-accent-foreground",
+        ].join(" "),
+
+        // Ghost - No border, subtle hover
+        ghost: [
+          "bg-transparent text-muted-foreground",
+          "hover:bg-accent hover:text-accent-foreground",
+        ].join(" "),
+
+        // Link - Text link style
+        link: [
+          "bg-transparent text-primary",
+          "underline-offset-4 hover:underline",
+          "p-0 h-auto",
+        ].join(" "),
+
+        // Banner - Special style for promotional buttons
+        banner: [
+          "bg-transparent text-primary",
+          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
+          "hover:text-primary-hover",
+        ].join(" "),
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        // Extra small - 24px height
+        xs: "h-6 px-3 py-1 text-[12px] font-medium",
+
+        // Small - 28px height
+        sm: "h-7 px-3.5 py-1.5 text-[12px] font-medium",
+
+        // Default/Medium - 32px height
+        default: "h-8 px-3.5 py-2 text-[13px]",
+
+        // Large - 40px height
+        lg: "h-10 px-4 py-3 text-[15px]",
+
+        // Icon buttons
+        icon: "size-8 p-0",
+        "icon-xs": "size-6 p-0",
+        "icon-sm": "size-7 p-0",
+        "icon-lg": "size-10 p-0",
       },
     },
     defaultVariants: {

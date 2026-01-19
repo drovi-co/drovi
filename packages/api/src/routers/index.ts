@@ -14,11 +14,14 @@ import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { feedbackRouter } from "./feedback";
 import { notificationsRouter } from "./notifications";
+import { organizationsRouter } from "./organizations";
 import { riskRouter } from "./risk";
 import { searchRouter } from "./search";
 import { sourcesRouter } from "./sources";
+import { tasksRouter } from "./tasks";
 import { threadsRouter } from "./threads";
 import { triageRouter } from "./triage";
+import { unifiedInboxRouter } from "./unified-inbox";
 import { uploadsRouter } from "./uploads";
 import { userRouter } from "./user";
 import { webhooksRouter } from "./webhooks";
@@ -53,6 +56,8 @@ export const appRouter = router({
   search: searchRouter,
   // Multi-Source Intelligence API (MEMORYSTACK PRD-12)
   sources: sourcesRouter,
+  // Task Management API (Linear-style tasks)
+  tasks: tasksRouter,
   // Triage & Routing API (MEMORYSTACK PRD-07)
   triage: triageRouter,
   // Drafts API (MEMORYSTACK PRD-08)
@@ -61,6 +66,8 @@ export const appRouter = router({
   compose: composeRouter,
   // Risk & Policy API (MEMORYSTACK PRD-09)
   risk: riskRouter,
+  // Unified Inbox API (Multi-Source Smart Inbox)
+  unifiedInbox: unifiedInboxRouter,
   // User Feedback API (accuracy tracking)
   feedback: feedbackRouter,
   // Credits management
@@ -77,6 +84,8 @@ export const appRouter = router({
   uploads: uploadsRouter,
   // In-app notifications
   notifications: notificationsRouter,
+  // Organizations management
+  organizations: organizationsRouter,
   // Admin operations
   admin: adminRouter,
 });

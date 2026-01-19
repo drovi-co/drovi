@@ -1,13 +1,20 @@
-import { createDecipheriv } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import {
   refreshGmailToken,
   refreshOutlookToken,
 } from "@memorystack/auth/providers";
 import { db } from "@memorystack/db";
-import { emailAccount, member } from "@memorystack/db/schema";
+import {
+  commitment,
+  conversation,
+  emailAccount,
+  member,
+  relatedConversation,
+  sourceAccount,
+} from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -101,6 +108,48 @@ function safeDecryptToken(maybeEncrypted: string): string {
     return maybeEncrypted;
   }
   return decryptToken(maybeEncrypted);
+}
+
+/**
+ * Encrypt a token for storage.
+ * Format: version:iv:authTag:ciphertext
+ */
+function encryptToken(plaintext: string): string {
+  const key = getEncryptionKey();
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf-8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [
+    KEY_VERSION,
+    iv.toString("base64url"),
+    authTag.toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join(":");
+}
+
+/**
+ * Check if token encryption is configured.
+ */
+function isTokenEncryptionConfigured(): boolean {
+  return Boolean(env.TOKEN_ENCRYPTION_KEY);
+}
+
+/**
+ * Safely encrypt a token (returns plaintext if encryption not configured).
+ */
+function safeEncryptToken(plaintext: string): string {
+  if (!isTokenEncryptionConfigured()) {
+    return plaintext;
+  }
+  return encryptToken(plaintext);
 }
 
 // =============================================================================
@@ -250,58 +299,37 @@ async function getAccountWithAccess(
   let { tokenExpiresAt } = account;
   const provider = account.provider as "gmail" | "outlook";
 
-  console.log("[Calendar] Token check:", {
-    tokenExpiresAt: tokenExpiresAt.toISOString(),
-    now: new Date().toISOString(),
-    needsRefresh: tokenExpiresAt < new Date(Date.now() + 5 * 60 * 1000),
-    isEncrypted: isEncryptedToken(account.accessToken),
-  });
-
   // Check if token is expired or about to expire (within 5 minutes)
   const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
   if (tokenExpiresAt < fiveMinutesFromNow) {
-    console.log("[Calendar] Refreshing token for", provider);
     try {
       // Refresh the token using decrypted refresh token
       if (provider === "gmail") {
         const refreshed = await refreshGmailToken(refreshToken);
-        console.log(
-          "[Calendar] Token refreshed successfully, expiresIn:",
-          refreshed.expiresIn
-        );
         accessToken = refreshed.accessToken;
         tokenExpiresAt = new Date(Date.now() + refreshed.expiresIn * 1000);
       } else {
         const refreshed = await refreshOutlookToken(refreshToken);
-        console.log(
-          "[Calendar] Token refreshed successfully, expiresIn:",
-          refreshed.expiresIn
-        );
         accessToken = refreshed.accessToken;
         tokenExpiresAt = new Date(Date.now() + refreshed.expiresIn * 1000);
       }
 
-      // Note: Token is stored unencrypted here. The encryption should be handled
-      // at the storage layer or by re-encrypting. For now, storing plain to match API.
+      // Store the refreshed token encrypted
       await db
         .update(emailAccount)
         .set({
-          accessToken,
+          accessToken: safeEncryptToken(accessToken),
           tokenExpiresAt,
           updatedAt: new Date(),
         })
         .where(eq(emailAccount.id, accountId));
-      console.log("[Calendar] Token saved to database");
     } catch (error) {
-      console.error("[Calendar] Token refresh failed:", error);
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: `Failed to refresh ${provider} token. Please reconnect your account.`,
         cause: error,
       });
     }
-  } else {
-    console.log("[Calendar] Token valid, using decrypted token");
   }
 
   return {
@@ -322,7 +350,6 @@ async function googleCalendarRequest<T>(
   accessToken: string,
   options: RequestInit = {}
 ): Promise<T> {
-  console.log("[Calendar] Making Google API request to:", path);
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3${path}`,
     {
@@ -337,12 +364,6 @@ async function googleCalendarRequest<T>(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[Calendar] Google API error:", {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorText,
-      path,
-    });
     if (response.status === 401) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -499,12 +520,9 @@ function getTimezoneOffsetMinutes(timeZone: string, dateTime: string): number {
     const localStr = utcDate.toLocaleString("en-US", { timeZone });
     const localDate = new Date(localStr);
     return Math.round((localDate.getTime() - utcDate.getTime()) / 60_000);
-  } catch (e) {
-    console.error("[Calendar] Failed to get timezone offset:", {
-      timeZone,
-      error: e,
-    });
-    return 0; // Default to UTC if timezone lookup fails
+  } catch {
+    // Default to UTC if timezone lookup fails
+    return 0;
   }
 }
 
@@ -556,20 +574,10 @@ function parseGoogleDateTime(
       Date.UTC(year, month - 1, day, hours, minutes, seconds) -
       offsetMinutes * 60 * 1000;
 
-    console.log("[Calendar] Parsed dateTime with timezone:", {
-      dateTime,
-      timeZone,
-      offsetMinutes,
-      result: new Date(utcMs).toISOString(),
-    });
-
     return new Date(utcMs);
   }
 
   // Last resort: parse as-is and let JS handle it (will use local timezone)
-  console.warn("[Calendar] DateTime without timezone info, parsing as local:", {
-    dateTime,
-  });
   return new Date(dateTime);
 }
 
@@ -592,16 +600,6 @@ function convertGoogleEvent(
     start?.timeZone
   );
   const endDate = parseGoogleDateTime(end?.dateTime, end?.date, end?.timeZone);
-
-  // Debug: log timezone handling
-  console.log("[Calendar] Converting Google event:", {
-    title: event.summary,
-    rawStartDateTime: start?.dateTime,
-    rawStartTimeZone: start?.timeZone,
-    rawStartDate: start?.date,
-    parsedStart: startDate.toISOString(),
-    colorId: event.colorId,
-  });
 
   // Google Calendar color ID to hex color mapping
   const googleColorMap: Record<
@@ -856,13 +854,8 @@ export const calendarRouter = router({
             account.accessToken
           );
           calendarColor = calendarInfo.backgroundColor as string | undefined;
-          console.log("[Calendar] Calendar color:", {
-            calendarId,
-            calendarColor,
-          });
         } catch {
           // Calendar info not critical, continue without it
-          console.log("[Calendar] Could not fetch calendar color");
         }
 
         const params = new URLSearchParams({
@@ -1417,5 +1410,446 @@ export const calendarRouter = router({
       );
 
       return convertGoogleEvent(event, calendarId);
+    }),
+
+  // ===========================================================================
+  // UNIFIED INTELLIGENCE OPERATIONS
+  // ===========================================================================
+
+  /**
+   * List calendar events from the unified conversation table.
+   * Returns events with intelligence metadata (summaries, commitments, etc.)
+   */
+  listUnifiedEvents: protectedProcedure
+    .input(
+      z.object({
+        accountId: z.string().uuid().optional(),
+        timeMin: dateSchema.optional(),
+        timeMax: dateSchema.optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+        includeRelated: z.boolean().default(false),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Get user's organizations
+      const memberships = await db.query.member.findMany({
+        where: eq(member.userId, ctx.session.user.id),
+        columns: { organizationId: true },
+      });
+
+      const orgIds = memberships.map((m) => m.organizationId);
+      if (orgIds.length === 0) {
+        return { items: [], total: 0 };
+      }
+
+      // Build conditions
+      const conditions = [
+        inArray(sourceAccount.organizationId, orgIds),
+        eq(sourceAccount.type, "calendar"),
+      ];
+
+      if (input.accountId) {
+        // Find the corresponding source account
+        const account = await db.query.emailAccount.findFirst({
+          where: eq(emailAccount.id, input.accountId),
+          columns: { email: true, organizationId: true },
+        });
+
+        if (account) {
+          const calSource = await db.query.sourceAccount.findFirst({
+            where: and(
+              eq(sourceAccount.organizationId, account.organizationId),
+              eq(sourceAccount.type, "calendar"),
+              eq(sourceAccount.externalId, account.email)
+            ),
+            columns: { id: true },
+          });
+
+          if (calSource) {
+            conditions.push(eq(conversation.sourceAccountId, calSource.id));
+          }
+        }
+      }
+
+      // Get calendar conversations
+      const events = await db
+        .select({
+          id: conversation.id,
+          externalId: conversation.externalId,
+          title: conversation.title,
+          snippet: conversation.snippet,
+          briefSummary: conversation.briefSummary,
+          urgencyScore: conversation.urgencyScore,
+          importanceScore: conversation.importanceScore,
+          priorityTier: conversation.priorityTier,
+          commitmentCount: conversation.commitmentCount,
+          hasOpenLoops: conversation.hasOpenLoops,
+          openLoopCount: conversation.openLoopCount,
+          isRead: conversation.isRead,
+          isStarred: conversation.isStarred,
+          lastMessageAt: conversation.lastMessageAt,
+          firstMessageAt: conversation.firstMessageAt,
+          metadata: conversation.metadata,
+          createdAt: conversation.createdAt,
+          sourceAccountId: conversation.sourceAccountId,
+        })
+        .from(conversation)
+        .innerJoin(
+          sourceAccount,
+          eq(conversation.sourceAccountId, sourceAccount.id)
+        )
+        .where(and(...conditions))
+        .orderBy(desc(conversation.lastMessageAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      // Get total count
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(conversation)
+        .innerJoin(
+          sourceAccount,
+          eq(conversation.sourceAccountId, sourceAccount.id)
+        )
+        .where(and(...conditions));
+
+      const total = countResult[0]?.count ?? 0;
+
+      // Optionally include related threads
+      let relatedMap: Map<string, Array<{ id: string; title: string | null; type: string }>> = new Map();
+
+      if (input.includeRelated && events.length > 0) {
+        const eventIds = events.map((e) => e.id);
+
+        const relations = await db
+          .select({
+            conversationId: relatedConversation.conversationId,
+            relatedId: relatedConversation.relatedConversationId,
+            relationType: relatedConversation.relationType,
+            confidence: relatedConversation.confidence,
+          })
+          .from(relatedConversation)
+          .where(
+            and(
+              inArray(relatedConversation.conversationId, eventIds),
+              eq(relatedConversation.isDismissed, false)
+            )
+          );
+
+        // Get the related conversation titles
+        const relatedIds = [...new Set(relations.map((r) => r.relatedId))];
+        if (relatedIds.length > 0) {
+          const relatedConvos = await db
+            .select({
+              id: conversation.id,
+              title: conversation.title,
+              conversationType: conversation.conversationType,
+            })
+            .from(conversation)
+            .where(inArray(conversation.id, relatedIds));
+
+          const convoMap = new Map(relatedConvos.map((c) => [c.id, c]));
+
+          for (const rel of relations) {
+            const related = convoMap.get(rel.relatedId);
+            if (related) {
+              const existing = relatedMap.get(rel.conversationId) ?? [];
+              existing.push({
+                id: related.id,
+                title: related.title,
+                type: related.conversationType ?? "unknown",
+              });
+              relatedMap.set(rel.conversationId, existing);
+            }
+          }
+        }
+      }
+
+      return {
+        items: events.map((event) => ({
+          ...event,
+          relatedThreads: relatedMap.get(event.id) ?? [],
+        })),
+        total,
+      };
+    }),
+
+  /**
+   * Get related email threads for a calendar event.
+   */
+  getRelatedThreads: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify access to the conversation
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.conversationId),
+        columns: { id: true, sourceAccountId: true },
+      });
+
+      if (!conv) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Calendar event not found",
+        });
+      }
+
+      // Get source account to verify organization access
+      const source = await db.query.sourceAccount.findFirst({
+        where: eq(sourceAccount.id, conv.sourceAccountId),
+        columns: { organizationId: true },
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
+      }
+
+      await verifyOrgMembership(ctx.session.user.id, source.organizationId);
+
+      // Get related conversations
+      const relations = await db
+        .select({
+          id: relatedConversation.id,
+          relatedId: relatedConversation.relatedConversationId,
+          relationType: relatedConversation.relationType,
+          confidence: relatedConversation.confidence,
+          matchReason: relatedConversation.matchReason,
+          isDismissed: relatedConversation.isDismissed,
+        })
+        .from(relatedConversation)
+        .where(eq(relatedConversation.conversationId, input.conversationId));
+
+      // Get full conversation data for each related conversation
+      const relatedIds = relations.map((r) => r.relatedId);
+      if (relatedIds.length === 0) {
+        return { relatedThreads: [] };
+      }
+
+      const relatedConvos = await db
+        .select({
+          id: conversation.id,
+          externalId: conversation.externalId,
+          title: conversation.title,
+          snippet: conversation.snippet,
+          briefSummary: conversation.briefSummary,
+          participantIds: conversation.participantIds,
+          lastMessageAt: conversation.lastMessageAt,
+          conversationType: conversation.conversationType,
+          urgencyScore: conversation.urgencyScore,
+          hasOpenLoops: conversation.hasOpenLoops,
+        })
+        .from(conversation)
+        .where(inArray(conversation.id, relatedIds));
+
+      const convoMap = new Map(relatedConvos.map((c) => [c.id, c]));
+
+      return {
+        relatedThreads: relations
+          .filter((r) => !r.isDismissed)
+          .map((r) => ({
+            relationId: r.id,
+            confidence: r.confidence,
+            matchReason: r.matchReason,
+            relationType: r.relationType,
+            ...convoMap.get(r.relatedId),
+          }))
+          .filter((r) => r.id), // Filter out any missing conversations
+      };
+    }),
+
+  /**
+   * Dismiss a related thread relationship.
+   */
+  dismissRelatedThread: protectedProcedure
+    .input(
+      z.object({
+        relationId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get the relation to verify access
+      const relation = await db.query.relatedConversation.findFirst({
+        where: eq(relatedConversation.id, input.relationId),
+        columns: { conversationId: true },
+      });
+
+      if (!relation) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Relationship not found",
+        });
+      }
+
+      // Verify access through conversation → source → organization
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, relation.conversationId),
+        columns: { sourceAccountId: true },
+      });
+
+      if (!conv) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Conversation not found",
+        });
+      }
+
+      const source = await db.query.sourceAccount.findFirst({
+        where: eq(sourceAccount.id, conv.sourceAccountId),
+        columns: { organizationId: true },
+      });
+
+      if (!source) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source account not found",
+        });
+      }
+
+      await verifyOrgMembership(ctx.session.user.id, source.organizationId);
+
+      // Mark as dismissed
+      await db
+        .update(relatedConversation)
+        .set({
+          isDismissed: true,
+          dismissedAt: new Date(),
+          dismissedByUserId: ctx.session.user.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(relatedConversation.id, input.relationId));
+
+      return { success: true };
+    }),
+
+  /**
+   * Get commitments from calendar events.
+   */
+  getCalendarCommitments: protectedProcedure
+    .input(
+      z.object({
+        accountId: z.string().uuid().optional(),
+        timeMin: dateSchema.optional(),
+        timeMax: dateSchema.optional(),
+        status: z.enum(["pending", "completed", "cancelled"]).optional(),
+        limit: z.number().min(1).max(100).default(50),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Get user's organizations
+      const memberships = await db.query.member.findMany({
+        where: eq(member.userId, ctx.session.user.id),
+        columns: { organizationId: true },
+      });
+
+      const orgIds = memberships.map((m) => m.organizationId);
+      if (orgIds.length === 0) {
+        return { items: [] };
+      }
+
+      // Build conditions for commitments from calendar
+      const conditions = [
+        inArray(commitment.organizationId, orgIds),
+        sql`${commitment.metadata}->>'source' = 'calendar'`,
+      ];
+
+      if (input.timeMin) {
+        conditions.push(gte(commitment.dueDate, input.timeMin));
+      }
+
+      if (input.timeMax) {
+        conditions.push(lte(commitment.dueDate, input.timeMax));
+      }
+
+      if (input.status) {
+        conditions.push(eq(commitment.status, input.status));
+      }
+
+      // Query commitments
+      const commitments = await db
+        .select({
+          id: commitment.id,
+          title: commitment.title,
+          description: commitment.description,
+          dueDate: commitment.dueDate,
+          status: commitment.status,
+          confidence: commitment.confidence,
+          direction: commitment.direction,
+          metadata: commitment.metadata,
+          sourceConversationId: commitment.sourceConversationId,
+          createdAt: commitment.createdAt,
+        })
+        .from(commitment)
+        .where(and(...conditions))
+        .orderBy(commitment.dueDate)
+        .limit(input.limit);
+
+      return { items: commitments };
+    }),
+
+  /**
+   * Get sync status for calendar.
+   */
+  getSyncStatus: protectedProcedure
+    .input(
+      z.object({
+        accountId: z.string().uuid(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Get email account to find corresponding calendar source
+      const account = await db.query.emailAccount.findFirst({
+        where: eq(emailAccount.id, input.accountId),
+        columns: { email: true, organizationId: true },
+      });
+
+      if (!account) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Email account not found",
+        });
+      }
+
+      await verifyOrgMembership(ctx.session.user.id, account.organizationId);
+
+      // Find calendar source account
+      const calSource = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.organizationId, account.organizationId),
+          eq(sourceAccount.type, "calendar"),
+          eq(sourceAccount.externalId, account.email)
+        ),
+        columns: {
+          id: true,
+          status: true,
+          lastSyncAt: true,
+          lastSyncStatus: true,
+          lastSyncError: true,
+          backfillProgress: true,
+        },
+      });
+
+      if (!calSource) {
+        return {
+          connected: false,
+          status: "not_configured" as const,
+          lastSyncAt: null,
+          error: null,
+        };
+      }
+
+      return {
+        connected: true,
+        status: calSource.status,
+        lastSyncAt: calSource.lastSyncAt,
+        lastSyncError: calSource.lastSyncError,
+        backfillProgress: calSource.backfillProgress,
+      };
     }),
 });

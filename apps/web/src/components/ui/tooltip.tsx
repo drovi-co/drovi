@@ -3,8 +3,18 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Linear-style Tooltip component
+ *
+ * Pixel-perfect values from Figma:
+ * - Background: gradient #202128 to #1D1E2B
+ * - Border: #52526F
+ * - Text: #E0E1EC, Inter Regular 11px
+ * - Shadow: 0px 2px 4px rgba(0,0,0,0.1)
+ * - Border radius: 4px
+ */
 function TooltipProvider({
-  delayDuration = 0,
+  delayDuration = 200,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
@@ -34,7 +44,7 @@ function TooltipTrigger({
 
 function TooltipContent({
   className,
-  sideOffset = 0,
+  sideOffset = 4,
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
@@ -42,7 +52,23 @@ function TooltipContent({
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         className={cn(
-          "fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) animate-in text-balance rounded-md bg-foreground px-3 py-1.5 text-background text-xs data-[state=closed]:animate-out",
+          "z-50 w-fit overflow-hidden",
+          // Linear tooltip styling - pixel perfect from Figma
+          "rounded-[4px]",
+          // Figma gradient background: #202128 to #1D1E2B
+          "bg-gradient-to-r from-[#202128] to-[#1D1E2B]",
+          // Figma border: #52526F
+          "border border-[#52526F]",
+          "px-2 py-1",
+          // Figma shadow: 0px 2px 4px rgba(0,0,0,0.1)
+          "shadow-[0px_2px_4px_rgba(0,0,0,0.1)]",
+          // Figma text: #E0E1EC, 11px
+          "text-[11px] leading-[1.1] text-[#E0E1EC]",
+          // Animations
+          "animate-in fade-in-0 zoom-in-95",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
+          "data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
           className
         )}
         data-slot="tooltip-content"
@@ -50,7 +76,6 @@ function TooltipContent({
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

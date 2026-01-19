@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { emailMessage, emailThread } from "./email";
 import { claim } from "./intelligence";
+import { conversation, message } from "./sources";
 
 // =============================================================================
 // CONSTANTS
@@ -159,6 +160,124 @@ export const threadEmbedding = pgTable(
 );
 
 // =============================================================================
+// CONVERSATION EMBEDDING TABLE (Multi-source: WhatsApp, Slack, etc.)
+// =============================================================================
+
+/**
+ * Stores vector embeddings for multi-source conversations.
+ * Used for semantic search across WhatsApp, Slack, Calendar, etc.
+ *
+ * Index recommendation:
+ * CREATE INDEX ON conversation_embedding USING hnsw (embedding vector_cosine_ops)
+ *   WITH (m = 16, ef_construction = 64);
+ */
+export const conversationEmbedding = pgTable(
+  "conversation_embedding",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" })
+      .unique(),
+
+    // Vector embedding
+    embedding: vector("embedding", {
+      dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
+    }).notNull(),
+
+    // Aggregation method used
+    aggregationMethod: threadEmbeddingAggregationEnum("aggregation_method")
+      .notNull()
+      .default("mean"),
+
+    // Model metadata
+    model: text("model").notNull(),
+    modelVersion: text("model_version"),
+
+    // Stats about aggregation
+    messageCount: integer("message_count").notNull(),
+    totalTokens: integer("total_tokens"),
+
+    // Input hash for detecting re-embedding needs
+    inputHash: text("input_hash"),
+
+    // Processing status
+    status: embeddingStatusEnum("status").default("completed"),
+    errorMessage: text("error_message"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("conversation_embedding_conv_idx").on(table.conversationId),
+    index("conversation_embedding_model_idx").on(table.model),
+    index("conversation_embedding_status_idx").on(table.status),
+  ]
+);
+
+// =============================================================================
+// GENERIC MESSAGE EMBEDDING TABLE (Multi-source messages)
+// =============================================================================
+
+/**
+ * Stores vector embeddings for individual messages from multi-source conversations.
+ * Used for semantic search within WhatsApp, Slack, Calendar, etc.
+ *
+ * Index recommendation:
+ * CREATE INDEX ON generic_message_embedding USING hnsw (embedding vector_cosine_ops)
+ *   WITH (m = 16, ef_construction = 64);
+ */
+export const genericMessageEmbedding = pgTable(
+  "generic_message_embedding",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => message.id, { onDelete: "cascade" })
+      .unique(),
+
+    // Vector embedding
+    embedding: vector("embedding", {
+      dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
+    }).notNull(),
+
+    // Model metadata
+    model: text("model").notNull(),
+    modelVersion: text("model_version"),
+
+    // Token info for cost tracking
+    tokenCount: integer("token_count"),
+
+    // Input hash for detecting re-embedding needs
+    inputHash: text("input_hash"),
+
+    // Processing status
+    status: embeddingStatusEnum("status").default("completed"),
+    errorMessage: text("error_message"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("generic_message_embedding_msg_idx").on(table.messageId),
+    index("generic_message_embedding_model_idx").on(table.model),
+    index("generic_message_embedding_status_idx").on(table.status),
+  ]
+);
+
+// =============================================================================
 // CLAIM EMBEDDING TABLE
 // =============================================================================
 
@@ -285,6 +404,26 @@ export const claimEmbeddingRelations = relations(claimEmbedding, ({ one }) => ({
   }),
 }));
 
+export const conversationEmbeddingRelations = relations(
+  conversationEmbedding,
+  ({ one }) => ({
+    conversation: one(conversation, {
+      fields: [conversationEmbedding.conversationId],
+      references: [conversation.id],
+    }),
+  })
+);
+
+export const genericMessageEmbeddingRelations = relations(
+  genericMessageEmbedding,
+  ({ one }) => ({
+    message: one(message, {
+      fields: [genericMessageEmbedding.messageId],
+      references: [message.id],
+    }),
+  })
+);
+
 // =============================================================================
 // TYPE EXPORTS
 // =============================================================================
@@ -297,3 +436,7 @@ export type ClaimEmbedding = typeof claimEmbedding.$inferSelect;
 export type NewClaimEmbedding = typeof claimEmbedding.$inferInsert;
 export type QueryEmbeddingCache = typeof queryEmbeddingCache.$inferSelect;
 export type NewQueryEmbeddingCache = typeof queryEmbeddingCache.$inferInsert;
+export type ConversationEmbedding = typeof conversationEmbedding.$inferSelect;
+export type NewConversationEmbedding = typeof conversationEmbedding.$inferInsert;
+export type GenericMessageEmbedding = typeof genericMessageEmbedding.$inferSelect;
+export type NewGenericMessageEmbedding = typeof genericMessageEmbedding.$inferInsert;

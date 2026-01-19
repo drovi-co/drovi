@@ -296,6 +296,60 @@ export function generateClaimEmbedding(
 }
 
 /**
+ * Generate embedding for a multi-source conversation message.
+ * Works for WhatsApp, Slack, and other non-email sources.
+ */
+export function generateGenericMessageEmbedding(
+  senderName: string | null,
+  body: string,
+  options: EmbeddingOptions = {}
+): Promise<EmbeddingResult> {
+  const parts: string[] = [];
+
+  if (senderName) {
+    parts.push(`From: ${senderName}`);
+  }
+
+  parts.push(body);
+
+  const text = parts.join("\n\n");
+  return generateEmbedding(text, options);
+}
+
+/**
+ * Generate embedding for a conversation (multi-source).
+ * Combines title and message content with source context.
+ */
+export function generateConversationEmbedding(
+  title: string | null,
+  messages: Array<{ sender?: string; body: string }>,
+  sourceType: string,
+  options: EmbeddingOptions = {}
+): Promise<EmbeddingResult> {
+  const parts: string[] = [];
+
+  // Add source context
+  parts.push(`[${sourceType.toUpperCase()} Conversation]`);
+
+  if (title) {
+    parts.push(`Title: ${title}`);
+  }
+
+  // Add messages (limit to avoid token overflow)
+  const messagesToInclude = messages.slice(-20); // Last 20 messages
+  for (const msg of messagesToInclude) {
+    if (msg.sender) {
+      parts.push(`${msg.sender}: ${msg.body}`);
+    } else {
+      parts.push(msg.body);
+    }
+  }
+
+  const text = parts.join("\n");
+  return generateEmbedding(text, options);
+}
+
+/**
  * Generate embedding for a search query.
  * Optimized for query-style text.
  */

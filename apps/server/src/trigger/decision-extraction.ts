@@ -22,6 +22,7 @@ import {
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { log } from "../lib/logger";
+import { createTaskForDecisionTask } from "./task-sync";
 
 // =============================================================================
 // TYPES
@@ -519,6 +520,13 @@ async function saveDecisions(
           updatedAt: new Date(),
         })
         .where(eq(decision.id, supersedes));
+    }
+
+    // Trigger task creation for the new decision
+    if (insertedDecision?.id) {
+      await createTaskForDecisionTask.trigger({
+        decisionId: insertedDecision.id,
+      });
     }
 
     saved++;
