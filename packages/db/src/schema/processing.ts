@@ -386,6 +386,82 @@ export const syncStateRelations = relations(syncState, ({ one }) => ({
 }));
 
 // =============================================================================
+// DEAD LETTER QUEUE TABLE
+// =============================================================================
+
+export const failedJobStatusEnum = pgEnum("failed_job_status", [
+  "pending", // Waiting to be reviewed/retried
+  "retried", // Has been retried
+  "abandoned", // Manually marked as abandoned
+  "resolved", // Issue was resolved without retry
+]);
+
+/**
+ * Dead letter queue for failed Trigger.dev tasks.
+ * Captures jobs that have exceeded max retries for manual review.
+ */
+export const failedJob = pgTable(
+  "failed_job",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+
+    // Task identification
+    taskId: text("task_id").notNull(),
+    taskName: text("task_name"),
+
+    // Run identification
+    triggerRunId: text("trigger_run_id"),
+
+    // Payload (what was being processed)
+    payload: jsonb("payload"),
+
+    // Error details
+    errorMessage: text("error_message"),
+    errorStack: text("error_stack"),
+    errorCode: text("error_code"),
+
+    // Retry info
+    attemptNumber: integer("attempt_number").notNull(),
+    maxAttempts: integer("max_attempts"),
+
+    // Timing
+    firstAttemptAt: timestamp("first_attempt_at"),
+    failedAt: timestamp("failed_at").notNull().defaultNow(),
+
+    // Resolution
+    status: failedJobStatusEnum("status").notNull().default("pending"),
+    retriedAt: timestamp("retried_at"),
+    resolvedAt: timestamp("resolved_at"),
+    resolvedBy: text("resolved_by"), // User ID who resolved
+    resolutionNote: text("resolution_note"),
+
+    // Context for debugging
+    accountId: text("account_id"),
+    threadId: text("thread_id"),
+    organizationId: text("organization_id"),
+
+    // Metadata
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("failed_job_task_idx").on(table.taskId),
+    index("failed_job_status_idx").on(table.status),
+    index("failed_job_failed_at_idx").on(table.failedAt),
+    index("failed_job_account_idx").on(table.accountId),
+    index("failed_job_org_idx").on(table.organizationId),
+  ]
+);
+
+// =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
@@ -397,3 +473,5 @@ export type EvidenceLink = typeof evidenceLink.$inferSelect;
 export type NewEvidenceLink = typeof evidenceLink.$inferInsert;
 export type SyncState = typeof syncState.$inferSelect;
 export type NewSyncState = typeof syncState.$inferInsert;
+export type FailedJob = typeof failedJob.$inferSelect;
+export type NewFailedJob = typeof failedJob.$inferInsert;

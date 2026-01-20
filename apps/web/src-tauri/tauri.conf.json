@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "memorystack",
+  "productName": "Memorystack",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.memorystack.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3001",
@@ -10,17 +10,30 @@
     "beforeBuildCommand": "bun run build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "title": "memorystack",
-        "width": 800,
-        "height": 600,
+        "title": "Memorystack",
+        "label": "main",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "center": true,
+        "visible": true,
+        "decorations": true,
+        "transparent": false,
+        "focus": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.memorystack.com https://*.googleapis.com https://*.google.com https://*.posthog.com https://*.sentry.io wss://*.memorystack.com http://localhost:* ws://localhost:*; frame-src 'self' https://accounts.google.com"
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
     }
   },
   "bundle": {
@@ -32,6 +45,34 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Productivity",
+    "shortDescription": "AI-powered email intelligence platform",
+    "longDescription": "Memorystack transforms your email into actionable intelligence with AI-powered extraction of commitments, decisions, and relationships.",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "entitlements": "./entitlements.plist"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["memorystack"]
+      }
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/memorystack/memorystack/releases/latest/download/update-manifest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFEM0MwRTk0NzA1RkY5QjIKUldTeStWOXdsQTQ4clhyblJ3MU5lL242M1hTVk5LTllNZE5wSmFqMnhkRkxveEl0V3RnY1dkR3MK"
+    }
   }
 }

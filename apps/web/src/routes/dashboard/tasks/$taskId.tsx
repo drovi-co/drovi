@@ -114,12 +114,13 @@ function TaskDetailPage() {
     enabled: !!organizationId && !!taskId,
   });
 
-  // Mutations
+  // Mutations - use proper tRPC query key pattern [["tasks"]] for invalidation
   const updateMutation = useMutation({
     ...trpc.tasks.update.mutationOptions(),
     onSuccess: () => {
       refetch();
-      queryClientInstance.invalidateQueries({ queryKey: ["tasks"] });
+      // tRPC uses nested array keys like [["tasks", "list"], { input }]
+      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to update task");
@@ -131,7 +132,7 @@ function TaskDetailPage() {
     onSuccess: () => {
       toast.success("Status updated");
       refetch();
-      queryClientInstance.invalidateQueries({ queryKey: ["tasks"] });
+      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to update status");
@@ -143,7 +144,7 @@ function TaskDetailPage() {
     onSuccess: () => {
       toast.success("Priority updated");
       refetch();
-      queryClientInstance.invalidateQueries({ queryKey: ["tasks"] });
+      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to update priority");
@@ -154,7 +155,7 @@ function TaskDetailPage() {
     ...trpc.tasks.addComment.mutationOptions(),
     onSuccess: () => {
       setNewComment("");
-      queryClientInstance.invalidateQueries({ queryKey: ["tasks", "activity"] });
+      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to add comment");
@@ -165,6 +166,7 @@ function TaskDetailPage() {
     ...trpc.tasks.delete.mutationOptions(),
     onSuccess: () => {
       toast.success("Task deleted");
+      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
       navigate({ to: "/dashboard/tasks" });
     },
     onError: () => {

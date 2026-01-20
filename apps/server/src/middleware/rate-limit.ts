@@ -1,3 +1,4 @@
+import type { Redis } from "ioredis";
 import type { Context, MiddlewareHandler } from "hono";
 
 interface RateLimitStore {
@@ -221,5 +222,77 @@ export const lenientRateLimit = rateLimit({
   windowMs: 60 * 1000,
 });
 
-export { MemoryStore };
+/**
+ * Redis-backed rate limit store for distributed deployments
+ * Supports multiple server instances sharing rate limit state
+ */
+class RedisStore implements RateLimitStore {
+  constructor(private readonly redis: Redis) {}
+
+  async get(key: string): Promise<{ count: number; resetAt: number } | null> {
+    try {
+      const data = await this.redis.get(key);
+      if (!data) {
+        return null;
+      }
+      const parsed = JSON.parse(data) as { count: number; resetAt: number };
+      if (Date.now() > parsed.resetAt) {
+        await this.redis.del(key);
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.error("[RateLimit] Redis get error:", error);
+      return null;
+    }
+  }
+
+  async set(
+    key: string,
+    value: { count: number; resetAt: number },
+    ttlMs: number
+  ): Promise<void> {
+    try {
+      await this.redis.setex(
+        key,
+        Math.ceil(ttlMs / 1000),
+        JSON.stringify(value)
+      );
+    } catch (error) {
+      console.error("[RateLimit] Redis set error:", error);
+    }
+  }
+
+  async increment(key: string): Promise<number> {
+    try {
+      const data = await this.redis.get(key);
+      if (!data) {
+        return 1;
+      }
+      const parsed = JSON.parse(data) as { count: number; resetAt: number };
+      parsed.count++;
+
+      // Preserve the remaining TTL
+      const ttl = await this.redis.ttl(key);
+      if (ttl > 0) {
+        await this.redis.setex(key, ttl, JSON.stringify(parsed));
+      }
+
+      return parsed.count;
+    } catch (error) {
+      console.error("[RateLimit] Redis increment error:", error);
+      return 1;
+    }
+  }
+}
+
+/**
+ * Create a Redis-backed rate limit store
+ * Use this for production deployments with multiple server instances
+ */
+export function createRedisStore(redis: Redis): RateLimitStore {
+  return new RedisStore(redis);
+}
+
+export { MemoryStore, RedisStore };
 export type { RateLimitStore, RateLimitOptions };

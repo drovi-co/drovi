@@ -14,7 +14,7 @@ import {
   member,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -467,7 +467,8 @@ export const threadsRouter = router({
           orderByColumns.push(desc(emailThread.lastMessageAt));
       }
 
-      // Get threads with first message for participant names
+      // Get threads WITHOUT nested messages to avoid N+1 query
+      // The `with: { messages: { limit: 5 } }` pattern causes a separate query per thread
       const threads = await db.query.emailThread.findMany({
         where: and(...conditions),
         limit: input.limit,
@@ -496,23 +497,41 @@ export const threadsRouter = router({
           suggestedAction: true,
           priorityTier: true,
         },
-        with: {
-          messages: {
+      });
+
+      // Batch load messages for all threads (single query instead of N queries)
+      const threadIds = threads.map((t) => t.id);
+      const allMessages = threadIds.length > 0
+        ? await db.query.emailMessage.findMany({
+            where: inArray(emailMessage.threadId, threadIds),
             columns: {
+              threadId: true,
               fromEmail: true,
               fromName: true,
+              messageIndex: true,
             },
-            orderBy: (m, { asc }) => [asc(m.messageIndex)],
-            limit: 5, // Get a few messages to build participant list
-          },
-        },
-      });
+            orderBy: [asc(emailMessage.messageIndex)],
+          })
+        : [];
+
+      // Group messages by threadId and limit to 5 per thread (in memory)
+      const messagesByThread = new Map<string, typeof allMessages>();
+      for (const msg of allMessages) {
+        const existing = messagesByThread.get(msg.threadId) ?? [];
+        if (existing.length < 5) {
+          existing.push(msg);
+          messagesByThread.set(msg.threadId, existing);
+        }
+      }
 
       // Transform to inbox format
       const transformedThreads = threads.map((t) => {
+        // Get pre-loaded messages for this thread
+        const threadMessages = messagesByThread.get(t.id) ?? [];
+
         // Build participant list from messages with actual names
         const participantMap = new Map<string, string>();
-        for (const msg of t.messages ?? []) {
+        for (const msg of threadMessages) {
           if (msg.fromEmail && !participantMap.has(msg.fromEmail)) {
             // Use fromName if available, otherwise try to extract a friendly name
             const name = msg.fromName || extractFriendlyName(msg.fromEmail);

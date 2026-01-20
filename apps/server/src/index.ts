@@ -4,6 +4,15 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@memorystack/api/context";
 import { appRouter } from "@memorystack/api/routers/index";
 import { auth } from "@memorystack/auth";
+import {
+  checkDatabaseHealth,
+  disconnectDatabase,
+} from "@memorystack/db";
+import {
+  checkRedisHealth,
+  disconnectRedis,
+  isRedisConfigured,
+} from "@memorystack/db/lib/redis";
 import { env } from "@memorystack/env/server";
 import { convertToModelMessages, streamText, wrapLanguageModel } from "ai";
 import { Hono } from "hono";
@@ -24,6 +33,13 @@ import { polarWebhook } from "./routes/webhooks/polar";
 
 // Initialize Sentry for error tracking
 initSentry();
+
+// =============================================================================
+// GRACEFUL SHUTDOWN STATE
+// =============================================================================
+
+let isShuttingDown = false;
+let activeRequests = 0;
 
 const app = new Hono();
 
@@ -119,5 +135,146 @@ app.route("/api/webhooks/gmail", gmailWebhook);
 app.get("/", (c) => {
   return c.text("OK");
 });
+
+// =============================================================================
+// HEALTH CHECK ENDPOINTS
+// =============================================================================
+
+/**
+ * Liveness probe - is the process running?
+ * Used by Kubernetes/load balancers to detect if the process is alive
+ */
+app.get("/health", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    shuttingDown: isShuttingDown,
+  });
+});
+
+/**
+ * Readiness probe - can we handle traffic?
+ * Used by Kubernetes/load balancers to determine if the server can accept requests
+ */
+app.get("/ready", async (c) => {
+  // If shutting down, report not ready
+  if (isShuttingDown) {
+    return c.json(
+      {
+        status: "shutting_down",
+        message: "Server is shutting down",
+      },
+      503
+    );
+  }
+
+  // Check all dependencies
+  const [dbHealth, redisHealth] = await Promise.all([
+    checkDatabaseHealth(),
+    isRedisConfigured() ? checkRedisHealth() : Promise.resolve({ connected: true, latencyMs: null, error: undefined }),
+  ]);
+
+  const checks = {
+    database: {
+      connected: dbHealth.connected,
+      latencyMs: dbHealth.latencyMs,
+      poolSize: dbHealth.poolSize,
+      idleConnections: dbHealth.idleConnections,
+      waitingClients: dbHealth.waitingClients,
+      error: dbHealth.error,
+    },
+    redis: {
+      configured: isRedisConfigured(),
+      connected: redisHealth.connected,
+      latencyMs: redisHealth.latencyMs,
+      error: redisHealth.error,
+    },
+  };
+
+  // Redis is optional, only database is required
+  const allHealthy = dbHealth.connected;
+
+  return c.json(
+    {
+      status: allHealthy ? "ready" : "not_ready",
+      timestamp: new Date().toISOString(),
+      activeRequests,
+      checks,
+    },
+    allHealthy ? 200 : 503
+  );
+});
+
+// =============================================================================
+// REQUEST TRACKING MIDDLEWARE (for graceful shutdown)
+// =============================================================================
+
+app.use("*", async (c, next) => {
+  // Reject new requests during shutdown
+  if (isShuttingDown) {
+    return c.json(
+      {
+        error: "SERVICE_UNAVAILABLE",
+        message: "Server is shutting down",
+      },
+      503
+    );
+  }
+
+  activeRequests++;
+  try {
+    return await next();
+  } finally {
+    activeRequests--;
+  }
+});
+
+// =============================================================================
+// GRACEFUL SHUTDOWN
+// =============================================================================
+
+async function shutdown(signal: string): Promise<void> {
+  if (isShuttingDown) {
+    log.warn("Shutdown already in progress");
+    return;
+  }
+
+  log.info(`Received ${signal}, starting graceful shutdown`);
+  isShuttingDown = true;
+
+  // Wait for active requests to complete (max 30 seconds)
+  const deadline = Date.now() + 30000;
+  while (activeRequests > 0 && Date.now() < deadline) {
+    log.info(`Waiting for ${activeRequests} active requests to complete...`);
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  if (activeRequests > 0) {
+    log.warn(`Forcing shutdown with ${activeRequests} active requests`);
+  }
+
+  // Close database connections
+  try {
+    await disconnectDatabase();
+  } catch (error) {
+    log.error("Error closing database connections", error);
+  }
+
+  // Close Redis connection
+  if (isRedisConfigured()) {
+    try {
+      await disconnectRedis();
+    } catch (error) {
+      log.error("Error closing Redis connection", error);
+    }
+  }
+
+  log.info("Graceful shutdown complete");
+  process.exit(0);
+}
+
+// Register shutdown handlers
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 export default app;

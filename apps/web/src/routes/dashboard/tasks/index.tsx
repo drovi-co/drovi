@@ -12,6 +12,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Archive,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   Gavel,
   Handshake,
@@ -97,6 +99,7 @@ type ViewMode = "list" | "kanban";
 
 function TasksPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
@@ -109,7 +112,7 @@ function TasksPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Fetch tasks
+  // Fetch tasks - no limit since we have client-side pagination with "Show more"
   const {
     data: tasksData,
     isLoading: isLoadingTasks,
@@ -121,7 +124,9 @@ function TasksPage() {
       priority: priorityFilter === "all" ? undefined : priorityFilter,
       sourceType: sourceTypeFilter === "all" ? undefined : sourceTypeFilter,
       search: searchQuery || undefined,
-      limit: 100,
+      // Sort by due date (nearest first) so urgent tasks appear at top
+      sortBy: "dueDate",
+      sortOrder: "asc",
     }),
     enabled: !!organizationId,
   });
@@ -132,12 +137,13 @@ function TasksPage() {
     enabled: !!organizationId,
   });
 
-  // Mutations
+  // Mutations - use proper tRPC query key pattern [["tasks"]] for invalidation
   const updateStatusMutation = useMutation({
     ...trpc.tasks.updateStatus.mutationOptions(),
     onSuccess: () => {
       toast.success("Status updated");
       refetch();
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to update status");
@@ -149,6 +155,7 @@ function TasksPage() {
     onSuccess: () => {
       toast.success("Priority updated");
       refetch();
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to update priority");
@@ -498,6 +505,9 @@ function TasksPage() {
 // TASK LIST VIEW
 // =============================================================================
 
+// Items to show per section by default
+const ITEMS_PER_SECTION = 10;
+
 interface TaskListViewProps {
   tasks: TaskData[];
   tasksByStatus: Record<TaskStatus, TaskData[]>;
@@ -525,6 +535,47 @@ function TaskListView({
 }: TaskListViewProps) {
   const statusOrder: TaskStatus[] = ["backlog", "todo", "in_progress", "in_review", "done", "cancelled"];
 
+  // Collapsed state for each section (backlog collapsed by default)
+  const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(
+    new Set(["backlog"])
+  );
+
+  // Expanded items count per section (for pagination)
+  const [expandedCounts, setExpandedCounts] = useState<Record<TaskStatus, number>>({
+    backlog: ITEMS_PER_SECTION,
+    todo: ITEMS_PER_SECTION,
+    in_progress: ITEMS_PER_SECTION,
+    in_review: ITEMS_PER_SECTION,
+    done: ITEMS_PER_SECTION,
+    cancelled: ITEMS_PER_SECTION,
+  });
+
+  const toggleSection = useCallback((status: TaskStatus) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) {
+        next.delete(status);
+      } else {
+        next.add(status);
+      }
+      return next;
+    });
+  }, []);
+
+  const showMoreItems = useCallback((status: TaskStatus) => {
+    setExpandedCounts((prev) => ({
+      ...prev,
+      [status]: prev[status] + ITEMS_PER_SECTION,
+    }));
+  }, []);
+
+  // Pagination state for flat list view - MUST be before any early returns
+  const [flatListVisibleCount, setFlatListVisibleCount] = useState(ITEMS_PER_SECTION * 2);
+
+  const showMoreFlatList = useCallback(() => {
+    setFlatListVisibleCount((prev) => prev + ITEMS_PER_SECTION * 2);
+  }, []);
+
   if (showGroupHeaders) {
     return (
       <div>
@@ -533,37 +584,96 @@ function TaskListView({
           if (statusTasks.length === 0) return null;
 
           const config = STATUS_CONFIG[status];
-          const Icon = config.icon;
+          const isCollapsed = collapsedSections.has(status);
+          const visibleCount = expandedCounts[status];
+          const visibleTasks = statusTasks.slice(0, visibleCount);
+          const hasMore = statusTasks.length > visibleCount;
+          const remainingCount = statusTasks.length - visibleCount;
+
+          // Map status to StatusIcon status type
+          const iconStatus: Status =
+            status === "backlog" ? "backlog" :
+            status === "todo" ? "todo" :
+            status === "in_progress" ? "in_progress" :
+            status === "in_review" ? "in_progress" :
+            status === "done" ? "done" :
+            "canceled";
 
           return (
             <div key={status}>
-              {/* Group Header */}
-              <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-muted/50 border-b text-sm font-medium">
-                <Icon className={cn("h-4 w-4", config.color)} />
-                <span>{config.label}</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              {/* Group Header - Collapsible */}
+              <button
+                type="button"
+                onClick={() => toggleSection(status)}
+                className={cn(
+                  "sticky top-0 z-10 w-full flex items-center gap-2 px-3 py-2",
+                  "bg-[#1a1b26] border-b border-[#2a2b3d]",
+                  "text-sm font-medium cursor-pointer",
+                  "hover:bg-[#21232e] transition-colors"
+                )}
+              >
+                {/* Collapse/Expand Icon */}
+                {isCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-[#858699] shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-[#858699] shrink-0" />
+                )}
+                {/* Status Icon */}
+                <StatusIcon status={iconStatus} size="sm" />
+                {/* Label */}
+                <span className="text-[#eeeffc]">{config.label}</span>
+                {/* Count Badge */}
+                <span className="text-[12px] text-[#858699] ml-1">
                   {statusTasks.length}
-                </Badge>
-              </div>
-              {/* Tasks */}
-              {statusTasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  isSelected={selectedIds.has(task.id)}
-                  isActive={selectedTaskId === task.id}
-                  onSelect={onSelectTask}
-                  onClick={() => onTaskClick(task.id)}
-                  onStatusChange={onStatusChange}
-                  onPriorityChange={onPriorityChange}
-                />
-              ))}
+                </span>
+              </button>
+
+              {/* Tasks - Only show if not collapsed */}
+              {!isCollapsed && (
+                <>
+                  {visibleTasks.map((task) => (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      isSelected={selectedIds.has(task.id)}
+                      isActive={selectedTaskId === task.id}
+                      onSelect={onSelectTask}
+                      onClick={() => onTaskClick(task.id)}
+                      onStatusChange={onStatusChange}
+                      onPriorityChange={onPriorityChange}
+                    />
+                  ))}
+
+                  {/* Show More Button */}
+                  {hasMore && (
+                    <button
+                      type="button"
+                      onClick={() => showMoreItems(status)}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-2 py-2 px-4",
+                        "text-[13px] text-[#5e6ad2] hover:text-[#7c85e0]",
+                        "bg-[#1a1b26] hover:bg-[#21232e]",
+                        "border-b border-[#2a2b3d]",
+                        "transition-colors cursor-pointer"
+                      )}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      <span>Show {Math.min(remainingCount, ITEMS_PER_SECTION)} more ({remainingCount} remaining)</span>
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           );
         })}
       </div>
     );
   }
+
+  // Compute visible tasks for flat list view
+  const visibleTasks = tasks.slice(0, flatListVisibleCount);
+  const hasMoreTasks = tasks.length > flatListVisibleCount;
+  const remainingTasks = tasks.length - flatListVisibleCount;
 
   return (
     <div>
@@ -602,8 +712,9 @@ function TaskListView({
           </div>
         </div>
       </div>
+
       {/* Tasks */}
-      {tasks.map((task) => (
+      {visibleTasks.map((task) => (
         <TaskRow
           key={task.id}
           task={task}
@@ -615,6 +726,29 @@ function TaskListView({
           onPriorityChange={onPriorityChange}
         />
       ))}
+
+      {/* Show More Button */}
+      {hasMoreTasks && (
+        <button
+          type="button"
+          onClick={showMoreFlatList}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 py-3 px-4",
+            "text-[13px] text-[#5e6ad2] hover:text-[#7c85e0]",
+            "bg-[#1a1b26] hover:bg-[#21232e]",
+            "border-b border-[#2a2b3d]",
+            "transition-colors cursor-pointer"
+          )}
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+          <span>Show {Math.min(remainingTasks, ITEMS_PER_SECTION * 2)} more ({remainingTasks} remaining)</span>
+        </button>
+      )}
+
+      {/* Total count footer */}
+      <div className="py-2 px-4 text-[11px] text-[#4c4f6b] text-center border-t border-[#2a2b3d]">
+        Showing {visibleTasks.length} of {tasks.length} tasks
+      </div>
     </div>
   );
 }

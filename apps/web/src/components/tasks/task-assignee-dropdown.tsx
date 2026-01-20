@@ -70,11 +70,6 @@ export function TaskAssigneeDropdown({
 
   const assignMutation = useMutation({
     ...trpc.tasks.assign.mutationOptions(),
-    onMutate: async ({ assigneeId }) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      return { previousAssignee: currentAssignee };
-    },
     onSuccess: (_, { assigneeId }) => {
       const newAssignee = assigneeId
         ? members.find((m) => m.userId === assigneeId)
@@ -85,6 +80,12 @@ export function TaskAssigneeDropdown({
       } else {
         toast.success("Unassigned task");
       }
+
+      // Invalidate all tasks-related queries using tRPC's query key structure
+      // tRPC uses nested array keys like [["tasks", "list"], { input }]
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+
+      // Call the callback after cache invalidation
       onAssigneeChange?.(newAssignee ? {
         id: newAssignee.userId,
         name: newAssignee.user?.name ?? null,
@@ -94,9 +95,6 @@ export function TaskAssigneeDropdown({
     },
     onError: () => {
       toast.error("Failed to update assignee");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 

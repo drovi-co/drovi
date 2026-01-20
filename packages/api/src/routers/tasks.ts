@@ -24,7 +24,7 @@ import {
   type TaskStatus,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -58,7 +58,8 @@ const taskSourceTypeSchema = z.enum([
 
 const listTasksSchema = z.object({
   organizationId: z.string().min(1),
-  limit: z.number().int().min(1).max(200).default(100),
+  // High limit for client-side pagination - UI handles "Show more" display
+  limit: z.number().int().min(1).max(10000).optional(),
   offset: z.number().int().min(0).default(0),
   // Filters
   status: taskStatusSchema.optional(),
@@ -69,6 +70,8 @@ const listTasksSchema = z.object({
   sourceTypes: z.array(taskSourceTypeSchema).optional(),
   assigneeId: z.string().optional(),
   labelIds: z.array(z.string()).optional(),
+  // Search filter - matches title
+  search: z.string().optional(),
   // Date filters
   dueAfter: z.date().optional(),
   dueBefore: z.date().optional(),
@@ -299,6 +302,11 @@ export const tasksRouter = router({
         conditions.push(lte(task.dueDate, input.dueBefore));
       }
 
+      // Search filter - case-insensitive title search
+      if (input.search) {
+        conditions.push(ilike(task.title, `%${input.search}%`));
+      }
+
       // Count total
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -307,36 +315,46 @@ export const tasksRouter = router({
 
       const total = countResult?.count ?? 0;
 
-      // Build order by
-      const orderByColumn = {
-        createdAt: task.createdAt,
-        updatedAt: task.updatedAt,
-        dueDate: task.dueDate,
-        priority: sql`CASE
-          WHEN ${task.priority} = 'urgent' THEN 5
-          WHEN ${task.priority} = 'high' THEN 4
-          WHEN ${task.priority} = 'medium' THEN 3
-          WHEN ${task.priority} = 'low' THEN 2
-          ELSE 1
-        END`,
-        status: sql`CASE
-          WHEN ${task.status} = 'in_progress' THEN 5
-          WHEN ${task.status} = 'in_review' THEN 4
-          WHEN ${task.status} = 'todo' THEN 3
-          WHEN ${task.status} = 'backlog' THEN 2
-          WHEN ${task.status} = 'done' THEN 1
-          ELSE 0
-        END`,
-      }[input.sortBy];
+      // Build order by - special handling for dueDate to put nulls at the end
+      const getOrderBy = () => {
+        const direction = input.sortOrder === "asc" ? "ASC" : "DESC";
 
-      const orderFn = input.sortOrder === "asc" ? asc : desc;
+        switch (input.sortBy) {
+          case "dueDate":
+            // NULLS LAST ensures tasks without due dates appear at the end
+            return [sql`${task.dueDate} ${sql.raw(direction)} NULLS LAST`];
+          case "priority":
+            return [sql`CASE
+              WHEN ${task.priority} = 'urgent' THEN 5
+              WHEN ${task.priority} = 'high' THEN 4
+              WHEN ${task.priority} = 'medium' THEN 3
+              WHEN ${task.priority} = 'low' THEN 2
+              ELSE 1
+            END ${sql.raw(direction)}`];
+          case "status":
+            return [sql`CASE
+              WHEN ${task.status} = 'in_progress' THEN 5
+              WHEN ${task.status} = 'in_review' THEN 4
+              WHEN ${task.status} = 'todo' THEN 3
+              WHEN ${task.status} = 'backlog' THEN 2
+              WHEN ${task.status} = 'done' THEN 1
+              ELSE 0
+            END ${sql.raw(direction)}`];
+          case "updatedAt":
+            return input.sortOrder === "asc" ? [asc(task.updatedAt)] : [desc(task.updatedAt)];
+          case "createdAt":
+          default:
+            return input.sortOrder === "asc" ? [asc(task.createdAt)] : [desc(task.createdAt)];
+        }
+      };
 
       // Get tasks with relations
+      // If no limit specified, fetch all tasks (client handles pagination with "Show more")
       const tasks = await db.query.task.findMany({
         where: and(...conditions),
-        limit: input.limit,
+        ...(input.limit ? { limit: input.limit } : {}),
         offset: input.offset,
-        orderBy: [orderFn(orderByColumn)],
+        orderBy: getOrderBy(),
         with: {
           assignee: {
             columns: {
@@ -386,7 +404,8 @@ export const tasksRouter = router({
       return {
         tasks: transformedTasks,
         total,
-        hasMore: input.offset + tasks.length < total,
+        // If no limit, we fetched all, so no more. Otherwise check offset + fetched < total
+        hasMore: input.limit ? input.offset + tasks.length < total : false,
       };
     }),
 
@@ -1092,7 +1111,21 @@ export const tasksRouter = router({
         },
       });
 
-      return { activities };
+      // Transform to flatten user data onto the activity
+      const transformedActivities = activities.map((a) => ({
+        id: a.id,
+        taskId: a.taskId,
+        userId: a.userId,
+        userName: a.user?.name ?? a.user?.email ?? null,
+        userImage: a.user?.image ?? null,
+        activityType: a.activityType,
+        previousValue: a.previousValue,
+        newValue: a.newValue,
+        comment: a.comment,
+        createdAt: a.createdAt,
+      }));
+
+      return { activities: transformedActivities };
     }),
 
   /**

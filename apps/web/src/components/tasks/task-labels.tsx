@@ -130,6 +130,8 @@ export function TaskLabelPicker({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [showCreateInput, setShowCreateInput] = useState(false);
 
   // Fetch available labels
   const { data: labelsData } = useQuery({
@@ -140,11 +142,35 @@ export function TaskLabelPicker({
   const labels = labelsData?.labels ?? [];
   const selectedIds = new Set(selectedLabels.map((l) => l.id));
 
+  // Create label mutation (inline creation)
+  const createLabelMutation = useMutation({
+    ...trpc.tasks.createLabel.mutationOptions(),
+    onSuccess: (newLabel) => {
+      // Invalidate labels list to show new label
+      queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      setNewLabelName("");
+      setShowCreateInput(false);
+      toast.success("Label created");
+      // Automatically add the new label to the task
+      if (newLabel?.id) {
+        addLabelMutation.mutate({
+          organizationId,
+          taskId,
+          labelId: newLabel.id,
+        });
+      }
+    },
+    onError: () => {
+      toast.error("Failed to create label");
+    },
+  });
+
   // Add label mutation
   const addLabelMutation = useMutation({
     ...trpc.tasks.addLabel.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to add label");
@@ -155,12 +181,23 @@ export function TaskLabelPicker({
   const removeLabelMutation = useMutation({
     ...trpc.tasks.removeLabel.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
     },
     onError: () => {
       toast.error("Failed to remove label");
     },
   });
+
+  const handleCreateLabel = () => {
+    if (!newLabelName.trim()) return;
+    // Pick a random color from the palette
+    const randomColor = LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)]!;
+    createLabelMutation.mutate({
+      organizationId,
+      name: newLabelName.trim(),
+      color: randomColor,
+    });
+  };
 
   const handleToggleLabel = (label: TaskLabel) => {
     if (selectedIds.has(label.id)) {
@@ -196,7 +233,14 @@ export function TaskLabelPicker({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          // Reset create input state when closing popover
+          setShowCreateInput(false);
+          setNewLabelName("");
+        }
+      }}>
         <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>
@@ -240,7 +284,57 @@ export function TaskLabelPicker({
             )}
           </div>
 
-          <div className="border-t border-[#2a2b3d] mt-2 pt-2">
+          {/* Inline create label */}
+          <div className="border-t border-[#2a2b3d] mt-2 pt-2 space-y-2">
+            {showCreateInput ? (
+              <div className="flex gap-1.5">
+                <Input
+                  placeholder="Label name..."
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateLabel();
+                    }
+                    if (e.key === "Escape") {
+                      setShowCreateInput(false);
+                      setNewLabelName("");
+                    }
+                  }}
+                  autoFocus
+                  className="flex-1 h-7 text-[13px] bg-[#21232e] border-[#2a2b3d] text-[#d2d3e0] placeholder:text-[#4c4f6b] focus:border-[#5e6ad2]"
+                />
+                <Button
+                  size="sm"
+                  className="h-7 px-2 bg-[#5e6ad2] hover:bg-[#6b78e3] text-white"
+                  onClick={handleCreateLabel}
+                  disabled={!newLabelName.trim() || createLabelMutation.isPending}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+                  onClick={() => {
+                    setShowCreateInput(false);
+                    setNewLabelName("");
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+                onClick={() => setShowCreateInput(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create new label
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -294,7 +388,8 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
   const createMutation = useMutation({
     ...trpc.tasks.createLabel.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
       setNewLabelName("");
       toast.success("Label created");
     },
@@ -307,7 +402,8 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
   const updateMutation = useMutation({
     ...trpc.tasks.updateLabel.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
       setEditingLabel(null);
       toast.success("Label updated");
     },
@@ -320,7 +416,8 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
   const deleteMutation = useMutation({
     ...trpc.tasks.deleteLabel.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
+      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
       toast.success("Label deleted");
     },
     onError: () => {

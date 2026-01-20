@@ -48,7 +48,18 @@ export const env = createEnv({
     OUTLOOK_TENANT_ID: z.string().default("common"),
 
     // Token encryption key (32 bytes, base64 encoded for AES-256-GCM)
-    TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
+    // REQUIRED in production to encrypt OAuth tokens at rest
+    TOKEN_ENCRYPTION_KEY: z
+      .string()
+      .min(32)
+      .optional()
+      .refine(
+        (val) => process.env.NODE_ENV !== "production" || !!val,
+        {
+          message:
+            "TOKEN_ENCRYPTION_KEY is required in production. Generate with: openssl rand -base64 32",
+        }
+      ),
 
     // Gmail Push Notifications (Google Cloud Pub/Sub)
     // Topic name for Gmail to send notifications to (e.g., "projects/my-project/topics/gmail-push")
@@ -102,6 +113,10 @@ export const env = createEnv({
     // Sentry (optional)
     SENTRY_DSN: z.string().url().optional(),
     SENTRY_ENVIRONMENT: z.string().default("development"),
+
+    // PostHog Analytics (optional)
+    POSTHOG_PROJECT_KEY: z.string().optional(),
+    POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
 
     // Trigger.dev (optional)
     TRIGGER_SECRET_KEY: z.string().optional(),

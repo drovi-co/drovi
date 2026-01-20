@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
 import { CommandBarProvider } from "@/components/email/command-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -55,6 +56,7 @@ function RootComponent() {
           <Outlet />
         </CommandBarProvider>
         <Toaster richColors />
+        <AutoUpdaterDialog />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
