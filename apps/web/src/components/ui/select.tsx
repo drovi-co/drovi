@@ -47,7 +47,7 @@ function SelectTrigger({
         "whitespace-nowrap outline-none",
         // Linear input styling - pixel perfect from Figma
         "rounded-[6px] border border-input-border",
-        "bg-input pl-[10px] pr-[12px] py-[2px]",
+        "bg-input py-[2px] pr-[12px] pl-[10px]",
         "text-[13px] text-foreground",
         "transition-colors duration-150",
         // Size variants
@@ -91,12 +91,12 @@ function SelectContent({
           // Linear dropdown styling - pixel perfect from Figma
           "min-w-[var(--radix-select-trigger-width)]",
           "rounded-[8px] border border-border",
-          "bg-[#1D1E2B] text-popover-foreground",
+          "bg-card text-popover-foreground",
           "p-1",
           // Figma shadow: 0px 7px 32px rgba(0,0,0,0.35)
           "shadow-[0px_7px_32px_rgba(0,0,0,0.35)]",
           // Animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
           "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
@@ -131,7 +131,7 @@ function SelectLabel({
     <SelectPrimitive.Label
       className={cn(
         "px-[6px] py-1.5",
-        "text-[11px] font-medium uppercase tracking-wider",
+        "font-medium text-[11px] uppercase tracking-wider",
         "text-muted-foreground",
         className
       )}
@@ -151,11 +151,11 @@ function SelectItem({
       className={cn(
         "relative flex w-full cursor-default select-none items-center",
         // Linear item styling - pixel perfect from Figma
-        "rounded-[6px] py-[8px] pl-[6px] pr-[3px]",
-        "text-[13px] text-[#D2D3E0] outline-none",
+        "rounded-[6px] py-[8px] pr-[3px] pl-[6px]",
+        "text-foreground text-[13px] outline-none",
         "transition-colors duration-75",
         // Focus/hover state - Figma: #26273B
-        "focus:bg-[#26273B] focus:text-foreground",
+        "focus:bg-accent focus:text-foreground",
         // Disabled state
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         // Icon styling

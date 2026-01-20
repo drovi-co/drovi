@@ -8,6 +8,7 @@
 // This is the core router for the unified smart inbox experience.
 //
 
+import type { SourceType } from "@memorystack/ai";
 import { db } from "@memorystack/db";
 import {
   commitment,
@@ -18,10 +19,23 @@ import {
   member,
   message,
   sourceAccount,
+  task,
+  unifiedIntelligenceObject,
+  unifiedObjectSource,
+  user,
 } from "@memorystack/db/schema";
-import { SourceType } from "@memorystack/ai";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, lte, or, sql, isNotNull } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -32,6 +46,54 @@ import { protectedProcedure, router } from "../index";
 /**
  * Unified feed item that can represent a conversation from any source.
  */
+/**
+ * Task priority and status types for inbox items
+ */
+export type TaskPriority = "no_priority" | "low" | "medium" | "high" | "urgent";
+export type TaskStatus =
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "in_review"
+  | "done"
+  | "cancelled";
+
+/**
+ * Task data for an inbox item
+ */
+export interface LinkedTask {
+  id: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  } | null;
+}
+
+/**
+ * Source breadcrumb for cross-source UIOs
+ */
+export interface SourceBreadcrumb {
+  sourceType: string;
+  count: number;
+  sourceName: string;
+}
+
+/**
+ * Unified Intelligence Object linked to a conversation
+ */
+export interface LinkedUIO {
+  id: string;
+  type: "commitment" | "decision" | "topic";
+  title: string;
+  dueDate?: Date | null;
+  status: string;
+  sourceBreadcrumbs: SourceBreadcrumb[];
+}
+
 export interface UnifiedFeedItem {
   id: string;
   sourceType: SourceType;
@@ -57,6 +119,10 @@ export interface UnifiedFeedItem {
   suggestedAction: string | null;
   hasCommitments: boolean;
   hasDecisions: boolean;
+  // Linked task data - if present, shows task controls
+  task?: LinkedTask;
+  // Unified Intelligence Objects linked to this conversation
+  unifiedObjects?: LinkedUIO[];
   // Source-specific metadata
   metadata?: Record<string, unknown>;
 }
@@ -177,7 +243,10 @@ async function getSourceAccountIds(
 
   if (sourceTypes && sourceTypes.length > 0) {
     conditions.push(
-      inArray(sourceAccount.type, sourceTypes as typeof sourceAccount.type.enumValues)
+      inArray(
+        sourceAccount.type,
+        sourceTypes as typeof sourceAccount.type.enumValues
+      )
     );
   }
 
@@ -226,8 +295,12 @@ function extractParticipants(
 ): Array<{ id: string; name?: string; email?: string }> {
   // For calendar events, extract names from metadata
   if (sourceType === "calendar" && metadata) {
-    const organizer = metadata.organizer as { email?: string; name?: string } | undefined;
-    const attendees = metadata.attendees as Array<{ email?: string; name?: string }> | undefined;
+    const organizer = metadata.organizer as
+      | { email?: string; name?: string }
+      | undefined;
+    const attendees = metadata.attendees as
+      | Array<{ email?: string; name?: string }>
+      | undefined;
 
     // Build a name lookup map from metadata
     const nameMap = new Map<string, string>();
@@ -294,7 +367,8 @@ export const unifiedInboxRouter = router({
       // Only include emails when:
       // 1. No source type filter (showing "all") - include legacy emails
       // 2. Source type filter explicitly includes "email"
-      const shouldIncludeLegacyEmails = !input.sourceTypes || input.sourceTypes.includes("email");
+      const shouldIncludeLegacyEmails =
+        !input.sourceTypes || input.sourceTypes.includes("email");
 
       // If no source accounts found for the requested types
       if (accountIds.length === 0) {
@@ -429,32 +503,160 @@ export const unifiedInboxRouter = router({
       const conversationIds = conversations.map((c) => c.id);
 
       // Batch lookup for commitments per conversation
-      const commitmentCounts = conversationIds.length > 0
-        ? await db
-            .select({
-              conversationId: commitment.sourceConversationId,
-              count: sql<number>`count(*)::int`,
-            })
-            .from(commitment)
-            .where(inArray(commitment.sourceConversationId, conversationIds))
-            .groupBy(commitment.sourceConversationId)
-        : [];
+      const commitmentCounts =
+        conversationIds.length > 0
+          ? await db
+              .select({
+                conversationId: commitment.sourceConversationId,
+                count: sql<number>`count(*)::int`,
+              })
+              .from(commitment)
+              .where(inArray(commitment.sourceConversationId, conversationIds))
+              .groupBy(commitment.sourceConversationId)
+          : [];
 
       // Batch lookup for decisions per conversation
-      const decisionCounts = conversationIds.length > 0
-        ? await db
-            .select({
-              conversationId: decision.sourceConversationId,
-              count: sql<number>`count(*)::int`,
-            })
-            .from(decision)
-            .where(inArray(decision.sourceConversationId, conversationIds))
-            .groupBy(decision.sourceConversationId)
-        : [];
+      const decisionCounts =
+        conversationIds.length > 0
+          ? await db
+              .select({
+                conversationId: decision.sourceConversationId,
+                count: sql<number>`count(*)::int`,
+              })
+              .from(decision)
+              .where(inArray(decision.sourceConversationId, conversationIds))
+              .groupBy(decision.sourceConversationId)
+          : [];
+
+      // Batch lookup for tasks linked to conversations
+      const linkedTasks =
+        conversationIds.length > 0
+          ? await db
+              .select({
+                conversationId: task.sourceConversationId,
+                taskId: task.id,
+                status: task.status,
+                priority: task.priority,
+                assigneeId: task.assigneeId,
+                assigneeName: user.name,
+                assigneeEmail: user.email,
+                assigneeImage: user.image,
+              })
+              .from(task)
+              .leftJoin(user, eq(task.assigneeId, user.id))
+              .where(inArray(task.sourceConversationId, conversationIds))
+          : [];
+
+      // Batch lookup for UIOs linked to conversations
+      const linkedUIOs =
+        conversationIds.length > 0
+          ? await db
+              .select({
+                conversationId: unifiedObjectSource.conversationId,
+                uioId: unifiedIntelligenceObject.id,
+                type: unifiedIntelligenceObject.type,
+                title: unifiedIntelligenceObject.canonicalTitle,
+                dueDate: unifiedIntelligenceObject.dueDate,
+                status: unifiedIntelligenceObject.status,
+              })
+              .from(unifiedObjectSource)
+              .innerJoin(
+                unifiedIntelligenceObject,
+                eq(
+                  unifiedObjectSource.unifiedObjectId,
+                  unifiedIntelligenceObject.id
+                )
+              )
+              .where(
+                and(
+                  inArray(unifiedObjectSource.conversationId, conversationIds),
+                  eq(unifiedIntelligenceObject.status, "active")
+                )
+              )
+          : [];
+
+      // Get all UIO IDs for source breadcrumb lookup
+      const uioIds = [...new Set(linkedUIOs.map((u) => u.uioId))];
+      const uioSources =
+        uioIds.length > 0
+          ? await db
+              .select({
+                unifiedObjectId: unifiedObjectSource.unifiedObjectId,
+                sourceType: unifiedObjectSource.sourceType,
+              })
+              .from(unifiedObjectSource)
+              .where(inArray(unifiedObjectSource.unifiedObjectId, uioIds))
+          : [];
+
+      // Build UIO source breadcrumb map
+      const uioSourceMap = new Map<string, Map<string, number>>();
+      for (const source of uioSources) {
+        if (!uioSourceMap.has(source.unifiedObjectId)) {
+          uioSourceMap.set(source.unifiedObjectId, new Map());
+        }
+        const sourceTypeMap = uioSourceMap.get(source.unifiedObjectId)!;
+        sourceTypeMap.set(
+          source.sourceType,
+          (sourceTypeMap.get(source.sourceType) ?? 0) + 1
+        );
+      }
 
       // Create lookup maps
-      const commitmentMap = new Map(commitmentCounts.map((c) => [c.conversationId, c.count]));
-      const decisionMap = new Map(decisionCounts.map((d) => [d.conversationId, d.count]));
+      const commitmentMap = new Map(
+        commitmentCounts.map((c) => [c.conversationId, c.count])
+      );
+      const decisionMap = new Map(
+        decisionCounts.map((d) => [d.conversationId, d.count])
+      );
+      const taskMap = new Map(
+        linkedTasks.map((t) => [
+          t.conversationId,
+          {
+            id: t.taskId,
+            status: t.status as TaskStatus,
+            priority: t.priority as TaskPriority,
+            assignee: t.assigneeId
+              ? {
+                  id: t.assigneeId,
+                  name: t.assigneeName,
+                  email: t.assigneeEmail ?? "",
+                  image: t.assigneeImage,
+                }
+              : null,
+          },
+        ])
+      );
+
+      // Build UIO map by conversation ID
+      const uioMap = new Map<string, LinkedUIO[]>();
+      for (const uio of linkedUIOs) {
+        if (!uio.conversationId) continue;
+        if (!uioMap.has(uio.conversationId)) {
+          uioMap.set(uio.conversationId, []);
+        }
+        // Get source breadcrumbs for this UIO
+        const sourceTypeMap = uioSourceMap.get(uio.uioId);
+        const sourceBreadcrumbs: SourceBreadcrumb[] = sourceTypeMap
+          ? Array.from(sourceTypeMap.entries()).map(([sourceType, count]) => ({
+              sourceType,
+              count,
+              sourceName: getSourceDisplayName(sourceType),
+            }))
+          : [];
+
+        // Only add if not already in the list (avoid duplicates)
+        const existingUios = uioMap.get(uio.conversationId)!;
+        if (!existingUios.some((u) => u.id === uio.uioId)) {
+          existingUios.push({
+            id: uio.uioId,
+            type: uio.type as "commitment" | "decision" | "topic",
+            title: uio.title,
+            dueDate: uio.dueDate,
+            status: uio.status,
+            sourceBreadcrumbs,
+          });
+        }
+      }
 
       // Transform to UnifiedFeedItem format
       const items: UnifiedFeedItem[] = conversations.map((c) => {
@@ -465,11 +667,14 @@ export const unifiedInboxRouter = router({
           c.sourceType as SourceType
         );
 
+        const linkedTask = taskMap.get(c.id);
+
         return {
           id: c.id,
           sourceType: c.sourceType as SourceType,
           sourceAccountId: c.sourceAccountId,
-          sourceAccountName: c.sourceDisplayName ?? getSourceDisplayName(c.sourceType),
+          sourceAccountName:
+            c.sourceDisplayName ?? getSourceDisplayName(c.sourceType),
           externalId: c.externalId,
           conversationType: c.conversationType,
           title: c.title ?? "No subject",
@@ -489,6 +694,8 @@ export const unifiedInboxRouter = router({
           suggestedAction: c.suggestedAction,
           hasCommitments: (commitmentMap.get(c.id) ?? 0) > 0,
           hasDecisions: (decisionMap.get(c.id) ?? 0) > 0,
+          task: linkedTask,
+          unifiedObjects: uioMap.get(c.id),
           metadata: c.metadata as Record<string, unknown> | undefined,
         };
       });
@@ -668,11 +875,27 @@ export const unifiedInboxRouter = router({
       availableTypes: [
         { type: "email", label: "Email", description: "Gmail, Outlook" },
         { type: "slack", label: "Slack", description: "Channels and DMs" },
-        { type: "calendar", label: "Calendar", description: "Google Calendar, Outlook" },
-        { type: "whatsapp", label: "WhatsApp", description: "Messages and groups" },
+        {
+          type: "calendar",
+          label: "Calendar",
+          description: "Google Calendar, Outlook",
+        },
+        {
+          type: "whatsapp",
+          label: "WhatsApp",
+          description: "Messages and groups",
+        },
         { type: "notion", label: "Notion", description: "Pages and databases" },
-        { type: "google_docs", label: "Google Docs", description: "Documents and comments" },
-        { type: "meeting_transcript", label: "Meetings", description: "Transcripts and recordings" },
+        {
+          type: "google_docs",
+          label: "Google Docs",
+          description: "Documents and comments",
+        },
+        {
+          type: "meeting_transcript",
+          label: "Meetings",
+          description: "Transcripts and recordings",
+        },
       ],
     };
   }),
@@ -808,7 +1031,11 @@ export const unifiedInboxRouter = router({
               email: m.senderEmail,
               name: m.senderName,
             },
-            recipients: m.recipientIds as Array<{ id: string; name?: string; type: string }> | null,
+            recipients: m.recipientIds as Array<{
+              id: string;
+              name?: string;
+              type: string;
+            }> | null,
             subject: m.subject,
             body: m.bodyText ?? "",
             bodyHtml: m.bodyHtml,
@@ -851,13 +1078,17 @@ export const unifiedInboxRouter = router({
             name: m.fromName,
           },
           recipients: [
-            ...(m.toRecipients as Array<{ email: string; name?: string }> ?? []).map((r) => ({
+            ...(
+              (m.toRecipients as Array<{ email: string; name?: string }>) ?? []
+            ).map((r) => ({
               id: r.email,
               email: r.email,
               name: r.name,
               type: "to",
             })),
-            ...(m.ccRecipients as Array<{ email: string; name?: string }> ?? []).map((r) => ({
+            ...(
+              (m.ccRecipients as Array<{ email: string; name?: string }>) ?? []
+            ).map((r) => ({
               id: r.email,
               email: r.email,
               name: r.name,
@@ -1010,7 +1241,12 @@ export const unifiedInboxRouter = router({
  * Fall back to email-based inbox when no source accounts are configured.
  */
 async function getEmailFallbackInbox(
-  ctx: { session: { user: { id: string }; session: { activeOrganizationId: string | null } } },
+  ctx: {
+    session: {
+      user: { id: string };
+      session: { activeOrganizationId: string | null };
+    };
+  },
   input: z.infer<typeof listInboxSchema>,
   orgId: string
 ): Promise<{ items: UnifiedFeedItem[]; total: number; hasMore: boolean }> {
@@ -1151,11 +1387,50 @@ async function getEmailFallbackInbox(
     decisionCounts.map((d) => [d.conversationId, d.count])
   );
 
+  // Batch lookup for tasks linked to conversations
+  const linkedTasks =
+    conversationIds.length > 0
+      ? await db
+          .select({
+            conversationId: task.sourceConversationId,
+            taskId: task.id,
+            status: task.status,
+            priority: task.priority,
+            assigneeId: task.assigneeId,
+            assigneeName: user.name,
+            assigneeEmail: user.email,
+            assigneeImage: user.image,
+          })
+          .from(task)
+          .leftJoin(user, eq(task.assigneeId, user.id))
+          .where(inArray(task.sourceConversationId, conversationIds))
+      : [];
+
+  const taskMap = new Map(
+    linkedTasks.map((t) => [
+      t.conversationId,
+      {
+        id: t.taskId,
+        status: t.status as TaskStatus,
+        priority: t.priority as TaskPriority,
+        assignee: t.assigneeId
+          ? {
+              id: t.assigneeId,
+              name: t.assigneeName,
+              email: t.assigneeEmail ?? "",
+              image: t.assigneeImage,
+            }
+          : null,
+      },
+    ])
+  );
+
   // Transform to UnifiedFeedItem
   const items: UnifiedFeedItem[] = threads.map((t) => {
     const convId = t.providerThreadId
       ? externalIdToConversationId.get(t.providerThreadId)
       : undefined;
+    const linkedTask = convId ? taskMap.get(convId) : undefined;
     return {
       id: t.id,
       sourceType: "email" as SourceType,
@@ -1182,6 +1457,7 @@ async function getEmailFallbackInbox(
       suggestedAction: t.suggestedAction,
       hasCommitments: convId ? (commitmentMap.get(convId) ?? 0) > 0 : false,
       hasDecisions: convId ? (decisionMap.get(convId) ?? 0) > 0 : false,
+      task: linkedTask,
     };
   });
 
@@ -1264,7 +1540,11 @@ async function getCombinedInbox(
   const emailAccountIds = emailAccounts.map((a) => a.id);
 
   // Build base conditions for status filters
-  const buildStatusConditions = (isReadCol: any, isStarredCol: any, isArchivedCol: any) => {
+  const buildStatusConditions = (
+    isReadCol: any,
+    isStarredCol: any,
+    isArchivedCol: any
+  ) => {
     if (input.status && input.status.length > 0) {
       const statusConditions = [];
       if (input.status.includes("unread")) {
@@ -1286,8 +1566,14 @@ async function getCombinedInbox(
   };
 
   // Get items from conversation table (new sources)
-  const convConditions = [inArray(conversation.sourceAccountId, sourceAccountIds)];
-  const convStatusCond = buildStatusConditions(conversation.isRead, conversation.isStarred, conversation.isArchived);
+  const convConditions = [
+    inArray(conversation.sourceAccountId, sourceAccountIds),
+  ];
+  const convStatusCond = buildStatusConditions(
+    conversation.isRead,
+    conversation.isStarred,
+    conversation.isArchived
+  );
   if (convStatusCond) convConditions.push(convStatusCond);
   if (input.priority && input.priority.length > 0) {
     convConditions.push(inArray(conversation.priorityTier, input.priority));
@@ -1323,14 +1609,21 @@ async function getCombinedInbox(
       sourceDisplayName: sourceAccount.displayName,
     })
     .from(conversation)
-    .innerJoin(sourceAccount, eq(conversation.sourceAccountId, sourceAccount.id))
+    .innerJoin(
+      sourceAccount,
+      eq(conversation.sourceAccountId, sourceAccount.id)
+    )
     .where(and(...convConditions))
     .orderBy(desc(conversation.lastMessageAt))
     .limit(fetchLimit);
 
   // Get items from emailThread table (legacy emails)
   const emailConditions = [inArray(emailThread.accountId, emailAccountIds)];
-  const emailStatusCond = buildStatusConditions(emailThread.isRead, emailThread.isStarred, emailThread.isArchived);
+  const emailStatusCond = buildStatusConditions(
+    emailThread.isRead,
+    emailThread.isStarred,
+    emailThread.isArchived
+  );
   if (emailStatusCond) emailConditions.push(emailStatusCond);
   if (input.priority && input.priority.length > 0) {
     emailConditions.push(inArray(emailThread.priorityTier, input.priority));
@@ -1348,39 +1641,83 @@ async function getCombinedInbox(
   const allIds = [...allConvIds, ...allThreadIds];
 
   // Batch lookup for commitments
-  const commitmentCounts = allIds.length > 0
-    ? await db
-        .select({
-          conversationId: commitment.sourceConversationId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(commitment)
-        .where(inArray(commitment.sourceConversationId, allIds))
-        .groupBy(commitment.sourceConversationId)
-    : [];
+  const commitmentCounts =
+    allIds.length > 0
+      ? await db
+          .select({
+            conversationId: commitment.sourceConversationId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(commitment)
+          .where(inArray(commitment.sourceConversationId, allIds))
+          .groupBy(commitment.sourceConversationId)
+      : [];
 
   // Batch lookup for decisions
-  const decisionCounts = allIds.length > 0
-    ? await db
-        .select({
-          conversationId: decision.sourceConversationId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(decision)
-        .where(inArray(decision.sourceConversationId, allIds))
-        .groupBy(decision.sourceConversationId)
-    : [];
+  const decisionCounts =
+    allIds.length > 0
+      ? await db
+          .select({
+            conversationId: decision.sourceConversationId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(decision)
+          .where(inArray(decision.sourceConversationId, allIds))
+          .groupBy(decision.sourceConversationId)
+      : [];
+
+  // Batch lookup for tasks linked to conversations
+  const linkedTasks =
+    allConvIds.length > 0
+      ? await db
+          .select({
+            conversationId: task.sourceConversationId,
+            taskId: task.id,
+            status: task.status,
+            priority: task.priority,
+            assigneeId: task.assigneeId,
+            assigneeName: user.name,
+            assigneeEmail: user.email,
+            assigneeImage: user.image,
+          })
+          .from(task)
+          .leftJoin(user, eq(task.assigneeId, user.id))
+          .where(inArray(task.sourceConversationId, allConvIds))
+      : [];
 
   // Create lookup maps
-  const commitmentMap = new Map(commitmentCounts.map((c) => [c.conversationId, c.count]));
-  const decisionMap = new Map(decisionCounts.map((d) => [d.conversationId, d.count]));
+  const commitmentMap = new Map(
+    commitmentCounts.map((c) => [c.conversationId, c.count])
+  );
+  const decisionMap = new Map(
+    decisionCounts.map((d) => [d.conversationId, d.count])
+  );
+  const taskMap = new Map(
+    linkedTasks.map((t) => [
+      t.conversationId,
+      {
+        id: t.taskId,
+        status: t.status as TaskStatus,
+        priority: t.priority as TaskPriority,
+        assignee: t.assigneeId
+          ? {
+              id: t.assigneeId,
+              name: t.assigneeName,
+              email: t.assigneeEmail ?? "",
+              image: t.assigneeImage,
+            }
+          : null,
+      },
+    ])
+  );
 
   // Transform and merge results
   const convItems: UnifiedFeedItem[] = conversations.map((c) => ({
     id: c.id,
     sourceType: c.sourceType as SourceType,
     sourceAccountId: c.sourceAccountId,
-    sourceAccountName: c.sourceDisplayName ?? getSourceDisplayName(c.sourceType),
+    sourceAccountName:
+      c.sourceDisplayName ?? getSourceDisplayName(c.sourceType),
     externalId: c.externalId,
     conversationType: c.conversationType,
     title: c.title ?? "No subject",
@@ -1404,6 +1741,7 @@ async function getCombinedInbox(
     suggestedAction: c.suggestedAction,
     hasCommitments: (commitmentMap.get(c.id) ?? 0) > 0,
     hasDecisions: (decisionMap.get(c.id) ?? 0) > 0,
+    task: taskMap.get(c.id),
     metadata: c.metadata as Record<string, unknown> | undefined,
   }));
 
@@ -1443,7 +1781,10 @@ async function getCombinedInbox(
   });
 
   // Apply pagination - start at offset, take limit items
-  const paginatedItems = allItems.slice(input.offset, input.offset + input.limit);
+  const paginatedItems = allItems.slice(
+    input.offset,
+    input.offset + input.limit
+  );
 
   // Determine if there are more items after this page
   const hasMore = allItems.length > input.offset + input.limit;

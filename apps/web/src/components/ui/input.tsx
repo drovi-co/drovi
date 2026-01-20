@@ -32,7 +32,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         // Error state
         "aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/30",
         // File input styling
-        "file:mr-2 file:border-0 file:bg-transparent file:font-medium file:text-foreground file:text-[12px]",
+        "file:mr-2 file:border-0 file:bg-transparent file:font-medium file:text-[12px] file:text-foreground",
         className
       )}
       data-slot="input"
@@ -45,10 +45,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 /**
  * Linear-style Textarea component
  */
-function Textarea({
-  className,
-  ...props
-}: React.ComponentProps<"textarea">) {
+function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
       className={cn(

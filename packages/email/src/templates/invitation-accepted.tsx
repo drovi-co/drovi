@@ -22,7 +22,7 @@ export function InvitationAcceptedEmail({
   memberName,
   memberEmail,
   organizationName,
-  dashboardUrl = "https://app.memorystack.app/dashboard/team/members",
+  dashboardUrl = "https://app.drovi.io/dashboard/team/members",
 }: InvitationAcceptedEmailProps) {
   return (
     <Html>

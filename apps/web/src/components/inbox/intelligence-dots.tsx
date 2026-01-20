@@ -50,7 +50,7 @@ function IntelligenceDots({
   const showDecision = hasDecisions || (decisionCount ?? 0) > 0;
   const showOpenLoop = hasOpenLoops || (openLoopCount ?? 0) > 0;
 
-  if (!showCommitment && !showDecision && !showOpenLoop) {
+  if (!(showCommitment || showDecision || showOpenLoop)) {
     return null;
   }
 

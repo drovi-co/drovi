@@ -7,14 +7,9 @@
 //
 
 import { db } from "@memorystack/db";
-import {
-  claim,
-  commitment,
-  decision,
-  member,
-} from "@memorystack/db/schema";
+import { claim, commitment, decision, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, sql, gte } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -114,7 +109,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "commitment", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "commitment",
+            targetId: input.targetId,
+          };
         }
 
         case "decision": {
@@ -140,7 +139,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "decision", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "decision",
+            targetId: input.targetId,
+          };
         }
 
         case "claim": {
@@ -166,7 +169,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "claim", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "claim",
+            targetId: input.targetId,
+          };
         }
       }
     }),
@@ -211,7 +218,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "commitment", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "commitment",
+            targetId: input.targetId,
+          };
         }
 
         case "decision": {
@@ -237,7 +248,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "decision", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "decision",
+            targetId: input.targetId,
+          };
         }
 
         case "claim": {
@@ -263,7 +278,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "claim", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "claim",
+            targetId: input.targetId,
+          };
         }
       }
     }),
@@ -315,7 +334,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "commitment", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "commitment",
+            targetId: input.targetId,
+          };
         }
 
         case "decision": {
@@ -349,7 +372,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "decision", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "decision",
+            targetId: input.targetId,
+          };
         }
 
         case "claim": {
@@ -376,7 +403,11 @@ export const feedbackRouter = router({
             });
           }
 
-          return { success: true, targetType: "claim", targetId: input.targetId };
+          return {
+            success: true,
+            targetType: "claim",
+            targetId: input.targetId,
+          };
         }
       }
     }),
@@ -456,19 +487,29 @@ export const feedbackRouter = router({
       // Calculate accuracy rates
       const commitmentAccuracy = commitmentMetrics?.total
         ? ((commitmentMetrics.verified ?? 0) /
-            Math.max(1, (commitmentMetrics.verified ?? 0) + (commitmentMetrics.dismissed ?? 0))) *
+            Math.max(
+              1,
+              (commitmentMetrics.verified ?? 0) +
+                (commitmentMetrics.dismissed ?? 0)
+            )) *
           100
         : null;
 
       const decisionAccuracy = decisionMetrics?.total
         ? ((decisionMetrics.verified ?? 0) /
-            Math.max(1, (decisionMetrics.verified ?? 0) + (decisionMetrics.dismissed ?? 0))) *
+            Math.max(
+              1,
+              (decisionMetrics.verified ?? 0) + (decisionMetrics.dismissed ?? 0)
+            )) *
           100
         : null;
 
       const claimAccuracy = claimMetrics?.total
         ? ((claimMetrics.verified ?? 0) /
-            Math.max(1, (claimMetrics.verified ?? 0) + (claimMetrics.dismissed ?? 0))) *
+            Math.max(
+              1,
+              (claimMetrics.verified ?? 0) + (claimMetrics.dismissed ?? 0)
+            )) *
           100
         : null;
 
@@ -486,7 +527,8 @@ export const feedbackRouter = router({
         (decisionMetrics?.verified ?? 0) +
         (claimMetrics?.verified ?? 0);
 
-      const overallAccuracy = totalReviewed > 0 ? (totalVerified / totalReviewed) * 100 : null;
+      const overallAccuracy =
+        totalReviewed > 0 ? (totalVerified / totalReviewed) * 100 : null;
 
       return {
         period: { days: input.days, since },
@@ -530,7 +572,9 @@ export const feedbackRouter = router({
       z.object({
         organizationId: z.string().min(1),
         limit: z.number().int().min(1).max(100).default(50),
-        targetType: z.enum(["commitment", "decision", "claim", "all"]).default("all"),
+        targetType: z
+          .enum(["commitment", "decision", "claim", "all"])
+          .default("all"),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -566,7 +610,11 @@ export const feedbackRouter = router({
             )
           )
           .orderBy(desc(commitment.updatedAt))
-          .limit(input.targetType === "commitment" ? input.limit : Math.floor(input.limit / 3));
+          .limit(
+            input.targetType === "commitment"
+              ? input.limit
+              : Math.floor(input.limit / 3)
+          );
 
         for (const c of commitments) {
           results.push({
@@ -597,7 +645,11 @@ export const feedbackRouter = router({
             )
           )
           .orderBy(desc(decision.updatedAt))
-          .limit(input.targetType === "decision" ? input.limit : Math.floor(input.limit / 3));
+          .limit(
+            input.targetType === "decision"
+              ? input.limit
+              : Math.floor(input.limit / 3)
+          );
 
         for (const d of decisions) {
           results.push({
@@ -628,7 +680,11 @@ export const feedbackRouter = router({
             )
           )
           .orderBy(desc(claim.updatedAt))
-          .limit(input.targetType === "claim" ? input.limit : Math.floor(input.limit / 3));
+          .limit(
+            input.targetType === "claim"
+              ? input.limit
+              : Math.floor(input.limit / 3)
+          );
 
         for (const c of claims) {
           results.push({

@@ -25,12 +25,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "MEMORYSTACK - AI Email Intelligence Platform",
+        title: "Drovi - AI Email Intelligence Platform",
       },
       {
         name: "description",
         content:
-          "MEMORYSTACK transforms your inbox into an intelligent memory system. Never forget commitments, track decisions, and get AI-powered insights from your email history.",
+          "Drovi transforms your inbox into an intelligent memory system. Never forget commitments, track decisions, and get AI-powered insights from your email history.",
       },
     ],
     links: [
@@ -58,8 +58,10 @@ function RootComponent() {
         <Toaster richColors />
         <AutoUpdaterDialog />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
-      <ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
+      {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
+      {import.meta.env.DEV && (
+        <ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
+      )}
     </>
   );
 }

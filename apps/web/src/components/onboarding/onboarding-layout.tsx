@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 
 interface OnboardingLayoutProps {
   children: React.ReactNode;
@@ -23,10 +23,12 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             className="mb-12 flex items-center gap-2 font-semibold text-lg"
             to="/"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <span>MEMORYSTACK</span>
+            <img
+              alt="Drovi"
+              className="h-8 w-8 rounded-lg"
+              src="/logo-dark.jpg"
+            />
+            <span>Drovi</span>
           </Link>
 
           {/* Steps */}
@@ -89,8 +91,7 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
           </div>
 
           <p className="text-center text-muted-foreground text-xs">
-            &copy; {new Date().getFullYear()} MEMORYSTACK. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} Drovi. All rights reserved.
           </p>
         </div>
       </div>
@@ -100,10 +101,12 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
         {/* Mobile header */}
         <div className="flex items-center justify-between border-b p-4 lg:hidden">
           <Link className="flex items-center gap-2 font-semibold" to="/">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Sparkles className="h-3.5 w-3.5" />
-            </div>
-            <span>MEMORYSTACK</span>
+            <img
+              alt="Drovi"
+              className="h-7 w-7 rounded-lg"
+              src="/logo-dark.jpg"
+            />
+            <span>Drovi</span>
           </Link>
           <span className="text-muted-foreground text-sm">
             Step {step} of 4

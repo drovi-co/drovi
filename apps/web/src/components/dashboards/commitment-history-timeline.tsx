@@ -24,7 +24,6 @@ import {
   Play,
   Sparkles,
   ThumbsUp,
-  User,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -214,15 +213,17 @@ export function CommitmentHistoryTimeline({
   return (
     <div className={cn("relative", className)}>
       {/* Timeline Header */}
-      <div className="mb-6 pb-4 border-b">
+      <div className="mb-6 border-b pb-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold truncate">{commitmentTitle}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-semibold text-lg">
+              {commitmentTitle}
+            </h3>
+            <p className="mt-1 text-muted-foreground text-sm">
               {events.length} event{events.length !== 1 ? "s" : ""} in history
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             {confidence !== undefined && (
               <ConfidenceBadge
                 confidence={confidence}
@@ -231,8 +232,8 @@ export function CommitmentHistoryTimeline({
               />
             )}
             {onShowEvidence && (
-              <Button variant="outline" size="sm" onClick={onShowEvidence}>
-                <Eye className="h-4 w-4 mr-1" />
+              <Button onClick={onShowEvidence} size="sm" variant="outline">
+                <Eye className="mr-1 h-4 w-4" />
                 Evidence
               </Button>
             )}
@@ -243,7 +244,7 @@ export function CommitmentHistoryTimeline({
       {/* Timeline */}
       <div className="relative">
         {/* Vertical Line */}
-        <div className="absolute left-[18px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500 via-blue-500 to-green-500" />
+        <div className="absolute top-0 bottom-0 left-[18px] w-0.5 bg-gradient-to-b from-purple-500 via-blue-500 to-green-500" />
 
         {/* Events */}
         <div className="space-y-0">
@@ -255,18 +256,18 @@ export function CommitmentHistoryTimeline({
 
             return (
               <motion.div
-                key={event.id}
-                initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
                 className="relative"
+                initial={{ opacity: 0, x: -20 }}
+                key={event.id}
+                transition={{ delay: index * 0.05 }}
               >
                 {/* Event Node */}
                 <div className="flex items-start gap-4 py-4">
                   {/* Icon Circle */}
                   <div
                     className={cn(
-                      "relative z-10 flex items-center justify-center w-9 h-9 rounded-full shrink-0",
+                      "relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                       getEventColor(event.type),
                       "ring-4 ring-background"
                     )}
@@ -276,39 +277,51 @@ export function CommitmentHistoryTimeline({
 
                   {/* Event Card */}
                   <motion.button
-                    type="button"
-                    onClick={() => toggleEvent(event.id)}
                     className={cn(
-                      "flex-1 text-left rounded-lg p-4 transition-all",
+                      "flex-1 rounded-lg p-4 text-left transition-all",
                       "border hover:border-primary/50",
                       getEventBgColor(event.type),
                       isExpanded && "ring-2 ring-primary/30"
                     )}
+                    onClick={() => toggleEvent(event.id)}
+                    type="button"
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                   >
                     {/* Event Header */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-sm">{event.title}</h4>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(new Date(event.timestamp), "MMM d, yyyy 'at' h:mm a")}
+                        <p className="mt-0.5 text-muted-foreground text-xs">
+                          {format(
+                            new Date(event.timestamp),
+                            "MMM d, yyyy 'at' h:mm a"
+                          )}
                           <span className="mx-1">•</span>
-                          {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(event.timestamp), {
+                            addSuffix: true,
+                          })}
                         </p>
                       </div>
 
                       {/* Status Badge for status changes */}
-                      {event.type === "status_change" && event.metadata?.newStatus && (
-                        <Badge variant="secondary" className="text-[10px] shrink-0">
-                          {event.metadata.newStatus}
-                        </Badge>
-                      )}
+                      {event.type === "status_change" &&
+                        event.metadata?.newStatus && (
+                          <Badge
+                            className="shrink-0 text-[10px]"
+                            variant="secondary"
+                          >
+                            {event.metadata.newStatus}
+                          </Badge>
+                        )}
 
                       {/* Completed badge */}
                       {event.type === "completed" && (
-                        <Badge variant="default" className="bg-green-500 text-[10px] shrink-0">
-                          <Check className="h-3 w-3 mr-1" />
+                        <Badge
+                          className="shrink-0 bg-green-500 text-[10px]"
+                          variant="default"
+                        >
+                          <Check className="mr-1 h-3 w-3" />
                           Done
                         </Badge>
                       )}
@@ -316,7 +329,7 @@ export function CommitmentHistoryTimeline({
 
                     {/* Description */}
                     {event.description && (
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <p className="mt-2 text-muted-foreground text-sm">
                         {event.description}
                       </p>
                     )}
@@ -324,66 +337,93 @@ export function CommitmentHistoryTimeline({
                     {/* Expanded Details */}
                     {isExpanded && event.metadata && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
+                        className="mt-3 border-border/50 border-t pt-3"
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 pt-3 border-t border-border/50"
+                        initial={{ opacity: 0, height: 0 }}
                       >
                         <div className="grid grid-cols-2 gap-3 text-xs">
                           {event.metadata.previousStatus && (
                             <div>
-                              <span className="text-muted-foreground">Previous Status:</span>
-                              <span className="ml-2 font-medium">{event.metadata.previousStatus}</span>
+                              <span className="text-muted-foreground">
+                                Previous Status:
+                              </span>
+                              <span className="ml-2 font-medium">
+                                {event.metadata.previousStatus}
+                              </span>
                             </div>
                           )}
                           {event.metadata.newStatus && (
                             <div>
-                              <span className="text-muted-foreground">New Status:</span>
-                              <span className="ml-2 font-medium">{event.metadata.newStatus}</span>
+                              <span className="text-muted-foreground">
+                                New Status:
+                              </span>
+                              <span className="ml-2 font-medium">
+                                {event.metadata.newStatus}
+                              </span>
                             </div>
                           )}
                           {event.metadata.snoozedUntil && (
                             <div className="col-span-2">
-                              <span className="text-muted-foreground">Snoozed Until:</span>
+                              <span className="text-muted-foreground">
+                                Snoozed Until:
+                              </span>
                               <span className="ml-2 font-medium">
-                                {format(new Date(event.metadata.snoozedUntil), "MMM d, yyyy")}
+                                {format(
+                                  new Date(event.metadata.snoozedUntil),
+                                  "MMM d, yyyy"
+                                )}
                               </span>
                             </div>
                           )}
-                          {event.metadata.previousDueDate && event.metadata.newDueDate && (
-                            <div className="col-span-2">
-                              <span className="text-muted-foreground">Due Date:</span>
-                              <span className="ml-2">
-                                <span className="line-through text-muted-foreground">
-                                  {format(new Date(event.metadata.previousDueDate), "MMM d")}
+                          {event.metadata.previousDueDate &&
+                            event.metadata.newDueDate && (
+                              <div className="col-span-2">
+                                <span className="text-muted-foreground">
+                                  Due Date:
                                 </span>
-                                <span className="mx-2">→</span>
-                                <span className="font-medium">
-                                  {format(new Date(event.metadata.newDueDate), "MMM d, yyyy")}
+                                <span className="ml-2">
+                                  <span className="text-muted-foreground line-through">
+                                    {format(
+                                      new Date(event.metadata.previousDueDate),
+                                      "MMM d"
+                                    )}
+                                  </span>
+                                  <span className="mx-2">→</span>
+                                  <span className="font-medium">
+                                    {format(
+                                      new Date(event.metadata.newDueDate),
+                                      "MMM d, yyyy"
+                                    )}
+                                  </span>
                                 </span>
-                              </span>
-                            </div>
-                          )}
+                              </div>
+                            )}
                           {event.metadata.actor && (
-                            <div className="col-span-2 flex items-center gap-2 mt-1">
+                            <div className="col-span-2 mt-1 flex items-center gap-2">
                               <Avatar className="h-5 w-5">
                                 <AvatarFallback className="text-[8px]">
-                                  {event.metadata.actor.name?.[0] ?? event.metadata.actor.email?.[0] ?? "U"}
+                                  {event.metadata.actor.name?.[0] ??
+                                    event.metadata.actor.email?.[0] ??
+                                    "U"}
                                 </AvatarFallback>
                               </Avatar>
                               <span className="text-muted-foreground">
-                                {event.metadata.actor.name ?? event.metadata.actor.email}
+                                {event.metadata.actor.name ??
+                                  event.metadata.actor.email}
                               </span>
                             </div>
                           )}
                           {event.metadata.note && (
-                            <div className="col-span-2 p-2 bg-background/50 rounded text-sm">
+                            <div className="col-span-2 rounded bg-background/50 p-2 text-sm">
                               "{event.metadata.note}"
                             </div>
                           )}
                           {event.metadata.confidence !== undefined && (
                             <div className="col-span-2">
-                              <span className="text-muted-foreground">Extraction Confidence:</span>
+                              <span className="text-muted-foreground">
+                                Extraction Confidence:
+                              </span>
                               <span className="ml-2 font-medium">
                                 {Math.round(event.metadata.confidence * 100)}%
                               </span>
@@ -394,17 +434,19 @@ export function CommitmentHistoryTimeline({
                     )}
 
                     {/* Expand hint */}
-                    {event.metadata && Object.keys(event.metadata).length > 0 && !isExpanded && (
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Click to see details
-                      </p>
-                    )}
+                    {event.metadata &&
+                      Object.keys(event.metadata).length > 0 &&
+                      !isExpanded && (
+                        <p className="mt-2 text-[10px] text-muted-foreground">
+                          Click to see details
+                        </p>
+                      )}
                   </motion.button>
                 </div>
 
                 {/* Connector Lines for visual flow */}
                 {!isLast && (
-                  <div className="absolute left-[18px] top-[52px] bottom-[-16px] w-0.5">
+                  <div className="absolute top-[52px] bottom-[-16px] left-[18px] w-0.5">
                     <div className="h-full bg-gradient-to-b from-transparent via-border to-transparent" />
                   </div>
                 )}
@@ -415,15 +457,15 @@ export function CommitmentHistoryTimeline({
 
         {/* Timeline End Marker */}
         <div className="relative flex items-center gap-4 pt-4">
-          <div className="relative z-10 flex items-center justify-center w-9 h-9 rounded-full bg-muted ring-4 ring-background">
+          <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-muted ring-4 ring-background">
             <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="flex-1 text-sm text-muted-foreground">
+          <div className="flex-1 text-muted-foreground text-sm">
             {sourceThreadId ? (
               <button
-                type="button"
+                className="underline transition-colors hover:text-foreground"
                 onClick={() => onThreadClick?.(sourceThreadId)}
-                className="hover:text-foreground transition-colors underline"
+                type="button"
               >
                 View original email thread
               </button>
@@ -453,7 +495,10 @@ export function CompactTimeline({
   className,
 }: CompactTimelineProps) {
   const sortedEvents = [...events]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
     .slice(0, maxEvents);
 
   return (
@@ -461,19 +506,21 @@ export function CompactTimeline({
       {sortedEvents.map((event) => {
         const Icon = getEventIcon(event.type);
         return (
-          <div key={event.id} className="flex items-center gap-3">
+          <div className="flex items-center gap-3" key={event.id}>
             <div
               className={cn(
-                "flex items-center justify-center w-6 h-6 rounded-full shrink-0",
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
                 getEventColor(event.type)
               )}
             >
               <Icon className="h-3 w-3 text-white" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm truncate">{event.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">{event.title}</p>
+              <p className="text-muted-foreground text-xs">
+                {formatDistanceToNow(new Date(event.timestamp), {
+                  addSuffix: true,
+                })}
               </p>
             </div>
           </div>

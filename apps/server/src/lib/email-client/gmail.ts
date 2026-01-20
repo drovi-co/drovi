@@ -215,9 +215,10 @@ function convertGmailMessagePart(part: GmailMessagePart): MessagePart {
 function formatRecipient(recipient: EmailRecipient): string {
   if (recipient.name) {
     // Encode name if it contains special characters
-    const encodedName = recipient.name.includes(",") || recipient.name.includes('"')
-      ? `"${recipient.name.replace(/"/g, '\\"')}"`
-      : recipient.name;
+    const encodedName =
+      recipient.name.includes(",") || recipient.name.includes('"')
+        ? `"${recipient.name.replace(/"/g, '\\"')}"`
+        : recipient.name;
     return `${encodedName} <${recipient.email}>`;
   }
   return recipient.email;
@@ -284,7 +285,9 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
   // Encode subject for non-ASCII characters
   const subject = input.subject;
   if (/[^\x00-\x7F]/.test(subject)) {
-    lines.push(`Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`);
+    lines.push(
+      `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`
+    );
   } else {
     lines.push(`Subject: ${subject}`);
   }
@@ -312,7 +315,9 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
     lines.push(`--${mixedBoundary}`);
 
     if (input.bodyHtml) {
-      lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      lines.push(
+        `Content-Type: multipart/alternative; boundary="${altBoundary}"`
+      );
       lines.push("");
 
       // Plain text part
@@ -320,7 +325,11 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
       lines.push("Content-Type: text/plain; charset=UTF-8");
       lines.push("Content-Transfer-Encoding: base64");
       lines.push("");
-      lines.push(Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString("base64"));
+      lines.push(
+        Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString(
+          "base64"
+        )
+      );
 
       // HTML part
       lines.push(`--${altBoundary}`);
@@ -343,11 +352,15 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
       lines.push(`--${mixedBoundary}`);
 
       // Content-Type with filename
-      lines.push(`Content-Type: ${attachment.mimeType}; name=${encodeFilename(attachment.filename)}`);
+      lines.push(
+        `Content-Type: ${attachment.mimeType}; name=${encodeFilename(attachment.filename)}`
+      );
 
       // Content-Disposition
       const disposition = attachment.isInline ? "inline" : "attachment";
-      lines.push(`Content-Disposition: ${disposition}; filename=${encodeFilename(attachment.filename)}`);
+      lines.push(
+        `Content-Disposition: ${disposition}; filename=${encodeFilename(attachment.filename)}`
+      );
 
       // Content-ID for inline attachments
       if (attachment.contentId) {
@@ -368,7 +381,9 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
   } else {
     // No attachments - simple structure
     if (input.bodyHtml) {
-      lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      lines.push(
+        `Content-Type: multipart/alternative; boundary="${altBoundary}"`
+      );
       lines.push("");
 
       // Plain text part
@@ -376,7 +391,11 @@ function buildMimeMessage(input: EmailComposeInput, fromEmail: string): string {
       lines.push("Content-Type: text/plain; charset=UTF-8");
       lines.push("Content-Transfer-Encoding: base64");
       lines.push("");
-      lines.push(Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString("base64"));
+      lines.push(
+        Buffer.from(input.bodyText || stripHtml(input.bodyHtml)).toString(
+          "base64"
+        )
+      );
 
       // HTML part
       lines.push(`--${altBoundary}`);
@@ -674,7 +693,10 @@ export class GmailEmailClient implements EmailClient {
       }
 
       // Log successful fetch for debugging
-      log.debug("Fetched thread with messages", { threadId, messageCount: messages.length });
+      log.debug("Fetched thread with messages", {
+        threadId,
+        messageCount: messages.length,
+      });
 
       const firstMessage = messages[0];
       const lastMessage = messages.at(-1);

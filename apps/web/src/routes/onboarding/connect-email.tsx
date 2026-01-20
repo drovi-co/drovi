@@ -1,6 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, CheckCircle2, Loader2, Mail, MailPlus } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Hash,
+  Loader2,
+  MailPlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OnboardingLayout } from "@/components/onboarding/onboarding-layout";
@@ -40,8 +47,12 @@ const OutlookIcon = () => (
 
 function ConnectEmailPage() {
   const navigate = useNavigate();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
-  const [isConnecting, setIsConnecting] = useState<"gmail" | "outlook" | null>(null);
+  const { data: activeOrg, isPending: orgLoading } =
+    authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
+  const [isConnecting, setIsConnecting] = useState<
+    "gmail" | "outlook" | "slack" | "notion" | null
+  >(null);
 
   // Check URL params for success/error messages from OAuth callback
   const searchParams = new URLSearchParams(window.location.search);
@@ -104,6 +115,34 @@ function ConnectEmailPage() {
     });
   };
 
+  const handleConnectSlack = () => {
+    if (!(activeOrg?.id && session?.user?.id)) {
+      toast.error("Please create an organization first");
+      return;
+    }
+    setIsConnecting("slack");
+    const params = new URLSearchParams({
+      organizationId: activeOrg.id,
+      userId: session.user.id,
+      redirect: "/onboarding/connect-email?success=true&source=slack",
+    });
+    window.location.href = `/api/oauth/slack/authorize?${params.toString()}`;
+  };
+
+  const handleConnectNotion = () => {
+    if (!(activeOrg?.id && session?.user?.id)) {
+      toast.error("Please create an organization first");
+      return;
+    }
+    setIsConnecting("notion");
+    const params = new URLSearchParams({
+      organizationId: activeOrg.id,
+      userId: session.user.id,
+      redirect: "/onboarding/connect-email?success=true&source=notion",
+    });
+    window.location.href = `/api/oauth/notion/authorize?${params.toString()}`;
+  };
+
   const handleSkip = () => {
     navigate({ to: "/onboarding/invite-team" });
   };
@@ -142,12 +181,12 @@ function ConnectEmailPage() {
             )}
           </div>
           <CardTitle className="text-2xl">
-            {hasConnectedAccount ? "Email Connected!" : "Connect Your Email"}
+            {hasConnectedAccount ? "Source Connected!" : "Connect Your Sources"}
           </CardTitle>
           <CardDescription className="text-base">
             {hasConnectedAccount
-              ? "Your email account is ready. You can add more accounts later."
-              : "Connect your email to start extracting insights, commitments, and decisions."}
+              ? "Your source is connected. You can add more sources from settings."
+              : "Connect your email, Slack, or Notion to start extracting insights."}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -157,11 +196,15 @@ function ConnectEmailPage() {
               <div className="space-y-2">
                 {accounts.map((account) => (
                   <div
-                    key={account.id}
                     className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3"
+                    key={account.id}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      {account.provider === "gmail" ? <GmailIcon /> : <OutlookIcon />}
+                      {account.provider === "gmail" ? (
+                        <GmailIcon />
+                      ) : (
+                        <OutlookIcon />
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-sm">{account.email}</p>
@@ -181,76 +224,133 @@ function ConnectEmailPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Provider options */}
-              <div className="space-y-3">
+              {/* Email Providers */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+                  Email
+                </h4>
+                <div className="space-y-2">
+                  <Button
+                    className="h-12 w-full justify-start gap-3"
+                    disabled={
+                      isConnecting !== null || !providers?.gmail?.available
+                    }
+                    onClick={() => handleConnect("gmail")}
+                    variant="outline"
+                  >
+                    {isConnecting === "gmail" ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
+                        <GmailIcon />
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <p className="font-medium text-sm">Gmail</p>
+                      <p className="text-muted-foreground text-xs">
+                        Google Workspace or personal
+                      </p>
+                    </div>
+                  </Button>
+
+                  <Button
+                    className="h-12 w-full justify-start gap-3"
+                    disabled={
+                      isConnecting !== null || !providers?.outlook?.available
+                    }
+                    onClick={() => handleConnect("outlook")}
+                    variant="outline"
+                  >
+                    {isConnecting === "outlook" ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                        <OutlookIcon />
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <p className="font-medium text-sm">Outlook</p>
+                      <p className="text-muted-foreground text-xs">
+                        Microsoft 365 or Outlook.com
+                      </p>
+                    </div>
+                    {!providers?.outlook?.available && (
+                      <span className="ml-auto text-muted-foreground text-xs">
+                        Coming soon
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Team Chat */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+                  Team Chat
+                </h4>
                 <Button
-                  className="h-14 w-full justify-start gap-3"
+                  className="h-12 w-full justify-start gap-3"
+                  disabled={isConnecting !== null}
+                  onClick={handleConnectSlack}
                   variant="outline"
-                  onClick={() => handleConnect("gmail")}
-                  disabled={
-                    isConnecting !== null || !providers?.gmail?.available
-                  }
                 >
-                  {isConnecting === "gmail" ? (
+                  {isConnecting === "slack" ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
-                      <GmailIcon />
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: "#4A154B20" }}
+                    >
+                      <Hash className="h-5 w-5" style={{ color: "#4A154B" }} />
                     </div>
                   )}
                   <div className="text-left">
-                    <p className="font-medium">Connect Gmail</p>
+                    <p className="font-medium text-sm">Slack</p>
                     <p className="text-muted-foreground text-xs">
-                      Google Workspace or personal Gmail
+                      Channels, DMs, and threads
                     </p>
                   </div>
                 </Button>
+              </div>
 
+              {/* Knowledge Base */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+                  Knowledge Base
+                </h4>
                 <Button
-                  className="h-14 w-full justify-start gap-3"
+                  className="h-12 w-full justify-start gap-3"
+                  disabled={isConnecting !== null}
+                  onClick={handleConnectNotion}
                   variant="outline"
-                  onClick={() => handleConnect("outlook")}
-                  disabled={
-                    isConnecting !== null ||
-                    !providers?.outlook?.available
-                  }
                 >
-                  {isConnecting === "outlook" ? (
+                  {isConnecting === "notion" ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                      <OutlookIcon />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                      <FileText className="h-5 w-5" />
                     </div>
                   )}
                   <div className="text-left">
-                    <p className="font-medium">Connect Outlook</p>
+                    <p className="font-medium text-sm">Notion</p>
                     <p className="text-muted-foreground text-xs">
-                      Microsoft 365 or Outlook.com
+                      Pages, databases, and comments
                     </p>
                   </div>
-                  {!providers?.outlook?.available && (
-                    <span className="ml-auto text-muted-foreground text-xs">
-                      Coming soon
-                    </span>
-                  )}
                 </Button>
               </div>
 
               {/* Info */}
               <div className="rounded-lg bg-muted/50 p-3">
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  MEMORYSTACK will analyze your emails to extract commitments,
-                  decisions, and insights. We never share your data with third
-                  parties. You can disconnect at any time.
+                  Drovi will analyze your connected sources to extract
+                  commitments, decisions, and insights. We never share your data
+                  with third parties. You can manage connections at any time.
                 </p>
               </div>
 
               {/* Skip option */}
-              <Button
-                className="w-full"
-                variant="ghost"
-                onClick={handleSkip}
-              >
+              <Button className="w-full" onClick={handleSkip} variant="ghost">
                 Skip for now
               </Button>
             </div>

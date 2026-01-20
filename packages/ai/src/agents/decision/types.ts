@@ -120,9 +120,7 @@ export const ExtractedDecisionSchema = z.object({
   confidence: z.number().min(0).max(1),
 
   // Decision characteristics
-  isExplicit: z
-    .boolean()
-    .describe("Explicitly stated vs inferred"),
+  isExplicit: z.boolean().describe("Explicitly stated vs inferred"),
   isTentative: z.boolean().describe("Subject to change"),
   requiresApproval: z.boolean().describe("Needs approval"),
 
@@ -208,9 +206,7 @@ export const DecisionExtractionResponseSchema = z.object({
         .nullable()
         .describe("Emails of other participants"),
       decidedAt: z.string().describe("When decided (ISO date from message)"),
-      isExplicit: z
-        .boolean()
-        .describe("Whether explicitly stated"),
+      isExplicit: z.boolean().describe("Whether explicitly stated"),
       isTentative: z
         .boolean()
         .describe("Whether provisional/subject to change"),

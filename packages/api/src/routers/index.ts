@@ -22,8 +22,10 @@ import { tasksRouter } from "./tasks";
 import { threadsRouter } from "./threads";
 import { triageRouter } from "./triage";
 import { unifiedInboxRouter } from "./unified-inbox";
+import { unifiedObjectsRouter } from "./unified-objects";
 import { uploadsRouter } from "./uploads";
 import { userRouter } from "./user";
+import { waitlistRouter } from "./waitlist";
 import { webhooksRouter } from "./webhooks";
 
 export const appRouter = router({
@@ -68,6 +70,8 @@ export const appRouter = router({
   risk: riskRouter,
   // Unified Inbox API (Multi-Source Smart Inbox)
   unifiedInbox: unifiedInboxRouter,
+  // Unified Intelligence Objects API (Cross-Source UIOs)
+  unifiedObjects: unifiedObjectsRouter,
   // User Feedback API (accuracy tracking)
   feedback: feedbackRouter,
   // Credits management
@@ -88,6 +92,8 @@ export const appRouter = router({
   organizations: organizationsRouter,
   // Admin operations
   admin: adminRouter,
+  // Waitlist management (public + admin)
+  waitlist: waitlistRouter,
 });
 
 export type AppRouter = typeof appRouter;

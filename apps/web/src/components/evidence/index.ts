@@ -5,21 +5,18 @@
 // The "Show Me" capability - every AI extraction needs one-click proof.
 //
 
-export { EvidenceDetailSheet } from "./evidence-detail-sheet";
+export type { ConfidenceBadgeProps } from "./confidence-badge";
+export { ConfidenceBadge } from "./confidence-badge";
 export type {
+  ConfidenceFactor,
   EvidenceData,
   EvidenceSource,
   EvidenceType,
-  ConfidenceFactor,
   OtherMention,
   UserCorrection,
 } from "./evidence-detail-sheet";
-
-export { ShowMeButton } from "./show-me-button";
-export type { ShowMeButtonProps } from "./show-me-button";
-
-export { ConfidenceBadge } from "./confidence-badge";
-export type { ConfidenceBadgeProps } from "./confidence-badge";
-
-export { EvidencePopover } from "./evidence-popover";
+export { EvidenceDetailSheet } from "./evidence-detail-sheet";
 export type { EvidencePopoverData } from "./evidence-popover";
+export { EvidencePopover } from "./evidence-popover";
+export type { ShowMeButtonProps } from "./show-me-button";
+export { ShowMeButton } from "./show-me-button";

@@ -1,28 +1,10 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   Archive,
-  ArrowRight,
   Bell,
   BookOpen,
   CheckCircle2,
@@ -42,8 +24,25 @@ import {
   Trash2,
   UserCheck,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -197,18 +196,18 @@ export function ThreadBrief({
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "group relative rounded-lg border transition-all duration-200 overflow-hidden",
-        "hover:shadow-md hover:border-foreground/20",
-        thread.isUnread && "bg-accent/30 border-accent",
-        isSelected && "ring-2 ring-primary border-primary",
+        "group relative overflow-hidden rounded-lg border transition-all duration-200",
+        "hover:border-foreground/20 hover:shadow-md",
+        thread.isUnread && "border-accent bg-accent/30",
+        isSelected && "border-primary ring-2 ring-primary",
         thread.priority === "urgent" && "border-red-500/30",
         className
       )}
+      exit={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: 10 }}
+      layout
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -216,14 +215,14 @@ export function ThreadBrief({
       {(thread.priority === "urgent" || thread.priority === "high") && (
         <div
           className={cn(
-            "absolute left-0 top-0 bottom-0 w-1 rounded-l-lg",
+            "absolute top-0 bottom-0 left-0 w-1 rounded-l-lg",
             thread.priority === "urgent" ? "bg-red-500" : "bg-amber-500"
           )}
         />
       )}
 
       <div
-        className="flex items-start gap-3 p-3 pl-4 cursor-pointer"
+        className="flex cursor-pointer items-start gap-3 p-3 pl-4"
         onClick={() => onClick?.(thread.id)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -237,10 +236,10 @@ export function ThreadBrief({
         <div className="pt-1" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={isSelected}
+            className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=checked]:opacity-100"
             onCheckedChange={(checked) =>
               onSelect?.(thread.id, checked as boolean)
             }
-            className="opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
           />
         </div>
 
@@ -257,20 +256,20 @@ export function ThreadBrief({
             </AvatarFallback>
           </Avatar>
           {primaryParticipant?.isVip && (
-            <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center">
-              <Star className="h-2.5 w-2.5 text-white fill-white" />
+            <div className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500">
+              <Star className="h-2.5 w-2.5 fill-white text-white" />
             </div>
           )}
         </div>
 
         {/* Main content */}
-        <div className="flex-1 min-w-0 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1">
           {/* Header row */}
           <div className="flex items-center gap-2">
             {/* Sender name */}
             <span
               className={cn(
-                "text-sm truncate",
+                "truncate text-sm",
                 thread.isUnread ? "font-semibold" : "font-medium"
               )}
             >
@@ -278,7 +277,7 @@ export function ThreadBrief({
             </span>
 
             {otherParticipantsCount > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-muted-foreground text-xs">
                 +{otherParticipantsCount}
               </span>
             )}
@@ -319,7 +318,7 @@ export function ThreadBrief({
             )}
 
             {/* Timestamp */}
-            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+            <span className="ml-auto whitespace-nowrap text-muted-foreground text-xs">
               {formatDistanceToNow(thread.lastMessageDate, { addSuffix: true })}
             </span>
           </div>
@@ -327,7 +326,7 @@ export function ThreadBrief({
           {/* Subject */}
           <p
             className={cn(
-              "text-sm truncate",
+              "truncate text-sm",
               thread.isUnread ? "font-medium" : "text-foreground/90"
             )}
           >
@@ -336,8 +335,8 @@ export function ThreadBrief({
 
           {/* AI Brief - THE STAR OF THE SHOW */}
           <div className="flex items-start gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-purple-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" />
+            <p className="line-clamp-2 text-muted-foreground text-sm leading-relaxed">
               {thread.brief}
             </p>
           </div>
@@ -347,36 +346,36 @@ export function ThreadBrief({
             {/* Commitments */}
             {thread.commitmentCount > 0 && (
               <IntelligenceBadge
-                icon={<CheckCircle2 className="h-3 w-3" />}
-                count={thread.commitmentCount}
-                label="commitments"
                 color="blue"
+                count={thread.commitmentCount}
+                icon={<CheckCircle2 className="h-3 w-3" />}
+                label="commitments"
               />
             )}
 
             {/* Decisions */}
             {thread.decisionCount > 0 && (
               <IntelligenceBadge
-                icon={<BookOpen className="h-3 w-3" />}
-                count={thread.decisionCount}
-                label="decisions"
                 color="purple"
+                count={thread.decisionCount}
+                icon={<BookOpen className="h-3 w-3" />}
+                label="decisions"
               />
             )}
 
             {/* Open questions */}
             {thread.openQuestionCount > 0 && (
               <IntelligenceBadge
-                icon={<HelpCircle className="h-3 w-3" />}
-                count={thread.openQuestionCount}
-                label="open questions"
                 color="amber"
+                count={thread.openQuestionCount}
+                icon={<HelpCircle className="h-3 w-3" />}
+                label="open questions"
               />
             )}
 
             {/* Message count */}
             {thread.messageCount > 1 && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 text-muted-foreground text-xs">
                 <MessageSquare className="h-3 w-3" />
                 {thread.messageCount}
               </span>
@@ -385,13 +384,13 @@ export function ThreadBrief({
             {/* Labels */}
             {thread.labels?.map((label) => (
               <Badge
+                className="px-1.5 py-0 text-[10px]"
                 key={label.id}
-                variant="outline"
-                className="text-[10px] px-1.5 py-0"
                 style={{
                   borderColor: label.color,
                   color: label.color,
                 }}
+                variant="outline"
               >
                 {label.name}
               </Badge>
@@ -399,7 +398,7 @@ export function ThreadBrief({
 
             {/* Snoozed */}
             {thread.isSnoozed && thread.snoozeUntil && (
-              <span className="flex items-center gap-1 text-xs text-amber-500">
+              <span className="flex items-center gap-1 text-amber-500 text-xs">
                 <Bell className="h-3 w-3" />
                 {formatDistanceToNow(thread.snoozeUntil)}
               </span>
@@ -411,17 +410,15 @@ export function ThreadBrief({
         <AnimatePresence>
           {suggestedAction && isHovered && (
             <motion.div
-              initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
               className="shrink-0"
+              exit={{ opacity: 0, x: 10 }}
+              initial={{ opacity: 0, x: 10 }}
             >
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      size="sm"
-                      variant="outline"
                       className={cn(
                         "gap-1.5 font-medium",
                         suggestedAction.color
@@ -433,6 +430,8 @@ export function ThreadBrief({
                           thread.suggestedAction!.type as ThreadAction
                         );
                       }}
+                      size="sm"
+                      variant="outline"
                     >
                       <suggestedAction.icon className="h-3.5 w-3.5" />
                       {suggestedAction.label}
@@ -441,7 +440,7 @@ export function ThreadBrief({
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="text-xs">{thread.suggestedAction?.reason}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
+                    <p className="mt-1 text-[10px] text-muted-foreground">
                       {Math.round(thread.suggestedAction!.confidence * 100)}%
                       confident
                     </p>
@@ -455,7 +454,7 @@ export function ThreadBrief({
         {/* Quick actions */}
         <div
           className={cn(
-            "shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
+            "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100",
             isHovered ? "opacity-100" : ""
           )}
           onClick={(e) => e.stopPropagation()}
@@ -464,15 +463,12 @@ export function ThreadBrief({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  size="icon"
-                  variant="ghost"
                   className="h-8 w-8"
                   onClick={() =>
-                    onAction?.(
-                      thread.id,
-                      thread.isStarred ? "unstar" : "star"
-                    )
+                    onAction?.(thread.id, thread.isStarred ? "unstar" : "star")
                   }
+                  size="icon"
+                  variant="ghost"
                 >
                   <Star
                     className={cn(
@@ -492,10 +488,10 @@ export function ThreadBrief({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  size="icon"
-                  variant="ghost"
                   className="h-8 w-8"
                   onClick={() => onAction?.(thread.id, "archive")}
+                  size="icon"
+                  variant="ghost"
                 >
                   <Archive className="h-4 w-4" />
                 </Button>
@@ -506,7 +502,7 @@ export function ThreadBrief({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
+              <Button className="h-8 w-8" size="icon" variant="ghost">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -519,23 +515,23 @@ export function ThreadBrief({
                   )
                 }
               >
-                <MailOpen className="h-4 w-4 mr-2" />
+                <MailOpen className="mr-2 h-4 w-4" />
                 Mark as {thread.isUnread ? "read" : "unread"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.(thread.id, "snooze")}>
-                <Clock className="h-4 w-4 mr-2" />
+                <Clock className="mr-2 h-4 w-4" />
                 Snooze
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <Tag className="h-4 w-4 mr-2" />
+                <Tag className="mr-2 h-4 w-4" />
                 Add label
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => onAction?.(thread.id, "delete")}
                 className="text-red-500 focus:text-red-500"
+                onClick={() => onAction?.(thread.id, "delete")}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -575,7 +571,7 @@ function IntelligenceBadge({
         <TooltipTrigger asChild>
           <span
             className={cn(
-              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium",
+              "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-xs",
               colors[color]
             )}
           >
@@ -599,17 +595,17 @@ export function ThreadBriefSkeleton() {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+        <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-16 bg-muted rounded animate-pulse ml-auto" />
+            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+            <div className="ml-auto h-4 w-16 animate-pulse rounded bg-muted" />
           </div>
-          <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-          <div className="h-8 w-full bg-muted rounded animate-pulse" />
+          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-8 w-full animate-pulse rounded bg-muted" />
           <div className="flex items-center gap-2">
-            <div className="h-5 w-16 bg-muted rounded animate-pulse" />
-            <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+            <div className="h-5 w-16 animate-pulse rounded bg-muted" />
+            <div className="h-5 w-16 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>

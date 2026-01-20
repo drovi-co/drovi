@@ -17,7 +17,6 @@ import {
   Users,
 } from "lucide-react";
 
-import { CreditsCard } from "@/components/credits/credits-card";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import {
   Sidebar,
@@ -30,7 +29,7 @@ import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { TeamSwitcher } from "./team-switcher";
 
-// Intelligence navigation items (MEMORYSTACK - Multi-Source)
+// Intelligence navigation items (Drovi - Multi-Source)
 const intelligenceNavItems: NavItem[] = [
   {
     title: "Today",
@@ -189,7 +188,6 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
         {showAdmin && <NavMain items={adminNavItems} label="Administration" />}
       </SidebarContent>
       <SidebarFooter>
-        <CreditsCard />
         <NavUser />
       </SidebarFooter>
       <SidebarRail />

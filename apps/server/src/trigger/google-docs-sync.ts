@@ -6,39 +6,47 @@
 // documents and comments into the multi-source intelligence platform.
 //
 
-import { logger, schedules, task } from "@trigger.dev/sdk/v3";
-import { db } from "@memorystack/db";
-import {
-  claim,
-  commitment,
-  contact,
-  conversation,
-  type ConversationMetadata,
-  decision,
-  googleDocsCommentCache,
-  googleDocsDocument,
-  message,
-  sourceAccount,
-} from "@memorystack/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import {
-  extractTextFromGoogleDoc,
-  getGoogleDocComments,
-  getGoogleDocContent,
-  listGoogleDocs,
-  refreshGoogleDocsToken,
-  type GoogleDriveComment,
-  type GoogleDriveFile,
-} from "@memorystack/auth/providers/google-docs";
-import { safeDecryptToken, safeEncryptToken } from "../lib/crypto/tokens";
 import {
   analyzeThread,
   claimsToDbFormat,
   type ThreadInput,
   type ThreadMessage,
 } from "@memorystack/ai/agents";
+import {
+  extractTextFromGoogleDoc,
+  type GoogleDriveComment,
+  type GoogleDriveFile,
+  getGoogleDocComments,
+  getGoogleDocContent,
+  listGoogleDocs,
+  refreshGoogleDocsToken,
+} from "@memorystack/auth/providers/google-docs";
+import { db } from "@memorystack/db";
+import {
+  type ConversationMetadata,
+  claim,
+  commitment,
+  contact,
+  conversation,
+  decision,
+  googleDocsCommentCache,
+  googleDocsDocument,
+  message,
+  sourceAccount,
+} from "@memorystack/db/schema";
+import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { safeDecryptToken, safeEncryptToken } from "../lib/crypto/tokens";
 import { embedConversationTask } from "./embedding-generation";
+import {
+  checkExistingCommitment,
+  checkExistingDecision,
+} from "./lib/commitment-dedup";
+import {
+  processCommitmentTask,
+  processDecisionTask,
+} from "./unified-object-processing";
 
 const log = logger;
 
@@ -79,7 +87,9 @@ export const syncGoogleDocsTask = task({
   },
   maxDuration: 600, // 10 minutes max
 
-  run: async (payload: GoogleDocsSyncPayload): Promise<GoogleDocsSyncResult> => {
+  run: async (
+    payload: GoogleDocsSyncPayload
+  ): Promise<GoogleDocsSyncResult> => {
     const { sourceAccountId, fullSync = false } = payload;
 
     const result: GoogleDocsSyncResult = {
@@ -142,12 +152,15 @@ export const syncGoogleDocsTask = task({
             .update(sourceAccount)
             .set({
               accessToken: await safeEncryptToken(newTokens.access_token),
-              tokenExpiresAt: new Date(Date.now() + newTokens.expires_in * 1000),
+              tokenExpiresAt: new Date(
+                Date.now() + newTokens.expires_in * 1000
+              ),
               updatedAt: new Date(),
             })
             .where(eq(sourceAccount.id, sourceAccountId));
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Token refresh failed: ${errorMsg}`);
           return result;
         }
@@ -156,7 +169,7 @@ export const syncGoogleDocsTask = task({
       // List Google Docs documents
       log.info("Listing Google Docs documents", { sourceAccountId });
 
-      let pageToken: string | undefined = undefined;
+      let pageToken: string | undefined;
       let hasMore = true;
 
       while (hasMore) {
@@ -183,7 +196,8 @@ export const syncGoogleDocsTask = task({
           // Rate limiting: Google allows 300 queries/minute
           await new Promise((resolve) => setTimeout(resolve, 200));
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Document list failed: ${errorMsg}`);
           log.error("Failed to list documents", { error: errorMsg });
           hasMore = false;
@@ -222,7 +236,10 @@ export const syncGoogleDocsTask = task({
         })
         .where(eq(sourceAccount.id, sourceAccountId));
 
-      log.error("Google Docs sync failed", { sourceAccountId, error: errorMsg });
+      log.error("Google Docs sync failed", {
+        sourceAccountId,
+        error: errorMsg,
+      });
     }
 
     return result;
@@ -252,13 +269,17 @@ async function syncGoogleDoc(
       ),
     });
 
-    const docModifiedAt = file.modifiedTime ? new Date(file.modifiedTime) : new Date();
+    const docModifiedAt = file.modifiedTime
+      ? new Date(file.modifiedTime)
+      : new Date();
 
-    if (existingDoc && existingDoc.googleModifiedAt) {
-      if (existingDoc.googleModifiedAt >= docModifiedAt) {
-        // Document hasn't changed, skip
-        return;
-      }
+    if (
+      existingDoc &&
+      existingDoc.googleModifiedAt &&
+      existingDoc.googleModifiedAt >= docModifiedAt
+    ) {
+      // Document hasn't changed, skip
+      return;
     }
 
     // Get document content
@@ -267,13 +288,16 @@ async function syncGoogleDoc(
       const doc = await getGoogleDocContent(accessToken, file.id);
       contentText = extractTextFromGoogleDoc(doc);
     } catch (error) {
-      log.warn("Failed to get document content", { documentId: file.id, error });
+      log.warn("Failed to get document content", {
+        documentId: file.id,
+        error,
+      });
     }
 
     // Get document comments
     const comments: GoogleDriveComment[] = [];
     try {
-      let commentPageToken: string | undefined = undefined;
+      let commentPageToken: string | undefined;
       let hasMoreComments = true;
 
       while (hasMoreComments) {
@@ -287,7 +311,10 @@ async function syncGoogleDoc(
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
     } catch (error) {
-      log.warn("Failed to get document comments", { documentId: file.id, error });
+      log.warn("Failed to get document comments", {
+        documentId: file.id,
+        error,
+      });
     }
 
     // Upsert document cache
@@ -308,7 +335,7 @@ async function syncGoogleDoc(
         thumbnailLink: file.thumbnailLink,
         isStarred: file.starred ?? false,
         isTrashed: file.trashed ?? false,
-        fileSize: file.size ? parseInt(file.size, 10) : undefined,
+        fileSize: file.size ? Number.parseInt(file.size, 10) : undefined,
         ownerEmail: file.owners?.[0]?.emailAddress,
         ownerName: file.owners?.[0]?.displayName,
         lastModifiedByEmail: file.lastModifyingUser?.emailAddress,
@@ -317,7 +344,9 @@ async function syncGoogleDoc(
         canComment: file.capabilities?.canComment ?? false,
         canShare: file.capabilities?.canShare ?? false,
         canDownload: file.capabilities?.canDownload ?? false,
-        googleCreatedAt: file.createdTime ? new Date(file.createdTime) : undefined,
+        googleCreatedAt: file.createdTime
+          ? new Date(file.createdTime)
+          : undefined,
         googleModifiedAt: docModifiedAt,
         lastContentSyncAt: new Date(),
         lastCommentSyncAt: new Date(),
@@ -326,7 +355,10 @@ async function syncGoogleDoc(
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: [googleDocsDocument.sourceAccountId, googleDocsDocument.googleDocumentId],
+        target: [
+          googleDocsDocument.sourceAccountId,
+          googleDocsDocument.googleDocumentId,
+        ],
         set: {
           title: file.name,
           description: file.description,
@@ -398,7 +430,21 @@ async function syncGoogleDoc(
       }
     }
 
-    if (!existingConv) {
+    if (existingConv) {
+      await db
+        .update(conversation)
+        .set({
+          title: file.name,
+          snippet: contentText.slice(0, 200),
+          participantIds: [...participantEmails],
+          messageCount: totalMessageCount,
+          lastMessageAt: docModifiedAt,
+          isStarred: file.starred ?? false,
+          metadata,
+          updatedAt: now,
+        })
+        .where(eq(conversation.id, convId));
+    } else {
       await db.insert(conversation).values({
         id: convId,
         sourceAccountId,
@@ -419,20 +465,6 @@ async function syncGoogleDoc(
       });
 
       result.conversationsCreated++;
-    } else {
-      await db
-        .update(conversation)
-        .set({
-          title: file.name,
-          snippet: contentText.slice(0, 200),
-          participantIds: [...participantEmails],
-          messageCount: totalMessageCount,
-          lastMessageAt: docModifiedAt,
-          isStarred: file.starred ?? false,
-          metadata,
-          updatedAt: now,
-        })
-        .where(eq(conversation.id, convId));
     }
 
     // Create/update messages for document content and comments
@@ -445,7 +477,15 @@ async function syncGoogleDoc(
         ),
       });
 
-      if (!existingDocMessage) {
+      if (existingDocMessage) {
+        await db
+          .update(message)
+          .set({
+            bodyText: contentText,
+            updatedAt: now,
+          })
+          .where(eq(message.id, existingDocMessage.id));
+      } else {
         await db.insert(message).values({
           id: randomUUID(),
           conversationId: convId,
@@ -466,14 +506,6 @@ async function syncGoogleDoc(
           createdAt: now,
           updatedAt: now,
         });
-      } else {
-        await db
-          .update(message)
-          .set({
-            bodyText: contentText,
-            updatedAt: now,
-          })
-          .where(eq(message.id, existingDocMessage.id));
       }
     }
 
@@ -577,14 +609,20 @@ async function syncGoogleDoc(
             authorEmail: commentItem.authorEmail,
             authorName: commentItem.authorName,
             isResolved: commentItem.isResolved ?? false,
-            replyCount: comments.find((c) => c.id === commentItem.id)?.replies?.filter((r) => !r.deleted).length ?? 0,
+            replyCount:
+              comments
+                .find((c) => c.id === commentItem.id)
+                ?.replies?.filter((r) => !r.deleted).length ?? 0,
             googleCreatedAt: commentItem.createdAt,
             googleModifiedAt: commentItem.createdAt,
             createdAt: now,
             updatedAt: now,
           })
           .onConflictDoUpdate({
-            target: [googleDocsCommentCache.documentId, googleDocsCommentCache.googleCommentId],
+            target: [
+              googleDocsCommentCache.documentId,
+              googleDocsCommentCache.googleCommentId,
+            ],
             set: {
               content: commentItem.content,
               isResolved: commentItem.isResolved ?? false,
@@ -606,11 +644,18 @@ async function syncGoogleDoc(
       }
     );
 
-    log.info("Synced Google Doc", { documentId: file.id, title: file.name, comments: comments.length });
+    log.info("Synced Google Doc", {
+      documentId: file.id,
+      title: file.name,
+      comments: comments.length,
+    });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     result.errors.push(`Document sync failed for ${file.id}: ${errorMsg}`);
-    log.error("Failed to sync Google Doc", { documentId: file.id, error: errorMsg });
+    log.error("Failed to sync Google Doc", {
+      documentId: file.id,
+      error: errorMsg,
+    });
   }
 }
 
@@ -646,7 +691,9 @@ export const analyzeGoogleDocTask = task({
   },
   maxDuration: 180, // 3 minutes max
 
-  run: async (payload: GoogleDocAnalysisPayload): Promise<GoogleDocAnalysisResult> => {
+  run: async (
+    payload: GoogleDocAnalysisPayload
+  ): Promise<GoogleDocAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
     log.info("Starting Google Doc analysis", { conversationId, force });
@@ -694,19 +741,21 @@ export const analyzeGoogleDocTask = task({
       const userEmail = conv.sourceAccount.externalId ?? "";
 
       // Convert messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map((msg, index) => ({
-        id: msg.id,
-        providerMessageId: msg.externalId ?? msg.id,
-        fromEmail: msg.senderEmail ?? msg.senderExternalId ?? "unknown",
-        fromName: msg.senderName ?? undefined,
-        toRecipients: [],
-        subject: msg.subject ?? undefined,
-        bodyText: msg.bodyText ?? "",
-        sentAt: msg.sentAt ?? undefined,
-        receivedAt: msg.receivedAt ?? undefined,
-        isFromUser: msg.senderEmail === userEmail,
-        messageIndex: index,
-      }));
+      const threadMessages: ThreadMessage[] = conv.messages.map(
+        (msg, index) => ({
+          id: msg.id,
+          providerMessageId: msg.externalId ?? msg.id,
+          fromEmail: msg.senderEmail ?? msg.senderExternalId ?? "unknown",
+          fromName: msg.senderName ?? undefined,
+          toRecipients: [],
+          subject: msg.subject ?? undefined,
+          bodyText: msg.bodyText ?? "",
+          sentAt: msg.sentAt ?? undefined,
+          receivedAt: msg.receivedAt ?? undefined,
+          isFromUser: msg.senderEmail === userEmail,
+          messageIndex: index,
+        })
+      );
 
       // Build ThreadInput for the agent
       const threadInput: ThreadInput = {
@@ -748,7 +797,11 @@ export const analyzeGoogleDocTask = task({
       });
 
       // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(analysis.claims, conversationId, conv.sourceAccount.organizationId);
+      const dbClaims = claimsToDbFormat(
+        analysis.claims,
+        conversationId,
+        conv.sourceAccount.organizationId
+      );
 
       // Insert claims into database
       if (dbClaims.length > 0) {
@@ -774,7 +827,14 @@ export const analyzeGoogleDocTask = task({
 
       // Update conversation with analysis results
       const urgencyScore = analysis.classification.urgency.score;
-      const priorityTier = urgencyScore >= 0.8 ? "urgent" : urgencyScore >= 0.6 ? "high" : urgencyScore >= 0.4 ? "medium" : "low";
+      const priorityTier =
+        urgencyScore >= 0.8
+          ? "urgent"
+          : urgencyScore >= 0.6
+            ? "high"
+            : urgencyScore >= 0.4
+              ? "medium"
+              : "low";
 
       await db
         .update(conversation)
@@ -785,7 +845,9 @@ export const analyzeGoogleDocTask = task({
           priorityTier,
           urgencyScore: analysis.classification.urgency.score,
           importanceScore: analysis.classification.urgency.score,
-          suggestedAction: analysis.brief?.actionRequired ? analysis.brief.actionDescription : null,
+          suggestedAction: analysis.brief?.actionRequired
+            ? analysis.brief.actionDescription
+            : null,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -803,8 +865,27 @@ export const analyzeGoogleDocTask = task({
         });
 
         for (const promise of promiseClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: promise.text.slice(0, 200),
+            description: promise.text,
+            dueDate: promise.deadline ? new Date(promise.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (promise)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -813,7 +894,8 @@ export const analyzeGoogleDocTask = task({
             status: "pending",
             confidence: promise.confidence,
             dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction: promise.promisor === userEmail ? "owed_by_me" : "owed_to_me",
+            direction:
+              promise.promisor === userEmail ? "owed_by_me" : "owed_to_me",
             metadata: {
               sourceType: "google_docs" as const,
               sourceQuote: promise.evidence[0]?.quotedText,
@@ -825,11 +907,49 @@ export const analyzeGoogleDocTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: promise.text.slice(0, 200),
+              description: promise.text,
+              dueDate: promise.deadline
+                ? new Date(promise.deadline)
+                : undefined,
+              confidence: promise.confidence,
+              sourceQuote: promise.evidence[0]?.quotedText,
+            },
+            sourceType: "google_docs",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
 
         for (const request of requestClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: request.text.slice(0, 200),
+            description: request.text,
+            dueDate: request.deadline ? new Date(request.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (request)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -838,7 +958,8 @@ export const analyzeGoogleDocTask = task({
             status: "pending",
             confidence: request.confidence,
             dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction: request.requester === userEmail ? "owed_to_me" : "owed_by_me",
+            direction:
+              request.requester === userEmail ? "owed_to_me" : "owed_by_me",
             metadata: {
               sourceType: "google_docs" as const,
               sourceQuote: request.evidence[0]?.quotedText,
@@ -850,6 +971,25 @@ export const analyzeGoogleDocTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: request.text.slice(0, 200),
+              description: request.text,
+              dueDate: request.deadline
+                ? new Date(request.deadline)
+                : undefined,
+              confidence: request.confidence,
+              sourceQuote: request.evidence[0]?.quotedText,
+            },
+            sourceType: "google_docs",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
       }
 
@@ -863,8 +1003,26 @@ export const analyzeGoogleDocTask = task({
         });
 
         for (const decisionClaim of decisionClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingDecision({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: decisionClaim.text.slice(0, 200),
+            statement: decisionClaim.text,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate decision", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const decisionId = randomUUID();
           await db.insert(decision).values({
-            id: randomUUID(),
+            id: decisionId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -881,6 +1039,26 @@ export const analyzeGoogleDocTask = task({
             },
           });
           result.decisionsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processDecisionTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            decision: {
+              id: decisionId,
+              title: decisionClaim.text.slice(0, 200),
+              statement: decisionClaim.text,
+              rationale: decisionClaim.rationale ?? undefined,
+              decidedAt: new Date(),
+              confidence: decisionClaim.confidence,
+              ownerContactIds: [],
+              participantContactIds: [],
+              sourceQuote: decisionClaim.evidence[0]?.quotedText,
+            },
+            sourceType: "google_docs",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalDecisionId: decisionId,
+          });
         }
       }
 
@@ -901,7 +1079,16 @@ export const analyzeGoogleDocTask = task({
           ),
         });
 
-        if (!existingContact) {
+        if (existingContact) {
+          await db
+            .update(contact)
+            .set({
+              lastInteractionAt: conv.lastMessageAt ?? new Date(),
+              totalMessages: sql`${contact.totalMessages} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(contact.id, existingContact.id));
+        } else {
           await db.insert(contact).values({
             id: randomUUID(),
             organizationId: conv.sourceAccount.organizationId,
@@ -915,15 +1102,6 @@ export const analyzeGoogleDocTask = task({
               source: "google_docs",
             },
           });
-        } else {
-          await db
-            .update(contact)
-            .set({
-              lastInteractionAt: conv.lastMessageAt ?? new Date(),
-              totalMessages: sql`${contact.totalMessages} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(contact.id, existingContact.id));
         }
       }
 
@@ -939,9 +1117,14 @@ export const analyzeGoogleDocTask = task({
             },
           }
         );
-        log.info("Triggered embedding generation for Google Doc", { conversationId });
+        log.info("Triggered embedding generation for Google Doc", {
+          conversationId,
+        });
       } catch (e) {
-        log.warn("Failed to trigger embedding generation", { conversationId, error: e });
+        log.warn("Failed to trigger embedding generation", {
+          conversationId,
+          error: e,
+        });
       }
 
       result.success = true;
@@ -957,7 +1140,10 @@ export const analyzeGoogleDocTask = task({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       result.error = errorMsg;
-      log.error("Google Doc analysis failed", { conversationId, error: errorMsg });
+      log.error("Google Doc analysis failed", {
+        conversationId,
+        error: errorMsg,
+      });
       return result;
     }
   },
@@ -971,13 +1157,17 @@ export const analyzeGoogleDocsBatchTask = task({
   queue: { name: "google-docs-analysis", concurrencyLimit: 3 },
   retry: {
     maxAttempts: 2,
-    minTimeoutInMs: 10000,
+    minTimeoutInMs: 10_000,
     maxTimeoutInMs: 120_000,
     factor: 2,
   },
   maxDuration: 600, // 10 minutes max
 
-  run: async (payload: { sourceAccountId: string; limit?: number; force?: boolean }) => {
+  run: async (payload: {
+    sourceAccountId: string;
+    limit?: number;
+    force?: boolean;
+  }) => {
     const { sourceAccountId, limit = 50, force = false } = payload;
 
     log.info("Starting batch Google Docs analysis", {
@@ -1075,7 +1265,9 @@ export const syncGoogleDocsSchedule = schedules.task({
       });
     }
 
-    log.info("Scheduled Google Docs sync triggered", { accounts: googleDocsAccounts.length });
+    log.info("Scheduled Google Docs sync triggered", {
+      accounts: googleDocsAccounts.length,
+    });
 
     return { scheduled: true, accountsTriggered: googleDocsAccounts.length };
   },

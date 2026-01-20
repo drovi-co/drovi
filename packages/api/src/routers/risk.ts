@@ -8,20 +8,18 @@
 
 import { db } from "@memorystack/db";
 import {
-  emailAccount,
-  emailMessage,
-  emailThread,
-  member,
-  riskAnalysis,
-  policyRule,
   auditLog,
   commitment,
-  decision,
-  claim,
   contact,
+  decision,
+  emailAccount,
+  emailMessage,
+  member,
+  policyRule,
+  riskAnalysis,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, sql, gte, ne, isNotNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -234,7 +232,8 @@ async function verifyApproverRole(
   if (!approverRoles.includes(role)) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Only organization owners, admins, and designated approvers can process risk approvals.",
+      message:
+        "Only organization owners, admins, and designated approvers can process risk approvals.",
     });
   }
 }
@@ -306,7 +305,10 @@ export const riskRouter = router({
         },
       });
 
-      if (!message || message.thread.account.organizationId !== input.organizationId) {
+      if (
+        !message ||
+        message.thread.account.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Message not found.",
@@ -387,7 +389,9 @@ export const riskRouter = router({
       await verifyAccountAccess(input.organizationId, input.accountId);
 
       // Get recipient emails for context
-      const recipientEmails = input.recipients.map((r) => r.email.toLowerCase());
+      const recipientEmails = input.recipients.map((r) =>
+        r.email.toLowerCase()
+      );
 
       // Fetch recent commitments (last 90 days) that are relevant
       const ninetyDaysAgo = new Date();
@@ -464,12 +468,11 @@ export const riskRouter = router({
 
         historicalStatements.push({
           id: c.id,
-          text: c.description
-            ? `${c.title}: ${c.description}`
-            : c.title,
+          text: c.description ? `${c.title}: ${c.description}` : c.title,
           type: "commitment",
           date: c.createdAt,
-          source: c.direction === "owed_by_me" ? "You committed" : "They committed",
+          source:
+            c.direction === "owed_by_me" ? "You committed" : "They committed",
           party: partyName ?? partyEmail ?? undefined,
           threadId: c.sourceThreadId,
         });
@@ -508,9 +511,18 @@ export const riskRouter = router({
       // Check for timeline contradictions
       const timelinePatterns = [
         { pattern: /by\s+(\w+\s+\d+|\d+\/\d+|\d+-\d+)/, extract: "deadline" },
-        { pattern: /deliver\s+by|complete\s+by|finish\s+by|ready\s+by/i, extract: "deadline" },
-        { pattern: /earliest\s+(is|would be|could be)\s+/i, extract: "availability" },
-        { pattern: /can('t|not)\s+meet|unable\s+to\s+meet|won't\s+be\s+able/i, extract: "inability" },
+        {
+          pattern: /deliver\s+by|complete\s+by|finish\s+by|ready\s+by/i,
+          extract: "deadline",
+        },
+        {
+          pattern: /earliest\s+(is|would be|could be)\s+/i,
+          extract: "availability",
+        },
+        {
+          pattern: /can('t|not)\s+meet|unable\s+to\s+meet|won't\s+be\s+able/i,
+          extract: "inability",
+        },
       ];
 
       // Check for contradictory dates/timelines
@@ -518,14 +530,28 @@ export const riskRouter = router({
         const statementLower = statement.text.toLowerCase();
 
         // Check for date mentions in both draft and historical statement
-        const dateInDraft = contentLower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i);
-        const dateInStatement = statementLower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i);
+        const dateInDraft = contentLower.match(
+          /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i
+        );
+        const dateInStatement = statementLower.match(
+          /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+/i
+        );
 
-        if (dateInDraft && dateInStatement && dateInDraft[0] !== dateInStatement[0]) {
+        if (
+          dateInDraft &&
+          dateInStatement &&
+          dateInDraft[0] !== dateInStatement[0]
+        ) {
           // Check if they're about similar topics (simple word overlap)
-          const draftWords = new Set(contentLower.split(/\s+/).filter(w => w.length > 4));
-          const statementWords = new Set(statementLower.split(/\s+/).filter(w => w.length > 4));
-          const overlap = [...draftWords].filter(w => statementWords.has(w)).length;
+          const draftWords = new Set(
+            contentLower.split(/\s+/).filter((w) => w.length > 4)
+          );
+          const statementWords = new Set(
+            statementLower.split(/\s+/).filter((w) => w.length > 4)
+          );
+          const overlap = [...draftWords].filter((w) =>
+            statementWords.has(w)
+          ).length;
 
           if (overlap >= 3) {
             contradictions.push({
@@ -545,7 +571,8 @@ export const riskRouter = router({
 
         // Check for contradictory "can" vs "can't" statements
         const canPattern = /\bcan\s+(deliver|complete|meet|do|handle|finish)/i;
-        const cantPattern = /\b(can't|cannot|won't|unable\s+to)\s+(deliver|complete|meet|do|handle|finish)/i;
+        const cantPattern =
+          /\b(can't|cannot|won't|unable\s+to)\s+(deliver|complete|meet|do|handle|finish)/i;
 
         const draftCan = contentLower.match(canPattern);
         const draftCant = contentLower.match(cantPattern);
@@ -556,14 +583,17 @@ export const riskRouter = router({
           contradictions.push({
             id: `ability-${statement.id}`,
             severity: "critical",
-            draftStatement: draftCan ? `You're saying you can ${draftCan[1]}` : `You're saying you cannot ${draftCant?.[2]}`,
+            draftStatement: draftCan
+              ? `You're saying you can ${draftCan[1]}`
+              : `You're saying you cannot ${draftCant?.[2]}`,
             conflictingStatement: statement.text,
             conflictingType: statement.type,
             conflictingId: statement.id,
             conflictingDate: statement.date,
             conflictingParty: statement.party,
             conflictingThreadId: statement.threadId,
-            suggestion: `This contradicts a previous statement. Make sure your message is consistent with past communications.`,
+            suggestion:
+              "This contradicts a previous statement. Make sure your message is consistent with past communications.",
           });
         }
 
@@ -575,14 +605,21 @@ export const riskRouter = router({
         if (draftPrice && statementPrice) {
           const extractNumber = (match: string) => {
             const num = match.replace(/[^0-9.]/g, "");
-            return Number.parseFloat(num) * (match.toLowerCase().includes("k") ? 1000 : 1);
+            return (
+              Number.parseFloat(num) *
+              (match.toLowerCase().includes("k") ? 1000 : 1)
+            );
           };
 
           const draftAmount = extractNumber(draftPrice[0]);
           const statementAmount = extractNumber(statementPrice[0]);
 
           // If amounts differ by more than 10%
-          if (Math.abs(draftAmount - statementAmount) / Math.max(draftAmount, statementAmount) > 0.1) {
+          if (
+            Math.abs(draftAmount - statementAmount) /
+              Math.max(draftAmount, statementAmount) >
+            0.1
+          ) {
             contradictions.push({
               id: `price-${statement.id}`,
               severity: "high",
@@ -615,8 +652,13 @@ export const riskRouter = router({
           // Extract surrounding context
           const matchIndex = input.content.indexOf(match[0]);
           const contextStart = Math.max(0, matchIndex - 20);
-          const contextEnd = Math.min(input.content.length, matchIndex + match[0].length + 50);
-          newCommitments.push(input.content.slice(contextStart, contextEnd).trim());
+          const contextEnd = Math.min(
+            input.content.length,
+            matchIndex + match[0].length + 50
+          );
+          newCommitments.push(
+            input.content.slice(contextStart, contextEnd).trim()
+          );
         }
       }
 
@@ -625,7 +667,13 @@ export const riskRouter = router({
       const hasHigh = contradictions.some((c) => c.severity === "high");
 
       const canSend = !hasCritical;
-      const riskLevel = hasCritical ? "critical" : hasHigh ? "high" : contradictions.length > 0 ? "medium" : "low";
+      const riskLevel = hasCritical
+        ? "critical"
+        : hasHigh
+          ? "high"
+          : contradictions.length > 0
+            ? "medium"
+            : "low";
 
       return {
         canSend,
@@ -698,7 +746,10 @@ export const riskRouter = router({
         })
         .from(riskAnalysis)
         .where(and(...conditions))
-        .orderBy(desc(riskAnalysis.overallRiskScore), desc(riskAnalysis.createdAt))
+        .orderBy(
+          desc(riskAnalysis.overallRiskScore),
+          desc(riskAnalysis.createdAt)
+        )
         .limit(input.limit)
         .offset(input.offset);
 
@@ -971,7 +1022,8 @@ export const riskRouter = router({
       };
 
       if (input.name !== undefined) updates.name = input.name;
-      if (input.description !== undefined) updates.description = input.description;
+      if (input.description !== undefined)
+        updates.description = input.description;
       if (input.conditions !== undefined) updates.conditions = input.conditions;
       if (input.actions !== undefined) updates.actions = input.actions;
       if (input.severity !== undefined) updates.severity = input.severity;
@@ -1181,7 +1233,9 @@ export const riskRouter = router({
       await db.insert(auditLog).values({
         organizationId: input.organizationId,
         userId,
-        action: input.approved ? "risk.approval_granted" : "risk.approval_denied",
+        action: input.approved
+          ? "risk.approval_granted"
+          : "risk.approval_denied",
         resourceType: "risk_analysis",
         resourceId: input.analysisId,
         details: { comments: input.comments },

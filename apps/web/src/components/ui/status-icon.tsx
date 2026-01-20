@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  * - Animated progress indicator
  */
 const statusIconVariants = cva(
-  "inline-flex items-center justify-center shrink-0",
+  "inline-flex shrink-0 items-center justify-center",
   {
     variants: {
       size: {
@@ -54,18 +54,19 @@ function StatusIcon({
   ...props
 }: StatusIconProps) {
   const config = statusConfig[status];
-  const sizeValue = size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16;
+  const sizeValue =
+    size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16;
   const strokeWidth = size === "xs" ? 1 : 1.5;
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
       <svg
-        width={sizeValue}
-        height={sizeValue}
-        viewBox="0 0 16 16"
-        fill="none"
         className={statusIconVariants({ size })}
         data-slot="status-icon"
+        fill="none"
+        height={sizeValue}
+        viewBox="0 0 16 16"
+        width={sizeValue}
         {...props}
       >
         {status === "backlog" && (
@@ -74,11 +75,11 @@ function StatusIcon({
             <circle
               cx="8"
               cy="8"
+              fill="none"
               r="6"
               stroke={config.color}
-              strokeWidth={strokeWidth}
               strokeDasharray="2 2"
-              fill="none"
+              strokeWidth={strokeWidth}
             />
           </>
         )}
@@ -89,10 +90,10 @@ function StatusIcon({
             <circle
               cx="8"
               cy="8"
+              fill="none"
               r="6"
               stroke={config.color}
               strokeWidth={strokeWidth}
-              fill="none"
             />
           </>
         )}
@@ -103,29 +104,26 @@ function StatusIcon({
             <circle
               cx="8"
               cy="8"
+              fill="none"
               r="6"
               stroke={config.color}
               strokeWidth={strokeWidth}
-              fill="none"
             />
-            <path
-              d="M8 2A6 6 0 0 1 8 14"
-              fill={config.color}
-            />
+            <path d="M8 2A6 6 0 0 1 8 14" fill={config.color} />
           </>
         )}
 
         {status === "done" && (
           <>
             {/* Filled circle with checkmark for done */}
-            <circle cx="8" cy="8" r="7" fill={config.color} />
+            <circle cx="8" cy="8" fill={config.color} r="7" />
             <path
               d="M5 8L7 10L11 6"
+              fill="none"
               stroke="white"
-              strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              fill="none"
+              strokeWidth="1.5"
             />
           </>
         )}
@@ -136,16 +134,16 @@ function StatusIcon({
             <circle
               cx="8"
               cy="8"
+              fill="none"
               r="6"
               stroke={config.color}
               strokeWidth={strokeWidth}
-              fill="none"
             />
             <path
               d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5"
               stroke={config.color}
-              strokeWidth={strokeWidth}
               strokeLinecap="round"
+              strokeWidth={strokeWidth}
             />
           </>
         )}

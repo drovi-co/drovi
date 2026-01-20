@@ -14,8 +14,8 @@
 import { db } from "@memorystack/db";
 import { emailAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
-import { Hono } from "hono";
 import { eq } from "drizzle-orm";
+import { Hono } from "hono";
 import { log } from "../../lib/logger";
 import { syncEmailsOnDemandTask } from "../../trigger/email-sync";
 
@@ -83,7 +83,7 @@ gmailWebhook.post("/", async (c) => {
 
   const { emailAddress, historyId } = notification;
 
-  if (!emailAddress || !historyId) {
+  if (!(emailAddress && historyId)) {
     log.warn("Gmail webhook - missing emailAddress or historyId", {
       hasEmail: !!emailAddress,
       hasHistoryId: !!historyId,
@@ -110,7 +110,11 @@ gmailWebhook.post("/", async (c) => {
   if (!account) {
     log.warn("Gmail webhook - account not found", { emailAddress });
     // Return 200 to acknowledge receipt (don't retry for unknown accounts)
-    return c.json({ received: true, skipped: true, reason: "account_not_found" });
+    return c.json({
+      received: true,
+      skipped: true,
+      reason: "account_not_found",
+    });
   }
 
   if (account.status !== "active" && account.status !== "syncing") {
@@ -118,7 +122,11 @@ gmailWebhook.post("/", async (c) => {
       emailAddress,
       status: account.status,
     });
-    return c.json({ received: true, skipped: true, reason: "account_inactive" });
+    return c.json({
+      received: true,
+      skipped: true,
+      reason: "account_inactive",
+    });
   }
 
   // Trigger instant sync with debouncing

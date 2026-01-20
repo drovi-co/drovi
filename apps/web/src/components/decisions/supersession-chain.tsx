@@ -79,19 +79,19 @@ export function SupersessionChain({
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
         <CollapsibleTrigger asChild>
           <Button
-            variant="ghost"
+            className="h-auto w-full justify-between px-3 py-2"
             size="sm"
-            className="w-full justify-between h-auto py-2 px-3"
+            variant="ghost"
           >
             <div className="flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-purple-500" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <span className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 Decision Evolution
               </span>
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge className="text-[10px]" variant="secondary">
                 {chain.length} versions
               </Badge>
             </div>
@@ -105,9 +105,9 @@ export function SupersessionChain({
 
         <CollapsibleContent className="space-y-0">
           {/* Visual Chain */}
-          <div className="relative pl-4 pt-2">
+          <div className="relative pt-2 pl-4">
             {/* Vertical line connecting all items */}
-            <div className="absolute left-[1.375rem] top-4 bottom-4 w-0.5 bg-gradient-to-b from-muted-foreground/20 via-purple-500/40 to-muted-foreground/20" />
+            <div className="absolute top-4 bottom-4 left-[1.375rem] w-0.5 bg-gradient-to-b from-muted-foreground/20 via-purple-500/40 to-muted-foreground/20" />
 
             {chain.map((item, index) => {
               const isSelected = item.id === currentDecisionId;
@@ -116,30 +116,29 @@ export function SupersessionChain({
               const isNewer = index > currentIndex;
 
               return (
-                <div key={item.id} className="relative">
+                <div className="relative" key={item.id}>
                   {/* Chain Item */}
                   <button
-                    type="button"
-                    onClick={() => onDecisionClick(item.id)}
                     className={cn(
-                      "relative flex items-start gap-3 w-full text-left p-3 rounded-lg transition-all",
+                      "relative flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all",
                       "hover:bg-accent/50",
                       isSelected && "bg-accent",
                       !isSelected && isCurrent && "bg-purple-500/5"
                     )}
+                    onClick={() => onDecisionClick(item.id)}
+                    type="button"
                   >
                     {/* Timeline Node */}
                     <div
                       className={cn(
-                        "relative z-10 flex items-center justify-center h-6 w-6 rounded-full shrink-0 border-2 transition-colors",
+                        "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                         isCurrent &&
-                          "bg-purple-500 border-purple-500 text-white",
+                          "border-purple-500 bg-purple-500 text-white",
                         !isCurrent &&
                           isSelected &&
-                          "bg-background border-purple-500",
-                        !isCurrent &&
-                          !isSelected &&
-                          "bg-background border-muted-foreground/30"
+                          "border-purple-500 bg-background",
+                        !(isCurrent || isSelected) &&
+                          "border-muted-foreground/30 bg-background"
                       )}
                     >
                       {isCurrent ? (
@@ -150,33 +149,33 @@ export function SupersessionChain({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            "text-sm font-medium truncate",
-                            !isCurrent && "line-through text-muted-foreground"
+                            "truncate font-medium text-sm",
+                            !isCurrent && "text-muted-foreground line-through"
                           )}
                         >
                           {item.title}
                         </span>
                         {isCurrent && (
                           <Badge
+                            className="bg-purple-500 text-[10px]"
                             variant="default"
-                            className="text-[10px] bg-purple-500"
                           >
                             Current
                           </Badge>
                         )}
                         {isSelected && !isCurrent && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge className="text-[10px]" variant="outline">
                             Viewing
                           </Badge>
                         )}
                       </div>
 
                       {/* Date and confidence */}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-muted-foreground text-xs">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {format(item.decidedAt, "MMM d, yyyy")}
@@ -193,7 +192,7 @@ export function SupersessionChain({
                       {!compact && (
                         <p
                           className={cn(
-                            "text-xs text-muted-foreground line-clamp-2 leading-relaxed",
+                            "line-clamp-2 text-muted-foreground text-xs leading-relaxed",
                             !isCurrent && "opacity-60"
                           )}
                         >
@@ -214,7 +213,7 @@ export function SupersessionChain({
 
                     {/* Arrow indicator for navigation hint */}
                     {!isSelected && (
-                      <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+                      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50" />
                     )}
                   </button>
                 </div>
@@ -226,7 +225,7 @@ export function SupersessionChain({
 
       {/* Collapsed summary */}
       {!isExpanded && activeDecision && (
-        <div className="flex items-center gap-2 px-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 text-muted-foreground text-xs">
           <span>
             Latest: <span className="font-medium">{activeDecision.title}</span>
           </span>
@@ -262,24 +261,24 @@ export function InlineSupersessionChain({
   }
 
   return (
-    <div className="flex items-center gap-1 text-xs overflow-x-auto">
+    <div className="flex items-center gap-1 overflow-x-auto text-xs">
       {chain.map((item, index) => (
-        <div key={item.id} className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1" key={item.id}>
           <button
-            type="button"
-            onClick={() => onDecisionClick(item.id)}
             className={cn(
-              "px-2 py-0.5 rounded transition-colors truncate max-w-[120px]",
+              "max-w-[120px] truncate rounded px-2 py-0.5 transition-colors",
               item.isCurrent
-                ? "bg-purple-500/10 text-purple-600 font-medium"
+                ? "bg-purple-500/10 font-medium text-purple-600"
                 : "bg-muted text-muted-foreground line-through hover:bg-muted/80",
               item.id === currentDecisionId && "ring-1 ring-purple-500"
             )}
+            onClick={() => onDecisionClick(item.id)}
+            type="button"
           >
             {item.title}
           </button>
           {index < chain.length - 1 && (
-            <ArrowRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+            <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
           )}
         </div>
       ))}

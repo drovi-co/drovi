@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
  * - Submit on Enter, cancel on Escape
  */
 
-interface EditableTitleProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
+interface EditableTitleProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
   value: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -73,22 +74,22 @@ function EditableTitle({
     return (
       <div className={cn("relative", className)} {...props}>
         <input
-          ref={inputRef}
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
           className={cn(
             "w-full",
             "bg-transparent",
-            "text-[24px] font-semibold text-[#EEEFFC] leading-tight",
-            "placeholder:text-[#4C4F6B]",
+            "font-semibold text-foreground text-[24px] leading-tight",
+            "placeholder:text-muted-foreground",
             "outline-none",
-            "border-b-2 border-primary/50"
+            "border-primary/50 border-b-2"
           )}
-          placeholder={placeholder}
           data-slot="editable-title-input"
+          onBlur={handleBlur}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          ref={inputRef}
+          type="text"
+          value={editValue}
         />
       </div>
     );
@@ -96,21 +97,17 @@ function EditableTitle({
 
   return (
     <div
-      className={cn(
-        "relative",
-        !readOnly && "cursor-text",
-        className
-      )}
-      onClick={handleClick}
+      className={cn("relative", !readOnly && "cursor-text", className)}
       data-slot="editable-title"
+      onClick={handleClick}
       {...props}
     >
       {value ? (
-        <h1 className="text-[24px] font-semibold text-[#EEEFFC] leading-tight">
+        <h1 className="font-semibold text-foreground text-[24px] leading-tight">
           {value}
         </h1>
       ) : (
-        <h1 className="text-[24px] font-semibold text-[#4C4F6B] leading-tight">
+        <h1 className="font-semibold text-muted-foreground text-[24px] leading-tight">
           {placeholder}
         </h1>
       )}
@@ -121,7 +118,8 @@ function EditableTitle({
 /**
  * Smaller editable text for sub-items
  */
-interface EditableTextProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
+interface EditableTextProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
   value: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -186,23 +184,23 @@ function EditableText({
     return (
       <div className={cn("relative", className)} {...props}>
         <input
-          ref={inputRef}
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
           className={cn(
             "w-full",
             "bg-transparent",
             sizeClasses[size],
-            "font-medium text-[#EEEFFC]",
-            "placeholder:text-[#4C4F6B]",
+            "font-medium text-foreground",
+            "placeholder:text-muted-foreground",
             "outline-none",
-            "border-b border-primary/50"
+            "border-primary/50 border-b"
           )}
-          placeholder={placeholder}
           data-slot="editable-text-input"
+          onBlur={handleBlur}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          ref={inputRef}
+          type="text"
+          value={editValue}
         />
       </div>
     );
@@ -212,19 +210,19 @@ function EditableText({
     <div
       className={cn(
         "relative",
-        !readOnly && "cursor-text hover:bg-muted/30 rounded px-1 -mx-1",
+        !readOnly && "-mx-1 cursor-text rounded px-1 hover:bg-muted/30",
         className
       )}
-      onClick={handleClick}
       data-slot="editable-text"
+      onClick={handleClick}
       {...props}
     >
       {value ? (
-        <span className={cn(sizeClasses[size], "font-medium text-[#EEEFFC]")}>
+        <span className={cn(sizeClasses[size], "font-medium text-foreground")}>
           {value}
         </span>
       ) : (
-        <span className={cn(sizeClasses[size], "font-medium text-[#4C4F6B]")}>
+        <span className={cn(sizeClasses[size], "font-medium text-muted-foreground")}>
           {placeholder}
         </span>
       )}

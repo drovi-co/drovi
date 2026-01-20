@@ -70,33 +70,33 @@ function ProgressWheel({
   return (
     <svg
       className={cn("text-primary", className)}
-      width={size}
+      data-slot="progress-wheel"
+      fill="none"
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      fill="none"
-      data-slot="progress-wheel"
+      width={size}
       {...props}
     >
       {/* Background circle */}
       <circle
+        className="opacity-20"
         cx={size / 2}
         cy={size / 2}
         r={radius}
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="opacity-20"
       />
       {/* Progress circle */}
       <circle
+        className="transition-[stroke-dashoffset] duration-300 ease-out"
         cx={size / 2}
         cy={size / 2}
         r={radius}
         stroke="currentColor"
-        strokeWidth={strokeWidth}
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         strokeLinecap="round"
-        className="transition-[stroke-dashoffset] duration-300 ease-out"
+        strokeWidth={strokeWidth}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
     </svg>

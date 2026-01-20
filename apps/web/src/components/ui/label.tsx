@@ -19,7 +19,7 @@ function Label({
     <LabelPrimitive.Root
       className={cn(
         "flex select-none items-center gap-2",
-        "text-[13px] font-medium leading-none",
+        "font-medium text-[13px] leading-none",
         "text-foreground",
         // Disabled state (from peer or group)
         "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",

@@ -7,27 +7,32 @@
 // vanity metrics - actionable intelligence about your work patterns.
 //
 
-import { motion } from "framer-motion";
+import { eachDayOfInterval, format, subDays } from "date-fns";
 import {
-  AreaChart,
   Area,
-  BarChart,
+  AreaChart,
   Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
+  BarChart,
+  CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
 } from "recharts";
-import { format, subDays, eachDayOfInterval } from "date-fns";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -96,7 +101,10 @@ const CHART_COLORS = {
 // COMMITMENT TREND CHART
 // =============================================================================
 
-export function CommitmentTrendChart({ data, className }: CommitmentTrendChartProps) {
+export function CommitmentTrendChart({
+  data,
+  className,
+}: CommitmentTrendChartProps) {
   const chartData = data.map((d) => ({
     date: format(d.date, "MMM d"),
     created: d.created,
@@ -112,25 +120,44 @@ export function CommitmentTrendChart({ data, className }: CommitmentTrendChartPr
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer height="100%" width="100%">
             <AreaChart data={chartData}>
               <defs>
-                <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={CHART_COLORS.blue} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={CHART_COLORS.blue} stopOpacity={0} />
+                <linearGradient id="colorCreated" x1="0" x2="0" y1="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={CHART_COLORS.blue}
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={CHART_COLORS.blue}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
-                <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={CHART_COLORS.success} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={CHART_COLORS.success} stopOpacity={0} />
+                <linearGradient id="colorCompleted" x1="0" x2="0" y1="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={CHART_COLORS.success}
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={CHART_COLORS.success}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <CartesianGrid className="stroke-muted" strokeDasharray="3 3" />
               <XAxis
+                className="fill-muted-foreground text-xs"
                 dataKey="date"
-                className="text-xs fill-muted-foreground"
                 tick={{ fontSize: 12 }}
               />
-              <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+              <YAxis
+                className="fill-muted-foreground text-xs"
+                tick={{ fontSize: 12 }}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(var(--background))",
@@ -140,27 +167,27 @@ export function CommitmentTrendChart({ data, className }: CommitmentTrendChartPr
               />
               <Legend />
               <Area
-                type="monotone"
                 dataKey="created"
-                stroke={CHART_COLORS.blue}
-                fillOpacity={1}
                 fill="url(#colorCreated)"
+                fillOpacity={1}
                 name="Created"
+                stroke={CHART_COLORS.blue}
+                type="monotone"
               />
               <Area
-                type="monotone"
                 dataKey="completed"
-                stroke={CHART_COLORS.success}
-                fillOpacity={1}
                 fill="url(#colorCompleted)"
+                fillOpacity={1}
                 name="Completed"
+                stroke={CHART_COLORS.success}
+                type="monotone"
               />
               <Line
-                type="monotone"
                 dataKey="overdue"
+                name="Overdue"
                 stroke={CHART_COLORS.danger}
                 strokeDasharray="5 5"
-                name="Overdue"
+                type="monotone"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -174,7 +201,10 @@ export function CommitmentTrendChart({ data, className }: CommitmentTrendChartPr
 // DECISION CATEGORY CHART
 // =============================================================================
 
-export function DecisionCategoryChart({ data, className }: DecisionCategoryChartProps) {
+export function DecisionCategoryChart({
+  data,
+  className,
+}: DecisionCategoryChartProps) {
   const COLORS = [
     CHART_COLORS.purple,
     CHART_COLORS.blue,
@@ -191,25 +221,25 @@ export function DecisionCategoryChart({ data, className }: DecisionCategoryChart
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer height="100%" width="100%">
             <PieChart>
               <Pie
-                data={data}
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                outerRadius={100}
-                fill="#8884d8"
+                data={data}
                 dataKey="count"
-                nameKey="category"
+                fill="#8884d8"
                 label={({ category, percent }) =>
                   `${category}: ${(percent * 100).toFixed(0)}%`
                 }
+                labelLine={false}
+                nameKey="category"
+                outerRadius={100}
               >
                 {data.map((entry, index) => (
                   <Cell
-                    key={`cell-${index}`}
                     fill={entry.color ?? COLORS[index % COLORS.length]}
+                    key={`cell-${index}`}
                   />
                 ))}
               </Pie>
@@ -232,23 +262,28 @@ export function DecisionCategoryChart({ data, className }: DecisionCategoryChart
 // RELATIONSHIP HEALTH CHART
 // =============================================================================
 
-export function RelationshipHealthChart({ data, className }: RelationshipHealthChartProps) {
+export function RelationshipHealthChart({
+  data,
+  className,
+}: RelationshipHealthChartProps) {
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-base">Relationship Health Distribution</CardTitle>
+        <CardTitle className="text-base">
+          Relationship Health Distribution
+        </CardTitle>
         <CardDescription>Contacts by health score range</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer height="100%" width="100%">
             <BarChart data={data} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis type="number" className="text-xs fill-muted-foreground" />
+              <CartesianGrid className="stroke-muted" strokeDasharray="3 3" />
+              <XAxis className="fill-muted-foreground text-xs" type="number" />
               <YAxis
+                className="fill-muted-foreground text-xs"
                 dataKey="range"
                 type="category"
-                className="text-xs fill-muted-foreground"
                 width={80}
               />
               <Tooltip
@@ -260,7 +295,7 @@ export function RelationshipHealthChart({ data, className }: RelationshipHealthC
               />
               <Bar dataKey="count" name="Contacts">
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Cell fill={entry.color} key={`cell-${index}`} />
                 ))}
               </Bar>
             </BarChart>
@@ -275,7 +310,10 @@ export function RelationshipHealthChart({ data, className }: RelationshipHealthC
 // COMMUNICATION VOLUME CHART
 // =============================================================================
 
-export function CommunicationVolumeChart({ data, className }: CommunicationVolumeChartProps) {
+export function CommunicationVolumeChart({
+  data,
+  className,
+}: CommunicationVolumeChartProps) {
   const chartData = data.map((d) => ({
     date: format(d.date, "MMM d"),
     sent: d.sent,
@@ -290,15 +328,18 @@ export function CommunicationVolumeChart({ data, className }: CommunicationVolum
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer height="100%" width="100%">
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <CartesianGrid className="stroke-muted" strokeDasharray="3 3" />
               <XAxis
+                className="fill-muted-foreground text-xs"
                 dataKey="date"
-                className="text-xs fill-muted-foreground"
                 tick={{ fontSize: 12 }}
               />
-              <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 12 }} />
+              <YAxis
+                className="fill-muted-foreground text-xs"
+                tick={{ fontSize: 12 }}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(var(--background))",
@@ -308,20 +349,20 @@ export function CommunicationVolumeChart({ data, className }: CommunicationVolum
               />
               <Legend />
               <Line
-                type="monotone"
                 dataKey="sent"
-                stroke={CHART_COLORS.blue}
-                strokeWidth={2}
                 dot={false}
                 name="Sent"
+                stroke={CHART_COLORS.blue}
+                strokeWidth={2}
+                type="monotone"
               />
               <Line
-                type="monotone"
                 dataKey="received"
-                stroke={CHART_COLORS.purple}
-                strokeWidth={2}
                 dot={false}
                 name="Received"
+                stroke={CHART_COLORS.purple}
+                strokeWidth={2}
+                type="monotone"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -341,19 +382,23 @@ interface SparklineProps {
   className?: string;
 }
 
-export function Sparkline({ data, color = CHART_COLORS.primary, className }: SparklineProps) {
+export function Sparkline({
+  data,
+  color = CHART_COLORS.primary,
+  className,
+}: SparklineProps) {
   const chartData = data.map((value, index) => ({ index, value }));
 
   return (
     <div className={cn("h-8 w-24", className)}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer height="100%" width="100%">
         <LineChart data={chartData}>
           <Line
-            type="monotone"
             dataKey="value"
+            dot={false}
             stroke={color}
             strokeWidth={1.5}
-            dot={false}
+            type="monotone"
           />
         </LineChart>
       </ResponsiveContainer>

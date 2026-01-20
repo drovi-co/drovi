@@ -15,19 +15,16 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Archive, Plus, Star } from "lucide-react";
 import { useRef } from "react";
-
+import { SourceIcon } from "@/components/inbox/source-icon";
 import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { PriorityIcon, type Priority } from "@/components/ui/priority-icon";
-import { StatusIcon, type Status } from "@/components/ui/status-icon";
-import { SourceIcon } from "@/components/inbox/source-icon";
-import { type SourceType } from "@/lib/source-config";
+import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
+import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
 import {
   formatDueDate,
-  PRIORITY_CONFIG,
-  SOURCE_TYPE_CONFIG,
   STATUS_CONFIG,
   type TaskData,
   type TaskPriority,
@@ -40,11 +37,11 @@ import {
 // =============================================================================
 
 const COL = {
-  checkbox: "w-7",      // 28px
-  priority: "w-7",      // 28px
-  source: "w-6",        // 24px
-  status: "w-7",        // 28px
-  taskId: "w-[120px]",  // 120px - matches sender column in inbox
+  checkbox: "w-7", // 28px
+  priority: "w-7", // 28px
+  source: "w-6", // 24px
+  status: "w-7", // 28px
+  taskId: "w-[120px]", // 120px - matches sender column in inbox
 } as const;
 
 // =============================================================================
@@ -103,7 +100,7 @@ export function TaskVirtualList({
   const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
-    <div ref={parentRef} className={cn("overflow-auto h-full", className)}>
+    <div className={cn("h-full overflow-auto", className)} ref={parentRef}>
       <div
         style={{
           height: `${rowVirtualizer.getTotalSize()}px`,
@@ -128,7 +125,7 @@ export function TaskVirtualList({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <GroupHeader status={item.status} count={item.count} />
+                <GroupHeader count={item.count} status={item.status} />
               </div>
             );
           }
@@ -147,13 +144,13 @@ export function TaskVirtualList({
               }}
             >
               <VirtualTaskRow
-                task={task}
-                isSelected={selectedIds.has(task.id)}
                 isActive={selectedTaskId === task.id}
-                onSelect={onSelectTask}
+                isSelected={selectedIds.has(task.id)}
                 onClick={() => onTaskClick(task.id)}
-                onStatusChange={onStatusChange}
                 onPriorityChange={onPriorityChange}
+                onSelect={onSelectTask}
+                onStatusChange={onStatusChange}
+                task={task}
               />
             </div>
           );
@@ -176,20 +173,27 @@ function GroupHeader({ status, count }: GroupHeaderProps) {
   const config = STATUS_CONFIG[status];
   // Map our status to the StatusIcon status type
   const iconStatus: Status =
-    status === "backlog" ? "backlog" :
-    status === "todo" ? "todo" :
-    status === "in_progress" ? "in_progress" :
-    status === "in_review" ? "in_progress" :
-    status === "done" ? "done" :
-    "canceled";
+    status === "backlog"
+      ? "backlog"
+      : status === "todo"
+        ? "todo"
+        : status === "in_progress"
+          ? "in_progress"
+          : status === "in_review"
+            ? "in_progress"
+            : status === "done"
+              ? "done"
+              : "canceled";
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1 bg-[#21232e]">
-      <StatusIcon status={iconStatus} size="md" />
-      <span className="text-[13px] font-medium text-[#eeeffc]">{config.label}</span>
-      <span className="text-[13px] text-[#858699]">{count}</span>
-      <button className="ml-auto p-1.5 rounded hover:bg-[#292b41] transition-colors">
-        <Plus className="h-3 w-3 text-[#858699]" />
+    <div className="flex items-center gap-2 bg-muted px-4 py-1">
+      <StatusIcon size="md" status={iconStatus} />
+      <span className="font-medium text-foreground text-[13px]">
+        {config.label}
+      </span>
+      <span className="text-muted-foreground text-[13px]">{count}</span>
+      <button className="ml-auto rounded p-1.5 transition-colors hover:bg-accent">
+        <Plus className="h-3 w-3 text-muted-foreground" />
       </button>
     </div>
   );
@@ -212,25 +216,38 @@ interface VirtualTaskRowProps {
 // Map task status to status icon status
 function mapStatus(status: TaskStatus): Status {
   switch (status) {
-    case "backlog": return "backlog";
-    case "todo": return "todo";
-    case "in_progress": return "in_progress";
-    case "in_review": return "in_progress";
-    case "done": return "done";
-    case "cancelled": return "canceled";
-    default: return "todo";
+    case "backlog":
+      return "backlog";
+    case "todo":
+      return "todo";
+    case "in_progress":
+      return "in_progress";
+    case "in_review":
+      return "in_progress";
+    case "done":
+      return "done";
+    case "cancelled":
+      return "canceled";
+    default:
+      return "todo";
   }
 }
 
 // Map task priority to priority icon priority
 function mapPriority(priority: TaskPriority): Priority {
   switch (priority) {
-    case "urgent": return "urgent";
-    case "high": return "high";
-    case "medium": return "medium";
-    case "low": return "low";
-    case "no_priority": return "none";
-    default: return "none";
+    case "urgent":
+      return "urgent";
+    case "high":
+      return "high";
+    case "medium":
+      return "medium";
+    case "low":
+      return "low";
+    case "no_priority":
+      return "none";
+    default:
+      return "none";
   }
 }
 
@@ -255,11 +272,16 @@ function getInitials(name?: string | null, email?: string): string {
 // Map task source type to inbox SourceType for SourceIcon
 function mapSourceTypeToSourceType(sourceType: TaskSourceType): SourceType {
   switch (sourceType) {
-    case "conversation": return "email";
-    case "commitment": return "email";
-    case "decision": return "email";
-    case "manual": return "email";
-    default: return "email";
+    case "conversation":
+      return "email";
+    case "commitment":
+      return "email";
+    case "decision":
+      return "email";
+    case "manual":
+      return "email";
+    default:
+      return "email";
   }
 }
 
@@ -278,20 +300,24 @@ function VirtualTaskRow({
   return (
     <div
       className={cn(
-        "group flex items-center h-10",
+        "group flex h-10 items-center",
         "cursor-pointer transition-colors duration-100",
-        "border-b border-[#1E1F2E]",
-        isSelected && "bg-[#252736]",
-        isActive && "bg-[#252736] border-l-2 border-l-[#5E6AD2] pl-[calc(0.75rem-2px)]",
+        "border-border border-b",
+        isSelected && "bg-accent",
+        isActive &&
+          "border-l-2 border-l-secondary bg-accent pl-[calc(0.75rem-2px)]",
         !isActive && "pl-3",
         "pr-3",
-        !isSelected && !isActive && "hover:bg-[#1E1F2E]"
+        !(isSelected || isActive) && "hover:bg-muted"
       )}
       onClick={onClick}
     >
       {/* Checkbox - fixed width */}
       <div
-        className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <IssueCheckbox
@@ -302,26 +328,38 @@ function VirtualTaskRow({
       </div>
 
       {/* Priority - fixed width */}
-      <div className={cn(COL.priority, "h-7 shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(
+          COL.priority,
+          "flex h-7 shrink-0 items-center justify-center"
+        )}
+      >
         <PriorityIcon priority={iconPriority} size="sm" />
       </div>
 
       {/* Source - fixed width (matches inbox exactly) */}
-      <div className={cn(COL.source, "shrink-0 flex items-center justify-center")}>
-        <SourceIcon sourceType={sourceType} size="sm" />
+      <div
+        className={cn(COL.source, "flex shrink-0 items-center justify-center")}
+      >
+        <SourceIcon size="sm" sourceType={sourceType} />
       </div>
 
       {/* Status - fixed width */}
-      <div className={cn(COL.status, "h-7 shrink-0 flex items-center justify-center")}>
-        <StatusIcon status={iconStatus} size="sm" />
+      <div
+        className={cn(
+          COL.status,
+          "flex h-7 shrink-0 items-center justify-center"
+        )}
+      >
+        <StatusIcon size="sm" status={iconStatus} />
       </div>
 
       {/* Task ID - fixed width (matches sender column in inbox) */}
       <div className={cn(COL.taskId, "shrink-0 px-1")}>
         <span
           className={cn(
-            "text-[13px] truncate block",
-            "font-medium text-[#EEEFFC]"
+            "block truncate text-[13px]",
+            "font-medium text-foreground"
           )}
         >
           {getTaskId(task)}
@@ -329,31 +367,33 @@ function VirtualTaskRow({
       </div>
 
       {/* Title - flexible width, takes remaining space (matches brief in inbox) */}
-      <div className="flex-1 min-w-0 px-2">
-        <span className="text-[13px] font-normal text-[#6B7280] truncate block">
+      <div className="min-w-0 flex-1 px-2">
+        <span className="block truncate font-normal text-muted-foreground text-[13px]">
           {task.title}
         </span>
       </div>
 
       {/* Right section - fixed width, perfectly aligned (matches inbox exactly) */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         {/* Default state: Date + Assignee + Labels - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Date - fixed width, right aligned text */}
-          <span className={cn(
-            "w-14 text-right text-[12px] font-normal whitespace-nowrap",
-            dueInfo?.className ?? "text-[#6B7280]"
-          )}>
+          <span
+            className={cn(
+              "w-14 whitespace-nowrap text-right font-normal text-[12px]",
+              dueInfo?.className ?? "text-muted-foreground"
+            )}
+          >
             {dueInfo?.text ?? ""}
           </span>
 
           {/* Assignee - fixed width */}
-          <div className="w-7 h-7 flex items-center justify-center">
+          <div className="flex h-7 w-7 items-center justify-center">
             {task.assignee ? (
               <AssigneeIcon
-                name={task.assignee.name ?? undefined}
                 email={task.assignee.email}
                 imageUrl={task.assignee.image ?? undefined}
+                name={task.assignee.name ?? undefined}
                 size="xs"
               />
             ) : (
@@ -362,13 +402,13 @@ function VirtualTaskRow({
           </div>
 
           {/* Labels indicator or spacer */}
-          <div className="w-7 flex items-center justify-center">
+          <div className="flex w-7 items-center justify-center">
             {task.labels.length > 0 ? (
               <div className="flex items-center gap-0.5">
                 {task.labels.slice(0, 2).map((label) => (
                   <span
+                    className="h-2 w-2 rounded-full"
                     key={label.id}
-                    className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: label.color }}
                     title={label.name}
                   />
@@ -379,36 +419,36 @@ function VirtualTaskRow({
         </div>
 
         {/* Hover state: Actions - replaces entire section (matches inbox) */}
-        <div className="hidden group-hover:flex items-center justify-end gap-0.5">
+        <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           <button
-            type="button"
+            aria-label="Star"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               // Star action - placeholder
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Star"
+            type="button"
           >
             <Star className="size-4" />
           </button>
           <button
-            type="button"
+            aria-label="Archive"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               // Archive action - placeholder
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Archive"
+            type="button"
           >
             <Archive className="size-4" />
           </button>

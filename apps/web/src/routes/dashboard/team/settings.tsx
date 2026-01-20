@@ -63,7 +63,9 @@ function TeamSettingsPage() {
       });
       toast.success("Organization updated successfully");
     } catch (error) {
-      console.error("Update error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Update error:", error);
+      }
       toast.error("Failed to update organization");
     } finally {
       setIsUpdating(false);
@@ -85,7 +87,9 @@ function TeamSettingsPage() {
       });
       toast.success(logoUrl ? "Logo updated successfully" : "Logo removed");
     } catch (error) {
-      console.error("Logo update error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Logo update error:", error);
+      }
       toast.error("Failed to update logo");
     } finally {
       setIsUploadingLogo(false);

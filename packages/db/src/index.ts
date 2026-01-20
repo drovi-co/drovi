@@ -23,10 +23,10 @@ export const pool = new Pool({
   connectionString: env.DATABASE_URL,
   // Connection pool settings
   max: 20, // Maximum connections per instance
-  idleTimeoutMillis: 30000, // Close idle connections after 30s
+  idleTimeoutMillis: 30_000, // Close idle connections after 30s
   connectionTimeoutMillis: 5000, // Timeout for new connection attempts
   // Statement timeout for long-running queries
-  statement_timeout: 30000, // 30 seconds
+  statement_timeout: 30_000, // 30 seconds
 });
 
 // Log pool errors

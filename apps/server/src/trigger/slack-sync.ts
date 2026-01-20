@@ -6,27 +6,11 @@
 // multi-source intelligence platform.
 //
 
-import { logger, schedules, task } from "@trigger.dev/sdk/v3";
-import { db } from "@memorystack/db";
-import {
-  claim,
-  commitment,
-  contact,
-  conversation,
-  type ConversationMetadata,
-  decision,
-  message,
-  slackChannel,
-  slackTeam,
-  slackUserCache,
-  sourceAccount,
-} from "@memorystack/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import {
-  slackAdapter,
   type SlackChannelData,
   type SlackMessageData,
+  slackAdapter,
 } from "@memorystack/ai";
 import {
   analyzeThread,
@@ -35,8 +19,32 @@ import {
   type ThreadMessage,
 } from "@memorystack/ai/agents";
 import { SLACK_API_BASE } from "@memorystack/auth/providers/slack";
+import { db } from "@memorystack/db";
+import {
+  type ConversationMetadata,
+  claim,
+  commitment,
+  contact,
+  conversation,
+  decision,
+  message,
+  slackChannel,
+  slackTeam,
+  slackUserCache,
+  sourceAccount,
+} from "@memorystack/db/schema";
+import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
 import { embedConversationTask } from "./embedding-generation";
+import {
+  checkExistingCommitment,
+  checkExistingDecision,
+} from "./lib/commitment-dedup";
+import {
+  processCommitmentTask,
+  processDecisionTask,
+} from "./unified-object-processing";
 
 const log = logger;
 
@@ -84,7 +92,12 @@ export const syncSlackTask = task({
   maxDuration: 600, // 10 minutes max
 
   run: async (payload: SlackSyncPayload): Promise<SlackSyncResult> => {
-    const { sourceAccountId, fullSync = false, channelIds, maxMessagesPerChannel = 100 } = payload;
+    const {
+      sourceAccountId,
+      fullSync = false,
+      channelIds,
+      maxMessagesPerChannel = 100,
+    } = payload;
 
     const result: SlackSyncResult = {
       success: false,
@@ -153,9 +166,13 @@ export const syncSlackTask = task({
           result.conversationsCreated += channelResult.created ? 1 : 0;
           result.conversationsUpdated += channelResult.updated ? 1 : 0;
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Channel ${channel.id}: ${errorMsg}`);
-          log.error("Failed to sync channel", { channelId: channel.id, error: errorMsg });
+          log.error("Failed to sync channel", {
+            channelId: channel.id,
+            error: errorMsg,
+          });
         }
       }
 
@@ -424,7 +441,9 @@ async function upsertSlackChannel(
       memberCount: channel.numMembers,
       creatorUserId: channel.creator,
       slackCreatedAt: new Date(channel.created * 1000),
-      slackUpdatedAt: channel.updated ? new Date(channel.updated * 1000) : undefined,
+      slackUpdatedAt: channel.updated
+        ? new Date(channel.updated * 1000)
+        : undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -437,7 +456,9 @@ async function upsertSlackChannel(
         isArchived: channel.isArchived,
         isMember: channel.isMember,
         memberCount: channel.numMembers,
-        slackUpdatedAt: channel.updated ? new Date(channel.updated * 1000) : undefined,
+        slackUpdatedAt: channel.updated
+          ? new Date(channel.updated * 1000)
+          : undefined,
         updatedAt: new Date(),
       },
     });
@@ -484,7 +505,7 @@ async function syncChannel(
   const messages = await fetchChannelMessages(
     accessToken,
     channel.id,
-    fullSync ? undefined : channelRecord?.lastMessageTs ?? undefined,
+    fullSync ? undefined : (channelRecord?.lastMessageTs ?? undefined),
     maxMessages
   );
 
@@ -526,7 +547,9 @@ async function syncChannel(
         snippet: messages[messages.length - 1]?.text?.slice(0, 200),
         participantIds: conversationData.participantIds,
         messageCount: sql`${conversation.messageCount} + ${messages.length}`,
-        lastMessageAt: new Date(parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000),
+        lastMessageAt: new Date(
+          Number.parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000
+        ),
         metadata: enrichedMetadata,
         updatedAt: now,
       })
@@ -536,7 +559,11 @@ async function syncChannel(
 
     // Insert new messages
     for (const msg of messages) {
-      await upsertMessage(existingConversation.id, msg, conversationData.userIdentifier);
+      await upsertMessage(
+        existingConversation.id,
+        msg,
+        conversationData.userIdentifier
+      );
     }
   } else {
     // Create new conversation
@@ -551,8 +578,12 @@ async function syncChannel(
       snippet: messages[messages.length - 1]?.text?.slice(0, 200),
       participantIds: conversationData.participantIds,
       messageCount: messages.length,
-      firstMessageAt: new Date(parseFloat(messages[0]?.ts ?? "0") * 1000),
-      lastMessageAt: new Date(parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000),
+      firstMessageAt: new Date(
+        Number.parseFloat(messages[0]?.ts ?? "0") * 1000
+      ),
+      lastMessageAt: new Date(
+        Number.parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000
+      ),
       isRead: false,
       isStarred: false,
       isArchived: channel.isArchived,
@@ -589,7 +620,11 @@ async function syncChannel(
 
   // Trigger conversation analysis for intelligence extraction
   // Use the conversation ID from either existing or newly created
-  const conversationId = existingConversation?.id ?? (result.created ? await getConversationIdByExternalId(sourceAccountId, channel.id) : null);
+  const conversationId =
+    existingConversation?.id ??
+    (result.created
+      ? await getConversationIdByExternalId(sourceAccountId, channel.id)
+      : null);
   if (conversationId) {
     try {
       await analyzeSlackConversationTask.trigger(
@@ -602,9 +637,15 @@ async function syncChannel(
           },
         }
       );
-      log.info("Triggered Slack conversation analysis", { conversationId, channelId: channel.id });
+      log.info("Triggered Slack conversation analysis", {
+        conversationId,
+        channelId: channel.id,
+      });
     } catch (e) {
-      log.warn("Failed to trigger Slack conversation analysis", { conversationId, error: e });
+      log.warn("Failed to trigger Slack conversation analysis", {
+        conversationId,
+        error: e,
+      });
     }
   }
 
@@ -635,7 +676,7 @@ async function fetchChannelMessages(
   accessToken: string,
   channelId: string,
   oldest?: string,
-  limit: number = 100
+  limit = 100
 ): Promise<SlackMessageData[]> {
   const messages: SlackMessageData[] = [];
   let cursor: string | undefined;
@@ -710,7 +751,12 @@ async function fetchChannelMessages(
 
     for (const msg of data.messages) {
       // Skip system messages
-      if (msg.subtype && ["channel_join", "channel_leave", "bot_add", "bot_remove"].includes(msg.subtype)) {
+      if (
+        msg.subtype &&
+        ["channel_join", "channel_leave", "bot_add", "bot_remove"].includes(
+          msg.subtype
+        )
+      ) {
         continue;
       }
 
@@ -737,7 +783,9 @@ async function fetchChannelMessages(
           urlPrivateDownload: f.url_private_download,
           thumb360: f.thumb_360,
         })),
-        edited: msg.edited ? { user: msg.edited.user, ts: msg.edited.ts } : undefined,
+        edited: msg.edited
+          ? { user: msg.edited.user, ts: msg.edited.ts }
+          : undefined,
       });
     }
 
@@ -745,7 +793,9 @@ async function fetchChannelMessages(
   } while (cursor && messages.length < limit);
 
   // Sort by timestamp ascending
-  return messages.sort((a, b) => parseFloat(a.ts) - parseFloat(b.ts));
+  return messages.sort(
+    (a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts)
+  );
 }
 
 /**
@@ -756,7 +806,7 @@ async function upsertMessage(
   msg: SlackMessageData,
   userIdentifier: string
 ): Promise<void> {
-  const sentAt = new Date(parseFloat(msg.ts) * 1000);
+  const sentAt = new Date(Number.parseFloat(msg.ts) * 1000);
 
   await db
     .insert(message)
@@ -777,12 +827,19 @@ async function upsertMessage(
       metadata: {
         ts: msg.ts,
         reactions: msg.reactions,
-        files: msg.files?.map((f: { id: string; name: string; mimetype: string; urlPrivate?: string }) => ({
-          id: f.id,
-          name: f.name,
-          mimeType: f.mimetype,
-          url: f.urlPrivate ?? "",
-        })),
+        files: msg.files?.map(
+          (f: {
+            id: string;
+            name: string;
+            mimetype: string;
+            urlPrivate?: string;
+          }) => ({
+            id: f.id,
+            name: f.name,
+            mimeType: f.mimetype,
+            url: f.urlPrivate ?? "",
+          })
+        ),
         customMetadata: {
           threadTs: msg.threadTs,
           replyCount: msg.replyCount,
@@ -798,12 +855,19 @@ async function upsertMessage(
         metadata: {
           ts: msg.ts,
           reactions: msg.reactions,
-          files: msg.files?.map((f: { id: string; name: string; mimetype: string; urlPrivate?: string }) => ({
-            id: f.id,
-            name: f.name,
-            mimeType: f.mimetype,
-            url: f.urlPrivate ?? "",
-          })),
+          files: msg.files?.map(
+            (f: {
+              id: string;
+              name: string;
+              mimetype: string;
+              urlPrivate?: string;
+            }) => ({
+              id: f.id,
+              name: f.name,
+              mimeType: f.mimetype,
+              url: f.urlPrivate ?? "",
+            })
+          ),
           customMetadata: {
             threadTs: msg.threadTs,
             replyCount: msg.replyCount,
@@ -857,7 +921,9 @@ export const syncSlackSchedule = schedules.task({
       });
     }
 
-    log.info("Scheduled Slack sync triggered", { accounts: slackAccounts.length });
+    log.info("Scheduled Slack sync triggered", {
+      accounts: slackAccounts.length,
+    });
 
     return { scheduled: true, accountsTriggered: slackAccounts.length };
   },
@@ -938,7 +1004,9 @@ export const analyzeSlackConversationTask = task({
   },
   maxDuration: 180, // 3 minutes max
 
-  run: async (payload: SlackConversationAnalysisPayload): Promise<SlackConversationAnalysisResult> => {
+  run: async (
+    payload: SlackConversationAnalysisPayload
+  ): Promise<SlackConversationAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
     log.info("Starting Slack conversation analysis", { conversationId, force });
@@ -990,19 +1058,21 @@ export const analyzeSlackConversationTask = task({
       const userIdentifier = settings?.customSettings?.authedUserId ?? "";
 
       // Convert Slack messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map((msg, index) => ({
-        id: msg.id,
-        providerMessageId: msg.externalId ?? msg.id,
-        fromEmail: msg.senderExternalId ?? "unknown",
-        fromName: msg.senderName ?? undefined,
-        toRecipients: [{ email: userIdentifier, name: "You" }],
-        subject: undefined,
-        bodyText: msg.bodyText ?? "",
-        sentAt: msg.sentAt ?? undefined,
-        receivedAt: msg.receivedAt ?? undefined,
-        isFromUser: msg.isFromUser ?? false,
-        messageIndex: index,
-      }));
+      const threadMessages: ThreadMessage[] = conv.messages.map(
+        (msg, index) => ({
+          id: msg.id,
+          providerMessageId: msg.externalId ?? msg.id,
+          fromEmail: msg.senderExternalId ?? "unknown",
+          fromName: msg.senderName ?? undefined,
+          toRecipients: [{ email: userIdentifier, name: "You" }],
+          subject: undefined,
+          bodyText: msg.bodyText ?? "",
+          sentAt: msg.sentAt ?? undefined,
+          receivedAt: msg.receivedAt ?? undefined,
+          isFromUser: msg.isFromUser ?? false,
+          messageIndex: index,
+        })
+      );
 
       // Build ThreadInput for the agent
       const threadInput: ThreadInput = {
@@ -1044,7 +1114,11 @@ export const analyzeSlackConversationTask = task({
       });
 
       // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(analysis.claims, conversationId, conv.sourceAccount.organizationId);
+      const dbClaims = claimsToDbFormat(
+        analysis.claims,
+        conversationId,
+        conv.sourceAccount.organizationId
+      );
 
       // Insert claims into database
       if (dbClaims.length > 0) {
@@ -1070,7 +1144,14 @@ export const analyzeSlackConversationTask = task({
 
       // Update conversation with analysis results
       const urgencyScore = analysis.classification.urgency.score;
-      const priorityTier = urgencyScore >= 0.8 ? "urgent" : urgencyScore >= 0.6 ? "high" : urgencyScore >= 0.4 ? "medium" : "low";
+      const priorityTier =
+        urgencyScore >= 0.8
+          ? "urgent"
+          : urgencyScore >= 0.6
+            ? "high"
+            : urgencyScore >= 0.4
+              ? "medium"
+              : "low";
 
       await db
         .update(conversation)
@@ -1081,7 +1162,9 @@ export const analyzeSlackConversationTask = task({
           priorityTier,
           urgencyScore: analysis.classification.urgency.score,
           importanceScore: analysis.classification.urgency.score,
-          suggestedAction: analysis.brief?.actionRequired ? analysis.brief.actionDescription : null,
+          suggestedAction: analysis.brief?.actionRequired
+            ? analysis.brief.actionDescription
+            : null,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -1099,8 +1182,27 @@ export const analyzeSlackConversationTask = task({
         });
 
         for (const promise of promiseClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: promise.text.slice(0, 200),
+            description: promise.text,
+            dueDate: promise.deadline ? new Date(promise.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -1109,7 +1211,8 @@ export const analyzeSlackConversationTask = task({
             status: "pending",
             confidence: promise.confidence,
             dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction: promise.promisor === userIdentifier ? "owed_by_me" : "owed_to_me",
+            direction:
+              promise.promisor === userIdentifier ? "owed_by_me" : "owed_to_me",
             metadata: {
               sourceType: "slack" as const,
               sourceQuote: promise.evidence[0]?.quotedText,
@@ -1121,11 +1224,49 @@ export const analyzeSlackConversationTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: promise.text.slice(0, 200),
+              description: promise.text,
+              dueDate: promise.deadline
+                ? new Date(promise.deadline)
+                : undefined,
+              confidence: promise.confidence,
+              sourceQuote: promise.evidence[0]?.quotedText,
+            },
+            sourceType: "slack",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
 
         for (const request of requestClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: request.text.slice(0, 200),
+            description: request.text,
+            dueDate: request.deadline ? new Date(request.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (request)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -1134,7 +1275,10 @@ export const analyzeSlackConversationTask = task({
             status: "pending",
             confidence: request.confidence,
             dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction: request.requester === userIdentifier ? "owed_to_me" : "owed_by_me",
+            direction:
+              request.requester === userIdentifier
+                ? "owed_to_me"
+                : "owed_by_me",
             metadata: {
               sourceType: "slack" as const,
               sourceQuote: request.evidence[0]?.quotedText,
@@ -1146,6 +1290,25 @@ export const analyzeSlackConversationTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: request.text.slice(0, 200),
+              description: request.text,
+              dueDate: request.deadline
+                ? new Date(request.deadline)
+                : undefined,
+              confidence: request.confidence,
+              sourceQuote: request.evidence[0]?.quotedText,
+            },
+            sourceType: "slack",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
       }
 
@@ -1159,8 +1322,26 @@ export const analyzeSlackConversationTask = task({
         });
 
         for (const decisionClaim of decisionClaims) {
+          // Check for existing duplicate decision in same conversation
+          const dedupCheck = await checkExistingDecision({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: decisionClaim.text.slice(0, 200),
+            statement: decisionClaim.text,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate decision", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const decisionId = randomUUID();
           await db.insert(decision).values({
-            id: randomUUID(),
+            id: decisionId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -1177,6 +1358,26 @@ export const analyzeSlackConversationTask = task({
             },
           });
           result.decisionsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processDecisionTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            decision: {
+              id: decisionId,
+              title: decisionClaim.text.slice(0, 200),
+              statement: decisionClaim.text,
+              rationale: decisionClaim.rationale ?? undefined,
+              decidedAt: new Date(),
+              confidence: decisionClaim.confidence,
+              ownerContactIds: [],
+              participantContactIds: [],
+              sourceQuote: decisionClaim.evidence[0]?.quotedText,
+            },
+            sourceType: "slack",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalDecisionId: decisionId,
+          });
         }
       }
 
@@ -1206,24 +1407,7 @@ export const analyzeSlackConversationTask = task({
           ),
         });
 
-        if (!existingContact) {
-          await db.insert(contact).values({
-            id: randomUUID(),
-            organizationId: conv.sourceAccount.organizationId,
-            primaryEmail: `slack:${slackUserId}`,
-            displayName: cachedUser?.realName ?? cachedUser?.displayName ?? slackUserId,
-            enrichmentSource: "slack",
-            lastInteractionAt: conv.lastMessageAt ?? new Date(),
-            totalMessages: conv.messageCount ?? 1,
-            metadata: {
-              slackUserId,
-              sourceAccountId: conv.sourceAccountId,
-              source: "slack",
-              slackTeamId: (conv.metadata as { teamId?: string } | undefined)?.teamId,
-            },
-          });
-          result.contactsCreated++;
-        } else {
+        if (existingContact) {
           // Update existing contact
           await db
             .update(contact)
@@ -1233,6 +1417,25 @@ export const analyzeSlackConversationTask = task({
               updatedAt: new Date(),
             })
             .where(eq(contact.id, existingContact.id));
+        } else {
+          await db.insert(contact).values({
+            id: randomUUID(),
+            organizationId: conv.sourceAccount.organizationId,
+            primaryEmail: `slack:${slackUserId}`,
+            displayName:
+              cachedUser?.realName ?? cachedUser?.displayName ?? slackUserId,
+            enrichmentSource: "slack",
+            lastInteractionAt: conv.lastMessageAt ?? new Date(),
+            totalMessages: conv.messageCount ?? 1,
+            metadata: {
+              slackUserId,
+              sourceAccountId: conv.sourceAccountId,
+              source: "slack",
+              slackTeamId: (conv.metadata as { teamId?: string } | undefined)
+                ?.teamId,
+            },
+          });
+          result.contactsCreated++;
         }
       }
 
@@ -1248,9 +1451,14 @@ export const analyzeSlackConversationTask = task({
             },
           }
         );
-        log.info("Triggered embedding generation for Slack conversation", { conversationId });
+        log.info("Triggered embedding generation for Slack conversation", {
+          conversationId,
+        });
       } catch (e) {
-        log.warn("Failed to trigger embedding generation", { conversationId, error: e });
+        log.warn("Failed to trigger embedding generation", {
+          conversationId,
+          error: e,
+        });
       }
 
       result.success = true;
@@ -1267,7 +1475,10 @@ export const analyzeSlackConversationTask = task({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       result.error = errorMsg;
-      log.error("Slack conversation analysis failed", { conversationId, error: errorMsg });
+      log.error("Slack conversation analysis failed", {
+        conversationId,
+        error: errorMsg,
+      });
       return result;
     }
   },
@@ -1281,13 +1492,17 @@ export const analyzeSlackConversationsBatchTask = task({
   queue: { name: "slack-analysis", concurrencyLimit: 3 },
   retry: {
     maxAttempts: 2,
-    minTimeoutInMs: 10000,
+    minTimeoutInMs: 10_000,
     maxTimeoutInMs: 120_000,
     factor: 2,
   },
   maxDuration: 600, // 10 minutes max
 
-  run: async (payload: { sourceAccountId: string; limit?: number; force?: boolean }) => {
+  run: async (payload: {
+    sourceAccountId: string;
+    limit?: number;
+    force?: boolean;
+  }) => {
     const { sourceAccountId, limit = 50, force = false } = payload;
 
     log.info("Starting batch Slack conversation analysis", {

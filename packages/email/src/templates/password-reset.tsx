@@ -23,7 +23,7 @@ export function PasswordResetEmail({
   return (
     <Html>
       <Head />
-      <Preview>Reset your MemoryStack password</Preview>
+      <Preview>Reset your Drovi password</Preview>
       <Body style={main}>
         <Container style={container}>
           <Heading style={h1}>Reset Your Password</Heading>

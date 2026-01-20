@@ -1,31 +1,29 @@
 export {
-  SupersessionChain,
-  InlineSupersessionChain,
-  type SupersessionChainItem,
-  type SupersessionChainProps,
-} from "./supersession-chain";
-
-export {
   DecisionMemorySearch,
-  type DecisionSearchResult,
   type DecisionMemorySearchProps,
+  type DecisionSearchResult,
 } from "./decision-memory-search";
+export {
+  DecisionListHeader,
+  type DecisionListHeaderProps,
+  DecisionRow,
+  type DecisionRowData,
+  type DecisionRowProps,
+} from "./decision-row";
 
 export {
   DecisionTimeline,
-  type TimelineDecision,
   type DecisionTimelineProps,
+  type TimelineDecision,
 } from "./decision-timeline";
 
 export {
   LinkedCommitments,
   LinkedDecisions,
 } from "./linked-intelligence";
-
 export {
-  DecisionRow,
-  DecisionListHeader,
-  type DecisionRowData,
-  type DecisionRowProps,
-  type DecisionListHeaderProps,
-} from "./decision-row";
+  InlineSupersessionChain,
+  SupersessionChain,
+  type SupersessionChainItem,
+  type SupersessionChainProps,
+} from "./supersession-chain";

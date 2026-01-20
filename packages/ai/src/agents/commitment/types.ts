@@ -257,9 +257,7 @@ export const CommitmentExtractionResponseSchema = z.object({
         .nullable()
         .describe("Confidence in the due date"),
       priority: CommitmentPriority.describe("Inferred priority level"),
-      isConditional: z
-        .boolean()
-        .describe("Whether commitment has conditions"),
+      isConditional: z.boolean().describe("Whether commitment has conditions"),
       condition: z.string().nullable().describe("The condition if applicable"),
       confidence: z
         .number()

@@ -47,7 +47,7 @@ function DialogOverlay({
       className={cn(
         "fixed inset-0 z-50",
         "bg-black/60 backdrop-blur-sm",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:animate-out data-[state=open]:animate-in",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         className
       )}
@@ -72,14 +72,14 @@ function DialogContent({
         className={cn(
           "fixed top-[50%] left-[50%] z-50",
           "translate-x-[-50%] translate-y-[-50%]",
-          "w-full max-w-[480px] max-h-[85vh]",
+          "max-h-[85vh] w-full max-w-[480px]",
           "grid gap-4 p-6",
           // Linear-style card background
-          "bg-card border border-border rounded-[6px]",
+          "rounded-[6px] border border-border bg-card",
           "shadow-dropdown",
           "outline-none",
           // Animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
           "duration-150",
@@ -99,7 +99,7 @@ function DialogContent({
               "hover:bg-accent",
               "transition-colors duration-150",
               "outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "[&_svg]:size-4 [&_svg]:pointer-events-none"
+              "[&_svg]:pointer-events-none [&_svg]:size-4"
             )}
             data-slot="dialog-close"
           >
@@ -125,10 +125,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-end gap-2 pt-2",
-        className
-      )}
+      className={cn("flex items-center justify-end gap-2 pt-2", className)}
       data-slot="dialog-footer"
       {...props}
     />
@@ -141,7 +138,7 @@ function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-[15px] font-medium text-foreground", className)}
+      className={cn("font-medium text-[15px] text-foreground", className)}
       data-slot="dialog-title"
       {...props}
     />

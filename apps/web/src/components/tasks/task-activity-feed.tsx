@@ -12,14 +12,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import {
-  ArrowRight,
-  MessageSquare,
-  Plus,
-  Send,
-  Tag,
-  User,
-} from "lucide-react";
+import { ArrowRight, MessageSquare, Plus, Send, Tag, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -90,7 +83,13 @@ export function TaskActivityFeed({
     });
   };
 
-  const activities = activityData?.activities ?? [];
+  // Transform activities to ensure dates are Date objects
+  const activities: TaskActivity[] = (activityData?.activities ?? []).map(
+    (activity) => ({
+      ...activity,
+      createdAt: new Date(activity.createdAt),
+    })
+  );
 
   if (isLoading) {
     return <ActivityFeedSkeleton />;
@@ -101,27 +100,27 @@ export function TaskActivityFeed({
       {/* Comment Input */}
       <div className="space-y-2">
         <Textarea
-          placeholder="Add a comment..."
-          value={comment}
+          className="resize-none"
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               handleSubmitComment();
             }
           }}
+          placeholder="Add a comment..."
           rows={2}
-          className="resize-none"
+          value={comment}
         />
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-xs">
             Press ⌘+Enter to submit
           </span>
           <Button
-            size="sm"
-            onClick={handleSubmitComment}
             disabled={!comment.trim() || addCommentMutation.isPending}
+            onClick={handleSubmitComment}
+            size="sm"
           >
-            <Send className="h-4 w-4 mr-2" />
+            <Send className="mr-2 h-4 w-4" />
             Comment
           </Button>
         </div>
@@ -129,15 +128,15 @@ export function TaskActivityFeed({
 
       {/* Activity List */}
       <div className="border-t pt-4">
-        <h4 className="text-sm font-medium mb-3">Activity</h4>
+        <h4 className="mb-3 font-medium text-sm">Activity</h4>
         {activities.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
+          <p className="py-4 text-center text-muted-foreground text-sm">
             No activity yet
           </p>
         ) : (
           <div className="space-y-4">
             {activities.map((activity) => (
-              <ActivityItem key={activity.id} activity={activity} />
+              <ActivityItem activity={activity} key={activity.id} />
             ))}
           </div>
         )}
@@ -169,7 +168,7 @@ function ActivityItem({ activity }: ActivityItemProps) {
       {/* Avatar */}
       <Avatar className="h-7 w-7 shrink-0">
         {activity.userImage ? (
-          <AvatarImage src={activity.userImage} alt={activity.userName ?? ""} />
+          <AvatarImage alt={activity.userName ?? ""} src={activity.userImage} />
         ) : null}
         <AvatarFallback className="text-[10px]">
           {(activity.userName ?? "U").slice(0, 2).toUpperCase()}
@@ -177,14 +176,16 @@ function ActivityItem({ activity }: ActivityItemProps) {
       </Avatar>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">
             {activity.userName ?? "Unknown"}
           </span>
-          <span className="text-sm text-muted-foreground">{description}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+          <span className="text-muted-foreground text-sm">{description}</span>
+          <span className="text-muted-foreground text-xs">
+            {formatDistanceToNow(new Date(activity.createdAt), {
+              addSuffix: true,
+            })}
           </span>
         </div>
 
@@ -198,7 +199,7 @@ function ActivityItem({ activity }: ActivityItemProps) {
 
         {/* Comment content */}
         {isComment && activity.comment && (
-          <div className="mt-2 p-3 rounded-md bg-muted/50 text-sm">
+          <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm">
             {activity.comment}
           </div>
         )}
@@ -216,18 +217,23 @@ interface StatusChangeVisualizationProps {
   to: TaskStatus;
 }
 
-function StatusChangeVisualization({ from, to }: StatusChangeVisualizationProps) {
+function StatusChangeVisualization({
+  from,
+  to,
+}: StatusChangeVisualizationProps) {
   const fromConfig = STATUS_CONFIG[from];
   const toConfig = STATUS_CONFIG[to];
   const FromIcon = fromConfig?.icon;
   const ToIcon = toConfig?.icon;
 
-  if (!fromConfig || !toConfig) return null;
+  if (!(fromConfig && toConfig)) return null;
 
   return (
-    <div className="flex items-center gap-2 mt-1.5">
+    <div className="mt-1.5 flex items-center gap-2">
       <div className="flex items-center gap-1.5 text-xs">
-        {FromIcon && <FromIcon className={cn("h-3.5 w-3.5", fromConfig.color)} />}
+        {FromIcon && (
+          <FromIcon className={cn("h-3.5 w-3.5", fromConfig.color)} />
+        )}
         <span className={fromConfig.color}>{fromConfig.label}</span>
       </div>
       <ArrowRight className="h-3 w-3 text-muted-foreground" />
@@ -272,10 +278,10 @@ function ActivityFeedSkeleton() {
         </div>
       </div>
       <div className="border-t pt-4">
-        <Skeleton className="h-4 w-16 mb-3" />
+        <Skeleton className="mb-3 h-4 w-16" />
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex gap-3">
+            <div className="flex gap-3" key={i}>
               <Skeleton className="h-7 w-7 rounded-full" />
               <div className="flex-1">
                 <Skeleton className="h-4 w-3/4" />
@@ -320,7 +326,7 @@ export function CompactActivityFeed({
     return (
       <div className={cn("space-y-2", className)}>
         {[...Array(maxItems)].map((_, i) => (
-          <Skeleton key={i} className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" key={i} />
         ))}
       </div>
     );
@@ -333,10 +339,16 @@ export function CompactActivityFeed({
   return (
     <div className={cn("space-y-2", className)}>
       {activities.map((activity) => (
-        <div key={activity.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div
+          className="flex items-center gap-2 text-muted-foreground text-xs"
+          key={activity.id}
+        >
           <Avatar className="h-4 w-4">
             {activity.userImage ? (
-              <AvatarImage src={activity.userImage} alt={activity.userName ?? ""} />
+              <AvatarImage
+                alt={activity.userName ?? ""}
+                src={activity.userImage}
+              />
             ) : null}
             <AvatarFallback className="text-[8px]">
               {(activity.userName ?? "U").slice(0, 1).toUpperCase()}
@@ -351,7 +363,9 @@ export function CompactActivityFeed({
             )}
           </span>
           <span className="shrink-0">
-            {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: false })}
+            {formatDistanceToNow(new Date(activity.createdAt), {
+              addSuffix: false,
+            })}
           </span>
         </div>
       ))}

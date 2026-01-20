@@ -5,20 +5,20 @@
 // React hook for analytics tracking with automatic page views and user identification.
 //
 
-import { useEffect, useCallback, useRef } from "react";
 import { useLocation } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth-client";
+import { useCallback, useEffect, useRef } from "react";
 import {
-  track,
-  trackPageView,
-  identifyUser,
-  resetUser,
-  setOrganization,
-  initAnalytics,
-  isAnalyticsEnabled,
   type AnalyticsEvent,
   type AnalyticsEventProperties,
+  identifyUser,
+  initAnalytics,
+  isAnalyticsEnabled,
+  resetUser,
+  setOrganization,
+  track,
+  trackPageView,
 } from "@/lib/analytics";
+import { authClient } from "@/lib/auth-client";
 
 // =============================================================================
 // HOOK
@@ -54,7 +54,9 @@ interface UseAnalyticsReturn {
  *   return <button onClick={handleClick}>Submit</button>;
  * }
  */
-export function useAnalytics(options: UseAnalyticsOptions = {}): UseAnalyticsReturn {
+export function useAnalytics(
+  options: UseAnalyticsOptions = {}
+): UseAnalyticsReturn {
   const { autoTrackPageViews = true, autoIdentify = true } = options;
   const location = useLocation();
   const { data: session } = authClient.useSession();
@@ -108,7 +110,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}): UseAnalyticsRet
       const activeOrgId = session?.session?.activeOrganizationId;
       track(event, {
         ...properties,
-        organizationId: properties?.organizationId ?? activeOrgId,
+        organizationId: properties?.organizationId ?? activeOrgId ?? undefined,
       });
     },
     [session?.session?.activeOrganizationId]

@@ -13,16 +13,12 @@ import {
 } from "@memorystack/ai/agents";
 import { createNotification } from "@memorystack/api/routers/notifications";
 import { db } from "@memorystack/db";
-import {
-  claim,
-  contact,
-  decision,
-  emailThread,
-} from "@memorystack/db/schema";
+import { claim, contact, decision, emailThread } from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { log } from "../lib/logger";
 import { createTaskForDecisionTask } from "./task-sync";
+import { processDecisionTask } from "./unified-object-processing";
 
 // =============================================================================
 // TYPES
@@ -45,6 +41,26 @@ interface DecisionExtractionResult {
   decisionsCreated: number;
   supersessionsDetected: number;
   error?: string;
+}
+
+interface SourceContext {
+  threadId: string;
+  accountId: string;
+  organizationId: string;
+  sourceType:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs"
+    | "google_sheets"
+    | "meeting_transcript"
+    | "teams"
+    | "discord"
+    | "linear"
+    | "github";
+  conversationId?: string; // Generic conversation ID (for non-email sources)
 }
 
 // =============================================================================
@@ -200,7 +216,12 @@ export const extractDecisionsTask = task({
       let supersessionsDetected = 0;
       const savedCount = await saveDecisions(
         extractedDecisions,
-        thread.account.organizationId,
+        {
+          threadId: thread.id,
+          accountId: thread.accountId,
+          organizationId: thread.account.organizationId,
+          sourceType: "email", // Email thread extraction is always email
+        },
         agent,
         existingDecisions,
         (count) => {
@@ -219,7 +240,7 @@ export const extractDecisionsTask = task({
               category: "decision",
               title: "Decision Recorded",
               message: d.title,
-              link: `/dashboard/decisions`,
+              link: "/dashboard/decisions",
               entityId: d.sourceClaimId ?? undefined,
               entityType: "decision",
               priority: "normal",
@@ -244,7 +265,7 @@ export const extractDecisionsTask = task({
             category: "decision",
             title: "Decision Updated",
             message: `${supersessionsDetected} previous decision${supersessionsDetected > 1 ? "s have" : " has"} been superseded`,
-            link: `/dashboard/decisions`,
+            link: "/dashboard/decisions",
             priority: "normal",
             metadata: {
               supersessionsCount: supersessionsDetected,
@@ -409,7 +430,7 @@ async function saveDecisions(
   extractedDecisions: Awaited<
     ReturnType<ReturnType<typeof createDecisionAgent>["extractDecisions"]>
   >,
-  organizationId: string,
+  sourceContext: SourceContext,
   agent: ReturnType<typeof createDecisionAgent>,
   existingDecisions: Array<{
     id: string;
@@ -420,6 +441,8 @@ async function saveDecisions(
   }>,
   onSupersessionCount: (count: number) => void
 ): Promise<number> {
+  const { organizationId, threadId, accountId, sourceType, conversationId } =
+    sourceContext;
   let saved = 0;
   let supersessionCount = 0;
 
@@ -433,7 +456,7 @@ async function saveDecisions(
         if (owner.email) {
           const ownerContact = await findOrCreateContact(
             owner.email,
-            owner.name,
+            owner.name ?? undefined,
             organizationId
           );
           if (ownerContact) {
@@ -448,7 +471,7 @@ async function saveDecisions(
         if (participant.email) {
           const participantContact = await findOrCreateContact(
             participant.email,
-            participant.name,
+            participant.name ?? undefined,
             organizationId
           );
           if (participantContact) {
@@ -526,6 +549,27 @@ async function saveDecisions(
     if (insertedDecision?.id) {
       await createTaskForDecisionTask.trigger({
         decisionId: insertedDecision.id,
+      });
+
+      // Trigger UIO processing for cross-source intelligence
+      await processDecisionTask.trigger({
+        organizationId,
+        decision: {
+          id: insertedDecision.id,
+          title: d.title,
+          statement: d.statement,
+          rationale: d.rationale ?? undefined,
+          decidedAt: new Date(d.decidedAt),
+          confidence: d.confidence,
+          ownerContactIds,
+          participantContactIds,
+        },
+        sourceType, // Dynamic source type from context
+        sourceAccountId: accountId,
+        conversationId: conversationId || threadId, // Use generic conversationId if available
+        emailThreadId: sourceType === "email" ? threadId : undefined, // Only set for email
+        originalDecisionId: insertedDecision.id,
+        originalClaimId: d.sourceClaimId,
       });
     }
 

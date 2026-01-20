@@ -2,6 +2,12 @@ import {
   CALENDAR_API_BASE,
   refreshGmailToken as refreshGmailOAuth,
 } from "@memorystack/auth/providers";
+import {
+  CalendarAuthError,
+  CalendarNotFoundError,
+  CalendarProviderError,
+  CalendarQuotaError,
+} from "./errors";
 import type {
   CalendarClient,
   CalendarEvent,
@@ -19,12 +25,6 @@ import type {
   RecurrenceRule,
   UpdateEventInput,
 } from "./types";
-import {
-  CalendarAuthError,
-  CalendarNotFoundError,
-  CalendarProviderError,
-  CalendarQuotaError,
-} from "./errors";
 
 // =============================================================================
 // GOOGLE CALENDAR API RESPONSE TYPES
@@ -142,7 +142,9 @@ interface GoogleFreeBusyResponse {
 /**
  * Parse Google's RRULE string into RecurrenceRule object
  */
-function parseRecurrenceRule(rruleStrings: string[]): RecurrenceRule | undefined {
+function parseRecurrenceRule(
+  rruleStrings: string[]
+): RecurrenceRule | undefined {
   const rruleLine = rruleStrings.find((r) => r.startsWith("RRULE:"));
   if (!rruleLine) return undefined;
 
@@ -407,8 +409,9 @@ export class GmailCalendarClient implements CalendarClient {
   // ---------------------------------------------------------------------------
 
   async listCalendars(): Promise<CalendarInfo[]> {
-    const response =
-      await this.request<GoogleCalendarListResponse>("/users/me/calendarList");
+    const response = await this.request<GoogleCalendarListResponse>(
+      "/users/me/calendarList"
+    );
 
     return (response.items ?? []).map((cal) => this.convertCalendar(cal));
   }

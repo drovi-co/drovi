@@ -11,11 +11,11 @@ import {
   FileText,
   Github,
   Hash,
+  type LucideIcon,
   Mail,
   MessageCircle,
   MessageSquare,
   Mic,
-  type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -118,7 +118,7 @@ export const sourceConfigs: Record<SourceType, SourceConfig> = {
     label: "Google Sheets",
     description: "Spreadsheets and comments",
     hasOAuth: true,
-    isAvailable: false,
+    isAvailable: true,
     conversationTypes: ["spreadsheet"],
   },
   meeting_transcript: {

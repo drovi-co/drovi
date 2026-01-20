@@ -323,7 +323,10 @@ export function DayView({
       <ScrollArea className="flex-1" ref={scrollRef}>
         <div className="flex">
           {/* Time labels */}
-          <div className="relative w-16 shrink-0 border-r" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+          <div
+            className="relative w-16 shrink-0 border-r"
+            style={{ height: `${24 * HOUR_HEIGHT}px` }}
+          >
             {HOURS.map((hour) => (
               <div
                 className="absolute right-0 pr-2 text-right text-muted-foreground text-xs"

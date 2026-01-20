@@ -331,8 +331,8 @@ async function executePhaseBackfill(
       .where(eq(emailAccount.id, accountId));
 
     log.info(`${phase} phase backfill completed`, {
-      accountId,
       ...result,
+      accountId,
     });
 
     return result;

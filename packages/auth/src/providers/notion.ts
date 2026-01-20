@@ -266,7 +266,10 @@ export type NotionPropertyValue =
   | { type: "rich_text"; rich_text: Array<{ plain_text: string }> }
   | { type: "number"; number: number | null }
   | { type: "select"; select: { name: string; color?: string } | null }
-  | { type: "multi_select"; multi_select: Array<{ name: string; color?: string }> }
+  | {
+      type: "multi_select";
+      multi_select: Array<{ name: string; color?: string }>;
+    }
   | { type: "date"; date: { start: string; end?: string } | null }
   | { type: "checkbox"; checkbox: boolean }
   | { type: "url"; url: string | null }
@@ -279,8 +282,20 @@ export type NotionPropertyValue =
   | { type: "people"; people: Array<{ id: string }> }
   | { type: "files"; files: Array<{ name: string; type: string }> }
   | { type: "relation"; relation: Array<{ id: string }> }
-  | { type: "formula"; formula: { type: string; string?: string; number?: number; boolean?: boolean; date?: { start: string } } }
-  | { type: "rollup"; rollup: { type: string; number?: number; array?: NotionPropertyValue[] } }
+  | {
+      type: "formula";
+      formula: {
+        type: string;
+        string?: string;
+        number?: number;
+        boolean?: boolean;
+        date?: { start: string };
+      };
+    }
+  | {
+      type: "rollup";
+      rollup: { type: string; number?: number; array?: NotionPropertyValue[] };
+    }
   | { type: "status"; status: { name: string; color?: string } | null };
 
 /**
@@ -384,7 +399,10 @@ export async function searchNotion(
   options: {
     query?: string;
     filter?: { property: "object"; value: "page" | "database" };
-    sort?: { direction: "ascending" | "descending"; timestamp: "last_edited_time" };
+    sort?: {
+      direction: "ascending" | "descending";
+      timestamp: "last_edited_time";
+    };
     startCursor?: string;
     pageSize?: number;
   } = {}
@@ -407,7 +425,9 @@ export async function searchNotion(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Notion search failed: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Notion search failed: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as NotionSearchResponse;
@@ -433,7 +453,9 @@ export async function getNotionPage(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Notion page: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Notion page: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as NotionPage;
@@ -450,7 +472,11 @@ export async function getNotionBlocks(
   accessToken: string,
   blockId: string,
   startCursor?: string
-): Promise<{ results: NotionBlock[]; next_cursor: string | null; has_more: boolean }> {
+): Promise<{
+  results: NotionBlock[];
+  next_cursor: string | null;
+  has_more: boolean;
+}> {
   const url = new URL(`${NOTION_API_BASE}/blocks/${blockId}/children`);
   if (startCursor) {
     url.searchParams.set("start_cursor", startCursor);
@@ -467,7 +493,9 @@ export async function getNotionBlocks(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Notion blocks: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Notion blocks: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as {
@@ -488,7 +516,11 @@ export async function getNotionComments(
   accessToken: string,
   blockId: string,
   startCursor?: string
-): Promise<{ results: NotionComment[]; next_cursor: string | null; has_more: boolean }> {
+): Promise<{
+  results: NotionComment[];
+  next_cursor: string | null;
+  has_more: boolean;
+}> {
   const url = new URL(`${NOTION_API_BASE}/comments`);
   url.searchParams.set("block_id", blockId);
   if (startCursor) {
@@ -506,7 +538,9 @@ export async function getNotionComments(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Notion comments: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Notion comments: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as {
@@ -528,29 +562,42 @@ export async function queryNotionDatabase(
   databaseId: string,
   options: {
     filter?: Record<string, unknown>;
-    sorts?: Array<{ property?: string; timestamp?: string; direction: "ascending" | "descending" }>;
+    sorts?: Array<{
+      property?: string;
+      timestamp?: string;
+      direction: "ascending" | "descending";
+    }>;
     startCursor?: string;
     pageSize?: number;
   } = {}
-): Promise<{ results: NotionPage[]; next_cursor: string | null; has_more: boolean }> {
-  const response = await fetch(`${NOTION_API_BASE}/databases/${databaseId}/query`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Notion-Version": NOTION_API_VERSION,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      filter: options.filter,
-      sorts: options.sorts,
-      start_cursor: options.startCursor,
-      page_size: options.pageSize ?? 100,
-    }),
-  });
+): Promise<{
+  results: NotionPage[];
+  next_cursor: string | null;
+  has_more: boolean;
+}> {
+  const response = await fetch(
+    `${NOTION_API_BASE}/databases/${databaseId}/query`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": NOTION_API_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter: options.filter,
+        sorts: options.sorts,
+        start_cursor: options.startCursor,
+        page_size: options.pageSize ?? 100,
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to query Notion database: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to query Notion database: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as {
@@ -580,7 +627,9 @@ export async function getNotionUser(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Notion user: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Notion user: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as NotionUser;

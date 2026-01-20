@@ -292,7 +292,8 @@ export const googleDocsAdapter: SourceAdapter<
    * Get display name for Google Docs source.
    */
   getSourceDisplayName(conversation: ConversationInput): string {
-    const metadata = conversation.metadata as GoogleDocsConversation["metadata"];
+    const metadata =
+      conversation.metadata as GoogleDocsConversation["metadata"];
     if (metadata?.documentTitle) {
       return metadata.documentTitle;
     }
@@ -309,7 +310,8 @@ export const googleDocsAdapter: SourceAdapter<
     conversation: ConversationInput,
     _messageId?: string
   ): string | undefined {
-    const metadata = conversation.metadata as GoogleDocsConversation["metadata"];
+    const metadata =
+      conversation.metadata as GoogleDocsConversation["metadata"];
     return metadata?.url;
   },
 };
@@ -335,7 +337,7 @@ function extractGoogleDocMentions(content: string): MessageRecipient[] {
     if (email) {
       mentions.push({
         id: email,
-        email: email,
+        email,
         type: "mention",
       });
     }
@@ -347,60 +349,4 @@ function extractGoogleDocMentions(content: string): MessageRecipient[] {
 
 // =============================================================================
 // COMMITMENT EXTRACTION HELPERS
-// =============================================================================
-
-/**
- * Patterns that might indicate commitments in Google Docs content.
- */
-const COMMITMENT_PATTERNS = [
-  /\[\s*\]\s+/i, // Unchecked checkbox
-  /- \[ \]/i, // Markdown unchecked
-  /todo[::\s]/i,
-  /action item[::\s]/i,
-  /assigned to/i,
-  /deadline[::\s]/i,
-  /due[::\s]/i,
-  /by (?:end of day|eod|tomorrow|next week|monday|tuesday|wednesday|thursday|friday)/i,
-  /i('ll| will) (?:do|send|complete|finish|deliver|handle|take care of)/i,
-  /promise to/i,
-  /committed to/i,
-  /please (?:do|send|complete|review|update)/i,
-  /can you (?:do|send|complete|review|update)/i,
-];
-
-/**
- * Check if Google Docs content likely contains a commitment.
- */
-export function mayContainCommitment(content: string): boolean {
-  const text = content.toLowerCase();
-  return COMMITMENT_PATTERNS.some((pattern) => pattern.test(text));
-}
-
-/**
- * Patterns that might indicate decisions in Google Docs content.
- */
-const DECISION_PATTERNS = [
-  /decided to/i,
-  /decision[::\s]/i,
-  /we('re| are) going with/i,
-  /final decision[::\s]/i,
-  /approved/i,
-  /rejected/i,
-  /let's go with/i,
-  /the plan is/i,
-  /we('ll| will) proceed with/i,
-  /resolution[::\s]/i,
-  /concluded/i,
-  /resolved/i,
-  /agreed upon/i,
-];
-
-/**
- * Check if Google Docs content likely contains a decision.
- */
-export function mayContainDecision(content: string): boolean {
-  const text = content.toLowerCase();
-  return DECISION_PATTERNS.some((pattern) => pattern.test(text));
-}
-
 // Types are exported inline above

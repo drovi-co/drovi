@@ -1,11 +1,28 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Outlet,
   redirect,
   useLocation,
 } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
+import { UpgradeModal } from "@/components/billing/upgrade-modal";
 import { AppShell } from "@/components/layout/app-shell";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
+import { useTRPC } from "@/utils/trpc";
+
+// Invite code storage helpers (imported from login page)
+const INVITE_CODE_KEY = "drovi_invite_code";
+
+function getStoredInviteCode(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(INVITE_CODE_KEY);
+}
+
+function clearStoredInviteCode() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(INVITE_CODE_KEY);
+}
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -112,14 +129,10 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
-  // Email/Inbox section (legacy)
-  if (pathname.startsWith("/dashboard/email")) {
-    if (pathname === "/dashboard/email") {
-      breadcrumbs.push({ label: "Email Inbox" });
-    } else if (pathname.startsWith("/dashboard/email/thread")) {
-      breadcrumbs.push({ label: "Smart Inbox", href: "/dashboard/inbox" });
-      breadcrumbs.push({ label: "Thread" });
-    }
+  // Thread detail page (under /dashboard/email/thread for route compatibility)
+  if (pathname.startsWith("/dashboard/email/thread")) {
+    breadcrumbs.push({ label: "Smart Inbox", href: "/dashboard/inbox" });
+    breadcrumbs.push({ label: "Thread" });
     return breadcrumbs;
   }
 
@@ -181,14 +194,82 @@ function getBreadcrumbs(pathname: string) {
   return breadcrumbs;
 }
 
+interface CustomerState {
+  activeSubscriptions?: Array<{
+    id: string;
+    product?: { name?: string };
+    status?: string;
+  }>;
+}
+
 function DashboardLayout() {
-  const { isAdmin } = Route.useRouteContext();
+  const { isAdmin, customerState } = Route.useRouteContext() as {
+    isAdmin: boolean;
+    customerState: CustomerState | null;
+  };
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname);
+  const trpc = useTRPC();
+  const { data: session } = useSession();
+  const inviteCodeProcessed = useRef(false);
+
+  // Mutation to mark invite code as used
+  const useInviteCodeMutation = useMutation(
+    trpc.waitlist.useCode.mutationOptions({
+      onSuccess: () => {
+        clearStoredInviteCode();
+      },
+      onError: () => {
+        // Silently clear the code even on error (code might already be used)
+        clearStoredInviteCode();
+      },
+    })
+  );
+
+  // Check and use invite code after signup
+  useEffect(() => {
+    if (inviteCodeProcessed.current) return;
+
+    const storedCode = getStoredInviteCode();
+    if (storedCode && session?.user?.id) {
+      inviteCodeProcessed.current = true;
+      useInviteCodeMutation.mutate({
+        code: storedCode,
+        userId: session.user.id,
+      });
+    }
+  }, [session?.user?.id, useInviteCodeMutation]);
+
+  // Query trial/credit status
+  const { data: creditStatus } = useQuery(
+    trpc.credits.getStatus.queryOptions()
+  );
+
+  // Check if user has an active subscription
+  const hasActiveSubscription =
+    (customerState?.activeSubscriptions?.length ?? 0) > 0;
+
+  // Determine if we should show the upgrade modal
+  // Show when trial is expired AND user has no active subscription
+  // Skip in development mode to avoid blocking the app during testing
+  const shouldShowUpgradeModal =
+    !import.meta.env.DEV &&
+    creditStatus?.trialStatus === "expired" &&
+    !hasActiveSubscription;
+
+  // Calculate trial days used (7 day trial - days remaining)
+  const trialDaysUsed = creditStatus?.trialDaysRemaining
+    ? 7 - creditStatus.trialDaysRemaining
+    : 7;
 
   return (
-    <AppShell breadcrumbs={breadcrumbs} showAdmin={isAdmin}>
-      <Outlet />
-    </AppShell>
+    <>
+      <AppShell breadcrumbs={breadcrumbs} showAdmin={isAdmin}>
+        <Outlet />
+      </AppShell>
+
+      {/* Hard paywall modal - cannot be dismissed */}
+      {shouldShowUpgradeModal && <UpgradeModal trialDaysUsed={trialDaysUsed} />}
+    </>
   );
 }

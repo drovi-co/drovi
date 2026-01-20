@@ -46,7 +46,10 @@ export interface SourceMetadata {
 
   // Calendar-specific
   attendeeCount?: number;
-  attendeeResponses?: Record<string, "accepted" | "declined" | "tentative" | "pending">;
+  attendeeResponses?: Record<
+    string,
+    "accepted" | "declined" | "tentative" | "pending"
+  >;
   isRecurring?: boolean;
   meetingDuration?: number;
 
@@ -441,7 +444,9 @@ export function buildEnhancedContext(metadata: SourceMetadata): string {
 
   if (metadata.sourceType === "whatsapp") {
     if (metadata.isGroupMessage) {
-      additions.push(`\nGroup message with ${metadata.groupSize ?? "unknown"} members`);
+      additions.push(
+        `\nGroup message with ${metadata.groupSize ?? "unknown"} members`
+      );
     }
     if (metadata.hasMedia) {
       additions.push("\nMessage includes media attachment");

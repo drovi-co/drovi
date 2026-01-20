@@ -7,6 +7,7 @@
 // data like document metadata and folder structure.
 //
 
+import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -17,7 +18,6 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import { randomUUID } from "node:crypto";
 import { sourceAccount } from "./sources";
 
 // =============================================================================
@@ -236,27 +236,36 @@ export const googleDocsCommentCache = pgTable(
 // RELATIONS
 // =============================================================================
 
-export const googleDocsDocumentRelations = relations(googleDocsDocument, ({ one, many }) => ({
-  sourceAccount: one(sourceAccount, {
-    fields: [googleDocsDocument.sourceAccountId],
-    references: [sourceAccount.id],
-  }),
-  comments: many(googleDocsCommentCache),
-}));
+export const googleDocsDocumentRelations = relations(
+  googleDocsDocument,
+  ({ one, many }) => ({
+    sourceAccount: one(sourceAccount, {
+      fields: [googleDocsDocument.sourceAccountId],
+      references: [sourceAccount.id],
+    }),
+    comments: many(googleDocsCommentCache),
+  })
+);
 
-export const googleDocsFolderRelations = relations(googleDocsFolder, ({ one }) => ({
-  sourceAccount: one(sourceAccount, {
-    fields: [googleDocsFolder.sourceAccountId],
-    references: [sourceAccount.id],
-  }),
-}));
+export const googleDocsFolderRelations = relations(
+  googleDocsFolder,
+  ({ one }) => ({
+    sourceAccount: one(sourceAccount, {
+      fields: [googleDocsFolder.sourceAccountId],
+      references: [sourceAccount.id],
+    }),
+  })
+);
 
-export const googleDocsCommentCacheRelations = relations(googleDocsCommentCache, ({ one }) => ({
-  document: one(googleDocsDocument, {
-    fields: [googleDocsCommentCache.documentId],
-    references: [googleDocsDocument.id],
-  }),
-}));
+export const googleDocsCommentCacheRelations = relations(
+  googleDocsCommentCache,
+  ({ one }) => ({
+    document: one(googleDocsDocument, {
+      fields: [googleDocsCommentCache.documentId],
+      references: [googleDocsDocument.id],
+    }),
+  })
+);
 
 // =============================================================================
 // TYPE EXPORTS
@@ -267,4 +276,5 @@ export type NewGoogleDocsDocument = typeof googleDocsDocument.$inferInsert;
 export type GoogleDocsFolder = typeof googleDocsFolder.$inferSelect;
 export type NewGoogleDocsFolder = typeof googleDocsFolder.$inferInsert;
 export type GoogleDocsCommentCache = typeof googleDocsCommentCache.$inferSelect;
-export type NewGoogleDocsCommentCache = typeof googleDocsCommentCache.$inferInsert;
+export type NewGoogleDocsCommentCache =
+  typeof googleDocsCommentCache.$inferInsert;

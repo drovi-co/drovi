@@ -7,6 +7,7 @@
 // WhatsApp-specific data like phone numbers, contacts, and media.
 //
 
+import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -18,7 +19,6 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import { randomUUID } from "node:crypto";
 import { sourceAccount } from "./sources";
 
 // =============================================================================
@@ -226,11 +226,14 @@ export const whatsappMessageMeta = pgTable(
     forwardingScore: integer("forwarding_score"), // How many times forwarded
 
     // Reactions
-    reactions: jsonb("reactions").$type<Array<{
-      emoji: string;
-      reactorWaId: string;
-      timestamp: string;
-    }>>(),
+    reactions:
+      jsonb("reactions").$type<
+        Array<{
+          emoji: string;
+          reactorWaId: string;
+          timestamp: string;
+        }>
+      >(),
 
     // Errors
     errorCode: integer("error_code"),
@@ -286,13 +289,21 @@ export const whatsappTemplate = pgTable(
     status: text("status").notNull(), // APPROVED, PENDING, REJECTED
 
     // Components (header, body, footer, buttons)
-    components: jsonb("components").$type<Array<{
-      type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
-      format?: string;
-      text?: string;
-      example?: { header_text?: string[]; body_text?: string[][] };
-      buttons?: Array<{ type: string; text: string; url?: string; phone_number?: string }>;
-    }>>(),
+    components:
+      jsonb("components").$type<
+        Array<{
+          type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
+          format?: string;
+          text?: string;
+          example?: { header_text?: string[]; body_text?: string[][] };
+          buttons?: Array<{
+            type: string;
+            text: string;
+            url?: string;
+            phone_number?: string;
+          }>;
+        }>
+      >(),
 
     // Local timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -371,8 +382,10 @@ export const whatsappTemplateRelations = relations(
 // TYPE EXPORTS
 // =============================================================================
 
-export type WhatsAppBusinessAccount = typeof whatsappBusinessAccount.$inferSelect;
-export type NewWhatsAppBusinessAccount = typeof whatsappBusinessAccount.$inferInsert;
+export type WhatsAppBusinessAccount =
+  typeof whatsappBusinessAccount.$inferSelect;
+export type NewWhatsAppBusinessAccount =
+  typeof whatsappBusinessAccount.$inferInsert;
 export type WhatsAppPhoneNumber = typeof whatsappPhoneNumber.$inferSelect;
 export type NewWhatsAppPhoneNumber = typeof whatsappPhoneNumber.$inferInsert;
 export type WhatsAppContactCache = typeof whatsappContactCache.$inferSelect;

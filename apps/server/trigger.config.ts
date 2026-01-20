@@ -1,5 +1,5 @@
-import { defineConfig } from "@trigger.dev/sdk";
 import { syncEnvVars } from "@trigger.dev/build/extensions/core";
+import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   project: "proj_zmpryelvppbqvzeghxbk",

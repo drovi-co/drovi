@@ -26,12 +26,7 @@ export type TaskStatus =
   | "done"
   | "cancelled";
 
-export type TaskPriority =
-  | "no_priority"
-  | "low"
-  | "medium"
-  | "high"
-  | "urgent";
+export type TaskPriority = "no_priority" | "low" | "medium" | "high" | "urgent";
 
 export type TaskSourceType =
   | "conversation"
@@ -292,7 +287,10 @@ export function formatDueDate(date: Date | null): {
   }
 
   return {
-    text: dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    text: dueDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
     className: "text-muted-foreground",
     isOverdue: false,
   };

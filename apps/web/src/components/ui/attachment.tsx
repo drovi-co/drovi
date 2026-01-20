@@ -1,7 +1,7 @@
 "use client";
 
 import { cva, type VariantProps } from "class-variance-authority";
-import { File, FileText, Image, Film, Music, Archive, X } from "lucide-react";
+import { Archive, File, FileText, Film, Image, Music, X } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const attachmentVariants = cva(
     "inline-flex items-center gap-2",
     "h-8 px-2.5",
     "rounded-[4px]",
-    "bg-muted/50 border border-border",
+    "border border-border bg-muted/50",
     "text-[12px]",
     "transition-colors duration-150",
     "hover:bg-muted",
@@ -64,10 +64,26 @@ const fileTypeIcons: Record<FileType, React.ElementType> = {
 function getFileType(filename: string): FileType {
   const ext = filename.split(".").pop()?.toLowerCase() || "";
 
-  if (["pdf", "doc", "docx", "txt", "rtf", "odt", "xls", "xlsx", "csv", "ppt", "pptx"].includes(ext)) {
+  if (
+    [
+      "pdf",
+      "doc",
+      "docx",
+      "txt",
+      "rtf",
+      "odt",
+      "xls",
+      "xlsx",
+      "csv",
+      "ppt",
+      "pptx",
+    ].includes(ext)
+  ) {
     return "document";
   }
-  if (["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"].includes(ext)) {
+  if (
+    ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"].includes(ext)
+  ) {
     return "image";
   }
   if (["mp4", "mov", "avi", "mkv", "webm", "flv"].includes(ext)) {
@@ -120,26 +136,26 @@ function Attachment({
   return (
     <div
       className={cn(attachmentVariants({ size }), className)}
-      onClick={handleClick}
       data-slot="attachment"
+      onClick={handleClick}
       {...props}
     >
       <Icon
         className="shrink-0 text-muted-foreground"
         style={{ width: iconSize, height: iconSize }}
       />
-      <span className="truncate max-w-[150px] text-foreground font-medium">
+      <span className="max-w-[150px] truncate font-medium text-foreground">
         {filename}
       </span>
       {filesize && (
-        <span className="text-muted-foreground shrink-0">{filesize}</span>
+        <span className="shrink-0 text-muted-foreground">{filesize}</span>
       )}
       {onRemove && (
         <button
-          type="button"
-          onClick={handleRemove}
-          className="ml-1 rounded-sm p-0.5 hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground"
           aria-label="Remove attachment"
+          className="ml-1 rounded-sm p-0.5 text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+          onClick={handleRemove}
+          type="button"
         >
           <X style={{ width: iconSize - 2, height: iconSize - 2 }} />
         </button>
@@ -155,7 +171,11 @@ interface AttachmentListProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-function AttachmentList({ className, children, ...props }: AttachmentListProps) {
+function AttachmentList({
+  className,
+  children,
+  ...props
+}: AttachmentListProps) {
   return (
     <div
       className={cn("flex flex-wrap gap-2", className)}
@@ -167,4 +187,10 @@ function AttachmentList({ className, children, ...props }: AttachmentListProps) 
   );
 }
 
-export { Attachment, AttachmentList, attachmentVariants, formatFileSize, getFileType };
+export {
+  Attachment,
+  AttachmentList,
+  attachmentVariants,
+  formatFileSize,
+  getFileType,
+};

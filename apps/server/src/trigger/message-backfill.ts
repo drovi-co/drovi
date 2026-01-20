@@ -7,7 +7,11 @@
 //
 
 import { db } from "@memorystack/db";
-import { emailAccount, emailMessage, emailThread } from "@memorystack/db/schema";
+import {
+  emailAccount,
+  emailMessage,
+  emailThread,
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
@@ -56,7 +60,9 @@ interface MessageBackfillResult {
 async function findOrphanedThreadsWithExpectedMessages(
   accountId: string,
   limit: number
-): Promise<Array<{ id: string; providerThreadId: string; messageCount: number }>> {
+): Promise<
+  Array<{ id: string; providerThreadId: string; messageCount: number }>
+> {
   // First, get ALL thread IDs that have at least one message
   const threadIdsWithMessages = await db
     .selectDistinct({ threadId: emailMessage.threadId })
@@ -155,7 +161,9 @@ export const messageBackfillTask = task({
     factor: 2,
   },
   maxDuration: 600, // 10 minutes max
-  run: async (payload: MessageBackfillPayload): Promise<MessageBackfillResult> => {
+  run: async (
+    payload: MessageBackfillPayload
+  ): Promise<MessageBackfillResult> => {
     const startTime = Date.now();
     const {
       accountId,
@@ -313,8 +321,8 @@ export const messageBackfillTask = task({
       result.duration = Date.now() - startTime;
 
       log.info("Message backfill completed", {
-        accountId,
         ...result,
+        accountId,
       });
 
       return result;
@@ -493,7 +501,11 @@ export const batchMessageBackfillTask = task({
       });
 
       if (!result.ok) {
-        log.error("Batch failed", { accountId, batch: batches, error: result.error });
+        log.error("Batch failed", {
+          accountId,
+          batch: batches,
+          error: result.error,
+        });
         break;
       }
 
@@ -551,7 +563,9 @@ export const checkMessageSyncStatusTask = task({
     name: "email-sync",
     concurrencyLimit: 10,
   },
-  run: async (payload: { accountId: string }): Promise<{
+  run: async (payload: {
+    accountId: string;
+  }): Promise<{
     accountId: string;
     totalThreads: number;
     threadsWithMessages: number;
@@ -579,11 +593,12 @@ export const checkMessageSyncStatusTask = task({
       );
 
     // Count total messages
-    const [{ count: totalMessages }] = await db
+    const messageCountResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(emailMessage)
       .innerJoin(emailThread, eq(emailMessage.threadId, emailThread.id))
       .where(eq(emailThread.accountId, accountId));
+    const totalMessages = messageCountResult[0]?.count ?? 0;
 
     const threadsWithMessages = threadIdsWithMessages.length;
     const orphanedThreads = threads.length - threadsWithMessages;

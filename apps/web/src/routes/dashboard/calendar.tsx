@@ -1,9 +1,9 @@
 "use client";
 
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar as CalendarIcon, Mail, Loader2 } from "lucide-react";
-import { trpc } from "@/utils/trpc";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Calendar as CalendarIcon, Loader2, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
 import { CalendarView } from "@/components/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
 import { useActiveOrganization } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -30,7 +29,9 @@ export const Route = createFileRoute("/dashboard/calendar")({
 // =============================================================================
 
 function CalendarPage() {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null
+  );
   const { data: activeOrg } = useActiveOrganization();
 
   // Fetch email accounts
@@ -38,7 +39,7 @@ function CalendarPage() {
     ...trpc.emailAccounts.list.queryOptions({
       organizationId: activeOrg?.id ?? "",
     }),
-    staleTime: 60000,
+    staleTime: 60_000,
     enabled: Boolean(activeOrg?.id),
   });
 
@@ -54,7 +55,10 @@ function CalendarPage() {
   // Loading state
   if (!activeOrg || isLoadingAccounts) {
     return (
-      <div data-no-shell-padding className="h-full flex items-center justify-center">
+      <div
+        className="flex h-full items-center justify-center"
+        data-no-shell-padding
+      >
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading calendar...
@@ -66,18 +70,21 @@ function CalendarPage() {
   // No accounts state
   if (!accounts || accounts.length === 0) {
     return (
-      <div data-no-shell-padding className="h-full flex flex-col items-center justify-center text-center p-8">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-6">
+      <div
+        className="flex h-full flex-col items-center justify-center p-8 text-center"
+        data-no-shell-padding
+      >
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <CalendarIcon className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Connect an email account</h2>
-        <p className="text-muted-foreground max-w-md mb-6">
+        <h2 className="mb-2 font-semibold text-xl">Connect an email account</h2>
+        <p className="mb-6 max-w-md text-muted-foreground">
           Connect your Gmail or Outlook account to view and manage your calendar
           events.
         </p>
         <Button asChild>
           <Link to="/dashboard/email-accounts">
-            <Mail className="h-4 w-4 mr-2" />
+            <Mail className="mr-2 h-4 w-4" />
             Connect Account
           </Link>
         </Button>
@@ -91,13 +98,16 @@ function CalendarPage() {
   }
 
   return (
-    <div data-no-shell-padding className="h-full flex flex-col">
+    <div className="flex h-full flex-col" data-no-shell-padding>
       {/* Account selector if multiple accounts */}
       {accounts.length > 1 && (
-        <div className="border-b px-4 py-2 bg-background flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Calendar:</span>
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-            <SelectTrigger className="w-[280px] h-8">
+        <div className="flex items-center gap-3 border-b bg-background px-4 py-2">
+          <span className="text-muted-foreground text-sm">Calendar:</span>
+          <Select
+            onValueChange={setSelectedAccountId}
+            value={selectedAccountId}
+          >
+            <SelectTrigger className="h-8 w-[280px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -124,10 +134,7 @@ function CalendarPage() {
 
       {/* Calendar view */}
       <div className="flex-1 overflow-hidden">
-        <CalendarView
-          accountId={selectedAccountId}
-          className="h-full"
-        />
+        <CalendarView accountId={selectedAccountId} className="h-full" />
       </div>
     </div>
   );

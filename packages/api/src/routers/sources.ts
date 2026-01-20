@@ -16,6 +16,8 @@
 // This router manages source accounts and provides unified intelligence queries.
 //
 
+import { randomUUID } from "node:crypto";
+import { SOURCE_DISPLAY_CONFIG, type SourceType } from "@memorystack/ai";
 import { db } from "@memorystack/db";
 import {
   claim,
@@ -26,13 +28,11 @@ import {
   member,
   sourceAccount,
 } from "@memorystack/db/schema";
-import { SOURCE_DISPLAY_CONFIG, type SourceType } from "@memorystack/ai";
-import { TRPCError } from "@trpc/server";
 import { tasks } from "@trigger.dev/sdk";
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
-import { randomUUID } from "node:crypto";
 
 // =============================================================================
 // TYPES
@@ -233,7 +233,8 @@ export const sourcesRouter = router({
           sources.push({
             type: "email",
             enabled: email.status === "active" || email.status === "syncing",
-            connectionStatus: (email.status ?? "disconnected") as SourceConfig["connectionStatus"],
+            connectionStatus: (email.status ??
+              "disconnected") as SourceConfig["connectionStatus"],
             lastSyncAt: email.lastSyncAt,
             provider: email.provider ?? "gmail",
             displayName: email.email,
@@ -336,8 +337,14 @@ export const sourcesRouter = router({
   connect: protectedProcedure
     .input(connectSourceSchema)
     .mutation(async ({ ctx, input }) => {
-      const { organizationId, sourceType, provider, externalId, displayName, settings } =
-        input;
+      const {
+        organizationId,
+        sourceType,
+        provider,
+        externalId,
+        displayName,
+        settings,
+      } = input;
       const userId = ctx.session.user.id;
 
       // Verify org admin
@@ -369,9 +376,13 @@ export const sourcesRouter = router({
 
       // Determine provider and OAuth requirements
       const sourceConfig = getSourceDisplay(sourceType);
-      const requiresOAuth = ["email", "calendar", "slack", "google_docs", "google_sheets"].includes(
-        sourceType
-      );
+      const requiresOAuth = [
+        "email",
+        "calendar",
+        "slack",
+        "google_docs",
+        "google_sheets",
+      ].includes(sourceType);
 
       // For OAuth sources, return OAuth URL
       if (requiresOAuth && !input.credentials?.accessToken) {
@@ -400,7 +411,10 @@ export const sourcesRouter = router({
         syncFrequencyMinutes: 15,
       };
       const accountSettings = settings
-        ? ({ ...defaultSettings, ...settings } as typeof sourceAccount.$inferInsert.settings)
+        ? ({
+            ...defaultSettings,
+            ...settings,
+          } as typeof sourceAccount.$inferInsert.settings)
         : defaultSettings;
 
       await db.insert(sourceAccount).values({
@@ -513,7 +527,9 @@ export const sourcesRouter = router({
       }
 
       // Delete source account (cascades to conversations, messages, etc.)
-      await db.delete(sourceAccount).where(eq(sourceAccount.id, sourceAccountId));
+      await db
+        .delete(sourceAccount)
+        .where(eq(sourceAccount.id, sourceAccountId));
 
       return {
         success: true,
@@ -551,7 +567,11 @@ export const sourcesRouter = router({
       }
 
       const items: UnifiedIntelligenceItem[] = [];
-      const activeTypes = intelligenceTypes ?? ["commitment", "decision", "claim"];
+      const activeTypes = intelligenceTypes ?? [
+        "commitment",
+        "decision",
+        "claim",
+      ];
 
       // Get source account IDs if filtering by type
       let sourceAccountIds: string[] | undefined;
@@ -568,7 +588,9 @@ export const sourcesRouter = router({
 
       // Query commitments
       if (activeTypes.includes("commitment")) {
-        const commitmentConditions = [eq(commitment.organizationId, organizationId)];
+        const commitmentConditions = [
+          eq(commitment.organizationId, organizationId),
+        ];
 
         if (sourceAccountIds) {
           commitmentConditions.push(
@@ -603,7 +625,9 @@ export const sourcesRouter = router({
 
       // Query decisions
       if (activeTypes.includes("decision")) {
-        const decisionConditions = [eq(decision.organizationId, organizationId)];
+        const decisionConditions = [
+          eq(decision.organizationId, organizationId),
+        ];
 
         if (sourceAccountIds) {
           decisionConditions.push(
@@ -644,7 +668,9 @@ export const sourcesRouter = router({
         ];
 
         if (sourceAccountIds) {
-          claimConditions.push(inArray(claim.sourceAccountId, sourceAccountIds));
+          claimConditions.push(
+            inArray(claim.sourceAccountId, sourceAccountIds)
+          );
         }
 
         if (dateRange) {
@@ -739,7 +765,10 @@ export const sourcesRouter = router({
           commitments: commitmentCount?.count ?? 0,
           decisions: decisionCount?.count ?? 0,
           lastSync: source.lastSyncAt,
-          health: source.status === "connected" ? ("healthy" as const) : ("disconnected" as const),
+          health:
+            source.status === "connected"
+              ? ("healthy" as const)
+              : ("disconnected" as const),
         });
       }
 

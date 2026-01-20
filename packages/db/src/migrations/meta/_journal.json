@@ -43,6 +43,13 @@
       "when": 1768830095851,
       "tag": "0005_mean_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768920476611,
+      "tag": "0006_flowery_tenebrous",
+      "breakpoints": true
     }
   ]
 }

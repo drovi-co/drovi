@@ -8,13 +8,13 @@
 //
 
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
   Calendar,
   Check,
-  Clock,
   GitBranch,
   Heart,
   MessageSquare,
@@ -23,7 +23,6 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -68,8 +67,10 @@ export function StatCard({
   const variantStyles = {
     default: "bg-card",
     primary: "bg-primary/5 border-primary/20",
-    success: "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800",
-    warning: "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800",
+    success:
+      "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800",
+    warning:
+      "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800",
     danger: "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800",
   };
 
@@ -83,24 +84,24 @@ export function StatCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.3 }}
     >
       <Card className={cn(variantStyles[variant], className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="font-medium text-muted-foreground text-sm">
             {title}
           </CardTitle>
           <Icon className={cn("h-4 w-4", iconStyles[variant])} />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{value}</div>
+          <div className="font-bold text-2xl">{value}</div>
           {description && (
-            <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            <p className="mt-1 text-muted-foreground text-xs">{description}</p>
           )}
           {trend && (
-            <div className="flex items-center gap-1 mt-2">
+            <div className="mt-2 flex items-center gap-1">
               {trend.isPositive ? (
                 <ArrowUp className="h-3 w-3 text-green-600" />
               ) : (
@@ -108,13 +109,15 @@ export function StatCard({
               )}
               <span
                 className={cn(
-                  "text-xs font-medium",
+                  "font-medium text-xs",
                   trend.isPositive ? "text-green-600" : "text-red-600"
                 )}
               >
                 {trend.value}%
               </span>
-              <span className="text-xs text-muted-foreground">{trend.label}</span>
+              <span className="text-muted-foreground text-xs">
+                {trend.label}
+              </span>
             </div>
           )}
         </CardContent>
@@ -127,7 +130,11 @@ export function StatCard({
 // STATS GRID
 // =============================================================================
 
-export function StatsGrid({ children, columns = 4, className }: StatsGridProps) {
+export function StatsGrid({
+  children,
+  columns = 4,
+  className,
+}: StatsGridProps) {
   const gridCols = {
     2: "grid-cols-2",
     3: "grid-cols-3",
@@ -160,31 +167,31 @@ export function CommitmentStats({ stats }: CommitmentStatsProps) {
   return (
     <StatsGrid>
       <StatCard
+        description="Open commitments"
+        icon={MessageSquare}
         title="Total Active"
         value={stats.total}
-        icon={MessageSquare}
-        description="Open commitments"
       />
       <StatCard
+        description="Need immediate attention"
+        icon={AlertCircle}
         title="Overdue"
         value={stats.overdue}
-        icon={AlertCircle}
         variant={stats.overdue > 0 ? "danger" : "default"}
-        description="Need immediate attention"
       />
       <StatCard
+        description="Coming up soon"
+        icon={Calendar}
         title="Due This Week"
         value={stats.dueThisWeek}
-        icon={Calendar}
         variant={stats.dueThisWeek > 5 ? "warning" : "default"}
-        description="Coming up soon"
       />
       <StatCard
+        description="This month"
+        icon={Check}
         title="Completed"
         value={stats.completedThisMonth}
-        icon={Check}
         variant="success"
-        description="This month"
       />
     </StatsGrid>
   );
@@ -209,30 +216,36 @@ export function DecisionStats({ stats }: DecisionStatsProps) {
   return (
     <StatsGrid>
       <StatCard
+        description="In decision log"
+        icon={GitBranch}
         title="Total Decisions"
         value={stats.total}
-        icon={GitBranch}
-        description="In decision log"
       />
       <StatCard
+        description="New decisions"
+        icon={Calendar}
         title="This Week"
         value={stats.thisWeek}
-        icon={Calendar}
-        description="New decisions"
       />
       <StatCard
+        description="User confirmed"
+        icon={Check}
         title="Verified"
         value={stats.verifiedCount}
-        icon={Check}
         variant="success"
-        description="User confirmed"
       />
       <StatCard
+        description="AI extraction confidence"
+        icon={TrendingUp}
         title="Avg. Confidence"
         value={`${Math.round(stats.avgConfidence * 100)}%`}
-        icon={TrendingUp}
-        variant={stats.avgConfidence >= 0.7 ? "success" : stats.avgConfidence >= 0.5 ? "warning" : "danger"}
-        description="AI extraction confidence"
+        variant={
+          stats.avgConfidence >= 0.7
+            ? "success"
+            : stats.avgConfidence >= 0.5
+              ? "warning"
+              : "danger"
+        }
       />
     </StatsGrid>
   );
@@ -257,31 +270,37 @@ export function ContactStats({ stats }: ContactStatsProps) {
   return (
     <StatsGrid>
       <StatCard
+        description="In your network"
+        icon={Users}
         title="Total Contacts"
         value={stats.total}
-        icon={Users}
-        description="In your network"
       />
       <StatCard
+        description="High priority"
+        icon={Star}
         title="VIP Contacts"
         value={stats.vipCount}
-        icon={Star}
         variant="primary"
-        description="High priority"
       />
       <StatCard
+        description="Need attention"
+        icon={TrendingDown}
         title="At Risk"
         value={stats.atRiskCount}
-        icon={TrendingDown}
         variant={stats.atRiskCount > 0 ? "danger" : "default"}
-        description="Need attention"
       />
       <StatCard
+        description="Relationship health"
+        icon={Heart}
         title="Avg. Health"
         value={`${Math.round(stats.avgHealthScore * 100)}%`}
-        icon={Heart}
-        variant={stats.avgHealthScore >= 0.7 ? "success" : stats.avgHealthScore >= 0.5 ? "warning" : "danger"}
-        description="Relationship health"
+        variant={
+          stats.avgHealthScore >= 0.7
+            ? "success"
+            : stats.avgHealthScore >= 0.5
+              ? "warning"
+              : "danger"
+        }
       />
     </StatsGrid>
   );

@@ -101,6 +101,17 @@ export const analyzeContactTask = task({
         };
       }
 
+      if (!contactRecord.organizationId) {
+        return {
+          success: false,
+          contactId,
+          error: "Contact has no organization",
+        };
+      }
+
+      // Capture organizationId as non-null for TypeScript
+      const organizationId = contactRecord.organizationId;
+
       // Check if analysis is stale (default: analyze if > 24 hours old)
       const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
       if (
@@ -130,7 +141,7 @@ export const analyzeContactTask = task({
 
       // First get account IDs for this organization (emailThread doesn't have organizationId directly)
       const orgAccounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, contactRecord.organizationId),
+        where: eq(emailAccount.organizationId, organizationId),
         columns: { id: true },
       });
       const accountIds = orgAccounts.map((a) => a.id);
@@ -138,7 +149,7 @@ export const analyzeContactTask = task({
       if (accountIds.length === 0) {
         log.info("No accounts found for organization", {
           contactId,
-          organizationId: contactRecord.organizationId,
+          organizationId,
         });
         return {
           success: true,
@@ -173,7 +184,9 @@ export const analyzeContactTask = task({
         t.messages.some(
           (m) =>
             m.fromEmail.toLowerCase() === contactEmail ||
-            m.toEmails?.some((e) => e.toLowerCase() === contactEmail)
+            (m.toRecipients as Array<{ email: string }> | null)?.some(
+              (r) => r.email.toLowerCase() === contactEmail
+            )
         )
       );
 
@@ -236,7 +249,12 @@ export const analyzeContactTask = task({
           subject: t.subject ?? undefined,
           participants: [
             ...new Set(
-              t.messages.flatMap((m) => [m.fromEmail, ...(m.toEmails ?? [])])
+              t.messages.flatMap((m) => [
+                m.fromEmail,
+                ...(
+                  (m.toRecipients as Array<{ email: string }> | null) ?? []
+                ).map((r) => r.email),
+              ])
             ),
           ],
           messageCount: t.messages.length,
@@ -257,7 +275,7 @@ export const analyzeContactTask = task({
       const analysis = await agent.analyzeRelationship(
         {
           contactId,
-          organizationId: contactRecord.organizationId,
+          organizationId,
           primaryEmail: contactRecord.primaryEmail,
           displayName: contactRecord.displayName ?? undefined,
           userEmail,
@@ -276,7 +294,7 @@ export const analyzeContactTask = task({
           isVip: analysis.vipDetection.isVip,
           isAtRisk: analysis.riskFlagging.isAtRisk,
           riskReason: analysis.riskFlagging.isAtRisk
-            ? `${analysis.riskFlagging.riskLevel}: ${analysis.riskFlagging.reason ?? "No recent interaction"}`
+            ? `${analysis.riskFlagging.riskLevel}: ${analysis.riskFlagging.reasons?.[0] ?? "No recent interaction"}`
             : null,
           responseRate: analysis.metrics.responsiveness.responseRate,
           avgResponseTimeMinutes:
@@ -527,7 +545,9 @@ export const generateMeetingBriefTask = task({
         t.messages.some(
           (m) =>
             m.fromEmail.toLowerCase() === contactEmail ||
-            m.toEmails?.some((e) => e.toLowerCase() === contactEmail)
+            (m.toRecipients as Array<{ email: string }> | null)?.some(
+              (r) => r.email.toLowerCase() === contactEmail
+            )
         )
       );
 
@@ -565,7 +585,12 @@ export const generateMeetingBriefTask = task({
           subject: t.subject ?? undefined,
           participants: [
             ...new Set(
-              t.messages.flatMap((m) => [m.fromEmail, ...(m.toEmails ?? [])])
+              t.messages.flatMap((m) => [
+                m.fromEmail,
+                ...(
+                  (m.toRecipients as Array<{ email: string }> | null) ?? []
+                ).map((r) => r.email),
+              ])
             ),
           ],
           messageCount: t.messages.length,

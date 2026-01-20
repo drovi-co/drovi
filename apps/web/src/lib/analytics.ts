@@ -155,14 +155,12 @@ export function initAnalytics(): void {
   if (isInitialized) return;
 
   // Skip if disabled or not configured
-  if (!env.VITE_ANALYTICS_ENABLED || !env.VITE_POSTHOG_KEY) {
-    console.log("[Analytics] Disabled or not configured");
+  if (!(env.VITE_ANALYTICS_ENABLED && env.VITE_POSTHOG_KEY)) {
     return;
   }
 
   // Respect Do Not Track
   if (navigator.doNotTrack === "1") {
-    console.log("[Analytics] Respecting Do Not Track preference");
     return;
   }
 
@@ -193,9 +191,11 @@ export function initAnalytics(): void {
     });
 
     isInitialized = true;
-    console.log("[Analytics] PostHog initialized");
   } catch (error) {
-    console.error("[Analytics] Failed to initialize PostHog:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to initialize analytics:", error);
+    }
   }
 }
 
@@ -218,14 +218,20 @@ export function track(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Analytics] Failed to track event:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to track event:", event, error);
+    }
   }
 }
 
 /**
  * Track a page view.
  */
-export function trackPageView(path: string, properties?: Record<string, unknown>): void {
+export function trackPageView(
+  path: string,
+  properties?: Record<string, unknown>
+): void {
   if (!isInitialized) return;
 
   try {
@@ -234,7 +240,10 @@ export function trackPageView(path: string, properties?: Record<string, unknown>
       ...properties,
     });
   } catch (error) {
-    console.error("[Analytics] Failed to track page view:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to track page view:", path, error);
+    }
   }
 }
 
@@ -253,7 +262,10 @@ export function identifyUser(properties: UserProperties): void {
       created_at: properties.createdAt,
     });
   } catch (error) {
-    console.error("[Analytics] Failed to identify user:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to identify user:", error);
+    }
   }
 }
 
@@ -266,7 +278,10 @@ export function resetUser(): void {
   try {
     posthog.reset();
   } catch (error) {
-    console.error("[Analytics] Failed to reset user:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to reset user:", error);
+    }
   }
 }
 
@@ -279,7 +294,10 @@ export function setUserProperties(properties: Record<string, unknown>): void {
   try {
     posthog.people.set(properties);
   } catch (error) {
-    console.error("[Analytics] Failed to set user properties:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to set user properties:", error);
+    }
   }
 }
 
@@ -296,7 +314,10 @@ export function isFeatureEnabled(flagKey: string): boolean {
   try {
     return posthog.isFeatureEnabled(flagKey) ?? false;
   } catch (error) {
-    console.error("[Analytics] Failed to check feature flag:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to check feature flag:", flagKey, error);
+    }
     return false;
   }
 }
@@ -310,7 +331,10 @@ export function getFeatureFlagPayload<T>(flagKey: string): T | null {
   try {
     return posthog.getFeatureFlagPayload(flagKey) as T | null;
   } catch (error) {
-    console.error("[Analytics] Failed to get feature flag payload:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to get feature flag payload:", flagKey, error);
+    }
     return null;
   }
 }
@@ -324,7 +348,10 @@ export function reloadFeatureFlags(): void {
   try {
     posthog.reloadFeatureFlags();
   } catch (error) {
-    console.error("[Analytics] Failed to reload feature flags:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to reload feature flags:", error);
+    }
   }
 }
 
@@ -416,7 +443,10 @@ export function setOrganization(
   try {
     posthog.group("organization", organizationId, properties);
   } catch (error) {
-    console.error("[Analytics] Failed to set organization group:", error);
+    // Analytics is non-critical - log in dev only
+    if (import.meta.env.DEV) {
+      console.warn("Failed to set organization group:", error);
+    }
   }
 }
 

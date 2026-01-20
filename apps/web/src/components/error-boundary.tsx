@@ -71,7 +71,9 @@ export function ErrorBoundary({ children }: ErrorBoundaryProps) {
         />
       )}
       onError={(error, componentStack) => {
-        console.error("Error caught by boundary:", error, componentStack);
+        if (import.meta.env.DEV) {
+          console.error("Error caught by boundary:", error, componentStack);
+        }
       }}
     >
       {/* @ts-expect-error - React types version conflict in monorepo */}

@@ -1,7 +1,7 @@
 export {
-  CommitmentRow,
   CommitmentListHeader,
+  type CommitmentListHeaderProps,
+  CommitmentRow,
   type CommitmentRowData,
   type CommitmentRowProps,
-  type CommitmentListHeaderProps,
 } from "./commitment-row";

@@ -1,16 +1,10 @@
 "use client";
 
+import { compareAsc, format, isToday, isTomorrow, startOfDay } from "date-fns";
+import { Calendar, MapPin, Users, Video } from "lucide-react";
 import { useMemo } from "react";
-import {
-  format,
-  isToday,
-  isTomorrow,
-  startOfDay,
-  compareAsc,
-} from "date-fns";
-import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Video, MapPin, Users, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CalendarEvent, EventClickHandler } from "./types";
 
 // =============================================================================
@@ -62,18 +56,20 @@ interface EventItemProps {
 
 function EventItem({ event, onClick }: EventItemProps) {
   const selfAttendee = event.attendees.find((a) => a.self);
-  const otherAttendees = event.attendees.filter((a) => !a.self && !a.organizer);
+  const otherAttendees = event.attendees.filter(
+    (a) => !(a.self || a.organizer)
+  );
 
   return (
     <button
-      type="button"
-      onClick={() => onClick(event)}
       className={cn(
-        "w-full text-left p-4 rounded-lg border transition-all",
-        "hover:bg-accent/50 hover:border-accent",
+        "w-full rounded-lg border p-4 text-left transition-all",
+        "hover:border-accent hover:bg-accent/50",
         "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
         event.status === "cancelled" && "opacity-50"
       )}
+      onClick={() => onClick(event)}
+      type="button"
     >
       <div className="flex gap-4">
         {/* Time column */}
@@ -91,7 +87,7 @@ function EventItem({ event, onClick }: EventItemProps) {
         </div>
 
         {/* Event content */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           {/* Title */}
           <h3
             className={cn(
@@ -104,14 +100,14 @@ function EventItem({ event, onClick }: EventItemProps) {
 
           {/* Status badge for tentative */}
           {event.status === "tentative" && (
-            <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-amber-700 text-xs dark:bg-amber-900/30 dark:text-amber-400">
               Tentative
             </span>
           )}
 
           {/* Location */}
           {event.location && (
-            <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+            <div className="mt-2 flex items-center gap-1.5 text-muted-foreground text-sm">
               <MapPin className="h-4 w-4 shrink-0" />
               <span className="truncate">{event.location}</span>
             </div>
@@ -119,7 +115,7 @@ function EventItem({ event, onClick }: EventItemProps) {
 
           {/* Video call */}
           {event.conferenceData && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-sm text-blue-600">
+            <div className="mt-1.5 flex items-center gap-1.5 text-blue-600 text-sm">
               <Video className="h-4 w-4 shrink-0" />
               <span>
                 {event.conferenceData.type === "hangoutsMeet"
@@ -133,7 +129,7 @@ function EventItem({ event, onClick }: EventItemProps) {
 
           {/* Attendees */}
           {event.attendees.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+            <div className="mt-2 flex items-center gap-1.5 text-muted-foreground text-sm">
               <Users className="h-4 w-4 shrink-0" />
               <span>
                 {otherAttendees.length > 0
@@ -151,7 +147,7 @@ function EventItem({ event, onClick }: EventItemProps) {
           {selfAttendee && selfAttendee.responseStatus !== "accepted" && (
             <div
               className={cn(
-                "mt-2 text-xs font-medium",
+                "mt-2 font-medium text-xs",
                 getResponseColor(selfAttendee.responseStatus)
               )}
             >
@@ -165,7 +161,7 @@ function EventItem({ event, onClick }: EventItemProps) {
 
           {/* Description preview */}
           {event.description && (
-            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+            <p className="mt-2 line-clamp-2 text-muted-foreground text-sm">
               {event.description}
             </p>
           )}
@@ -173,7 +169,7 @@ function EventItem({ event, onClick }: EventItemProps) {
 
         {/* Color indicator */}
         <div
-          className="w-1 rounded-full shrink-0"
+          className="w-1 shrink-0 rounded-full"
           style={{
             backgroundColor: event.backgroundColor || "hsl(var(--primary))",
           }}
@@ -199,7 +195,7 @@ function DayGroup({ date, events, onEventClick }: DayGroupProps) {
       {/* Day header */}
       <div
         className={cn(
-          "sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 mb-3",
+          "sticky top-0 z-10 mb-3 bg-background/95 py-2 backdrop-blur-sm",
           "flex items-center gap-2"
         )}
       >
@@ -210,7 +206,7 @@ function DayGroup({ date, events, onEventClick }: DayGroupProps) {
           )}
         >
           <span className="font-semibold">{formatDayHeader(date)}</span>
-          {!isToday(date) && !isTomorrow(date) && (
+          {!(isToday(date) || isTomorrow(date)) && (
             <span className="text-muted-foreground text-sm">
               {format(date, "yyyy")}
             </span>
@@ -221,7 +217,7 @@ function DayGroup({ date, events, onEventClick }: DayGroupProps) {
       {/* Events */}
       <div className="space-y-2">
         {events.map((event) => (
-          <EventItem key={event.id} event={event} onClick={onEventClick} />
+          <EventItem event={event} key={event.id} onClick={onEventClick} />
         ))}
       </div>
     </div>
@@ -242,9 +238,7 @@ export function AgendaView({
     const groups = new Map<string, CalendarEvent[]>();
 
     // Sort events by start time
-    const sorted = [...events].sort((a, b) =>
-      compareAsc(a.start, b.start)
-    );
+    const sorted = [...events].sort((a, b) => compareAsc(a.start, b.start));
 
     for (const event of sorted) {
       const dayKey = format(startOfDay(event.start), "yyyy-MM-dd");
@@ -264,10 +258,10 @@ export function AgendaView({
   // Empty state
   if (groupedEvents.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
-        <h3 className="font-medium text-lg mb-1">No upcoming events</h3>
-        <p className="text-sm text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
+        <h3 className="mb-1 font-medium text-lg">No upcoming events</h3>
+        <p className="text-muted-foreground text-sm">
           Your schedule is clear for the next 30 days
         </p>
       </div>
@@ -279,9 +273,9 @@ export function AgendaView({
       <div className="p-4">
         {groupedEvents.map((group) => (
           <DayGroup
-            key={group.date.toISOString()}
             date={group.date}
             events={group.events}
+            key={group.date.toISOString()}
             onEventClick={onEventClick}
           />
         ))}

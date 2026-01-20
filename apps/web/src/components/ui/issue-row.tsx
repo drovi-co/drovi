@@ -4,11 +4,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { IssueCheckbox } from "./issue-checkbox";
-import { PriorityIcon, type Priority } from "./priority-icon";
-import { StatusIcon, type Status } from "./status-icon";
 import { AssigneeIcon } from "./assignee-icon";
+import { IssueCheckbox } from "./issue-checkbox";
 import { LabelDot, type LabelType } from "./label-dot";
+import { type Priority, PriorityIcon } from "./priority-icon";
+import { type Status, StatusIcon } from "./status-icon";
 
 /**
  * Linear-style Issue Row component
@@ -23,7 +23,7 @@ const issueRowVariants = cva(
   [
     "flex items-center gap-3",
     "h-[44px] px-4",
-    "border-b border-border",
+    "border-border border-b",
     "transition-colors duration-150",
     "cursor-pointer",
     "group",
@@ -35,7 +35,7 @@ const issueRowVariants = cva(
         false: "hover:bg-muted/50",
       },
       focused: {
-        true: "ring-2 ring-inset ring-primary/50",
+        true: "ring-2 ring-primary/50 ring-inset",
         false: "",
       },
     },
@@ -124,12 +124,12 @@ function IssueRow({
   return (
     <div
       className={cn(issueRowVariants({ selected, focused }), className)}
-      data-slot="issue-row"
       data-issue-id={id}
+      data-slot="issue-row"
       {...props}
     >
       {/* Checkbox */}
-      <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
         <IssueCheckbox
           checked={checked}
           onCheckedChange={onCheckedChange}
@@ -139,44 +139,44 @@ function IssueRow({
 
       {/* Priority */}
       <button
-        type="button"
-        className="shrink-0 p-1 rounded hover:bg-muted"
+        aria-label="Change priority"
+        className="shrink-0 rounded p-1 hover:bg-muted"
         onClick={(e) => {
           e.stopPropagation();
           onPriorityClick?.();
         }}
-        aria-label="Change priority"
+        type="button"
       >
         <PriorityIcon priority={priority} size="sm" />
       </button>
 
       {/* Identifier */}
-      <span className="shrink-0 text-[12px] text-muted-foreground font-mono min-w-[70px]">
+      <span className="min-w-[70px] shrink-0 font-mono text-[12px] text-muted-foreground">
         {identifier}
       </span>
 
       {/* Status */}
       <button
-        type="button"
-        className="shrink-0 p-1 rounded hover:bg-muted"
+        aria-label="Change status"
+        className="shrink-0 rounded p-1 hover:bg-muted"
         onClick={(e) => {
           e.stopPropagation();
           onStatusClick?.();
         }}
-        aria-label="Change status"
+        type="button"
       >
-        <StatusIcon status={status} size="sm" />
+        <StatusIcon size="sm" status={status} />
       </button>
 
       {/* Title */}
-      <span className="flex-1 truncate text-[13px] text-foreground font-medium">
+      <span className="flex-1 truncate font-medium text-[13px] text-foreground">
         {title}
       </span>
 
       {/* Labels (show first 2) */}
       {labels && labels.length > 0 && (
         <div
-          className="flex items-center gap-1 shrink-0"
+          className="flex shrink-0 items-center gap-1"
           onClick={(e) => {
             e.stopPropagation();
             onLabelClick?.();
@@ -184,12 +184,12 @@ function IssueRow({
         >
           {labels.slice(0, 2).map((label, idx) => (
             <LabelDot
-              key={label.name}
-              labelType={label.type}
               color={label.color}
-              size="sm"
+              key={label.name}
               label={labels.length === 1 ? label.name : undefined}
+              labelType={label.type}
               showLabel={labels.length === 1}
+              size="sm"
             />
           ))}
           {labels.length > 2 && (
@@ -203,16 +203,16 @@ function IssueRow({
       {/* Due Date */}
       {formattedDate && (
         <button
-          type="button"
+          aria-label="Change due date"
           className={cn(
-            "shrink-0 text-[12px] px-1 rounded hover:bg-muted",
+            "shrink-0 rounded px-1 text-[12px] hover:bg-muted",
             isOverdue ? "text-destructive" : "text-muted-foreground"
           )}
           onClick={(e) => {
             e.stopPropagation();
             onDateClick?.();
           }}
-          aria-label="Change due date"
+          type="button"
         >
           {formattedDate}
         </button>
@@ -220,20 +220,20 @@ function IssueRow({
 
       {/* Assignee */}
       <button
-        type="button"
-        className="shrink-0 p-1 rounded hover:bg-muted"
+        aria-label="Change assignee"
+        className="shrink-0 rounded p-1 hover:bg-muted"
         onClick={(e) => {
           e.stopPropagation();
           onAssigneeClick?.();
         }}
-        aria-label="Change assignee"
+        type="button"
       >
         <AssigneeIcon
-          name={assignee?.name}
           email={assignee?.email}
           imageUrl={assignee?.imageUrl}
-          size="sm"
+          name={assignee?.name}
           showTooltip
+          size="sm"
         />
       </button>
     </div>
@@ -251,8 +251,8 @@ function IssueList({ className, children, ...props }: IssueListProps) {
   return (
     <div
       className={cn("flex flex-col", className)}
-      role="list"
       data-slot="issue-list"
+      role="list"
       {...props}
     >
       {children}
@@ -277,8 +277,8 @@ function IssueListHeader({
       className={cn(
         "flex items-center gap-3",
         "h-[36px] px-4",
-        "border-b border-border",
-        "text-[12px] font-medium text-muted-foreground uppercase tracking-wider",
+        "border-border border-b",
+        "font-medium text-[12px] text-muted-foreground uppercase tracking-wider",
         className
       )}
       data-slot="issue-list-header"

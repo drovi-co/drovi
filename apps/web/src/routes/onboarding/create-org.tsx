@@ -118,7 +118,7 @@ function CreateOrgPage() {
                 />
               </div>
               <p className="text-muted-foreground text-xs">
-                memorystack.com/
+                drovi.io/
                 <span className="font-medium">{slug || "your-org"}</span>
               </p>
             </div>

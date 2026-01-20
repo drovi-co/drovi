@@ -19,19 +19,19 @@ interface WelcomeEmailProps {
 
 export function WelcomeEmail({
   userName,
-  appUrl = "https://app.memorystack.app",
+  appUrl = "https://app.drovi.io",
 }: WelcomeEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Welcome to MemoryStack - Let's get started!</Preview>
+      <Preview>Welcome to Drovi - Let's get started!</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to MemoryStack!</Heading>
+          <Heading style={h1}>Welcome to Drovi!</Heading>
           <Text style={text}>Hi {userName},</Text>
           <Text style={text}>
-            We're excited to have you on board! MemoryStack helps you turn your
-            email into actionable intelligence with AI-powered insights.
+            We're excited to have you on board! Drovi helps you turn your email
+            into actionable intelligence with AI-powered insights.
           </Text>
           <Section style={buttonContainer}>
             <Button href={`${appUrl}/dashboard`} style={button}>
@@ -47,7 +47,7 @@ export function WelcomeEmail({
           <Hr style={hr} />
           <Text style={footer}>
             If you have any questions, feel free to{" "}
-            <Link href="mailto:support@memorystack.app" style={link}>
+            <Link href="mailto:support@drovi.io" style={link}>
               contact our support team
             </Link>
             .
@@ -55,7 +55,7 @@ export function WelcomeEmail({
           <Text style={footer}>
             Best regards,
             <br />
-            The MemoryStack Team
+            The Drovi Team
           </Text>
         </Container>
       </Body>

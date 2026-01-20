@@ -1,7 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { format, isToday, isYesterday } from "date-fns";
 import {
   AlertCircle,
   Archive,
@@ -12,8 +11,9 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import { format, isToday, isYesterday } from "date-fns";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -84,90 +84,101 @@ export function ThreadRow({
 }: ThreadRowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const primaryParticipant = thread.participants[0];
-  const hasIntelligence = thread.commitmentCount > 0 || thread.decisionCount > 0 || thread.openQuestionCount > 0;
+  const hasIntelligence =
+    thread.commitmentCount > 0 ||
+    thread.decisionCount > 0 ||
+    thread.openQuestionCount > 0;
 
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
-        "border-b border-border/40",
+        "group relative flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors",
+        "border-border/40 border-b",
         thread.isUnread && !isSelected && !isHovered && "bg-primary/[0.02]",
         isHovered && !isSelected && "bg-accent/50",
         isSelected && "bg-accent"
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick?.(thread.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick?.(thread.id);
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       role="button"
       tabIndex={0}
     >
       {/* Priority indicator bar */}
       {thread.priority === "urgent" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500 rounded-r" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 rounded-r bg-red-500" />
       )}
       {thread.priority === "high" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-r" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 rounded-r bg-amber-500" />
       )}
 
       {/* Avatar */}
       <Avatar className="h-9 w-9 shrink-0">
         <AvatarImage src={primaryParticipant?.avatarUrl} />
-        <AvatarFallback className="text-xs bg-muted font-medium">
-          {primaryParticipant?.name ? getInitials(primaryParticipant.name) : "?"}
+        <AvatarFallback className="bg-muted font-medium text-xs">
+          {primaryParticipant?.name
+            ? getInitials(primaryParticipant.name)
+            : "?"}
         </AvatarFallback>
       </Avatar>
 
       {/* Sender name - more space */}
-      <div className={cn(
-        "w-48 shrink-0 truncate",
-        thread.isUnread ? "font-semibold text-foreground" : "font-medium text-foreground/80"
-      )}>
+      <div
+        className={cn(
+          "w-48 shrink-0 truncate",
+          thread.isUnread
+            ? "font-semibold text-foreground"
+            : "font-medium text-foreground/80"
+        )}
+      >
         <span className="text-sm">
           {primaryParticipant?.name || primaryParticipant?.email || "Unknown"}
         </span>
         {thread.participants.length > 1 && (
-          <span className="text-xs text-muted-foreground ml-1.5">
+          <span className="ml-1.5 text-muted-foreground text-xs">
             +{thread.participants.length - 1}
           </span>
         )}
       </div>
 
       {/* AI Brief - the main content */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* Priority icon */}
         {thread.priority === "urgent" && (
-          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
         )}
         {thread.priority === "high" && (
-          <Flag className="h-4 w-4 text-amber-500 shrink-0" />
+          <Flag className="h-4 w-4 shrink-0 text-amber-500" />
         )}
 
         {/* AI indicator */}
-        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
 
         {/* Brief text */}
-        <span className={cn(
-          "truncate text-sm",
-          thread.isUnread ? "text-foreground" : "text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            "truncate text-sm",
+            thread.isUnread ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
           {thread.brief || thread.subject}
         </span>
       </div>
 
       {/* Intelligence badges */}
       {hasIntelligence && !isHovered && (
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
           {thread.commitmentCount > 0 && (
-            <span className="flex items-center gap-0.5 text-xs text-blue-600 bg-blue-500/10 px-1.5 py-0.5 rounded-full">
+            <span className="flex items-center gap-0.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-blue-600 text-xs">
               <CheckCircle2 className="h-3 w-3" />
               {thread.commitmentCount}
             </span>
           )}
           {thread.openQuestionCount > 0 && (
-            <span className="flex items-center gap-0.5 text-xs text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+            <span className="flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-600 text-xs">
               <Clock className="h-3 w-3" />
               {thread.openQuestionCount}
             </span>
@@ -176,39 +187,43 @@ export function ThreadRow({
       )}
 
       {/* Quick actions (on hover) or date */}
-      <div className="w-28 shrink-0 flex items-center justify-end gap-1">
+      <div className="flex w-28 shrink-0 items-center justify-end gap-1">
         {isHovered ? (
           <>
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => {
                 e.stopPropagation();
                 onStar?.(thread.id, !thread.isStarred);
               }}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
-              <Star className={cn(
-                "h-4 w-4",
-                thread.isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground"
-              )} />
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  thread.isStarred
+                    ? "fill-amber-400 text-amber-400"
+                    : "text-muted-foreground"
+                )}
+              />
             </button>
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => {
                 e.stopPropagation();
                 onArchive?.(thread.id);
               }}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
               <Archive className="h-4 w-4 text-muted-foreground" />
             </button>
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete?.(thread.id);
               }}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -216,9 +231,9 @@ export function ThreadRow({
         ) : (
           <>
             {thread.isStarred && (
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+              <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
             )}
-            <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">
+            <span className="whitespace-nowrap font-medium text-muted-foreground text-xs">
               {formatDate(thread.lastMessageDate)}
             </span>
           </>
@@ -234,11 +249,11 @@ export function ThreadRow({
 
 export function ThreadRowSkeleton() {
   return (
-    <div className="flex items-center gap-4 px-4 py-3 border-b border-border/40">
-      <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-      <div className="w-48 h-4 bg-muted rounded animate-pulse" />
-      <div className="flex-1 h-4 bg-muted rounded animate-pulse" />
-      <div className="w-20 h-4 bg-muted rounded animate-pulse" />
+    <div className="flex items-center gap-4 border-border/40 border-b px-4 py-3">
+      <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+      <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+      <div className="h-4 flex-1 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
     </div>
   );
 }

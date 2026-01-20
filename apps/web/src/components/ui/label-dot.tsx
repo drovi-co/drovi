@@ -25,7 +25,13 @@ const labelDotVariants = cva("inline-block shrink-0 rounded-full", {
   },
 });
 
-export type LabelType = "bug" | "feature" | "improvement" | "documentation" | "design" | "custom";
+export type LabelType =
+  | "bug"
+  | "feature"
+  | "improvement"
+  | "documentation"
+  | "design"
+  | "custom";
 
 interface LabelDotProps
   extends React.HTMLAttributes<HTMLSpanElement>,
@@ -61,15 +67,12 @@ function LabelDot({
     <span className={cn("inline-flex items-center gap-1.5", className)}>
       <span
         className={labelDotVariants({ size })}
-        style={{ backgroundColor: dotColor, ...style }}
         data-slot="label-dot"
+        style={{ backgroundColor: dotColor, ...style }}
         {...props}
       />
       {showLabel && label && (
-        <span
-          className="text-[12px] font-medium"
-          style={{ color: dotColor }}
-        >
+        <span className="font-medium text-[12px]" style={{ color: dotColor }}>
           {label}
         </span>
       )}
@@ -99,16 +102,16 @@ function LabelBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5",
-        "h-5 px-2 rounded-[4px]",
+        "h-5 rounded-[4px] px-2",
         "bg-muted/50",
-        "text-[12px] font-medium text-foreground",
+        "font-medium text-[12px] text-foreground",
         className
       )}
       data-slot="label-badge"
       {...props}
     >
       <span
-        className="size-2 rounded-full shrink-0"
+        className="size-2 shrink-0 rounded-full"
         style={{ backgroundColor: dotColor }}
       />
       {label}

@@ -32,6 +32,7 @@ import { Route as DashboardCalendarRouteImport } from './routes/dashboard/calend
 import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as DashboardAiRouteImport } from './routes/dashboard/ai'
+import { Route as AdminWaitlistRouteImport } from './routes/admin/waitlist'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizations'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
@@ -41,10 +42,10 @@ import { Route as DashboardTasksIndexRouteImport } from './routes/dashboard/task
 import { Route as DashboardSourcesIndexRouteImport } from './routes/dashboard/sources/index'
 import { Route as DashboardSearchIndexRouteImport } from './routes/dashboard/search/index'
 import { Route as DashboardInboxIndexRouteImport } from './routes/dashboard/inbox/index'
-import { Route as DashboardEmailIndexRouteImport } from './routes/dashboard/email/index'
 import { Route as DashboardDecisionsIndexRouteImport } from './routes/dashboard/decisions/index'
 import { Route as DashboardContactsIndexRouteImport } from './routes/dashboard/contacts/index'
 import { Route as DashboardCommitmentsIndexRouteImport } from './routes/dashboard/commitments/index'
+import { Route as DashboardUioUioIdRouteImport } from './routes/dashboard/uio/$uioId'
 import { Route as DashboardTeamSettingsRouteImport } from './routes/dashboard/team/settings'
 import { Route as DashboardTeamMembersRouteImport } from './routes/dashboard/team/members'
 import { Route as DashboardTeamInvitationsRouteImport } from './routes/dashboard/team/invitations'
@@ -166,6 +167,11 @@ const DashboardAiRoute = DashboardAiRouteImport.update({
   path: '/ai',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -211,11 +217,6 @@ const DashboardInboxIndexRoute = DashboardInboxIndexRouteImport.update({
   path: '/inbox/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardEmailIndexRoute = DashboardEmailIndexRouteImport.update({
-  id: '/email/',
-  path: '/email/',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const DashboardDecisionsIndexRoute = DashboardDecisionsIndexRouteImport.update({
   id: '/decisions/',
   path: '/decisions/',
@@ -232,6 +233,11 @@ const DashboardCommitmentsIndexRoute =
     path: '/commitments/',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardUioUioIdRoute = DashboardUioUioIdRouteImport.update({
+  id: '/uio/$uioId',
+  path: '/uio/$uioId',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardTeamSettingsRoute = DashboardTeamSettingsRouteImport.update({
   id: '/team/settings',
   path: '/team/settings',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/dashboard/ai': typeof DashboardAiRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
@@ -291,10 +298,10 @@ export interface FileRoutesByFullPath {
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
+  '/dashboard/uio/$uioId': typeof DashboardUioUioIdRoute
   '/dashboard/commitments': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
-  '/dashboard/email': typeof DashboardEmailIndexRoute
   '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
@@ -314,6 +321,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/dashboard/ai': typeof DashboardAiRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
@@ -332,10 +340,10 @@ export interface FileRoutesByTo {
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
+  '/dashboard/uio/$uioId': typeof DashboardUioUioIdRoute
   '/dashboard/commitments': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
-  '/dashboard/email': typeof DashboardEmailIndexRoute
   '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
@@ -358,6 +366,7 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/dashboard/ai': typeof DashboardAiRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
@@ -376,10 +385,10 @@ export interface FileRoutesById {
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
   '/dashboard/team/settings': typeof DashboardTeamSettingsRoute
+  '/dashboard/uio/$uioId': typeof DashboardUioUioIdRoute
   '/dashboard/commitments/': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts/': typeof DashboardContactsIndexRoute
   '/dashboard/decisions/': typeof DashboardDecisionsIndexRoute
-  '/dashboard/email/': typeof DashboardEmailIndexRoute
   '/dashboard/inbox/': typeof DashboardInboxIndexRoute
   '/dashboard/search/': typeof DashboardSearchIndexRoute
   '/dashboard/sources/': typeof DashboardSourcesIndexRoute
@@ -403,6 +412,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/organizations'
     | '/admin/users'
+    | '/admin/waitlist'
     | '/dashboard/ai'
     | '/dashboard/analytics'
     | '/dashboard/billing'
@@ -421,10 +431,10 @@ export interface FileRouteTypes {
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
+    | '/dashboard/uio/$uioId'
     | '/dashboard/commitments'
     | '/dashboard/contacts'
     | '/dashboard/decisions'
-    | '/dashboard/email'
     | '/dashboard/inbox'
     | '/dashboard/search'
     | '/dashboard/sources'
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/organizations'
     | '/admin/users'
+    | '/admin/waitlist'
     | '/dashboard/ai'
     | '/dashboard/analytics'
     | '/dashboard/billing'
@@ -462,10 +473,10 @@ export interface FileRouteTypes {
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
+    | '/dashboard/uio/$uioId'
     | '/dashboard/commitments'
     | '/dashboard/contacts'
     | '/dashboard/decisions'
-    | '/dashboard/email'
     | '/dashboard/inbox'
     | '/dashboard/search'
     | '/dashboard/sources'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/organizations'
     | '/admin/users'
+    | '/admin/waitlist'
     | '/dashboard/ai'
     | '/dashboard/analytics'
     | '/dashboard/billing'
@@ -505,10 +517,10 @@ export interface FileRouteTypes {
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
     | '/dashboard/team/settings'
+    | '/dashboard/uio/$uioId'
     | '/dashboard/commitments/'
     | '/dashboard/contacts/'
     | '/dashboard/decisions/'
-    | '/dashboard/email/'
     | '/dashboard/inbox/'
     | '/dashboard/search/'
     | '/dashboard/sources/'
@@ -698,6 +710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAiRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/admin/waitlist': {
+      id: '/admin/waitlist'
+      path: '/waitlist'
+      fullPath: '/admin/waitlist'
+      preLoaderRoute: typeof AdminWaitlistRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/users'
@@ -761,13 +780,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardInboxIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/email/': {
-      id: '/dashboard/email/'
-      path: '/email'
-      fullPath: '/dashboard/email'
-      preLoaderRoute: typeof DashboardEmailIndexRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/dashboard/decisions/': {
       id: '/dashboard/decisions/'
       path: '/decisions'
@@ -787,6 +799,13 @@ declare module '@tanstack/react-router' {
       path: '/commitments'
       fullPath: '/dashboard/commitments'
       preLoaderRoute: typeof DashboardCommitmentsIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/uio/$uioId': {
+      id: '/dashboard/uio/$uioId'
+      path: '/uio/$uioId'
+      fullPath: '/dashboard/uio/$uioId'
+      preLoaderRoute: typeof DashboardUioUioIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/team/settings': {
@@ -831,6 +850,7 @@ interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminWaitlistRoute: typeof AdminWaitlistRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -838,6 +858,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminOrganizationsRoute: AdminOrganizationsRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminWaitlistRoute: AdminWaitlistRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -858,10 +879,10 @@ interface DashboardRouteRouteChildren {
   DashboardTeamInvitationsRoute: typeof DashboardTeamInvitationsRoute
   DashboardTeamMembersRoute: typeof DashboardTeamMembersRoute
   DashboardTeamSettingsRoute: typeof DashboardTeamSettingsRoute
+  DashboardUioUioIdRoute: typeof DashboardUioUioIdRoute
   DashboardCommitmentsIndexRoute: typeof DashboardCommitmentsIndexRoute
   DashboardContactsIndexRoute: typeof DashboardContactsIndexRoute
   DashboardDecisionsIndexRoute: typeof DashboardDecisionsIndexRoute
-  DashboardEmailIndexRoute: typeof DashboardEmailIndexRoute
   DashboardInboxIndexRoute: typeof DashboardInboxIndexRoute
   DashboardSearchIndexRoute: typeof DashboardSearchIndexRoute
   DashboardSourcesIndexRoute: typeof DashboardSourcesIndexRoute
@@ -884,10 +905,10 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardTeamInvitationsRoute: DashboardTeamInvitationsRoute,
   DashboardTeamMembersRoute: DashboardTeamMembersRoute,
   DashboardTeamSettingsRoute: DashboardTeamSettingsRoute,
+  DashboardUioUioIdRoute: DashboardUioUioIdRoute,
   DashboardCommitmentsIndexRoute: DashboardCommitmentsIndexRoute,
   DashboardContactsIndexRoute: DashboardContactsIndexRoute,
   DashboardDecisionsIndexRoute: DashboardDecisionsIndexRoute,
-  DashboardEmailIndexRoute: DashboardEmailIndexRoute,
   DashboardInboxIndexRoute: DashboardInboxIndexRoute,
   DashboardSearchIndexRoute: DashboardSearchIndexRoute,
   DashboardSourcesIndexRoute: DashboardSourcesIndexRoute,

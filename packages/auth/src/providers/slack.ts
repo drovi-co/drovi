@@ -315,7 +315,7 @@ export async function verifySlackSignature(
   }
 
   // Check timestamp to prevent replay attacks (within 5 minutes)
-  const requestTime = parseInt(timestamp, 10);
+  const requestTime = Number.parseInt(timestamp, 10);
   const currentTime = Math.floor(Date.now() / 1000);
   if (Math.abs(currentTime - requestTime) > 300) {
     return false;

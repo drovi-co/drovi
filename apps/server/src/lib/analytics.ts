@@ -108,7 +108,7 @@ function getClient(): PostHog | null {
     client = new PostHog(env.POSTHOG_PROJECT_KEY, {
       host: env.POSTHOG_HOST,
       flushAt: 20, // Flush after 20 events
-      flushInterval: 10000, // Flush every 10 seconds
+      flushInterval: 10_000, // Flush every 10 seconds
     });
   }
 
@@ -166,7 +166,9 @@ export function trackAIOperation(
   const posthog = getClient();
   if (!posthog) return;
 
-  const event = options.success ? "ai_operation_completed" : "ai_operation_failed";
+  const event = options.success
+    ? "ai_operation_completed"
+    : "ai_operation_failed";
 
   trackServerEvent(event, userId, {
     operation: options.operation,
@@ -180,7 +182,11 @@ export function trackAIOperation(
     threadId: options.threadId,
     errorMessage: options.errorMessage,
     // Estimate cost (rough approximation)
-    costCents: estimateCost(options.model, options.inputTokens, options.outputTokens),
+    costCents: estimateCost(
+      options.model,
+      options.inputTokens,
+      options.outputTokens
+    ),
   });
 }
 
@@ -354,7 +360,11 @@ export async function shutdownAnalytics(): Promise<void> {
  * Estimate cost in cents based on model and token usage.
  * This is a rough approximation - actual costs may vary.
  */
-function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
+function estimateCost(
+  model: string,
+  inputTokens: number,
+  outputTokens: number
+): number {
   // Cost per 1M tokens in cents (approximate)
   const costs: Record<string, { input: number; output: number }> = {
     "claude-3-5-sonnet": { input: 300, output: 1500 },

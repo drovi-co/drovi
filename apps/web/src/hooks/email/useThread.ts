@@ -1,6 +1,6 @@
-import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -9,13 +9,14 @@ import { useCallback } from "react";
 export interface UseThreadOptions {
   threadId: string;
   accountId?: string;
+  organizationId?: string;
 }
 
 // =============================================================================
 // HOOK
 // =============================================================================
 
-export function useThread({ threadId }: UseThreadOptions) {
+export function useThread({ threadId, organizationId }: UseThreadOptions) {
   const queryClient = useQueryClient();
 
   // Fetch thread details
@@ -46,7 +47,7 @@ export function useThread({ threadId }: UseThreadOptions) {
   } = useQuery({
     ...trpc.threads.getIntelligence.queryOptions({ threadId }),
     enabled: !!threadId,
-    staleTime: 60000, // 1 minute - intelligence doesn't change often
+    staleTime: 60_000, // 1 minute - intelligence doesn't change often
   });
 
   // Fetch related context (memory panel data)
@@ -57,7 +58,7 @@ export function useThread({ threadId }: UseThreadOptions) {
   } = useQuery({
     ...trpc.threads.getRelatedContext.queryOptions({ threadId }),
     enabled: !!threadId,
-    staleTime: 60000,
+    staleTime: 60_000,
   });
 
   // Mutations
@@ -68,43 +69,31 @@ export function useThread({ threadId }: UseThreadOptions) {
     },
   });
 
-  const starMutation = useMutation({
-    ...trpc.threads.star.mutationOptions(),
-    onMutate: async ({ starred }) => {
-      await queryClient.cancelQueries({
-        queryKey: ["threads", "getById", threadId],
-      });
-      const previousThread = queryClient.getQueryData([
-        "threads",
-        "getById",
-        threadId,
-      ]);
+  const starMutation = useMutation(
+    trpc.threads.star.mutationOptions({
+      onMutate: async ({ starred }) => {
+        await queryClient.cancelQueries({
+          queryKey: ["threads", "getById", threadId],
+        });
 
-      queryClient.setQueryData(
-        ["threads", "getById", threadId],
-        (old: { thread: { isStarred: boolean } } | undefined) => {
-          if (!old) return old;
-          return {
-            ...old,
-            thread: { ...old.thread, isStarred: starred },
-          };
-        }
-      );
-
-      return { previousThread };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousThread) {
         queryClient.setQueryData(
           ["threads", "getById", threadId],
-          context.previousThread
+          (old: { thread: { isStarred: boolean } } | undefined) => {
+            if (!old) return old;
+            return {
+              ...old,
+              thread: { ...old.thread, isStarred: starred },
+            };
+          }
         );
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["threads"] });
-    },
-  });
+
+        return undefined;
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ["threads"] });
+      },
+    })
+  );
 
   const markReadMutation = useMutation({
     ...trpc.threads.markRead.mutationOptions(),
@@ -120,27 +109,30 @@ export function useThread({ threadId }: UseThreadOptions) {
     },
   });
 
-  // Feedback mutations
-  const commitmentFeedbackMutation = useMutation({
-    ...trpc.commitments.feedback.mutationOptions(),
-    onSuccess: () => {
-      refetchIntelligence();
-    },
-  });
+  // Feedback mutations - use the feedback router's verify method
+  const commitmentFeedbackMutation = useMutation(
+    trpc.feedback.verify.mutationOptions({
+      onSuccess: () => {
+        refetchIntelligence();
+      },
+    })
+  );
 
-  const decisionFeedbackMutation = useMutation({
-    ...trpc.decisions.feedback.mutationOptions(),
-    onSuccess: () => {
-      refetchIntelligence();
-    },
-  });
+  const decisionFeedbackMutation = useMutation(
+    trpc.feedback.verify.mutationOptions({
+      onSuccess: () => {
+        refetchIntelligence();
+      },
+    })
+  );
 
-  const completeCommitmentMutation = useMutation({
-    ...trpc.commitments.complete.mutationOptions(),
-    onSuccess: () => {
-      refetchIntelligence();
-    },
-  });
+  const completeCommitmentMutation = useMutation(
+    trpc.commitments.complete.mutationOptions({
+      onSuccess: () => {
+        refetchIntelligence();
+      },
+    })
+  );
 
   // Actions
   const handleArchive = useCallback(async () => {
@@ -166,30 +158,38 @@ export function useThread({ threadId }: UseThreadOptions) {
   );
 
   const handleCommitmentFeedback = useCallback(
-    async (commitmentId: string, positive: boolean) => {
+    async (commitmentId: string, _positive: boolean) => {
+      if (!organizationId) return;
       await commitmentFeedbackMutation.mutateAsync({
-        commitmentId,
-        positive,
+        organizationId,
+        targetType: "commitment",
+        targetId: commitmentId,
       });
     },
-    [commitmentFeedbackMutation]
+    [commitmentFeedbackMutation, organizationId]
   );
 
   const handleDecisionFeedback = useCallback(
-    async (decisionId: string, positive: boolean) => {
+    async (decisionId: string, _positive: boolean) => {
+      if (!organizationId) return;
       await decisionFeedbackMutation.mutateAsync({
-        decisionId,
-        positive,
+        organizationId,
+        targetType: "decision",
+        targetId: decisionId,
       });
     },
-    [decisionFeedbackMutation]
+    [decisionFeedbackMutation, organizationId]
   );
 
   const handleCompleteCommitment = useCallback(
     async (commitmentId: string) => {
-      await completeCommitmentMutation.mutateAsync({ commitmentId });
+      if (!organizationId) return;
+      await completeCommitmentMutation.mutateAsync({
+        organizationId,
+        commitmentId,
+      });
     },
-    [completeCommitmentMutation]
+    [completeCommitmentMutation, organizationId]
   );
 
   const refetchAll = useCallback(async () => {

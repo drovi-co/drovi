@@ -245,6 +245,7 @@ function getDefaultClassification(_thread: ThreadInput): {
       intent: "other",
       confidence: 0,
       reasoning: "Classification skipped",
+      secondaryIntents: null,
     },
     urgency: {
       score: 0.3,
@@ -257,12 +258,14 @@ function getDefaultClassification(_thread: ThreadInput): {
       trend: "stable",
       messages: [],
       escalationDetected: false,
+      escalationReason: null,
     },
     threadType: {
       type: "single_message",
       confidence: 0,
       messageCount: _thread.messages.length,
       participantCount: 1,
+      backAndForthCount: null,
       hasForward: false,
     },
   };
@@ -290,6 +293,7 @@ function getDefaultGeneration(_thread: ThreadInput): {
       summary: _thread.subject || "Email thread",
       keyPoints: [],
       actionRequired: false,
+      actionDescription: null,
       participants: [],
     },
     timeline: [],

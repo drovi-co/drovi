@@ -20,7 +20,6 @@ import {
   Hash,
   Lightbulb,
   Mail,
-  MessageSquare,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
@@ -29,7 +28,6 @@ import {
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -218,18 +216,26 @@ function highlightQuotedText(
   end: number | null | undefined
 ): React.ReactNode {
   if (!quotedText || start === null || start === undefined) {
-    return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{bodyText}</p>;
+    return (
+      <p className="whitespace-pre-wrap text-muted-foreground text-sm">
+        {bodyText}
+      </p>
+    );
   }
 
   // Use positions if available, otherwise find the quoted text
   let actualStart = start;
-  let actualEnd = end ?? (start + quotedText.length);
+  let actualEnd = end ?? start + quotedText.length;
 
   if (actualStart > bodyText.length) {
     // Fallback: search for the quoted text
     actualStart = bodyText.indexOf(quotedText);
     if (actualStart === -1) {
-      return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{bodyText}</p>;
+      return (
+        <p className="whitespace-pre-wrap text-muted-foreground text-sm">
+          {bodyText}
+        </p>
+      );
     }
     actualEnd = actualStart + quotedText.length;
   }
@@ -239,9 +245,9 @@ function highlightQuotedText(
   const after = bodyText.slice(actualEnd);
 
   return (
-    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+    <p className="whitespace-pre-wrap text-muted-foreground text-sm">
       {before}
-      <mark className="bg-yellow-200 dark:bg-yellow-800/50 text-foreground px-0.5 rounded">
+      <mark className="rounded bg-yellow-200 px-0.5 text-foreground dark:bg-yellow-800/50">
         {highlighted}
       </mark>
       {after}
@@ -375,12 +381,12 @@ export function EvidenceDetailSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[520px] sm:w-[600px] p-0 flex flex-col">
+    <Sheet onOpenChange={onOpenChange} open={open}>
+      <SheetContent className="flex w-[520px] flex-col p-0 sm:w-[600px]">
         {/* Header */}
         <div
           className={cn(
-            "px-6 pt-6 pb-4 bg-gradient-to-b to-transparent",
+            "bg-gradient-to-b to-transparent px-6 pt-6 pb-4",
             typeConfig.gradient
           )}
         >
@@ -390,7 +396,7 @@ export function EvidenceDetailSheet({
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full",
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-xs",
                     typeConfig.color
                   )}
                 >
@@ -398,13 +404,13 @@ export function EvidenceDetailSheet({
                   {typeConfig.label} Evidence
                 </span>
                 {evidence.isUserVerified && (
-                  <span className="flex items-center gap-1 text-xs text-green-600 bg-green-500/10 px-2 py-1 rounded-full">
+                  <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 text-green-600 text-xs">
                     <ThumbsUp className="h-3 w-3" />
                     Verified
                   </span>
                 )}
                 {evidence.isUserDismissed && (
-                  <span className="flex items-center gap-1 text-xs text-red-600 bg-red-500/10 px-2 py-1 rounded-full">
+                  <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-1 text-red-600 text-xs">
                     <ThumbsDown className="h-3 w-3" />
                     Dismissed
                   </span>
@@ -413,7 +419,7 @@ export function EvidenceDetailSheet({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs text-muted-foreground cursor-help">
+                    <span className="cursor-help text-muted-foreground text-xs">
                       {evidence.modelName ?? "AI"} •{" "}
                       {formatDistanceToNow(evidence.extractedAt, {
                         addSuffix: true,
@@ -426,7 +432,7 @@ export function EvidenceDetailSheet({
                       {format(evidence.extractedAt, "MMM d, yyyy 'at' h:mm a")}
                     </p>
                     {evidence.modelVersion && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-muted-foreground text-xs">
                         Model: {evidence.modelVersion}
                       </p>
                     )}
@@ -436,13 +442,15 @@ export function EvidenceDetailSheet({
             </div>
 
             {/* Title */}
-            <SheetTitle className="text-xl font-semibold leading-tight pr-8">
+            <SheetTitle className="pr-8 font-semibold text-xl leading-tight">
               {evidence.title}
             </SheetTitle>
 
             {/* Extracted Text Preview */}
-            <div className="p-3 rounded-lg bg-background/80 border border-border/50">
-              <p className="text-sm leading-relaxed">{evidence.extractedText}</p>
+            <div className="rounded-lg border border-border/50 bg-background/80 p-3">
+              <p className="text-sm leading-relaxed">
+                {evidence.extractedText}
+              </p>
             </div>
           </SheetHeader>
         </div>
@@ -451,39 +459,42 @@ export function EvidenceDetailSheet({
 
         {/* Content */}
         <ScrollArea className="flex-1">
-          <div className="px-6 py-4 space-y-6">
+          <div className="space-y-6 px-6 py-4">
             {/* Confidence Breakdown */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                   <Sparkles className="h-3.5 w-3.5 text-purple-500" />
                   AI Confidence
                 </h4>
-                <span className={cn("text-sm font-semibold", confidenceLevel.color)}>
-                  {Math.round(evidence.confidence * 100)}% - {confidenceLevel.label}
+                <span
+                  className={cn("font-semibold text-sm", confidenceLevel.color)}
+                >
+                  {Math.round(evidence.confidence * 100)}% -{" "}
+                  {confidenceLevel.label}
                 </span>
               </div>
 
               {/* Overall Progress */}
               <div className="space-y-1">
-                <Progress value={evidence.confidence * 100} className="h-2" />
-                <p className="text-xs text-muted-foreground">
+                <Progress className="h-2" value={evidence.confidence * 100} />
+                <p className="text-muted-foreground text-xs">
                   {confidenceLevel.description}
                 </p>
               </div>
 
               {/* Factor Breakdown */}
               <div className="space-y-3 pt-2">
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="font-medium text-muted-foreground text-xs">
                   Confidence Factors
                 </p>
                 {confidenceFactors.map((factor, index) => (
-                  <div key={index} className="space-y-1.5">
+                  <div className="space-y-1.5" key={index}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{factor.name}</span>
+                      <span className="font-medium text-sm">{factor.name}</span>
                       <span
                         className={cn(
-                          "text-xs font-medium",
+                          "font-medium text-xs",
                           factor.score >= 0.7
                             ? "text-green-600"
                             : factor.score >= 0.5
@@ -494,8 +505,8 @@ export function EvidenceDetailSheet({
                         {Math.round(factor.score * 100)}%
                       </span>
                     </div>
-                    <Progress value={factor.score * 100} className="h-1" />
-                    <p className="text-xs text-muted-foreground">
+                    <Progress className="h-1" value={factor.score * 100} />
+                    <p className="text-muted-foreground text-xs">
                       {factor.explanation}
                     </p>
                   </div>
@@ -507,7 +518,7 @@ export function EvidenceDetailSheet({
 
             {/* Source Evidence - The "Show Me" */}
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <FileText className="h-3.5 w-3.5" />
                 Source Evidence
               </h4>
@@ -515,14 +526,14 @@ export function EvidenceDetailSheet({
               {evidence.quotedText ? (
                 <div className="space-y-3">
                   {/* Quoted Text Box */}
-                  <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800">
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/30">
                     <div className="flex items-start gap-2">
-                      <Hash className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                      <Hash className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
                       <div className="space-y-1">
-                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                        <p className="font-medium text-sm text-yellow-800 dark:text-yellow-200">
                           Exact Quote
                         </p>
-                        <p className="text-sm italic text-yellow-900 dark:text-yellow-100">
+                        <p className="text-sm text-yellow-900 italic dark:text-yellow-100">
                           "{evidence.quotedText}"
                         </p>
                         {evidence.quotedTextStart !== null &&
@@ -539,10 +550,10 @@ export function EvidenceDetailSheet({
                   {/* Full Context */}
                   {evidence.sourceMessage?.bodyText && (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="font-medium text-muted-foreground text-xs">
                         Full Message Context
                       </p>
-                      <div className="p-4 rounded-lg bg-muted/30 border border-border/50 max-h-48 overflow-y-auto">
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border/50 bg-muted/30 p-4">
                         {highlightQuotedText(
                           evidence.sourceMessage.bodyText,
                           evidence.quotedText,
@@ -554,8 +565,8 @@ export function EvidenceDetailSheet({
                   )}
                 </div>
               ) : (
-                <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
-                  <p className="text-sm text-muted-foreground italic">
+                <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                  <p className="text-muted-foreground text-sm italic">
                     No specific quote captured. This extraction was based on
                     contextual analysis.
                   </p>
@@ -568,46 +579,46 @@ export function EvidenceDetailSheet({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                     <Mail className="h-3.5 w-3.5" />
                     Source Email
                   </h4>
 
                   <button
-                    type="button"
+                    className="group flex w-full items-start gap-3 rounded-lg bg-muted/50 p-4 text-left transition-colors hover:bg-muted"
                     onClick={() =>
                       evidence.threadId && onThreadClick?.(evidence.threadId)
                     }
-                    className="flex items-start gap-3 w-full p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
+                    type="button"
                   >
-                    <Avatar className="h-10 w-10 mt-0.5">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                    <Avatar className="mt-0.5 h-10 w-10">
+                      <AvatarFallback className="bg-primary/10 font-medium text-primary text-sm">
                         {getInitials(
                           evidence.sourceMessage.senderName,
                           evidence.sourceMessage.senderEmail
                         )}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="font-medium text-sm">
                           {evidence.sourceMessage.senderName ??
                             evidence.sourceMessage.senderEmail}
                         </p>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                           {format(evidence.sourceMessage.sentAt, "MMM d, yyyy")}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="truncate text-muted-foreground text-sm">
                         {evidence.sourceMessage.threadSubject ?? "Email thread"}
                       </p>
                       {evidence.sourceMessage.snippet && (
-                        <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">
+                        <p className="mt-1 line-clamp-2 text-muted-foreground/70 text-xs">
                           {evidence.sourceMessage.snippet}
                         </p>
                       )}
                     </div>
-                    <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                    <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
                   </button>
                 </div>
               </>
@@ -618,7 +629,7 @@ export function EvidenceDetailSheet({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                     <BookOpen className="h-3.5 w-3.5" />
                     Related Extractions ({evidence.otherMentions.length})
                   </h4>
@@ -629,24 +640,24 @@ export function EvidenceDetailSheet({
                       const MentionIcon = mentionConfig.icon;
                       return (
                         <button
+                          className="group flex w-full items-center gap-3 rounded-lg bg-muted/30 p-3 text-left transition-colors hover:bg-muted/50"
                           key={mention.id}
-                          type="button"
                           onClick={() => onMentionClick?.(mention)}
-                          className="flex items-center gap-3 w-full p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left group"
+                          type="button"
                         >
                           <div
                             className={cn(
-                              "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                               mentionConfig.color
                             )}
                           >
                             <MentionIcon className="h-4 w-4" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-sm">
                               {mention.title}
                             </p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
                               <span>{mentionConfig.label}</span>
                               <span>•</span>
                               <span
@@ -670,7 +681,7 @@ export function EvidenceDetailSheet({
                               )}
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
                         </button>
                       );
                     })}
@@ -684,7 +695,7 @@ export function EvidenceDetailSheet({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                     <Eye className="h-3.5 w-3.5" />
                     User Feedback History
                   </h4>
@@ -692,21 +703,21 @@ export function EvidenceDetailSheet({
                   <div className="space-y-2">
                     {evidence.corrections.map((correction) => (
                       <div
-                        key={correction.id}
                         className={cn(
-                          "p-3 rounded-lg border",
+                          "rounded-lg border p-3",
                           correction.action === "verified" &&
-                            "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800",
+                            "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30",
                           correction.action === "dismissed" &&
-                            "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
+                            "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30",
                           correction.action === "corrected" &&
-                            "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"
+                            "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
                         )}
+                        key={correction.id}
                       >
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="mb-1 flex items-center justify-between">
                           <span
                             className={cn(
-                              "text-xs font-medium capitalize",
+                              "font-medium text-xs capitalize",
                               correction.action === "verified" &&
                                 "text-green-700 dark:text-green-300",
                               correction.action === "dismissed" &&
@@ -717,24 +728,24 @@ export function EvidenceDetailSheet({
                           >
                             {correction.action}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground text-xs">
                             {formatDistanceToNow(correction.timestamp, {
                               addSuffix: true,
                             })}
                           </span>
                         </div>
                         {correction.correctedText && (
-                          <p className="text-sm mt-1">
+                          <p className="mt-1 text-sm">
                             Corrected to: "{correction.correctedText}"
                           </p>
                         )}
                         {correction.reason && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="mt-1 text-muted-foreground text-xs">
                             Reason: {correction.reason}
                           </p>
                         )}
                         {correction.userName && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="mt-1 text-muted-foreground text-xs">
                             By {correction.userName}
                           </p>
                         )}
@@ -750,13 +761,13 @@ export function EvidenceDetailSheet({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                     <ThumbsUp className="h-3.5 w-3.5 text-amber-500" />
                     User Corrected
                   </h4>
-                  <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
                     <p className="text-sm">
-                      <span className="text-muted-foreground line-through mr-2">
+                      <span className="mr-2 text-muted-foreground line-through">
                         {evidence.extractedText}
                       </span>
                       <span className="font-medium text-amber-800 dark:text-amber-200">
@@ -773,19 +784,23 @@ export function EvidenceDetailSheet({
         <Separator />
 
         {/* Actions Footer */}
-        <div className="p-4 space-y-3">
+        <div className="space-y-3 p-4">
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCopyEvidence} className="flex-1">
-              <Copy className="h-4 w-4 mr-2" />
+            <Button
+              className="flex-1"
+              onClick={handleCopyEvidence}
+              variant="outline"
+            >
+              <Copy className="mr-2 h-4 w-4" />
               Copy Evidence
             </Button>
             {evidence.threadId && onThreadClick && (
               <Button
-                variant="outline"
-                onClick={() => onThreadClick(evidence.threadId!)}
                 className="flex-1"
+                onClick={() => onThreadClick(evidence.threadId!)}
+                variant="outline"
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 View Thread
               </Button>
             )}
@@ -795,23 +810,23 @@ export function EvidenceDetailSheet({
             <div className="flex gap-2">
               {!evidence.isUserVerified && onVerify && (
                 <Button
-                  variant="outline"
-                  size="sm"
+                  className="flex-1 text-green-600 hover:bg-green-50 hover:text-green-700"
                   onClick={() => onVerify(evidence.id)}
-                  className="flex-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                  size="sm"
+                  variant="outline"
                 >
-                  <ThumbsUp className="h-3.5 w-3.5 mr-1.5" />
+                  <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
                   Verify Correct
                 </Button>
               )}
               {onDismiss && (
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDismiss(evidence.id)}
                   className="flex-1 text-destructive hover:text-destructive"
+                  onClick={() => onDismiss(evidence.id)}
+                  size="sm"
+                  variant="ghost"
                 >
-                  <ThumbsDown className="h-3.5 w-3.5 mr-1.5" />
+                  <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
                   Dismiss
                 </Button>
               )}
@@ -821,7 +836,7 @@ export function EvidenceDetailSheet({
           {/* Trust Banner */}
           <div className="flex items-center justify-center gap-2 pt-2">
             <AlertCircle className="h-3 w-3 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-center text-muted-foreground text-xs">
               Your feedback improves AI accuracy for everyone
             </p>
           </div>

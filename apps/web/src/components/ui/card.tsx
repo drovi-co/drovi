@@ -31,7 +31,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       className={cn(
         "flex flex-col gap-1.5 p-4",
-        "[.border-b]:border-b [.border-b]:border-border",
+        "[.border-b]:border-border [.border-b]:border-b",
         className
       )}
       data-slot="card-header"
@@ -43,7 +43,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
     <h3
-      className={cn("text-[15px] font-medium leading-none", className)}
+      className={cn("font-medium text-[15px] leading-none", className)}
       data-slot="card-title"
       {...props}
     />
@@ -85,7 +85,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       className={cn(
         "flex items-center gap-2 p-4 pt-0",
-        "[.border-t]:border-t [.border-t]:border-border [.border-t]:pt-4",
+        "[.border-t]:border-border [.border-t]:border-t [.border-t]:pt-4",
         className
       )}
       data-slot="card-footer"

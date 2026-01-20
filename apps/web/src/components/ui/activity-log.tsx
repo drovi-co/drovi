@@ -4,9 +4,9 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { AssigneeIcon } from "./assignee-icon";
-import { StatusIcon, type Status } from "./status-icon";
-import { PriorityIcon, type Priority } from "./priority-icon";
 import { LabelDot, type LabelType } from "./label-dot";
+import { type Priority, PriorityIcon } from "./priority-icon";
+import { type Status, StatusIcon } from "./status-icon";
 
 /**
  * Linear-style Activity Log component
@@ -93,17 +93,20 @@ interface ActivityAvatarProps {
   showOnlineStatus?: boolean;
 }
 
-function ActivityAvatar({ user, showOnlineStatus = true }: ActivityAvatarProps) {
+function ActivityAvatar({
+  user,
+  showOnlineStatus = true,
+}: ActivityAvatarProps) {
   return (
     <div className="relative shrink-0">
       <AssigneeIcon
-        name={user.name}
         email={user.email}
         imageUrl={user.imageUrl}
+        name={user.name}
         size="xs"
       />
       {showOnlineStatus && user.isOnline && (
-        <div className="absolute -bottom-0.5 -right-0.5 size-[7px] rounded-full bg-[#4CB782] border border-[#191A23]" />
+        <div className="absolute -right-0.5 -bottom-0.5 size-[7px] rounded-full border border-border bg-green-500" />
       )}
     </div>
   );
@@ -123,17 +126,15 @@ function ActivityEntry({
   const renderContent = () => {
     switch (activity.type) {
       case "created":
-        return (
-          <span className="text-[#858699]">created the issue.</span>
-        );
+        return <span className="text-muted-foreground">created the issue.</span>;
 
       case "status_change":
         return (
           <>
-            <span className="text-[#858699]">changed status to </span>
+            <span className="text-muted-foreground">changed status to </span>
             <span className="inline-flex items-center gap-1">
-              <StatusIcon status={activity.toStatus} size="xs" />
-              <span className="text-[#EEEFFC]">
+              <StatusIcon size="xs" status={activity.toStatus} />
+              <span className="text-foreground">
                 {activity.toStatus.replace("_", " ")}
               </span>
             </span>
@@ -143,22 +144,24 @@ function ActivityEntry({
       case "priority_change":
         return (
           <>
-            <span className="text-[#858699]">set priority to </span>
+            <span className="text-muted-foreground">set priority to </span>
             <span className="inline-flex items-center gap-1">
               <PriorityIcon priority={activity.toPriority} size="xs" />
-              <span className="text-[#EEEFFC]">{activity.toPriority}</span>
+              <span className="text-foreground">{activity.toPriority}</span>
             </span>
           </>
         );
 
       case "self_assigned":
-        return <span className="text-[#858699]">self-assigned this issue.</span>;
+        return (
+          <span className="text-muted-foreground">self-assigned this issue.</span>
+        );
 
       case "assigned":
         return (
           <>
-            <span className="text-[#858699]">assigned </span>
-            <span className="text-[#EEEFFC]">
+            <span className="text-muted-foreground">assigned </span>
+            <span className="text-foreground">
               {activity.assignee?.name || "someone"}
             </span>
           </>
@@ -167,8 +170,8 @@ function ActivityEntry({
       case "unassigned":
         return (
           <>
-            <span className="text-[#858699]">unassigned </span>
-            <span className="text-[#EEEFFC]">
+            <span className="text-muted-foreground">unassigned </span>
+            <span className="text-foreground">
               {activity.assignee?.name || "someone"}
             </span>
           </>
@@ -177,14 +180,21 @@ function ActivityEntry({
       case "labels_added":
         return (
           <>
-            <span className="text-[#858699]">added labels </span>
-            <span className="inline-flex items-center gap-1 flex-wrap">
+            <span className="text-muted-foreground">added labels </span>
+            <span className="inline-flex flex-wrap items-center gap-1">
               {activity.labels.map((label, idx) => (
-                <span key={label.name} className="inline-flex items-center gap-1">
-                  <LabelDot labelType={label.type} color={label.color} size="xs" />
-                  <span className="text-[#EEEFFC]">{label.name}</span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  key={label.name}
+                >
+                  <LabelDot
+                    color={label.color}
+                    labelType={label.type}
+                    size="xs"
+                  />
+                  <span className="text-foreground">{label.name}</span>
                   {idx < activity.labels.length - 1 && (
-                    <span className="text-[#858699]">, </span>
+                    <span className="text-muted-foreground">, </span>
                   )}
                 </span>
               ))}
@@ -195,14 +205,21 @@ function ActivityEntry({
       case "labels_removed":
         return (
           <>
-            <span className="text-[#858699]">removed labels </span>
-            <span className="inline-flex items-center gap-1 flex-wrap">
+            <span className="text-muted-foreground">removed labels </span>
+            <span className="inline-flex flex-wrap items-center gap-1">
               {activity.labels.map((label, idx) => (
-                <span key={label.name} className="inline-flex items-center gap-1">
-                  <LabelDot labelType={label.type} color={label.color} size="xs" />
-                  <span className="text-[#EEEFFC]">{label.name}</span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  key={label.name}
+                >
+                  <LabelDot
+                    color={label.color}
+                    labelType={label.type}
+                    size="xs"
+                  />
+                  <span className="text-foreground">{label.name}</span>
                   {idx < activity.labels.length - 1 && (
-                    <span className="text-[#858699]">, </span>
+                    <span className="text-muted-foreground">, </span>
                   )}
                 </span>
               ))}
@@ -211,12 +228,12 @@ function ActivityEntry({
         );
 
       case "description_updated":
-        return <span className="text-[#858699]">updated the description.</span>;
+        return <span className="text-muted-foreground">updated the description.</span>;
 
       case "comment":
         return (
           <div className="mt-1">
-            <p className="text-[13px] text-foreground whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap text-[13px] text-foreground">
               {activity.content}
             </p>
           </div>
@@ -228,22 +245,22 @@ function ActivityEntry({
   };
 
   return (
-    <div className="flex gap-2 relative">
+    <div className="relative flex gap-2">
       {/* Timeline line */}
       {showTimeline && !isLast && (
-        <div className="absolute left-[7px] top-[20px] bottom-0 w-px bg-[#191A23]" />
+        <div className="absolute top-[20px] bottom-0 left-[7px] w-px bg-background" />
       )}
 
       {/* Avatar */}
-      <div className="bg-[#191A23] py-[6px] relative z-10">
+      <div className="relative z-10 bg-background py-[6px]">
         <ActivityAvatar user={activity.user} />
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-wrap items-start gap-2 text-[12px] font-medium leading-normal pt-[6px]">
-        <span className="text-[#EEEFFC]">{activity.user.name}</span>
+      <div className="flex flex-1 flex-wrap items-start gap-2 pt-[6px] font-medium text-[12px] leading-normal">
+        <span className="text-foreground">{activity.user.name}</span>
         {renderContent()}
-        <span className="text-[#858699]">{activity.timestamp}</span>
+        <span className="text-muted-foreground">{activity.timestamp}</span>
       </div>
     </div>
   );
@@ -262,9 +279,9 @@ function ActivityLog({ className, activities, ...props }: ActivityLogProps) {
     >
       {activities.map((activity, index) => (
         <ActivityEntry
-          key={activity.id}
           activity={activity}
           isLast={index === activities.length - 1}
+          key={activity.id}
         />
       ))}
     </div>
@@ -289,16 +306,14 @@ function ActivityHeader({
     <div
       className={cn(
         "flex items-center gap-2 py-2",
-        "text-[13px] font-medium text-[#858699]",
+        "font-medium text-muted-foreground text-[13px]",
         className
       )}
       data-slot="activity-header"
       {...props}
     >
       <span>{title}</span>
-      {count !== undefined && (
-        <span className="text-[#4C4F6B]">({count})</span>
-      )}
+      {count !== undefined && <span className="text-muted-foreground">({count})</span>}
     </div>
   );
 }
@@ -306,7 +321,8 @@ function ActivityHeader({
 /**
  * Subscriber Button - for activity subscriptions
  */
-interface SubscriberButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface SubscriberButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   subscribers?: ActivityUser[];
   isSubscribed?: boolean;
 }
@@ -319,27 +335,27 @@ function SubscriberButton({
 }: SubscriberButtonProps) {
   return (
     <button
-      type="button"
       className={cn(
         "flex items-center gap-1",
-        "px-2 py-1 rounded-[4px]",
-        "text-[12px] text-[#858699]",
+        "rounded-[4px] px-2 py-1",
+        "text-muted-foreground text-[12px]",
         "transition-colors duration-150",
         "hover:bg-muted hover:text-foreground",
-        isSubscribed && "text-[#EEEFFC]",
+        isSubscribed && "text-foreground",
         className
       )}
+      type="button"
       {...props}
     >
       {subscribers.length > 0 && (
         <div className="flex -space-x-1">
           {subscribers.slice(0, 3).map((user, idx) => (
             <AssigneeIcon
+              className="ring-1 ring-background"
+              imageUrl={user.imageUrl}
               key={user.email || user.name}
               name={user.name}
-              imageUrl={user.imageUrl}
               size="xs"
-              className="ring-1 ring-background"
             />
           ))}
         </div>

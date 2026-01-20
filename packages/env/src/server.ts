@@ -8,7 +8,7 @@ const skipValidation =
   !!process.env.SKIP_ENV_VALIDATION ||
   process.env.NODE_ENV === "test" ||
   // Detect Trigger.dev indexing context (no DATABASE_URL but has trigger-specific indicators)
-  (!process.env.DATABASE_URL && !process.env.BETTER_AUTH_SECRET);
+  !(process.env.DATABASE_URL || process.env.BETTER_AUTH_SECRET);
 
 export const env = createEnv({
   skipValidation,
@@ -19,6 +19,7 @@ export const env = createEnv({
     POLAR_ACCESS_TOKEN: z.string().optional(),
     POLAR_PRODUCT_ID: z.string().optional(),
     POLAR_SUCCESS_URL: z.string().url().optional(),
+    POLAR_WEBHOOK_SECRET: z.string().optional(),
     CORS_ORIGIN: z.url(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
@@ -53,13 +54,10 @@ export const env = createEnv({
       .string()
       .min(32)
       .optional()
-      .refine(
-        (val) => process.env.NODE_ENV !== "production" || !!val,
-        {
-          message:
-            "TOKEN_ENCRYPTION_KEY is required in production. Generate with: openssl rand -base64 32",
-        }
-      ),
+      .refine((val) => process.env.NODE_ENV !== "production" || !!val, {
+        message:
+          "TOKEN_ENCRYPTION_KEY is required in production. Generate with: openssl rand -base64 32",
+      }),
 
     // Gmail Push Notifications (Google Cloud Pub/Sub)
     // Topic name for Gmail to send notifications to (e.g., "projects/my-project/topics/gmail-push")

@@ -6,24 +6,23 @@
 // format. Each source type has its own adapter.
 //
 
-export * from "./email";
 export * from "./calendar";
+export * from "./email";
+export * from "./google-docs";
+export * from "./notion";
 export * from "./slack";
 export * from "./whatsapp";
-export * from "./notion";
-export * from "./google-docs";
 
 // Future adapters:
 // export * from "./meeting-transcript";
 
-import type { SourceAdapter } from "../types/content";
-import type { SourceType } from "../types/content";
-import { emailAdapter } from "./email";
+import type { SourceAdapter, SourceType } from "../types/content";
 import { calendarAdapter } from "./calendar";
+import { emailAdapter } from "./email";
+import { googleDocsAdapter } from "./google-docs";
+import { notionAdapter } from "./notion";
 import { slackAdapter } from "./slack";
 import { whatsappAdapter } from "./whatsapp";
-import { notionAdapter } from "./notion";
-import { googleDocsAdapter } from "./google-docs";
 
 /**
  * Registry of all available source adapters.

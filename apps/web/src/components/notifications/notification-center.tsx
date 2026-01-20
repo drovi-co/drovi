@@ -5,7 +5,6 @@ import { Link } from "@tanstack/react-router";
 import {
   Bell,
   BookOpen,
-  Calendar,
   CheckCheck,
   CheckCircle2,
   Loader2,
@@ -34,7 +33,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { queryClient, useTRPC } from "@/utils/trpc";
 import { NotificationCard } from "./notification-card";
 
@@ -162,7 +160,7 @@ export function NotificationCenter() {
         {/* Header */}
         <SheetHeader className="border-b px-4 py-3">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">
+            <SheetTitle className="font-semibold text-lg">
               Notifications
             </SheetTitle>
             <div className="flex items-center gap-1">
@@ -184,21 +182,24 @@ export function NotificationCenter() {
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <Button className="h-8 w-8" size="icon" variant="ghost">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => deleteAllReadMutation.mutate()}
                     disabled={deleteAllReadMutation.isPending}
+                    onClick={() => deleteAllReadMutation.mutate()}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Clear read notifications
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard/settings" onClick={() => setOpen(false)}>
+                    <Link
+                      onClick={() => setOpen(false)}
+                      to="/dashboard/settings"
+                    >
                       <Settings className="mr-2 h-4 w-4" />
                       Notification settings
                     </Link>
@@ -211,35 +212,35 @@ export function NotificationCenter() {
 
         {/* Category Tabs */}
         <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
           className="flex flex-1 flex-col"
+          onValueChange={setActiveTab}
+          value={activeTab}
         >
           <div className="border-b px-4">
             <TabsList className="h-10 w-full justify-start gap-1 bg-transparent p-0">
               <TabsTrigger
+                className="rounded-none border-transparent border-b-2 px-3 py-2 data-[state=active]:border-primary data-[state=active]:bg-muted"
                 value="all"
-                className="data-[state=active]:bg-muted rounded-none border-b-2 border-transparent px-3 py-2 data-[state=active]:border-primary"
               >
                 All
               </TabsTrigger>
               <TabsTrigger
+                className="rounded-none border-transparent border-b-2 px-3 py-2 data-[state=active]:border-primary data-[state=active]:bg-muted"
                 value="commitment"
-                className="data-[state=active]:bg-muted rounded-none border-b-2 border-transparent px-3 py-2 data-[state=active]:border-primary"
               >
                 <CheckCircle2 className="mr-1 h-3 w-3" />
                 Commitments
               </TabsTrigger>
               <TabsTrigger
+                className="rounded-none border-transparent border-b-2 px-3 py-2 data-[state=active]:border-primary data-[state=active]:bg-muted"
                 value="decision"
-                className="data-[state=active]:bg-muted rounded-none border-b-2 border-transparent px-3 py-2 data-[state=active]:border-primary"
               >
                 <BookOpen className="mr-1 h-3 w-3" />
                 Decisions
               </TabsTrigger>
               <TabsTrigger
+                className="rounded-none border-transparent border-b-2 px-3 py-2 data-[state=active]:border-primary data-[state=active]:bg-muted"
                 value="email"
-                className="data-[state=active]:bg-muted rounded-none border-b-2 border-transparent px-3 py-2 data-[state=active]:border-primary"
               >
                 <Mail className="mr-1 h-3 w-3" />
                 Email
@@ -247,7 +248,7 @@ export function NotificationCenter() {
             </TabsList>
           </div>
 
-          <TabsContent value={activeTab} className="mt-0 flex-1">
+          <TabsContent className="mt-0 flex-1" value={activeTab}>
             <ScrollArea className="h-[calc(100vh-180px)]">
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
@@ -256,28 +257,28 @@ export function NotificationCenter() {
               ) : hasNotifications ? (
                 <div className="divide-y">
                   <NotificationGroup
-                    title="Today"
                     notifications={groupedData.today}
-                    onNotificationClick={handleNotificationClick}
                     onDelete={handleDelete}
+                    onNotificationClick={handleNotificationClick}
+                    title="Today"
                   />
                   <NotificationGroup
-                    title="Yesterday"
                     notifications={groupedData.yesterday}
-                    onNotificationClick={handleNotificationClick}
                     onDelete={handleDelete}
+                    onNotificationClick={handleNotificationClick}
+                    title="Yesterday"
                   />
                   <NotificationGroup
-                    title="This Week"
                     notifications={groupedData.thisWeek}
-                    onNotificationClick={handleNotificationClick}
                     onDelete={handleDelete}
+                    onNotificationClick={handleNotificationClick}
+                    title="This Week"
                   />
                   <NotificationGroup
-                    title="Older"
                     notifications={groupedData.older}
-                    onNotificationClick={handleNotificationClick}
                     onDelete={handleDelete}
+                    onNotificationClick={handleNotificationClick}
+                    title="Older"
                   />
                 </div>
               ) : (
@@ -290,10 +291,10 @@ export function NotificationCenter() {
         {/* Footer */}
         <div className="border-t p-3">
           <Button
-            variant="outline"
-            className="w-full"
             asChild
+            className="w-full"
             onClick={() => setOpen(false)}
+            variant="outline"
           >
             <Link to="/dashboard/notifications">View all notifications</Link>
           </Button>

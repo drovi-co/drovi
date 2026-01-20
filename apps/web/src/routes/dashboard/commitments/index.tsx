@@ -9,18 +9,18 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  Calendar,
-  CheckCircle2,
-  List,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { Calendar, CheckCircle2, List, RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import { CommitmentListHeader, CommitmentRow } from "@/components/commitments";
+import {
+  type CommitmentCardData,
+  type CommitmentDetailData,
+  CommitmentDetailSheet,
+  CommitmentTimeline,
+} from "@/components/dashboards";
 import { useCommandBar } from "@/components/email/command-bar";
-
+import { EvidenceDetailSheet } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,20 +33,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import {
-  CommitmentDetailSheet,
-  type CommitmentDetailData,
-  CommitmentStats,
-  CommitmentTimeline,
-  type CommitmentCardData,
-} from "@/components/dashboards";
-import {
-  CommitmentRow,
-  CommitmentListHeader,
-  type CommitmentRowData,
-} from "@/components/commitments";
-import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 
@@ -73,7 +59,8 @@ type ViewMode = "list" | "timeline";
 function CommitmentsPage() {
   const navigate = useNavigate();
   const { openCompose } = useCommandBar();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
+  const { data: activeOrg, isPending: orgLoading } =
+    authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
   // State
@@ -81,11 +68,16 @@ function CommitmentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [selectedCommitment, setSelectedCommitment] = useState<string | null>(null);
+  const [selectedCommitment, setSelectedCommitment] = useState<string | null>(
+    null
+  );
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [evidenceSheetOpen, setEvidenceSheetOpen] = useState(false);
-  const [evidenceCommitmentId, setEvidenceCommitmentId] = useState<string | null>(null);
-  const [pendingFollowUpCommitmentId, setPendingFollowUpCommitmentId] = useState<string | null>(null);
+  const [evidenceCommitmentId, setEvidenceCommitmentId] = useState<
+    string | null
+  >(null);
+  const [pendingFollowUpCommitmentId, setPendingFollowUpCommitmentId] =
+    useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Fetch stats
@@ -95,18 +87,23 @@ function CommitmentsPage() {
   });
 
   // Fetch commitments
-  const { data: commitmentsData, isLoading: isLoadingCommitments, refetch } = useQuery({
+  const {
+    data: commitmentsData,
+    isLoading: isLoadingCommitments,
+    refetch,
+  } = useQuery({
     ...trpc.commitments.list.queryOptions({
       organizationId,
       limit: 50,
       direction: direction === "all" ? undefined : direction,
-      status: statusFilter === "active"
-        ? undefined
-        : statusFilter === "overdue"
-          ? "overdue"
-          : statusFilter === "completed"
-            ? "completed"
-            : "snoozed",
+      status:
+        statusFilter === "active"
+          ? undefined
+          : statusFilter === "overdue"
+            ? "overdue"
+            : statusFilter === "completed"
+              ? "completed"
+              : "snoozed",
       includeDismissed: false,
     }),
     enabled: !!organizationId,
@@ -189,10 +186,12 @@ function CommitmentsPage() {
 
       if (debtor?.primaryEmail) {
         openCompose({
-          to: [{
-            email: debtor.primaryEmail,
-            name: debtor.displayName ?? undefined,
-          }],
+          to: [
+            {
+              email: debtor.primaryEmail,
+              name: debtor.displayName ?? undefined,
+            },
+          ],
           subject: data.subject,
           body: data.body,
         });
@@ -227,14 +226,18 @@ function CommitmentsPage() {
       // vim-style navigation
       if (e.key === "j") {
         const commitments = commitmentsData?.commitments ?? [];
-        const currentIndex = commitments.findIndex((c) => c.id === selectedCommitment);
+        const currentIndex = commitments.findIndex(
+          (c) => c.id === selectedCommitment
+        );
         if (currentIndex < commitments.length - 1) {
           setSelectedCommitment(commitments[currentIndex + 1]?.id ?? null);
         }
       }
       if (e.key === "k") {
         const commitments = commitmentsData?.commitments ?? [];
-        const currentIndex = commitments.findIndex((c) => c.id === selectedCommitment);
+        const currentIndex = commitments.findIndex(
+          (c) => c.id === selectedCommitment
+        );
         if (currentIndex > 0) {
           setSelectedCommitment(commitments[currentIndex - 1]?.id ?? null);
         }
@@ -250,7 +253,8 @@ function CommitmentsPage() {
       if (e.key === "2") setDirection("owed_by_me");
       if (e.key === "3") setDirection("owed_to_me");
       if (e.key === "r") refetch();
-      if (e.key === "v") setViewMode((v) => (v === "list" ? "timeline" : "list"));
+      if (e.key === "v")
+        setViewMode((v) => (v === "list" ? "timeline" : "list"));
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -301,7 +305,10 @@ function CommitmentsPage() {
 
   const handleThreadClick = useCallback(
     (threadId: string) => {
-      navigate({ to: "/dashboard/email/thread/$threadId", params: { threadId } });
+      navigate({
+        to: "/dashboard/email/thread/$threadId",
+        params: { threadId },
+      });
     },
     [navigate]
   );
@@ -332,11 +339,14 @@ function CommitmentsPage() {
   }, []);
 
   // Transform data for components
-  const commitments: CommitmentCardData[] = (commitmentsData?.commitments ?? []).map((c) => {
+  const commitments: CommitmentCardData[] = (
+    commitmentsData?.commitments ?? []
+  ).map((c) => {
     const dueDate = c.dueDate ? new Date(c.dueDate) : null;
-    const daysOverdue = dueDate && dueDate < new Date()
-      ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-      : undefined;
+    const daysOverdue =
+      dueDate && dueDate < new Date()
+        ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        : undefined;
     return {
       id: c.id,
       title: c.title,
@@ -347,7 +357,9 @@ function CommitmentsPage() {
       dueDate,
       confidence: c.confidence,
       isUserVerified: c.isUserVerified ?? undefined,
-      evidence: c.metadata?.originalText ? [c.metadata.originalText] : undefined,
+      evidence: c.metadata?.originalText
+        ? [c.metadata.originalText]
+        : undefined,
       debtor: c.debtor,
       creditor: c.creditor,
       sourceThread: c.sourceThread,
@@ -366,13 +378,16 @@ function CommitmentsPage() {
     : commitments;
 
   // Select all handler (must be after filteredCommitments is defined)
-  const handleSelectAll = useCallback((selected: boolean) => {
-    if (selected) {
-      setSelectedIds(new Set(filteredCommitments.map((c) => c.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  }, [filteredCommitments]);
+  const handleSelectAll = useCallback(
+    (selected: boolean) => {
+      if (selected) {
+        setSelectedIds(new Set(filteredCommitments.map((c) => c.id)));
+      } else {
+        setSelectedIds(new Set());
+      }
+    },
+    [filteredCommitments]
+  );
 
   const stats = statsData ?? {
     total: 0,
@@ -396,7 +411,9 @@ function CommitmentsPage() {
         createdAt: new Date(detailData.createdAt),
         confidence: detailData.confidence,
         isUserVerified: detailData.isUserVerified ?? undefined,
-        evidence: detailData.metadata?.originalText ? [detailData.metadata.originalText] : undefined,
+        evidence: detailData.metadata?.originalText
+          ? [detailData.metadata.originalText]
+          : undefined,
         debtor: detailData.debtor,
         creditor: detailData.creditor,
         sourceThread: detailData.sourceThread,
@@ -406,7 +423,7 @@ function CommitmentsPage() {
 
   if (orgLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Skeleton className="h-8 w-48" />
       </div>
     );
@@ -414,118 +431,132 @@ function CommitmentsPage() {
 
   if (!organizationId) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Select an organization to view commitments</p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">
+          Select an organization to view commitments
+        </p>
       </div>
     );
   }
 
   return (
-    <div data-no-shell-padding className="h-full">
-      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+    <div className="h-full" data-no-shell-padding>
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
         {/* Header */}
         <div className="border-b bg-background">
-        <div className="flex items-center justify-between px-4 py-2">
-          {/* Direction Tabs */}
-          <Tabs value={direction} onValueChange={(v) => setDirection(v as Direction)}>
-            <TabsList className="h-8 bg-transparent gap-1">
-              <TabsTrigger
-                value="all"
-                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
-              >
-                All
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
-                  {stats.total}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger
-                value="owed_by_me"
-                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
-              >
-                I Owe
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
-                  {stats.owedByMe}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger
-                value="owed_to_me"
-                className="text-sm px-3 data-[state=active]:bg-accent gap-2"
-              >
-                Owed to Me
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
-                  {stats.owedToMe}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Status Filter */}
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+          <div className="flex items-center justify-between px-4 py-2">
+            {/* Direction Tabs */}
+            <Tabs
+              onValueChange={(v) => setDirection(v as Direction)}
+              value={direction}
             >
-              <SelectTrigger className="h-8 w-[120px] text-sm">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="snoozed">Snoozed</SelectItem>
-              </SelectContent>
-            </Select>
+              <TabsList className="h-8 gap-1 bg-transparent">
+                <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
+                  value="all"
+                >
+                  All
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
+                    {stats.total}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
+                  value="owed_by_me"
+                >
+                  I Owe
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
+                    {stats.owedByMe}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
+                  value="owed_to_me"
+                >
+                  Owed to Me
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
+                    {stats.owedToMe}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 w-[180px] pl-8 text-sm"
-              />
-            </div>
-
-            {/* View Toggle */}
-            <div className="flex items-center gap-0.5 border rounded-md p-0.5">
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setViewMode("list")}
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {/* Status Filter */}
+              <Select
+                onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                value={statusFilter}
               >
-                <List className="h-4 w-4" />
-              </Button>
+                <SelectTrigger className="h-8 w-[120px] text-sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="snoozed">Snoozed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-8 w-[180px] pl-8 text-sm"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search..."
+                  value={searchQuery}
+                />
+              </div>
+
+              {/* View Toggle */}
+              <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+                <Button
+                  className="h-7 w-7"
+                  onClick={() => setViewMode("list")}
+                  size="icon"
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  className="h-7 w-7"
+                  onClick={() => setViewMode("timeline")}
+                  size="icon"
+                  variant={viewMode === "timeline" ? "secondary" : "ghost"}
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </div>
+
               <Button
-                variant={viewMode === "timeline" ? "secondary" : "ghost"}
+                className="h-8 w-8"
+                onClick={() => refetch()}
                 size="icon"
-                className="h-7 w-7"
-                onClick={() => setViewMode("timeline")}
+                variant="ghost"
               >
-                <Calendar className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
-            </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => refetch()}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-
-            {/* Keyboard hints */}
-            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
-              <span>nav</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted">1-3</kbd>
-              <span>tabs</span>
+              {/* Keyboard hints */}
+              <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
+                <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
+                <span>nav</span>
+                <kbd className="rounded bg-muted px-1.5 py-0.5">1-3</kbd>
+                <span>tabs</span>
+              </div>
             </div>
           </div>
-        </div>
         </div>
 
         {/* Main Content */}
@@ -534,26 +565,29 @@ function CommitmentsPage() {
             <div>
               {/* Row skeletons - matching inbox style */}
               {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center h-10 px-3 border-b border-[#191A23]">
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                <div
+                  className="flex h-10 items-center border-border border-b px-3"
+                  key={i}
+                >
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-3.5 w-3.5 rounded-[3px]" />
                   </div>
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4" />
                   </div>
-                  <div className="w-6 shrink-0 flex items-center justify-center">
+                  <div className="flex w-6 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4" />
                   </div>
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4 rounded-full" />
                   </div>
                   <div className="w-[120px] shrink-0 px-1">
                     <Skeleton className="h-3 w-16" />
                   </div>
-                  <div className="flex-1 min-w-0 px-2">
+                  <div className="min-w-0 flex-1 px-2">
                     <Skeleton className="h-3 w-3/4" />
                   </div>
-                  <div className="shrink-0 w-[140px] flex items-center justify-end gap-1.5">
+                  <div className="flex w-[140px] shrink-0 items-center justify-end gap-1.5">
                     <Skeleton className="h-3 w-12" />
                   </div>
                 </div>
@@ -561,12 +595,12 @@ function CommitmentsPage() {
             </div>
           ) : viewMode === "list" ? (
             filteredCommitments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-medium">No commitments found</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h3 className="font-medium text-lg">No commitments found</h3>
+                <p className="mt-1 text-muted-foreground text-sm">
                   Commitments are automatically extracted from your emails
                 </p>
               </div>
@@ -574,14 +608,19 @@ function CommitmentsPage() {
               <div>
                 {/* List Header */}
                 <CommitmentListHeader
+                  allSelected={
+                    selectedIds.size === filteredCommitments.length &&
+                    filteredCommitments.length > 0
+                  }
                   onSelectAll={handleSelectAll}
-                  allSelected={selectedIds.size === filteredCommitments.length && filteredCommitments.length > 0}
-                  someSelected={selectedIds.size > 0 && selectedIds.size < filteredCommitments.length}
+                  someSelected={
+                    selectedIds.size > 0 &&
+                    selectedIds.size < filteredCommitments.length
+                  }
                 />
                 {/* Commitment Rows */}
                 {filteredCommitments.map((commitment, index) => (
                   <CommitmentRow
-                    key={commitment.id}
                     commitment={{
                       id: commitment.id,
                       title: commitment.title,
@@ -597,17 +636,18 @@ function CommitmentsPage() {
                       sourceType: commitment.sourceType,
                       daysOverdue: commitment.daysOverdue,
                     }}
-                    isSelected={selectedIds.has(commitment.id)}
                     isActive={selectedCommitment === commitment.id}
-                    onSelect={handleSelectItem}
+                    isSelected={selectedIds.has(commitment.id)}
+                    key={commitment.id}
                     onClick={() => {
                       setSelectedCommitment(commitment.id);
                       setDetailSheetOpen(true);
                     }}
                     onComplete={() => handleComplete(commitment.id)}
-                    onSnooze={(days) => handleSnooze(commitment.id, days)}
-                    onShowEvidence={() => handleShowEvidence(commitment.id)}
                     onDismiss={() => handleDismiss(commitment.id)}
+                    onSelect={handleSelectItem}
+                    onShowEvidence={() => handleShowEvidence(commitment.id)}
+                    onSnooze={(days) => handleSnooze(commitment.id, days)}
                     onVerify={() => handleVerify(commitment.id)}
                   />
                 ))}
@@ -630,42 +670,60 @@ function CommitmentsPage() {
       {/* Commitment Detail Sheet */}
       <CommitmentDetailSheet
         commitment={detailCommitment}
-        open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
         onComplete={handleComplete}
-        onSnooze={handleSnooze}
-        onDismiss={handleDismiss}
-        onVerify={handleVerify}
-        onThreadClick={handleThreadClick}
         onContactClick={handleContactClick}
+        onDismiss={handleDismiss}
         onGenerateFollowUp={handleGenerateFollowUp}
+        onOpenChange={setDetailSheetOpen}
+        onSnooze={handleSnooze}
+        onThreadClick={handleThreadClick}
+        onVerify={handleVerify}
+        open={detailSheetOpen}
       />
 
       {/* Evidence Detail Sheet */}
       <EvidenceDetailSheet
-        open={evidenceSheetOpen}
-        onOpenChange={setEvidenceSheetOpen}
         evidence={
           evidenceCommitmentData
             ? {
                 id: evidenceCommitmentData.id,
                 type: "commitment",
                 title: evidenceCommitmentData.title,
-                extractedText: evidenceCommitmentData.description ?? evidenceCommitmentData.title,
+                extractedText:
+                  evidenceCommitmentData.description ??
+                  evidenceCommitmentData.title,
                 confidence: evidenceCommitmentData.confidence,
                 isUserVerified: evidenceCommitmentData.isUserVerified ?? false,
-                quotedText: evidenceCommitmentData.metadata?.originalText ?? null,
+                quotedText:
+                  evidenceCommitmentData.metadata?.originalText ?? null,
                 extractedAt: new Date(evidenceCommitmentData.createdAt),
                 modelVersion: "gpt-4o",
                 confidenceFactors: [
-                  { name: "Text Clarity", score: evidenceCommitmentData.confidence, explanation: "How clear the extracted text is", weight: 0.4 },
-                  { name: "Context Relevance", score: 0.8, explanation: "How relevant the context is", weight: 0.35 },
-                  { name: "Historical Accuracy", score: 0.85, explanation: "Historical accuracy of extractions", weight: 0.25 },
+                  {
+                    name: "Text Clarity",
+                    score: evidenceCommitmentData.confidence,
+                    explanation: "How clear the extracted text is",
+                    weight: 0.4,
+                  },
+                  {
+                    name: "Context Relevance",
+                    score: 0.8,
+                    explanation: "How relevant the context is",
+                    weight: 0.35,
+                  },
+                  {
+                    name: "Historical Accuracy",
+                    score: 0.85,
+                    explanation: "Historical accuracy of extractions",
+                    weight: 0.25,
+                  },
                 ],
               }
             : null
         }
+        onOpenChange={setEvidenceSheetOpen}
         onThreadClick={handleThreadClick}
+        open={evidenceSheetOpen}
       />
     </div>
   );

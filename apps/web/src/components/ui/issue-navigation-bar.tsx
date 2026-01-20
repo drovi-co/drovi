@@ -1,7 +1,6 @@
 "use client";
 
-import { cva, type VariantProps } from "class-variance-authority";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -31,24 +30,24 @@ function NavigationArrow({
 
   return (
     <button
-      type="button"
+      aria-label={`Navigate ${direction}`}
       className={cn(
         "inline-flex items-center justify-center",
         "px-[9px] py-[9.5px]",
         "rounded-[4px]",
-        "bg-[#292a35] border border-[#313248]",
+        "border border-border bg-muted",
         "shadow-[0px_1px_1px_0px_rgba(0,0,0,0.15)]",
         "transition-colors duration-150",
         disabled
-          ? "opacity-60 cursor-not-allowed"
-          : "hover:bg-[#313248] cursor-pointer",
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer hover:bg-accent",
         className
       )}
       disabled={disabled}
-      aria-label={`Navigate ${direction}`}
+      type="button"
       {...props}
     >
-      <Icon className="size-[8px] text-[#D2D3E0]" strokeWidth={2} />
+      <Icon className="size-[8px] text-foreground" strokeWidth={2} />
     </button>
   );
 }
@@ -59,16 +58,16 @@ interface CloseButtonProps
 function IssueCloseButton({ className, ...props }: CloseButtonProps) {
   return (
     <button
-      type="button"
+      aria-label="Close issue"
       className={cn(
         "inline-flex items-center justify-center",
-        "p-[6px] rounded-[4px]",
-        "text-[#858699]",
+        "rounded-[4px] p-[6px]",
+        "text-muted-foreground",
         "transition-colors duration-150",
         "hover:bg-muted hover:text-foreground",
         className
       )}
-      aria-label="Close issue"
+      type="button"
       {...props}
     >
       <X className="size-4" />
@@ -84,9 +83,9 @@ interface IssueCounterProps {
 
 function IssueCounter({ current, total, className }: IssueCounterProps) {
   return (
-    <div className={cn("flex items-center text-[13px] font-normal", className)}>
-      <span className="text-[#858699]">{current}</span>
-      <span className="text-[#4C4F6B]"> / {total}</span>
+    <div className={cn("flex items-center font-normal text-[13px]", className)}>
+      <span className="text-muted-foreground">{current}</span>
+      <span className="text-muted-foreground"> / {total}</span>
     </div>
   );
 }
@@ -117,8 +116,8 @@ function IssueNavigationBar({
       className={cn(
         "flex items-center gap-3",
         "px-[15px] py-[7.5px]",
-        "bg-[#21232e]",
-        "border-t border-l border-r border-[#2C2D3C]",
+        "bg-muted",
+        "border-border border-t border-r border-l",
         "rounded-tl-[6px] rounded-tr-[6px]",
         className
       )}
@@ -130,13 +129,13 @@ function IssueNavigationBar({
       <div className="flex items-center gap-[6px]">
         <NavigationArrow
           direction="up"
-          onClick={onPrevious}
           disabled={!hasPrevious}
+          onClick={onPrevious}
         />
         <NavigationArrow
           direction="down"
-          onClick={onNext}
           disabled={!hasNext}
+          onClick={onNext}
         />
       </div>
 
@@ -147,9 +146,4 @@ function IssueNavigationBar({
   );
 }
 
-export {
-  IssueNavigationBar,
-  IssueCloseButton,
-  NavigationArrow,
-  IssueCounter,
-};
+export { IssueNavigationBar, IssueCloseButton, NavigationArrow, IssueCounter };

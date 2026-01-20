@@ -79,9 +79,7 @@ export function getGoogleDocsOAuthConfig(): GoogleDocsOAuthConfig {
  */
 export function isGoogleDocsConfigured(): boolean {
   return Boolean(
-    env.GOOGLE_CLIENT_ID &&
-    env.GOOGLE_CLIENT_SECRET &&
-    env.GOOGLE_DOCS_ENABLED
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_DOCS_ENABLED
   );
 }
 
@@ -350,7 +348,9 @@ export async function listGoogleDocs(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to list Google Docs: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to list Google Docs: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as GoogleDriveFilesListResponse;
@@ -430,7 +430,9 @@ export async function getGoogleDocContent(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Google Doc: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Google Doc: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as GoogleDoc;
@@ -505,7 +507,10 @@ export async function getGoogleDocComments(
     "nextPageToken,comments(id,author,content,createdTime,modifiedTime,resolved,quotedFileContent,anchor,replies(id,author,content,createdTime,modifiedTime,deleted))"
   );
   url.searchParams.set("pageSize", String(options.pageSize ?? 100));
-  url.searchParams.set("includeDeleted", String(options.includeDeleted ?? false));
+  url.searchParams.set(
+    "includeDeleted",
+    String(options.includeDeleted ?? false)
+  );
 
   if (options.pageToken) {
     url.searchParams.set("pageToken", options.pageToken);
@@ -520,7 +525,9 @@ export async function getGoogleDocComments(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get Google Doc comments: HTTP ${response.status} - ${errorText}`);
+    throw new Error(
+      `Failed to get Google Doc comments: HTTP ${response.status} - ${errorText}`
+    );
   }
 
   return (await response.json()) as GoogleDriveCommentsListResponse;

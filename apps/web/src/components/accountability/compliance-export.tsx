@@ -6,26 +6,23 @@
 // Every decision, commitment, and correction in clean, auditable formats.
 //
 
+import { env } from "@memorystack/env/web";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  Calendar,
   CheckCircle2,
   Download,
   FileJson,
   FileSpreadsheet,
   FileText,
-  Filter,
   GitBranch,
   Loader2,
   Users,
 } from "lucide-react";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -37,17 +34,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
-import { env } from "@memorystack/env/web";
 
 // =============================================================================
 // TYPES
@@ -55,7 +44,12 @@ import { env } from "@memorystack/env/web";
 
 type ExportFormat = "csv" | "json" | "markdown";
 type ExportType = "decisions" | "commitments" | "both";
-type DateRange = "all" | "this_month" | "last_3_months" | "last_year" | "custom";
+type DateRange =
+  | "all"
+  | "this_month"
+  | "last_3_months"
+  | "last_year"
+  | "custom";
 
 interface ExportOptions {
   format: ExportFormat;
@@ -76,7 +70,10 @@ interface ComplianceExportProps {
 // HELPERS
 // =============================================================================
 
-function generateCSV(data: Record<string, unknown>[], headers: string[]): string {
+function generateCSV(
+  data: Record<string, unknown>[],
+  headers: string[]
+): string {
   const headerRow = headers.join(",");
   const rows = data.map((item) =>
     headers
@@ -142,33 +139,33 @@ function ExportTypeCard({
 }: ExportTypeCardProps) {
   return (
     <button
-      type="button"
-      onClick={onSelect}
       className={cn(
-        "p-4 rounded-lg border-2 text-left transition-all",
+        "rounded-lg border-2 p-4 text-left transition-all",
         "hover:border-primary/50",
         selected ? "border-primary bg-primary/5" : "border-border"
       )}
+      onClick={onSelect}
+      type="button"
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "p-2 rounded-lg",
+            "rounded-lg p-2",
             selected ? "bg-primary/10 text-primary" : "bg-muted"
           )}
         >
           <Icon className="h-5 w-5" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">{title}</h4>
             {count !== undefined && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge className="text-xs" variant="secondary">
                 {count}
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p className="mt-1 text-muted-foreground text-sm">{description}</p>
         </div>
       </div>
     </button>
@@ -388,7 +385,7 @@ export function ComplianceExport({
         }
 
         content = JSON.stringify(exportData, null, 2);
-        filename = `memorystack-export-${timestamp}.json`;
+        filename = `drovi-export-${timestamp}.json`;
         mimeType = "application/json";
       } else if (options.format === "csv") {
         const rows: Record<string, unknown>[] = [];
@@ -477,11 +474,14 @@ export function ComplianceExport({
         }
 
         content = generateCSV(rows, headers);
-        filename = `memorystack-export-${timestamp}.csv`;
+        filename = `drovi-export-${timestamp}.csv`;
         mimeType = "text/csv";
       } else {
         // Markdown
-        const items: Array<{ title: string; content: Record<string, unknown> }> = [];
+        const items: Array<{
+          title: string;
+          content: Record<string, unknown>;
+        }> = [];
 
         if (options.type === "decisions" || options.type === "both") {
           for (const d of decisionsToExport) {
@@ -494,9 +494,10 @@ export function ComplianceExport({
                 Confidence: `${Math.round(d.confidence * 100)}%`,
                 "User Verified": d.isUserVerified ? "Yes" : "No",
                 Superseded: d.supersededById ? "Yes" : "No",
-                ...(options.includeEvidence && d.sourceThread && {
-                  "Source Thread": d.sourceThread.subject ?? "Thread",
-                }),
+                ...(options.includeEvidence &&
+                  d.sourceThread && {
+                    "Source Thread": d.sourceThread.subject ?? "Thread",
+                  }),
               },
             });
           }
@@ -510,21 +511,23 @@ export function ComplianceExport({
                 Description: c.description ?? "Not provided",
                 Status: c.status,
                 Priority: c.priority,
-                Direction: c.direction === "owed_by_me" ? "I owe" : "Owed to me",
+                Direction:
+                  c.direction === "owed_by_me" ? "I owe" : "Owed to me",
                 "Due Date": c.dueDate ? new Date(c.dueDate) : "No due date",
                 "Created At": new Date(c.createdAt),
                 Confidence: `${Math.round(c.confidence * 100)}%`,
                 "User Verified": c.isUserVerified ? "Yes" : "No",
-                ...(options.includeEvidence && c.sourceThread && {
-                  "Source Thread": c.sourceThread.subject ?? "Thread",
-                }),
+                ...(options.includeEvidence &&
+                  c.sourceThread && {
+                    "Source Thread": c.sourceThread.subject ?? "Thread",
+                  }),
               },
             });
           }
         }
 
-        content = generateMarkdown("MEMORYSTACK Intelligence Export", items);
-        filename = `memorystack-export-${timestamp}.md`;
+        content = generateMarkdown("Drovi Intelligence Export", items);
+        filename = `drovi-export-${timestamp}.md`;
         mimeType = "text/markdown";
       }
 
@@ -552,10 +555,10 @@ export function ComplianceExport({
   }, [options, organizationId, allDecisions, allCommitments]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog onOpenChange={setIsOpen} open={isOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className={className}>
-          <Download className="h-4 w-4 mr-2" />
+        <Button className={className} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
           Export for Compliance
         </Button>
       </DialogTrigger>
@@ -563,38 +566,45 @@ export function ComplianceExport({
         <DialogHeader>
           <DialogTitle>Export Intelligence Data</DialogTitle>
           <DialogDescription>
-            Export decisions, commitments, and audit trail for compliance and record-keeping.
+            Export decisions, commitments, and audit trail for compliance and
+            record-keeping.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Data Type Selection */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">What to Export</Label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Label className="font-medium text-sm">What to Export</Label>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <ExportTypeCard
-                icon={GitBranch}
-                title="Decisions"
-                description="All recorded decisions"
                 count={decisionsData?.total ?? 0}
+                description="All recorded decisions"
+                icon={GitBranch}
+                onSelect={() =>
+                  setOptions((o) => ({ ...o, type: "decisions" }))
+                }
                 selected={options.type === "decisions"}
-                onSelect={() => setOptions((o) => ({ ...o, type: "decisions" }))}
+                title="Decisions"
               />
               <ExportTypeCard
-                icon={CheckCircle2}
-                title="Commitments"
-                description="All commitments"
                 count={commitmentsData?.total ?? 0}
+                description="All commitments"
+                icon={CheckCircle2}
+                onSelect={() =>
+                  setOptions((o) => ({ ...o, type: "commitments" }))
+                }
                 selected={options.type === "commitments"}
-                onSelect={() => setOptions((o) => ({ ...o, type: "commitments" }))}
+                title="Commitments"
               />
               <ExportTypeCard
-                icon={Users}
-                title="Both"
+                count={
+                  (decisionsData?.total ?? 0) + (commitmentsData?.total ?? 0)
+                }
                 description="Complete export"
-                count={(decisionsData?.total ?? 0) + (commitmentsData?.total ?? 0)}
-                selected={options.type === "both"}
+                icon={Users}
                 onSelect={() => setOptions((o) => ({ ...o, type: "both" }))}
+                selected={options.type === "both"}
+                title="Both"
               />
             </div>
           </div>
@@ -603,34 +613,36 @@ export function ComplianceExport({
 
           {/* Format Selection */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Export Format</Label>
+            <Label className="font-medium text-sm">Export Format</Label>
             <div className="flex gap-2">
               <Button
+                className="flex items-center gap-2"
+                onClick={() => setOptions((o) => ({ ...o, format: "csv" }))}
+                size="sm"
                 type="button"
                 variant={options.format === "csv" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setOptions((o) => ({ ...o, format: "csv" }))}
-                className="flex items-center gap-2"
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 CSV
               </Button>
               <Button
+                className="flex items-center gap-2"
+                onClick={() => setOptions((o) => ({ ...o, format: "json" }))}
+                size="sm"
                 type="button"
                 variant={options.format === "json" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setOptions((o) => ({ ...o, format: "json" }))}
-                className="flex items-center gap-2"
               >
                 <FileJson className="h-4 w-4" />
                 JSON
               </Button>
               <Button
+                className="flex items-center gap-2"
+                onClick={() =>
+                  setOptions((o) => ({ ...o, format: "markdown" }))
+                }
+                size="sm"
                 type="button"
                 variant={options.format === "markdown" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setOptions((o) => ({ ...o, format: "markdown" }))}
-                className="flex items-center gap-2"
               >
                 <FileText className="h-4 w-4" />
                 Markdown
@@ -642,41 +654,41 @@ export function ComplianceExport({
 
           {/* Options */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Options</Label>
+            <Label className="font-medium text-sm">Options</Label>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="superseded"
                   checked={options.includeSuperseded}
+                  id="superseded"
                   onCheckedChange={(v) =>
                     setOptions((o) => ({ ...o, includeSuperseded: !!v }))
                   }
                 />
-                <Label htmlFor="superseded" className="cursor-pointer">
+                <Label className="cursor-pointer" htmlFor="superseded">
                   Include superseded decisions
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="metadata"
                   checked={options.includeMetadata}
+                  id="metadata"
                   onCheckedChange={(v) =>
                     setOptions((o) => ({ ...o, includeMetadata: !!v }))
                   }
                 />
-                <Label htmlFor="metadata" className="cursor-pointer">
+                <Label className="cursor-pointer" htmlFor="metadata">
                   Include extraction metadata
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="evidence"
                   checked={options.includeEvidence}
+                  id="evidence"
                   onCheckedChange={(v) =>
                     setOptions((o) => ({ ...o, includeEvidence: !!v }))
                   }
                 />
-                <Label htmlFor="evidence" className="cursor-pointer">
+                <Label className="cursor-pointer" htmlFor="evidence">
                   Include source thread references
                 </Label>
               </div>
@@ -685,23 +697,26 @@ export function ComplianceExport({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
+          <Button onClick={() => setIsOpen(false)} variant="outline">
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={isExporting || isFetchingData || !dataReady}>
+          <Button
+            disabled={isExporting || isFetchingData || !dataReady}
+            onClick={handleExport}
+          >
             {isFetchingData ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading data...
               </>
             ) : isExporting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Exporting...
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="mr-2 h-4 w-4" />
                 Export ({allDecisions.length + allCommitments.length} records)
               </>
             )}

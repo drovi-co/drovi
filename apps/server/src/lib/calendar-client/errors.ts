@@ -174,7 +174,10 @@ export function normalizeCalendarError(
   }
 
   // Fetch/network errors
-  if (error instanceof TypeError && (error.message.includes("fetch") || error.message.includes("network"))) {
+  if (
+    error instanceof TypeError &&
+    (error.message.includes("fetch") || error.message.includes("network"))
+  ) {
     return new CalendarNetworkError(provider, error);
   }
 

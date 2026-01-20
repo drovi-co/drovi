@@ -34,8 +34,8 @@ import {
   StatusDetectionResponseSchema,
 } from "./types";
 
-// Model version for tracking
-const MODEL_VERSION = "1.0.0";
+// Model version for tracking - currently unused but kept for future versioning
+// const MODEL_VERSION = "1.0.0";
 
 /**
  * Commitment Agent
@@ -96,9 +96,9 @@ export class CommitmentAgent {
         );
         const dueDate = mergeDateExtractions(
           {
-            date: llmCommitment.dueDate,
-            confidence: llmCommitment.dueDateConfidence,
-            text: llmCommitment.dueDateText,
+            date: llmCommitment.dueDate ?? undefined,
+            confidence: llmCommitment.dueDateConfidence ?? undefined,
+            text: llmCommitment.dueDateText ?? undefined,
           },
           heuristicDate
         );
@@ -124,7 +124,7 @@ export class CommitmentAgent {
 
         commitments.push({
           title: llmCommitment.title,
-          description: llmCommitment.description,
+          description: llmCommitment.description ?? undefined,
           debtor: parties.debtor,
           creditor: parties.creditor,
           direction: parties.direction,
@@ -136,7 +136,7 @@ export class CommitmentAgent {
           sourceMessageId: sourceClaim?.evidence[0]?.messageId,
           confidence: llmCommitment.confidence,
           isConditional: llmCommitment.isConditional,
-          condition: llmCommitment.condition,
+          condition: llmCommitment.condition ?? undefined,
           metadata: {
             reasoning: llmCommitment.reasoning,
           },
@@ -214,7 +214,7 @@ export class CommitmentAgent {
           confidence: change.confidence,
           detectedAt: new Date().toISOString(),
           sourceMessageId: newMessages.at(-1)?.id,
-          evidenceQuote: change.evidenceQuote,
+          evidenceQuote: change.evidenceQuote ?? undefined,
         })
       );
 
@@ -558,7 +558,7 @@ function getMessageContext(
   return {
     fromEmail: lastMessage?.fromEmail || "",
     fromName: lastMessage?.fromName,
-    isFromUser: lastMessage?.isFromUser,
+    isFromUser: lastMessage?.isFromUser ?? false,
   };
 }
 

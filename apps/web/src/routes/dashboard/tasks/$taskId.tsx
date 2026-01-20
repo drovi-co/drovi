@@ -8,7 +8,12 @@
 //
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useParams,
+} from "@tanstack/react-router";
+import { format } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
@@ -23,8 +28,19 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
-
+import {
+  CompactActivityFeed,
+  formatDueDate,
+  PRIORITY_CONFIG,
+  SOURCE_TYPE_CONFIG,
+  STATUS_CONFIG,
+  TaskAssigneeDropdown,
+  type TaskData,
+  TaskLabelPicker,
+  type TaskPriority,
+  type TaskSourceType,
+  type TaskStatus,
+} from "@/components/tasks";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,11 +48,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -44,25 +61,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { PriorityIcon, type Priority } from "@/components/ui/priority-icon";
-import { StatusIcon, type Status } from "@/components/ui/status-icon";
-import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
-import { trpc, queryClient } from "@/utils/trpc";
-
-import {
-  TaskAssigneeDropdown,
-  TaskLabelPicker,
-  CompactActivityFeed,
-  STATUS_CONFIG,
-  PRIORITY_CONFIG,
-  SOURCE_TYPE_CONFIG,
-  formatDueDate,
-  type TaskData,
-  type TaskStatus,
-  type TaskPriority,
-  type TaskSourceType,
-} from "@/components/tasks";
+import { cn } from "@/lib/utils";
+import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -184,7 +185,9 @@ function TaskDetailPage() {
         priority: taskData.priority as TaskPriority,
         sourceType: taskData.sourceType as TaskSourceType,
         dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
-        completedAt: taskData.completedAt ? new Date(taskData.completedAt) : null,
+        completedAt: taskData.completedAt
+          ? new Date(taskData.completedAt)
+          : null,
         assignee: taskData.assignee ?? null,
         labels: taskData.labels ?? [],
         metadata: taskData.metadata ?? null,
@@ -237,7 +240,7 @@ function TaskDetailPage() {
       updateMutation.mutate({
         organizationId,
         taskId: task.id,
-        description: description || null,
+        description: description || undefined,
       });
     }
     setEditingDescription(false);
@@ -280,7 +283,7 @@ function TaskDetailPage() {
   );
 
   const handleAddComment = useCallback(() => {
-    if (!task || !newComment.trim()) return;
+    if (!(task && newComment.trim())) return;
     addCommentMutation.mutate({
       organizationId,
       taskId: task.id,
@@ -351,10 +354,10 @@ function TaskDetailPage() {
   // Not found state
   if (!task) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <h2 className="text-lg font-medium">Task not found</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="font-medium text-lg">Task not found</h2>
+          <p className="mt-1 text-muted-foreground text-sm">
             This task may have been deleted or you don't have access.
           </p>
           <Button className="mt-4" onClick={handleBack}>
@@ -395,21 +398,21 @@ function TaskDetailPage() {
             : "none";
 
   return (
-    <div data-no-shell-padding className="h-full">
-      <div className="h-[calc(100vh-var(--header-height))] flex flex-col bg-[#1a1b26]">
+    <div className="h-full" data-no-shell-padding>
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col bg-card">
         {/* Top Navigation Bar */}
-        <div className="border-b border-[#2a2b3d] bg-[#1a1b26] shrink-0 z-20">
+        <div className="z-20 shrink-0 border-border border-b bg-card">
           <div className="flex items-center gap-3 px-4 py-2">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    className="h-8 w-8 hover:bg-accent"
                     onClick={handleBack}
-                    className="h-8 w-8 hover:bg-[#2a2b3d]"
+                    size="icon"
+                    variant="ghost"
                   >
-                    <ArrowLeft className="h-4 w-4 text-[#858699]" />
+                    <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Back (Esc)</TooltipContent>
@@ -418,9 +421,9 @@ function TaskDetailPage() {
 
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-[#858699]">Tasks</span>
-              <span className="text-[#4c4f6b]">/</span>
-              <span className="text-[#eeeffc] font-medium truncate max-w-[300px]">
+              <span className="text-muted-foreground">Tasks</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="max-w-[300px] truncate font-medium text-foreground">
                 {task.title}
               </span>
             </div>
@@ -435,12 +438,14 @@ function TaskDetailPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="ghost"
+                        className="h-8 w-8 hover:bg-accent"
+                        onClick={() =>
+                          window.open(task.metadata?.sourceUrl, "_blank")
+                        }
                         size="icon"
-                        className="h-8 w-8 hover:bg-[#2a2b3d]"
-                        onClick={() => window.open(task.metadata?.sourceUrl, "_blank")}
+                        variant="ghost"
                       >
-                        <ExternalLink className="h-4 w-4 text-[#858699]" />
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>View source</TooltipContent>
@@ -451,16 +456,20 @@ function TaskDetailPage() {
               {/* More actions */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#2a2b3d]">
-                    <MoreHorizontal className="h-4 w-4 text-[#858699]" />
+                  <Button
+                    className="h-8 w-8 hover:bg-accent"
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem
-                    onClick={handleDelete}
                     className="text-red-500 focus:text-red-500"
+                    onClick={handleDelete}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Delete task
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -470,18 +479,17 @@ function TaskDetailPage() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
           {/* Left Column - Main Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-2xl mx-auto space-y-6">
+            <div className="mx-auto max-w-2xl space-y-6">
               {/* Title */}
               <div>
                 {editingTitle ? (
                   <Input
-                    ref={titleInputRef}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    className="h-auto border-none bg-transparent px-0 py-1 font-semibold text-2xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                     onBlur={handleSaveTitle}
+                    onChange={(e) => setTitle(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         handleSaveTitle();
@@ -491,12 +499,13 @@ function TaskDetailPage() {
                         setEditingTitle(false);
                       }
                     }}
-                    className="text-2xl font-semibold bg-transparent border-none px-0 h-auto py-1 text-[#eeeffc] focus-visible:ring-0 focus-visible:ring-offset-0"
                     placeholder="Task title..."
+                    ref={titleInputRef}
+                    value={title}
                   />
                 ) : (
                   <h1
-                    className="text-2xl font-semibold text-[#eeeffc] cursor-pointer hover:text-[#eeeffc]/80 transition-colors py-1"
+                    className="cursor-pointer py-1 font-semibold text-2xl text-foreground transition-colors hover:text-foreground/80"
                     onClick={() => setEditingTitle(true)}
                   >
                     {task.title}
@@ -506,15 +515,14 @@ function TaskDetailPage() {
 
               {/* Description */}
               <div>
-                <label className="text-sm font-medium text-[#858699] mb-2 block">
+                <label className="mb-2 block font-medium text-muted-foreground text-sm">
                   Description
                 </label>
                 {editingDescription ? (
                   <Textarea
-                    ref={descriptionRef}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    className="resize-none border-border bg-muted text-foreground placeholder:text-muted-foreground focus:border-secondary"
                     onBlur={handleSaveDescription}
+                    onChange={(e) => setDescription(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
                         setDescription(task.description ?? "");
@@ -525,17 +533,20 @@ function TaskDetailPage() {
                         handleSaveDescription();
                       }
                     }}
-                    rows={6}
                     placeholder="Add a description..."
-                    className="bg-[#21232e] border-[#2a2b3d] text-[#eeeffc] placeholder:text-[#4c4f6b] focus:border-[#5e6ad2] resize-none"
+                    ref={descriptionRef}
+                    rows={6}
+                    value={description}
                   />
                 ) : (
                   <div
-                    className="min-h-[120px] p-4 rounded-lg border border-[#2a2b3d] bg-[#21232e] text-sm text-[#d2d3e0] cursor-pointer hover:border-[#3a3b4d] transition-colors whitespace-pre-wrap"
+                    className="min-h-[120px] cursor-pointer whitespace-pre-wrap rounded-lg border border-border bg-muted p-4 text-foreground text-sm transition-colors hover:border-border"
                     onClick={() => setEditingDescription(true)}
                   >
                     {task.description || (
-                      <span className="text-[#4c4f6b]">Click to add description...</span>
+                      <span className="text-muted-foreground">
+                        Click to add description...
+                      </span>
                     )}
                   </div>
                 )}
@@ -544,47 +555,51 @@ function TaskDetailPage() {
               {/* Source Preview */}
               {task.metadata?.sourceSnippet && (
                 <div>
-                  <label className="text-sm font-medium text-[#858699] mb-2 block">
+                  <label className="mb-2 block font-medium text-muted-foreground text-sm">
                     Source Preview
                   </label>
-                  <div className="p-4 rounded-lg border border-[#2a2b3d] bg-[#21232e]/50 text-sm text-[#858699] whitespace-pre-wrap">
+                  <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
                     {task.metadata.sourceSnippet}
                   </div>
                 </div>
               )}
 
               {/* Activity / Comments */}
-              <div className="pt-6 border-t border-[#2a2b3d]">
-                <div className="flex items-center gap-2 mb-4">
-                  <MessageSquare className="h-4 w-4 text-[#858699]" />
-                  <span className="text-sm font-medium text-[#eeeffc]">Activity</span>
+              <div className="border-border border-t pt-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Activity
+                  </span>
                 </div>
 
                 {/* Add Comment */}
-                <div className="flex gap-3 mb-6">
+                <div className="mb-6 flex gap-3">
                   <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-[#5e6ad2] text-white text-xs">
+                    <AvatarFallback className="bg-secondary text-white text-xs">
                       ME
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 flex gap-2">
+                  <div className="flex flex-1 gap-2">
                     <Input
-                      value={newComment}
+                      className="flex-1 border-border bg-muted text-foreground placeholder:text-muted-foreground focus:border-secondary"
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="flex-1 bg-[#21232e] border-[#2a2b3d] text-[#eeeffc] placeholder:text-[#4c4f6b] focus:border-[#5e6ad2]"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleAddComment();
                         }
                       }}
+                      placeholder="Add a comment..."
+                      value={newComment}
                     />
                     <Button
-                      size="icon"
+                      className="bg-secondary hover:bg-secondary/90"
+                      disabled={
+                        !newComment.trim() || addCommentMutation.isPending
+                      }
                       onClick={handleAddComment}
-                      disabled={!newComment.trim() || addCommentMutation.isPending}
-                      className="bg-[#5e6ad2] hover:bg-[#5e6ad2]/90"
+                      size="icon"
                     >
                       {addCommentMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -597,55 +612,70 @@ function TaskDetailPage() {
 
                 {/* Activity Feed */}
                 <CompactActivityFeed
-                  taskId={task.id}
                   organizationId={organizationId}
+                  taskId={task.id}
                 />
               </div>
 
               {/* Timestamps */}
-              <div className="pt-4 border-t border-[#2a2b3d] text-xs text-[#4c4f6b] space-y-1">
-                <div>Created: {format(task.createdAt, "MMM d, yyyy 'at' h:mm a")}</div>
-                <div>Updated: {format(task.updatedAt, "MMM d, yyyy 'at' h:mm a")}</div>
+              <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
+                <div>
+                  Created: {format(task.createdAt, "MMM d, yyyy 'at' h:mm a")}
+                </div>
+                <div>
+                  Updated: {format(task.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Right Column - Properties Sidebar */}
-          <div className="w-[280px] shrink-0 border-l border-[#2a2b3d] bg-[#1a1b26] overflow-y-auto p-4">
+          <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
               {/* Status */}
               <PropertyRow label="Status">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#2a2b3d] transition-colors w-full">
-                      <StatusIcon status={iconStatus} size="sm" />
-                      <span className="text-sm text-[#d2d3e0]">{statusConfig.label}</span>
+                    <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
+                      <StatusIcon size="sm" status={iconStatus} />
+                      <span className="text-foreground text-sm">
+                        {statusConfig.label}
+                      </span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    {(Object.keys(STATUS_CONFIG) as TaskStatus[]).map((status) => {
-                      const config = STATUS_CONFIG[status];
-                      const statusIcon: Status =
-                        status === "backlog"
-                          ? "backlog"
-                          : status === "todo"
-                            ? "todo"
-                            : status === "in_progress" || status === "in_review"
-                              ? "in_progress"
-                              : status === "done"
-                                ? "done"
-                                : "canceled";
-                      return (
-                        <DropdownMenuItem
-                          key={status}
-                          onClick={() => handleStatusChange(status)}
-                          className={cn(status === task.status && "bg-accent")}
-                        >
-                          <StatusIcon status={statusIcon} size="sm" className="mr-2" />
-                          {config.label}
-                        </DropdownMenuItem>
-                      );
-                    })}
+                    {(Object.keys(STATUS_CONFIG) as TaskStatus[]).map(
+                      (status) => {
+                        const config = STATUS_CONFIG[status];
+                        const statusIcon: Status =
+                          status === "backlog"
+                            ? "backlog"
+                            : status === "todo"
+                              ? "todo"
+                              : status === "in_progress" ||
+                                  status === "in_review"
+                                ? "in_progress"
+                                : status === "done"
+                                  ? "done"
+                                  : "canceled";
+                        return (
+                          <DropdownMenuItem
+                            className={cn(
+                              status === task.status && "bg-accent"
+                            )}
+                            key={status}
+                            onClick={() => handleStatusChange(status)}
+                          >
+                            <StatusIcon
+                              className="mr-2"
+                              size="sm"
+                              status={statusIcon}
+                            />
+                            {config.label}
+                          </DropdownMenuItem>
+                        );
+                      }
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PropertyRow>
@@ -654,35 +684,45 @@ function TaskDetailPage() {
               <PropertyRow label="Priority">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#2a2b3d] transition-colors w-full">
+                    <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
                       <PriorityIcon priority={iconPriority} size="sm" />
-                      <span className="text-sm text-[#d2d3e0]">{priorityConfig.label}</span>
+                      <span className="text-foreground text-sm">
+                        {priorityConfig.label}
+                      </span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    {(Object.keys(PRIORITY_CONFIG) as TaskPriority[]).map((priority) => {
-                      const config = PRIORITY_CONFIG[priority];
-                      const priorityIcon: Priority =
-                        priority === "urgent"
-                          ? "urgent"
-                          : priority === "high"
-                            ? "high"
-                            : priority === "medium"
-                              ? "medium"
-                              : priority === "low"
-                                ? "low"
-                                : "none";
-                      return (
-                        <DropdownMenuItem
-                          key={priority}
-                          onClick={() => handlePriorityChange(priority)}
-                          className={cn(priority === task.priority && "bg-accent")}
-                        >
-                          <PriorityIcon priority={priorityIcon} size="sm" className="mr-2" />
-                          {config.label}
-                        </DropdownMenuItem>
-                      );
-                    })}
+                    {(Object.keys(PRIORITY_CONFIG) as TaskPriority[]).map(
+                      (priority) => {
+                        const config = PRIORITY_CONFIG[priority];
+                        const priorityIcon: Priority =
+                          priority === "urgent"
+                            ? "urgent"
+                            : priority === "high"
+                              ? "high"
+                              : priority === "medium"
+                                ? "medium"
+                                : priority === "low"
+                                  ? "low"
+                                  : "none";
+                        return (
+                          <DropdownMenuItem
+                            className={cn(
+                              priority === task.priority && "bg-accent"
+                            )}
+                            key={priority}
+                            onClick={() => handlePriorityChange(priority)}
+                          >
+                            <PriorityIcon
+                              className="mr-2"
+                              priority={priorityIcon}
+                              size="sm"
+                            />
+                            {config.label}
+                          </DropdownMenuItem>
+                        );
+                      }
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PropertyRow>
@@ -690,34 +730,39 @@ function TaskDetailPage() {
               {/* Assignee */}
               <PropertyRow label="Assignee">
                 <TaskAssigneeDropdown
-                  taskId={task.id}
-                  organizationId={organizationId}
                   currentAssignee={task.assignee}
+                  organizationId={organizationId}
+                  taskId={task.id}
                   trigger={
-                    <button className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#2a2b3d] transition-colors w-full">
+                    <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
                       {task.assignee ? (
                         <>
                           <Avatar className="h-5 w-5">
                             {task.assignee.image && (
                               <AvatarImage
-                                src={task.assignee.image}
                                 alt={task.assignee.name ?? ""}
+                                src={task.assignee.image}
                               />
                             )}
-                            <AvatarFallback className="text-[9px] bg-[#5e6ad2] text-white">
-                              {getInitials(task.assignee.name, task.assignee.email)}
+                            <AvatarFallback className="bg-secondary text-[9px] text-white">
+                              {getInitials(
+                                task.assignee.name,
+                                task.assignee.email
+                              )}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm text-[#d2d3e0] truncate">
+                          <span className="truncate text-foreground text-sm">
                             {task.assignee.name ?? task.assignee.email}
                           </span>
                         </>
                       ) : (
                         <>
-                          <div className="h-5 w-5 rounded-full border border-[#4c4f6b] border-dashed flex items-center justify-center">
-                            <User className="h-3 w-3 text-[#4c4f6b]" />
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full border border-muted-foreground border-dashed">
+                            <User className="h-3 w-3 text-muted-foreground" />
                           </div>
-                          <span className="text-sm text-[#4c4f6b]">No assignee</span>
+                          <span className="text-muted-foreground text-sm">
+                            No assignee
+                          </span>
                         </>
                       )}
                     </button>
@@ -729,15 +774,18 @@ function TaskDetailPage() {
               <PropertyRow label="Labels">
                 <div className="px-2 py-1.5">
                   {task.labels.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="mb-2 flex flex-wrap gap-1.5">
                       {task.labels.map((label) => (
                         <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
                           key={label.id}
-                          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: `${label.color}20`, color: label.color }}
+                          style={{
+                            backgroundColor: `${label.color}20`,
+                            color: label.color,
+                          }}
                         >
                           <span
-                            className="w-1.5 h-1.5 rounded-full"
+                            className="h-1.5 w-1.5 rounded-full"
                             style={{ backgroundColor: label.color }}
                           />
                           {label.name}
@@ -746,11 +794,11 @@ function TaskDetailPage() {
                     </div>
                   ) : null}
                   <TaskLabelPicker
-                    taskId={task.id}
                     organizationId={organizationId}
                     selectedLabels={task.labels}
+                    taskId={task.id}
                     trigger={
-                      <button className="flex items-center gap-1.5 text-sm text-[#4c4f6b] hover:text-[#858699] transition-colors">
+                      <button className="flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-muted-foreground">
                         <Plus className="h-3.5 w-3.5" />
                         <span>Add label</span>
                       </button>
@@ -762,10 +810,14 @@ function TaskDetailPage() {
               {/* Due Date */}
               <PropertyRow label="Due date">
                 <div className="flex items-center gap-2 px-2 py-1.5">
-                  <Calendar className="h-4 w-4 text-[#858699]" />
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                   <input
-                    type="date"
-                    value={task.dueDate ? format(task.dueDate, "yyyy-MM-dd") : ""}
+                    className={cn(
+                      "cursor-pointer border-none bg-transparent text-sm outline-none",
+                      task.dueDate
+                        ? (dueInfo?.className ?? "text-foreground")
+                        : "text-muted-foreground"
+                    )}
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value) {
@@ -774,17 +826,17 @@ function TaskDetailPage() {
                         handleDueDateChange(undefined);
                       }
                     }}
-                    className={cn(
-                      "text-sm bg-transparent border-none outline-none cursor-pointer",
-                      task.dueDate ? (dueInfo?.className ?? "text-[#d2d3e0]") : "text-[#4c4f6b]"
-                    )}
+                    type="date"
+                    value={
+                      task.dueDate ? format(task.dueDate, "yyyy-MM-dd") : ""
+                    }
                   />
                   {task.dueDate && (
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 ml-auto text-[#4c4f6b] hover:text-[#858699]"
+                      className="ml-auto h-6 w-6 text-muted-foreground hover:text-muted-foreground"
                       onClick={() => handleDueDateChange(undefined)}
+                      size="icon"
+                      variant="ghost"
                     >
                       ×
                     </Button>
@@ -796,12 +848,12 @@ function TaskDetailPage() {
               <PropertyRow label="Source">
                 <div className="px-2 py-1.5">
                   <Badge
-                    variant="secondary"
                     className={cn(
                       "text-xs",
                       sourceConfig.bgColor,
                       sourceConfig.color
                     )}
+                    variant="secondary"
                   >
                     {sourceConfig.label}
                   </Badge>
@@ -809,15 +861,17 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Keyboard shortcuts hint */}
-              <div className="pt-4 border-t border-[#2a2b3d]">
-                <div className="text-xs text-[#4c4f6b] space-y-1">
+              <div className="border-border border-t pt-4">
+                <div className="space-y-1 text-muted-foreground text-xs">
                   <div className="flex items-center justify-between">
                     <span>Set status</span>
                     <span className="font-mono">1-6</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Go back</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-[#2a2b3d] text-[#858699]">Esc</kbd>
+                    <kbd className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      Esc
+                    </kbd>
                   </div>
                 </div>
               </div>
@@ -842,7 +896,7 @@ function PropertyRow({
 }) {
   return (
     <div>
-      <label className="text-xs font-medium text-[#4c4f6b] uppercase tracking-wide mb-1 block">
+      <label className="mb-1 block font-medium text-muted-foreground text-xs uppercase tracking-wide">
         {label}
       </label>
       {children}
@@ -852,30 +906,30 @@ function PropertyRow({
 
 function TaskDetailSkeleton() {
   return (
-    <div className="h-full bg-[#1a1b26]">
-      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+    <div className="h-full bg-card">
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
         {/* Header skeleton */}
-        <div className="border-b border-[#2a2b3d] p-4">
+        <div className="border-border border-b p-4">
           <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 bg-[#2a2b3d]" />
-            <Skeleton className="h-4 w-48 bg-[#2a2b3d]" />
+            <Skeleton className="h-8 w-8 bg-muted" />
+            <Skeleton className="h-4 w-48 bg-muted" />
           </div>
         </div>
 
         {/* Content skeleton */}
         <div className="flex flex-1">
           <div className="flex-1 p-6">
-            <div className="max-w-2xl mx-auto space-y-6">
-              <Skeleton className="h-8 w-3/4 bg-[#2a2b3d]" />
-              <Skeleton className="h-32 w-full bg-[#2a2b3d]" />
-              <Skeleton className="h-24 w-full bg-[#2a2b3d]" />
+            <div className="mx-auto max-w-2xl space-y-6">
+              <Skeleton className="h-8 w-3/4 bg-muted" />
+              <Skeleton className="h-32 w-full bg-muted" />
+              <Skeleton className="h-24 w-full bg-muted" />
             </div>
           </div>
-          <div className="w-[280px] border-l border-[#2a2b3d] p-4 space-y-4">
-            <Skeleton className="h-10 w-full bg-[#2a2b3d]" />
-            <Skeleton className="h-10 w-full bg-[#2a2b3d]" />
-            <Skeleton className="h-10 w-full bg-[#2a2b3d]" />
-            <Skeleton className="h-10 w-full bg-[#2a2b3d]" />
+          <div className="w-[280px] space-y-4 border-border border-l p-4">
+            <Skeleton className="h-10 w-full bg-muted" />
+            <Skeleton className="h-10 w-full bg-muted" />
+            <Skeleton className="h-10 w-full bg-muted" />
+            <Skeleton className="h-10 w-full bg-muted" />
           </div>
         </div>
       </div>

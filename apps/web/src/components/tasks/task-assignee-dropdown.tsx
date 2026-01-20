@@ -7,7 +7,7 @@
 //
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, User, UserMinus, Users } from "lucide-react";
+import { Check, User, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -76,7 +76,9 @@ export function TaskAssigneeDropdown({
         : null;
 
       if (assigneeId) {
-        toast.success(`Assigned to ${newAssignee?.user?.name ?? newAssignee?.user?.email ?? "user"}`);
+        toast.success(
+          `Assigned to ${newAssignee?.user?.name ?? newAssignee?.user?.email ?? "user"}`
+        );
       } else {
         toast.success("Unassigned task");
       }
@@ -86,12 +88,16 @@ export function TaskAssigneeDropdown({
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
 
       // Call the callback after cache invalidation
-      onAssigneeChange?.(newAssignee ? {
-        id: newAssignee.userId,
-        name: newAssignee.user?.name ?? null,
-        email: newAssignee.user?.email ?? "",
-        image: newAssignee.user?.image ?? null,
-      } : null);
+      onAssigneeChange?.(
+        newAssignee
+          ? {
+              id: newAssignee.userId,
+              name: newAssignee.user?.name ?? null,
+              email: newAssignee.user?.email ?? "",
+              image: newAssignee.user?.image ?? null,
+            }
+          : null
+      );
     },
     onError: () => {
       toast.error("Failed to update assignee");
@@ -110,15 +116,18 @@ export function TaskAssigneeDropdown({
 
   const defaultTrigger = compact ? (
     <Button
-      variant="ghost"
-      size="icon"
       className="h-7 w-7"
       disabled={disabled || assignMutation.isPending}
+      size="icon"
+      variant="ghost"
     >
       {currentAssignee ? (
         <Avatar className="h-5 w-5">
           {currentAssignee.image && (
-            <AvatarImage src={currentAssignee.image} alt={currentAssignee.name ?? ""} />
+            <AvatarImage
+              alt={currentAssignee.name ?? ""}
+              src={currentAssignee.image}
+            />
           )}
           <AvatarFallback className="text-[10px]">
             {getInitials(currentAssignee.name, currentAssignee.email)}
@@ -130,22 +139,25 @@ export function TaskAssigneeDropdown({
     </Button>
   ) : (
     <Button
-      variant="outline"
-      size="sm"
-      className="gap-2 h-7"
+      className="h-7 gap-2"
       disabled={disabled || assignMutation.isPending}
+      size="sm"
+      variant="outline"
     >
       {currentAssignee ? (
         <>
           <Avatar className="h-4 w-4">
             {currentAssignee.image && (
-              <AvatarImage src={currentAssignee.image} alt={currentAssignee.name ?? ""} />
+              <AvatarImage
+                alt={currentAssignee.name ?? ""}
+                src={currentAssignee.image}
+              />
             )}
             <AvatarFallback className="text-[8px]">
               {getInitials(currentAssignee.name, currentAssignee.email)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-xs truncate max-w-[100px]">
+          <span className="max-w-[100px] truncate text-xs">
             {currentAssignee.name ?? currentAssignee.email}
           </span>
         </>
@@ -163,12 +175,16 @@ export function TaskAssigneeDropdown({
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         {trigger ?? defaultTrigger}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-56" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuContent
+        align={align}
+        className="w-56"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Unassign option */}
         {currentAssignee && (
           <>
             <DropdownMenuItem onClick={() => handleAssign(null)}>
-              <UserMinus className="h-4 w-4 mr-2 text-muted-foreground" />
+              <UserMinus className="mr-2 h-4 w-4 text-muted-foreground" />
               <span>Unassign</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -177,7 +193,7 @@ export function TaskAssigneeDropdown({
 
         {/* Team members */}
         {members.length === 0 ? (
-          <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+          <div className="px-2 py-4 text-center text-muted-foreground text-sm">
             No team members found
           </div>
         ) : (
@@ -185,29 +201,35 @@ export function TaskAssigneeDropdown({
             const isSelected = member.userId === currentAssignee?.id;
             return (
               <DropdownMenuItem
+                className={cn(isSelected && "bg-accent")}
                 key={member.userId}
                 onClick={() => handleAssign(member.userId)}
-                className={cn(isSelected && "bg-accent")}
               >
-                <Avatar className="h-6 w-6 mr-2">
+                <Avatar className="mr-2 h-6 w-6">
                   {member.user?.image && (
-                    <AvatarImage src={member.user.image} alt={member.user.name ?? ""} />
+                    <AvatarImage
+                      alt={member.user.name ?? ""}
+                      src={member.user.image}
+                    />
                   )}
                   <AvatarFallback className="text-[10px]">
-                    {getInitials(member.user?.name, member.user?.email ?? "")}
+                    {getInitials(
+                      member.user?.name ?? null,
+                      member.user?.email ?? ""
+                    )}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm">
                     {member.user?.name ?? member.user?.email}
                   </div>
                   {member.user?.name && (
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="truncate text-muted-foreground text-xs">
                       {member.user.email}
                     </div>
                   )}
                 </div>
-                {isSelected && <Check className="h-4 w-4 shrink-0 ml-2" />}
+                {isSelected && <Check className="ml-2 h-4 w-4 shrink-0" />}
               </DropdownMenuItem>
             );
           })
@@ -249,17 +271,25 @@ export function TaskAssigneeAvatar({
   if (!assignee) {
     return (
       <div className={cn("flex items-center gap-2", className)}>
-        <div className={cn(
-          "rounded-full bg-muted flex items-center justify-center",
-          sizes[size]
-        )}>
-          <User className={cn(
-            "text-muted-foreground",
-            size === "sm" ? "h-3 w-3" : size === "md" ? "h-3.5 w-3.5" : "h-4 w-4"
-          )} />
+        <div
+          className={cn(
+            "flex items-center justify-center rounded-full bg-muted",
+            sizes[size]
+          )}
+        >
+          <User
+            className={cn(
+              "text-muted-foreground",
+              size === "sm"
+                ? "h-3 w-3"
+                : size === "md"
+                  ? "h-3.5 w-3.5"
+                  : "h-4 w-4"
+            )}
+          />
         </div>
         {showName && (
-          <span className="text-sm text-muted-foreground">Unassigned</span>
+          <span className="text-muted-foreground text-sm">Unassigned</span>
         )}
       </div>
     );
@@ -269,14 +299,14 @@ export function TaskAssigneeAvatar({
     <div className={cn("flex items-center gap-2", className)}>
       <Avatar className={sizes[size]}>
         {assignee.image && (
-          <AvatarImage src={assignee.image} alt={assignee.name ?? ""} />
+          <AvatarImage alt={assignee.name ?? ""} src={assignee.image} />
         )}
         <AvatarFallback className={textSizes[size]}>
           {getInitials(assignee.name, assignee.email)}
         </AvatarFallback>
       </Avatar>
       {showName && (
-        <span className="text-sm truncate">
+        <span className="truncate text-sm">
           {assignee.name ?? assignee.email}
         </span>
       )}

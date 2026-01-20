@@ -13,15 +13,14 @@ import {
   conversation,
   decision,
   member,
-  task,
-  taskActivity,
-  taskLabel,
-  taskLabelJunction,
-  user,
   type TaskMetadata,
   type TaskPriority,
   type TaskSourceType,
   type TaskStatus,
+  task,
+  taskActivity,
+  taskLabel,
+  taskLabelJunction,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
@@ -59,7 +58,7 @@ const taskSourceTypeSchema = z.enum([
 const listTasksSchema = z.object({
   organizationId: z.string().min(1),
   // High limit for client-side pagination - UI handles "Show more" display
-  limit: z.number().int().min(1).max(10000).optional(),
+  limit: z.number().int().min(1).max(10_000).optional(),
   offset: z.number().int().min(0).default(0),
   // Filters
   status: taskStatusSchema.optional(),
@@ -90,7 +89,7 @@ const getTaskSchema = z.object({
 const createTaskSchema = z.object({
   organizationId: z.string().min(1),
   title: z.string().min(1).max(500),
-  description: z.string().max(10000).optional(),
+  description: z.string().max(10_000).optional(),
   status: taskStatusSchema.default("backlog"),
   priority: taskPrioritySchema.default("no_priority"),
   assigneeId: z.string().optional(),
@@ -107,7 +106,7 @@ const updateTaskSchema = z.object({
   organizationId: z.string().min(1),
   taskId: z.string().min(1),
   title: z.string().min(1).max(500).optional(),
-  description: z.string().max(10000).optional(),
+  description: z.string().max(10_000).optional(),
   status: taskStatusSchema.optional(),
   priority: taskPrioritySchema.optional(),
   assigneeId: z.string().nullable().optional(),
@@ -324,27 +323,35 @@ export const tasksRouter = router({
             // NULLS LAST ensures tasks without due dates appear at the end
             return [sql`${task.dueDate} ${sql.raw(direction)} NULLS LAST`];
           case "priority":
-            return [sql`CASE
+            return [
+              sql`CASE
               WHEN ${task.priority} = 'urgent' THEN 5
               WHEN ${task.priority} = 'high' THEN 4
               WHEN ${task.priority} = 'medium' THEN 3
               WHEN ${task.priority} = 'low' THEN 2
               ELSE 1
-            END ${sql.raw(direction)}`];
+            END ${sql.raw(direction)}`,
+            ];
           case "status":
-            return [sql`CASE
+            return [
+              sql`CASE
               WHEN ${task.status} = 'in_progress' THEN 5
               WHEN ${task.status} = 'in_review' THEN 4
               WHEN ${task.status} = 'todo' THEN 3
               WHEN ${task.status} = 'backlog' THEN 2
               WHEN ${task.status} = 'done' THEN 1
               ELSE 0
-            END ${sql.raw(direction)}`];
+            END ${sql.raw(direction)}`,
+            ];
           case "updatedAt":
-            return input.sortOrder === "asc" ? [asc(task.updatedAt)] : [desc(task.updatedAt)];
+            return input.sortOrder === "asc"
+              ? [asc(task.updatedAt)]
+              : [desc(task.updatedAt)];
           case "createdAt":
           default:
-            return input.sortOrder === "asc" ? [asc(task.createdAt)] : [desc(task.createdAt)];
+            return input.sortOrder === "asc"
+              ? [asc(task.createdAt)]
+              : [desc(task.createdAt)];
         }
       };
 
@@ -683,32 +690,33 @@ export const tasksRouter = router({
         });
       }
 
-      if (input.assigneeId !== undefined) {
-        if (input.assigneeId !== existingTask.assigneeId) {
-          // Verify new assignee if not null
-          if (input.assigneeId) {
-            const assigneeMembership = await db.query.member.findFirst({
-              where: and(
-                eq(member.userId, input.assigneeId),
-                eq(member.organizationId, input.organizationId)
-              ),
-            });
-
-            if (!assigneeMembership) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "Assignee must be a member of the organization.",
-              });
-            }
-          }
-
-          updates.assigneeId = input.assigneeId;
-          changes.push({
-            type: input.assigneeId ? "assigned" : "unassigned",
-            prev: existingTask.assigneeId,
-            next: input.assigneeId,
+      if (
+        input.assigneeId !== undefined &&
+        input.assigneeId !== existingTask.assigneeId
+      ) {
+        // Verify new assignee if not null
+        if (input.assigneeId) {
+          const assigneeMembership = await db.query.member.findFirst({
+            where: and(
+              eq(member.userId, input.assigneeId),
+              eq(member.organizationId, input.organizationId)
+            ),
           });
+
+          if (!assigneeMembership) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Assignee must be a member of the organization.",
+            });
+          }
         }
+
+        updates.assigneeId = input.assigneeId;
+        changes.push({
+          type: input.assigneeId ? "assigned" : "unassigned",
+          prev: existingTask.assigneeId,
+          next: input.assigneeId,
+        });
       }
 
       if (input.dueDate !== undefined) {
@@ -959,18 +967,27 @@ export const tasksRouter = router({
         updates.assigneeId = input.assigneeId;
       }
 
-      await db
-        .update(task)
-        .set(updates)
-        .where(inArray(task.id, input.taskIds));
+      await db.update(task).set(updates).where(inArray(task.id, input.taskIds));
 
       // Log activity for each task
       for (const taskId of input.taskIds) {
         if (input.status !== undefined) {
-          await logTaskActivity(taskId, userId, "status_changed", null, input.status);
+          await logTaskActivity(
+            taskId,
+            userId,
+            "status_changed",
+            null,
+            input.status
+          );
         }
         if (input.priority !== undefined) {
-          await logTaskActivity(taskId, userId, "priority_changed", null, input.priority);
+          await logTaskActivity(
+            taskId,
+            userId,
+            "priority_changed",
+            null,
+            input.priority
+          );
         }
         if (input.assigneeId !== undefined) {
           await logTaskActivity(
@@ -1282,7 +1299,10 @@ export const tasksRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
       await verifyTaskAccess(input.organizationId, input.taskId);
-      const label = await verifyLabelAccess(input.organizationId, input.labelId);
+      const label = await verifyLabelAccess(
+        input.organizationId,
+        input.labelId
+      );
 
       // Check if already exists
       const existing = await db.query.taskLabelJunction.findFirst({
@@ -1301,7 +1321,13 @@ export const tasksRouter = router({
         labelId: input.labelId,
       });
 
-      await logTaskActivity(input.taskId, userId, "label_added", null, label.name);
+      await logTaskActivity(
+        input.taskId,
+        userId,
+        "label_added",
+        null,
+        label.name
+      );
 
       return { success: true };
     }),
@@ -1315,7 +1341,10 @@ export const tasksRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
       await verifyTaskAccess(input.organizationId, input.taskId);
-      const label = await verifyLabelAccess(input.organizationId, input.labelId);
+      const label = await verifyLabelAccess(
+        input.organizationId,
+        input.labelId
+      );
 
       await db
         .delete(taskLabelJunction)
@@ -1326,7 +1355,13 @@ export const tasksRouter = router({
           )
         );
 
-      await logTaskActivity(input.taskId, userId, "label_removed", label.name, null);
+      await logTaskActivity(
+        input.taskId,
+        userId,
+        "label_removed",
+        label.name,
+        null
+      );
 
       return { success: true };
     }),
@@ -1354,7 +1389,8 @@ export const tasksRouter = router({
 
       return {
         success: true,
-        message: "Backfill task started. Check Trigger.dev dashboard for progress.",
+        message:
+          "Backfill task started. Check Trigger.dev dashboard for progress.",
         runId: handle.id,
       };
     }),

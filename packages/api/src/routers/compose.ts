@@ -6,10 +6,19 @@
 // Send/draft operations are handled by the server's Hono routes.
 //
 
+import {
+  createContradictionDetector,
+  type HistoricalStatement,
+} from "@memorystack/ai/detectors";
 import { db } from "@memorystack/db";
-import { emailMessage, emailThread, member } from "@memorystack/db/schema";
+import {
+  claim,
+  emailMessage,
+  emailThread,
+  member,
+} from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -103,8 +112,14 @@ export const composeRouter = router({
         }
 
         // Add other To/CC recipients (for Reply All)
-        const msgToRecipients = (lastMessage.toRecipients ?? []) as Array<{ email: string; name?: string }>;
-        const msgCcRecipients = (lastMessage.ccRecipients ?? []) as Array<{ email: string; name?: string }>;
+        const msgToRecipients = (lastMessage.toRecipients ?? []) as Array<{
+          email: string;
+          name?: string;
+        }>;
+        const msgCcRecipients = (lastMessage.ccRecipients ?? []) as Array<{
+          email: string;
+          name?: string;
+        }>;
 
         for (const recipient of msgToRecipients) {
           if (recipient.email !== userEmail && recipient.email !== sender) {
@@ -142,6 +157,126 @@ export const composeRouter = router({
         quotedBody,
         replyToThreadId: thread.id,
         inReplyToMessageId: lastMessage?.id,
+      };
+    }),
+
+  /**
+   * Check for contradictions in draft content against historical statements
+   */
+  checkContradictions: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        draftContent: z.string().min(1),
+        threadId: z.string().uuid().optional(),
+        recipients: z
+          .array(
+            z.object({
+              email: z.string().email(),
+              name: z.string().optional(),
+            })
+          )
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify org membership
+      await verifyOrgMembership(ctx.session.user.id, input.organizationId);
+
+      // Get historical statements from claims (commitments, decisions)
+      const recipientEmails = input.recipients?.map((r) => r.email) ?? [];
+
+      // Fetch relevant claims - commitments and decisions related to recipients
+      const claimsQuery = db.query.claim.findMany({
+        where: and(
+          eq(claim.organizationId, input.organizationId),
+          eq(claim.isUserDismissed, false),
+          inArray(claim.type, ["promise", "decision"])
+        ),
+        orderBy: [desc(claim.extractedAt)],
+        limit: 100,
+      });
+
+      const claims = await claimsQuery;
+
+      // Filter claims that are relevant to recipients (if any)
+      const relevantClaims =
+        recipientEmails.length > 0
+          ? claims.filter((c) => {
+              // Check if claim is related to any recipient
+              const attributedTo = c.attributedTo?.toLowerCase() ?? "";
+              return recipientEmails.some((email) =>
+                attributedTo.includes(email.toLowerCase())
+              );
+            })
+          : claims;
+
+      // Also include claims from the same thread if replying
+      let threadClaims: typeof claims = [];
+      if (input.threadId) {
+        threadClaims = claims.filter((c) => c.threadId === input.threadId);
+      }
+
+      // Combine and deduplicate
+      const allRelevantClaims = [
+        ...new Map(
+          [...relevantClaims, ...threadClaims].map((c) => [c.id, c])
+        ).values(),
+      ];
+
+      // Transform claims to historical statements format
+      const historicalStatements: HistoricalStatement[] = allRelevantClaims.map(
+        (c) => ({
+          id: c.id,
+          type: c.type === "promise" ? "commitment" : "decision",
+          text: c.text,
+          source: c.messageId ?? c.threadId ?? "unknown",
+          date: c.extractedAt ?? new Date(),
+          confidence: c.confidence ?? 0.8,
+          metadata: c.metadata as Record<string, unknown> | undefined,
+        })
+      );
+
+      // Run contradiction detection
+      const detector = createContradictionDetector();
+      const result = detector.checkContradictions(
+        {
+          content: input.draftContent,
+          contentType: "draft",
+          threadId: input.threadId,
+        },
+        historicalStatements
+      );
+
+      // Transform result to match frontend Contradiction interface
+      const contradictions = result.conflicts.map((conflict) => ({
+        id: conflict.id,
+        type: conflict.type,
+        severity: conflict.severity,
+        description: conflict.explanation,
+        originalStatement: conflict.historicalStatement,
+        originalSource: {
+          type: conflict.type,
+          id: conflict.id
+            .replace("conflict-", "")
+            .replace("conflict-date-", "")
+            .replace("conflict-amount-", "")
+            .replace("conflict-reversal-", "")
+            .replace("conflict-statement-", ""),
+          title: conflict.historicalStatement.slice(0, 50),
+          date: conflict.historicalDate,
+        },
+        conflictingText: conflict.draftStatement,
+        confidence: result.score / 100,
+        suggestion: result.suggestions[0]?.suggestedText,
+      }));
+
+      return {
+        contradictions,
+        hasContradictions: result.hasContradiction,
+        severity: result.severity,
+        score: result.score,
+        suggestions: result.suggestions,
       };
     }),
 });

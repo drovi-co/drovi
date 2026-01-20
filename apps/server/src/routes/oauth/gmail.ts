@@ -197,7 +197,7 @@ gmailOAuth.get("/callback", async (c) => {
               syncEnabled: true,
               syncFrequencyMinutes: 5,
               backfillDays: 90,
-              watchExpiration: watchResult.expiration,
+              watchExpiration: Number(watchResult.expiration),
             },
           })
           .where(eq(emailAccount.id, accountId));

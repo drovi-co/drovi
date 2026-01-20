@@ -23,17 +23,17 @@ export function MagicLinkEmail({
   return (
     <Html>
       <Head />
-      <Preview>Your sign-in link for MemoryStack</Preview>
+      <Preview>Your sign-in link for Drovi</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Sign in to MemoryStack</Heading>
+          <Heading style={h1}>Sign in to Drovi</Heading>
           <Text style={text}>
-            Click the button below to sign in to your MemoryStack account. This
-            link will expire in {expiresIn}.
+            Click the button below to sign in to your Drovi account. This link
+            will expire in {expiresIn}.
           </Text>
           <Section style={buttonContainer}>
             <Button href={magicLink} style={button}>
-              Sign in to MemoryStack
+              Sign in to Drovi
             </Button>
           </Section>
           <Text style={text}>

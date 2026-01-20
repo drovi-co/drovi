@@ -6,7 +6,13 @@
 // Each encryption produces unique output due to random IV.
 //
 
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { env } from "@memorystack/env/server";
 
 // =============================================================================
@@ -242,8 +248,12 @@ export function isTokenEncryptionConfigured(): boolean {
 export function safeEncryptToken(plaintext: string): string {
   if (!isTokenEncryptionConfigured()) {
     // Only warn once per process to avoid log spam
-    if (typeof globalThis !== "undefined" && !(globalThis as Record<string, boolean>).__encryptionWarned) {
-      (globalThis as Record<string, boolean>).__encryptionWarned = true;
+    if (
+      typeof globalThis !== "undefined" &&
+      !(globalThis as unknown as Record<string, boolean>).__encryptionWarned
+    ) {
+      (globalThis as unknown as Record<string, boolean>).__encryptionWarned =
+        true;
       // Can't import logger here due to circular deps, but this warning is important for dev
       // biome-ignore lint/suspicious/noConsole: Warning for dev only
       console.warn(

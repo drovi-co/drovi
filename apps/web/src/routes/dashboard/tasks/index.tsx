@@ -25,15 +25,21 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import { SourceIcon } from "@/components/inbox/source-icon";
+// Import shared task components
+import {
+  formatDueDate,
+  PRIORITY_CONFIG,
+  STATUS_CONFIG,
+  type TaskData,
+  TaskKanbanBoard,
+  type TaskPriority,
+  type TaskSourceType,
+  type TaskStatus,
+} from "@/components/tasks";
+import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { PriorityIcon, type Priority } from "@/components/ui/priority-icon";
-import { StatusIcon, type Status } from "@/components/ui/status-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
-import { SourceIcon } from "@/components/inbox/source-icon";
-import { type SourceType } from "@/lib/source-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +47,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { IssueCheckbox } from "@/components/ui/issue-checkbox";
+import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import {
   Select,
   SelectContent,
@@ -49,34 +57,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
+import type { SourceType } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
-
-// Import shared task components
-import {
-  TaskKanbanBoard,
-  STATUS_CONFIG,
-  PRIORITY_CONFIG,
-  SOURCE_TYPE_CONFIG,
-  formatDueDate,
-  type TaskData,
-  type TaskStatus,
-  type TaskPriority,
-  type TaskSourceType,
-} from "@/components/tasks";
 
 // =============================================================================
 // FIXED COLUMN WIDTHS (matching inbox-row.tsx)
 // =============================================================================
 
 const COL = {
-  checkbox: "w-7",      // 28px
-  priority: "w-7",      // 28px
-  source: "w-6",        // 24px
-  status: "w-7",        // 28px
-  taskId: "w-[120px]",  // 120px - matches sender column in inbox
+  checkbox: "w-7", // 28px
+  priority: "w-7", // 28px
+  source: "w-6", // 24px
+  status: "w-7", // 28px
+  taskId: "w-[120px]", // 120px - matches sender column in inbox
 } as const;
 
 // =============================================================================
@@ -100,14 +97,19 @@ type ViewMode = "list" | "kanban";
 function TasksPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
+  const { data: activeOrg, isPending: orgLoading } =
+    authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
   // State
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "all">("all");
-  const [sourceTypeFilter, setSourceTypeFilter] = useState<TaskSourceType | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "all">(
+    "all"
+  );
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<
+    TaskSourceType | "all"
+  >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -183,7 +185,9 @@ function TasksPage() {
       // j/k navigation
       if (e.key === "j" || e.key === "k") {
         const tasksList = tasksData?.tasks ?? [];
-        const currentIndex = tasksList.findIndex((t) => t.id === selectedTaskId);
+        const currentIndex = tasksList.findIndex(
+          (t) => t.id === selectedTaskId
+        );
         if (e.key === "j" && currentIndex < tasksList.length - 1) {
           setSelectedTaskId(tasksList[currentIndex + 1]?.id ?? null);
         }
@@ -236,6 +240,25 @@ function TasksPage() {
     [updatePriorityMutation, organizationId]
   );
 
+  const handleStar = useCallback((_taskId: string) => {
+    // Tasks don't have a native star feature
+    // Show info message suggesting to use priority instead
+    toast.info("Use priority levels to highlight important tasks");
+  }, []);
+
+  const handleArchive = useCallback(
+    (taskId: string) => {
+      // Archive by setting status to cancelled
+      updateStatusMutation.mutate({
+        organizationId,
+        taskId,
+        status: "cancelled",
+      });
+      toast.success("Task archived");
+    },
+    [updateStatusMutation, organizationId]
+  );
+
   const handleSelectTask = useCallback((id: string, selected: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -268,6 +291,11 @@ function TasksPage() {
     priority: t.priority as TaskPriority,
     sourceType: t.sourceType as TaskSourceType,
     dueDate: t.dueDate ? new Date(t.dueDate) : null,
+    completedAt: (t as { completedAt?: string | Date | null }).completedAt
+      ? new Date(
+          (t as { completedAt?: string | Date }).completedAt as string | Date
+        )
+      : null,
     assignee: t.assignee,
     labels: t.labels ?? [],
     metadata: t.metadata,
@@ -289,16 +317,16 @@ function TasksPage() {
 
   const stats = statsData ?? {
     total: 0,
-    byStatus: {},
-    byPriority: {},
-    bySourceType: {},
+    byStatus: {} as Record<TaskStatus, number>,
+    byPriority: {} as Record<TaskPriority, number>,
+    bySourceType: {} as Record<TaskSourceType, number>,
     overdueCount: 0,
     dueThisWeek: 0,
   };
 
   if (orgLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Skeleton className="h-8 w-48" />
       </div>
     );
@@ -306,66 +334,83 @@ function TasksPage() {
 
   if (!organizationId) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Select an organization to view tasks</p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">
+          Select an organization to view tasks
+        </p>
       </div>
     );
   }
 
   return (
-    <div data-no-shell-padding className="h-full">
-      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+    <div className="h-full" data-no-shell-padding>
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
         {/* Header */}
         <div className="border-b bg-background">
           <div className="flex items-center justify-between px-4 py-2">
             {/* Status Tabs */}
             <Tabs
-              value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as TaskStatus | "all")}
+              value={statusFilter}
             >
-              <TabsList className="h-8 bg-transparent gap-1">
+              <TabsList className="h-8 gap-1 bg-transparent">
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="all"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   All
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {stats.total}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="backlog"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   Backlog
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {stats.byStatus?.backlog ?? 0}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="todo"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   Todo
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {stats.byStatus?.todo ?? 0}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="in_progress"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   In Progress
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {stats.byStatus?.in_progress ?? 0}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="done"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   Done
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {stats.byStatus?.done ?? 0}
                   </Badge>
                 </TabsTrigger>
@@ -376,8 +421,10 @@ function TasksPage() {
             <div className="flex items-center gap-2">
               {/* Source Type Filter */}
               <Select
+                onValueChange={(v) =>
+                  setSourceTypeFilter(v as TaskSourceType | "all")
+                }
                 value={sourceTypeFilter}
-                onValueChange={(v) => setSourceTypeFilter(v as TaskSourceType | "all")}
               >
                 <SelectTrigger className="h-8 w-[130px] text-sm">
                   <SelectValue placeholder="Source" />
@@ -393,8 +440,10 @@ function TasksPage() {
 
               {/* Priority Filter */}
               <Select
+                onValueChange={(v) =>
+                  setPriorityFilter(v as TaskPriority | "all")
+                }
                 value={priorityFilter}
-                onValueChange={(v) => setPriorityFilter(v as TaskPriority | "all")}
               >
                 <SelectTrigger className="h-8 w-[110px] text-sm">
                   <SelectValue placeholder="Priority" />
@@ -411,49 +460,49 @@ function TasksPage() {
 
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  className="h-8 w-[180px] pl-8 text-sm"
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search tasks..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 w-[180px] pl-8 text-sm"
                 />
               </div>
 
               {/* View Toggle */}
-              <div className="flex items-center gap-0.5 border rounded-md p-0.5">
+              <div className="flex items-center gap-0.5 rounded-md border p-0.5">
                 <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
                   className="h-7 w-7"
                   onClick={() => setViewMode("list")}
+                  size="icon"
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
                 >
                   <List className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant={viewMode === "kanban" ? "secondary" : "ghost"}
-                  size="icon"
                   className="h-7 w-7"
                   onClick={() => setViewMode("kanban")}
+                  size="icon"
+                  variant={viewMode === "kanban" ? "secondary" : "ghost"}
                 >
                   <Kanban className="h-4 w-4" />
                 </Button>
               </div>
 
               <Button
-                variant="ghost"
-                size="icon"
                 className="h-8 w-8"
                 onClick={() => refetch()}
+                size="icon"
+                variant="ghost"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
 
               {/* Keyboard hints */}
-              <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-                <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
+              <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
+                <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
                 <span>nav</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-muted">v</kbd>
+                <kbd className="rounded bg-muted px-1.5 py-0.5">v</kbd>
                 <span>view</span>
               </div>
             </div>
@@ -469,30 +518,32 @@ function TasksPage() {
               <TaskEmptyState />
             ) : (
               <TaskListView
-                tasks={tasks}
-                tasksByStatus={tasksByStatus}
-                selectedTaskId={selectedTaskId}
-                selectedIds={selectedIds}
-                onSelectTask={handleSelectTask}
+                onArchive={handleArchive}
+                onPriorityChange={handlePriorityChange}
                 onSelectAll={handleSelectAll}
+                onSelectTask={handleSelectTask}
+                onStar={handleStar}
+                onStatusChange={handleStatusChange}
                 onTaskClick={(id) => {
                   setSelectedTaskId(id);
                   handleOpenTask(id);
                 }}
-                onStatusChange={handleStatusChange}
-                onPriorityChange={handlePriorityChange}
+                selectedIds={selectedIds}
+                selectedTaskId={selectedTaskId}
                 showGroupHeaders={statusFilter === "all"}
+                tasks={tasks}
+                tasksByStatus={tasksByStatus}
               />
             )
           ) : (
             <TaskKanbanBoard
-              tasks={tasks}
-              organizationId={organizationId}
+              columns={["backlog", "todo", "in_progress", "in_review", "done"]}
               onTaskClick={(id) => {
                 setSelectedTaskId(id);
                 handleOpenTask(id);
               }}
-              columns={["backlog", "todo", "in_progress", "in_review", "done"]}
+              organizationId={organizationId}
+              tasks={tasks}
             />
           )}
         </div>
@@ -518,6 +569,8 @@ interface TaskListViewProps {
   onTaskClick: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onPriorityChange: (id: string, priority: TaskPriority) => void;
+  onStar: (id: string) => void;
+  onArchive: (id: string) => void;
   showGroupHeaders: boolean;
 }
 
@@ -531,9 +584,18 @@ function TaskListView({
   onTaskClick,
   onStatusChange,
   onPriorityChange,
+  onStar,
+  onArchive,
   showGroupHeaders,
 }: TaskListViewProps) {
-  const statusOrder: TaskStatus[] = ["backlog", "todo", "in_progress", "in_review", "done", "cancelled"];
+  const statusOrder: TaskStatus[] = [
+    "backlog",
+    "todo",
+    "in_progress",
+    "in_review",
+    "done",
+    "cancelled",
+  ];
 
   // Collapsed state for each section (backlog collapsed by default)
   const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(
@@ -541,7 +603,9 @@ function TaskListView({
   );
 
   // Expanded items count per section (for pagination)
-  const [expandedCounts, setExpandedCounts] = useState<Record<TaskStatus, number>>({
+  const [expandedCounts, setExpandedCounts] = useState<
+    Record<TaskStatus, number>
+  >({
     backlog: ITEMS_PER_SECTION,
     todo: ITEMS_PER_SECTION,
     in_progress: ITEMS_PER_SECTION,
@@ -570,7 +634,9 @@ function TaskListView({
   }, []);
 
   // Pagination state for flat list view - MUST be before any early returns
-  const [flatListVisibleCount, setFlatListVisibleCount] = useState(ITEMS_PER_SECTION * 2);
+  const [flatListVisibleCount, setFlatListVisibleCount] = useState(
+    ITEMS_PER_SECTION * 2
+  );
 
   const showMoreFlatList = useCallback(() => {
     setFlatListVisibleCount((prev) => prev + ITEMS_PER_SECTION * 2);
@@ -592,38 +658,43 @@ function TaskListView({
 
           // Map status to StatusIcon status type
           const iconStatus: Status =
-            status === "backlog" ? "backlog" :
-            status === "todo" ? "todo" :
-            status === "in_progress" ? "in_progress" :
-            status === "in_review" ? "in_progress" :
-            status === "done" ? "done" :
-            "canceled";
+            status === "backlog"
+              ? "backlog"
+              : status === "todo"
+                ? "todo"
+                : status === "in_progress"
+                  ? "in_progress"
+                  : status === "in_review"
+                    ? "in_progress"
+                    : status === "done"
+                      ? "done"
+                      : "canceled";
 
           return (
             <div key={status}>
               {/* Group Header - Collapsible */}
               <button
-                type="button"
-                onClick={() => toggleSection(status)}
                 className={cn(
-                  "sticky top-0 z-10 w-full flex items-center gap-2 px-3 py-2",
-                  "bg-[#1a1b26] border-b border-[#2a2b3d]",
-                  "text-sm font-medium cursor-pointer",
-                  "hover:bg-[#21232e] transition-colors"
+                  "sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2",
+                  "border-border border-b bg-card",
+                  "cursor-pointer font-medium text-sm",
+                  "transition-colors hover:bg-muted"
                 )}
+                onClick={() => toggleSection(status)}
+                type="button"
               >
                 {/* Collapse/Expand Icon */}
                 {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-[#858699] shrink-0" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-[#858699] shrink-0" />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
                 {/* Status Icon */}
-                <StatusIcon status={iconStatus} size="sm" />
+                <StatusIcon size="sm" status={iconStatus} />
                 {/* Label */}
-                <span className="text-[#eeeffc]">{config.label}</span>
+                <span className="text-foreground">{config.label}</span>
                 {/* Count Badge */}
-                <span className="text-[12px] text-[#858699] ml-1">
+                <span className="ml-1 text-muted-foreground text-[12px]">
                   {statusTasks.length}
                 </span>
               </button>
@@ -633,32 +704,37 @@ function TaskListView({
                 <>
                   {visibleTasks.map((task) => (
                     <TaskRow
-                      key={task.id}
-                      task={task}
-                      isSelected={selectedIds.has(task.id)}
                       isActive={selectedTaskId === task.id}
-                      onSelect={onSelectTask}
+                      isSelected={selectedIds.has(task.id)}
+                      key={task.id}
+                      onArchive={onArchive}
                       onClick={() => onTaskClick(task.id)}
-                      onStatusChange={onStatusChange}
                       onPriorityChange={onPriorityChange}
+                      onSelect={onSelectTask}
+                      onStar={onStar}
+                      onStatusChange={onStatusChange}
+                      task={task}
                     />
                   ))}
 
                   {/* Show More Button */}
                   {hasMore && (
                     <button
-                      type="button"
-                      onClick={() => showMoreItems(status)}
                       className={cn(
-                        "w-full flex items-center justify-center gap-2 py-2 px-4",
-                        "text-[13px] text-[#5e6ad2] hover:text-[#7c85e0]",
-                        "bg-[#1a1b26] hover:bg-[#21232e]",
-                        "border-b border-[#2a2b3d]",
-                        "transition-colors cursor-pointer"
+                        "flex w-full items-center justify-center gap-2 px-4 py-2",
+                        "text-secondary text-[13px] hover:text-secondary",
+                        "bg-card hover:bg-muted",
+                        "border-border border-b",
+                        "cursor-pointer transition-colors"
                       )}
+                      onClick={() => showMoreItems(status)}
+                      type="button"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
-                      <span>Show {Math.min(remainingCount, ITEMS_PER_SECTION)} more ({remainingCount} remaining)</span>
+                      <span>
+                        Show {Math.min(remainingCount, ITEMS_PER_SECTION)} more
+                        ({remainingCount} remaining)
+                      </span>
                     </button>
                   )}
                 </>
@@ -680,15 +756,26 @@ function TaskListView({
       {/* List Header - matches inbox-row.tsx layout exactly */}
       <div
         className={cn(
-          "flex items-center h-8 px-3",
-          "bg-[#13141B] border-b border-[#1E1F2E]",
-          "text-[11px] font-medium text-[#6B7280] uppercase tracking-wider"
+          "flex h-8 items-center px-3",
+          "border-border border-b bg-background",
+          "font-medium text-muted-foreground text-[11px] uppercase tracking-wider"
         )}
       >
         {/* Checkbox */}
-        <div className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}>
+        <div
+          className={cn(
+            COL.checkbox,
+            "flex shrink-0 items-center justify-center"
+          )}
+        >
           <IssueCheckbox
-            checked={selectedIds.size === tasks.length && tasks.length > 0 ? true : selectedIds.size > 0 ? "indeterminate" : false}
+            checked={
+              selectedIds.size === tasks.length && tasks.length > 0
+                ? true
+                : selectedIds.size > 0
+                  ? "indeterminate"
+                  : false
+            }
             onCheckedChange={(checked) => onSelectAll(checked)}
             size="sm"
           />
@@ -704,9 +791,9 @@ function TaskListView({
         {/* Title */}
         <div className="flex-1 px-2">Title</div>
         {/* Right section - fixed width matches row layout */}
-        <div className="shrink-0 w-[140px] flex items-center justify-end">
+        <div className="flex w-[140px] shrink-0 items-center justify-end">
           <div className="flex items-center gap-1.5">
-            <span className="w-14 text-right whitespace-nowrap">Due</span>
+            <span className="w-14 whitespace-nowrap text-right">Due</span>
             <div className="w-7" />
             <div className="w-7" />
           </div>
@@ -716,37 +803,42 @@ function TaskListView({
       {/* Tasks */}
       {visibleTasks.map((task) => (
         <TaskRow
-          key={task.id}
-          task={task}
-          isSelected={selectedIds.has(task.id)}
           isActive={selectedTaskId === task.id}
-          onSelect={onSelectTask}
+          isSelected={selectedIds.has(task.id)}
+          key={task.id}
+          onArchive={onArchive}
           onClick={() => onTaskClick(task.id)}
-          onStatusChange={onStatusChange}
           onPriorityChange={onPriorityChange}
+          onSelect={onSelectTask}
+          onStar={onStar}
+          onStatusChange={onStatusChange}
+          task={task}
         />
       ))}
 
       {/* Show More Button */}
       {hasMoreTasks && (
         <button
-          type="button"
-          onClick={showMoreFlatList}
           className={cn(
-            "w-full flex items-center justify-center gap-2 py-3 px-4",
-            "text-[13px] text-[#5e6ad2] hover:text-[#7c85e0]",
-            "bg-[#1a1b26] hover:bg-[#21232e]",
-            "border-b border-[#2a2b3d]",
-            "transition-colors cursor-pointer"
+            "flex w-full items-center justify-center gap-2 px-4 py-3",
+            "text-secondary text-[13px] hover:text-secondary",
+            "bg-card hover:bg-muted",
+            "border-border border-b",
+            "cursor-pointer transition-colors"
           )}
+          onClick={showMoreFlatList}
+          type="button"
         >
           <ChevronDown className="h-3.5 w-3.5" />
-          <span>Show {Math.min(remainingTasks, ITEMS_PER_SECTION * 2)} more ({remainingTasks} remaining)</span>
+          <span>
+            Show {Math.min(remainingTasks, ITEMS_PER_SECTION * 2)} more (
+            {remainingTasks} remaining)
+          </span>
         </button>
       )}
 
       {/* Total count footer */}
-      <div className="py-2 px-4 text-[11px] text-[#4c4f6b] text-center border-t border-[#2a2b3d]">
+      <div className="border-border border-t px-4 py-2 text-center text-muted-foreground text-[11px]">
         Showing {visibleTasks.length} of {tasks.length} tasks
       </div>
     </div>
@@ -760,25 +852,38 @@ function TaskListView({
 // Map task status to status icon status
 function mapStatus(status: TaskStatus): Status {
   switch (status) {
-    case "backlog": return "backlog";
-    case "todo": return "todo";
-    case "in_progress": return "in_progress";
-    case "in_review": return "in_progress";
-    case "done": return "done";
-    case "cancelled": return "canceled";
-    default: return "todo";
+    case "backlog":
+      return "backlog";
+    case "todo":
+      return "todo";
+    case "in_progress":
+      return "in_progress";
+    case "in_review":
+      return "in_progress";
+    case "done":
+      return "done";
+    case "cancelled":
+      return "canceled";
+    default:
+      return "todo";
   }
 }
 
 // Map task priority to priority icon priority
 function mapPriority(priority: TaskPriority): Priority {
   switch (priority) {
-    case "urgent": return "urgent";
-    case "high": return "high";
-    case "medium": return "medium";
-    case "low": return "low";
-    case "no_priority": return "none";
-    default: return "none";
+    case "urgent":
+      return "urgent";
+    case "high":
+      return "high";
+    case "medium":
+      return "medium";
+    case "low":
+      return "low";
+    case "no_priority":
+      return "none";
+    default:
+      return "none";
   }
 }
 
@@ -799,12 +904,16 @@ interface TaskSourceDisplayProps {
 
 // Source type colors for commitment/decision/manual
 const TASK_SOURCE_COLORS = {
-  commitment: "#3B82F6",  // Blue - represents promises/agreements
-  decision: "#8B5CF6",    // Purple - represents choices/rulings
-  manual: "#6B7280",      // Gray - user-created tasks
+  commitment: "#3B82F6", // Blue - represents promises/agreements
+  decision: "#8B5CF6", // Purple - represents choices/rulings
+  manual: "#6B7280", // Gray - user-created tasks
 } as const;
 
-function TaskSourceDisplay({ sourceType, metadata, size = "sm" }: TaskSourceDisplayProps) {
+function TaskSourceDisplay({
+  sourceType,
+  metadata,
+  size = "sm",
+}: TaskSourceDisplayProps) {
   const sizeClasses = {
     xs: "size-3",
     sm: "size-4",
@@ -814,17 +923,31 @@ function TaskSourceDisplay({ sourceType, metadata, size = "sm" }: TaskSourceDisp
   // For conversations, use the actual source from metadata
   if (sourceType === "conversation") {
     const actualSource = metadata?.sourceAccountType as SourceType | undefined;
-    if (actualSource && ["email", "slack", "whatsapp", "calendar", "notion", "google_docs", "teams", "discord", "linear", "github"].includes(actualSource)) {
-      return <SourceIcon sourceType={actualSource} size={size} />;
+    if (
+      actualSource &&
+      [
+        "email",
+        "slack",
+        "whatsapp",
+        "calendar",
+        "notion",
+        "google_docs",
+        "teams",
+        "discord",
+        "linear",
+        "github",
+      ].includes(actualSource)
+    ) {
+      return <SourceIcon size={size} sourceType={actualSource} />;
     }
     // Default to email if no metadata
-    return <SourceIcon sourceType="email" size={size} />;
+    return <SourceIcon size={size} sourceType="email" />;
   }
 
   // For commitments, show handshake icon
   if (sourceType === "commitment") {
     return (
-      <div className="flex items-center justify-center shrink-0">
+      <div className="flex shrink-0 items-center justify-center">
         <Handshake
           className={sizeClasses[size]}
           style={{ color: TASK_SOURCE_COLORS.commitment }}
@@ -836,7 +959,7 @@ function TaskSourceDisplay({ sourceType, metadata, size = "sm" }: TaskSourceDisp
   // For decisions, show gavel icon
   if (sourceType === "decision") {
     return (
-      <div className="flex items-center justify-center shrink-0">
+      <div className="flex shrink-0 items-center justify-center">
         <Gavel
           className={sizeClasses[size]}
           style={{ color: TASK_SOURCE_COLORS.decision }}
@@ -847,7 +970,7 @@ function TaskSourceDisplay({ sourceType, metadata, size = "sm" }: TaskSourceDisp
 
   // For manual tasks, show clipboard icon
   return (
-    <div className="flex items-center justify-center shrink-0">
+    <div className="flex shrink-0 items-center justify-center">
       <ClipboardList
         className={sizeClasses[size]}
         style={{ color: TASK_SOURCE_COLORS.manual }}
@@ -869,6 +992,8 @@ interface TaskRowProps {
   onClick: () => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onPriorityChange: (id: string, priority: TaskPriority) => void;
+  onStar?: (id: string) => void;
+  onArchive?: (id: string) => void;
 }
 
 function TaskRow({
@@ -879,6 +1004,8 @@ function TaskRow({
   onClick,
   onStatusChange,
   onPriorityChange,
+  onStar,
+  onArchive,
 }: TaskRowProps) {
   const dueInfo = formatDueDate(task.dueDate);
   const iconStatus = mapStatus(task.status);
@@ -887,20 +1014,24 @@ function TaskRow({
   return (
     <div
       className={cn(
-        "group flex items-center h-10",
+        "group flex h-10 items-center",
         "cursor-pointer transition-colors duration-100",
-        "border-b border-[#1E1F2E]",
-        isSelected && "bg-[#252736]",
-        isActive && "bg-[#252736] border-l-2 border-l-[#5E6AD2] pl-[calc(0.75rem-2px)]",
+        "border-border border-b",
+        isSelected && "bg-accent",
+        isActive &&
+          "border-l-2 border-l-secondary bg-accent pl-[calc(0.75rem-2px)]",
         !isActive && "pl-3",
         "pr-3",
-        !isSelected && !isActive && "hover:bg-[#1E1F2E]"
+        !(isSelected || isActive) && "hover:bg-muted"
       )}
       onClick={onClick}
     >
       {/* Checkbox - fixed width */}
       <div
-        className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <IssueCheckbox
@@ -912,12 +1043,15 @@ function TaskRow({
 
       {/* Priority - fixed width */}
       <div
-        className={cn(COL.priority, "h-7 shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.priority,
+          "flex h-7 shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1 rounded-[4px] hover:bg-[#292B41] transition-colors">
+            <button className="rounded-[4px] p-1 transition-colors hover:bg-accent">
               <PriorityIcon priority={iconPriority} size="sm" />
             </button>
           </DropdownMenuTrigger>
@@ -925,9 +1059,14 @@ function TaskRow({
             {Object.entries(PRIORITY_CONFIG).map(([priority, config]) => (
               <DropdownMenuItem
                 key={priority}
-                onClick={() => onPriorityChange(task.id, priority as TaskPriority)}
+                onClick={() =>
+                  onPriorityChange(task.id, priority as TaskPriority)
+                }
               >
-                <PriorityIcon priority={mapPriority(priority as TaskPriority)} size="sm" />
+                <PriorityIcon
+                  priority={mapPriority(priority as TaskPriority)}
+                  size="sm"
+                />
                 <span className="ml-2">{config.label}</span>
               </DropdownMenuItem>
             ))}
@@ -936,23 +1075,28 @@ function TaskRow({
       </div>
 
       {/* Source - fixed width, smart icon based on task type */}
-      <div className={cn(COL.source, "shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(COL.source, "flex shrink-0 items-center justify-center")}
+      >
         <TaskSourceDisplay
-          sourceType={task.sourceType}
           metadata={task.metadata}
           size="sm"
+          sourceType={task.sourceType}
         />
       </div>
 
       {/* Status - fixed width */}
       <div
-        className={cn(COL.status, "h-7 shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.status,
+          "flex h-7 shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1 rounded-[4px] hover:bg-[#292B41] transition-colors">
-              <StatusIcon status={iconStatus} size="sm" />
+            <button className="rounded-[4px] p-1 transition-colors hover:bg-accent">
+              <StatusIcon size="sm" status={iconStatus} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -961,7 +1105,10 @@ function TaskRow({
                 key={status}
                 onClick={() => onStatusChange(task.id, status as TaskStatus)}
               >
-                <StatusIcon status={mapStatus(status as TaskStatus)} size="sm" />
+                <StatusIcon
+                  size="sm"
+                  status={mapStatus(status as TaskStatus)}
+                />
                 <span className="ml-2">{config.label}</span>
               </DropdownMenuItem>
             ))}
@@ -971,37 +1118,39 @@ function TaskRow({
 
       {/* Task ID - fixed width (matches sender column in inbox) */}
       <div className={cn(COL.taskId, "shrink-0 px-1")}>
-        <span className="text-[13px] truncate block font-medium text-[#EEEFFC]">
+        <span className="block truncate font-medium text-foreground text-[13px]">
           {getTaskIdDisplay(task)}
         </span>
       </div>
 
       {/* Title - flexible width, takes remaining space */}
-      <div className="flex-1 min-w-0 px-2">
-        <span className="text-[13px] font-normal text-[#6B7280] truncate block">
+      <div className="min-w-0 flex-1 px-2">
+        <span className="block truncate font-normal text-muted-foreground text-[13px]">
           {task.title}
         </span>
       </div>
 
       {/* Right section - fixed width, perfectly aligned (matches inbox exactly) */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         {/* Default state: Date + Assignee + Labels - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Date - fixed width, right aligned text */}
-          <span className={cn(
-            "w-14 text-right text-[12px] font-normal whitespace-nowrap",
-            dueInfo?.className ?? "text-[#6B7280]"
-          )}>
+          <span
+            className={cn(
+              "w-14 whitespace-nowrap text-right font-normal text-[12px]",
+              dueInfo?.className ?? "text-muted-foreground"
+            )}
+          >
             {dueInfo?.text ?? ""}
           </span>
 
           {/* Assignee - fixed width */}
-          <div className="w-7 h-7 flex items-center justify-center">
+          <div className="flex h-7 w-7 items-center justify-center">
             {task.assignee ? (
               <AssigneeIcon
-                name={task.assignee.name ?? undefined}
                 email={task.assignee.email}
                 imageUrl={task.assignee.image ?? undefined}
+                name={task.assignee.name ?? undefined}
                 size="xs"
               />
             ) : (
@@ -1010,13 +1159,13 @@ function TaskRow({
           </div>
 
           {/* Labels indicator or spacer */}
-          <div className="w-7 flex items-center justify-center">
+          <div className="flex w-7 items-center justify-center">
             {task.labels.length > 0 ? (
               <div className="flex items-center gap-0.5">
                 {task.labels.slice(0, 2).map((label) => (
                   <span
+                    className="h-2 w-2 rounded-full"
                     key={label.id}
-                    className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: label.color }}
                     title={label.name}
                   />
@@ -1027,36 +1176,36 @@ function TaskRow({
         </div>
 
         {/* Hover state: Actions - replaces entire section */}
-        <div className="hidden group-hover:flex items-center justify-end gap-0.5">
+        <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           <button
-            type="button"
+            aria-label="Star"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
-              // Star action - placeholder
+              onStar?.(task.id);
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Star"
+            type="button"
           >
             <Star className="size-4" />
           </button>
           <button
-            type="button"
+            aria-label="Archive"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
-              // Archive action - placeholder
+              onArchive?.(task.id);
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Archive"
+            type="button"
           >
             <Archive className="size-4" />
           </button>
@@ -1066,7 +1215,6 @@ function TaskRow({
   );
 }
 
-
 // =============================================================================
 // LOADING & EMPTY STATES
 // =============================================================================
@@ -1075,23 +1223,23 @@ function TaskListSkeleton() {
   return (
     <div>
       {[...Array(10)].map((_, i) => (
-        <div key={i} className="flex items-center h-10 px-3 border-b">
-          <div className="w-7 shrink-0 flex items-center justify-center">
+        <div className="flex h-10 items-center border-b px-3" key={i}>
+          <div className="flex w-7 shrink-0 items-center justify-center">
             <Skeleton className="h-4 w-4 rounded" />
           </div>
-          <div className="w-8 shrink-0 flex items-center justify-center">
+          <div className="flex w-8 shrink-0 items-center justify-center">
             <Skeleton className="h-4 w-4 rounded-full" />
           </div>
-          <div className="w-8 shrink-0 flex items-center justify-center">
+          <div className="flex w-8 shrink-0 items-center justify-center">
             <Skeleton className="h-2 w-2 rounded-full" />
           </div>
           <div className="w-[100px] shrink-0 px-1">
             <Skeleton className="h-3 w-16" />
           </div>
-          <div className="flex-1 min-w-0 px-2">
+          <div className="min-w-0 flex-1 px-2">
             <Skeleton className="h-3 w-3/4" />
           </div>
-          <div className="shrink-0 w-[100px] flex justify-end px-2">
+          <div className="flex w-[100px] shrink-0 justify-end px-2">
             <Skeleton className="h-3 w-12" />
           </div>
         </div>
@@ -1102,13 +1250,14 @@ function TaskListSkeleton() {
 
 function TaskEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+    <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-medium">No tasks found</h3>
-      <p className="text-sm text-muted-foreground mt-1">
-        Tasks are automatically created from conversations, commitments, and decisions
+      <h3 className="font-medium text-lg">No tasks found</h3>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Tasks are automatically created from conversations, commitments, and
+        decisions
       </p>
     </div>
   );

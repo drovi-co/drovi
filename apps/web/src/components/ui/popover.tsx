@@ -34,7 +34,6 @@ function PopoverContent({
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         align={align}
-        sideOffset={sideOffset}
         className={cn(
           "z-50 w-72 overflow-hidden outline-none",
           // Linear popover styling
@@ -42,7 +41,7 @@ function PopoverContent({
           "bg-popover text-popover-foreground",
           "p-4 shadow-dropdown",
           // Animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
           "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
@@ -50,6 +49,7 @@ function PopoverContent({
           className
         )}
         data-slot="popover-content"
+        sideOffset={sideOffset}
         {...props}
       />
     </PopoverPrimitive.Portal>

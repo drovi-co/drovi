@@ -5,6 +5,6 @@ export const Route = createFileRoute("/dashboard/")({
 });
 
 function DashboardIndex() {
-  // Redirect to Inbox (Email) as the default page
-  return <Navigate to="/dashboard/email" />;
+  // Redirect to Smart Inbox as the default page
+  return <Navigate to="/dashboard/inbox" />;
 }

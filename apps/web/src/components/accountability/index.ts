@@ -6,5 +6,5 @@
 // and maintain the audit trail of organizational memory.
 //
 
-export { OpenLoopsDashboard } from "./open-loops-dashboard";
 export { ComplianceExport } from "./compliance-export";
+export { OpenLoopsDashboard } from "./open-loops-dashboard";

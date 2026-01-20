@@ -7,6 +7,7 @@
 // data like channel metadata and team info.
 //
 
+import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -18,7 +19,6 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import { randomUUID } from "node:crypto";
 import { sourceAccount } from "./sources";
 
 // =============================================================================

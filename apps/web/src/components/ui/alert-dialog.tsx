@@ -45,7 +45,7 @@ function AlertDialogOverlay({
       className={cn(
         "fixed inset-0 z-50",
         "bg-black/60 backdrop-blur-sm",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:animate-out data-[state=open]:animate-in",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         className
       )}
@@ -69,11 +69,11 @@ function AlertDialogContent({
           "w-full max-w-[420px]",
           "grid gap-4 p-6",
           // Linear-style card background
-          "bg-card border border-border rounded-[6px]",
+          "rounded-[6px] border border-border bg-card",
           "shadow-dropdown",
           "outline-none",
           // Animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
           "duration-150",
@@ -105,10 +105,7 @@ function AlertDialogFooter({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-end gap-2 pt-2",
-        className
-      )}
+      className={cn("flex items-center justify-end gap-2 pt-2", className)}
       data-slot="alert-dialog-footer"
       {...props}
     />
@@ -121,7 +118,7 @@ function AlertDialogTitle({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
     <AlertDialogPrimitive.Title
-      className={cn("text-[15px] font-medium text-foreground", className)}
+      className={cn("font-medium text-[15px] text-foreground", className)}
       data-slot="alert-dialog-title"
       {...props}
     />

@@ -45,7 +45,7 @@ function SheetOverlay({
       className={cn(
         "fixed inset-0 z-50",
         "bg-black/60 backdrop-blur-sm",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:animate-out data-[state=open]:animate-in",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         className
       )}
@@ -70,37 +70,41 @@ function SheetContent({
         className={cn(
           "fixed z-50 flex flex-col gap-4",
           // Linear-style card background
-          "bg-card border-border",
+          "border-border bg-card",
           "shadow-dropdown",
           // Animations
           "transition ease-in-out",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=closed]:duration-200 data-[state=open]:duration-300",
           // Side-specific styles
-          side === "right" && [
-            "inset-y-0 right-0 h-full w-[400px] max-w-[90vw]",
-            "border-l",
-            "data-[state=open]:slide-in-from-right",
-            "data-[state=closed]:slide-out-to-right",
-          ].join(" "),
-          side === "left" && [
-            "inset-y-0 left-0 h-full w-[400px] max-w-[90vw]",
-            "border-r",
-            "data-[state=open]:slide-in-from-left",
-            "data-[state=closed]:slide-out-to-left",
-          ].join(" "),
-          side === "top" && [
-            "inset-x-0 top-0 h-auto max-h-[90vh]",
-            "border-b",
-            "data-[state=open]:slide-in-from-top",
-            "data-[state=closed]:slide-out-to-top",
-          ].join(" "),
-          side === "bottom" && [
-            "inset-x-0 bottom-0 h-auto max-h-[90vh]",
-            "border-t",
-            "data-[state=open]:slide-in-from-bottom",
-            "data-[state=closed]:slide-out-to-bottom",
-          ].join(" "),
+          side === "right" &&
+            [
+              "inset-y-0 right-0 h-full w-[400px] max-w-[90vw]",
+              "border-l",
+              "data-[state=open]:slide-in-from-right",
+              "data-[state=closed]:slide-out-to-right",
+            ].join(" "),
+          side === "left" &&
+            [
+              "inset-y-0 left-0 h-full w-[400px] max-w-[90vw]",
+              "border-r",
+              "data-[state=open]:slide-in-from-left",
+              "data-[state=closed]:slide-out-to-left",
+            ].join(" "),
+          side === "top" &&
+            [
+              "inset-x-0 top-0 h-auto max-h-[90vh]",
+              "border-b",
+              "data-[state=open]:slide-in-from-top",
+              "data-[state=closed]:slide-out-to-top",
+            ].join(" "),
+          side === "bottom" &&
+            [
+              "inset-x-0 bottom-0 h-auto max-h-[90vh]",
+              "border-t",
+              "data-[state=open]:slide-in-from-bottom",
+              "data-[state=closed]:slide-out-to-bottom",
+            ].join(" "),
           className
         )}
         data-slot="sheet-content"
@@ -139,7 +143,10 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("mt-auto flex items-center justify-end gap-2 p-4", className)}
+      className={cn(
+        "mt-auto flex items-center justify-end gap-2 p-4",
+        className
+      )}
       data-slot="sheet-footer"
       {...props}
     />
@@ -152,7 +159,7 @@ function SheetTitle({
 }: React.ComponentProps<typeof SheetPrimitive.Title>) {
   return (
     <SheetPrimitive.Title
-      className={cn("text-[15px] font-medium text-foreground", className)}
+      className={cn("font-medium text-[15px] text-foreground", className)}
       data-slot="sheet-title"
       {...props}
     />

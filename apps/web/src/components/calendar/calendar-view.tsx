@@ -1,41 +1,44 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Calendar as CalendarIcon,
-  Loader2,
-} from "lucide-react";
-import {
-  format,
+  addDays,
   addMonths,
   addWeeks,
-  addDays,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  startOfDay,
   endOfDay,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
 } from "date-fns";
-import { cn } from "@/lib/utils";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Plus,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
-import { WeekView } from "./week-view";
-import { MonthView } from "./month-view";
-import { DayView } from "./day-view";
 import { AgendaView } from "./agenda-view";
+import { DayView } from "./day-view";
 import { EventModal } from "./event-modal";
-import type { CalendarEvent, ViewType, CalendarViewProps } from "./types";
+import { MonthView } from "./month-view";
+import type { CalendarEvent, CalendarViewProps, ViewType } from "./types";
+import { WeekView } from "./week-view";
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function getDateRange(date: Date, view: ViewType): { timeMin: Date; timeMax: Date } {
+function getDateRange(
+  date: Date,
+  view: ViewType
+): { timeMin: Date; timeMax: Date } {
   switch (view) {
     case "month": {
       // Get extra days for padding (show days from prev/next month in grid)
@@ -93,8 +96,13 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
   const [view, setView] = useState<ViewType>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<{ date: Date; hour?: number } | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+    null
+  );
+  const [selectedSlot, setSelectedSlot] = useState<{
+    date: Date;
+    hour?: number;
+  } | null>(null);
 
   // Calculate date range based on view
   const { timeMin, timeMax } = useMemo(
@@ -175,54 +183,54 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-background", className)}>
+    <div className={cn("flex h-full flex-col bg-background", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("today")}
             className="text-sm"
+            onClick={() => navigate("today")}
+            size="sm"
+            variant="outline"
           >
             Today
           </Button>
           <div className="flex items-center">
             <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => navigate("prev")}
               aria-label="Previous"
+              onClick={() => navigate("prev")}
+              size="icon-sm"
+              variant="ghost"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => navigate("next")}
               aria-label="Next"
+              onClick={() => navigate("next")}
+              size="icon-sm"
+              variant="ghost"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <h2 className="text-lg font-semibold ml-2">
+          <h2 className="ml-2 font-semibold text-lg">
             {formatDateHeader(currentDate, view)}
           </h2>
         </div>
 
         <div className="flex items-center gap-3">
           {/* View switcher */}
-          <div className="flex border rounded-lg overflow-hidden">
+          <div className="flex overflow-hidden rounded-lg border">
             {(["day", "week", "month", "agenda"] as ViewType[]).map((v) => (
               <Button
-                key={v}
-                variant={view === v ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setView(v)}
                 className={cn(
-                  "capitalize rounded-none border-0",
+                  "rounded-none border-0 capitalize",
                   view === v && "bg-accent"
                 )}
+                key={v}
+                onClick={() => setView(v)}
+                size="sm"
+                variant={view === v ? "secondary" : "ghost"}
               >
                 {v}
               </Button>
@@ -230,7 +238,7 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
           </div>
 
           <Button onClick={handleCreateClick} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="mr-1 h-4 w-4" />
             Create
           </Button>
         </div>
@@ -239,16 +247,16 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
       {/* Calendar Content */}
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex h-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <CalendarIcon className="h-12 w-12 text-muted-foreground/50 mb-3" />
-            <p className="text-sm text-muted-foreground">
+          <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+            <CalendarIcon className="mb-3 h-12 w-12 text-muted-foreground/50" />
+            <p className="text-muted-foreground text-sm">
               Failed to load calendar events
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-muted-foreground text-xs">
               {error.message}
             </p>
           </div>
@@ -256,32 +264,32 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
           <>
             {view === "month" && (
               <MonthView
-                events={events}
                 currentDate={currentDate}
+                events={events}
                 onEventClick={handleEventClick}
                 onSlotClick={handleSlotClick}
               />
             )}
             {view === "week" && (
               <WeekView
-                events={events}
                 currentDate={currentDate}
+                events={events}
                 onEventClick={handleEventClick}
                 onSlotClick={handleSlotClick}
               />
             )}
             {view === "day" && (
               <DayView
-                events={events}
                 currentDate={currentDate}
+                events={events}
                 onEventClick={handleEventClick}
                 onSlotClick={handleSlotClick}
               />
             )}
             {view === "agenda" && (
               <AgendaView
-                events={events}
                 currentDate={currentDate}
+                events={events}
                 onEventClick={handleEventClick}
               />
             )}
@@ -291,12 +299,12 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
 
       {/* Event Modal */}
       <EventModal
-        open={showEventModal}
-        onOpenChange={handleModalClose}
-        event={selectedEvent}
+        accountId={accountId}
         defaultDate={selectedSlot?.date}
         defaultHour={selectedSlot?.hour}
-        accountId={accountId}
+        event={selectedEvent}
+        onOpenChange={handleModalClose}
+        open={showEventModal}
       />
     </div>
   );

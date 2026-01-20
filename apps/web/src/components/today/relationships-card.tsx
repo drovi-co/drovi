@@ -6,18 +6,12 @@
 // One-click meeting prep available.
 //
 
-import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
-import {
-  AlertTriangle,
-  ArrowRight,
-  Star,
-  User,
-  Users,
-} from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
+import { AlertTriangle, ArrowRight, Star, User, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 interface Contact {
   id: string;
@@ -76,75 +70,67 @@ export function RelationshipsCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-xl border bg-card"
+      initial={{ opacity: 0, y: 10 }}
       transition={{ delay: 0.4 }}
-      className="bg-card rounded-xl border overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-blue-500/10">
+          <div className="rounded-lg bg-blue-500/10 p-1.5">
             <Users className="h-4 w-4 text-blue-500" />
           </div>
           <h3 className="font-semibold text-sm">Relationships</h3>
           {atRiskContacts.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-700 dark:text-red-400">
+            <span className="rounded-full bg-red-500/20 px-2 py-0.5 font-medium text-red-700 text-xs dark:text-red-400">
               {atRiskContacts.length} at risk
             </span>
           )}
         </div>
         <Link to="/dashboard/contacts">
-          <Button variant="ghost" size="sm" className="text-xs h-7">
+          <Button className="h-7 text-xs" size="sm" variant="ghost">
             All Contacts
-            <ArrowRight className="h-3 w-3 ml-1" />
+            <ArrowRight className="ml-1 h-3 w-3" />
           </Button>
         </Link>
       </div>
 
       {/* Content */}
       <div className="divide-y">
-        {!hasContent ? (
-          <div className="p-6 text-center">
-            <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No relationship alerts</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              All relationships are healthy
-            </p>
-          </div>
-        ) : (
+        {hasContent ? (
           <>
             {/* At-risk contacts */}
             {atRiskDisplay.map((contact, index) => (
               <motion.div
-                key={contact.id}
-                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
+                className="group p-3 transition-colors hover:bg-muted/30"
+                initial={{ opacity: 0, x: -10 }}
+                key={contact.id}
                 transition={{ delay: index * 0.05 }}
-                className="p-3 hover:bg-muted/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
                   <div className="relative">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={contact.avatarUrl ?? undefined} />
-                      <AvatarFallback className="bg-red-500/10 text-red-700 dark:text-red-400 text-xs">
+                      <AvatarFallback className="bg-red-500/10 text-red-700 text-xs dark:text-red-400">
                         {getInitials(contact.displayName, contact.primaryEmail)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute -top-0.5 -right-0.5 p-0.5 bg-background rounded-full">
+                    <div className="absolute -top-0.5 -right-0.5 rounded-full bg-background p-0.5">
                       <AlertTriangle className="h-3 w-3 text-red-500" />
                     </div>
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">
+                      <p className="truncate font-medium text-sm">
                         {contact.displayName || contact.primaryEmail}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
                       {contact.company && (
                         <span className="truncate">{contact.company}</span>
                       )}
@@ -152,9 +138,12 @@ export function RelationshipsCard({
                         <>
                           {contact.company && <span>•</span>}
                           <span className="text-red-500">
-                            {formatDistanceToNow(new Date(contact.lastInteractionAt), {
-                              addSuffix: true,
-                            })}
+                            {formatDistanceToNow(
+                              new Date(contact.lastInteractionAt),
+                              {
+                                addSuffix: true,
+                              }
+                            )}
                           </span>
                         </>
                       )}
@@ -162,20 +151,20 @@ export function RelationshipsCard({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button
-                      variant="outline"
-                      size="sm"
                       className="h-7 text-xs"
                       onClick={() => onMeetingPrep?.(contact.id)}
+                      size="sm"
+                      variant="outline"
                     >
                       Meeting Prep
                     </Button>
                     <Button
-                      variant="ghost"
-                      size="icon"
                       className="h-7 w-7"
                       onClick={() => onContactClick?.(contact.id)}
+                      size="icon"
+                      variant="ghost"
                     >
                       <User className="h-3.5 w-3.5" />
                     </Button>
@@ -187,38 +176,40 @@ export function RelationshipsCard({
             {/* VIP contacts */}
             {vipDisplay.map((contact, index) => (
               <motion.div
-                key={contact.id}
-                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
+                className="group p-3 transition-colors hover:bg-muted/30"
+                initial={{ opacity: 0, x: -10 }}
+                key={contact.id}
                 transition={{ delay: (atRiskDisplay.length + index) * 0.05 }}
-                className="p-3 hover:bg-muted/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
                   <div className="relative">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={contact.avatarUrl ?? undefined} />
-                      <AvatarFallback className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs">
+                      <AvatarFallback className="bg-amber-500/10 text-amber-700 text-xs dark:text-amber-400">
                         {getInitials(contact.displayName, contact.primaryEmail)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute -top-0.5 -right-0.5 p-0.5 bg-background rounded-full">
-                      <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                    <div className="absolute -top-0.5 -right-0.5 rounded-full bg-background p-0.5">
+                      <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
                     </div>
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">
+                      <p className="truncate font-medium text-sm">
                         {contact.displayName || contact.primaryEmail}
                       </p>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 text-xs dark:text-amber-400">
                         VIP
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {contact.title && <span className="truncate">{contact.title}</span>}
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      {contact.title && (
+                        <span className="truncate">{contact.title}</span>
+                      )}
                       {contact.company && (
                         <>
                           {contact.title && <span>•</span>}
@@ -234,7 +225,7 @@ export function RelationshipsCard({
                       <div
                         className={`h-2 w-2 rounded-full ${getHealthClass(contact.healthScore)}`}
                       />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-muted-foreground text-xs">
                         {contact.healthScore
                           ? `${Math.round(contact.healthScore * 100)}%`
                           : "N/A"}
@@ -243,12 +234,12 @@ export function RelationshipsCard({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button
-                      variant="outline"
-                      size="sm"
                       className="h-7 text-xs"
                       onClick={() => onMeetingPrep?.(contact.id)}
+                      size="sm"
+                      variant="outline"
                     >
                       Meeting Prep
                     </Button>
@@ -257,6 +248,16 @@ export function RelationshipsCard({
               </motion.div>
             ))}
           </>
+        ) : (
+          <div className="p-6 text-center">
+            <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-muted-foreground text-sm">
+              No relationship alerts
+            </p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              All relationships are healthy
+            </p>
+          </div>
         )}
       </div>
     </motion.div>

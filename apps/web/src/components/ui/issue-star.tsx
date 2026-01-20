@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  */
 const issueStarVariants = cva(
   [
-    "inline-flex items-center justify-center shrink-0",
+    "inline-flex shrink-0 items-center justify-center",
     "transition-colors duration-150",
     "cursor-pointer",
     "rounded-sm",
@@ -60,24 +60,24 @@ function IssueStar({
 
   return (
     <button
-      type="button"
       aria-label={starred ? "Remove from favorites" : "Add to favorites"}
       aria-pressed={starred}
       className={cn(
         issueStarVariants({ size }),
         starred
           ? "text-[#F2C94C] hover:text-[#F2C94C]/80"
-          : "text-[#4C4F6B] hover:text-[#858699]",
+          : "text-muted-foreground hover:text-muted-foreground",
         className
       )}
-      onClick={handleClick}
       data-slot="issue-star"
+      onClick={handleClick}
+      type="button"
       {...props}
     >
       <Star
-        style={{ width: iconSize, height: iconSize }}
         fill={starred ? "currentColor" : "none"}
         strokeWidth={starred ? 0 : 1.5}
+        style={{ width: iconSize, height: iconSize }}
       />
     </button>
   );

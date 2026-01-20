@@ -2,23 +2,22 @@
 // CALENDAR COMPONENTS
 // =============================================================================
 
-export { CalendarView } from "./calendar-view";
-export { WeekView } from "./week-view";
-export { MonthView } from "./month-view";
-export { DayView } from "./day-view";
 export { AgendaView } from "./agenda-view";
+export { CalendarView } from "./calendar-view";
+export { DayView } from "./day-view";
 export { EventModal } from "./event-modal";
-
+export { MonthView } from "./month-view";
 // Types
 export type {
-  CalendarEvent,
   CalendarAttendee,
+  CalendarEvent,
   CalendarInfo,
+  CalendarViewProps,
   ConferenceData,
   ConferenceEntryPoint,
-  ViewType,
-  CalendarViewProps,
   EventClickHandler,
-  TimeSlotClickHandler,
   EventFormData,
+  TimeSlotClickHandler,
+  ViewType,
 } from "./types";
+export { WeekView } from "./week-view";

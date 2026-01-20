@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
 import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 import type * as React from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Linear-style Command Bar (⌘K)
@@ -57,7 +57,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div
-      className="flex items-center gap-2 border-b border-border px-3"
+      className="flex items-center gap-2 border-border border-b px-3"
       data-slot="command-input-wrapper"
     >
       <Search className="size-4 shrink-0 text-muted-foreground" />
@@ -97,7 +97,10 @@ function CommandEmpty({
 }: React.ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
-      className={cn("py-6 text-center text-[13px] text-muted-foreground", className)}
+      className={cn(
+        "py-6 text-center text-[13px] text-muted-foreground",
+        className
+      )}
       data-slot="command-empty"
       {...props}
     />
@@ -113,7 +116,7 @@ function CommandGroup({
       className={cn(
         "overflow-hidden py-1 text-foreground",
         "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5",
-        "[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium",
+        "[&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[11px]",
         "[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider",
         "[&_[cmdk-group-heading]]:text-muted-foreground",
         className
@@ -169,10 +172,7 @@ function CommandShortcut({
 }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn(
-        "ml-auto flex items-center gap-1",
-        className
-      )}
+      className={cn("ml-auto flex items-center gap-1", className)}
       data-slot="command-shortcut"
       {...props}
     />
@@ -182,16 +182,13 @@ function CommandShortcut({
 /**
  * Keyboard shortcut badge for command items
  */
-function Kbd({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLElement>) {
+function Kbd({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   return (
     <kbd
       className={cn(
         "inline-flex h-5 min-w-5 items-center justify-center",
         "rounded px-1.5",
-        "bg-muted text-[10px] font-medium text-muted-foreground",
+        "bg-muted font-medium text-[10px] text-muted-foreground",
         "border border-border",
         className
       )}

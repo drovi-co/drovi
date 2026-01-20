@@ -55,18 +55,18 @@ function TooltipContent({
           "z-50 w-fit overflow-hidden",
           // Linear tooltip styling - pixel perfect from Figma
           "rounded-[4px]",
-          // Figma gradient background: #202128 to #1D1E2B
-          "bg-gradient-to-r from-[#202128] to-[#1D1E2B]",
+          // Tooltip background - uses popover color from design system
+          "bg-popover",
           // Figma border: #52526F
-          "border border-[#52526F]",
+          "border border-border",
           "px-2 py-1",
           // Figma shadow: 0px 2px 4px rgba(0,0,0,0.1)
           "shadow-[0px_2px_4px_rgba(0,0,0,0.1)]",
-          // Figma text: #E0E1EC, 11px
-          "text-[11px] leading-[1.1] text-[#E0E1EC]",
+          // Tooltip text - uses popover foreground from design system
+          "text-popover-foreground text-[11px] leading-[1.1]",
           // Animations
-          "animate-in fade-in-0 zoom-in-95",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          "fade-in-0 zoom-in-95 animate-in",
+          "data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out",
           "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
           "data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
           className

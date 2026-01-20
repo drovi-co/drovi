@@ -225,7 +225,9 @@ export const slackAdapter: SourceAdapter<
   toMessage(msg: SlackMessageData, messageIndex: number): MessageInput {
     // Parse timestamp to Date
     const sentAt = parseSlackTimestamp(msg.ts);
-    const editedAt = msg.edited ? parseSlackTimestamp(msg.edited.ts) : undefined;
+    const editedAt = msg.edited
+      ? parseSlackTimestamp(msg.edited.ts)
+      : undefined;
 
     // Build recipients from mentions
     const recipients = extractMentions(msg.text);
@@ -348,9 +350,7 @@ export function slackThreadToConversation(
 
   // Get unique participants
   const participantIds = [
-    ...new Set(
-      sortedReplies.map((m) => m.user).filter(Boolean) as string[]
-    ),
+    ...new Set(sortedReplies.map((m) => m.user).filter(Boolean) as string[]),
   ];
 
   // Thread title from parent message (truncated)
@@ -389,7 +389,7 @@ export function slackThreadToConversation(
  * Slack timestamps are Unix timestamps with microseconds: "1234567890.123456"
  */
 function parseSlackTimestamp(ts: string): Date {
-  const seconds = parseFloat(ts);
+  const seconds = Number.parseFloat(ts);
   return new Date(seconds * 1000);
 }
 
@@ -441,55 +441,6 @@ function truncateText(text: string, maxLength: number): string {
     return text;
   }
   return `${text.slice(0, maxLength - 3)}...`;
-}
-
-// =============================================================================
-// COMMITMENT EXTRACTION HELPERS
-// =============================================================================
-
-/**
- * Patterns that might indicate commitments in Slack messages.
- */
-const COMMITMENT_PATTERNS = [
-  /i('ll| will) (?:do|send|complete|finish|deliver|handle|take care of)/i,
-  /by (?:end of day|eod|tomorrow|next week|monday|tuesday|wednesday|thursday|friday)/i,
-  /deadline[:\s]+/i,
-  /due[:\s]+/i,
-  /promise to/i,
-  /committed to/i,
-  /action item[:\s]+/i,
-  /@here\s+(?:please|can you|could you|need to)/i,
-  /@channel\s+(?:please|can you|could you|need to)/i,
-];
-
-/**
- * Check if a Slack message likely contains a commitment.
- */
-export function mayContainCommitment(message: SlackMessageData): boolean {
-  const text = message.text.toLowerCase();
-  return COMMITMENT_PATTERNS.some((pattern) => pattern.test(text));
-}
-
-/**
- * Patterns that might indicate decisions in Slack messages.
- */
-const DECISION_PATTERNS = [
-  /decided to/i,
-  /we('re| are) going with/i,
-  /final decision[:\s]+/i,
-  /approved/i,
-  /rejected/i,
-  /let's go with/i,
-  /the plan is/i,
-  /we('ll| will) proceed with/i,
-];
-
-/**
- * Check if a Slack message likely contains a decision.
- */
-export function mayContainDecision(message: SlackMessageData): boolean {
-  const text = message.text.toLowerCase();
-  return DECISION_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 // =============================================================================

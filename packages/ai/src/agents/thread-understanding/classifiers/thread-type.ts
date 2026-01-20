@@ -99,6 +99,7 @@ export function heuristicThreadType(
       confidence: 1.0,
       messageCount,
       participantCount,
+      backAndForthCount: null,
       hasForward,
     };
   }
@@ -110,6 +111,7 @@ export function heuristicThreadType(
       confidence: 0.8,
       messageCount,
       participantCount,
+      backAndForthCount: null,
       hasForward: true,
     };
   }
@@ -142,6 +144,7 @@ export function heuristicThreadType(
       confidence: 0.7,
       messageCount,
       participantCount,
+      backAndForthCount: null,
       hasForward,
     };
   }
@@ -154,6 +157,7 @@ export function heuristicThreadType(
       confidence: 0.8,
       messageCount,
       participantCount,
+      backAndForthCount: null,
       hasForward,
     };
   }
@@ -165,6 +169,7 @@ export function heuristicThreadType(
       confidence: 0.6,
       messageCount,
       participantCount,
+      backAndForthCount: null,
       hasForward,
     };
   }
@@ -175,6 +180,7 @@ export function heuristicThreadType(
     confidence: 0.5,
     messageCount,
     participantCount,
+    backAndForthCount: null,
     hasForward,
   };
 }

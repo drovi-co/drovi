@@ -64,8 +64,10 @@ export function SocialButtons() {
         setIsLoadingGoogle(false);
       }
     } catch (error) {
-      console.error("Google sign-in error:", error);
-      toast.error("Failed to sign in with Google");
+      if (import.meta.env.DEV) {
+        console.error("Google sign-in error:", error);
+      }
+      toast.error("Failed to sign in with Google. Please try again.");
       setIsLoadingGoogle(false);
     }
   };
@@ -73,12 +75,23 @@ export function SocialButtons() {
   const handleGitHubSignIn = async () => {
     setIsLoadingGitHub(true);
     try {
-      await authClient.signIn.social({
+      const result = await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/dashboard",
+        callbackURL: `${window.location.origin}/dashboard`,
       });
-    } catch (_error) {
-      toast.error("Failed to sign in with GitHub");
+
+      // If we get a URL back, redirect manually
+      if (result?.data?.url) {
+        window.location.href = result.data.url;
+      } else if (result?.error) {
+        toast.error(result.error.message || "Failed to sign in with GitHub");
+        setIsLoadingGitHub(false);
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error("GitHub sign-in error:", error);
+      }
+      toast.error("Failed to sign in with GitHub. Please try again.");
       setIsLoadingGitHub(false);
     }
   };
@@ -86,7 +99,7 @@ export function SocialButtons() {
   return (
     <div className="grid gap-3">
       <Button
-        className="w-full border-zinc-800 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+        className="w-full"
         disabled={isLoadingGoogle || isLoadingGitHub}
         onClick={handleGoogleSignIn}
         variant="outline"
@@ -100,7 +113,7 @@ export function SocialButtons() {
       </Button>
 
       <Button
-        className="w-full border-zinc-800 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+        className="w-full"
         disabled={isLoadingGoogle || isLoadingGitHub}
         onClick={handleGitHubSignIn}
         variant="outline"
@@ -120,10 +133,10 @@ export function OrDivider() {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center">
-        <span className="w-full border-zinc-800 border-t" />
+        <span className="w-full border-border border-t" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-[#0a0a0b] px-2 text-zinc-500">
+        <span className="bg-background px-2 text-muted-foreground">
           Or continue with
         </span>
       </div>

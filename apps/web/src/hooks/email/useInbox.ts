@@ -1,4 +1,3 @@
-import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import type {
@@ -6,6 +5,7 @@ import type {
   InboxSort,
   IntelligenceFilter,
 } from "@/components/email/thread-list";
+import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -54,7 +54,7 @@ export function useInbox(options: UseInboxOptions = {}) {
     refetch,
   } = useQuery({
     ...trpc.threads.listInbox.queryOptions(queryFilters),
-    staleTime: 30000, // 30 seconds
+    staleTime: 30_000, // 30 seconds
   });
 
   // Fetch unread count
@@ -62,7 +62,7 @@ export function useInbox(options: UseInboxOptions = {}) {
     ...trpc.threads.getUnreadCount.queryOptions({
       accountId: options.accountId,
     }),
-    staleTime: 60000, // 1 minute
+    staleTime: 60_000, // 1 minute
   });
 
   // Mutations
@@ -73,34 +73,40 @@ export function useInbox(options: UseInboxOptions = {}) {
     },
   });
 
-  const starMutation = useMutation({
-    ...trpc.threads.star.mutationOptions(),
-    onMutate: async ({ threadId, starred }) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ["threads"] });
-      const previousThreads = queryClient.getQueryData(["threads", queryFilters]);
+  const starMutation = useMutation(
+    trpc.threads.star.mutationOptions({
+      onMutate: async ({ threadId, starred }) => {
+        // Optimistic update
+        await queryClient.cancelQueries({ queryKey: ["threads"] });
+        const previousThreads = queryClient.getQueryData([
+          "threads",
+          queryFilters,
+        ]);
 
-      queryClient.setQueryData(["threads", queryFilters], (old: { threads: Array<{ id: string; isStarred: boolean }> } | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          threads: old.threads.map((t) =>
-            t.id === threadId ? { ...t, isStarred: starred } : t
-          ),
-        };
-      });
+        queryClient.setQueryData(
+          ["threads", queryFilters],
+          (
+            old:
+              | { threads: Array<{ id: string; isStarred: boolean }> }
+              | undefined
+          ) => {
+            if (!old) return old;
+            return {
+              ...old,
+              threads: old.threads.map((t) =>
+                t.id === threadId ? { ...t, isStarred: starred } : t
+              ),
+            };
+          }
+        );
 
-      return { previousThreads };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousThreads) {
-        queryClient.setQueryData(["threads", queryFilters], context.previousThreads);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["threads"] });
-    },
-  });
+        return undefined;
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ["threads"] });
+      },
+    })
+  );
 
   const markReadMutation = useMutation({
     ...trpc.threads.markRead.mutationOptions(),
@@ -145,13 +151,14 @@ export function useInbox(options: UseInboxOptions = {}) {
         case "delete":
           await deleteMutation.mutateAsync({ threadId });
           break;
-        case "snooze":
+        case "snooze": {
           // Default snooze to tomorrow 9am
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
           tomorrow.setHours(9, 0, 0, 0);
           await snoozeMutation.mutateAsync({ threadId, until: tomorrow });
           break;
+        }
       }
     },
     [

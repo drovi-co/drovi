@@ -6,8 +6,8 @@
 // Supports lazy initialization and graceful shutdown.
 //
 
-import { Redis } from "ioredis";
 import { env } from "@memorystack/env/server";
+import { Redis } from "ioredis";
 
 // =============================================================================
 // TYPES
@@ -51,7 +51,7 @@ export function getRedis(): Redis {
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => {
         // Exponential backoff with max 30s delay
-        const delay = Math.min(times * 100, 30000);
+        const delay = Math.min(times * 100, 30_000);
         return delay;
       },
       enableReadyCheck: true,
@@ -59,7 +59,7 @@ export function getRedis(): Redis {
 
       // Connection pool settings
       family: 4, // IPv4
-      keepAlive: 30000, // Send keepalive every 30s
+      keepAlive: 30_000, // Send keepalive every 30s
 
       // Reconnection settings
       reconnectOnError: (err) => {

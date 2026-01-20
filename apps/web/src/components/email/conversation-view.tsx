@@ -1,24 +1,8 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { format, isToday, isYesterday } from "date-fns";
+import { motion } from "framer-motion";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  Archive,
-  ArrowLeft,
   ChevronDown,
   ChevronRight,
   Download,
@@ -26,16 +10,18 @@ import {
   FileImage,
   FileText,
   Forward,
-  MoreHorizontal,
   Paperclip,
   Reply,
-  ReplyAll,
-  Star,
-  Trash2,
-  Brain,
 } from "lucide-react";
-import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import { useEffect, useRef, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -152,15 +138,20 @@ export function ConversationView({
   const groupedMessages = groupMessagesByDate(messages);
 
   return (
-    <div className={cn("flex flex-col h-full bg-muted/30 overflow-hidden", className)}>
+    <div
+      className={cn(
+        "flex h-full flex-col overflow-hidden bg-muted/30",
+        className
+      )}
+    >
       {/* Messages - Chat style with proper scrolling */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
           {Object.entries(groupedMessages).map(([dateKey, dateMessages]) => (
             <div key={dateKey}>
               {/* Date separator */}
-              <div className="flex items-center justify-center my-4">
-                <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
+              <div className="my-4 flex items-center justify-center">
+                <span className="rounded-full bg-background/80 px-3 py-1 text-muted-foreground text-xs">
                   {dateKey}
                 </span>
               </div>
@@ -168,22 +159,25 @@ export function ConversationView({
               {/* Messages for this date */}
               <div className="space-y-3">
                 {dateMessages.map((message, index) => {
-                  const isFromUser = message.from.email.toLowerCase() === currentUserEmail.toLowerCase();
-                  const showAvatar = index === 0 ||
+                  const isFromUser =
+                    message.from.email.toLowerCase() ===
+                    currentUserEmail.toLowerCase();
+                  const showAvatar =
+                    index === 0 ||
                     dateMessages[index - 1]?.from.email !== message.from.email;
 
                   return (
                     <MessageBubble
+                      isExpanded={expandedMessages.has(message.id)}
+                      isFromUser={isFromUser}
+                      isHighlighted={message.id === highlightMessageId}
                       key={message.id}
                       message={message}
-                      isFromUser={isFromUser}
-                      showAvatar={showAvatar}
-                      isExpanded={expandedMessages.has(message.id)}
-                      onToggle={() => toggleMessage(message.id)}
+                      onForward={() => onForward?.(message.id)}
                       onReply={() => onReply?.(message.id)}
                       onReplyAll={() => onReplyAll?.(message.id)}
-                      onForward={() => onForward?.(message.id)}
-                      isHighlighted={message.id === highlightMessageId}
+                      onToggle={() => toggleMessage(message.id)}
+                      showAvatar={showAvatar}
                     />
                   );
                 })}
@@ -193,7 +187,6 @@ export function ConversationView({
           <div ref={messagesEndRef} />
         </div>
       </div>
-
     </div>
   );
 }
@@ -222,13 +215,15 @@ function MessageBodyContent({
           className={cn(
             "email-content overflow-hidden",
             "[&_table]:w-full [&_table]:max-w-full",
-            "[&_img]:max-w-full [&_img]:h-auto [&_img]:inline-block",
-            "[&_td]:align-top [&_td]:p-1",
+            "[&_img]:inline-block [&_img]:h-auto [&_img]:max-w-full",
+            "[&_td]:p-1 [&_td]:align-top",
             "[&_a]:text-primary [&_a]:underline",
             "[&_*]:max-w-full",
             isFromUser ? "text-primary-foreground" : "text-foreground"
           )}
-          dangerouslySetInnerHTML={{ __html: sanitizeNotificationHtml(message.bodyHtml) }}
+          dangerouslySetInnerHTML={{
+            __html: sanitizeNotificationHtml(message.bodyHtml),
+          }}
         />
       );
     }
@@ -244,10 +239,10 @@ function MessageBodyContent({
       return (
         <div
           className={cn(
-            "prose prose-sm max-w-none [&_*]:!m-0 [&_p]:!my-1 [&_img]:max-w-full [&_img]:h-auto",
+            "prose prose-sm [&_*]:!m-0 [&_p]:!my-1 max-w-none [&_img]:h-auto [&_img]:max-w-full",
             isFromUser
-              ? "prose-invert prose-p:text-primary-foreground prose-headings:text-primary-foreground prose-strong:text-primary-foreground prose-a:text-primary-foreground/90"
-              : "dark:prose-invert prose-p:text-foreground prose-headings:text-foreground"
+              ? "prose-invert prose-a:text-primary-foreground/90 prose-headings:text-primary-foreground prose-p:text-primary-foreground prose-strong:text-primary-foreground"
+              : "dark:prose-invert prose-headings:text-foreground prose-p:text-foreground"
           )}
           dangerouslySetInnerHTML={{ __html: sanitized }}
         />
@@ -259,7 +254,7 @@ function MessageBodyContent({
       return (
         <p
           className={cn(
-            "text-sm whitespace-pre-wrap",
+            "whitespace-pre-wrap text-sm",
             isFromUser ? "text-primary-foreground" : "text-foreground"
           )}
         >
@@ -272,10 +267,12 @@ function MessageBodyContent({
     return (
       <div
         className={cn(
-          "email-content overflow-hidden [&_img]:max-w-full [&_img]:h-auto",
+          "email-content overflow-hidden [&_img]:h-auto [&_img]:max-w-full",
           isFromUser ? "text-primary-foreground" : "text-foreground"
         )}
-        dangerouslySetInnerHTML={{ __html: sanitizeNotificationHtml(message.bodyHtml) }}
+        dangerouslySetInnerHTML={{
+          __html: sanitizeNotificationHtml(message.bodyHtml),
+        }}
       />
     );
   }
@@ -286,7 +283,7 @@ function MessageBodyContent({
     return (
       <p
         className={cn(
-          "text-sm whitespace-pre-wrap",
+          "whitespace-pre-wrap text-sm",
           isFromUser ? "text-primary-foreground" : "text-foreground"
         )}
       >
@@ -387,21 +384,32 @@ function isServiceEmail(email: string): boolean {
  * Light sanitization for notification emails - just remove dangerous content
  */
 function sanitizeNotificationHtml(html: string): string {
-  return html
-    // Remove script tags
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    // Remove event handlers
-    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
-    .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
-    // Remove style tags (often break dark mode)
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-    // Fix colors for dark mode
-    .replace(/color:\s*#000000/gi, "color: inherit")
-    .replace(/color:\s*black/gi, "color: inherit")
-    .replace(/color:\s*rgb\(0,\s*0,\s*0\)/gi, "color: inherit")
-    .replace(/background(-color)?:\s*#fff(fff)?/gi, "background-color: transparent")
-    .replace(/background(-color)?:\s*white/gi, "background-color: transparent")
-    .replace(/background(-color)?:\s*rgb\(255,\s*255,\s*255\)/gi, "background-color: transparent");
+  return (
+    html
+      // Remove script tags
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      // Remove event handlers
+      .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+      .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
+      // Remove style tags (often break dark mode)
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+      // Fix colors for dark mode
+      .replace(/color:\s*#000000/gi, "color: inherit")
+      .replace(/color:\s*black/gi, "color: inherit")
+      .replace(/color:\s*rgb\(0,\s*0,\s*0\)/gi, "color: inherit")
+      .replace(
+        /background(-color)?:\s*#fff(fff)?/gi,
+        "background-color: transparent"
+      )
+      .replace(
+        /background(-color)?:\s*white/gi,
+        "background-color: transparent"
+      )
+      .replace(
+        /background(-color)?:\s*rgb\(255,\s*255,\s*255\)/gi,
+        "background-color: transparent"
+      )
+  );
 }
 
 // =============================================================================
@@ -431,18 +439,15 @@ function MessageBubble({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        "flex gap-2",
-        isFromUser ? "flex-row-reverse" : "flex-row"
-      )}
+      className={cn("flex gap-2", isFromUser ? "flex-row-reverse" : "flex-row")}
+      initial={{ opacity: 0, y: 10 }}
     >
       {/* Avatar */}
       <div className={cn("shrink-0", showAvatar ? "visible" : "invisible")}>
         <Avatar className="h-8 w-8">
           <AvatarImage src={message.from.avatarUrl} />
-          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+          <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {message.from.name
               .split(" ")
               .map((n) => n[0])
@@ -456,51 +461,61 @@ function MessageBubble({
       {/* Message bubble */}
       <div
         className={cn(
-          "w-[85%] rounded-2xl overflow-hidden",
+          "w-[85%] overflow-hidden rounded-2xl",
           isFromUser
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-background border rounded-tl-sm",
+            ? "rounded-tr-sm bg-primary text-primary-foreground"
+            : "rounded-tl-sm border bg-background",
           isHighlighted && "ring-2 ring-amber-400"
         )}
       >
         {/* Sender info (only for received messages) */}
         {!isFromUser && showAvatar && (
           <div className="px-3 pt-2 pb-1">
-            <span className="text-xs font-medium text-primary">
+            <span className="font-medium text-primary text-xs">
               {message.from.name}
             </span>
           </div>
         )}
 
         {/* Collapsible content */}
-        <Collapsible open={isExpanded} onOpenChange={onToggle}>
+        <Collapsible onOpenChange={onToggle} open={isExpanded}>
           <CollapsibleTrigger asChild>
             <button
-              type="button"
               className={cn(
-                "w-full text-left px-3 py-2 hover:opacity-90 transition-opacity",
+                "w-full px-3 py-2 text-left transition-opacity hover:opacity-90",
                 !isExpanded && "cursor-pointer"
               )}
+              type="button"
             >
-              {!isExpanded ? (
-                <div className="flex items-center gap-2">
-                  <p className={cn(
-                    "text-sm line-clamp-2",
-                    isFromUser ? "text-primary-foreground" : "text-foreground"
-                  )}>
-                    {message.snippet || message.body.slice(0, 150)}
-                  </p>
-                  <ChevronDown className={cn(
-                    "h-4 w-4 shrink-0",
-                    isFromUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                  )} />
+              {isExpanded ? (
+                <div className="flex items-start justify-between gap-2">
+                  <ChevronRight
+                    className={cn(
+                      "mt-0.5 h-4 w-4 shrink-0 rotate-90",
+                      isFromUser
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    )}
+                  />
                 </div>
               ) : (
-                <div className="flex items-start justify-between gap-2">
-                  <ChevronRight className={cn(
-                    "h-4 w-4 shrink-0 mt-0.5 rotate-90",
-                    isFromUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                  )} />
+                <div className="flex items-center gap-2">
+                  <p
+                    className={cn(
+                      "line-clamp-2 text-sm",
+                      isFromUser ? "text-primary-foreground" : "text-foreground"
+                    )}
+                  >
+                    {message.snippet || message.body.slice(0, 150)}
+                  </p>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isFromUser
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    )}
+                  />
                 </div>
               )}
             </button>
@@ -509,71 +524,91 @@ function MessageBubble({
           <CollapsibleContent>
             {/* Full message body */}
             <div className="px-3 pb-2">
-              <MessageBodyContent
-                message={message}
-                isFromUser={isFromUser}
-              />
+              <MessageBodyContent isFromUser={isFromUser} message={message} />
             </div>
 
             {/* Attachments */}
             {message.attachments && message.attachments.length > 0 && (
-              <div className={cn(
-                "px-3 pb-2 space-y-1",
-                isFromUser ? "border-t border-primary-foreground/20" : "border-t"
-              )}>
+              <div
+                className={cn(
+                  "space-y-1 px-3 pb-2",
+                  isFromUser
+                    ? "border-primary-foreground/20 border-t"
+                    : "border-t"
+                )}
+              >
                 <div className="flex items-center gap-1 pt-2">
-                  <Paperclip className={cn(
-                    "h-3 w-3",
-                    isFromUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                  )} />
-                  <span className={cn(
-                    "text-xs",
-                    isFromUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                  )}>
-                    {message.attachments.length} attachment{message.attachments.length !== 1 ? "s" : ""}
+                  <Paperclip
+                    className={cn(
+                      "h-3 w-3",
+                      isFromUser
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-xs",
+                      isFromUser
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {message.attachments.length} attachment
+                    {message.attachments.length !== 1 ? "s" : ""}
                   </span>
                 </div>
                 {message.attachments.map((attachment) => (
                   <AttachmentChip
-                    key={attachment.id}
                     attachment={attachment}
                     isFromUser={isFromUser}
+                    key={attachment.id}
                   />
                 ))}
               </div>
             )}
 
             {/* Quick actions */}
-            <div className={cn(
-              "flex items-center gap-1 px-2 py-1.5",
-              isFromUser ? "border-t border-primary-foreground/20" : "border-t"
-            )}>
+            <div
+              className={cn(
+                "flex items-center gap-1 px-2 py-1.5",
+                isFromUser
+                  ? "border-primary-foreground/20 border-t"
+                  : "border-t"
+              )}
+            >
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => { e.stopPropagation(); onReply(); }}
                 className={cn(
                   "h-7 text-xs",
                   isFromUser
-                    ? "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                    ? "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                     : ""
                 )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReply();
+                }}
+                size="sm"
+                variant="ghost"
               >
-                <Reply className="h-3 w-3 mr-1" />
+                <Reply className="mr-1 h-3 w-3" />
                 Reply
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => { e.stopPropagation(); onForward(); }}
                 className={cn(
                   "h-7 text-xs",
                   isFromUser
-                    ? "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                    ? "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                     : ""
                 )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onForward();
+                }}
+                size="sm"
+                variant="ghost"
               >
-                <Forward className="h-3 w-3 mr-1" />
+                <Forward className="mr-1 h-3 w-3" />
                 Forward
               </Button>
             </div>
@@ -581,15 +616,15 @@ function MessageBubble({
         </Collapsible>
 
         {/* Timestamp */}
-        <div className={cn(
-          "px-3 pb-2 flex items-center justify-end gap-1",
-          isFromUser ? "text-primary-foreground/60" : "text-muted-foreground"
-        )}>
-          <span className="text-[10px]">
-            {format(message.date, "h:mm a")}
-          </span>
+        <div
+          className={cn(
+            "flex items-center justify-end gap-1 px-3 pb-2",
+            isFromUser ? "text-primary-foreground/60" : "text-muted-foreground"
+          )}
+        >
+          <span className="text-[10px]">{format(message.date, "h:mm a")}</span>
           {message.isUnread && (
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
           )}
         </div>
       </div>
@@ -603,7 +638,7 @@ function MessageBubble({
 
 function AttachmentChip({
   attachment,
-  isFromUser
+  isFromUser,
 }: {
   attachment: AttachmentData;
   isFromUser: boolean;
@@ -626,19 +661,21 @@ function AttachmentChip({
 
   return (
     <a
-      href={attachment.downloadUrl}
-      download={attachment.filename}
-      onClick={(e) => e.stopPropagation()}
       className={cn(
-        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
+        "flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors",
         isFromUser
-          ? "bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground"
+          ? "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
           : "bg-muted hover:bg-muted/80"
       )}
+      download={attachment.filename}
+      href={attachment.downloadUrl}
+      onClick={(e) => e.stopPropagation()}
     >
       {getIcon()}
-      <span className="truncate max-w-[150px]">{attachment.filename}</span>
-      <span className="text-[10px] opacity-70">{formatSize(attachment.size)}</span>
+      <span className="max-w-[150px] truncate">{attachment.filename}</span>
+      <span className="text-[10px] opacity-70">
+        {formatSize(attachment.size)}
+      </span>
       <Download className="h-3 w-3 opacity-70" />
     </a>
   );
@@ -648,7 +685,9 @@ function AttachmentChip({
 // HELPERS
 // =============================================================================
 
-function groupMessagesByDate(messages: MessageData[]): Record<string, MessageData[]> {
+function groupMessagesByDate(
+  messages: MessageData[]
+): Record<string, MessageData[]> {
   const groups: Record<string, MessageData[]> = {};
 
   for (const message of messages) {
@@ -738,14 +777,17 @@ function stripQuotedContent(text: string): string {
  */
 function stripQuotedHtml(html: string): string {
   // Remove Gmail quote blocks
-  let clean = html
+  const clean = html
     // Gmail blockquote with gmail_quote class
     .replace(/<div\s+class="gmail_quote"[\s\S]*$/i, "")
     // Generic blockquotes that contain quotes
     .replace(/<blockquote[\s\S]*?<\/blockquote>/gi, "")
     // Outlook quote blocks
     .replace(/<div\s+id="appendonsend"[\s\S]*$/i, "")
-    .replace(/<div\s+style="border:none;border-top:solid #[A-Fa-f0-9]+ 1\.0pt[\s\S]*$/i, "")
+    .replace(
+      /<div\s+style="border:none;border-top:solid #[A-Fa-f0-9]+ 1\.0pt[\s\S]*$/i,
+      ""
+    )
     // Outlook-style "From: ..." or "From :" blocks (with optional space before colon)
     .replace(/<div[^>]*>\s*From\s*:\s+[\s\S]*$/i, "")
     .replace(/<p[^>]*>\s*From\s*:\s+[\s\S]*$/i, "")
@@ -757,7 +799,10 @@ function stripQuotedHtml(html: string): string {
     .replace(/<b>\s*From\s*:\s*<\/b>[\s\S]*$/i, "")
     .replace(/<b>\s*De\s*:\s*<\/b>[\s\S]*$/i, "")
     // "On ... wrote:" patterns in divs
-    .replace(/<div[^>]*>On\s+\w+,\s+\w+\s+\d+,\s+\d+\s+at\s+\d+:\d+\s*[AP]M[\s\S]*$/i, "")
+    .replace(
+      /<div[^>]*>On\s+\w+,\s+\w+\s+\d+,\s+\d+\s+at\s+\d+:\d+\s*[AP]M[\s\S]*$/i,
+      ""
+    )
     // French "Le ... a écrit" patterns
     .replace(/<div[^>]*>Le\s+\d+[\s\S]*?a\s+écrit[\s\S]*$/i, "")
     // Remove "Cdlt" and everything after in signatures
@@ -804,21 +849,26 @@ function cleanPlainTextBody(body: string): string {
 
 function ConversationSkeleton() {
   return (
-    <div className="flex flex-col h-full bg-muted/30">
+    <div className="flex h-full flex-col bg-muted/30">
       <div className="border-b bg-background p-4">
-        <div className="h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
-        <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+        <div className="mb-2 h-5 w-3/4 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-24 animate-pulse rounded bg-muted" />
       </div>
-      <div className="flex-1 p-4 space-y-4 max-w-3xl mx-auto w-full">
+      <div className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className={cn("flex gap-2", i % 2 === 0 ? "flex-row-reverse" : "")}>
-            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
-            <div className={cn(
-              "rounded-2xl p-4 max-w-[70%]",
-              i % 2 === 0 ? "bg-primary/20" : "bg-background border"
-            )}>
-              <div className="h-4 w-48 bg-muted rounded animate-pulse mb-2" />
-              <div className="h-4 w-36 bg-muted rounded animate-pulse" />
+          <div
+            className={cn("flex gap-2", i % 2 === 0 ? "flex-row-reverse" : "")}
+            key={i}
+          >
+            <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+            <div
+              className={cn(
+                "max-w-[70%] rounded-2xl p-4",
+                i % 2 === 0 ? "bg-primary/20" : "border bg-background"
+              )}
+            >
+              <div className="mb-2 h-4 w-48 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-36 animate-pulse rounded bg-muted" />
             </div>
           </div>
         ))}

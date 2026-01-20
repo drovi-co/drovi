@@ -59,7 +59,7 @@ function Avatar({
       {showStatus && (
         <span
           className={cn(
-            "absolute bottom-0 right-0 block rounded-full ring-2 ring-background",
+            "absolute right-0 bottom-0 block rounded-full ring-2 ring-background",
             size === "xs" && "size-1.5",
             size === "sm" && "size-2",
             size === "md" && "size-2.5",
@@ -99,7 +99,7 @@ function AvatarFallback({
       className={cn(
         "flex size-full items-center justify-center rounded-full",
         "bg-muted text-muted-foreground",
-        "text-[11px] font-medium",
+        "font-medium text-[11px]",
         className
       )}
       data-slot="avatar-fallback"

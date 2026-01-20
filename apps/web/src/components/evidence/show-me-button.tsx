@@ -64,19 +64,19 @@ export function ShowMeButton({
 
   const buttonContent = (
     <Button
-      variant={variant}
-      size={size}
+      className={cn("gap-1.5", className)}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      disabled={disabled}
-      className={cn("gap-1.5", className)}
+      size={size}
+      variant={variant}
     >
       <Eye className={cn("h-3.5 w-3.5", confidenceColor)} />
-      {showLabel && <span className="text-xs font-medium">{label}</span>}
+      {showLabel && <span className="font-medium text-xs">{label}</span>}
       {confidence !== undefined && showLabel && (
-        <span className={cn("text-xs font-semibold", confidenceColor)}>
+        <span className={cn("font-semibold text-xs", confidenceColor)}>
           {Math.round(confidence * 100)}%
         </span>
       )}
@@ -121,15 +121,15 @@ interface EvidenceLinkProps {
 export function EvidenceLink({ onClick, className }: EvidenceLinkProps) {
   return (
     <button
-      type="button"
+      className={cn(
+        "inline-flex items-center gap-0.5 text-primary/80 text-xs underline decoration-dashed underline-offset-2 hover:text-primary",
+        className
+      )}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      className={cn(
-        "inline-flex items-center gap-0.5 text-xs text-primary/80 hover:text-primary underline underline-offset-2 decoration-dashed",
-        className
-      )}
+      type="button"
     >
       <FileText className="h-3 w-3" />
       <span>evidence</span>

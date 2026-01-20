@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2/capability",
   "identifier": "default",
-  "description": "Default capabilities for Memorystack desktop app",
+  "description": "Default capabilities for Drovi desktop app",
   "windows": ["main"],
   "permissions": [
     "core:default",

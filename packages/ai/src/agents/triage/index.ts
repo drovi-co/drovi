@@ -328,7 +328,7 @@ export class TriageAgent {
         },
       ],
       temperature: this.config.temperature ?? 0.3,
-      maxTokens: this.config.maxTokens ?? 1024,
+      maxOutputTokens: this.config.maxTokens ?? 1024,
     });
 
     const parsed = JSON.parse(text);
@@ -470,7 +470,7 @@ export class TriageAgent {
         model,
         messages: [{ role: "user", content: buildGroupingPrompt(threadData) }],
         temperature: 0.3,
-        maxTokens: 1024,
+        maxOutputTokens: 1024,
       });
 
       const parsed = GroupingResultSchema.parse(JSON.parse(text));
@@ -544,7 +544,7 @@ export class TriageAgent {
           { role: "user", content: buildInboxSummaryPrompt(stats, topItems) },
         ],
         temperature: 0.5,
-        maxTokens: 512,
+        maxOutputTokens: 512,
       });
 
       const parsed = InboxSummarySchema.parse(JSON.parse(text));
@@ -607,7 +607,7 @@ export class TriageAgent {
           },
         ],
         temperature: 0.3,
-        maxTokens: 256,
+        maxOutputTokens: 256,
       });
 
       const parsed = DelegationResultSchema.parse(JSON.parse(text));
@@ -644,7 +644,7 @@ export class TriageAgent {
           { role: "user", content: buildRuleSuggestionPrompt(patterns) },
         ],
         temperature: 0.4,
-        maxTokens: 1024,
+        maxOutputTokens: 1024,
       });
 
       const parsed = RuleSuggestionSchema.parse(JSON.parse(text));
@@ -697,7 +697,7 @@ export class TriageAgent {
           },
         ],
         temperature: 0.4,
-        maxTokens: 512,
+        maxOutputTokens: 512,
       });
 
       return ReasoningExplanationSchema.parse(JSON.parse(text));

@@ -7,20 +7,13 @@
 //
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BarChart3, LineChart, ListTodo, Sparkles } from "lucide-react";
 import { useState } from "react";
 import {
-  BarChart3,
-  Download,
-  LineChart,
-  ListTodo,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
-
+  ComplianceExport,
+  OpenLoopsDashboard,
+} from "@/components/accountability";
 import { IntelligenceDashboard, WeeklyDigest } from "@/components/analytics";
-import { OpenLoopsDashboard, ComplianceExport } from "@/components/accountability";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
@@ -45,7 +38,8 @@ type TabValue = "dashboard" | "open-loops" | "digest";
 
 function AnalyticsPage() {
   const navigate = useNavigate();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
+  const { data: activeOrg, isPending: orgLoading } =
+    authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
 
@@ -67,7 +61,7 @@ function AnalyticsPage() {
 
   if (orgLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Skeleton className="h-8 w-48" />
       </div>
     );
@@ -75,14 +69,15 @@ function AnalyticsPage() {
 
   if (!organizationId) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-4">
-          <div className="p-4 rounded-full bg-muted inline-flex">
+      <div className="flex h-full items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="inline-flex rounded-full bg-muted p-4">
             <BarChart3 className="h-12 w-12 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-semibold">No Organization Selected</h2>
-          <p className="text-muted-foreground max-w-sm">
-            Select an organization from the sidebar to view your intelligence analytics
+          <h2 className="font-semibold text-xl">No Organization Selected</h2>
+          <p className="max-w-sm text-muted-foreground">
+            Select an organization from the sidebar to view your intelligence
+            analytics
           </p>
         </div>
       </div>
@@ -90,31 +85,34 @@ function AnalyticsPage() {
   }
 
   return (
-    <div data-no-shell-padding className="h-full">
-      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+    <div className="h-full" data-no-shell-padding>
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
         {/* Header */}
         <div className="border-b bg-background">
           <div className="flex items-center justify-between px-4 py-2">
             {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-              <TabsList className="h-8 bg-transparent gap-1">
+            <Tabs
+              onValueChange={(v) => setActiveTab(v as TabValue)}
+              value={activeTab}
+            >
+              <TabsList className="h-8 gap-1 bg-transparent">
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="dashboard"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   <LineChart className="h-4 w-4" />
                   Analytics
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="open-loops"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   <ListTodo className="h-4 w-4" />
                   Open Loops
                 </TabsTrigger>
                 <TabsTrigger
+                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="digest"
-                  className="text-sm px-3 data-[state=active]:bg-accent gap-2"
                 >
                   <Sparkles className="h-4 w-4" />
                   Weekly Digest
@@ -139,21 +137,21 @@ function AnalyticsPage() {
           {activeTab === "open-loops" && (
             <div className="p-6">
               <OpenLoopsDashboard
-                organizationId={organizationId}
                 onCommitmentClick={handleCommitmentClick}
-                onThreadClick={handleThreadClick}
                 onContactClick={handleContactClick}
+                onThreadClick={handleThreadClick}
+                organizationId={organizationId}
               />
             </div>
           )}
           {activeTab === "digest" && (
             <div className="p-6">
               <WeeklyDigest
-                organizationId={organizationId}
                 onCommitmentClick={handleCommitmentClick}
+                onContactClick={handleContactClick}
                 onDecisionClick={handleDecisionClick}
                 onThreadClick={handleThreadClick}
-                onContactClick={handleContactClick}
+                organizationId={organizationId}
               />
             </div>
           )}

@@ -10,16 +10,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { format, startOfMonth, subMonths } from "date-fns";
-import {
-  Download,
-  GitBranch,
-  RefreshCw,
-  Search,
-  X,
-} from "lucide-react";
+import { Download, GitBranch, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import {
+  type DecisionCardData,
+  type DecisionDetailData,
+  DecisionDetailSheet,
+} from "@/components/dashboards";
+import {
+  DecisionListHeader,
+  DecisionRow,
+  type DecisionRowData,
+} from "@/components/decisions";
+import { EvidenceDetailSheet } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,19 +36,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import {
-  DecisionDetailSheet,
-  type DecisionDetailData,
-  DecisionStats,
-  type DecisionCardData,
-} from "@/components/dashboards";
-import {
-  DecisionRow,
-  DecisionListHeader,
-  type DecisionRowData,
-} from "@/components/decisions";
-import { EvidenceDetailSheet, type EvidenceData } from "@/components/evidence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -69,7 +60,8 @@ type TimeFilter = "all" | "this_week" | "this_month" | "last_3_months";
 
 function DecisionsPage() {
   const navigate = useNavigate();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
+  const { data: activeOrg, isPending: orgLoading } =
+    authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
   // State
@@ -80,19 +72,24 @@ function DecisionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [showSupersessionDialog, setShowSupersessionDialog] = useState(false);
-  const [supersessionDecisionId, setSupersessionDecisionId] = useState<string | null>(null);
+  const [supersessionDecisionId, setSupersessionDecisionId] = useState<
+    string | null
+  >(null);
   const [includeSuperseded, setIncludeSuperseded] = useState(false);
   const [evidenceSheetOpen, setEvidenceSheetOpen] = useState(false);
-  const [evidenceDecisionId, setEvidenceDecisionId] = useState<string | null>(null);
+  const [evidenceDecisionId, setEvidenceDecisionId] = useState<string | null>(
+    null
+  );
 
   // Calculate date filters
   const getDateFilter = () => {
     const now = new Date();
     switch (timeFilter) {
-      case "this_week":
+      case "this_week": {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         return { decidedAfter: weekAgo };
+      }
       case "this_month":
         return { decidedAfter: startOfMonth(now) };
       case "last_3_months":
@@ -109,7 +106,11 @@ function DecisionsPage() {
   });
 
   // Fetch decisions
-  const { data: decisionsData, isLoading: isLoadingDecisions, refetch } = useQuery({
+  const {
+    data: decisionsData,
+    isLoading: isLoadingDecisions,
+    refetch,
+  } = useQuery({
     ...trpc.decisions.list.queryOptions({
       organizationId,
       limit: 50,
@@ -139,13 +140,15 @@ function DecisionsPage() {
   });
 
   // Supersession chain query
-  const { data: supersessionData, isLoading: isLoadingSupersession } = useQuery({
-    ...trpc.decisions.getSupersessionChain.queryOptions({
-      organizationId,
-      decisionId: supersessionDecisionId ?? "",
-    }),
-    enabled: !!organizationId && !!supersessionDecisionId,
-  });
+  const { data: supersessionData, isLoading: isLoadingSupersession } = useQuery(
+    {
+      ...trpc.decisions.getSupersessionChain.queryOptions({
+        organizationId,
+        decisionId: supersessionDecisionId ?? "",
+      }),
+      enabled: !!organizationId && !!supersessionDecisionId,
+    }
+  );
 
   // Evidence detail query
   const { data: evidenceDecisionData } = useQuery({
@@ -169,14 +172,18 @@ function DecisionsPage() {
       // vim-style navigation
       if (e.key === "j") {
         const decisions = decisionsData?.decisions ?? [];
-        const currentIndex = decisions.findIndex((d) => d.id === selectedDecision);
+        const currentIndex = decisions.findIndex(
+          (d) => d.id === selectedDecision
+        );
         if (currentIndex < decisions.length - 1) {
           setSelectedDecision(decisions[currentIndex + 1]?.id ?? null);
         }
       }
       if (e.key === "k") {
         const decisions = decisionsData?.decisions ?? [];
-        const currentIndex = decisions.findIndex((d) => d.id === selectedDecision);
+        const currentIndex = decisions.findIndex(
+          (d) => d.id === selectedDecision
+        );
         if (currentIndex > 0) {
           setSelectedDecision(decisions[currentIndex - 1]?.id ?? null);
         }
@@ -216,7 +223,10 @@ function DecisionsPage() {
 
   const handleThreadClick = useCallback(
     (threadId: string) => {
-      navigate({ to: "/dashboard/email/thread/$threadId", params: { threadId } });
+      navigate({
+        to: "/dashboard/email/thread/$threadId",
+        params: { threadId },
+      });
     },
     [navigate]
   );
@@ -257,23 +267,28 @@ function DecisionsPage() {
   }, [decisionsData]);
 
   // Transform data for DecisionRow
-  const decisions: DecisionRowData[] = (decisionsData?.decisions ?? []).map((d) => ({
-    id: d.id,
-    title: d.title,
-    statement: d.statement,
-    rationale: d.rationale,
-    decidedAt: new Date(d.decidedAt),
-    confidence: d.confidence,
-    isUserVerified: d.isUserVerified ?? undefined,
-    isSuperseded: !!d.supersededById,
-    supersededBy: null, // Will be populated from detail view if needed
-    owners: d.owners as DecisionRowData["owners"],
-    topics: undefined, // Topics not included in list response
-    sourceType: (d as { sourceType?: string }).sourceType as DecisionRowData["sourceType"],
-  }));
+  const decisions: DecisionRowData[] = (decisionsData?.decisions ?? []).map(
+    (d) => ({
+      id: d.id,
+      title: d.title,
+      statement: d.statement,
+      rationale: d.rationale,
+      decidedAt: new Date(d.decidedAt),
+      confidence: d.confidence,
+      isUserVerified: d.isUserVerified ?? undefined,
+      isSuperseded: !!d.supersededById,
+      supersededBy: null, // Will be populated from detail view if needed
+      owners: d.owners as DecisionRowData["owners"],
+      topics: undefined, // Topics not included in list response
+      sourceType: (d as { sourceType?: string })
+        .sourceType as DecisionRowData["sourceType"],
+    })
+  );
 
   // Legacy format for detail sheet and search results
-  const decisionsLegacy: DecisionCardData[] = (decisionsData?.decisions ?? []).map((d) => ({
+  const decisionsLegacy: DecisionCardData[] = (
+    decisionsData?.decisions ?? []
+  ).map((d) => ({
     id: d.id,
     title: d.title,
     statement: d.statement,
@@ -292,19 +307,23 @@ function DecisionsPage() {
   }));
 
   // Display search results or regular list
-  const displayDecisions: DecisionRowData[] = isSearching && searchResults?.relevantDecisions
-    ? searchResults.relevantDecisions.map((d) => {
-        const full = decisions.find((fd) => fd.id === d.id);
-        return full ?? {
-          id: d.id,
-          title: d.title,
-          statement: d.statement,
-          rationale: d.rationale ?? null,
-          decidedAt: new Date(d.decidedAt),
-          confidence: 0.8,
-        } as DecisionRowData;
-      })
-    : decisions;
+  const displayDecisions: DecisionRowData[] =
+    isSearching && searchResults?.relevantDecisions
+      ? searchResults.relevantDecisions.map((d) => {
+          const full = decisions.find((fd) => fd.id === d.id);
+          return (
+            full ??
+            ({
+              id: d.id,
+              title: d.title,
+              statement: d.statement,
+              rationale: d.rationale ?? null,
+              decidedAt: new Date(d.decidedAt),
+              confidence: 0.8,
+            } as DecisionRowData)
+          );
+        })
+      : decisions;
 
   // Selection handlers - must be defined after displayDecisions
   const handleSelectItem = useCallback((id: string, selected: boolean) => {
@@ -319,13 +338,16 @@ function DecisionsPage() {
     });
   }, []);
 
-  const handleSelectAll = useCallback((selected: boolean) => {
-    if (selected) {
-      setSelectedIds(new Set(displayDecisions.map((d) => d.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  }, [displayDecisions]);
+  const handleSelectAll = useCallback(
+    (selected: boolean) => {
+      if (selected) {
+        setSelectedIds(new Set(displayDecisions.map((d) => d.id)));
+      } else {
+        setSelectedIds(new Set());
+      }
+    },
+    [displayDecisions]
+  );
 
   const stats = statsData ?? {
     total: 0,
@@ -348,7 +370,9 @@ function DecisionsPage() {
         confidence: detailData.confidence,
         isUserVerified: detailData.isUserVerified ?? undefined,
         isSuperseded: !!detailData.supersededById,
-        evidence: detailData.metadata?.originalText ? [detailData.metadata.originalText] : undefined,
+        evidence: detailData.metadata?.originalText
+          ? [detailData.metadata.originalText]
+          : undefined,
         owners: detailData.owners as DecisionDetailData["owners"],
         sourceThread: detailData.sourceThread,
         supersededBy: detailData.supersededBy
@@ -376,7 +400,7 @@ function DecisionsPage() {
 
   if (orgLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Skeleton className="h-8 w-48" />
       </div>
     );
@@ -384,129 +408,139 @@ function DecisionsPage() {
 
   if (!organizationId) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Select an organization to view decisions</p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">
+          Select an organization to view decisions
+        </p>
       </div>
     );
   }
 
   return (
-    <div data-no-shell-padding className="h-full">
-      <div className="flex flex-col h-[calc(100vh-var(--header-height))]">
+    <div className="h-full" data-no-shell-padding>
+      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
         {/* Header */}
         <div className="border-b bg-background">
-        <div className="flex items-center justify-between px-4 py-2">
-          {/* Time Filter Tabs */}
-          <Tabs value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
-            <TabsList className="h-8 bg-transparent gap-1">
-              <TabsTrigger
-                value="all"
-                className="text-sm px-3 data-[state=active]:bg-accent"
-              >
-                All
-              </TabsTrigger>
-              <TabsTrigger
-                value="this_week"
-                className="text-sm px-3 data-[state=active]:bg-accent"
-              >
-                This Week
-                {stats.thisWeek > 0 && (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
-                    {stats.thisWeek}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="this_month"
-                className="text-sm px-3 data-[state=active]:bg-accent"
-              >
-                This Month
-              </TabsTrigger>
-              <TabsTrigger
-                value="last_3_months"
-                className="text-sm px-3 data-[state=active]:bg-accent"
-              >
-                Last 3 Months
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="decision-search"
-                placeholder="Search decisions..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="h-8 w-[200px] pl-8 text-sm"
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setIsSearching(false);
-                  }}
+          <div className="flex items-center justify-between px-4 py-2">
+            {/* Time Filter Tabs */}
+            <Tabs
+              onValueChange={(v) => setTimeFilter(v as TimeFilter)}
+              value={timeFilter}
+            >
+              <TabsList className="h-8 gap-1 bg-transparent">
+                <TabsTrigger
+                  className="px-3 text-sm data-[state=active]:bg-accent"
+                  value="all"
                 >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
+                  All
+                </TabsTrigger>
+                <TabsTrigger
+                  className="px-3 text-sm data-[state=active]:bg-accent"
+                  value="this_week"
+                >
+                  This Week
+                  {stats.thisWeek > 0 && (
+                    <Badge
+                      className="ml-1 px-1.5 py-0 text-[10px]"
+                      variant="secondary"
+                    >
+                      {stats.thisWeek}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  className="px-3 text-sm data-[state=active]:bg-accent"
+                  value="this_month"
+                >
+                  This Month
+                </TabsTrigger>
+                <TabsTrigger
+                  className="px-3 text-sm data-[state=active]:bg-accent"
+                  value="last_3_months"
+                >
+                  Last 3 Months
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-            {/* Include Superseded Toggle */}
-            <Button
-              variant={includeSuperseded ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 text-sm"
-              onClick={() => setIncludeSuperseded(!includeSuperseded)}
-            >
-              <GitBranch className="h-4 w-4 mr-1" />
-              Superseded
-            </Button>
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-8 w-[200px] pl-8 text-sm"
+                  id="decision-search"
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search decisions..."
+                  value={searchQuery}
+                />
+                {searchQuery && (
+                  <Button
+                    className="absolute top-1/2 right-0.5 h-7 w-7 -translate-y-1/2"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsSearching(false);
+                    }}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => refetch()}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+              {/* Include Superseded Toggle */}
+              <Button
+                className="h-8 text-sm"
+                onClick={() => setIncludeSuperseded(!includeSuperseded)}
+                size="sm"
+                variant={includeSuperseded ? "secondary" : "ghost"}
+              >
+                <GitBranch className="mr-1 h-4 w-4" />
+                Superseded
+              </Button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleExport}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+              <Button
+                className="h-8 w-8"
+                onClick={() => refetch()}
+                size="icon"
+                variant="ghost"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
 
-            {/* Keyboard hints */}
-            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-muted">/</kbd>
-              <span>search</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-muted">j/k</kbd>
-              <span>nav</span>
+              <Button
+                className="h-8 w-8"
+                onClick={handleExport}
+                size="icon"
+                variant="ghost"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+
+              {/* Keyboard hints */}
+              <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
+                <kbd className="rounded bg-muted px-1.5 py-0.5">/</kbd>
+                <span>search</span>
+                <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
+                <span>nav</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* AI Summary (if searching) */}
-      {isSearching && searchResults?.answer && (
-        <div className="border-b px-4 py-3 bg-purple-50/50 dark:bg-purple-900/10">
-          <p className="text-sm">
-            <span className="font-medium text-purple-700 dark:text-purple-400">AI: </span>
-            {searchResults.answer}
-          </p>
-        </div>
-      )}
+        {/* AI Summary (if searching) */}
+        {isSearching && searchResults?.answer && (
+          <div className="border-b bg-purple-50/50 px-4 py-3 dark:bg-purple-900/10">
+            <p className="text-sm">
+              <span className="font-medium text-purple-700 dark:text-purple-400">
+                AI:{" "}
+              </span>
+              {searchResults.answer}
+            </p>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
@@ -514,40 +548,45 @@ function DecisionsPage() {
             <div>
               {/* Row skeletons - matching inbox style */}
               {[...Array(15)].map((_, i) => (
-                <div key={i} className="flex items-center h-10 px-3 border-b border-[#191A23]">
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                <div
+                  className="flex h-10 items-center border-border border-b px-3"
+                  key={i}
+                >
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-3.5 w-3.5 rounded-[3px]" />
                   </div>
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4" />
                   </div>
-                  <div className="w-6 shrink-0 flex items-center justify-center">
+                  <div className="flex w-6 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4" />
                   </div>
-                  <div className="w-7 shrink-0 flex items-center justify-center">
+                  <div className="flex w-7 shrink-0 items-center justify-center">
                     <Skeleton className="h-4 w-4 rounded-full" />
                   </div>
                   <div className="w-[120px] shrink-0 px-1">
                     <Skeleton className="h-3 w-16" />
                   </div>
-                  <div className="flex-1 min-w-0 px-2">
+                  <div className="min-w-0 flex-1 px-2">
                     <Skeleton className="h-3 w-3/4" />
                   </div>
-                  <div className="shrink-0 w-[140px] flex items-center justify-end gap-1.5">
+                  <div className="flex w-[140px] shrink-0 items-center justify-end gap-1.5">
                     <Skeleton className="h-3 w-12" />
                   </div>
                 </div>
               ))}
             </div>
           ) : displayDecisions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                 <GitBranch className="h-6 w-6 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium">
-                {isSearching ? "No decisions match your search" : "No decisions found"}
+              <h3 className="font-medium text-lg">
+                {isSearching
+                  ? "No decisions match your search"
+                  : "No decisions found"}
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-muted-foreground text-sm">
                 Decisions are automatically extracted from your emails
               </p>
             </div>
@@ -555,22 +594,28 @@ function DecisionsPage() {
             <div>
               {/* List header */}
               <DecisionListHeader
+                allSelected={
+                  selectedIds.size === displayDecisions.length &&
+                  displayDecisions.length > 0
+                }
                 onSelectAll={handleSelectAll}
-                allSelected={selectedIds.size === displayDecisions.length && displayDecisions.length > 0}
-                someSelected={selectedIds.size > 0 && selectedIds.size < displayDecisions.length}
+                someSelected={
+                  selectedIds.size > 0 &&
+                  selectedIds.size < displayDecisions.length
+                }
               />
               {/* Decision rows */}
               {displayDecisions.map((decision) => (
                 <DecisionRow
-                  key={decision.id}
                   decision={decision}
-                  isSelected={selectedIds.has(decision.id)}
                   isActive={selectedDecision === decision.id}
-                  onSelect={handleSelectItem}
+                  isSelected={selectedIds.has(decision.id)}
+                  key={decision.id}
                   onClick={() => {
                     setSelectedDecision(decision.id);
                     setDetailSheetOpen(true);
                   }}
+                  onSelect={handleSelectItem}
                   onShowEvidence={() => handleShowEvidence(decision.id)}
                   onViewSupersession={() => handleViewSupersession(decision.id)}
                 />
@@ -581,7 +626,10 @@ function DecisionsPage() {
       </div>
 
       {/* Supersession Chain Dialog */}
-      <Dialog open={showSupersessionDialog} onOpenChange={setShowSupersessionDialog}>
+      <Dialog
+        onOpenChange={setShowSupersessionDialog}
+        open={showSupersessionDialog}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -596,61 +644,75 @@ function DecisionsPage() {
             {isLoadingSupersession ? (
               <div className="space-y-4">
                 {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-20" />
+                  <Skeleton className="h-20" key={i} />
                 ))}
               </div>
             ) : supersessionData?.chain ? (
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                <div className="absolute top-0 bottom-0 left-4 w-0.5 bg-border" />
 
                 {/* Chain items */}
                 <div className="space-y-4">
                   {supersessionData.chain.map((item) => (
                     <div
-                      key={item.id}
                       className={cn(
                         "relative pl-10",
                         !item.isCurrent && "opacity-60"
                       )}
+                      key={item.id}
                     >
                       {/* Timeline dot */}
                       <div
                         className={cn(
-                          "absolute left-2 w-4 h-4 rounded-full border-2 bg-background",
+                          "absolute left-2 h-4 w-4 rounded-full border-2 bg-background",
                           item.isCurrent
                             ? "border-purple-500 bg-purple-100"
                             : "border-muted-foreground"
                         )}
                       />
 
-                      <div className={cn(
-                        "p-4 rounded-lg border",
-                        item.isCurrent && "border-purple-200 bg-purple-50 dark:bg-purple-900/10"
-                      )}>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className={cn(
-                            "font-medium",
-                            !item.isCurrent && "line-through"
-                          )}>
+                      <div
+                        className={cn(
+                          "rounded-lg border p-4",
+                          item.isCurrent &&
+                            "border-purple-200 bg-purple-50 dark:bg-purple-900/10"
+                        )}
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <h4
+                            className={cn(
+                              "font-medium",
+                              !item.isCurrent && "line-through"
+                            )}
+                          >
                             {item.title}
                           </h4>
                           {item.isCurrent && (
-                            <Badge variant="default" className="bg-purple-500">
+                            <Badge className="bg-purple-500" variant="default">
                               Current
                             </Badge>
                           )}
                         </div>
-                        <p className={cn(
-                          "text-sm text-muted-foreground",
-                          !item.isCurrent && "line-through"
-                        )}>
+                        <p
+                          className={cn(
+                            "text-muted-foreground text-sm",
+                            !item.isCurrent && "line-through"
+                          )}
+                        >
                           {item.statement}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-2">
+                        <p className="mt-2 text-muted-foreground text-xs">
                           {format(new Date(item.decidedAt), "MMMM d, yyyy")}
                           {item.supersededAt && (
-                            <> • Superseded {format(new Date(item.supersededAt), "MMMM d, yyyy")}</>
+                            <>
+                              {" "}
+                              • Superseded{" "}
+                              {format(
+                                new Date(item.supersededAt),
+                                "MMMM d, yyyy"
+                              )}
+                            </>
                           )}
                         </p>
                       </div>
@@ -659,7 +721,9 @@ function DecisionsPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground">No supersession chain found</p>
+              <p className="text-center text-muted-foreground">
+                No supersession chain found
+              </p>
             )}
           </div>
         </DialogContent>
@@ -668,20 +732,18 @@ function DecisionsPage() {
       {/* Decision Detail Sheet */}
       <DecisionDetailSheet
         decision={detailDecision}
-        open={detailSheetOpen}
+        onContactClick={handleContactClick}
         onOpenChange={setDetailSheetOpen}
         onThreadClick={handleThreadClick}
-        onContactClick={handleContactClick}
         onViewSupersession={(decisionId) => {
           setSupersessionDecisionId(decisionId);
           setShowSupersessionDialog(true);
         }}
+        open={detailSheetOpen}
       />
 
       {/* Evidence Detail Sheet */}
       <EvidenceDetailSheet
-        open={evidenceSheetOpen}
-        onOpenChange={setEvidenceSheetOpen}
         evidence={
           evidenceDecisionData
             ? {
@@ -695,14 +757,31 @@ function DecisionsPage() {
                 extractedAt: new Date(evidenceDecisionData.decidedAt),
                 modelVersion: "gpt-4o",
                 confidenceFactors: [
-                  { name: "Text Clarity", score: evidenceDecisionData.confidence, explanation: "How clear the extracted text is", weight: 0.4 },
-                  { name: "Context Relevance", score: 0.8, explanation: "How relevant the context is", weight: 0.35 },
-                  { name: "Historical Accuracy", score: 0.85, explanation: "Historical accuracy of extractions", weight: 0.25 },
+                  {
+                    name: "Text Clarity",
+                    score: evidenceDecisionData.confidence,
+                    explanation: "How clear the extracted text is",
+                    weight: 0.4,
+                  },
+                  {
+                    name: "Context Relevance",
+                    score: 0.8,
+                    explanation: "How relevant the context is",
+                    weight: 0.35,
+                  },
+                  {
+                    name: "Historical Accuracy",
+                    score: 0.85,
+                    explanation: "Historical accuracy of extractions",
+                    weight: 0.25,
+                  },
                 ],
               }
             : null
         }
+        onOpenChange={setEvidenceSheetOpen}
         onThreadClick={handleThreadClick}
+        open={evidenceSheetOpen}
       />
     </div>
   );

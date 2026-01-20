@@ -71,12 +71,14 @@ export function SignInForm({
         <form.Field name="email">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-zinc-300" htmlFor={field.name}>
+              <Label className="text-foreground" htmlFor={field.name}>
                 Email
               </Label>
               <Input
                 autoComplete="email"
-                className={`border-zinc-800 bg-zinc-900/50 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20 ${field.state.meta.errors.length > 0 ? "border-red-500" : ""}`}
+                className={
+                  field.state.meta.errors.length > 0 ? "border-destructive" : ""
+                }
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -85,7 +87,7 @@ export function SignInForm({
                 value={field.state.value}
               />
               {field.state.meta.errors.map((error) => (
-                <p className="text-red-400 text-sm" key={error?.message}>
+                <p className="text-destructive text-sm" key={error?.message}>
                   {error?.message}
                 </p>
               ))}
@@ -97,11 +99,11 @@ export function SignInForm({
           {(field) => (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-zinc-300" htmlFor={field.name}>
+                <Label className="text-foreground" htmlFor={field.name}>
                   Password
                 </Label>
                 <Link
-                  className="text-sm text-zinc-400 transition-colors hover:text-violet-400"
+                  className="text-muted-foreground text-sm transition-colors hover:text-primary"
                   to="/forgot-password"
                 >
                   Forgot password?
@@ -110,7 +112,7 @@ export function SignInForm({
               <div className="relative">
                 <Input
                   autoComplete="current-password"
-                  className={`border-zinc-800 bg-zinc-900/50 pr-10 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20 ${field.state.meta.errors.length > 0 ? "border-red-500" : ""}`}
+                  className={`pr-10 ${field.state.meta.errors.length > 0 ? "border-destructive" : ""}`}
                   id={field.name}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
@@ -126,14 +128,14 @@ export function SignInForm({
                   variant="ghost"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-zinc-500" />
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
                   ) : (
-                    <Eye className="h-4 w-4 text-zinc-500" />
+                    <Eye className="h-4 w-4 text-muted-foreground" />
                   )}
                 </Button>
               </div>
               {field.state.meta.errors.map((error) => (
-                <p className="text-red-400 text-sm" key={error?.message}>
+                <p className="text-destructive text-sm" key={error?.message}>
                   {error?.message}
                 </p>
               ))}
@@ -144,12 +146,11 @@ export function SignInForm({
         <div className="flex items-center space-x-2">
           <Checkbox
             checked={rememberMe}
-            className="border-zinc-700 data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600"
             id="remember"
             onCheckedChange={(checked) => setRememberMe(checked === true)}
           />
           <Label
-            className="cursor-pointer font-normal text-sm text-zinc-400"
+            className="cursor-pointer font-normal text-muted-foreground text-sm"
             htmlFor="remember"
           >
             Remember me for 30 days
@@ -159,7 +160,7 @@ export function SignInForm({
         <form.Subscribe>
           {(state) => (
             <Button
-              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 font-medium text-white hover:from-violet-500 hover:to-purple-500"
+              className="w-full"
               disabled={state.isSubmitting}
               type="submit"
             >
@@ -176,19 +177,15 @@ export function SignInForm({
         </form.Subscribe>
       </form>
 
-      <Button
-        className="w-full text-zinc-400 hover:bg-zinc-900 hover:text-white"
-        onClick={onSwitchToMagicLink}
-        variant="ghost"
-      >
+      <Button className="w-full" onClick={onSwitchToMagicLink} variant="ghost">
         <Mail className="mr-2 h-4 w-4" />
         Sign in with magic link
       </Button>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-muted-foreground text-sm">
         Don't have an account?{" "}
         <button
-          className="font-medium text-violet-400 transition-colors hover:text-violet-300"
+          className="font-medium text-primary transition-colors hover:text-primary/80"
           onClick={onSwitchToSignUp}
           type="button"
         >

@@ -1,5 +1,5 @@
 /**
- * Tauri integration hooks for Memorystack desktop app
+ * Tauri integration hooks for Drovi desktop app
  * These hooks provide access to native desktop features when running in Tauri
  */
 
@@ -7,7 +7,13 @@ import { useCallback, useEffect, useState } from "react";
 import { isDesktop } from "@/lib/platform";
 
 // Type imports - these are only available in Tauri context
-type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error";
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "ready"
+  | "error";
 
 interface UpdateInfo {
   version: string;
@@ -47,7 +53,9 @@ export function useUpdater() {
       }
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Failed to check for updates");
+      setError(
+        err instanceof Error ? err.message : "Failed to check for updates"
+      );
     }
   }, []);
 
@@ -84,7 +92,9 @@ export function useUpdater() {
       await relaunch();
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Failed to download update");
+      setError(
+        err instanceof Error ? err.message : "Failed to download update"
+      );
     }
   }, []);
 
@@ -143,9 +153,11 @@ export function useNotifications() {
 
   const sendNotification = useCallback(
     async (title: string, body?: string, options?: { icon?: string }) => {
-      if (!isDesktop() || !permissionGranted) return;
+      if (!(isDesktop() && permissionGranted)) return;
 
-      const { sendNotification: send } = await import("@tauri-apps/plugin-notification");
+      const { sendNotification: send } = await import(
+        "@tauri-apps/plugin-notification"
+      );
       send({ title, body, icon: options?.icon });
     },
     [permissionGranted]
@@ -160,11 +172,11 @@ export function useNotifications() {
 
 /**
  * Hook for deep link handling
- * Listens for memorystack:// URLs
+ * Listens for drovi:// URLs
  */
 export function useDeepLinks(onDeepLink?: (url: string) => void) {
   useEffect(() => {
-    if (!isDesktop() || !onDeepLink) return;
+    if (!(isDesktop() && onDeepLink)) return;
 
     let unlisten: (() => void) | undefined;
 
@@ -192,20 +204,27 @@ export function useGlobalShortcut(shortcut: string, callback: () => void) {
     let registered = false;
 
     (async () => {
-      const { register, unregister } = await import("@tauri-apps/plugin-global-shortcut");
+      const { register, unregister } = await import(
+        "@tauri-apps/plugin-global-shortcut"
+      );
 
       try {
         await register(shortcut, callback);
         registered = true;
-      } catch (err) {
-        console.error(`Failed to register global shortcut ${shortcut}:`, err);
+      } catch (error) {
+        // Non-critical feature - log in dev, continue gracefully
+        if (import.meta.env.DEV) {
+          console.warn(`Failed to register shortcut "${shortcut}":`, error);
+        }
       }
     })();
 
     return () => {
       if (registered) {
         (async () => {
-          const { unregister } = await import("@tauri-apps/plugin-global-shortcut");
+          const { unregister } = await import(
+            "@tauri-apps/plugin-global-shortcut"
+          );
           await unregister(shortcut);
         })();
       }
@@ -220,50 +239,98 @@ export function useGlobalShortcut(shortcut: string, callback: () => void) {
 export function useWindow() {
   const minimize = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().minimize();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to minimize window:", error);
+      }
+    }
   }, []);
 
   const maximize = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().maximize();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().maximize();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to maximize window:", error);
+      }
+    }
   }, []);
 
   const unmaximize = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().unmaximize();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().unmaximize();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to unmaximize window:", error);
+      }
+    }
   }, []);
 
   const toggleMaximize = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().toggleMaximize();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().toggleMaximize();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to toggle maximize:", error);
+      }
+    }
   }, []);
 
   const close = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to close window:", error);
+      }
+    }
   }, []);
 
   const hide = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().hide();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().hide();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to hide window:", error);
+      }
+    }
   }, []);
 
   const show = useCallback(async () => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().show();
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().show();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to show window:", error);
+      }
+    }
   }, []);
 
   const setTitle = useCallback(async (title: string) => {
     if (!isDesktop()) return;
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().setTitle(title);
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().setTitle(title);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to set window title:", error);
+      }
+    }
   }, []);
 
   return {
@@ -290,15 +357,29 @@ export function useOpener() {
       return;
     }
 
-    const { openUrl: open } = await import("@tauri-apps/plugin-opener");
-    await open(url);
+    try {
+      const { openUrl: open } = await import("@tauri-apps/plugin-opener");
+      await open(url);
+    } catch (error) {
+      // Fallback to window.open if Tauri opener fails
+      window.open(url, "_blank", "noopener,noreferrer");
+      if (import.meta.env.DEV) {
+        console.warn("Failed to open URL with Tauri, using fallback:", error);
+      }
+    }
   }, []);
 
   const openPath = useCallback(async (path: string) => {
     if (!isDesktop()) return;
 
-    const { openPath: open } = await import("@tauri-apps/plugin-opener");
-    await open(path);
+    try {
+      const { openPath: open } = await import("@tauri-apps/plugin-opener");
+      await open(path);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Failed to open path:", error);
+      }
+    }
   }, []);
 
   return {

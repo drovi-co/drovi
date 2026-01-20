@@ -50,7 +50,7 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground",
           "border border-border",
           "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
-          "hover:bg-secondary-hover hover:border-border-hover",
+          "hover:border-border-hover hover:bg-secondary-hover",
         ].join(" "),
 
         // Tertiary - Border only
@@ -87,7 +87,7 @@ const buttonVariants = cva(
         link: [
           "bg-transparent text-primary",
           "underline-offset-4 hover:underline",
-          "p-0 h-auto",
+          "h-auto p-0",
         ].join(" "),
 
         // Banner - Special style for promotional buttons
@@ -99,10 +99,10 @@ const buttonVariants = cva(
       },
       size: {
         // Extra small - 24px height
-        xs: "h-6 px-3 py-1 text-[12px] font-medium",
+        xs: "h-6 px-3 py-1 font-medium text-[12px]",
 
         // Small - 28px height
-        sm: "h-7 px-3.5 py-1.5 text-[12px] font-medium",
+        sm: "h-7 px-3.5 py-1.5 font-medium text-[12px]",
 
         // Default/Medium - 32px height
         default: "h-8 px-3.5 py-2 text-[13px]",

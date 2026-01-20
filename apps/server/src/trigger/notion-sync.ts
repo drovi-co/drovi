@@ -6,14 +6,30 @@
 // and comments into the multi-source intelligence platform.
 //
 
-import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { randomUUID } from "node:crypto";
+import {
+  analyzeThread,
+  claimsToDbFormat,
+  type ThreadInput,
+  type ThreadMessage,
+} from "@memorystack/ai/agents";
+import {
+  extractTextFromBlocks,
+  getNotionBlocks,
+  getNotionComments,
+  getNotionPageTitle,
+  type NotionBlock,
+  type NotionComment,
+  type NotionPage,
+  searchNotion,
+} from "@memorystack/auth/providers/notion";
 import { db } from "@memorystack/db";
 import {
+  type ConversationMetadata,
   claim,
   commitment,
   contact,
   conversation,
-  type ConversationMetadata,
   decision,
   message,
   notionDatabase,
@@ -22,26 +38,18 @@ import {
   notionWorkspace,
   sourceAccount,
 } from "@memorystack/db/schema";
+import { logger, schedules, task } from "@trigger.dev/sdk/v3";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
-import {
-  extractTextFromBlocks,
-  getNotionBlocks,
-  getNotionComments,
-  getNotionPageTitle,
-  searchNotion,
-  type NotionBlock,
-  type NotionComment,
-  type NotionPage,
-} from "@memorystack/auth/providers/notion";
 import { safeDecryptToken } from "../lib/crypto/tokens";
-import {
-  analyzeThread,
-  claimsToDbFormat,
-  type ThreadInput,
-  type ThreadMessage,
-} from "@memorystack/ai/agents";
 import { embedConversationTask } from "./embedding-generation";
+import {
+  checkExistingCommitment,
+  checkExistingDecision,
+} from "./lib/commitment-dedup";
+import {
+  processCommitmentTask,
+  processDecisionTask,
+} from "./unified-object-processing";
 
 const log = logger;
 
@@ -133,7 +141,13 @@ export const syncNotionTask = task({
       });
 
       if (!workspace) {
-        const settings = account.settings as { customSettings?: { botId?: string; ownerId?: string; ownerEmail?: string } } | null;
+        const settings = account.settings as {
+          customSettings?: {
+            botId?: string;
+            ownerId?: string;
+            ownerEmail?: string;
+          };
+        } | null;
         await db.insert(notionWorkspace).values({
           id: randomUUID(),
           sourceAccountId,
@@ -157,7 +171,7 @@ export const syncNotionTask = task({
       // Search for pages
       log.info("Searching for Notion pages", { sourceAccountId });
 
-      let cursor: string | undefined = undefined;
+      let cursor: string | undefined;
       let hasMore = true;
 
       while (hasMore) {
@@ -189,7 +203,8 @@ export const syncNotionTask = task({
           // Rate limiting: Notion allows 3 requests/second
           await new Promise((resolve) => setTimeout(resolve, 350));
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Page search failed: ${errorMsg}`);
           log.error("Failed to search pages", { error: errorMsg });
           hasMore = false;
@@ -227,7 +242,8 @@ export const syncNotionTask = task({
 
           await new Promise((resolve) => setTimeout(resolve, 350));
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Database search failed: ${errorMsg}`);
           log.error("Failed to search databases", { error: errorMsg });
           hasMore = false;
@@ -326,22 +342,28 @@ async function syncNotionPage(
 
     const pageUpdatedAt = new Date(page.last_edited_time);
 
-    if (existingCache && existingCache.notionUpdatedAt) {
-      if (existingCache.notionUpdatedAt >= pageUpdatedAt) {
-        // Page hasn't changed, skip
-        return;
-      }
+    if (
+      existingCache &&
+      existingCache.notionUpdatedAt &&
+      existingCache.notionUpdatedAt >= pageUpdatedAt
+    ) {
+      // Page hasn't changed, skip
+      return;
     }
 
     // Get page content (blocks)
     let contentText = "";
     try {
       const blocks: NotionBlock[] = [];
-      let blockCursor: string | undefined = undefined;
+      let blockCursor: string | undefined;
       let hasMoreBlocks = true;
 
       while (hasMoreBlocks) {
-        const blockResult = await getNotionBlocks(accessToken, page.id, blockCursor);
+        const blockResult = await getNotionBlocks(
+          accessToken,
+          page.id,
+          blockCursor
+        );
         blocks.push(...blockResult.results);
         hasMoreBlocks = blockResult.has_more;
         blockCursor = blockResult.next_cursor ?? undefined;
@@ -357,11 +379,15 @@ async function syncNotionPage(
     // Get page comments
     const comments: NotionComment[] = [];
     try {
-      let commentCursor: string | undefined = undefined;
+      let commentCursor: string | undefined;
       let hasMoreComments = true;
 
       while (hasMoreComments) {
-        const commentResult = await getNotionComments(accessToken, page.id, commentCursor);
+        const commentResult = await getNotionComments(
+          accessToken,
+          page.id,
+          commentCursor
+        );
         comments.push(...commentResult.results);
         hasMoreComments = commentResult.has_more;
         commentCursor = commentResult.next_cursor ?? undefined;
@@ -374,11 +400,12 @@ async function syncNotionPage(
 
     // Upsert page cache
     const parentType = page.parent.type;
-    const parentId = parentType === "page_id"
-      ? (page.parent as { page_id: string }).page_id
-      : parentType === "database_id"
-      ? (page.parent as { database_id: string }).database_id
-      : undefined;
+    const parentId =
+      parentType === "page_id"
+        ? (page.parent as { page_id: string }).page_id
+        : parentType === "database_id"
+          ? (page.parent as { database_id: string }).database_id
+          : undefined;
 
     const pageCacheId = existingCache?.id ?? randomUUID();
 
@@ -392,7 +419,8 @@ async function syncNotionPage(
         parentType,
         parentId,
         title,
-        icon: page.icon?.emoji ?? page.icon?.external?.url ?? page.icon?.file?.url,
+        icon:
+          page.icon?.emoji ?? page.icon?.external?.url ?? page.icon?.file?.url,
         coverUrl: page.cover?.external?.url ?? page.cover?.file?.url,
         url: page.url,
         isArchived: page.archived,
@@ -410,7 +438,10 @@ async function syncNotionPage(
         target: [notionPageCache.sourceAccountId, notionPageCache.notionPageId],
         set: {
           title,
-          icon: page.icon?.emoji ?? page.icon?.external?.url ?? page.icon?.file?.url,
+          icon:
+            page.icon?.emoji ??
+            page.icon?.external?.url ??
+            page.icon?.file?.url,
           coverUrl: page.cover?.external?.url ?? page.cover?.file?.url,
           url: page.url,
           isArchived: page.archived,
@@ -430,7 +461,8 @@ async function syncNotionPage(
     }
 
     // Create or update conversation
-    const conversationType = parentType === "database_id" ? "database_item" : "page";
+    const conversationType =
+      parentType === "database_id" ? "database_item" : "page";
     const existingConv = await db.query.conversation.findFirst({
       where: and(
         eq(conversation.sourceAccountId, sourceAccountId),
@@ -464,7 +496,20 @@ async function syncNotionPage(
       parentId: parentType === "page_id" ? parentId : undefined,
     };
 
-    if (!existingConv) {
+    if (existingConv) {
+      await db
+        .update(conversation)
+        .set({
+          title,
+          snippet: contentText.slice(0, 200),
+          participantIds: [...participantIds],
+          messageCount: 1 + comments.length,
+          lastMessageAt: pageUpdatedAt,
+          metadata,
+          updatedAt: now,
+        })
+        .where(eq(conversation.id, convId));
+    } else {
       await db.insert(conversation).values({
         id: convId,
         sourceAccountId,
@@ -485,19 +530,6 @@ async function syncNotionPage(
       });
 
       result.conversationsCreated++;
-    } else {
-      await db
-        .update(conversation)
-        .set({
-          title,
-          snippet: contentText.slice(0, 200),
-          participantIds: [...participantIds],
-          messageCount: 1 + comments.length,
-          lastMessageAt: pageUpdatedAt,
-          metadata,
-          updatedAt: now,
-        })
-        .where(eq(conversation.id, convId));
     }
 
     // Create/update messages for page content and comments
@@ -510,7 +542,15 @@ async function syncNotionPage(
         ),
       });
 
-      if (!existingPageMessage) {
+      if (existingPageMessage) {
+        await db
+          .update(message)
+          .set({
+            bodyText: contentText,
+            updatedAt: now,
+          })
+          .where(eq(message.id, existingPageMessage.id));
+      } else {
         await db.insert(message).values({
           id: randomUUID(),
           conversationId: convId,
@@ -530,14 +570,6 @@ async function syncNotionPage(
           createdAt: now,
           updatedAt: now,
         });
-      } else {
-        await db
-          .update(message)
-          .set({
-            bodyText: contentText,
-            updatedAt: now,
-          })
-          .where(eq(message.id, existingPageMessage.id));
       }
     }
 
@@ -592,11 +624,18 @@ async function syncNotionPage(
       }
     );
 
-    log.info("Synced Notion page", { pageId: page.id, title, comments: comments.length });
+    log.info("Synced Notion page", {
+      pageId: page.id,
+      title,
+      comments: comments.length,
+    });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     result.errors.push(`Page sync failed for ${page.id}: ${errorMsg}`);
-    log.error("Failed to sync Notion page", { pageId: page.id, error: errorMsg });
+    log.error("Failed to sync Notion page", {
+      pageId: page.id,
+      error: errorMsg,
+    });
   }
 }
 
@@ -614,9 +653,8 @@ async function syncNotionDatabaseMetadata(
     const description = database.description.map((d) => d.plain_text).join("");
 
     const parentType = database.parent.type;
-    const parentId = parentType === "page_id"
-      ? database.parent.page_id
-      : undefined;
+    const parentId =
+      parentType === "page_id" ? database.parent.page_id : undefined;
 
     await db
       .insert(notionDatabase)
@@ -640,7 +678,10 @@ async function syncNotionDatabaseMetadata(
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: [notionDatabase.sourceAccountId, notionDatabase.notionDatabaseId],
+        target: [
+          notionDatabase.sourceAccountId,
+          notionDatabase.notionDatabaseId,
+        ],
         set: {
           title,
           description,
@@ -660,7 +701,10 @@ async function syncNotionDatabaseMetadata(
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     result.errors.push(`Database sync failed for ${database.id}: ${errorMsg}`);
-    log.error("Failed to sync Notion database", { databaseId: database.id, error: errorMsg });
+    log.error("Failed to sync Notion database", {
+      databaseId: database.id,
+      error: errorMsg,
+    });
   }
 }
 
@@ -696,7 +740,9 @@ export const analyzeNotionPageTask = task({
   },
   maxDuration: 180, // 3 minutes max
 
-  run: async (payload: NotionPageAnalysisPayload): Promise<NotionPageAnalysisResult> => {
+  run: async (
+    payload: NotionPageAnalysisPayload
+  ): Promise<NotionPageAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
     log.info("Starting Notion page analysis", { conversationId, force });
@@ -747,19 +793,21 @@ export const analyzeNotionPageTask = task({
       const userIdentifier = settings?.customSettings?.ownerId ?? "";
 
       // Convert messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map((msg, index) => ({
-        id: msg.id,
-        providerMessageId: msg.externalId ?? msg.id,
-        fromEmail: msg.senderExternalId ?? "unknown",
-        fromName: msg.senderName ?? undefined,
-        toRecipients: [],
-        subject: msg.subject ?? undefined,
-        bodyText: msg.bodyText ?? "",
-        sentAt: msg.sentAt ?? undefined,
-        receivedAt: msg.receivedAt ?? undefined,
-        isFromUser: msg.senderExternalId === userIdentifier,
-        messageIndex: index,
-      }));
+      const threadMessages: ThreadMessage[] = conv.messages.map(
+        (msg, index) => ({
+          id: msg.id,
+          providerMessageId: msg.externalId ?? msg.id,
+          fromEmail: msg.senderExternalId ?? "unknown",
+          fromName: msg.senderName ?? undefined,
+          toRecipients: [],
+          subject: msg.subject ?? undefined,
+          bodyText: msg.bodyText ?? "",
+          sentAt: msg.sentAt ?? undefined,
+          receivedAt: msg.receivedAt ?? undefined,
+          isFromUser: msg.senderExternalId === userIdentifier,
+          messageIndex: index,
+        })
+      );
 
       // Build ThreadInput for the agent
       const threadInput: ThreadInput = {
@@ -801,7 +849,11 @@ export const analyzeNotionPageTask = task({
       });
 
       // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(analysis.claims, conversationId, conv.sourceAccount.organizationId);
+      const dbClaims = claimsToDbFormat(
+        analysis.claims,
+        conversationId,
+        conv.sourceAccount.organizationId
+      );
 
       // Insert claims into database
       if (dbClaims.length > 0) {
@@ -827,7 +879,14 @@ export const analyzeNotionPageTask = task({
 
       // Update conversation with analysis results
       const urgencyScore = analysis.classification.urgency.score;
-      const priorityTier = urgencyScore >= 0.8 ? "urgent" : urgencyScore >= 0.6 ? "high" : urgencyScore >= 0.4 ? "medium" : "low";
+      const priorityTier =
+        urgencyScore >= 0.8
+          ? "urgent"
+          : urgencyScore >= 0.6
+            ? "high"
+            : urgencyScore >= 0.4
+              ? "medium"
+              : "low";
 
       await db
         .update(conversation)
@@ -838,7 +897,9 @@ export const analyzeNotionPageTask = task({
           priorityTier,
           urgencyScore: analysis.classification.urgency.score,
           importanceScore: analysis.classification.urgency.score,
-          suggestedAction: analysis.brief?.actionRequired ? analysis.brief.actionDescription : null,
+          suggestedAction: analysis.brief?.actionRequired
+            ? analysis.brief.actionDescription
+            : null,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -856,8 +917,27 @@ export const analyzeNotionPageTask = task({
         });
 
         for (const promise of promiseClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: promise.text.slice(0, 200),
+            description: promise.text,
+            dueDate: promise.deadline ? new Date(promise.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (promise)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -866,7 +946,8 @@ export const analyzeNotionPageTask = task({
             status: "pending",
             confidence: promise.confidence,
             dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction: promise.promisor === userIdentifier ? "owed_by_me" : "owed_to_me",
+            direction:
+              promise.promisor === userIdentifier ? "owed_by_me" : "owed_to_me",
             metadata: {
               sourceType: "notion" as const,
               sourceQuote: promise.evidence[0]?.quotedText,
@@ -878,11 +959,49 @@ export const analyzeNotionPageTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: promise.text.slice(0, 200),
+              description: promise.text,
+              dueDate: promise.deadline
+                ? new Date(promise.deadline)
+                : undefined,
+              confidence: promise.confidence,
+              sourceQuote: promise.evidence[0]?.quotedText,
+            },
+            sourceType: "notion",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
 
         for (const request of requestClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: request.text.slice(0, 200),
+            description: request.text,
+            dueDate: request.deadline ? new Date(request.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (request)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -891,7 +1010,10 @@ export const analyzeNotionPageTask = task({
             status: "pending",
             confidence: request.confidence,
             dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction: request.requester === userIdentifier ? "owed_to_me" : "owed_by_me",
+            direction:
+              request.requester === userIdentifier
+                ? "owed_to_me"
+                : "owed_by_me",
             metadata: {
               sourceType: "notion" as const,
               sourceQuote: request.evidence[0]?.quotedText,
@@ -903,6 +1025,25 @@ export const analyzeNotionPageTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: request.text.slice(0, 200),
+              description: request.text,
+              dueDate: request.deadline
+                ? new Date(request.deadline)
+                : undefined,
+              confidence: request.confidence,
+              sourceQuote: request.evidence[0]?.quotedText,
+            },
+            sourceType: "notion",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
       }
 
@@ -916,8 +1057,26 @@ export const analyzeNotionPageTask = task({
         });
 
         for (const decisionClaim of decisionClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingDecision({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: decisionClaim.text.slice(0, 200),
+            statement: decisionClaim.text,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate decision", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const decisionId = randomUUID();
           await db.insert(decision).values({
-            id: randomUUID(),
+            id: decisionId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -934,6 +1093,26 @@ export const analyzeNotionPageTask = task({
             },
           });
           result.decisionsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processDecisionTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            decision: {
+              id: decisionId,
+              title: decisionClaim.text.slice(0, 200),
+              statement: decisionClaim.text,
+              rationale: decisionClaim.rationale ?? undefined,
+              decidedAt: new Date(),
+              confidence: decisionClaim.confidence,
+              ownerContactIds: [],
+              participantContactIds: [],
+              sourceQuote: decisionClaim.evidence[0]?.quotedText,
+            },
+            sourceType: "notion",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalDecisionId: decisionId,
+          });
         }
       }
 
@@ -962,12 +1141,22 @@ export const analyzeNotionPageTask = task({
           ),
         });
 
-        if (!existingContact) {
+        if (existingContact) {
+          await db
+            .update(contact)
+            .set({
+              lastInteractionAt: conv.lastMessageAt ?? new Date(),
+              totalMessages: sql`${contact.totalMessages} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(contact.id, existingContact.id));
+        } else {
           await db.insert(contact).values({
             id: randomUUID(),
             organizationId: conv.sourceAccount.organizationId,
             primaryEmail: `notion:${notionUserId}`,
-            displayName: cachedUser?.name ?? `Notion User ${notionUserId.slice(0, 8)}`,
+            displayName:
+              cachedUser?.name ?? `Notion User ${notionUserId.slice(0, 8)}`,
             enrichmentSource: "notion",
             lastInteractionAt: conv.lastMessageAt ?? new Date(),
             totalMessages: conv.messageCount ?? 1,
@@ -977,15 +1166,6 @@ export const analyzeNotionPageTask = task({
               source: "notion",
             },
           });
-        } else {
-          await db
-            .update(contact)
-            .set({
-              lastInteractionAt: conv.lastMessageAt ?? new Date(),
-              totalMessages: sql`${contact.totalMessages} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(contact.id, existingContact.id));
         }
       }
 
@@ -1001,9 +1181,14 @@ export const analyzeNotionPageTask = task({
             },
           }
         );
-        log.info("Triggered embedding generation for Notion page", { conversationId });
+        log.info("Triggered embedding generation for Notion page", {
+          conversationId,
+        });
       } catch (e) {
-        log.warn("Failed to trigger embedding generation", { conversationId, error: e });
+        log.warn("Failed to trigger embedding generation", {
+          conversationId,
+          error: e,
+        });
       }
 
       result.success = true;
@@ -1019,7 +1204,10 @@ export const analyzeNotionPageTask = task({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       result.error = errorMsg;
-      log.error("Notion page analysis failed", { conversationId, error: errorMsg });
+      log.error("Notion page analysis failed", {
+        conversationId,
+        error: errorMsg,
+      });
       return result;
     }
   },
@@ -1033,13 +1221,17 @@ export const analyzeNotionPagesBatchTask = task({
   queue: { name: "notion-analysis", concurrencyLimit: 3 },
   retry: {
     maxAttempts: 2,
-    minTimeoutInMs: 10000,
+    minTimeoutInMs: 10_000,
     maxTimeoutInMs: 120_000,
     factor: 2,
   },
   maxDuration: 600, // 10 minutes max
 
-  run: async (payload: { sourceAccountId: string; limit?: number; force?: boolean }) => {
+  run: async (payload: {
+    sourceAccountId: string;
+    limit?: number;
+    force?: boolean;
+  }) => {
     const { sourceAccountId, limit = 50, force = false } = payload;
 
     log.info("Starting batch Notion page analysis", {
@@ -1137,7 +1329,9 @@ export const syncNotionSchedule = schedules.task({
       });
     }
 
-    log.info("Scheduled Notion sync triggered", { accounts: notionAccounts.length });
+    log.info("Scheduled Notion sync triggered", {
+      accounts: notionAccounts.length,
+    });
 
     return { scheduled: true, accountsTriggered: notionAccounts.length };
   },

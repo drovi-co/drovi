@@ -163,9 +163,9 @@ export function DecisionMemorySearch({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-purple-500" />
-            <h2 className="text-lg font-semibold">Decision Memory</h2>
+            <h2 className="font-semibold text-lg">Decision Memory</h2>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Ask questions about past decisions. Get evidence-backed answers with
             citations.
           </p>
@@ -174,31 +174,31 @@ export function DecisionMemorySearch({
 
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          ref={inputRef}
-          value={query}
+          className="pr-20 pl-10"
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="pl-10 pr-20"
+          ref={inputRef}
+          value={query}
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
           {query && (
             <Button
-              variant="ghost"
-              size="icon"
               className="h-6 w-6"
               onClick={clearSearch}
+              size="icon"
+              variant="ghost"
             >
               <X className="h-3 w-3" />
             </Button>
           )}
           <Button
-            size="sm"
-            onClick={handleSearch}
-            disabled={query.trim().length < 3 || isLoading}
             className="h-7"
+            disabled={query.trim().length < 3 || isLoading}
+            onClick={handleSearch}
+            size="sm"
           >
             {isLoading || isFetching ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -210,16 +210,16 @@ export function DecisionMemorySearch({
       </div>
 
       {/* Suggested Queries (when no results) */}
-      {!submittedQuery && !embedded && (
+      {!(submittedQuery || embedded) && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Try asking:</p>
+          <p className="text-muted-foreground text-xs">Try asking:</p>
           <div className="flex flex-wrap gap-2">
             {suggestedQueries.map((suggestion) => (
               <button
+                className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-muted/80 hover:text-foreground"
                 key={suggestion}
-                type="button"
                 onClick={() => handleSuggestedClick(suggestion)}
-                className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                type="button"
               >
                 {suggestion}
               </button>
@@ -230,7 +230,7 @@ export function DecisionMemorySearch({
 
       {/* Error State */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-600">
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-600 text-sm">
           Failed to search decisions. Please try again.
         </div>
       )}
@@ -244,7 +244,7 @@ export function DecisionMemorySearch({
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-purple-500" />
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="font-medium text-sm">
                     AI Answer
                   </CardTitle>
                 </div>
@@ -262,10 +262,10 @@ export function DecisionMemorySearch({
           searchResults.relevantDecisions.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
                   Related Decisions
                 </h3>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   {searchResults.relevantDecisions.length} found
                 </span>
               </div>
@@ -274,7 +274,6 @@ export function DecisionMemorySearch({
                 <div className="space-y-2">
                   {searchResults.relevantDecisions.map((decision) => (
                     <DecisionResultCard
-                      key={decision.id}
                       decision={{
                         id: decision.id,
                         title: decision.title,
@@ -284,9 +283,10 @@ export function DecisionMemorySearch({
                         confidence: decision.relevanceScore ?? 0.5,
                         relevanceScore: decision.relevanceScore,
                       }}
+                      key={decision.id}
                       onClick={() => onDecisionClick(decision.id)}
-                      onThreadClick={onThreadClick}
                       onShowEvidence={onShowEvidence}
+                      onThreadClick={onThreadClick}
                     />
                   ))}
                 </div>
@@ -294,10 +294,10 @@ export function DecisionMemorySearch({
             </div>
           ) : (
             submittedQuery && (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <div className="py-8 text-center text-muted-foreground">
+                <MessageSquare className="mx-auto mb-2 h-8 w-8 opacity-50" />
                 <p className="text-sm">No decisions found for your query.</p>
-                <p className="text-xs mt-1">
+                <p className="mt-1 text-xs">
                   Try rephrasing or asking about a different topic.
                 </p>
               </div>
@@ -331,36 +331,36 @@ function DecisionResultCard({
   return (
     <div
       className={cn(
-        "relative p-4 rounded-lg border transition-all cursor-pointer",
+        "relative cursor-pointer rounded-lg border p-4 transition-all",
         "hover:border-purple-500/50 hover:bg-accent/50",
         decision.isSuperseded && "opacity-60"
       )}
+      onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onClick}
     >
       {/* Priority indicator */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-l-lg" />
+      <div className="absolute top-0 bottom-0 left-0 w-1 rounded-l-lg bg-purple-500" />
 
       <div className="space-y-2">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
             <h4
               className={cn(
-                "text-sm font-medium truncate",
+                "truncate font-medium text-sm",
                 decision.isSuperseded && "line-through"
               )}
             >
               {decision.title}
             </h4>
             {decision.isUserVerified && (
-              <ThumbsUp className="h-3 w-3 text-green-500 shrink-0" />
+              <ThumbsUp className="h-3 w-3 shrink-0 text-green-500" />
             )}
             {decision.isSuperseded && (
-              <Badge variant="outline" className="text-[10px] shrink-0">
-                <GitBranch className="h-2.5 w-2.5 mr-1" />
+              <Badge className="shrink-0 text-[10px]" variant="outline">
+                <GitBranch className="mr-1 h-2.5 w-2.5" />
                 Superseded
               </Badge>
             )}
@@ -368,19 +368,19 @@ function DecisionResultCard({
           <ConfidenceBadge
             confidence={decision.confidence}
             isUserVerified={decision.isUserVerified}
-            size="sm"
             showDetails={false}
+            size="sm"
           />
         </div>
 
         {/* Statement */}
-        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+        <p className="line-clamp-2 text-muted-foreground text-sm leading-relaxed">
           {decision.statement}
         </p>
 
         {/* Meta */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 text-muted-foreground text-xs">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {format(new Date(decision.decidedAt), "MMM d, yyyy")}
@@ -389,9 +389,9 @@ function DecisionResultCard({
               <div className="flex items-center gap-1">
                 {decision.topics.slice(0, 2).map((topic) => (
                   <Badge
+                    className="text-[10px]"
                     key={topic.id}
                     variant="secondary"
-                    className="text-[10px]"
                   >
                     {topic.name}
                   </Badge>
@@ -405,26 +405,26 @@ function DecisionResultCard({
             <div className="flex items-center gap-1">
               {onShowEvidence && (
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-6 w-6"
                   onClick={(e) => {
                     e.stopPropagation();
                     onShowEvidence(decision.id);
                   }}
+                  size="icon"
+                  variant="ghost"
                 >
                   <Eye className="h-3 w-3 text-purple-500" />
                 </Button>
               )}
               {decision.sourceThread && onThreadClick && (
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-6 w-6"
                   onClick={(e) => {
                     e.stopPropagation();
                     onThreadClick(decision.sourceThread!.id);
                   }}
+                  size="icon"
+                  variant="ghost"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>

@@ -7,50 +7,48 @@
 //
 
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek, endOfWeek, isThisWeek, subWeeks, differenceInDays } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  differenceInDays,
+  endOfWeek,
+  format,
+  isThisWeek,
+  startOfWeek,
+  subWeeks,
+} from "date-fns";
+import { motion } from "framer-motion";
 import {
   AlertCircle,
-  ArrowRight,
   Calendar,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
-  ExternalLink,
   GitBranch,
   Loader2,
-  Sparkles,
   Target,
   TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
@@ -95,19 +93,25 @@ interface DigestStatProps {
   bgColor: string;
 }
 
-function DigestStat({ label, value, icon: Icon, color, bgColor }: DigestStatProps) {
+function DigestStat({
+  label,
+  value,
+  icon: Icon,
+  color,
+  bgColor,
+}: DigestStatProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn("relative overflow-hidden rounded-2xl p-5", bgColor)}
+      initial={{ opacity: 0, scale: 0.9 }}
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="text-4xl font-bold mt-1">{value}</p>
+          <p className="font-medium text-muted-foreground text-sm">{label}</p>
+          <p className="mt-1 font-bold text-4xl">{value}</p>
         </div>
-        <div className={cn("p-3 rounded-xl", color)}>
+        <div className={cn("rounded-xl p-3", color)}>
           <Icon className="h-6 w-6 text-white" />
         </div>
       </div>
@@ -129,35 +133,46 @@ interface DigestItemCardProps {
   icon?: React.ElementType;
 }
 
-function DigestItemCard({ title, subtitle, badge, avatar, onClick, urgent, icon: Icon }: DigestItemCardProps) {
+function DigestItemCard({
+  title,
+  subtitle,
+  badge,
+  avatar,
+  onClick,
+  urgent,
+  icon: Icon,
+}: DigestItemCardProps) {
   return (
     <motion.button
-      type="button"
-      onClick={onClick}
-      initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      whileHover={{ x: 4 }}
       className={cn(
-        "w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all",
-        "hover:border-primary/50 hover:shadow-md hover:bg-accent/30",
-        urgent && "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-900/10"
+        "flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
+        "hover:border-primary/50 hover:bg-accent/30 hover:shadow-md",
+        urgent &&
+          "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-900/10"
       )}
+      initial={{ opacity: 0, x: -20 }}
+      onClick={onClick}
+      type="button"
+      whileHover={{ x: 4 }}
     >
       {avatar ? (
         <Avatar className="h-10 w-10 shrink-0">
-          <AvatarFallback className="text-sm bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
+          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-sm text-white">
             {getInitials(avatar.name, avatar.email)}
           </AvatarFallback>
         </Avatar>
       ) : Icon ? (
-        <div className="h-10 w-10 shrink-0 rounded-full bg-muted flex items-center justify-center">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
           <Icon className="h-5 w-5 text-muted-foreground" />
         </div>
       ) : null}
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{title}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-sm">{title}</p>
         {subtitle && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>
+          <p className="mt-0.5 truncate text-muted-foreground text-xs">
+            {subtitle}
+          </p>
         )}
       </div>
       {badge && (
@@ -165,7 +180,7 @@ function DigestItemCard({ title, subtitle, badge, avatar, onClick, urgent, icon:
           {badge.label}
         </Badge>
       )}
-      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </motion.button>
   );
 }
@@ -197,7 +212,10 @@ export function WeeklyDigest({
 
   // Calculate week dates
   const weekDates = useMemo(() => {
-    const refDate = weekOffset === 0 ? new Date() : subWeeks(new Date(), Math.abs(weekOffset));
+    const refDate =
+      weekOffset === 0
+        ? new Date()
+        : subWeeks(new Date(), Math.abs(weekOffset));
     return {
       start: startOfWeek(refDate, { weekStartsOn: 1 }),
       end: endOfWeek(refDate, { weekStartsOn: 1 }),
@@ -246,12 +264,18 @@ export function WeeklyDigest({
 
     // Completed this week
     const completedCommitments = commitments.filter(
-      (c) => c.status === "completed" && isThisWeek(new Date(c.updatedAt ?? c.createdAt), { weekStartsOn: 1 })
+      (c) =>
+        c.status === "completed" &&
+        isThisWeek(new Date(c.updatedAt ?? c.createdAt), { weekStartsOn: 1 })
     );
 
     // Overdue commitments
     const overdueCommitments = commitments.filter(
-      (c) => c.status === "overdue" || (c.dueDate && new Date(c.dueDate) < new Date() && c.status !== "completed")
+      (c) =>
+        c.status === "overdue" ||
+        (c.dueDate &&
+          new Date(c.dueDate) < new Date() &&
+          c.status !== "completed")
     );
 
     // Commitments due this week
@@ -300,7 +324,7 @@ export function WeeklyDigest({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-emerald-500" />
           <p className="text-muted-foreground">Loading your weekly digest...</p>
@@ -314,29 +338,35 @@ export function WeeklyDigest({
       {/* Week Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
-            {format(weekDates.start, "MMM d")} - {format(weekDates.end, "MMM d, yyyy")}
+          <span className="text-muted-foreground text-sm">
+            {format(weekDates.start, "MMM d")} -{" "}
+            {format(weekDates.end, "MMM d, yyyy")}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
+          <Button
+            className="h-8 w-8"
+            onClick={goToPreviousWeek}
+            size="icon"
+            variant="outline"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
-            variant="outline"
-            size="sm"
             className="h-8"
-            onClick={() => setWeekOffset(0)}
             disabled={isCurrentWeek}
+            onClick={() => setWeekOffset(0)}
+            size="sm"
+            variant="outline"
           >
             {isCurrentWeek ? "This Week" : "Today"}
           </Button>
           <Button
-            variant="outline"
-            size="icon"
             className="h-8 w-8"
-            onClick={goToNextWeek}
             disabled={isCurrentWeek}
+            onClick={goToNextWeek}
+            size="icon"
+            variant="outline"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -344,40 +374,42 @@ export function WeeklyDigest({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <DigestStat
+          bgColor="bg-purple-500/5 border border-purple-500/10"
+          color="bg-gradient-to-br from-purple-500 to-indigo-600"
+          icon={GitBranch}
           label="Decisions Made"
           value={digest.stats.totalDecisions}
-          icon={GitBranch}
-          color="bg-gradient-to-br from-purple-500 to-indigo-600"
-          bgColor="bg-purple-500/5 border border-purple-500/10"
         />
         <DigestStat
+          bgColor="bg-amber-500/5 border border-amber-500/10"
+          color="bg-gradient-to-br from-amber-500 to-orange-600"
+          icon={Calendar}
           label="Due This Week"
           value={digest.stats.totalDueThisWeek}
-          icon={Calendar}
-          color="bg-gradient-to-br from-amber-500 to-orange-600"
-          bgColor="bg-amber-500/5 border border-amber-500/10"
         />
         <DigestStat
+          bgColor={
+            digest.stats.totalOverdue > 0
+              ? "bg-red-500/5 border border-red-500/10"
+              : "bg-green-500/5 border border-green-500/10"
+          }
+          color={
+            digest.stats.totalOverdue > 0
+              ? "bg-gradient-to-br from-red-500 to-rose-600"
+              : "bg-gradient-to-br from-green-500 to-emerald-600"
+          }
+          icon={AlertCircle}
           label="Overdue"
           value={digest.stats.totalOverdue}
-          icon={AlertCircle}
-          color={digest.stats.totalOverdue > 0
-            ? "bg-gradient-to-br from-red-500 to-rose-600"
-            : "bg-gradient-to-br from-green-500 to-emerald-600"
-          }
-          bgColor={digest.stats.totalOverdue > 0
-            ? "bg-red-500/5 border border-red-500/10"
-            : "bg-green-500/5 border border-green-500/10"
-          }
         />
         <DigestStat
+          bgColor="bg-blue-500/5 border border-blue-500/10"
+          color="bg-gradient-to-br from-blue-500 to-cyan-600"
+          icon={Users}
           label="Waiting On Others"
           value={digest.stats.totalWaiting}
-          icon={Users}
-          color="bg-gradient-to-br from-blue-500 to-cyan-600"
-          bgColor="bg-blue-500/5 border border-blue-500/10"
         />
       </div>
 
@@ -388,20 +420,35 @@ export function WeeklyDigest({
             <TrendingUp className="h-5 w-5 text-emerald-500" />
             Week Activity
           </CardTitle>
-          <CardDescription>Decisions and commitments throughout the week</CardDescription>
+          <CardDescription>
+            Decisions and commitments throughout the week
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={weekChartConfig} className="h-[200px] w-full">
+          <ChartContainer className="h-[200px] w-full" config={weekChartConfig}>
             <BarChart data={weekComparisonData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+              <CartesianGrid
+                className="stroke-muted"
+                strokeDasharray="3 3"
+                vertical={false}
+              />
+              <XAxis
+                axisLine={false}
+                dataKey="day"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+              />
+              <YAxis
+                axisLine={false}
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="decisions" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               <Bar dataKey="commitments" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ChartContainer>
-          <div className="flex justify-center gap-6 mt-4">
+          <div className="mt-4 flex justify-center gap-6">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-sm bg-purple-500" />
               <span className="text-sm">Decisions</span>
@@ -415,7 +462,7 @@ export function WeeklyDigest({
       </Card>
 
       {/* Content Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Needs Attention */}
         {digest.overdueCommitments.length > 0 && (
           <Card className="border-red-500/20 bg-red-500/5">
@@ -424,30 +471,47 @@ export function WeeklyDigest({
                 <AlertCircle className="h-5 w-5" />
                 Needs Attention
               </CardTitle>
-              <CardDescription>Overdue commitments requiring action</CardDescription>
+              <CardDescription>
+                Overdue commitments requiring action
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {digest.overdueCommitments.slice(0, 4).map((c) => (
                   <DigestItemCard
-                    key={c.id}
-                    title={c.title}
-                    subtitle={c.dueDate ? `Due ${format(new Date(c.dueDate), "MMM d")} (${differenceInDays(new Date(), new Date(c.dueDate))}d overdue)` : undefined}
-                    badge={{
-                      label: c.direction === "owed_by_me" ? "I owe" : "Owed to me",
-                      color: "bg-red-500/10 text-red-600 border-red-500/30",
-                    }}
                     avatar={
                       c.direction === "owed_by_me"
-                        ? c.creditor ? { name: c.creditor.displayName, email: c.creditor.primaryEmail } : undefined
-                        : c.debtor ? { name: c.debtor.displayName, email: c.debtor.primaryEmail } : undefined
+                        ? c.creditor
+                          ? {
+                              name: c.creditor.displayName,
+                              email: c.creditor.primaryEmail,
+                            }
+                          : undefined
+                        : c.debtor
+                          ? {
+                              name: c.debtor.displayName,
+                              email: c.debtor.primaryEmail,
+                            }
+                          : undefined
                     }
+                    badge={{
+                      label:
+                        c.direction === "owed_by_me" ? "I owe" : "Owed to me",
+                      color: "bg-red-500/10 text-red-600 border-red-500/30",
+                    }}
+                    key={c.id}
                     onClick={() => onCommitmentClick?.(c.id)}
+                    subtitle={
+                      c.dueDate
+                        ? `Due ${format(new Date(c.dueDate), "MMM d")} (${differenceInDays(new Date(), new Date(c.dueDate))}d overdue)`
+                        : undefined
+                    }
+                    title={c.title}
                     urgent
                   />
                 ))}
                 {digest.overdueCommitments.length > 4 && (
-                  <p className="text-sm text-muted-foreground text-center pt-2">
+                  <p className="pt-2 text-center text-muted-foreground text-sm">
                     +{digest.overdueCommitments.length - 4} more overdue
                   </p>
                 )}
@@ -463,27 +527,37 @@ export function WeeklyDigest({
               <Calendar className="h-5 w-5 text-amber-500" />
               Due This Week
             </CardTitle>
-            <CardDescription>Upcoming commitments with deadlines</CardDescription>
+            <CardDescription>
+              Upcoming commitments with deadlines
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {digest.dueThisWeek.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-3" />
-                <p className="text-muted-foreground">No commitments due this week!</p>
+              <div className="py-8 text-center">
+                <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-green-500" />
+                <p className="text-muted-foreground">
+                  No commitments due this week!
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {digest.dueThisWeek.slice(0, 4).map((c) => (
                   <DigestItemCard
-                    key={c.id}
-                    title={c.title}
-                    subtitle={c.dueDate ? format(new Date(c.dueDate), "EEEE, MMM d") : undefined}
                     badge={{
-                      label: c.direction === "owed_by_me" ? "I owe" : "Owed to me",
-                      color: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+                      label:
+                        c.direction === "owed_by_me" ? "I owe" : "Owed to me",
+                      color:
+                        "bg-amber-500/10 text-amber-600 border-amber-500/30",
                     }}
-                    onClick={() => onCommitmentClick?.(c.id)}
                     icon={Clock}
+                    key={c.id}
+                    onClick={() => onCommitmentClick?.(c.id)}
+                    subtitle={
+                      c.dueDate
+                        ? format(new Date(c.dueDate), "EEEE, MMM d")
+                        : undefined
+                    }
+                    title={c.title}
                   />
                 ))}
               </div>
@@ -502,23 +576,29 @@ export function WeeklyDigest({
           </CardHeader>
           <CardContent>
             {digest.decisions.length === 0 ? (
-              <div className="text-center py-8">
-                <GitBranch className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No decisions recorded this week</p>
+              <div className="py-8 text-center">
+                <GitBranch className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  No decisions recorded this week
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {digest.decisions.slice(0, 4).map((d) => (
                   <DigestItemCard
-                    key={d.id}
-                    title={d.title}
-                    subtitle={d.statement.slice(0, 60) + (d.statement.length > 60 ? "..." : "")}
                     badge={{
                       label: `${Math.round(d.confidence * 100)}%`,
-                      color: "bg-purple-500/10 text-purple-600 border-purple-500/30",
+                      color:
+                        "bg-purple-500/10 text-purple-600 border-purple-500/30",
                     }}
-                    onClick={() => onDecisionClick?.(d.id)}
                     icon={GitBranch}
+                    key={d.id}
+                    onClick={() => onDecisionClick?.(d.id)}
+                    subtitle={
+                      d.statement.slice(0, 60) +
+                      (d.statement.length > 60 ? "..." : "")
+                    }
+                    title={d.title}
                   />
                 ))}
               </div>
@@ -537,25 +617,36 @@ export function WeeklyDigest({
           </CardHeader>
           <CardContent>
             {digest.waitingOnOthers.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-3" />
-                <p className="text-muted-foreground">No pending commitments from others</p>
+              <div className="py-8 text-center">
+                <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-green-500" />
+                <p className="text-muted-foreground">
+                  No pending commitments from others
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {digest.waitingOnOthers.slice(0, 4).map((c) => (
                   <DigestItemCard
-                    key={c.id}
-                    title={c.title}
-                    subtitle={c.dueDate ? `Due ${format(new Date(c.dueDate), "MMM d")}` : "No due date"}
                     avatar={
-                      c.debtor ? { name: c.debtor.displayName, email: c.debtor.primaryEmail } : undefined
+                      c.debtor
+                        ? {
+                            name: c.debtor.displayName,
+                            email: c.debtor.primaryEmail,
+                          }
+                        : undefined
                     }
                     badge={{
                       label: "Waiting",
                       color: "bg-blue-500/10 text-blue-600 border-blue-500/30",
                     }}
+                    key={c.id}
                     onClick={() => onCommitmentClick?.(c.id)}
+                    subtitle={
+                      c.dueDate
+                        ? `Due ${format(new Date(c.dueDate), "MMM d")}`
+                        : "No due date"
+                    }
+                    title={c.title}
                   />
                 ))}
               </div>
@@ -574,22 +665,25 @@ export function WeeklyDigest({
           </CardHeader>
           <CardContent>
             {digest.completedCommitments.length === 0 ? (
-              <div className="text-center py-8">
-                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No completions this week yet</p>
+              <div className="py-8 text-center">
+                <Target className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  No completions this week yet
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {digest.completedCommitments.slice(0, 4).map((c) => (
                   <DigestItemCard
-                    key={c.id}
-                    title={c.title}
                     badge={{
                       label: "Done",
-                      color: "bg-green-500/10 text-green-600 border-green-500/30",
+                      color:
+                        "bg-green-500/10 text-green-600 border-green-500/30",
                     }}
-                    onClick={() => onCommitmentClick?.(c.id)}
                     icon={CheckCircle2}
+                    key={c.id}
+                    onClick={() => onCommitmentClick?.(c.id)}
+                    title={c.title}
                   />
                 ))}
               </div>
@@ -608,23 +702,26 @@ export function WeeklyDigest({
           </CardHeader>
           <CardContent>
             {digest.newCommitments.length === 0 ? (
-              <div className="text-center py-8">
-                <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No new commitments extracted</p>
+              <div className="py-8 text-center">
+                <Zap className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  No new commitments extracted
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {digest.newCommitments.slice(0, 4).map((c) => (
                   <DigestItemCard
-                    key={c.id}
-                    title={c.title}
-                    subtitle={`Created ${format(new Date(c.createdAt), "MMM d")}`}
                     badge={{
-                      label: c.direction === "owed_by_me" ? "I owe" : "Owed to me",
+                      label:
+                        c.direction === "owed_by_me" ? "I owe" : "Owed to me",
                       color: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30",
                     }}
-                    onClick={() => onCommitmentClick?.(c.id)}
                     icon={Target}
+                    key={c.id}
+                    onClick={() => onCommitmentClick?.(c.id)}
+                    subtitle={`Created ${format(new Date(c.createdAt), "MMM d")}`}
+                    title={c.title}
                   />
                 ))}
               </div>

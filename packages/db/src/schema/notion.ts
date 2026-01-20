@@ -7,6 +7,7 @@
 // data like workspace info, page metadata, and database info.
 //
 
+import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -17,7 +18,6 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import { randomUUID } from "node:crypto";
 import { sourceAccount } from "./sources";
 
 // =============================================================================
@@ -266,19 +266,25 @@ export const notionUserCache = pgTable(
 // RELATIONS
 // =============================================================================
 
-export const notionWorkspaceRelations = relations(notionWorkspace, ({ one }) => ({
-  sourceAccount: one(sourceAccount, {
-    fields: [notionWorkspace.sourceAccountId],
-    references: [sourceAccount.id],
-  }),
-}));
+export const notionWorkspaceRelations = relations(
+  notionWorkspace,
+  ({ one }) => ({
+    sourceAccount: one(sourceAccount, {
+      fields: [notionWorkspace.sourceAccountId],
+      references: [sourceAccount.id],
+    }),
+  })
+);
 
-export const notionPageCacheRelations = relations(notionPageCache, ({ one }) => ({
-  sourceAccount: one(sourceAccount, {
-    fields: [notionPageCache.sourceAccountId],
-    references: [sourceAccount.id],
-  }),
-}));
+export const notionPageCacheRelations = relations(
+  notionPageCache,
+  ({ one }) => ({
+    sourceAccount: one(sourceAccount, {
+      fields: [notionPageCache.sourceAccountId],
+      references: [sourceAccount.id],
+    }),
+  })
+);
 
 export const notionDatabaseRelations = relations(notionDatabase, ({ one }) => ({
   sourceAccount: one(sourceAccount, {
@@ -287,12 +293,15 @@ export const notionDatabaseRelations = relations(notionDatabase, ({ one }) => ({
   }),
 }));
 
-export const notionUserCacheRelations = relations(notionUserCache, ({ one }) => ({
-  sourceAccount: one(sourceAccount, {
-    fields: [notionUserCache.sourceAccountId],
-    references: [sourceAccount.id],
-  }),
-}));
+export const notionUserCacheRelations = relations(
+  notionUserCache,
+  ({ one }) => ({
+    sourceAccount: one(sourceAccount, {
+      fields: [notionUserCache.sourceAccountId],
+      references: [sourceAccount.id],
+    }),
+  })
+);
 
 // =============================================================================
 // TYPE EXPORTS

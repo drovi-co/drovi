@@ -6,12 +6,11 @@
 // Quick access to decision log.
 //
 
-import { motion } from "framer-motion";
-import { format } from "date-fns";
-import { ArrowRight, BookOpen, CheckSquare } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { format } from "date-fns";
+import { motion } from "framer-motion";
+import { ArrowRight, BookOpen, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface Decision {
   id: string;
@@ -46,7 +45,9 @@ function getTopicColor(topicId: string): string {
     "bg-pink-500/10 text-pink-700 dark:text-pink-400",
     "bg-orange-500/10 text-orange-700 dark:text-orange-400",
   ];
-  const hash = topicId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = topicId
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return colors[hash % colors.length];
 }
 
@@ -59,28 +60,28 @@ export function RecentDecisionsCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-xl border bg-card"
+      initial={{ opacity: 0, y: 10 }}
       transition={{ delay: 0.3 }}
-      className="bg-card rounded-xl border overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-purple-500/10">
+          <div className="rounded-lg bg-purple-500/10 p-1.5">
             <BookOpen className="h-4 w-4 text-purple-500" />
           </div>
           <h3 className="font-semibold text-sm">Recent Decisions</h3>
           {displayDecisions.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-700 dark:text-purple-400">
+            <span className="rounded-full bg-purple-500/20 px-2 py-0.5 font-medium text-purple-700 text-xs dark:text-purple-400">
               {decisions.length}
             </span>
           )}
         </div>
         <Link to="/dashboard/decisions">
-          <Button variant="ghost" size="sm" className="text-xs h-7">
+          <Button className="h-7 text-xs" size="sm" variant="ghost">
             Decision Log
-            <ArrowRight className="h-3 w-3 ml-1" />
+            <ArrowRight className="ml-1 h-3 w-3" />
           </Button>
         </Link>
       </div>
@@ -89,21 +90,21 @@ export function RecentDecisionsCard({
       <div className="divide-y">
         {displayDecisions.length === 0 ? (
           <div className="p-6 text-center">
-            <BookOpen className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No recent decisions</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <BookOpen className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-muted-foreground text-sm">No recent decisions</p>
+            <p className="mt-1 text-muted-foreground text-xs">
               Decisions will appear as they're extracted from your emails
             </p>
           </div>
         ) : (
           displayDecisions.map((decision, index) => (
             <motion.button
-              key={decision.id}
-              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
+              className="group w-full p-3 text-left transition-colors hover:bg-muted/30"
+              initial={{ opacity: 0, x: -10 }}
+              key={decision.id}
               onClick={() => onDecisionClick?.(decision.id)}
-              className="w-full p-3 hover:bg-muted/30 transition-colors text-left group"
+              transition={{ delay: index * 0.05 }}
             >
               <div className="flex items-start gap-3">
                 {/* Check icon */}
@@ -112,21 +113,23 @@ export function RecentDecisionsCard({
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm line-clamp-1">{decision.title}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-1 font-medium text-sm">
+                    {decision.title}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
                     {decision.statement}
                   </p>
 
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground text-xs">
                       {format(new Date(decision.decidedAt), "MMM d")}
                     </span>
 
                     {decision.owners && decision.owners.length > 0 && (
                       <>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">•</span>
+                        <span className="text-muted-foreground text-xs">
                           {decision.owners[0]?.displayName ||
                             decision.owners[0]?.primaryEmail ||
                             "Unknown"}
@@ -135,14 +138,14 @@ export function RecentDecisionsCard({
                     )}
 
                     {/* Confidence indicator */}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <div className="h-1.5 w-12 bg-muted rounded-full overflow-hidden">
+                    <div className="ml-auto flex items-center gap-1">
+                      <div className="h-1.5 w-12 overflow-hidden rounded-full bg-muted">
                         <div
-                          className="h-full bg-purple-500 rounded-full"
+                          className="h-full rounded-full bg-purple-500"
                           style={{ width: `${decision.confidence * 100}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-muted-foreground text-xs">
                         {Math.round(decision.confidence * 100)}%
                       </span>
                     </div>

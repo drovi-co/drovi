@@ -192,7 +192,7 @@ export class DraftingAgent {
           { role: "user", content: buildReplyDraftPrompt(context) },
         ],
         temperature: this.config.temperature ?? 0.5,
-        maxTokens: this.config.maxTokens ?? 2048,
+        maxOutputTokens: this.config.maxTokens ?? 2048,
       });
 
       const parsed = JSON.parse(text);
@@ -275,7 +275,7 @@ export class DraftingAgent {
           { role: "user", content: buildFollowUpPrompt(context) },
         ],
         temperature: this.config.temperature ?? 0.5,
-        maxTokens: this.config.maxTokens ?? 1024,
+        maxOutputTokens: this.config.maxTokens ?? 1024,
       });
 
       const parsed = JSON.parse(text);
@@ -330,7 +330,7 @@ export class DraftingAgent {
         },
       ],
       temperature: 0.4,
-      maxTokens: 512,
+      maxOutputTokens: 512,
     });
 
     const parsed = JSON.parse(text);
@@ -372,7 +372,7 @@ export class DraftingAgent {
           },
         ],
         temperature: this.config.temperature ?? 0.5,
-        maxTokens: this.config.maxTokens ?? 1024,
+        maxOutputTokens: this.config.maxTokens ?? 1024,
       });
 
       const parsed = JSON.parse(text);
@@ -428,7 +428,7 @@ export class DraftingAgent {
           },
         ],
         temperature: 0.6, // Slightly higher for variation
-        maxTokens: this.config.maxTokens ?? 2048,
+        maxOutputTokens: this.config.maxTokens ?? 2048,
       });
 
       const parsed = JSON.parse(text);
@@ -497,7 +497,7 @@ export class DraftingAgent {
         },
       ],
       temperature: 0.4,
-      maxTokens: this.config.maxTokens ?? 1024,
+      maxOutputTokens: this.config.maxTokens ?? 1024,
     });
 
     const parsed = JSON.parse(text);
@@ -528,7 +528,7 @@ export class DraftingAgent {
         },
       ],
       temperature: 0.5,
-      maxTokens: this.config.maxTokens ?? 1024,
+      maxOutputTokens: this.config.maxTokens ?? 1024,
     });
 
     const parsed = JSON.parse(text);
@@ -552,7 +552,7 @@ export class DraftingAgent {
         model,
         messages: [{ role: "user", content: buildToneAnalysisPrompt(samples) }],
         temperature: 0.3,
-        maxTokens: 512,
+        maxOutputTokens: 512,
       });
 
       const parsed = JSON.parse(text);
@@ -596,7 +596,7 @@ export class DraftingAgent {
         },
       ],
       temperature: 0.4,
-      maxTokens: this.config.maxTokens ?? 1024,
+      maxOutputTokens: this.config.maxTokens ?? 1024,
     });
 
     return text;
@@ -632,7 +632,7 @@ export class DraftingAgent {
             },
           ],
           temperature: 0.2,
-          maxTokens: 1024,
+          maxOutputTokens: 1024,
         });
 
         const parsed = JSON.parse(text);
@@ -687,7 +687,7 @@ Respond with just the modified email text (no JSON, no explanation).`,
         },
       ],
       temperature: 0.3,
-      maxTokens: this.config.maxTokens ?? 1024,
+      maxOutputTokens: this.config.maxTokens ?? 1024,
     });
 
     return text;

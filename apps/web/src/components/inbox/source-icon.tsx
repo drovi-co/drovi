@@ -1,13 +1,12 @@
 "use client";
 
 import type * as React from "react";
-
-import { cn } from "@/lib/utils";
 import {
-  type SourceType,
-  getSourceIcon,
   getSourceColor,
+  getSourceIcon,
+  type SourceType,
 } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 /**
  * Source Icon component for the unified inbox
@@ -40,7 +39,7 @@ function SourceIcon({
 
   return (
     <div
-      className={cn("flex items-center justify-center shrink-0", className)}
+      className={cn("flex shrink-0 items-center justify-center", className)}
       {...props}
     >
       <Icon

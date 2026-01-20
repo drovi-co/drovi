@@ -6,20 +6,24 @@
 // Visual staleness indicators show how long items have been waiting.
 //
 
-import { motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Clock,
   HelpCircle,
   MessageCircleQuestion,
-  Clock,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 interface OpenLoop {
   id: string;
-  type: "unanswered_question" | "pending_request" | "unfulfilled_promise" | "awaiting_response";
+  type:
+    | "unanswered_question"
+    | "pending_request"
+    | "unfulfilled_promise"
+    | "awaiting_response";
   description: string;
   owner?: string | null;
   sourceMessageId?: string;
@@ -77,28 +81,28 @@ export function OpenLoopsCard({ loops, onLoopClick }: OpenLoopsCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-xl border bg-card"
+      initial={{ opacity: 0, y: 10 }}
       transition={{ delay: 0.2 }}
-      className="bg-card rounded-xl border overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-amber-500/10">
+          <div className="rounded-lg bg-amber-500/10 p-1.5">
             <HelpCircle className="h-4 w-4 text-amber-500" />
           </div>
           <h3 className="font-semibold text-sm">Open Loops</h3>
           {displayLoops.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-700 dark:text-amber-400">
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 font-medium text-amber-700 text-xs dark:text-amber-400">
               {loops.length}
             </span>
           )}
         </div>
-        <Link to="/dashboard/email">
-          <Button variant="ghost" size="sm" className="text-xs h-7">
+        <Link to="/dashboard/inbox">
+          <Button className="h-7 text-xs" size="sm" variant="ghost">
             View All
-            <ArrowRight className="h-3 w-3 ml-1" />
+            <ArrowRight className="ml-1 h-3 w-3" />
           </Button>
         </Link>
       </div>
@@ -107,57 +111,65 @@ export function OpenLoopsCard({ loops, onLoopClick }: OpenLoopsCardProps) {
       <div className="divide-y">
         {displayLoops.length === 0 ? (
           <div className="p-6 text-center">
-            <MessageCircleQuestion className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No open loops</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <MessageCircleQuestion className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-muted-foreground text-sm">No open loops</p>
+            <p className="mt-1 text-muted-foreground text-xs">
               All questions answered, all promises fulfilled
             </p>
           </div>
         ) : (
           displayLoops.map((loop, index) => (
             <motion.button
-              key={loop.id}
-              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
+              className="group w-full p-3 text-left transition-colors hover:bg-muted/30"
+              initial={{ opacity: 0, x: -10 }}
+              key={loop.id}
+              onClick={() =>
+                loop.sourceThreadId && onLoopClick?.(loop.sourceThreadId)
+              }
               transition={{ delay: index * 0.05 }}
-              onClick={() => loop.sourceThreadId && onLoopClick?.(loop.sourceThreadId)}
-              className="w-full p-3 hover:bg-muted/30 transition-colors text-left group"
             >
               <div className="flex items-start gap-3">
                 {/* Type icon */}
-                <div className="mt-0.5 p-1.5 rounded-lg bg-muted flex-shrink-0">
+                <div className="mt-0.5 flex-shrink-0 rounded-lg bg-muted p-1.5">
                   {getLoopTypeIcon(loop.type)}
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-xs">
                       {getLoopTypeLabel(loop.type)}
                     </span>
                     {loop.priority === "high" && (
-                      <span className="text-xs font-medium text-red-500">High priority</span>
+                      <span className="font-medium text-red-500 text-xs">
+                        High priority
+                      </span>
                     )}
                   </div>
 
-                  <p className="text-sm line-clamp-2">
+                  <p className="line-clamp-2 text-sm">
                     {loop.sourceQuotedText || loop.description}
                   </p>
 
-                  <div className="flex items-center gap-3 mt-1.5">
+                  <div className="mt-1.5 flex items-center gap-3">
                     {loop.owner && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-muted-foreground text-xs">
                         From {loop.owner}
                       </span>
                     )}
                     {loop.age !== null && loop.age !== undefined && (
-                      <span className={`text-xs ${getStalenessClass(loop.age)}`}>
+                      <span
+                        className={`text-xs ${getStalenessClass(loop.age)}`}
+                      >
                         {loop.age} day{loop.age !== 1 ? "s" : ""} ago
                       </span>
                     )}
                     {loop.createdAt && !loop.age && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(loop.createdAt, { addSuffix: true })}
+                      <span className="text-muted-foreground text-xs">
+                        {formatDistanceToNow(loop.createdAt, {
+                          addSuffix: true,
+                        })}
                       </span>
                     )}
                   </div>
@@ -166,7 +178,7 @@ export function OpenLoopsCard({ loops, onLoopClick }: OpenLoopsCardProps) {
                 {/* Staleness indicator */}
                 {loop.age && loop.age > 3 && (
                   <div
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
                       loop.age > 7 ? "bg-red-500" : "bg-amber-500"
                     }`}
                   />

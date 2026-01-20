@@ -62,6 +62,7 @@ export async function analyzeSentiment(
         dominant_emotion: "neutral" as const,
       })),
       escalationDetected: false,
+      escalationReason: null,
     };
   }
 }

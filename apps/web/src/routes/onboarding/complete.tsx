@@ -150,7 +150,7 @@ function CompletePage() {
             <CardDescription className="text-base">
               Welcome to{" "}
               <span className="font-medium text-foreground">
-                {activeOrg?.name || "MEMORYSTACK"}
+                {activeOrg?.name || "Drovi"}
               </span>
             </CardDescription>
           </CardHeader>

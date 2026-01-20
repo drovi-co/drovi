@@ -137,9 +137,7 @@ export const calendarAdapter: SourceAdapter<CalendarEventData, never> = {
 
     // Time info
     if (event.isAllDay) {
-      bodyParts.push(
-        `All day: ${event.start.toLocaleDateString()}`
-      );
+      bodyParts.push(`All day: ${event.start.toLocaleDateString()}`);
     } else {
       bodyParts.push(
         `Time: ${event.start.toLocaleString()} - ${event.end.toLocaleTimeString()}`
@@ -707,9 +705,7 @@ export function extractSingleEventCommitment(
   const userAttendee = event.attendees.find((a) => a.email === userEmail);
 
   // Build title based on user's role
-  const title = isOrganizer
-    ? `Host: ${event.title}`
-    : `Attend: ${event.title}`;
+  const title = isOrganizer ? `Host: ${event.title}` : `Attend: ${event.title}`;
 
   // Build description with attendance summary
   const descriptionParts: string[] = [];
@@ -735,9 +731,13 @@ export function extractSingleEventCommitment(
       ? `Your response: ${userAttendee.responseStatus}`
       : "You are invited";
     descriptionParts.push(statusText);
-    descriptionParts.push(`Organized by ${event.organizer.name ?? event.organizer.email}`);
+    descriptionParts.push(
+      `Organized by ${event.organizer.name ?? event.organizer.email}`
+    );
     if (attendance.accepted > 0) {
-      descriptionParts.push(`${attendance.accepted}/${attendance.total} attending`);
+      descriptionParts.push(
+        `${attendance.accepted}/${attendance.total} attending`
+      );
     }
   }
 

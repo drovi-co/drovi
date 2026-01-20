@@ -131,7 +131,7 @@ export class SearchAgent {
         ],
         // Reasoning models don't support temperature
         ...(isReasoningModel(this.getModelName()) ? {} : { temperature: 0.2 }),
-        maxTokens: 1024,
+        maxOutputTokens: 1024,
       });
 
       const parsed = JSON.parse(text);
@@ -277,8 +277,10 @@ export class SearchAgent {
             { role: "user", content: buildNoAnswerPrompt(query) },
           ],
           // Reasoning models don't support temperature
-          ...(isReasoningModel(this.getModelName()) ? {} : { temperature: 0.3 }),
-          maxTokens: 1024,
+          ...(isReasoningModel(this.getModelName())
+            ? {}
+            : { temperature: 0.3 }),
+          maxOutputTokens: 1024,
         });
 
         const parsed = JSON.parse(text);
@@ -296,8 +298,10 @@ export class SearchAgent {
           },
         ],
         // Reasoning models don't support temperature
-        ...(isReasoningModel(this.getModelName()) ? {} : { temperature: this.config.temperature ?? 0.3 }),
-        maxTokens: this.config.maxTokens ?? 2048,
+        ...(isReasoningModel(this.getModelName())
+          ? {}
+          : { temperature: this.config.temperature ?? 0.3 }),
+        maxOutputTokens: this.config.maxTokens ?? 2048,
       });
 
       const parsed = JSON.parse(text);

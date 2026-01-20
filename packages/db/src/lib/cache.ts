@@ -7,8 +7,7 @@
 // and type-safe operations.
 //
 
-import type { Redis } from "ioredis";
-import { getRedis, getRedisOrNull, isRedisConfigured } from "./redis";
+import { getRedisOrNull, isRedisConfigured } from "./redis";
 
 // =============================================================================
 // TYPES
@@ -75,7 +74,11 @@ export class Cache {
   /**
    * Set a value in cache with TTL
    */
-  async set<T>(key: string, value: T, options?: Partial<CacheOptions>): Promise<void> {
+  async set<T>(
+    key: string,
+    value: T,
+    options?: Partial<CacheOptions>
+  ): Promise<void> {
     const redis = getRedisOrNull();
     if (!redis) return;
 
@@ -122,7 +125,13 @@ export class Cache {
 
       // Use SCAN to find keys matching pattern (safe for production)
       do {
-        const [newCursor, keys] = await redis.scan(cursor, "MATCH", fullPattern, "COUNT", 100);
+        const [newCursor, keys] = await redis.scan(
+          cursor,
+          "MATCH",
+          fullPattern,
+          "COUNT",
+          100
+        );
         cursor = newCursor;
 
         if (keys.length > 0) {
@@ -249,7 +258,12 @@ export function buildInboxKey(
     limit?: number;
   }
 ): string {
-  const parts = [userId, organizationId, params.accountId ?? "all", params.filter ?? "inbox"];
+  const parts = [
+    userId,
+    organizationId,
+    params.accountId ?? "all",
+    params.filter ?? "inbox",
+  ];
   if (params.cursor) parts.push(params.cursor);
   if (params.limit) parts.push(String(params.limit));
   return parts.join(":");
@@ -316,28 +330,36 @@ export async function invalidateUserInbox(userId: string): Promise<void> {
 /**
  * Invalidate all inbox cache for an organization
  */
-export async function invalidateOrgInbox(organizationId: string): Promise<void> {
+export async function invalidateOrgInbox(
+  organizationId: string
+): Promise<void> {
   await inboxCache.invalidate(`*:${organizationId}:*`);
 }
 
 /**
  * Invalidate all contact cache for an organization
  */
-export async function invalidateOrgContacts(organizationId: string): Promise<void> {
+export async function invalidateOrgContacts(
+  organizationId: string
+): Promise<void> {
   await contactsCache.invalidate(`${organizationId}:*`);
 }
 
 /**
  * Invalidate all search cache for an organization
  */
-export async function invalidateOrgSearch(organizationId: string): Promise<void> {
+export async function invalidateOrgSearch(
+  organizationId: string
+): Promise<void> {
   await searchCache.invalidate(`${organizationId}:*`);
 }
 
 /**
  * Invalidate calendar cache for an account
  */
-export async function invalidateAccountCalendar(accountId: string): Promise<void> {
+export async function invalidateAccountCalendar(
+  accountId: string
+): Promise<void> {
   await calendarCache.invalidate(`${accountId}:*`);
 }
 

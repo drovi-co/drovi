@@ -25,6 +25,10 @@ export interface EmailAccountSettings {
   excludeLabels?: string[];
   includeLabels?: string[];
   autoArchive?: boolean;
+  /** Number of days to backfill during initial sync */
+  backfillDays?: number;
+  /** Gmail Watch expiration timestamp for push notifications */
+  watchExpiration?: number;
 }
 
 /**

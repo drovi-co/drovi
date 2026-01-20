@@ -1,13 +1,13 @@
 "use client";
 
-import { Link2, Clipboard, GitBranch, Plus } from "lucide-react";
+import { Clipboard, GitBranch, Link2, Plus } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { StatusIcon, type Status } from "./status-icon";
-import { PriorityIcon, type Priority } from "./priority-icon";
 import { AssigneeIcon } from "./assignee-icon";
 import { LabelDot, type LabelType } from "./label-dot";
+import { type Priority, PriorityIcon } from "./priority-icon";
+import { type Status, StatusIcon } from "./status-icon";
 
 /**
  * Linear-style Issue Sidebar component
@@ -33,16 +33,16 @@ function SidebarActionButton({
 }: SidebarActionButtonProps) {
   return (
     <button
-      type="button"
+      aria-label={label}
       className={cn(
         "inline-flex items-center justify-center",
-        "p-[6px] rounded-[4px]",
-        "text-[#858699]",
+        "rounded-[4px] p-[6px]",
+        "text-muted-foreground",
         "transition-colors duration-150",
         "hover:bg-muted hover:text-foreground",
         className
       )}
-      aria-label={label}
+      type="button"
       {...props}
     >
       <Icon className="size-4" />
@@ -59,8 +59,8 @@ interface PropertyRowProps {
 function PropertyRow({ label, children, className }: PropertyRowProps) {
   return (
     <div className={cn("flex items-center", className)}>
-      <div className="w-[95px] py-[10px] shrink-0">
-        <span className="text-[13px] font-medium text-[#858699]">{label}</span>
+      <div className="w-[95px] shrink-0 py-[10px]">
+        <span className="font-medium text-muted-foreground text-[13px]">{label}</span>
       </div>
       <div className="flex-1">{children}</div>
     </div>
@@ -79,10 +79,9 @@ function PropertySelector({
 }: PropertySelectorProps) {
   return (
     <button
-      type="button"
       className={cn(
         "flex items-center gap-[10px]",
-        "flex-1 min-w-0 min-h-0",
+        "min-h-0 min-w-0 flex-1",
         "px-2 py-[10.5px]",
         "rounded-[4px]",
         "shadow-[0px_1px_1px_0px_rgba(0,0,0,0.15)]",
@@ -91,6 +90,7 @@ function PropertySelector({
         "text-left",
         className
       )}
+      type="button"
       {...props}
     >
       {children}
@@ -115,8 +115,8 @@ function StatusSelector({ value = "todo", onClick }: StatusSelectorProps) {
 
   return (
     <PropertySelector onClick={onClick}>
-      <StatusIcon status={value} size="sm" />
-      <span className="text-[12px] font-normal text-[#EEEFFC]">
+      <StatusIcon size="sm" status={value} />
+      <span className="font-normal text-foreground text-[12px]">
         {labels[value]}
       </span>
     </PropertySelector>
@@ -141,7 +141,7 @@ function PrioritySelector({ value = "none", onClick }: PrioritySelectorProps) {
   return (
     <PropertySelector onClick={onClick}>
       <PriorityIcon priority={value} size="sm" />
-      <span className="text-[12px] font-normal text-[#EEEFFC]">
+      <span className="font-normal text-foreground text-[12px]">
         {labels[value]}
       </span>
     </PropertySelector>
@@ -164,15 +164,15 @@ function AssigneeSelector({ value, onClick }: AssigneeSelectorProps) {
   return (
     <PropertySelector onClick={onClick}>
       <AssigneeIcon
-        name={value?.name}
         email={value?.email}
         imageUrl={value?.imageUrl}
+        name={value?.name}
         size="xs"
       />
       <span
         className={cn(
-          "text-[12px] font-normal",
-          isAssigned ? "text-[#EEEFFC]" : "text-[#858699]"
+          "font-normal text-[12px]",
+          isAssigned ? "text-foreground" : "text-muted-foreground"
         )}
       >
         {isAssigned ? value?.name || value?.email : "Unassigned"}
@@ -194,12 +194,14 @@ interface LabelsSelectorProps {
   onAddClick?: () => void;
 }
 
-function LabelsSelector({ value = [], onClick, onAddClick }: LabelsSelectorProps) {
+function LabelsSelector({
+  value = [],
+  onClick,
+  onAddClick,
+}: LabelsSelectorProps) {
   if (value.length === 0) {
     return (
       <button
-        type="button"
-        onClick={onAddClick}
         className={cn(
           "flex items-center gap-2",
           "px-2 py-[5px]",
@@ -208,9 +210,13 @@ function LabelsSelector({ value = [], onClick, onAddClick }: LabelsSelectorProps
           "transition-colors duration-150",
           "hover:bg-muted/50"
         )}
+        onClick={onAddClick}
+        type="button"
       >
-        <Plus className="size-2 text-[#858699]" />
-        <span className="text-[12px] font-normal text-[#858699]">Add label</span>
+        <Plus className="size-2 text-muted-foreground" />
+        <span className="font-normal text-muted-foreground text-[12px]">
+          Add label
+        </span>
       </button>
     );
   }
@@ -219,9 +225,6 @@ function LabelsSelector({ value = [], onClick, onAddClick }: LabelsSelectorProps
     <div className="flex flex-wrap gap-2">
       {value.map((label) => (
         <button
-          key={label.name}
-          type="button"
-          onClick={onClick}
           className={cn(
             "flex items-center gap-1.5",
             "px-2 py-[5px]",
@@ -230,9 +233,12 @@ function LabelsSelector({ value = [], onClick, onAddClick }: LabelsSelectorProps
             "transition-colors duration-150",
             "hover:bg-muted/50"
           )}
+          key={label.name}
+          onClick={onClick}
+          type="button"
         >
-          <LabelDot labelType={label.type} color={label.color} size="sm" />
-          <span className="text-[12px] font-normal text-[#EEEFFC]">
+          <LabelDot color={label.color} labelType={label.type} size="sm" />
+          <span className="font-normal text-foreground text-[12px]">
             {label.name}
           </span>
         </button>
@@ -281,14 +287,14 @@ function IssueSidebar({
 }: IssueSidebarProps) {
   return (
     <div
-      className={cn("flex flex-col bg-[#1D1E2B]", className)}
+      className={cn("flex flex-col bg-card", className)}
       data-slot="issue-sidebar"
       {...props}
     >
       {/* Header with ID and actions */}
-      <div className="px-6 py-[14.5px] border-b border-[#292B41]">
+      <div className="border-border border-b px-6 py-[14.5px]">
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-medium text-[#858699] w-[95px]">
+          <span className="w-[95px] font-medium text-muted-foreground text-[13px]">
             {issueId}
           </span>
           <div className="flex items-center gap-3">
@@ -315,22 +321,22 @@ function IssueSidebar({
       <div className="px-6 py-1">
         <div className="flex flex-col gap-4">
           <PropertyRow label="Status">
-            <StatusSelector value={status} onClick={onStatusClick} />
+            <StatusSelector onClick={onStatusClick} value={status} />
           </PropertyRow>
 
           <PropertyRow label="Priority">
-            <PrioritySelector value={priority} onClick={onPriorityClick} />
+            <PrioritySelector onClick={onPriorityClick} value={priority} />
           </PropertyRow>
 
           <PropertyRow label="Assignee">
-            <AssigneeSelector value={assignee} onClick={onAssigneeClick} />
+            <AssigneeSelector onClick={onAssigneeClick} value={assignee} />
           </PropertyRow>
 
           <PropertyRow label="Labels">
             <LabelsSelector
-              value={labels}
-              onClick={onLabelsClick}
               onAddClick={onAddLabelClick}
+              onClick={onLabelsClick}
+              value={labels}
             />
           </PropertyRow>
         </div>

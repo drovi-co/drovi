@@ -1,11 +1,10 @@
 "use client";
 
 import { cva, type VariantProps } from "class-variance-authority";
-import { ChevronDown, Filter, Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import type * as React from "react";
-
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Linear-style Filter Button component
@@ -21,7 +20,7 @@ const filterButtonVariants = cva(
     "inline-flex items-center gap-1.5",
     "h-6 px-2",
     "rounded-[4px]",
-    "text-[12px] font-medium",
+    "font-medium text-[12px]",
     "transition-colors duration-150",
     "outline-none",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -33,14 +32,11 @@ const filterButtonVariants = cva(
           "bg-transparent text-muted-foreground",
           "hover:bg-muted hover:text-foreground",
         ],
-        active: [
-          "bg-primary/10 text-primary",
-          "hover:bg-primary/20",
-        ],
+        active: ["bg-primary/10 text-primary", "hover:bg-primary/20"],
         add: [
           "bg-transparent text-muted-foreground",
           "hover:bg-muted hover:text-foreground",
-          "border border-dashed border-border",
+          "border border-border border-dashed",
         ],
       },
     },
@@ -75,24 +71,25 @@ function FilterButton({
 
   return (
     <button
-      type="button"
-      className={cn(filterButtonVariants({ variant: effectiveVariant }), className)}
+      className={cn(
+        filterButtonVariants({ variant: effectiveVariant }),
+        className
+      )}
       data-slot="filter-button"
+      type="button"
       {...props}
     >
       {icon && <span className="shrink-0">{icon}</span>}
-      <span className="truncate">
-        {hasValue ? value : label}
-      </span>
+      <span className="truncate">{hasValue ? value : label}</span>
       {hasValue && onClear ? (
         <button
-          type="button"
+          aria-label="Clear filter"
+          className="ml-0.5 rounded-sm p-0.5 hover:bg-primary/20"
           onClick={(e) => {
             e.stopPropagation();
             onClear();
           }}
-          className="ml-0.5 rounded-sm hover:bg-primary/20 p-0.5"
-          aria-label="Clear filter"
+          type="button"
         >
           <X className="size-3" />
         </button>
@@ -112,9 +109,9 @@ function AddFilterButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      type="button"
       className={cn(filterButtonVariants({ variant: "add" }), className)}
       data-slot="add-filter-button"
+      type="button"
       {...props}
     >
       <Plus className="size-3" />
@@ -133,10 +130,7 @@ interface FilterBarProps extends React.HTMLAttributes<HTMLDivElement> {
 function FilterBar({ className, children, ...props }: FilterBarProps) {
   return (
     <div
-      className={cn(
-        "flex flex-wrap items-center gap-2",
-        className
-      )}
+      className={cn("flex flex-wrap items-center gap-2", className)}
       data-slot="filter-bar"
       {...props}
     >
@@ -148,7 +142,8 @@ function FilterBar({ className, children, ...props }: FilterBarProps) {
 /**
  * View Toggle Button - for switching between list/board views
  */
-interface ViewToggleButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ViewToggleButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   view: "list" | "board";
   isActive?: boolean;
 }
@@ -161,31 +156,27 @@ function ViewToggleButton({
 }: ViewToggleButtonProps) {
   return (
     <Button
-      variant={isActive ? "secondary" : "ghost"}
-      size="xs"
-      className={cn(
-        "h-6 px-2",
-        isActive && "bg-muted",
-        className
-      )}
+      className={cn("h-6 px-2", isActive && "bg-muted", className)}
       data-slot="view-toggle-button"
+      size="xs"
+      variant={isActive ? "secondary" : "ghost"}
       {...props}
     >
       {view === "list" ? (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
           <path
             d="M2 4h10M2 7h10M2 10h10"
             stroke="currentColor"
-            strokeWidth="1.5"
             strokeLinecap="round"
+            strokeWidth="1.5"
           />
         </svg>
       ) : (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <rect x="2" y="2" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="2" y="8" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="8" y="8" width="4" height="4" rx="1" fill="currentColor" />
+        <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+          <rect fill="currentColor" height="4" rx="1" width="4" x="2" y="2" />
+          <rect fill="currentColor" height="4" rx="1" width="4" x="8" y="2" />
+          <rect fill="currentColor" height="4" rx="1" width="4" x="2" y="8" />
+          <rect fill="currentColor" height="4" rx="1" width="4" x="8" y="8" />
         </svg>
       )}
     </Button>

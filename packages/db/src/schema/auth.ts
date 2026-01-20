@@ -1,5 +1,12 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 // =============================================================================
 // USER AI SETTINGS TYPE
@@ -31,7 +38,7 @@ export interface UserAISettings {
   workingHours?: {
     timezone: string;
     start: string; // e.g., "09:00"
-    end: string;   // e.g., "17:00"
+    end: string; // e.g., "17:00"
     workDays: number[]; // 0-6, where 0 is Sunday
   };
 }
@@ -294,20 +301,34 @@ export const notificationPreferences = pgTable(
     emailDigestFrequency: text("email_digest_frequency").default("daily"), // daily, weekly, realtime, never
 
     // Commitment notifications
-    commitmentsNewEnabled: boolean("commitments_new_enabled").default(true).notNull(),
-    commitmentsDueEnabled: boolean("commitments_due_enabled").default(true).notNull(),
-    commitmentsOverdueEnabled: boolean("commitments_overdue_enabled").default(true).notNull(),
+    commitmentsNewEnabled: boolean("commitments_new_enabled")
+      .default(true)
+      .notNull(),
+    commitmentsDueEnabled: boolean("commitments_due_enabled")
+      .default(true)
+      .notNull(),
+    commitmentsOverdueEnabled: boolean("commitments_overdue_enabled")
+      .default(true)
+      .notNull(),
 
     // Decision notifications
-    decisionsNewEnabled: boolean("decisions_new_enabled").default(true).notNull(),
-    decisionsSupersededEnabled: boolean("decisions_superseded_enabled").default(true).notNull(),
+    decisionsNewEnabled: boolean("decisions_new_enabled")
+      .default(true)
+      .notNull(),
+    decisionsSupersededEnabled: boolean("decisions_superseded_enabled")
+      .default(true)
+      .notNull(),
 
     // Calendar notifications
-    calendarRemindersEnabled: boolean("calendar_reminders_enabled").default(true).notNull(),
+    calendarRemindersEnabled: boolean("calendar_reminders_enabled")
+      .default(true)
+      .notNull(),
 
     // Email notifications
     emailUrgentEnabled: boolean("email_urgent_enabled").default(true).notNull(),
-    emailImportantEnabled: boolean("email_important_enabled").default(true).notNull(),
+    emailImportantEnabled: boolean("email_important_enabled")
+      .default(true)
+      .notNull(),
 
     // System notifications
     syncStatusEnabled: boolean("sync_status_enabled").default(false).notNull(),

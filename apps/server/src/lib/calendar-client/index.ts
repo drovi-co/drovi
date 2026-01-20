@@ -3,16 +3,16 @@
 // =============================================================================
 
 import type { EmailAccount } from "@memorystack/db/schema";
+import { CalendarProviderError } from "./errors";
 import { GmailCalendarClient } from "./gmail";
 import { OutlookCalendarClient } from "./outlook";
 import type { CalendarClient, CalendarProvider } from "./types";
-import { CalendarProviderError } from "./errors";
 
-// Re-export types and errors
-export * from "./types";
 export * from "./errors";
 export { GmailCalendarClient } from "./gmail";
 export { OutlookCalendarClient } from "./outlook";
+// Re-export types and errors
+export * from "./types";
 
 // =============================================================================
 // CLIENT CACHE

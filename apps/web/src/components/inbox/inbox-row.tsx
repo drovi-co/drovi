@@ -1,25 +1,24 @@
 "use client";
 
-import type * as React from "react";
-import { Archive, Star } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-import { cn } from "@/lib/utils";
-import { type SourceType } from "@/lib/source-config";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { PriorityIcon, type Priority } from "@/components/ui/priority-icon";
-import { StatusIcon, type Status } from "@/components/ui/status-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
-import { SourceIcon } from "./source-icon";
-import { IntelligenceDots } from "./intelligence-dots";
+import { Archive, Star } from "lucide-react";
+import type * as React from "react";
 import {
-  TaskStatusDropdown,
-  TaskPriorityDropdown,
-  TaskAssigneeDropdown,
-  type TaskStatus,
-  type TaskPriority,
   type TaskAssignee,
+  TaskAssigneeDropdown,
+  type TaskPriority,
+  TaskPriorityDropdown,
+  type TaskStatus,
+  TaskStatusDropdown,
 } from "@/components/tasks";
+import { AssigneeIcon } from "@/components/ui/assignee-icon";
+import { IssueCheckbox } from "@/components/ui/issue-checkbox";
+import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
+import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import type { SourceType } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
+import { IntelligenceDots } from "./intelligence-dots";
+import { SourceIcon } from "./source-icon";
 
 /**
  * Linear-style Inbox Row component
@@ -69,7 +68,8 @@ export interface InboxItem {
   };
 }
 
-interface InboxRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect"> {
+interface InboxRowProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect"> {
   item: InboxItem;
   isSelected?: boolean;
   isActive?: boolean;
@@ -88,19 +88,34 @@ interface InboxRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSe
 
 // Fixed column widths for perfect alignment (left side)
 const COL = {
-  checkbox: "w-7",      // 28px
-  priority: "w-7",      // 28px
-  source: "w-6",        // 24px
-  status: "w-7",        // 28px
-  sender: "w-[120px]",  // 120px
+  checkbox: "w-7", // 28px
+  priority: "w-7", // 28px
+  source: "w-6", // 24px
+  status: "w-7", // 28px
+  sender: "w-[120px]", // 120px
 } as const;
 
-function getPriority(urgencyScore: number | null): Priority {
-  const urgency = urgencyScore ?? 0;
-  if (urgency >= 0.8) return "urgent";
-  if (urgency >= 0.6) return "high";
-  if (urgency >= 0.4) return "medium";
-  if (urgency >= 0.2) return "low";
+function getPriority(
+  urgencyScore: number | null,
+  priorityTier: string | null
+): Priority {
+  // First check if there's a priorityTier from analysis
+  if (priorityTier) {
+    const tier = priorityTier.toLowerCase();
+    if (tier === "urgent") return "urgent";
+    if (tier === "high") return "high";
+    if (tier === "medium") return "medium";
+    if (tier === "low") return "low";
+  }
+
+  // Fall back to urgencyScore if available
+  if (urgencyScore !== null) {
+    if (urgencyScore >= 0.8) return "urgent";
+    if (urgencyScore >= 0.6) return "high";
+    if (urgencyScore >= 0.4) return "medium";
+    if (urgencyScore >= 0.2) return "low";
+  }
+
   return "none";
 }
 
@@ -143,23 +158,27 @@ function ClickableCell({
   disabled?: boolean;
 }) {
   if (!onClick || disabled) {
-    return <div className={cn("flex items-center justify-center", className)}>{children}</div>;
+    return (
+      <div className={cn("flex items-center justify-center", className)}>
+        {children}
+      </div>
+    );
   }
 
   return (
     <button
-      type="button"
+      className={cn(
+        "flex items-center justify-center",
+        "rounded-[4px] transition-all duration-100",
+        "hover:bg-accent",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-secondary",
+        className
+      )}
       onClick={(e) => {
         e.stopPropagation();
         onClick(e);
       }}
-      className={cn(
-        "flex items-center justify-center",
-        "rounded-[4px] transition-all duration-100",
-        "hover:bg-[#292B41]",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5E6AD2]",
-        className
-      )}
+      type="button"
     >
       {children}
     </button>
@@ -183,12 +202,17 @@ function InboxRow({
   className,
   ...props
 }: InboxRowProps) {
-  const priority = getPriority(item.urgencyScore);
+  const priority = getPriority(item.urgencyScore, item.priorityTier);
   const status = getStatus(item.isRead, item.isArchived);
   const senderName = getSenderName(item.participants, currentUserId);
   const dateDisplay = formatDate(item.lastMessageAt);
   // Fallback chain for brief text: AI brief → suggested action → title → snippet
-  const briefText = item.brief || item.suggestedAction || item.title || item.snippet || "No summary available";
+  const briefText =
+    item.brief ||
+    item.suggestedAction ||
+    item.title ||
+    item.snippet ||
+    "No summary available";
   // Check if we should use task controls
   const hasTaskData = item.task && organizationId;
 
@@ -203,24 +227,28 @@ function InboxRow({
   return (
     <div
       className={cn(
-        "group flex items-center h-10",
+        "group flex h-10 items-center",
         "cursor-pointer transition-colors duration-100",
-        "border-b border-[#1E1F2E]",
-        !item.isRead && "bg-[#1A1B26]",
-        isSelected && "bg-[#252736]",
-        isActive && "bg-[#252736] border-l-2 border-l-[#5E6AD2] pl-[calc(0.75rem-2px)]",
+        "border-border border-b",
+        !item.isRead && "bg-card",
+        isSelected && "bg-accent",
+        isActive &&
+          "border-l-2 border-l-secondary bg-accent pl-[calc(0.75rem-2px)]",
         !isActive && "pl-3",
         "pr-3",
-        !isSelected && !isActive && "hover:bg-[#1E1F2E]",
+        !(isSelected || isActive) && "hover:bg-muted",
         className
       )}
-      onClick={onClick}
       data-slot="inbox-row"
+      onClick={onClick}
       {...props}
     >
       {/* Checkbox - fixed width */}
       <div
-        className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <IssueCheckbox
@@ -233,51 +261,59 @@ function InboxRow({
       {/* Priority - fixed width, use task dropdown if task data exists */}
       {hasTaskData ? (
         <div
-          className={cn(COL.priority, "h-7 shrink-0 flex items-center justify-center")}
+          className={cn(
+            COL.priority,
+            "flex h-7 shrink-0 items-center justify-center"
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           <TaskPriorityDropdown
-            taskId={item.task!.id}
-            organizationId={organizationId!}
-            currentPriority={item.task!.priority}
-            compact
             align="start"
+            compact
+            currentPriority={item.task!.priority}
+            organizationId={organizationId!}
+            taskId={item.task!.id}
           />
         </div>
       ) : (
         <ClickableCell
-          onClick={onPriorityClick}
           className={cn(COL.priority, "h-7 shrink-0")}
+          onClick={onPriorityClick}
         >
           <PriorityIcon priority={priority} size="sm" />
         </ClickableCell>
       )}
 
       {/* Source - fixed width */}
-      <div className={cn(COL.source, "shrink-0 flex items-center justify-center")}>
-        <SourceIcon sourceType={item.sourceType} size="sm" />
+      <div
+        className={cn(COL.source, "flex shrink-0 items-center justify-center")}
+      >
+        <SourceIcon size="sm" sourceType={item.sourceType} />
       </div>
 
       {/* Status - fixed width, use task dropdown if task data exists */}
       {hasTaskData ? (
         <div
-          className={cn(COL.status, "h-7 shrink-0 flex items-center justify-center")}
+          className={cn(
+            COL.status,
+            "flex h-7 shrink-0 items-center justify-center"
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           <TaskStatusDropdown
-            taskId={item.task!.id}
-            organizationId={organizationId!}
-            currentStatus={item.task!.status}
-            compact
             align="start"
+            compact
+            currentStatus={item.task!.status}
+            organizationId={organizationId!}
+            taskId={item.task!.id}
           />
         </div>
       ) : (
         <ClickableCell
-          onClick={onStatusClick}
           className={cn(COL.status, "h-7 shrink-0")}
+          onClick={onStatusClick}
         >
-          <StatusIcon status={status} size="sm" />
+          <StatusIcon size="sm" status={status} />
         </ClickableCell>
       )}
 
@@ -285,8 +321,10 @@ function InboxRow({
       <div className={cn(COL.sender, "shrink-0 px-1")}>
         <span
           className={cn(
-            "text-[13px] truncate block",
-            !item.isRead ? "font-medium text-[#EEEFFC]" : "font-normal text-[#9CA3AF]"
+            "block truncate text-[13px]",
+            item.isRead
+              ? "font-normal text-muted-foreground"
+              : "font-medium text-foreground"
           )}
         >
           {senderName}
@@ -294,38 +332,38 @@ function InboxRow({
       </div>
 
       {/* Brief - flexible width, takes remaining space */}
-      <div className="flex-1 min-w-0 px-2">
-        <span className="text-[13px] font-normal text-[#6B7280] truncate block">
+      <div className="min-w-0 flex-1 px-2">
+        <span className="block truncate font-normal text-muted-foreground text-[13px]">
           {briefText}
         </span>
       </div>
 
       {/* Right section - fixed width, perfectly aligned */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         {/* Default state: Date + Assignee + Dots - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Date - fixed width, right aligned text */}
-          <span className="w-14 text-right text-[12px] font-normal text-[#6B7280] whitespace-nowrap">
+          <span className="w-14 whitespace-nowrap text-right font-normal text-muted-foreground text-[12px]">
             {dateDisplay}
           </span>
 
           {/* Assignee */}
-          <div className="w-7 h-7 flex items-center justify-center">
+          <div className="flex h-7 w-7 items-center justify-center">
             {hasTaskData ? (
               <div onClick={(e) => e.stopPropagation()}>
                 <TaskAssigneeDropdown
-                  taskId={item.task!.id}
-                  organizationId={organizationId!}
-                  currentAssignee={item.task!.assignee}
-                  compact
                   align="end"
+                  compact
+                  currentAssignee={item.task!.assignee}
+                  organizationId={organizationId!}
+                  taskId={item.task!.id}
                 />
               </div>
             ) : item.assignee ? (
               <AssigneeIcon
-                name={item.assignee.name}
                 email={item.assignee.email}
                 imageUrl={item.assignee.imageUrl}
+                name={item.assignee.name}
                 size="xs"
               />
             ) : (
@@ -334,15 +372,15 @@ function InboxRow({
           </div>
 
           {/* Dots or Star */}
-          <div className="w-7 flex items-center justify-center">
+          <div className="flex w-7 items-center justify-center">
             {item.isStarred ? (
               <Star className="size-4 fill-yellow-400 text-yellow-400" />
             ) : (
               <IntelligenceDots
-                hasCommitments={item.hasCommitments}
                 commitmentCount={item.commitmentCount}
-                hasDecisions={item.hasDecisions}
                 decisionCount={item.decisionCount}
+                hasCommitments={item.hasCommitments}
+                hasDecisions={item.hasDecisions}
                 hasOpenLoops={item.hasOpenLoops ?? false}
                 openLoopCount={item.openLoopCount ?? undefined}
                 size="sm"
@@ -352,36 +390,38 @@ function InboxRow({
         </div>
 
         {/* Hover state: Actions - replaces entire section */}
-        <div className="hidden group-hover:flex items-center justify-end gap-0.5">
+        <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           <button
-            type="button"
+            aria-label={item.isStarred ? "Unstar" : "Star"}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              item.isStarred ? "text-yellow-400" : "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onStar?.(!item.isStarred);
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              item.isStarred ? "text-yellow-400" : "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label={item.isStarred ? "Unstar" : "Star"}
+            type="button"
           >
-            <Star className={cn("size-4", item.isStarred && "fill-yellow-400")} />
+            <Star
+              className={cn("size-4", item.isStarred && "fill-yellow-400")}
+            />
           </button>
           <button
-            type="button"
+            aria-label="Archive"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onArchive?.();
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Archive"
+            type="button"
           >
             <Archive className="size-4" />
           </button>
@@ -410,16 +450,21 @@ function InboxListHeader({
   return (
     <div
       className={cn(
-        "flex items-center h-8 px-3",
-        "bg-[#13141B] border-b border-[#1E1F2E]",
-        "text-[11px] font-medium text-[#6B7280] uppercase tracking-wider",
+        "flex h-8 items-center px-3",
+        "border-border border-b bg-background",
+        "font-medium text-muted-foreground text-[11px] uppercase tracking-wider",
         className
       )}
       data-slot="inbox-list-header"
       {...props}
     >
       {/* Checkbox */}
-      <div className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
+      >
         <IssueCheckbox
           checked={allSelected ? true : someSelected ? "indeterminate" : false}
           onCheckedChange={(checked) => onSelectAll?.(checked)}
@@ -443,9 +488,9 @@ function InboxListHeader({
       <div className="flex-1 px-2">Summary</div>
 
       {/* Right section - fixed width matches row layout */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 text-right whitespace-nowrap">Date</span>
+          <span className="w-14 whitespace-nowrap text-right">Date</span>
           <div className="w-7" />
           <div className="w-7" />
         </div>
@@ -454,4 +499,9 @@ function InboxListHeader({
   );
 }
 
-export { InboxRow, InboxListHeader, type InboxRowProps, type InboxListHeaderProps };
+export {
+  InboxRow,
+  InboxListHeader,
+  type InboxRowProps,
+  type InboxListHeaderProps,
+};

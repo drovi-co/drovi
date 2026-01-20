@@ -2,6 +2,12 @@ import {
   GRAPH_API_BASE,
   refreshOutlookToken as refreshOutlookOAuth,
 } from "@memorystack/auth/providers";
+import {
+  CalendarAuthError,
+  CalendarNotFoundError,
+  CalendarProviderError,
+  CalendarQuotaError,
+} from "./errors";
 import type {
   CalendarClient,
   CalendarEvent,
@@ -19,12 +25,6 @@ import type {
   RecurrenceRule,
   UpdateEventInput,
 } from "./types";
-import {
-  CalendarAuthError,
-  CalendarNotFoundError,
-  CalendarProviderError,
-  CalendarQuotaError,
-} from "./errors";
 
 // =============================================================================
 // MICROSOFT GRAPH CALENDAR API RESPONSE TYPES
@@ -58,7 +58,13 @@ interface GraphEmailAddress {
 interface GraphAttendee {
   emailAddress: GraphEmailAddress;
   status?: {
-    response?: "none" | "organizer" | "tentativelyAccepted" | "accepted" | "declined" | "notResponded";
+    response?:
+      | "none"
+      | "organizer"
+      | "tentativelyAccepted"
+      | "accepted"
+      | "declined"
+      | "notResponded";
     time?: string;
   };
   type?: "required" | "optional" | "resource";
@@ -73,7 +79,13 @@ interface GraphOnlineMeeting {
 
 interface GraphPatternedRecurrence {
   pattern?: {
-    type?: "daily" | "weekly" | "absoluteMonthly" | "relativeMonthly" | "absoluteYearly" | "relativeYearly";
+    type?:
+      | "daily"
+      | "weekly"
+      | "absoluteMonthly"
+      | "relativeMonthly"
+      | "absoluteYearly"
+      | "relativeYearly";
     interval?: number;
     daysOfWeek?: string[];
     dayOfMonth?: number;
@@ -112,17 +124,33 @@ interface GraphEvent {
     emailAddress?: GraphEmailAddress;
   };
   attendees?: GraphAttendee[];
-  showAs?: "free" | "tentative" | "busy" | "oof" | "workingElsewhere" | "unknown";
+  showAs?:
+    | "free"
+    | "tentative"
+    | "busy"
+    | "oof"
+    | "workingElsewhere"
+    | "unknown";
   importance?: "low" | "normal" | "high";
   sensitivity?: "normal" | "personal" | "private" | "confidential";
   isOnlineMeeting?: boolean;
-  onlineMeetingProvider?: "teamsForBusiness" | "skypeForBusiness" | "skypeForConsumer" | "unknown";
+  onlineMeetingProvider?:
+    | "teamsForBusiness"
+    | "skypeForBusiness"
+    | "skypeForConsumer"
+    | "unknown";
   onlineMeeting?: GraphOnlineMeeting;
   recurrence?: GraphPatternedRecurrence;
   seriesMasterId?: string;
   type?: "singleInstance" | "occurrence" | "exception" | "seriesMaster";
   responseStatus?: {
-    response?: "none" | "organizer" | "tentativelyAccepted" | "accepted" | "declined" | "notResponded";
+    response?:
+      | "none"
+      | "organizer"
+      | "tentativelyAccepted"
+      | "accepted"
+      | "declined"
+      | "notResponded";
     time?: string;
   };
   isCancelled?: boolean;
@@ -145,7 +173,13 @@ interface GraphCalendarsResponse {
 }
 
 interface GraphScheduleItem {
-  status?: "free" | "tentative" | "busy" | "oof" | "workingElsewhere" | "unknown";
+  status?:
+    | "free"
+    | "tentative"
+    | "busy"
+    | "oof"
+    | "workingElsewhere"
+    | "unknown";
   start?: GraphDateTimeTimeZone;
   end?: GraphDateTimeTimeZone;
 }
@@ -189,7 +223,9 @@ function convertAttendeeResponse(
 /**
  * Convert Graph recurrence pattern to our RecurrenceRule
  */
-function convertRecurrence(recurrence?: GraphPatternedRecurrence): RecurrenceRule | undefined {
+function convertRecurrence(
+  recurrence?: GraphPatternedRecurrence
+): RecurrenceRule | undefined {
   if (!recurrence?.pattern) return undefined;
 
   const pattern = recurrence.pattern;
@@ -257,7 +293,9 @@ function convertRecurrence(recurrence?: GraphPatternedRecurrence): RecurrenceRul
 /**
  * Build Graph recurrence pattern from our RecurrenceRule
  */
-function buildRecurrencePattern(rule: RecurrenceRule): GraphPatternedRecurrence {
+function buildRecurrencePattern(
+  rule: RecurrenceRule
+): GraphPatternedRecurrence {
   const pattern: GraphPatternedRecurrence = {
     pattern: {
       interval: rule.interval,
@@ -482,7 +520,8 @@ export class OutlookCalendarClient implements CalendarClient {
   // ---------------------------------------------------------------------------
 
   async listCalendars(): Promise<CalendarInfo[]> {
-    const response = await this.request<GraphCalendarsResponse>("/me/calendars");
+    const response =
+      await this.request<GraphCalendarsResponse>("/me/calendars");
     return (response.value ?? []).map((cal) => this.convertCalendar(cal));
   }
 
@@ -533,7 +572,10 @@ export class OutlookCalendarClient implements CalendarClient {
 
     const params = new URLSearchParams({
       $top: String(input.maxResults ?? 250),
-      $orderby: input.orderBy === "updated" ? "lastModifiedDateTime desc" : "start/dateTime asc",
+      $orderby:
+        input.orderBy === "updated"
+          ? "lastModifiedDateTime desc"
+          : "start/dateTime asc",
       $filter: `start/dateTime ge '${input.timeMin.toISOString()}' and end/dateTime le '${input.timeMax.toISOString()}'`,
       $select:
         "id,subject,body,bodyPreview,start,end,isAllDay,location,organizer,attendees,showAs,sensitivity,isOnlineMeeting,onlineMeeting,onlineMeetingProvider,recurrence,seriesMasterId,type,responseStatus,isCancelled,reminderMinutesBeforeStart,isReminderOn,webLink,createdDateTime,lastModifiedDateTime",
@@ -782,7 +824,8 @@ export class OutlookCalendarClient implements CalendarClient {
         name: att.emailAddress?.name,
         responseStatus: convertAttendeeResponse(att.status?.response),
         organizer: false,
-        self: att.emailAddress?.address?.toLowerCase() === this.email.toLowerCase(),
+        self:
+          att.emailAddress?.address?.toLowerCase() === this.email.toLowerCase(),
         optional: att.type === "optional",
       })),
       recurrence: convertRecurrence(event.recurrence),
@@ -793,7 +836,9 @@ export class OutlookCalendarClient implements CalendarClient {
       canEdit,
       canDelete,
       selfResponseStatus: convertAttendeeResponse(selfResponse),
-      created: event.createdDateTime ? new Date(event.createdDateTime) : new Date(),
+      created: event.createdDateTime
+        ? new Date(event.createdDateTime)
+        : new Date(),
       updated: event.lastModifiedDateTime
         ? new Date(event.lastModifiedDateTime)
         : new Date(),

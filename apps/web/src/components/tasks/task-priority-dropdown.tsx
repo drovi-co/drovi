@@ -16,10 +16,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 
-import { PRIORITY_CONFIG, PRIORITY_ORDER, type TaskPriority } from "./task-types";
+import {
+  PRIORITY_CONFIG,
+  PRIORITY_ORDER,
+  type TaskPriority,
+} from "./task-types";
+
+// Map TaskPriority to PriorityIcon's Priority type
+function mapTaskPriorityToIconPriority(taskPriority: TaskPriority): Priority {
+  switch (taskPriority) {
+    case "urgent":
+      return "urgent";
+    case "high":
+      return "high";
+    case "medium":
+      return "medium";
+    case "low":
+      return "low";
+    case "no_priority":
+      return "none";
+  }
+}
 
 // =============================================================================
 // PROPS
@@ -68,7 +89,9 @@ export function TaskPriorityDropdown({
       return { previousPriority: currentPriority };
     },
     onSuccess: (_, { priority: newPriority }) => {
-      toast.success(`Priority changed to ${PRIORITY_CONFIG[newPriority].label}`);
+      toast.success(
+        `Priority changed to ${PRIORITY_CONFIG[newPriority].label}`
+      );
       onPriorityChange?.(newPriority);
     },
     onError: () => {
@@ -89,23 +112,25 @@ export function TaskPriorityDropdown({
     });
   };
 
+  const iconPriority = mapTaskPriorityToIconPriority(currentPriority);
+
   const defaultTrigger = compact ? (
     <Button
-      variant="ghost"
-      size="icon"
       className="h-7 w-7"
       disabled={disabled || updatePriorityMutation.isPending}
+      size="icon"
+      variant="ghost"
     >
-      <div className={cn("w-2.5 h-2.5 rounded-full", config.dotColor)} />
+      <PriorityIcon priority={iconPriority} size="sm" />
     </Button>
   ) : (
     <Button
-      variant="outline"
-      size="sm"
-      className="gap-2 h-7"
+      className="h-7 gap-2"
       disabled={disabled || updatePriorityMutation.isPending}
+      size="sm"
+      variant="outline"
     >
-      <div className={cn("w-2 h-2 rounded-full", config.dotColor)} />
+      <PriorityIcon priority={iconPriority} size="sm" />
       <span className="text-xs">{config.label}</span>
     </Button>
   );
@@ -119,15 +144,18 @@ export function TaskPriorityDropdown({
         {PRIORITY_ORDER.map((priority) => {
           const priorityConfig = PRIORITY_CONFIG[priority];
           const isSelected = priority === currentPriority;
+          const menuIconPriority = mapTaskPriorityToIconPriority(priority);
 
           return (
             <DropdownMenuItem
+              className={cn(isSelected && "bg-accent")}
               key={priority}
               onClick={() => handlePriorityChange(priority)}
-              className={cn(isSelected && "bg-accent")}
             >
-              <div
-                className={cn("w-2.5 h-2.5 rounded-full mr-2", priorityConfig.dotColor)}
+              <PriorityIcon
+                className="mr-2"
+                priority={menuIconPriority}
+                size="sm"
               />
               <span>{priorityConfig.label}</span>
             </DropdownMenuItem>
@@ -167,7 +195,7 @@ export function TaskPriorityIndicator({
     <div
       className={cn(
         "inline-flex items-center gap-1.5",
-        showLabel && "px-2 py-0.5 rounded-md text-xs font-medium",
+        showLabel && "rounded-md px-2 py-0.5 font-medium text-xs",
         showLabel && config.bgColor,
         className
       )}

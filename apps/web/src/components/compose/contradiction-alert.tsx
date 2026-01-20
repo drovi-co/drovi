@@ -7,7 +7,7 @@
 // trust and accountability.
 //
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   AlertTriangle,
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -100,37 +101,10 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 }
 
 // =============================================================================
-// MOCK CONTRADICTION CHECK (TO BE REPLACED WITH REAL API)
+// API CONTRADICTION CHECK
 // =============================================================================
-
-async function checkContradictions(
-  draftContent: string,
-  _context: {
-    threadId?: string;
-    recipients?: Array<{ email: string; name?: string }>;
-    organizationId: string;
-  }
-): Promise<Contradiction[]> {
-  // This is a placeholder - in production this would call the API
-  // The actual contradiction detection happens in the risk analysis task
-
-  // For demo purposes, check for some common contradiction patterns
-  const contradictions: Contradiction[] = [];
-  const lowerContent = draftContent.toLowerCase();
-
-  // Example: Check for delivery date conflicts
-  if (
-    (lowerContent.includes("deliver") || lowerContent.includes("ship")) &&
-    (lowerContent.includes("next week") ||
-      lowerContent.includes("friday") ||
-      lowerContent.includes("monday"))
-  ) {
-    // Mock contradiction - in reality this would be detected by the AI
-    // based on actual previous commitments
-  }
-
-  return contradictions;
-}
+// Uses the real tRPC API to check for contradictions against historical
+// commitments and decisions.
 
 // =============================================================================
 // SEVERITY CONFIG
@@ -138,22 +112,26 @@ async function checkContradictions(
 
 const severityConfig = {
   low: {
-    color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
+    color:
+      "text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
     icon: AlertTriangle,
     label: "Minor inconsistency",
   },
   medium: {
-    color: "text-orange-600 bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800",
+    color:
+      "text-orange-600 bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800",
     icon: AlertTriangle,
     label: "Potential conflict",
   },
   high: {
-    color: "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
+    color:
+      "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
     icon: AlertTriangle,
     label: "Significant contradiction",
   },
   critical: {
-    color: "text-red-700 bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700",
+    color:
+      "text-red-700 bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700",
     icon: AlertTriangle,
     label: "Critical contradiction",
   },
@@ -191,32 +169,91 @@ export function ContradictionAlert({
       organizationId &&
       !dismissed
     );
-  }, [debouncedContent.length, minContentLength, accountId, organizationId, dismissed]);
+  }, [
+    debouncedContent.length,
+    minContentLength,
+    accountId,
+    organizationId,
+    dismissed,
+  ]);
 
-  // Query for contradictions
-  const { data: analysisData, isLoading } = useQuery({
-    queryKey: ["contradiction-check", debouncedContent, threadId],
-    enabled: Boolean(shouldAnalyze),
-    queryFn: async (): Promise<{ contradictions: Contradiction[] }> => {
-      if (!accountId) return { contradictions: [] };
+  // Mutation for contradiction checking
+  const tRpc = trpc;
+  const contradictionMutation = useMutation(
+    tRpc.compose.checkContradictions.mutationOptions({
+      onError: (error) => {
+        // Silent fail in production - contradiction checking is non-critical
+        if (import.meta.env.DEV) {
+          console.warn("Contradiction check failed:", error);
+        }
+      },
+    })
+  );
 
-      // Use the local mock for now - replace with actual API call
-      const contradictions = await checkContradictions(debouncedContent, {
+  // Trigger contradiction check when content changes
+  const [analysisData, setAnalysisData] = useState<{
+    contradictions: Contradiction[];
+  } | null>(null);
+  const isLoading = contradictionMutation.isPending;
+
+  useEffect(() => {
+    if (!(shouldAnalyze && accountId)) {
+      setAnalysisData(null);
+      return;
+    }
+
+    // Call the API
+    contradictionMutation.mutate(
+      {
+        organizationId,
+        draftContent: debouncedContent,
         threadId,
         recipients,
-        organizationId,
-      });
-
-      return { contradictions };
-    },
-    staleTime: 30_000, // Cache for 30 seconds
-    gcTime: 60_000, // Keep in cache for 1 minute
-    retry: false,
-  });
+      },
+      {
+        onSuccess: (data) => {
+          // Transform API response to match local Contradiction type
+          const contradictions: Contradiction[] = data.contradictions.map(
+            (c: (typeof data.contradictions)[number]) => ({
+              id: c.id,
+              type: c.type as "commitment" | "decision" | "statement",
+              severity: c.severity as "low" | "medium" | "high" | "critical",
+              description: c.description,
+              originalStatement: c.originalStatement,
+              originalSource: {
+                type: c.originalSource.type as
+                  | "commitment"
+                  | "decision"
+                  | "message",
+                id: c.originalSource.id,
+                title: c.originalSource.title,
+                date: c.originalSource.date
+                  ? new Date(c.originalSource.date)
+                  : undefined,
+              },
+              conflictingText: c.conflictingText,
+              confidence: c.confidence,
+              suggestion: c.suggestion,
+            })
+          );
+          setAnalysisData({ contradictions });
+        },
+      }
+    );
+  }, [
+    debouncedContent,
+    shouldAnalyze,
+    accountId,
+    organizationId,
+    threadId,
+    recipients,
+  ]);
 
   const contradictions = useMemo((): Contradiction[] => {
     if (!analysisData?.contradictions) return [];
-    return analysisData.contradictions.filter((c: Contradiction) => !acknowledged.has(c.id));
+    return analysisData.contradictions.filter(
+      (c: Contradiction) => !acknowledged.has(c.id)
+    );
   }, [analysisData?.contradictions, acknowledged]);
 
   // Notify parent of contradictions
@@ -249,31 +286,31 @@ export function ContradictionAlert({
   }
 
   return (
-    <div className="rounded-lg border overflow-hidden">
+    <div className="overflow-hidden rounded-lg border">
       {/* Header */}
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
         <CollapsibleTrigger asChild>
           <button
-            type="button"
             className={cn(
-              "w-full flex items-center justify-between px-4 py-2 text-left transition-colors",
+              "flex w-full items-center justify-between px-4 py-2 text-left transition-colors",
               contradictions.length > 0
-                ? "bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
                 : "bg-muted/50 hover:bg-muted"
             )}
+            type="button"
           >
             <div className="flex items-center gap-2">
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-muted-foreground text-sm">
                     Checking for contradictions...
                   </span>
                 </>
               ) : contradictions.length > 0 ? (
                 <>
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  <span className="font-medium text-amber-800 text-sm dark:text-amber-200">
                     {contradictions.length} potential contradiction
                     {contradictions.length > 1 ? "s" : ""} found
                   </span>
@@ -281,7 +318,7 @@ export function ContradictionAlert({
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700 dark:text-green-300">
+                  <span className="text-green-700 text-sm dark:text-green-300">
                     No contradictions detected
                   </span>
                 </>
@@ -290,15 +327,15 @@ export function ContradictionAlert({
             <div className="flex items-center gap-2">
               {contradictions.length > 0 && (
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  className="h-6 px-2 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDismissAll();
                   }}
-                  className="h-6 px-2 text-xs"
+                  size="sm"
+                  variant="ghost"
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="mr-1 h-3 w-3" />
                   Dismiss
                 </Button>
               )}
@@ -314,13 +351,13 @@ export function ContradictionAlert({
         <CollapsibleContent>
           {contradictions.length > 0 && (
             <ScrollArea className="max-h-64">
-              <div className="p-2 space-y-2">
+              <div className="space-y-2 p-2">
                 {contradictions.map((contradiction: Contradiction) => (
                   <ContradictionItem
-                    key={contradiction.id}
                     contradiction={contradiction}
-                    onViewEvidence={onViewEvidence}
+                    key={contradiction.id}
                     onAcknowledge={() => handleAcknowledge(contradiction.id)}
+                    onViewEvidence={onViewEvidence}
                   />
                 ))}
               </div>
@@ -352,24 +389,24 @@ function ContradictionItem({
   const Icon = config.icon;
 
   return (
-    <div className={cn("rounded-lg border p-3 space-y-3", config.color)}>
+    <div className={cn("space-y-3 rounded-lg border p-3", config.color)}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2">
-          <Icon className="h-4 w-4 mt-0.5 shrink-0" />
+          <Icon className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="text-sm font-medium">{contradiction.description}</p>
-            <p className="text-xs opacity-70 mt-0.5">{config.label}</p>
+            <p className="font-medium text-sm">{contradiction.description}</p>
+            <p className="mt-0.5 text-xs opacity-70">{config.label}</p>
           </div>
         </div>
         <span
           className={cn(
-            "text-xs font-medium px-1.5 py-0.5 rounded",
+            "rounded px-1.5 py-0.5 font-medium text-xs",
             contradiction.confidence >= 0.8
-              ? "bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+              ? "bg-red-200 text-red-800 dark:bg-red-900/50 dark:text-red-200"
               : contradiction.confidence >= 0.5
-                ? "bg-amber-200 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
-                : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                ? "bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
+                : "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
           )}
         >
           {Math.round(contradiction.confidence * 100)}% confident
@@ -400,15 +437,17 @@ function ContradictionItem({
           )}
         </div>
         {contradiction.originalSource.title && (
-          <p className="font-medium mt-1">{contradiction.originalSource.title}</p>
+          <p className="mt-1 font-medium">
+            {contradiction.originalSource.title}
+          </p>
         )}
       </div>
 
       {/* Toggle Comparison */}
       <button
-        type="button"
+        className="flex items-center gap-1 font-medium text-primary text-xs hover:underline"
         onClick={() => setShowComparison(!showComparison)}
-        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        type="button"
       >
         <GitCompare className="h-3 w-3" />
         {showComparison ? "Hide comparison" : "Show comparison"}
@@ -417,16 +456,16 @@ function ContradictionItem({
       {/* Side-by-side comparison */}
       {showComparison && (
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2 rounded bg-background/50 border">
-            <p className="font-medium text-muted-foreground mb-1">
+          <div className="rounded border bg-background/50 p-2">
+            <p className="mb-1 font-medium text-muted-foreground">
               Your draft says:
             </p>
             <p className="text-red-600 dark:text-red-400">
               "{contradiction.conflictingText}"
             </p>
           </div>
-          <div className="p-2 rounded bg-background/50 border">
-            <p className="font-medium text-muted-foreground mb-1">
+          <div className="rounded border bg-background/50 p-2">
+            <p className="mb-1 font-medium text-muted-foreground">
               Previously stated:
             </p>
             <p className="text-green-600 dark:text-green-400">
@@ -438,8 +477,8 @@ function ContradictionItem({
 
       {/* Suggestion */}
       {contradiction.suggestion && (
-        <div className="text-xs p-2 rounded bg-background/50 border">
-          <p className="font-medium text-muted-foreground mb-1">Suggestion:</p>
+        <div className="rounded border bg-background/50 p-2 text-xs">
+          <p className="mb-1 font-medium text-muted-foreground">Suggestion:</p>
           <p>{contradiction.suggestion}</p>
         </div>
       )}
@@ -448,8 +487,6 @@ function ContradictionItem({
       <div className="flex items-center gap-2">
         {onViewEvidence && (
           <Button
-            variant="ghost"
-            size="sm"
             className="h-7 px-2 text-xs"
             onClick={() =>
               onViewEvidence(
@@ -457,34 +494,33 @@ function ContradictionItem({
                 contradiction.originalSource.type
               )
             }
+            size="sm"
+            variant="ghost"
           >
-            <Eye className="h-3 w-3 mr-1" />
+            <Eye className="mr-1 h-3 w-3" />
             View evidence
           </Button>
         )}
         {contradiction.originalSource.threadSubject && (
           <Button
-            variant="ghost"
-            size="sm"
             className="h-7 px-2 text-xs"
             onClick={() =>
-              onViewEvidence?.(
-                contradiction.originalSource.id,
-                "thread"
-              )
+              onViewEvidence?.(contradiction.originalSource.id, "thread")
             }
+            size="sm"
+            variant="ghost"
           >
-            <ExternalLink className="h-3 w-3 mr-1" />
+            <ExternalLink className="mr-1 h-3 w-3" />
             View thread
           </Button>
         )}
         <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs ml-auto"
+          className="ml-auto h-7 px-2 text-xs"
           onClick={onAcknowledge}
+          size="sm"
+          variant="outline"
         >
-          <CheckCircle className="h-3 w-3 mr-1" />
+          <CheckCircle className="mr-1 h-3 w-3" />
           Acknowledge & proceed
         </Button>
       </div>

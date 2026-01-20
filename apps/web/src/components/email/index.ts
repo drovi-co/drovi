@@ -1,21 +1,34 @@
 // Core components
 export { CommandBar, useCommandBar } from "./command-bar";
-export { ThreadBrief, ThreadBriefSkeleton, type ThreadBriefData } from "./thread-brief";
-export { ThreadList, type InboxFilter, type InboxSort, type IntelligenceFilter } from "./thread-list";
-export { ConversationView, type MessageData, type AttachmentData } from "./conversation-view";
 export {
-  IntelligencePanel,
+  type AttachmentData,
+  ConversationView,
+  type MessageData,
+} from "./conversation-view";
+export {
   type CommitmentData,
   type DecisionData,
+  type EvidenceLink,
+  IntelligencePanel,
   type OpenQuestionData,
   type RiskWarningData,
-  type EvidenceLink,
 } from "./intelligence-panel";
 export {
-  MemoryPanel,
-  type RelatedThread,
-  type RelatedDecision,
-  type RelatedCommitment,
   type ContactContext,
+  MemoryPanel,
+  type RelatedCommitment,
+  type RelatedDecision,
+  type RelatedThread,
   type TimelineEvent,
 } from "./memory-panel";
+export {
+  ThreadBrief,
+  type ThreadBriefData,
+  ThreadBriefSkeleton,
+} from "./thread-brief";
+export {
+  type InboxFilter,
+  type InboxSort,
+  type IntelligenceFilter,
+  ThreadList,
+} from "./thread-list";

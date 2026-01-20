@@ -25,15 +25,15 @@ function Checkbox({
         "peer shrink-0",
         // Linear checkbox styling - pixel perfect from Figma
         "size-[14px] rounded-[3px]",
-        "border border-[#393A4B]",
+        "border border-border",
         "bg-transparent",
         "outline-none transition-colors duration-150",
         // Focus state
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         // Disabled state
         "disabled:cursor-not-allowed disabled:opacity-50",
-        // Checked state - Figma: bg #575BC7, border #37466C
-        "data-[state=checked]:border-[#37466C] data-[state=checked]:bg-primary",
+        // Checked state
+        "data-[state=checked]:border-secondary data-[state=checked]:bg-primary",
         // Error state
         "aria-invalid:border-destructive",
         className

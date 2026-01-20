@@ -1,3 +1,6 @@
+import { env } from "@memorystack/env/web";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +16,6 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/utils/trpc";
-import { env } from "@memorystack/env/web";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // =============================================================================
 // AI SETTINGS & PLACEHOLDER REPLACEMENT
@@ -44,7 +45,10 @@ interface AISettings {
  * Extracts subject line from AI draft text.
  * Handles formats like "Subject: Foo" at the start of the body.
  */
-function extractSubjectFromBody(body: string): { subject: string | null; cleanBody: string } {
+function extractSubjectFromBody(body: string): {
+  subject: string | null;
+  cleanBody: string;
+} {
   const lines = body.split("\n");
   const subjectLine = lines[0];
 
@@ -63,7 +67,9 @@ function extractSubjectFromBody(body: string): { subject: string | null; cleanBo
  * Generate suggested availability slots based on working hours settings.
  * Returns 3 time slots for the next few available work days.
  */
-function generateAvailabilitySlots(workingHours?: AISettings["workingHours"]): string[] {
+function generateAvailabilitySlots(
+  workingHours?: AISettings["workingHours"]
+): string[] {
   if (!workingHours) {
     // Default availability if no settings
     const today = new Date();
@@ -77,7 +83,10 @@ function generateAvailabilitySlots(workingHours?: AISettings["workingHours"]): s
       // Default to weekdays only
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-        const dateStr = date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+        const dateStr = date.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+        });
 
         // Suggest morning, mid-day, and afternoon slots
         const times = ["10:00 AM", "2:00 PM", "4:00 PM"];
@@ -112,14 +121,16 @@ function generateAvailabilitySlots(workingHours?: AISettings["workingHours"]): s
 
     if (workDays.includes(dayOfWeek)) {
       const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-      const dateStr = date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      const dateStr = date.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+      });
 
       // Pick a suggested time
       const hourIdx = slots.length % suggestedHours.length;
       const hour = suggestedHours[hourIdx] ?? 10;
-      const timeStr = hour >= 12
-        ? `${hour === 12 ? 12 : hour - 12}:00 PM`
-        : `${hour}:00 AM`;
+      const timeStr =
+        hour >= 12 ? `${hour === 12 ? 12 : hour - 12}:00 PM` : `${hour}:00 AM`;
 
       slots.push(`${dayName}, ${dateStr} at ${timeStr}`);
     }
@@ -186,18 +197,26 @@ function replacePlaceholders(text: string, settings: AISettings): string {
 
   // Calendar booking link placeholders
   if (settings.calendarBookingLink) {
-    result = result.replace(/\[Calendar Link\]/gi, settings.calendarBookingLink);
+    result = result.replace(
+      /\[Calendar Link\]/gi,
+      settings.calendarBookingLink
+    );
     result = result.replace(/\[Booking Link\]/gi, settings.calendarBookingLink);
     result = result.replace(/\[Calendly\]/gi, settings.calendarBookingLink);
-    result = result.replace(/\[Schedule Link\]/gi, settings.calendarBookingLink);
+    result = result.replace(
+      /\[Schedule Link\]/gi,
+      settings.calendarBookingLink
+    );
   }
 
   // Sign-off placeholder - replace if user has one configured
   if (settings.signOff) {
     // Common AI-generated sign-off placeholders
     result = result.replace(/\[Your Sign-off\]/gi, settings.signOff);
-    result = result.replace(/Best regards,?\n?\[Your Name\]/gi,
-      `${settings.signOff},\n${settings.userName ?? "[Your Name]"}`);
+    result = result.replace(
+      /Best regards,?\n?\[Your Name\]/gi,
+      `${settings.signOff},\n${settings.userName ?? "[Your Name]"}`
+    );
   }
 
   // Signature placeholder - insert full signature
@@ -219,14 +238,20 @@ function replacePlaceholders(text: string, settings: AISettings): string {
     result = result.replace(availabilityPattern, () => {
       const slot = slots[matchIndex % slots.length];
       matchIndex++;
-      return slot ? `- ${slot}` : "- [Please check my calendar for availability]";
+      return slot
+        ? `- ${slot}`
+        : "- [Please check my calendar for availability]";
     });
   }
 
   return result;
 }
+
 import {
   ChevronDown,
+  FileIcon,
+  FileText,
+  ImageIcon,
   Loader2,
   Paperclip,
   Send,
@@ -235,18 +260,15 @@ import {
   Trash2,
   Wand2,
   X,
-  FileIcon,
-  ImageIcon,
-  FileText,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { type Recipient, RecipientField } from "./recipient-field";
 import { Badge } from "@/components/ui/badge";
 import {
-  ContradictionWarning,
   type ContradictionCheckResult,
+  ContradictionWarning,
 } from "./contradiction-warning";
+import { type Recipient, RecipientField } from "./recipient-field";
 
 // =============================================================================
 // ATTACHMENT TYPES & HELPERS
@@ -271,7 +293,8 @@ function formatFileSize(bytes: number): string {
 
 function getFileIcon(mimeType: string) {
   if (mimeType.startsWith("image/")) return ImageIcon;
-  if (mimeType.includes("pdf") || mimeType.includes("document")) return FileText;
+  if (mimeType.includes("pdf") || mimeType.includes("document"))
+    return FileText;
   return FileIcon;
 }
 
@@ -402,6 +425,7 @@ export function ComposeDialog({
 }: ComposeDialogProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Form state
   const [to, setTo] = useState<Recipient[]>(initialTo);
@@ -421,9 +445,12 @@ export function ComposeDialog({
   const [aiPrompt, setAiPrompt] = useState("");
 
   // Pre-send contradiction check state
-  const [contradictionResult, setContradictionResult] = useState<ContradictionCheckResult | null>(null);
-  const [showContradictionWarning, setShowContradictionWarning] = useState(false);
-  const [isCheckingContradictions, setIsCheckingContradictions] = useState(false);
+  const [contradictionResult, setContradictionResult] =
+    useState<ContradictionCheckResult | null>(null);
+  const [showContradictionWarning, setShowContradictionWarning] =
+    useState(false);
+  const [isCheckingContradictions, setIsCheckingContradictions] =
+    useState(false);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const aiInputRef = useRef<HTMLInputElement>(null);
@@ -487,7 +514,10 @@ export function ComposeDialog({
   // Track unsaved changes
   useEffect(() => {
     const hasContent =
-      to.length > 0 || subject.length > 0 || body.length > 0 || attachments.length > 0;
+      to.length > 0 ||
+      subject.length > 0 ||
+      body.length > 0 ||
+      attachments.length > 0;
     setHasUnsavedChanges(hasContent);
   }, [to, subject, body, attachments]);
 
@@ -529,148 +559,168 @@ export function ComposeDialog({
   });
 
   // Pre-send contradiction check mutation
-  const checkDraftMutation = useMutation({
-    ...trpc.risk.checkDraft.mutationOptions(),
-    onSuccess: (data) => {
-      setContradictionResult(data);
-      setIsCheckingContradictions(false);
+  const checkDraftMutation = useMutation(
+    trpc.risk.checkDraft.mutationOptions({
+      onSuccess: (data) => {
+        // Transform API response to match ContradictionCheckResult type
+        const result: ContradictionCheckResult = {
+          ...data,
+          riskLevel: data.riskLevel as "low" | "medium" | "high" | "critical",
+          timestamp: new Date(data.timestamp),
+          contradictions: data.contradictions.map((c) => ({
+            ...c,
+            conflictingDate: new Date(c.conflictingDate),
+          })),
+        };
+        setContradictionResult(result);
+        setIsCheckingContradictions(false);
 
-      if (data.contradictions.length > 0) {
-        // Show warning if contradictions found
-        setShowContradictionWarning(true);
-      } else {
-        // No contradictions - proceed with send
+        if (data.contradictions.length > 0) {
+          // Show warning if contradictions found
+          setShowContradictionWarning(true);
+        } else {
+          // No contradictions - proceed with send
+          performSend();
+        }
+      },
+      onError: (error) => {
+        setIsCheckingContradictions(false);
+        // If check fails, allow sending anyway with a warning
+        toast.error(
+          `Contradiction check failed: ${error.message}. Proceeding with send.`
+        );
         performSend();
-      }
-    },
-    onError: (error: Error) => {
-      setIsCheckingContradictions(false);
-      // If check fails, allow sending anyway with a warning
-      toast.error(`Contradiction check failed: ${error.message}. Proceeding with send.`);
-      performSend();
-    },
-  });
+      },
+    })
+  );
 
   // AI Generate Draft mutation (for replies with thread context)
-  const generateDraftMutation = useMutation({
-    ...trpc.drafts.generateDraft.mutationOptions(),
-    onSuccess: (data) => {
-      let draftBody = data.draft.body;
+  const generateDraftMutation = useMutation(
+    trpc.drafts.generateDraft.mutationOptions({
+      onSuccess: (data) => {
+        let draftBody = data.draft.body;
 
-      // Extract subject if provided in the draft
-      if (data.draft.subject && !subject) {
-        setSubject(data.draft.subject);
-      }
+        // Extract subject if provided in the draft
+        if (data.draft.subject && !subject) {
+          setSubject(data.draft.subject);
+        }
 
-      // Also check if subject is embedded in the body text
-      const { subject: extractedSubject, cleanBody } = extractSubjectFromBody(draftBody);
-      if (extractedSubject && !subject) {
-        setSubject(extractedSubject);
-        draftBody = cleanBody;
-      }
+        // Also check if subject is embedded in the body text
+        const { subject: extractedSubject, cleanBody } =
+          extractSubjectFromBody(draftBody);
+        if (extractedSubject && !subject) {
+          setSubject(extractedSubject);
+          draftBody = cleanBody;
+        }
 
-      // Replace placeholders with user settings
-      if (aiSettings) {
-        draftBody = replacePlaceholders(draftBody, aiSettings);
-      }
+        // Replace placeholders with user settings
+        if (aiSettings) {
+          draftBody = replacePlaceholders(draftBody, aiSettings);
+        }
 
-      setBody(draftBody);
-      setAiPopoverOpen(false);
-      setAiPrompt("");
-      toast.success("Draft generated with AI");
-    },
-    onError: (error: Error) => {
-      toast.error(`AI generation failed: ${error.message}`);
-    },
-  });
+        setBody(draftBody);
+        setAiPopoverOpen(false);
+        setAiPrompt("");
+        toast.success("Draft generated with AI");
+      },
+      onError: (error) => {
+        toast.error(`AI generation failed: ${error.message}`);
+      },
+    })
+  );
 
   // AI Refine Draft mutation (for new messages or editing existing)
-  const refineDraftMutation = useMutation({
-    ...trpc.drafts.refineDraft.mutationOptions(),
-    onSuccess: (data) => {
-      let draftBody = data.refinedBody;
+  const refineDraftMutation = useMutation(
+    trpc.drafts.refineDraft.mutationOptions({
+      onSuccess: (data) => {
+        let draftBody = data.refinedBody;
 
-      // Check if subject is embedded in the body text
-      const { subject: extractedSubject, cleanBody } = extractSubjectFromBody(draftBody);
-      if (extractedSubject && !subject) {
-        setSubject(extractedSubject);
-        draftBody = cleanBody;
-      }
+        // Check if subject is embedded in the body text
+        const { subject: extractedSubject, cleanBody } =
+          extractSubjectFromBody(draftBody);
+        if (extractedSubject && !subject) {
+          setSubject(extractedSubject);
+          draftBody = cleanBody;
+        }
 
-      // Replace placeholders with user settings
-      if (aiSettings) {
-        draftBody = replacePlaceholders(draftBody, aiSettings);
-      }
+        // Replace placeholders with user settings
+        if (aiSettings) {
+          draftBody = replacePlaceholders(draftBody, aiSettings);
+        }
 
-      setBody(draftBody);
-      setAiPopoverOpen(false);
-      setAiPrompt("");
-      toast.success("Draft refined with AI");
-    },
-    onError: (error: Error) => {
-      toast.error(`AI refinement failed: ${error.message}`);
-    },
-  });
+        setBody(draftBody);
+        setAiPopoverOpen(false);
+        setAiPrompt("");
+        toast.success("Draft refined with AI");
+      },
+      onError: (error) => {
+        toast.error(`AI refinement failed: ${error.message}`);
+      },
+    })
+  );
 
   // Handle file selection
-  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileSelect = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
 
-    const currentTotalSize = attachments.reduce((sum, a) => sum + a.size, 0);
+      const currentTotalSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
-    for (const file of Array.from(files)) {
-      // Check individual file size
-      if (file.size > MAX_ATTACHMENT_SIZE) {
-        toast.error(`File "${file.name}" exceeds maximum size of 25MB`);
-        continue;
-      }
+      for (const file of Array.from(files)) {
+        // Check individual file size
+        if (file.size > MAX_ATTACHMENT_SIZE) {
+          toast.error(`File "${file.name}" exceeds maximum size of 25MB`);
+          continue;
+        }
 
-      // Check total size
-      if (currentTotalSize + file.size > MAX_TOTAL_SIZE) {
-        toast.error("Total attachment size exceeds 50MB limit");
-        break;
-      }
+        // Check total size
+        if (currentTotalSize + file.size > MAX_TOTAL_SIZE) {
+          toast.error("Total attachment size exceeds 50MB limit");
+          break;
+        }
 
-      // Check for duplicates
-      if (attachments.some((a) => a.filename === file.name)) {
-        toast.error(`File "${file.name}" is already attached`);
-        continue;
-      }
+        // Check for duplicates
+        if (attachments.some((a) => a.filename === file.name)) {
+          toast.error(`File "${file.name}" is already attached`);
+          continue;
+        }
 
-      // Read file as base64
-      try {
-        const content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            // Remove data URL prefix (e.g., "data:application/pdf;base64,")
-            const base64 = result.split(",")[1];
-            resolve(base64 ?? "");
+        // Read file as base64
+        try {
+          const content = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+              const base64 = result.split(",")[1];
+              resolve(base64 ?? "");
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+
+          const newAttachment: Attachment = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size,
+            content,
           };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
 
-        const newAttachment: Attachment = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          filename: file.name,
-          mimeType: file.type || "application/octet-stream",
-          size: file.size,
-          content,
-        };
-
-        setAttachments((prev) => [...prev, newAttachment]);
-      } catch {
-        toast.error(`Failed to read file "${file.name}"`);
+          setAttachments((prev) => [...prev, newAttachment]);
+        } catch {
+          toast.error(`Failed to read file "${file.name}"`);
+        }
       }
-    }
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, [attachments]);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [attachments]
+  );
 
   // Remove attachment
   const handleRemoveAttachment = useCallback((id: string) => {
@@ -695,14 +745,15 @@ export function ComposeDialog({
       bodyText: body,
       replyToThreadId: replyToThreadId ?? undefined,
       inReplyToMessageId: replyContext?.inReplyToMessageId,
-      attachments: attachments.length > 0
-        ? attachments.map((a) => ({
-            filename: a.filename,
-            mimeType: a.mimeType,
-            size: a.size,
-            content: a.content,
-          }))
-        : undefined,
+      attachments:
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              filename: a.filename,
+              mimeType: a.mimeType,
+              size: a.size,
+              content: a.content,
+            }))
+          : undefined,
     });
   }, [
     to,
@@ -766,14 +817,15 @@ export function ComposeDialog({
       bodyText: body,
       draftId: draftId ?? undefined,
       replyToThreadId: replyToThreadId ?? undefined,
-      attachments: attachments.length > 0
-        ? attachments.map((a) => ({
-            filename: a.filename,
-            mimeType: a.mimeType,
-            size: a.size,
-            content: a.content,
-          }))
-        : undefined,
+      attachments:
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              filename: a.filename,
+              mimeType: a.mimeType,
+              size: a.size,
+              content: a.content,
+            }))
+          : undefined,
     });
   }, [
     to,
@@ -819,7 +871,8 @@ export function ComposeDialog({
       return;
     }
 
-    const recipientName = to[0]?.name ?? to[0]?.email?.split("@")[0] ?? undefined;
+    const recipientName =
+      to[0]?.name ?? to[0]?.email?.split("@")[0] ?? undefined;
 
     if (replyToThreadId) {
       // Use generateDraft for replies - has full thread context
@@ -837,7 +890,8 @@ export function ComposeDialog({
       // Use refineDraft for new messages
       refineDraftMutation.mutate({
         organizationId,
-        originalDraft: body || `Subject: ${subject}\n\nWrite an email about: ${aiPrompt}`,
+        originalDraft:
+          body || `Subject: ${subject}\n\nWrite an email about: ${aiPrompt}`,
         feedback: aiPrompt,
         recipientName,
       });
@@ -897,23 +951,28 @@ export function ComposeDialog({
   }, [open, aiPopoverOpen, handleSend, handleSaveDraft, handleClose]);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog onOpenChange={handleClose} open={open}>
       <DialogContent
-        className="w-[800px] max-w-[90vw] h-[85vh] max-h-[900px] p-0 gap-0 overflow-hidden flex flex-col"
+        className="flex h-[85vh] max-h-[900px] w-[800px] max-w-[90vw] flex-col gap-0 overflow-hidden p-0"
         showCloseButton={false}
       >
         {/* Header */}
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3">
-          <DialogTitle className="text-base font-medium">
-            {replyToThreadId ? "Reply" : initialSubject?.startsWith("Fwd:") || initialSubject?.startsWith("FW:") ? "Forward" : "New Message"}
+          <DialogTitle className="font-medium text-base">
+            {replyToThreadId
+              ? "Reply"
+              : initialSubject?.startsWith("Fwd:") ||
+                  initialSubject?.startsWith("FW:")
+                ? "Forward"
+                : "New Message"}
           </DialogTitle>
           <div className="flex items-center gap-1">
             <Button
-              variant="ghost"
-              size="icon"
               className="h-8 w-8"
-              onClick={handleDiscard}
               disabled={deleteDraftMutation.isPending}
+              onClick={handleDiscard}
+              size="icon"
+              variant="ghost"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -923,17 +982,17 @@ export function ComposeDialog({
         {/* Recipients */}
         <RecipientField
           label="To"
-          recipients={to}
           onRecipientsChange={setTo}
           organizationId={organizationId}
+          recipients={to}
         />
 
         {/* CC/BCC Toggle */}
         {!showCcBcc && (
           <button
-            type="button"
-            onClick={() => setShowCcBcc(true)}
             className="flex items-center gap-1 border-b px-4 py-2 text-muted-foreground text-sm hover:bg-muted/30"
+            onClick={() => setShowCcBcc(true)}
+            type="button"
           >
             <ChevronDown className="h-3 w-3" />
             Add Cc/Bcc
@@ -944,9 +1003,9 @@ export function ComposeDialog({
         {showCcBcc && (
           <RecipientField
             label="Cc"
-            recipients={cc}
             onRecipientsChange={setCc}
             organizationId={organizationId}
+            recipients={cc}
           />
         )}
 
@@ -954,51 +1013,55 @@ export function ComposeDialog({
         {showCcBcc && (
           <RecipientField
             label="Bcc"
-            recipients={bcc}
             onRecipientsChange={setBcc}
             organizationId={organizationId}
+            recipients={bcc}
           />
         )}
 
         {/* Subject */}
         <div className="border-b px-4 py-3">
           <Input
-            value={subject}
+            className="border-0 p-0 text-base shadow-none focus-visible:ring-0"
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Subject"
-            className="border-0 p-0 text-base shadow-none focus-visible:ring-0"
+            value={subject}
           />
         </div>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 p-4 overflow-hidden flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
           <Textarea
-            ref={bodyRef}
-            value={body}
+            className="min-h-0 flex-1 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
             onChange={(e) => setBody(e.target.value)}
             placeholder="Compose your email... (Tip: Hit Cmd+J for AI assistance)"
-            className="flex-1 min-h-0 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
+            ref={bodyRef}
+            value={body}
           />
 
           {/* Attachments Display */}
           {attachments.length > 0 && (
-            <div className="mt-3 pt-3 border-t">
+            <div className="mt-3 border-t pt-3">
               <div className="flex flex-wrap gap-2">
                 {attachments.map((attachment) => {
                   const IconComponent = getFileIcon(attachment.mimeType);
                   return (
                     <Badge
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
                       key={attachment.id}
                       variant="secondary"
-                      className="flex items-center gap-1.5 py-1.5 px-2.5 text-xs"
                     >
                       <IconComponent className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="max-w-[150px] truncate">{attachment.filename}</span>
-                      <span className="text-muted-foreground">({formatFileSize(attachment.size)})</span>
+                      <span className="max-w-[150px] truncate">
+                        {attachment.filename}
+                      </span>
+                      <span className="text-muted-foreground">
+                        ({formatFileSize(attachment.size)})
+                      </span>
                       <button
-                        type="button"
+                        className="ml-1 rounded p-0.5 hover:bg-muted"
                         onClick={() => handleRemoveAttachment(attachment.id)}
-                        className="ml-1 hover:bg-muted rounded p-0.5"
+                        type="button"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1006,8 +1069,11 @@ export function ComposeDialog({
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Total: {formatFileSize(attachments.reduce((sum, a) => sum + a.size, 0))}
+              <p className="mt-2 text-muted-foreground text-xs">
+                Total:{" "}
+                {formatFileSize(
+                  attachments.reduce((sum, a) => sum + a.size, 0)
+                )}
               </p>
             </div>
           )}
@@ -1015,36 +1081,41 @@ export function ComposeDialog({
 
         {/* Hidden file input */}
         <input
+          accept="*/*"
+          className="hidden"
+          multiple
+          onChange={handleFileSelect}
           ref={fileInputRef}
           type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileSelect}
-          accept="*/*"
         />
 
         {/* Contradiction Warning - Pre-send safety check */}
         {(showContradictionWarning || isCheckingContradictions) && (
-          <div className="border-t px-4 py-3 bg-muted/30">
+          <div className="border-t bg-muted/30 px-4 py-3">
             <ContradictionWarning
-              result={contradictionResult}
               isLoading={isCheckingContradictions}
               onDismiss={() => {
                 setShowContradictionWarning(false);
                 setContradictionResult(null);
               }}
-              onProceedAnyway={() => {
-                setShowContradictionWarning(false);
-                performSend();
-              }}
               onEditDraft={() => {
                 setShowContradictionWarning(false);
                 bodyRef.current?.focus();
               }}
-              onViewThread={(threadId) => {
-                // TODO: Open thread in new tab or side panel
-                window.open(`/threads/${threadId}`, "_blank");
+              onProceedAnyway={() => {
+                setShowContradictionWarning(false);
+                performSend();
               }}
+              onViewThread={(threadId) => {
+                // Navigate to thread view in the app
+                navigate({
+                  to: "/dashboard/email/thread/$threadId",
+                  params: { threadId },
+                });
+                // Close the compose dialog to show the thread
+                onOpenChange(false);
+              }}
+              result={contradictionResult}
             />
           </div>
         )}
@@ -1053,9 +1124,13 @@ export function ComposeDialog({
         <div className="flex items-center justify-between border-t px-4 py-3">
           <div className="flex items-center gap-2">
             <Button
-              onClick={handleSend}
-              disabled={sendMutation.isPending || isCheckingContradictions || to.length === 0}
               className="gap-2"
+              disabled={
+                sendMutation.isPending ||
+                isCheckingContradictions ||
+                to.length === 0
+              }
+              onClick={handleSend}
             >
               {isCheckingContradictions ? (
                 <>
@@ -1075,65 +1150,70 @@ export function ComposeDialog({
               )}
             </Button>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveDraft}
               disabled={saveDraftMutation.isPending}
+              onClick={handleSaveDraft}
+              size="sm"
+              variant="ghost"
             >
               {saveDraftMutation.isPending ? "Saving..." : "Save Draft"}
             </Button>
           </div>
           <div className="flex items-center gap-1">
-            <Popover open={aiPopoverOpen} onOpenChange={setAiPopoverOpen}>
+            <Popover onOpenChange={setAiPopoverOpen} open={aiPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-8 w-8"
+                  size="icon"
                   title="AI Assist (Cmd+J)"
+                  variant="ghost"
                 >
-                  {generateDraftMutation.isPending || refineDraftMutation.isPending ? (
+                  {generateDraftMutation.isPending ||
+                  refineDraftMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
+              <PopoverContent align="end" className="w-80">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Wand2 className="h-4 w-4 text-primary" />
                     <span className="font-medium text-sm">AI Assist</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {replyToThreadId
                       ? "Describe how you want to reply and AI will draft it based on the conversation context."
                       : "Describe what you want to write and AI will draft it for you."}
                   </p>
                   <div className="flex gap-2">
                     <Input
-                      ref={aiInputRef}
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder={
-                        replyToThreadId
-                          ? "e.g., Accept the meeting but suggest Tuesday instead"
-                          : "e.g., Introduce myself and ask for a meeting"
-                      }
                       className="flex-1 text-sm"
+                      onChange={(e) => setAiPrompt(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleAiAssist();
                         }
                       }}
+                      placeholder={
+                        replyToThreadId
+                          ? "e.g., Accept the meeting but suggest Tuesday instead"
+                          : "e.g., Introduce myself and ask for a meeting"
+                      }
+                      ref={aiInputRef}
+                      value={aiPrompt}
                     />
                     <Button
-                      size="sm"
+                      disabled={
+                        generateDraftMutation.isPending ||
+                        refineDraftMutation.isPending
+                      }
                       onClick={handleAiAssist}
-                      disabled={generateDraftMutation.isPending || refineDraftMutation.isPending}
+                      size="sm"
                     >
-                      {generateDraftMutation.isPending || refineDraftMutation.isPending ? (
+                      {generateDraftMutation.isPending ||
+                      refineDraftMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         "Generate"
@@ -1144,11 +1224,11 @@ export function ComposeDialog({
               </PopoverContent>
             </Popover>
             <Button
-              variant="ghost"
-              size="icon"
               className="h-8 w-8"
               onClick={handleAttachClick}
+              size="icon"
               title="Attach files"
+              variant="ghost"
             >
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -1156,15 +1236,17 @@ export function ComposeDialog({
         </div>
 
         {/* Keyboard shortcuts hint */}
-        <div className="border-t bg-muted/30 px-4 py-2 text-muted-foreground text-xs flex flex-wrap gap-x-4 gap-y-1">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-t bg-muted/30 px-4 py-2 text-muted-foreground text-xs">
           <span>
             <kbd className="rounded border bg-background px-1">⌘↵</kbd> send
           </span>
           <span>
-            <kbd className="rounded border bg-background px-1">⌘J</kbd> AI assist
+            <kbd className="rounded border bg-background px-1">⌘J</kbd> AI
+            assist
           </span>
           <span>
-            <kbd className="rounded border bg-background px-1">⌘⇧D</kbd> save draft
+            <kbd className="rounded border bg-background px-1">⌘⇧D</kbd> save
+            draft
           </span>
           <span>
             <kbd className="rounded border bg-background px-1">Esc</kbd> close

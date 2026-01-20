@@ -25,6 +25,7 @@ import { task } from "@trigger.dev/sdk";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { log } from "../lib/logger";
 import { createTaskForCommitmentTask } from "./task-sync";
+import { processCommitmentTask } from "./unified-object-processing";
 
 // =============================================================================
 // TYPES
@@ -46,6 +47,26 @@ interface CommitmentExtractionResult {
   threadId: string;
   commitmentsCreated: number;
   error?: string;
+}
+
+interface SourceContext {
+  threadId: string;
+  accountId: string;
+  organizationId: string;
+  sourceType:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs"
+    | "google_sheets"
+    | "meeting_transcript"
+    | "teams"
+    | "discord"
+    | "linear"
+    | "github";
+  conversationId?: string; // Generic conversation ID (for non-email sources)
 }
 
 // =============================================================================
@@ -210,10 +231,12 @@ export const extractCommitmentsTask = task({
       }
 
       // Save commitments to database
-      const savedCount = await saveCommitments(
-        extractedCommitments,
-        thread.account.organizationId
-      );
+      const savedCount = await saveCommitments(extractedCommitments, {
+        threadId: thread.id,
+        accountId: thread.accountId,
+        organizationId: thread.account.organizationId,
+        sourceType: "email", // Email thread extraction is always email
+      });
 
       // Create notifications for new commitments
       if (savedCount > 0) {
@@ -229,7 +252,7 @@ export const extractCommitmentsTask = task({
                 ? "New Commitment Made"
                 : "New Commitment to Track",
               message: c.title,
-              link: `/dashboard/commitments`,
+              link: "/dashboard/commitments",
               entityId: c.sourceClaimId ?? undefined,
               entityType: "commitment",
               priority: c.dueDate ? "high" : "normal",
@@ -492,8 +515,10 @@ async function saveCommitments(
   extractedCommitments: Awaited<
     ReturnType<ReturnType<typeof createCommitmentAgent>["extractCommitments"]>
   >,
-  organizationId: string
+  sourceContext: SourceContext
 ): Promise<number> {
+  const { organizationId, threadId, accountId, sourceType, conversationId } =
+    sourceContext;
   let saved = 0;
 
   for (const c of extractedCommitments) {
@@ -547,6 +572,32 @@ async function saveCommitments(
     if (insertedCommitment?.id) {
       await createTaskForCommitmentTask.trigger({
         commitmentId: insertedCommitment.id,
+      });
+
+      // Trigger UIO processing for cross-source intelligence
+      await processCommitmentTask.trigger({
+        organizationId,
+        commitment: {
+          id: insertedCommitment.id,
+          title: c.title,
+          description: c.description,
+          dueDate: c.dueDate?.date ? new Date(c.dueDate.date) : null,
+          dueDateConfidence: c.dueDate?.confidence,
+          debtorContactId,
+          debtorEmail: c.debtor?.email,
+          debtorName: c.debtor?.name,
+          creditorContactId,
+          creditorEmail: c.creditor?.email,
+          creditorName: c.creditor?.name,
+          confidence: c.confidence,
+        },
+        sourceType, // Dynamic source type from context
+        sourceAccountId: accountId,
+        conversationId: conversationId || threadId, // Use generic conversationId if available, fallback to threadId
+        emailThreadId: sourceType === "email" ? threadId : undefined, // Only set for email
+        emailMessageId: sourceType === "email" ? c.sourceMessageId : undefined,
+        originalCommitmentId: insertedCommitment.id,
+        originalClaimId: c.sourceClaimId,
       });
     }
 

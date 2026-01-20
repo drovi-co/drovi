@@ -153,7 +153,10 @@ export class ContradictionDetector {
       }
 
       // Check for date conflicts
-      const dateConflict = this.detectDateConflict(contentLower, commitmentLower);
+      const dateConflict = this.detectDateConflict(
+        contentLower,
+        commitmentLower
+      );
       if (dateConflict) {
         conflicts.push({
           id: `conflict-date-${commitment.id}`,
@@ -301,7 +304,10 @@ export class ContradictionDetector {
 
     for (const pair of negationPairs) {
       // Check if historical has positive and content has negative
-      if (historical.includes(pair.positive) && content.includes(pair.negative)) {
+      if (
+        historical.includes(pair.positive) &&
+        content.includes(pair.negative)
+      ) {
         // Verify they're about the same topic
         const overlap = this.calculateWordOverlap(content, historical);
         if (overlap > 0.2) {
@@ -542,7 +548,9 @@ export class ContradictionDetector {
   // RESOLUTION SUGGESTIONS
   // ===========================================================================
 
-  private generateSuggestions(conflicts: ConflictDetail[]): ResolutionSuggestion[] {
+  private generateSuggestions(
+    conflicts: ConflictDetail[]
+  ): ResolutionSuggestion[] {
     const suggestions: ResolutionSuggestion[] = [];
 
     for (const conflict of conflicts) {
@@ -560,7 +568,8 @@ export class ContradictionDetector {
           suggestions.push({
             type: "clarify",
             description: "Clarify the timeline change",
-            suggestedText: `I should note that the timeline has changed from what we previously discussed`,
+            suggestedText:
+              "I should note that the timeline has changed from what we previously discussed",
           });
           break;
 
@@ -568,14 +577,15 @@ export class ContradictionDetector {
           suggestions.push({
             type: "explain",
             description: "Explain the reason for the different amount",
-            suggestedText: `The updated figure reflects [reason for change]`,
+            suggestedText: "The updated figure reflects [reason for change]",
           });
           break;
 
         case "reversal":
           suggestions.push({
             type: "acknowledge",
-            description: "Acknowledge the decision reversal and provide context",
+            description:
+              "Acknowledge the decision reversal and provide context",
             suggestedText: `After further consideration, we've decided to change our approach. Previously, ${conflict.historicalStatement}. The reason for this change is [explanation]`,
           });
           break;

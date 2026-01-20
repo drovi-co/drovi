@@ -32,6 +32,7 @@ export const Route = createFileRoute("/admin")({
 
 const adminTabs = [
   { to: "/admin", label: "Dashboard", exact: true },
+  { to: "/admin/waitlist", label: "Waitlist" },
   { to: "/admin/users", label: "Users" },
   { to: "/admin/organizations", label: "Organizations" },
   { to: "/admin/audit", label: "Audit Logs" },
@@ -42,6 +43,8 @@ function getBreadcrumbs(pathname: string) {
 
   if (pathname === "/admin") {
     breadcrumbs.push({ label: "Admin" });
+  } else if (pathname === "/admin/waitlist") {
+    breadcrumbs.push({ label: "Waitlist" });
   } else if (pathname === "/admin/users") {
     breadcrumbs.push({ label: "Users" });
   } else if (pathname === "/admin/organizations") {

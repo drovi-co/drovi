@@ -2,40 +2,34 @@
 // TASK COMPONENTS BARREL EXPORT
 // =============================================================================
 
-// Types and constants
-export * from "./task-types";
-
-// Kanban board
-export { TaskKanbanBoard, KanbanCard } from "./task-kanban-board";
-
-// Dropdowns
+// Activity feed
 export {
-  TaskStatusDropdown,
-  TaskStatusBadge,
-} from "./task-status-dropdown";
-
+  CompactActivityFeed,
+  TaskActivityFeed,
+} from "./task-activity-feed";
 export {
-  TaskPriorityDropdown,
-  TaskPriorityIndicator,
-} from "./task-priority-dropdown";
-
-export {
-  TaskAssigneeDropdown,
   TaskAssigneeAvatar,
+  TaskAssigneeDropdown,
 } from "./task-assignee-dropdown";
-
+// Kanban board
+export { KanbanCard, TaskKanbanBoard } from "./task-kanban-board";
 // Labels
 export {
   TaskLabelBadge,
   TaskLabelPicker,
   TaskLabelsDisplay,
 } from "./task-labels";
-
-// Activity feed
 export {
-  TaskActivityFeed,
-  CompactActivityFeed,
-} from "./task-activity-feed";
+  TaskPriorityDropdown,
+  TaskPriorityIndicator,
+} from "./task-priority-dropdown";
+// Dropdowns
+export {
+  TaskStatusBadge,
+  TaskStatusDropdown,
+} from "./task-status-dropdown";
+// Types and constants
+export * from "./task-types";
 
 // Virtualized list (for performance)
 export { TaskVirtualList } from "./task-virtual-list";

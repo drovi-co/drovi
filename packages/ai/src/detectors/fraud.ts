@@ -45,7 +45,11 @@ export interface FraudDetectionResult {
 
 export interface ImpersonationSignal {
   id: string;
-  type: "lookalike_domain" | "name_mismatch" | "executive_impersonation" | "known_sender_mismatch";
+  type:
+    | "lookalike_domain"
+    | "name_mismatch"
+    | "executive_impersonation"
+    | "known_sender_mismatch";
   senderEmail: string;
   senderName?: string;
   expectedEmail?: string;
@@ -134,11 +138,9 @@ const EXECUTIVE_NAMES = [
 
 export class FraudDetector {
   private organizationDomains: Set<string>;
-  private knownContacts: Map<string, KnownContact>;
 
   constructor() {
     this.organizationDomains = new Set();
-    this.knownContacts = new Map();
   }
 
   /**
@@ -149,11 +151,6 @@ export class FraudDetector {
     if (input.organizationDomains) {
       this.organizationDomains = new Set(
         input.organizationDomains.map((d) => d.toLowerCase())
-      );
-    }
-    if (input.knownContacts) {
-      this.knownContacts = new Map(
-        input.knownContacts.map((c) => [c.email.toLowerCase(), c])
       );
     }
 
@@ -193,10 +190,17 @@ export class FraudDetector {
   // IMPERSONATION DETECTION
   // ===========================================================================
 
-  private detectImpersonation(input: FraudDetectionInput): ImpersonationSignal[] {
+  private detectImpersonation(
+    input: FraudDetectionInput
+  ): ImpersonationSignal[] {
     const signals: ImpersonationSignal[] = [];
     const senderEmail = input.senderEmail.toLowerCase();
     const senderDomain = senderEmail.split("@")[1];
+
+    // Skip domain checks if we can't parse the domain
+    if (!senderDomain) {
+      return signals;
+    }
 
     // Check for lookalike domains
     const lookalikeDomain = this.detectLookalikeDomain(senderDomain);
@@ -329,7 +333,10 @@ export class FraudDetector {
       if (str1[i] !== str2[i]) differences++;
     }
 
-    return differences === 2 && str1.split("").sort().join("") === str2.split("").sort().join("");
+    return (
+      differences === 2 &&
+      str1.split("").sort().join("") === str2.split("").sort().join("")
+    );
   }
 
   private differsByOneChar(longer: string, shorter: string): boolean {
@@ -357,7 +364,10 @@ export class FraudDetector {
       const contactEmailLower = contact.email.toLowerCase();
 
       // Check for name similarity
-      const similarity = this.calculateNameSimilarity(nameLower, contactNameLower);
+      const similarity = this.calculateNameSimilarity(
+        nameLower,
+        contactNameLower
+      );
 
       if (similarity > 0.8 && contactEmailLower !== senderEmail) {
         return {
@@ -393,23 +403,24 @@ export class FraudDetector {
     const n = str2.length;
 
     const dp: number[][] = Array.from({ length: m + 1 }, () =>
-      Array(n + 1).fill(0)
+      Array<number>(n + 1).fill(0)
     );
 
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 0; i <= m; i++) dp[i]![0] = i;
+    for (let j = 0; j <= n; j++) dp[0]![j] = j;
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         if (str1[i - 1] === str2[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1];
+          dp[i]![j] = dp[i - 1]![j - 1]!;
         } else {
-          dp[i][j] = Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]) + 1;
+          dp[i]![j] =
+            Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!) + 1;
         }
       }
     }
 
-    return dp[m][n];
+    return dp[m]![n]!;
   }
 
   private detectExecutiveImpersonation(
@@ -504,15 +515,14 @@ export class FraudDetector {
     const amountMatch = contentLower.match(/\$[\d,]+(?:\.\d{2})?/);
     if (amountMatch) {
       const amount = Number.parseFloat(amountMatch[0].replace(/[$,]/g, ""));
-      if (amount > 10000) {
+      if (amount > 10_000) {
         signals.push({
           id: "inv-large-amount",
           type: "unusual_amount",
           indicator: `Large payment amount: ${amountMatch[0]}`,
           confidence: 0.6,
           severity: "medium",
-          explanation:
-            "Large payment amounts warrant additional verification",
+          explanation: "Large payment amounts warrant additional verification",
         });
       }
     }
@@ -613,7 +623,11 @@ export class FraudDetector {
 
   private analyzeLinkSafety(
     link: string
-  ): { confidence: number; severity: "low" | "medium" | "high" | "critical"; reason: string } | null {
+  ): {
+    confidence: number;
+    severity: "low" | "medium" | "high" | "critical";
+    reason: string;
+  } | null {
     const url = link.toLowerCase();
 
     // Check for IP address instead of domain
@@ -671,11 +685,23 @@ export class FraudDetector {
 
   private analyzeAttachmentSafety(
     attachment: AttachmentInfo
-  ): { confidence: number; severity: "low" | "medium" | "high" | "critical"; reason: string } | null {
+  ): {
+    confidence: number;
+    severity: "low" | "medium" | "high" | "critical";
+    reason: string;
+  } | null {
     const filename = attachment.filename.toLowerCase();
 
     // High-risk extensions
-    const dangerousExtensions = [".exe", ".scr", ".bat", ".cmd", ".com", ".js", ".vbs"];
+    const dangerousExtensions = [
+      ".exe",
+      ".scr",
+      ".bat",
+      ".cmd",
+      ".com",
+      ".js",
+      ".vbs",
+    ];
     if (dangerousExtensions.some((ext) => filename.endsWith(ext))) {
       return {
         confidence: 0.95,
@@ -766,11 +792,9 @@ export class FraudDetector {
     const recommendations: FraudRecommendation[] = [];
 
     // Critical threats - block
-    const hasCritical = [
-      ...impersonation,
-      ...invoiceFraud,
-      ...phishing,
-    ].some((s) => s.severity === "critical");
+    const hasCritical = [...impersonation, ...invoiceFraud, ...phishing].some(
+      (s) => s.severity === "critical"
+    );
 
     if (hasCritical) {
       recommendations.push({

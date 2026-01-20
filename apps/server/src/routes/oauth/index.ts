@@ -4,11 +4,11 @@
 
 import { Hono } from "hono";
 import { gmailOAuth } from "./gmail";
+import { googleDocsOAuth } from "./google-docs";
+import { notionOAuth } from "./notion";
 import { outlookOAuth } from "./outlook";
 import { slackOAuth } from "./slack";
 import { whatsappOAuth } from "./whatsapp";
-import { notionOAuth } from "./notion";
-import { googleDocsOAuth } from "./google-docs";
 
 const oauthRoutes = new Hono();
 

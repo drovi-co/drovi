@@ -14,12 +14,12 @@ import {
   emailThread,
   member,
 } from "@memorystack/db/schema";
+import { tasks } from "@trigger.dev/sdk/v3";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { createEmailClient } from "../lib/email-client";
 import { safeDecryptToken } from "../lib/crypto/tokens";
+import { createEmailClient } from "../lib/email-client";
 import { log } from "../lib/logger";
-import { tasks } from "@trigger.dev/sdk/v3";
 
 // Define the type for our context variables
 type Variables = {
@@ -145,7 +145,9 @@ async function getThreadingInfo(
 
   const references: string[] = [];
   for (const msg of thread.messages.reverse()) {
-    const msgId = (msg.headers as Record<string, string> | null)?.["Message-ID"];
+    const msgId = (msg.headers as Record<string, string> | null)?.[
+      "Message-ID"
+    ];
     if (msgId) {
       references.push(msgId);
     }
@@ -189,7 +191,7 @@ composeRoutes.post("/send", async (c) => {
   const input: ComposeInput = await c.req.json();
 
   // Validate required fields
-  if (!input.organizationId || !input.accountId) {
+  if (!(input.organizationId && input.accountId)) {
     return c.json({ error: "Missing organizationId or accountId" }, 400);
   }
   if (!input.to || input.to.length === 0) {
@@ -211,7 +213,10 @@ composeRoutes.post("/send", async (c) => {
   }
 
   if (account.status !== "active") {
-    return c.json({ error: `Email account is not active (status: ${account.status})` }, 400);
+    return c.json(
+      { error: `Email account is not active (status: ${account.status})` },
+      400
+    );
   }
 
   try {
@@ -269,7 +274,9 @@ composeRoutes.post("/send", async (c) => {
       log.info("Triggered sync after sending email", { accountId: account.id });
     } catch (syncError) {
       // Don't fail the send if sync trigger fails
-      log.warn("Failed to trigger sync after sending", { error: String(syncError) });
+      log.warn("Failed to trigger sync after sending", {
+        error: String(syncError),
+      });
     }
 
     return c.json({
@@ -302,7 +309,7 @@ composeRoutes.post("/draft", async (c) => {
   const input: DraftInput = await c.req.json();
 
   // Validate required fields
-  if (!input.organizationId || !input.accountId) {
+  if (!(input.organizationId && input.accountId)) {
     return c.json({ error: "Missing organizationId or accountId" }, 400);
   }
 
@@ -318,7 +325,10 @@ composeRoutes.post("/draft", async (c) => {
   }
 
   if (account.status !== "active") {
-    return c.json({ error: `Email account is not active (status: ${account.status})` }, 400);
+    return c.json(
+      { error: `Email account is not active (status: ${account.status})` },
+      400
+    );
   }
 
   try {
@@ -487,7 +497,8 @@ composeRoutes.delete("/draft/:accountId/:draftId", async (c) => {
 
     return c.json(
       {
-        error: error instanceof Error ? error.message : "Failed to delete draft",
+        error:
+          error instanceof Error ? error.message : "Failed to delete draft",
       },
       500
     );

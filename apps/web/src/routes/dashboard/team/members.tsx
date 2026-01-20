@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,10 @@ function MembersPage() {
           setMembers(result.data.members as Member[]);
         }
       } catch (error) {
-        console.error("Failed to fetch members:", error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to fetch members:", error);
+        }
+        toast.error("Failed to load team members");
       } finally {
         setIsPending(false);
       }

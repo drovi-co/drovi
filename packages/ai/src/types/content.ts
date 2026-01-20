@@ -383,7 +383,10 @@ export interface SourceAdapter<TRawConversation, TRawMessage = unknown> {
   /**
    * Get deep link URL to source.
    */
-  getSourceUrl?(conversation: ConversationInput, messageId?: string): string | undefined;
+  getSourceUrl?(
+    conversation: ConversationInput,
+    messageId?: string
+  ): string | undefined;
 }
 
 // =============================================================================

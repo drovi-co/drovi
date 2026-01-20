@@ -16,23 +16,25 @@ export * from "./email-process.js";
 export * from "./email-sync.js";
 // Embedding generation tasks (PRD-06)
 export * from "./embedding-generation.js";
+// Google Docs sync tasks (Multi-Source Intelligence)
+export * from "./google-docs-sync.js";
+// Notion sync tasks (Multi-Source Intelligence)
+export * from "./notion-sync.js";
 // Relationship analysis tasks (PRD-05)
 export * from "./relationship-analysis.js";
+// Risk analysis tasks (PRD-09)
+export * from "./risk-analysis.js";
 export * from "./send-email.js";
+// Slack sync tasks (Multi-Source Intelligence)
+export * from "./slack-sync.js";
+// Task sync (auto-create tasks for conversations, commitments, decisions)
+export * from "./task-sync.js";
 // Thread analysis tasks (PRD-03)
 export * from "./thread-analysis.js";
 export * from "./token-refresh.js";
 // Triage analysis tasks (PRD-07)
 export * from "./triage-analysis.js";
-// Risk analysis tasks (PRD-09)
-export * from "./risk-analysis.js";
-// Slack sync tasks (Multi-Source Intelligence)
-export * from "./slack-sync.js";
+// Unified Object Processing (Cross-Source UIOs)
+export * from "./unified-object-processing.js";
 // WhatsApp sync tasks (Multi-Source Intelligence)
 export * from "./whatsapp-sync.js";
-// Notion sync tasks (Multi-Source Intelligence)
-export * from "./notion-sync.js";
-// Google Docs sync tasks (Multi-Source Intelligence)
-export * from "./google-docs-sync.js";
-// Task sync (auto-create tasks for conversations, commitments, decisions)
-export * from "./task-sync.js";

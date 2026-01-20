@@ -1,10 +1,15 @@
 /**
- * Auto-updater component for Memorystack desktop app
+ * Auto-updater component for Drovi desktop app
  * Shows update status and allows users to download and install updates
  */
 
+import {
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
-import { ArrowDownTrayIcon, CheckCircleIcon, ExclamationCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,8 +28,15 @@ import { cn } from "@/lib/utils";
  * Auto-updater dialog that appears when an update is available
  */
 export function AutoUpdaterDialog() {
-  const { status, updateInfo, progress, error, checkForUpdates, downloadAndInstall, isDesktop } =
-    useUpdater();
+  const {
+    status,
+    updateInfo,
+    progress,
+    error,
+    checkForUpdates,
+    downloadAndInstall,
+    isDesktop,
+  } = useUpdater();
   const [open, setOpen] = useState(false);
 
   // Show dialog when update is available
@@ -48,7 +60,7 @@ export function AutoUpdaterDialog() {
   if (!isDesktop) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog onOpenChange={setOpen} open={open}>
       <DialogContent showCloseButton={status !== "downloading"}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -87,15 +99,19 @@ export function AutoUpdaterDialog() {
 
         {status === "downloading" && (
           <div className="py-4">
-            <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-2 text-center">{progress}% complete</p>
+            <Progress className="h-2" value={progress} />
+            <p className="mt-2 text-center text-muted-foreground text-xs">
+              {progress}% complete
+            </p>
           </div>
         )}
 
         {updateInfo?.body && status === "available" && (
           <div className="py-2">
-            <h4 className="text-xs font-medium text-muted-foreground mb-2">What&apos;s new:</h4>
-            <div className="text-sm text-foreground/80 max-h-[200px] overflow-y-auto whitespace-pre-wrap">
+            <h4 className="mb-2 font-medium text-muted-foreground text-xs">
+              What&apos;s new:
+            </h4>
+            <div className="max-h-[200px] overflow-y-auto whitespace-pre-wrap text-foreground/80 text-sm">
               {updateInfo.body}
             </div>
           </div>
@@ -104,7 +120,7 @@ export function AutoUpdaterDialog() {
         <DialogFooter>
           {status === "available" && (
             <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
+              <Button onClick={() => setOpen(false)} variant="ghost">
                 Later
               </Button>
               <Button onClick={downloadAndInstall}>Download & Install</Button>
@@ -112,7 +128,7 @@ export function AutoUpdaterDialog() {
           )}
           {status === "error" && (
             <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
+              <Button onClick={() => setOpen(false)} variant="ghost">
                 Dismiss
               </Button>
               <Button onClick={checkForUpdates}>Try Again</Button>
@@ -129,49 +145,55 @@ export function AutoUpdaterDialog() {
  * Useful for showing in settings or status bar
  */
 export function UpdateIndicator({ className }: { className?: string }) {
-  const { status, updateInfo, checkForUpdates, downloadAndInstall, isDesktop } = useUpdater();
+  const { status, updateInfo, checkForUpdates, downloadAndInstall, isDesktop } =
+    useUpdater();
 
   if (!isDesktop) return null;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
       {status === "idle" && (
-        <Button variant="ghost" size="sm" onClick={checkForUpdates}>
+        <Button onClick={checkForUpdates} size="sm" variant="ghost">
           <ArrowPathIcon className="size-4" />
           Check for Updates
         </Button>
       )}
 
       {status === "checking" && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <ArrowPathIcon className="size-4 animate-spin" />
           Checking for updates...
         </div>
       )}
 
       {status === "available" && (
-        <Button variant="default" size="sm" onClick={downloadAndInstall}>
+        <Button onClick={downloadAndInstall} size="sm" variant="default">
           <ArrowDownTrayIcon className="size-4" />
           Update to {updateInfo?.version}
         </Button>
       )}
 
       {status === "downloading" && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <ArrowPathIcon className="size-4 animate-spin" />
           Downloading...
         </div>
       )}
 
       {status === "ready" && (
-        <div className="flex items-center gap-2 text-sm text-green-500">
+        <div className="flex items-center gap-2 text-green-500 text-sm">
           <CheckCircleIcon className="size-4" />
           Update ready, restarting...
         </div>
       )}
 
       {status === "error" && (
-        <Button variant="ghost" size="sm" onClick={checkForUpdates} className="text-destructive">
+        <Button
+          className="text-destructive"
+          onClick={checkForUpdates}
+          size="sm"
+          variant="ghost"
+        >
           <ExclamationCircleIcon className="size-4" />
           Retry Update Check
         </Button>
@@ -197,15 +219,18 @@ export function VersionDisplay({ className }: { className?: string }) {
     })();
   }, [isDesktop]);
 
-  if (!isDesktop || !currentVersion) return null;
+  if (!(isDesktop && currentVersion)) return null;
 
   return (
-    <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-muted-foreground text-xs",
+        className
+      )}
+    >
       <span>v{currentVersion}</span>
       {status === "available" && updateInfo && (
-        <span className="text-primary">
-          (v{updateInfo.version} available)
-        </span>
+        <span className="text-primary">(v{updateInfo.version} available)</span>
       )}
     </div>
   );

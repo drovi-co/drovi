@@ -18,7 +18,8 @@ import { Button } from "./button";
  * - Matches Linear's comment input styling
  */
 
-interface CommentInputProps extends React.HTMLAttributes<HTMLDivElement> {
+interface CommentInputProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSubmit"> {
   placeholder?: string;
   value?: string;
   onValueChange?: (value: string) => void;
@@ -63,10 +64,10 @@ function CommentInput({
     <div
       className={cn(
         "flex flex-col gap-2",
-        "rounded-[4px] border border-[#292B41]",
-        "bg-[#1F2130]",
+        "rounded-[4px] border border-border",
+        "bg-muted",
         "transition-colors duration-150",
-        isFocused && "border-[#393A4B]",
+        isFocused && "border-border",
         className
       )}
       data-slot="comment-input"
@@ -75,20 +76,20 @@ function CommentInput({
       {/* Textarea */}
       <div className="p-1">
         <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
           className={cn(
-            "w-full min-h-[80px] resize-none",
+            "min-h-[80px] w-full resize-none",
             "bg-transparent",
-            "text-[12px] font-medium text-foreground",
-            "placeholder:text-[#4C4F6B]",
+            "font-medium text-[12px] text-foreground",
+            "placeholder:text-muted-foreground",
             "focus:outline-none",
             "p-1"
           )}
+          onBlur={() => setIsFocused(false)}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          value={value}
         />
       </div>
 
@@ -96,31 +97,31 @@ function CommentInput({
       <div className="flex justify-end px-2 pb-2">
         <div className="flex items-center gap-2">
           <button
-            type="button"
-            onClick={onAttach}
+            aria-label="Attach file"
             className={cn(
               "inline-flex items-center justify-center",
-              "p-[7px] rounded-[4px]",
-              "text-[#858699]",
+              "rounded-[4px] p-[7px]",
+              "text-muted-foreground",
               "transition-colors duration-150",
               "hover:bg-muted hover:text-foreground"
             )}
-            aria-label="Attach file"
+            onClick={onAttach}
+            type="button"
           >
             <Paperclip className="size-[12.25px]" />
           </button>
 
           <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleSubmit}
-            disabled={!value.trim() || isSubmitting}
             className={cn(
               "h-[28px] px-[14px]",
-              "bg-[#292a35] border border-[#393a4b]",
+              "border border-border bg-muted",
               "shadow-[0px_1px_1px_0px_rgba(0,0,0,0.15)]",
-              "text-[12px] font-medium"
+              "font-medium text-[12px]"
             )}
+            disabled={!value.trim() || isSubmitting}
+            onClick={handleSubmit}
+            size="sm"
+            variant="secondary"
           >
             {isSubmitting ? "Sending..." : "Comment"}
           </Button>
@@ -154,35 +155,31 @@ function Comment({
   ...props
 }: CommentProps) {
   return (
-    <div
-      className={cn("flex gap-3", className)}
-      data-slot="comment"
-      {...props}
-    >
+    <div className={cn("flex gap-3", className)} data-slot="comment" {...props}>
       {/* Avatar */}
       <div className="shrink-0">
         {author.imageUrl ? (
           <img
-            src={author.imageUrl}
             alt={author.name}
             className="size-6 rounded-full object-cover"
+            src={author.imageUrl}
           />
         ) : (
-          <div className="size-6 rounded-full bg-[#5E6AD2] flex items-center justify-center text-[10px] font-medium text-white">
+          <div className="flex size-6 items-center justify-center rounded-full bg-secondary font-medium text-[10px] text-white">
             {author.name.slice(0, 2).toUpperCase()}
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[12px] font-medium text-[#EEEFFC]">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="font-medium text-foreground text-[12px]">
             {author.name}
           </span>
-          <span className="text-[12px] text-[#858699]">{timestamp}</span>
+          <span className="text-muted-foreground text-[12px]">{timestamp}</span>
         </div>
-        <p className="text-[13px] text-foreground whitespace-pre-wrap">
+        <p className="whitespace-pre-wrap text-[13px] text-foreground">
           {content}
         </p>
       </div>

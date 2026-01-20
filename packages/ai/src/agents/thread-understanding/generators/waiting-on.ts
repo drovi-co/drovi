@@ -114,7 +114,7 @@ function deriveWaitingOnFromClaims(
       waitingFor.push({
         person: request.requester,
         description: request.text,
-        since: undefined,
+        since: null,
       });
     }
   }
@@ -125,7 +125,7 @@ function deriveWaitingOnFromClaims(
       waitingOn.push({
         person: request.requestee,
         description: request.text,
-        since: undefined,
+        since: null,
       });
     }
   }
@@ -142,7 +142,7 @@ function deriveWaitingOnFromClaims(
       waitingFor.push({
         person: question.asker,
         description: question.text,
-        since: undefined,
+        since: null,
       });
     }
   }

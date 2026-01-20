@@ -37,8 +37,8 @@ import {
   gte,
   inArray,
   lte,
-  sql,
   type SQL,
+  sql,
 } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { z } from "zod";
@@ -55,10 +55,7 @@ import { protectedProcedure, router } from "../index";
  *
  * Returns distance (lower = more similar).
  */
-function pgCosineDistance(
-  column: PgColumn,
-  embedding: number[]
-): SQL<number> {
+function pgCosineDistance(column: PgColumn, embedding: number[]): SQL<number> {
   const vecStr = `'[${embedding.join(",")}]'::vector`;
   // Use sql template to properly reference the column, then raw for the vector
   return sql<number>`${column} <=> ${sql.raw(vecStr)}`;
@@ -256,7 +253,10 @@ async function searchMessages(
 > {
   // Use custom pgvector helpers that inject vector as raw SQL literal
   const distance = pgCosineDistance(messageEmbedding.embedding, queryEmbedding);
-  const similarity = pgCosineSimilarity(messageEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(
+    messageEmbedding.embedding,
+    queryEmbedding
+  );
 
   // Build conditions
   const conditions = [eq(messageEmbedding.status, "completed")];
@@ -327,7 +327,10 @@ async function searchThreads(
   }>
 > {
   const distance = pgCosineDistance(threadEmbedding.embedding, queryEmbedding);
-  const similarity = pgCosineSimilarity(threadEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(
+    threadEmbedding.embedding,
+    queryEmbedding
+  );
 
   const conditions = [eq(threadEmbedding.status, "completed")];
 
@@ -394,7 +397,10 @@ async function searchClaims(
   }>
 > {
   const distance = pgCosineDistance(claimEmbedding.embedding, queryEmbedding);
-  const similarity = pgCosineSimilarity(claimEmbedding.embedding, queryEmbedding);
+  const similarity = pgCosineSimilarity(
+    claimEmbedding.embedding,
+    queryEmbedding
+  );
 
   const conditions = [eq(claimEmbedding.status, "completed")];
 
@@ -593,13 +599,19 @@ export const searchRouter = router({
         where: eq(threadEmbedding.threadId, input.threadId),
       });
 
-      if (!sourceEmbedding || !sourceEmbedding.embedding) {
+      if (!(sourceEmbedding && sourceEmbedding.embedding)) {
         return { relatedThreads: [] };
       }
 
       const sourceVector = sourceEmbedding.embedding as number[];
-      const distance = pgCosineDistance(threadEmbedding.embedding, sourceVector);
-      const similarity = pgCosineSimilarity(threadEmbedding.embedding, sourceVector);
+      const distance = pgCosineDistance(
+        threadEmbedding.embedding,
+        sourceVector
+      );
+      const similarity = pgCosineSimilarity(
+        threadEmbedding.embedding,
+        sourceVector
+      );
 
       const conditions = [
         eq(threadEmbedding.status, "completed"),

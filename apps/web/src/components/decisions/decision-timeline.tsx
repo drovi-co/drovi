@@ -20,8 +20,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronRight,
-  Eye,
   ExternalLink,
+  Eye,
   Filter,
   GitBranch,
   Lightbulb,
@@ -156,10 +156,7 @@ export function DecisionTimeline({
   const trpc = useTRPC();
 
   // Fetch decisions
-  const {
-    data,
-    isLoading,
-  } = useQuery(
+  const { data, isLoading } = useQuery(
     trpc.decisions.list.queryOptions({
       organizationId,
       limit: 100,
@@ -217,14 +214,17 @@ export function DecisionTimeline({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-purple-500" />
-          <h2 className="text-lg font-semibold">Decision Timeline</h2>
+          <h2 className="font-semibold text-lg">Decision Timeline</h2>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Topic filter */}
-          <Select value={filterTopic ?? "all"} onValueChange={(v) => setFilterTopic(v === "all" ? undefined : v)}>
-            <SelectTrigger className="w-[180px] h-8">
-              <Filter className="h-3 w-3 mr-2" />
+          <Select
+            onValueChange={(v) => setFilterTopic(v === "all" ? undefined : v)}
+            value={filterTopic ?? "all"}
+          >
+            <SelectTrigger className="h-8 w-[180px]">
+              <Filter className="mr-2 h-3 w-3" />
               <SelectValue placeholder="All topics" />
             </SelectTrigger>
             <SelectContent>
@@ -245,10 +245,10 @@ export function DecisionTimeline({
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : monthKeys.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <div className="py-12 text-center text-muted-foreground">
+          <Lightbulb className="mx-auto mb-2 h-8 w-8 opacity-50" />
           <p className="text-sm">No decisions recorded yet.</p>
-          <p className="text-xs mt-1">
+          <p className="mt-1 text-xs">
             Decisions will appear here as they're extracted from your emails.
           </p>
         </div>
@@ -263,24 +263,24 @@ export function DecisionTimeline({
               return (
                 <Collapsible
                   key={monthKey}
-                  open={isExpanded}
                   onOpenChange={() => toggleMonth(monthKey)}
+                  open={isExpanded}
                 >
                   {/* Month Header */}
                   <CollapsibleTrigger asChild>
                     <Button
+                      className="h-auto w-full justify-between rounded-lg px-4 py-3 hover:bg-accent"
                       variant="ghost"
-                      className="w-full justify-between h-auto py-3 px-4 rounded-lg hover:bg-accent"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
                           <Calendar className="h-4 w-4 text-purple-500" />
                         </div>
                         <div className="text-left">
                           <p className="font-medium">
                             {format(monthDate, "MMMM yyyy")}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             {decisions.length} decision
                             {decisions.length !== 1 ? "s" : ""}
                           </p>
@@ -296,18 +296,18 @@ export function DecisionTimeline({
 
                   {/* Month Content */}
                   <CollapsibleContent>
-                    <div className="relative pl-8 pt-2 pb-4">
+                    <div className="relative pt-2 pb-4 pl-8">
                       {/* Vertical timeline line */}
-                      <div className="absolute left-[1.125rem] top-0 bottom-0 w-0.5 bg-border" />
+                      <div className="absolute top-0 bottom-0 left-[1.125rem] w-0.5 bg-border" />
 
                       {decisions.map((decision, index) => (
                         <TimelineDecisionCard
-                          key={decision.id}
                           decision={decision}
                           isLast={index === decisions.length - 1}
+                          key={decision.id}
                           onClick={() => onDecisionClick(decision.id)}
-                          onThreadClick={onThreadClick}
                           onShowEvidence={onShowEvidence}
+                          onThreadClick={onThreadClick}
                         />
                       ))}
                     </div>
@@ -315,7 +315,6 @@ export function DecisionTimeline({
                 </Collapsible>
               );
             })}
-
           </div>
         </ScrollArea>
       )}
@@ -353,36 +352,36 @@ function TimelineDecisionCard({
       {/* Timeline node */}
       <div
         className={cn(
-          "absolute left-[-1.125rem] top-3 h-3 w-3 rounded-full border-2 z-10",
+          "absolute top-3 left-[-1.125rem] z-10 h-3 w-3 rounded-full border-2",
           decision.supersededById
-            ? "bg-background border-muted-foreground/30"
-            : "bg-purple-500 border-purple-500"
+            ? "border-muted-foreground/30 bg-background"
+            : "border-purple-500 bg-purple-500"
         )}
       />
 
       {/* Card */}
       <button
-        type="button"
-        onClick={onClick}
         className={cn(
-          "w-full text-left p-4 rounded-lg border transition-all ml-4",
+          "ml-4 w-full rounded-lg border p-4 text-left transition-all",
           "hover:border-purple-500/50 hover:bg-accent/50",
           decision.supersededById && "opacity-60"
         )}
+        onClick={onClick}
+        type="button"
       >
         <div className="space-y-2">
           {/* Header */}
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-xs text-muted-foreground shrink-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="shrink-0 text-muted-foreground text-xs">
                 {formatTimelineDate(decision.decidedAt)}
               </span>
               {decision.isUserVerified && (
-                <ThumbsUp className="h-3 w-3 text-green-500 shrink-0" />
+                <ThumbsUp className="h-3 w-3 shrink-0 text-green-500" />
               )}
               {decision.supersededById && (
-                <Badge variant="outline" className="text-[10px] shrink-0">
-                  <GitBranch className="h-2.5 w-2.5 mr-1" />
+                <Badge className="shrink-0 text-[10px]" variant="outline">
+                  <GitBranch className="mr-1 h-2.5 w-2.5" />
                   Superseded
                 </Badge>
               )}
@@ -390,17 +389,17 @@ function TimelineDecisionCard({
             <ConfidenceBadge
               confidence={decision.confidence}
               isUserVerified={decision.isUserVerified}
-              size="sm"
               showDetails={false}
+              size="sm"
             />
           </div>
 
           {/* Title */}
           <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
             <h4
               className={cn(
-                "text-sm font-medium",
+                "font-medium text-sm",
                 decision.supersededById && "line-through"
               )}
             >
@@ -409,7 +408,7 @@ function TimelineDecisionCard({
           </div>
 
           {/* Statement */}
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="line-clamp-2 text-muted-foreground text-sm leading-relaxed">
             {decision.statement}
           </p>
 
@@ -420,8 +419,11 @@ function TimelineDecisionCard({
               {decision.owners && decision.owners.length > 0 && (
                 <div className="flex items-center -space-x-1">
                   {decision.owners.slice(0, 3).map((owner) => (
-                    <Avatar key={owner.id} className="h-5 w-5 border border-background">
-                      <AvatarFallback className="text-[8px] bg-muted">
+                    <Avatar
+                      className="h-5 w-5 border border-background"
+                      key={owner.id}
+                    >
+                      <AvatarFallback className="bg-muted text-[8px]">
                         {getInitials(owner.displayName, owner.primaryEmail)}
                       </AvatarFallback>
                     </Avatar>
@@ -434,9 +436,9 @@ function TimelineDecisionCard({
                 <div className="flex items-center gap-1">
                   {decision.topics.slice(0, 2).map((topic) => (
                     <Badge
+                      className="text-[10px]"
                       key={topic.id}
                       variant="secondary"
-                      className="text-[10px]"
                     >
                       {topic.name}
                     </Badge>
@@ -450,26 +452,26 @@ function TimelineDecisionCard({
               <div className="flex items-center gap-1">
                 {onShowEvidence && (
                   <Button
-                    variant="ghost"
-                    size="icon"
                     className="h-6 w-6"
                     onClick={(e) => {
                       e.stopPropagation();
                       onShowEvidence(decision.id);
                     }}
+                    size="icon"
+                    variant="ghost"
                   >
                     <Eye className="h-3 w-3 text-purple-500" />
                   </Button>
                 )}
                 {decision.sourceThread && onThreadClick && (
                   <Button
-                    variant="ghost"
-                    size="icon"
                     className="h-6 w-6"
                     onClick={(e) => {
                       e.stopPropagation();
                       onThreadClick(decision.sourceThread!.id);
                     }}
+                    size="icon"
+                    variant="ghost"
                   >
                     <ExternalLink className="h-3 w-3" />
                   </Button>

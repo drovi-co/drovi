@@ -173,7 +173,7 @@ Most formatting and common issues are automatically fixed by Biome. Run `bun x u
 
 ---
 
-## MEMORYSTACK UI Design Principles
+## Drovi UI Design Principles
 
 This is a **transformational AI-native email intelligence platform**. The UI must reflect this ambition - we're not building another email client, we're building the future of knowledge work.
 

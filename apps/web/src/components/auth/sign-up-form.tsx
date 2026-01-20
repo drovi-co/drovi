@@ -20,6 +20,8 @@ const SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
 
 interface SignUpFormProps {
   onSwitchToSignIn: () => void;
+  defaultEmail?: string;
+  defaultName?: string;
 }
 
 // Password strength calculation
@@ -74,7 +76,11 @@ function getStrengthLabel(score: number): string {
   return "Strong";
 }
 
-export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
+export function SignUpForm({
+  onSwitchToSignIn,
+  defaultEmail,
+  defaultName,
+}: SignUpFormProps) {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -87,8 +93,8 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
 
   const form = useForm({
     defaultValues: {
-      name: "",
-      email: "",
+      name: defaultName ?? "",
+      email: defaultEmail ?? "",
       password: "",
     },
     onSubmit: async ({ value }) => {
@@ -144,12 +150,14 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         <form.Field name="name">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-zinc-300" htmlFor={field.name}>
+              <Label className="text-foreground" htmlFor={field.name}>
                 Full name
               </Label>
               <Input
                 autoComplete="name"
-                className={`border-zinc-800 bg-zinc-900/50 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20 ${field.state.meta.errors.length > 0 ? "border-red-500" : ""}`}
+                className={
+                  field.state.meta.errors.length > 0 ? "border-destructive" : ""
+                }
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -158,7 +166,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                 value={field.state.value}
               />
               {field.state.meta.errors.map((error) => (
-                <p className="text-red-400 text-sm" key={error?.message}>
+                <p className="text-destructive text-sm" key={error?.message}>
                   {error?.message}
                 </p>
               ))}
@@ -169,12 +177,14 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         <form.Field name="email">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-zinc-300" htmlFor={field.name}>
+              <Label className="text-foreground" htmlFor={field.name}>
                 Email
               </Label>
               <Input
                 autoComplete="email"
-                className={`border-zinc-800 bg-zinc-900/50 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20 ${field.state.meta.errors.length > 0 ? "border-red-500" : ""}`}
+                className={
+                  field.state.meta.errors.length > 0 ? "border-destructive" : ""
+                }
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -183,7 +193,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                 value={field.state.value}
               />
               {field.state.meta.errors.map((error) => (
-                <p className="text-red-400 text-sm" key={error?.message}>
+                <p className="text-destructive text-sm" key={error?.message}>
                   {error?.message}
                 </p>
               ))}
@@ -194,13 +204,13 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         <form.Field name="password">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-zinc-300" htmlFor={field.name}>
+              <Label className="text-foreground" htmlFor={field.name}>
                 Password
               </Label>
               <div className="relative">
                 <Input
                   autoComplete="new-password"
-                  className={`border-zinc-800 bg-zinc-900/50 pr-10 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:ring-violet-500/20 ${field.state.meta.errors.length > 0 ? "border-red-500" : ""}`}
+                  className={`pr-10 ${field.state.meta.errors.length > 0 ? "border-destructive" : ""}`}
                   id={field.name}
                   onBlur={field.handleBlur}
                   onChange={(e) => {
@@ -219,9 +229,9 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                   variant="ghost"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-zinc-500" />
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
                   ) : (
-                    <Eye className="h-4 w-4 text-zinc-500" />
+                    <Eye className="h-4 w-4 text-muted-foreground" />
                   )}
                 </Button>
               </div>
@@ -231,10 +241,10 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Progress
-                      className={`h-1.5 flex-1 bg-zinc-800 [&>div]:${getStrengthColor(passwordStrength.score)}`}
+                      className={`h-1.5 flex-1 [&>div]:${getStrengthColor(passwordStrength.score)}`}
                       value={passwordStrength.score}
                     />
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-muted-foreground text-xs">
                       {getStrengthLabel(passwordStrength.score)}
                     </span>
                   </div>
@@ -242,7 +252,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                     {passwordStrength.requirements.map((req) => (
                       <li
                         className={`flex items-center gap-1 ${
-                          req.met ? "text-green-400" : "text-zinc-500"
+                          req.met ? "text-green-500" : "text-muted-foreground"
                         }`}
                         key={req.label}
                       >
@@ -259,7 +269,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
               )}
 
               {field.state.meta.errors.map((error) => (
-                <p className="text-red-400 text-sm" key={error?.message}>
+                <p className="text-destructive text-sm" key={error?.message}>
                   {error?.message}
                 </p>
               ))}
@@ -270,24 +280,24 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         <div className="flex items-start space-x-2">
           <Checkbox
             checked={acceptTerms}
-            className="mt-0.5 border-zinc-700 data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600"
+            className="mt-0.5"
             id="terms"
             onCheckedChange={(checked) => setAcceptTerms(checked === true)}
           />
           <Label
-            className="cursor-pointer font-normal text-sm text-zinc-400 leading-snug"
+            className="cursor-pointer font-normal text-muted-foreground text-sm leading-snug"
             htmlFor="terms"
           >
             I agree to the{" "}
             <Link
-              className="text-violet-400 transition-colors hover:text-violet-300"
+              className="text-primary transition-colors hover:text-primary/80"
               to="/"
             >
               Terms of Service
             </Link>{" "}
             and{" "}
             <Link
-              className="text-violet-400 transition-colors hover:text-violet-300"
+              className="text-primary transition-colors hover:text-primary/80"
               to="/"
             >
               Privacy Policy
@@ -298,7 +308,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         <form.Subscribe>
           {(state) => (
             <Button
-              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 font-medium text-white hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
+              className="w-full"
               disabled={state.isSubmitting || !acceptTerms}
               type="submit"
             >
@@ -315,10 +325,10 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         </form.Subscribe>
       </form>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-muted-foreground text-sm">
         Already have an account?{" "}
         <button
-          className="font-medium text-violet-400 transition-colors hover:text-violet-300"
+          className="font-medium text-primary transition-colors hover:text-primary/80"
           onClick={onSwitchToSignIn}
           type="button"
         >

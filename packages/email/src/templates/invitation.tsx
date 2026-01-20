@@ -37,7 +37,7 @@ export function InvitationEmail({
           <Heading style={h1}>You've been invited!</Heading>
           <Text style={text}>
             <strong>{inviterName}</strong> has invited you to join{" "}
-            <strong>{organizationName}</strong> on MemoryStack as a{" "}
+            <strong>{organizationName}</strong> on Drovi as a{" "}
             <strong>{role}</strong>.
           </Text>
           <Section style={buttonContainer}>

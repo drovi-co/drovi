@@ -625,15 +625,18 @@ export const attachment = pgTable(
 /**
  * Relationship types between conversations
  */
-export const conversationRelationTypeEnum = pgEnum("conversation_relation_type", [
-  "calendar_email", // Calendar event related to email thread
-  "slack_email", // Slack thread related to email
-  "calendar_slack", // Calendar event related to Slack
-  "meeting_calendar", // Meeting transcript related to calendar event
-  "follow_up", // One conversation is a follow-up to another
-  "reference", // One conversation references another
-  "duplicate", // Potential duplicate conversations
-]);
+export const conversationRelationTypeEnum = pgEnum(
+  "conversation_relation_type",
+  [
+    "calendar_email", // Calendar event related to email thread
+    "slack_email", // Slack thread related to email
+    "calendar_slack", // Calendar event related to Slack
+    "meeting_calendar", // Meeting transcript related to calendar event
+    "follow_up", // One conversation is a follow-up to another
+    "reference", // One conversation references another
+    "duplicate", // Potential duplicate conversations
+  ]
+);
 
 /**
  * Links related conversations across sources for cross-source intelligence.

@@ -21,8 +21,7 @@ export const sendEmailTask = task({
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const result = await resend.emails.send({
-      from:
-        payload.from ?? process.env.EMAIL_FROM ?? "noreply@memorystack.app",
+      from: payload.from ?? process.env.EMAIL_FROM ?? "noreply@drovi.io",
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
@@ -52,13 +51,13 @@ export const sendWelcomeEmailTask = task({
     const html = await render(
       WelcomeEmail({
         userName: payload.userName,
-        appUrl: process.env.APP_URL ?? "https://app.memorystack.app",
+        appUrl: process.env.APP_URL ?? "https://app.drovi.io",
       })
     );
 
     await sendEmailTask.triggerAndWait({
       to: payload.email,
-      subject: "Welcome to MemoryStack!",
+      subject: "Welcome to Drovi!",
       html,
       tags: [
         { name: "type", value: "welcome" },
@@ -104,5 +103,76 @@ export const sendInvitationEmailTask = task({
     });
 
     return { success: true, invitationId: payload.invitationId };
+  },
+});
+
+// Waitlist confirmation email task
+export const sendWaitlistConfirmationEmailTask = task({
+  id: "send-waitlist-confirmation-email",
+  run: async (payload: {
+    applicationId: string;
+    email: string;
+    userName: string;
+  }) => {
+    const { render } = await import("@react-email/render");
+    const { WaitlistConfirmationEmail } = await import(
+      "@memorystack/email/templates"
+    );
+
+    const html = await render(
+      WaitlistConfirmationEmail({
+        userName: payload.userName,
+        appUrl: process.env.APP_URL ?? "https://drovi.io",
+      })
+    );
+
+    await sendEmailTask.triggerAndWait({
+      to: payload.email,
+      subject: "You're on the Drovi waitlist!",
+      html,
+      tags: [
+        { name: "type", value: "waitlist-confirmation" },
+        { name: "applicationId", value: payload.applicationId },
+      ],
+    });
+
+    return { success: true, applicationId: payload.applicationId };
+  },
+});
+
+// Waitlist approval email task
+export const sendWaitlistApprovalEmailTask = task({
+  id: "send-waitlist-approval-email",
+  run: async (payload: {
+    applicationId: string;
+    email: string;
+    userName: string;
+    inviteCode: string;
+  }) => {
+    const { render } = await import("@react-email/render");
+    const { WaitlistApprovalEmail } = await import(
+      "@memorystack/email/templates"
+    );
+
+    const html = await render(
+      WaitlistApprovalEmail({
+        userName: payload.userName,
+        inviteCode: payload.inviteCode,
+        appUrl: process.env.APP_URL ?? "https://drovi.io",
+      })
+    );
+
+    await sendEmailTask.triggerAndWait({
+      to: payload.email,
+      subject: "Your Drovi invite is ready!",
+      html,
+      tags: [
+        { name: "type", value: "waitlist-approval" },
+        { name: "applicationId", value: payload.applicationId },
+        { name: "inviteCode", value: payload.inviteCode },
+      ],
+    });
+
+    return { success: true, applicationId: payload.applicationId };
   },
 });

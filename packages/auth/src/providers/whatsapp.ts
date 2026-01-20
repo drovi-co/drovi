@@ -180,7 +180,9 @@ export async function getWhatsAppBusinessAccounts(
   };
 
   if (businessData.error) {
-    throw new Error(`Failed to fetch business accounts: ${businessData.error.message}`);
+    throw new Error(
+      `Failed to fetch business accounts: ${businessData.error.message}`
+    );
   }
 
   const wabaAccounts: WhatsAppBusinessAccount[] = [];
@@ -251,7 +253,15 @@ export interface WhatsAppMessage {
   id: string;
   from: string;
   timestamp: string;
-  type: "text" | "image" | "audio" | "video" | "document" | "sticker" | "location" | "contacts";
+  type:
+    | "text"
+    | "image"
+    | "audio"
+    | "video"
+    | "document"
+    | "sticker"
+    | "location"
+    | "contacts";
   text?: {
     body: string;
   };
@@ -330,7 +340,9 @@ export async function sendWhatsAppMessage(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(`Failed to send WhatsApp message: ${error.error?.message ?? response.statusText}`);
+    throw new Error(
+      `Failed to send WhatsApp message: ${error.error?.message ?? response.statusText}`
+    );
   }
 
   return response.json();

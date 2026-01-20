@@ -2,7 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModel } from "ai";
+import type { LanguageModelV1 } from "@ai-sdk/provider";
 
 // Provider types
 export type AIProvider = "openai" | "anthropic" | "google" | "groq";
@@ -95,7 +95,7 @@ export function isReasoningModel(modelName: string): boolean {
 export function getModel(
   provider: AIProvider,
   modelName?: string
-): LanguageModel {
+): LanguageModelV1 {
   switch (provider) {
     case "openai": {
       const model = modelName ?? "gpt-5.2";
@@ -131,6 +131,6 @@ export function getDefaultProvider(): AIProvider {
 }
 
 // Get default model for the configured provider
-export function getDefaultModel(): LanguageModel {
+export function getDefaultModel(): LanguageModelV1 {
   return getModel(getDefaultProvider());
 }

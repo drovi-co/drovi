@@ -40,7 +40,18 @@ export interface WhatsAppMessageData {
   id: string; // WhatsApp Message ID (wam_id)
   from: string; // Sender's WhatsApp ID
   timestamp: string; // Unix timestamp
-  type: "text" | "image" | "audio" | "video" | "document" | "sticker" | "location" | "contacts" | "interactive" | "button" | "reaction";
+  type:
+    | "text"
+    | "image"
+    | "audio"
+    | "video"
+    | "document"
+    | "sticker"
+    | "location"
+    | "contacts"
+    | "interactive"
+    | "button"
+    | "reaction";
   text?: {
     body: string;
   };
@@ -161,7 +172,8 @@ export const whatsappAdapter: SourceAdapter<
 
     // Sort messages by timestamp
     const sortedMessages = [...messages].sort(
-      (a, b) => parseInt(a.timestamp, 10) - parseInt(b.timestamp, 10)
+      (a, b) =>
+        Number.parseInt(a.timestamp, 10) - Number.parseInt(b.timestamp, 10)
     );
 
     // Build participant list
@@ -202,7 +214,7 @@ export const whatsappAdapter: SourceAdapter<
    */
   toMessage(msg: WhatsAppMessageData, messageIndex: number): MessageInput {
     // Parse timestamp to Date
-    const sentAt = new Date(parseInt(msg.timestamp, 10) * 1000);
+    const sentAt = new Date(Number.parseInt(msg.timestamp, 10) * 1000);
 
     // Extract message body text
     const bodyText = getMessageText(msg);
@@ -210,8 +222,7 @@ export const whatsappAdapter: SourceAdapter<
     // Build recipients (for outgoing messages, recipient is the 'to' field)
     const recipients: MessageRecipient[] = [];
 
-    // Handle reply context
-    const replyToMessageId = msg.context?.id;
+    // Reply context available as: msg.context?.id
 
     return {
       id: msg.id,
@@ -262,7 +273,10 @@ export const whatsappAdapter: SourceAdapter<
       return {
         id: contact.waId,
         email: undefined, // WhatsApp doesn't provide email
-        name: contact.profileName ?? contact.pushName ?? formatPhoneNumber(contact.waId),
+        name:
+          contact.profileName ??
+          contact.pushName ??
+          formatPhoneNumber(contact.waId),
         avatarUrl: undefined, // Would need separate API call
         metadata: {
           waId: contact.waId,
@@ -324,7 +338,10 @@ function getMessageText(msg: WhatsAppMessageData): string {
     case "audio":
       return msg.audio?.voice ? "[Voice Message]" : "[Audio]";
     case "document":
-      return msg.document?.caption ?? `[Document: ${msg.document?.filename ?? "file"}]`;
+      return (
+        msg.document?.caption ??
+        `[Document: ${msg.document?.filename ?? "file"}]`
+      );
     case "sticker":
       return "[Sticker]";
     case "location":
@@ -332,9 +349,11 @@ function getMessageText(msg: WhatsAppMessageData): string {
     case "contacts":
       return `[Contact: ${msg.contacts?.[0]?.name?.formatted_name ?? "Unknown"}]`;
     case "interactive":
-      return msg.interactive?.button_reply?.title ??
-             msg.interactive?.list_reply?.title ??
-             "[Interactive Message]";
+      return (
+        msg.interactive?.button_reply?.title ??
+        msg.interactive?.list_reply?.title ??
+        "[Interactive Message]"
+      );
     case "button":
       return msg.button?.text ?? "[Button Response]";
     case "reaction":
@@ -354,18 +373,30 @@ function hasMedia(msg: WhatsAppMessageData): boolean {
 /**
  * Get media information from message.
  */
-function getMediaInfo(msg: WhatsAppMessageData): { id: string; mimeType: string; url?: string } | undefined {
+function getMediaInfo(
+  msg: WhatsAppMessageData
+): { id: string; mimeType: string; url?: string } | undefined {
   switch (msg.type) {
     case "image":
-      return msg.image ? { id: msg.image.id, mimeType: msg.image.mimeType } : undefined;
+      return msg.image
+        ? { id: msg.image.id, mimeType: msg.image.mimeType }
+        : undefined;
     case "video":
-      return msg.video ? { id: msg.video.id, mimeType: msg.video.mimeType } : undefined;
+      return msg.video
+        ? { id: msg.video.id, mimeType: msg.video.mimeType }
+        : undefined;
     case "audio":
-      return msg.audio ? { id: msg.audio.id, mimeType: msg.audio.mimeType } : undefined;
+      return msg.audio
+        ? { id: msg.audio.id, mimeType: msg.audio.mimeType }
+        : undefined;
     case "document":
-      return msg.document ? { id: msg.document.id, mimeType: msg.document.mimeType } : undefined;
+      return msg.document
+        ? { id: msg.document.id, mimeType: msg.document.mimeType }
+        : undefined;
     case "sticker":
-      return msg.sticker ? { id: msg.sticker.id, mimeType: msg.sticker.mimeType } : undefined;
+      return msg.sticker
+        ? { id: msg.sticker.id, mimeType: msg.sticker.mimeType }
+        : undefined;
     default:
       return undefined;
   }
@@ -386,55 +417,6 @@ function formatPhoneNumber(waId: string): string {
 }
 
 // =============================================================================
-// COMMITMENT EXTRACTION HELPERS
-// =============================================================================
-
-/**
- * Patterns that might indicate commitments in WhatsApp messages.
- */
-const COMMITMENT_PATTERNS = [
-  /i('ll| will) (?:do|send|complete|finish|deliver|handle|take care of)/i,
-  /by (?:end of day|eod|tomorrow|next week|monday|tuesday|wednesday|thursday|friday)/i,
-  /deadline[:\s]+/i,
-  /due[:\s]+/i,
-  /promise to/i,
-  /committed to/i,
-  /i('ll| will) get back to you/i,
-  /let me (?:check|follow up|get back)/i,
-];
-
-/**
- * Check if a WhatsApp message likely contains a commitment.
- */
-export function mayContainCommitment(message: WhatsAppMessageData): boolean {
-  const text = getMessageText(message).toLowerCase();
-  return COMMITMENT_PATTERNS.some((pattern) => pattern.test(text));
-}
-
-/**
- * Patterns that might indicate decisions in WhatsApp messages.
- */
-const DECISION_PATTERNS = [
-  /decided to/i,
-  /we('re| are) going with/i,
-  /final decision[:\s]+/i,
-  /approved/i,
-  /confirmed/i,
-  /let's go with/i,
-  /the plan is/i,
-  /agreed/i,
-  /deal/i,
-];
-
-/**
- * Check if a WhatsApp message likely contains a decision.
- */
-export function mayContainDecision(message: WhatsAppMessageData): boolean {
-  const text = getMessageText(message).toLowerCase();
-  return DECISION_PATTERNS.some((pattern) => pattern.test(text));
-}
-
-// =============================================================================
 // OUTGOING MESSAGE HELPERS
 // =============================================================================
 
@@ -451,7 +433,12 @@ export interface WhatsAppOutgoingMessage {
     components?: unknown[];
   };
   image?: { id?: string; link?: string; caption?: string };
-  document?: { id?: string; link?: string; caption?: string; filename?: string };
+  document?: {
+    id?: string;
+    link?: string;
+    caption?: string;
+    filename?: string;
+  };
 }
 
 /**
@@ -476,7 +463,9 @@ export function outgoingToMessageInput(
       bodyText = msg.image?.caption ?? "[Image]";
       break;
     case "document":
-      bodyText = msg.document?.caption ?? `[Document: ${msg.document?.filename ?? "file"}]`;
+      bodyText =
+        msg.document?.caption ??
+        `[Document: ${msg.document?.filename ?? "file"}]`;
       break;
   }
 

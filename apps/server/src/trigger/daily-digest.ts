@@ -593,7 +593,7 @@ function generateDigestEmailHtml(
             You're receiving this because you have active email accounts connected.
           </p>
           <p style="margin: 8px 0 0;">
-            <a href="${process.env.APP_URL ?? "https://app.memorystack.io"}/settings/notifications" style="color: #3B82F6; text-decoration: none;">
+            <a href="${process.env.APP_URL ?? "https://app.drovi.io"}/settings/notifications" style="color: #3B82F6; text-decoration: none;">
               Manage notification preferences
             </a>
           </p>

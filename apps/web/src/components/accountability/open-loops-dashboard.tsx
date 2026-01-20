@@ -9,14 +9,13 @@
 // that needs resolution.
 //
 
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { format, formatDistanceToNow, isPast, isToday, isTomorrow, addDays } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { addDays, format, isPast, isToday, isTomorrow } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
-  Bell,
   Calendar,
   Check,
   CheckCircle2,
@@ -25,9 +24,7 @@ import {
   Clock,
   ExternalLink,
   Eye,
-  Filter,
   Loader2,
-  Mail,
   MoreHorizontal,
   Pause,
   RefreshCw,
@@ -44,9 +41,8 @@ import { useCommandBar } from "@/components/email/command-bar";
 
 import { ConfidenceBadge } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -61,7 +57,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
@@ -105,7 +101,9 @@ interface OpenLoopsDashboardProps {
 // HELPERS
 // =============================================================================
 
-function getUrgencyLevel(item: OpenLoopItem): "critical" | "high" | "medium" | "low" {
+function getUrgencyLevel(
+  item: OpenLoopItem
+): "critical" | "high" | "medium" | "low" {
   if (item.status === "overdue" || (item.dueDate && isPast(item.dueDate))) {
     return "critical";
   }
@@ -148,7 +146,14 @@ interface ScoreCardProps {
   color: "blue" | "green" | "amber" | "red" | "purple";
 }
 
-function ScoreCard({ title, value, subtitle, icon: Icon, trend, color }: ScoreCardProps) {
+function ScoreCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  trend,
+  color,
+}: ScoreCardProps) {
   const colorClasses = {
     blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     green: "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -162,26 +167,31 @@ function ScoreCard({ title, value, subtitle, icon: Icon, trend, color }: ScoreCa
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
               {title}
             </p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+            <p className="mt-1 font-bold text-2xl">{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+              <p className="mt-0.5 text-muted-foreground text-xs">{subtitle}</p>
             )}
           </div>
-          <div className={cn("p-2 rounded-lg", colorClasses[color])}>
+          <div className={cn("rounded-lg p-2", colorClasses[color])}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
         {trend && (
-          <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingUp className={cn(
-              "h-3 w-3",
-              trend.value >= 0 ? "text-green-500" : "text-red-500"
-            )} />
-            <span className={trend.value >= 0 ? "text-green-600" : "text-red-600"}>
-              {trend.value > 0 ? "+" : ""}{trend.value}%
+          <div className="mt-2 flex items-center gap-1 text-xs">
+            <TrendingUp
+              className={cn(
+                "h-3 w-3",
+                trend.value >= 0 ? "text-green-500" : "text-red-500"
+              )}
+            />
+            <span
+              className={trend.value >= 0 ? "text-green-600" : "text-red-600"}
+            >
+              {trend.value > 0 ? "+" : ""}
+              {trend.value}%
             </span>
             <span className="text-muted-foreground">{trend.label}</span>
           </div>
@@ -217,76 +227,88 @@ function OpenLoopItemCard({
   isLoading,
 }: OpenLoopItemCardProps) {
   const urgency = getUrgencyLevel(item);
-  const isOverdue = item.status === "overdue" || (item.dueDate && isPast(item.dueDate));
+  const isOverdue =
+    item.status === "overdue" || (item.dueDate && isPast(item.dueDate));
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
-        "border-b border-border/40 hover:bg-accent/50"
+        "group relative flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors",
+        "border-border/40 border-b hover:bg-accent/50"
       )}
+      exit={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: 10 }}
+      layout
       onClick={onClick}
     >
       {/* Urgency Indicator */}
       {urgency === "critical" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-red-500" />
       )}
       {urgency === "high" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500" />
       )}
       {urgency === "medium" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-blue-500" />
       )}
 
       {/* Avatar */}
       {item.otherParty ? (
         <Avatar className="h-9 w-9 shrink-0">
-          <AvatarFallback className="text-xs bg-muted font-medium">
-            {getInitials(item.otherParty.displayName, item.otherParty.primaryEmail)}
+          <AvatarFallback className="bg-muted font-medium text-xs">
+            {getInitials(
+              item.otherParty.displayName,
+              item.otherParty.primaryEmail
+            )}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="h-9 w-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
           <User className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
 
       {/* Direction badge */}
-      <span className={cn(
-        "text-xs font-medium px-1.5 py-0.5 rounded shrink-0",
-        item.direction === "owed_by_me"
-          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-      )}>
+      <span
+        className={cn(
+          "shrink-0 rounded px-1.5 py-0.5 font-medium text-xs",
+          item.direction === "owed_by_me"
+            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+            : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+        )}
+      >
         {item.direction === "owed_by_me" ? "I owe" : "Owed to me"}
       </span>
 
       {/* Other Person */}
       {item.otherParty && (
-        <span className="w-32 shrink-0 truncate text-sm font-medium text-foreground/80">
+        <span className="w-32 shrink-0 truncate font-medium text-foreground/80 text-sm">
           {item.otherParty.displayName ?? item.otherParty.primaryEmail}
         </span>
       )}
 
       {/* Title */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-        <span className="text-sm truncate text-muted-foreground">{item.title}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
+        <span className="truncate text-muted-foreground text-sm">
+          {item.title}
+        </span>
       </div>
 
       {/* Due Date */}
       {item.dueDate && (
-        <span className={cn(
-          "text-xs shrink-0",
-          isOverdue && "text-red-600 dark:text-red-400 font-medium",
-          urgency === "high" && !isOverdue && "text-amber-600 dark:text-amber-400",
-          urgency === "medium" && "text-blue-600 dark:text-blue-400",
-          urgency === "low" && "text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            "shrink-0 text-xs",
+            isOverdue && "font-medium text-red-600 dark:text-red-400",
+            urgency === "high" &&
+              !isOverdue &&
+              "text-amber-600 dark:text-amber-400",
+            urgency === "medium" && "text-blue-600 dark:text-blue-400",
+            urgency === "low" && "text-muted-foreground"
+          )}
+        >
           {isOverdue
             ? `${item.daysOverdue ?? Math.ceil((Date.now() - (item.dueDate?.getTime() ?? Date.now())) / (1000 * 60 * 60 * 24))}d overdue`
             : isToday(item.dueDate)
@@ -298,20 +320,23 @@ function OpenLoopItemCard({
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex shrink-0 items-center gap-1"
+        onClick={(e) => e.stopPropagation()}
+      >
         <ConfidenceBadge
           confidence={item.confidence}
           isUserVerified={item.isUserVerified}
-          size="sm"
           showDetails={false}
+          size="sm"
         />
 
         {onShowEvidence && (
           <button
-            type="button"
+            className="rounded-md p-1.5 transition-colors hover:bg-background"
             onClick={onShowEvidence}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
             title="Show evidence"
+            type="button"
           >
             <Eye className="h-4 w-4 text-purple-500" />
           </button>
@@ -319,11 +344,11 @@ function OpenLoopItemCard({
 
         {onComplete && (
           <button
-            type="button"
-            onClick={onComplete}
+            className="rounded-md p-1.5 transition-colors hover:bg-background"
             disabled={isLoading}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
+            onClick={onComplete}
             title="Mark complete"
+            type="button"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -336,8 +361,8 @@ function OpenLoopItemCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               type="button"
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
             >
               <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -345,35 +370,35 @@ function OpenLoopItemCard({
           <DropdownMenuContent align="end">
             {onShowEvidence && (
               <DropdownMenuItem onClick={onShowEvidence}>
-                <Eye className="h-4 w-4 mr-2" />
+                <Eye className="mr-2 h-4 w-4" />
                 Show Evidence
               </DropdownMenuItem>
             )}
             {item.sourceThread && onThreadClick && (
               <DropdownMenuItem onClick={onThreadClick}>
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 View Source Thread
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             {onComplete && (
               <DropdownMenuItem onClick={onComplete}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <CheckCircle2 className="mr-2 h-4 w-4" />
                 Mark Complete
               </DropdownMenuItem>
             )}
             {onSnooze && (
               <>
                 <DropdownMenuItem onClick={() => onSnooze(1)}>
-                  <Clock className="h-4 w-4 mr-2" />
+                  <Clock className="mr-2 h-4 w-4" />
                   Snooze 1 day
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSnooze(3)}>
-                  <Pause className="h-4 w-4 mr-2" />
+                  <Pause className="mr-2 h-4 w-4" />
                   Snooze 3 days
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSnooze(7)}>
-                  <Pause className="h-4 w-4 mr-2" />
+                  <Pause className="mr-2 h-4 w-4" />
                   Snooze 1 week
                 </DropdownMenuItem>
               </>
@@ -382,7 +407,7 @@ function OpenLoopItemCard({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onFollowUp}>
-                  <Send className="h-4 w-4 mr-2" />
+                  <Send className="mr-2 h-4 w-4" />
                   Generate Follow-up
                 </DropdownMenuItem>
               </>
@@ -413,10 +438,15 @@ export function OpenLoopsDashboard({
     new Set(["overdue", "today", "this_week"])
   );
   // Track commitment being followed up for passing to compose
-  const [pendingFollowUpCommitment, setPendingFollowUpCommitment] = useState<OpenLoopItem | null>(null);
+  const [pendingFollowUpCommitment, setPendingFollowUpCommitment] =
+    useState<OpenLoopItem | null>(null);
 
   // Fetch open loops (commitments that are not completed)
-  const { data: loopsData, isLoading, refetch } = useQuery(
+  const {
+    data: loopsData,
+    isLoading,
+    refetch,
+  } = useQuery(
     trpc.commitments.list.queryOptions({
       organizationId,
       limit: 100,
@@ -450,10 +480,13 @@ export function OpenLoopsDashboard({
       // Open compose dialog with the generated follow-up
       if (pendingFollowUpCommitment?.otherParty) {
         openCompose({
-          to: [{
-            email: pendingFollowUpCommitment.otherParty.primaryEmail,
-            name: pendingFollowUpCommitment.otherParty.displayName ?? undefined,
-          }],
+          to: [
+            {
+              email: pendingFollowUpCommitment.otherParty.primaryEmail,
+              name:
+                pendingFollowUpCommitment.otherParty.displayName ?? undefined,
+            },
+          ],
           subject: data.subject,
           body: data.body,
         });
@@ -555,7 +588,8 @@ export function OpenLoopsDashboard({
     );
     const completionRate = loopsData?.commitments
       ? Math.round(
-          (loopsData.commitments.filter((c) => c.status === "completed").length /
+          (loopsData.commitments.filter((c) => c.status === "completed")
+            .length /
             loopsData.commitments.length) *
             100
         )
@@ -623,23 +657,23 @@ export function OpenLoopsDashboard({
 
     return (
       <Collapsible
-        key={key}
-        open={isExpanded}
-        onOpenChange={() => toggleSection(key)}
         className="space-y-2"
+        key={key}
+        onOpenChange={() => toggleSection(key)}
+        open={isExpanded}
       >
         <CollapsibleTrigger asChild>
           <Button
+            className="h-auto w-full justify-between rounded-lg px-4 py-3 hover:bg-accent"
             variant="ghost"
-            className="w-full justify-between h-auto py-3 px-4 rounded-lg hover:bg-accent"
           >
             <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg", color)}>
+              <div className={cn("rounded-lg p-2", color)}>
                 <Icon className="h-4 w-4" />
               </div>
               <div className="text-left">
                 <p className="font-medium">{title}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {items.length} item{items.length !== 1 ? "s" : ""}
                 </p>
               </div>
@@ -656,17 +690,17 @@ export function OpenLoopsDashboard({
             <AnimatePresence>
               {items.map((item) => (
                 <OpenLoopItemCard
-                  key={item.id}
+                  isLoading={completeMutation.isPending}
                   item={item}
+                  key={item.id}
                   onClick={() => onCommitmentClick?.(item.id)}
                   onComplete={() => handleComplete(item.id)}
-                  onSnooze={(days) => handleSnooze(item.id, days)}
                   onFollowUp={() => handleFollowUp(item.id, item)}
                   onShowEvidence={() => onShowEvidence?.(item.id)}
+                  onSnooze={(days) => handleSnooze(item.id, days)}
                   onThreadClick={() =>
                     item.sourceThread && onThreadClick?.(item.sourceThread.id)
                   }
-                  isLoading={completeMutation.isPending}
                 />
               ))}
             </AnimatePresence>
@@ -681,75 +715,78 @@ export function OpenLoopsDashboard({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My Open Loops</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-bold text-2xl">My Open Loops</h1>
+          <p className="mt-1 text-muted-foreground">
             Track every promise - yours and theirs
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
+        <Button onClick={() => refetch()} size="icon" variant="outline">
           <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>
 
       {/* Score Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <ScoreCard
+          color="blue"
+          icon={Clock}
+          subtitle="Unresolved commitments"
           title="Total Open"
           value={stats.total}
-          subtitle="Unresolved commitments"
-          icon={Clock}
-          color="blue"
         />
         <ScoreCard
+          color="amber"
+          icon={User}
+          subtitle="My obligations"
           title="I Owe"
           value={stats.mine}
-          subtitle="My obligations"
-          icon={User}
-          color="amber"
         />
         <ScoreCard
+          color="purple"
+          icon={Users}
+          subtitle="Waiting on others"
           title="Owed to Me"
           value={stats.others}
-          subtitle="Waiting on others"
-          icon={Users}
-          color="purple"
         />
         <ScoreCard
+          color={stats.overdue > 0 ? "red" : "green"}
+          icon={AlertTriangle}
+          subtitle={stats.overdue > 0 ? "Needs attention" : "All clear"}
           title="Overdue"
           value={stats.overdue}
-          subtitle={stats.overdue > 0 ? "Needs attention" : "All clear"}
-          icon={AlertTriangle}
-          color={stats.overdue > 0 ? "red" : "green"}
         />
       </div>
 
       {/* Accountability Score */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-purple-500" />
               <span className="font-medium text-sm">Accountability Score</span>
             </div>
-            <span className="text-2xl font-bold">{stats.completionRate}%</span>
+            <span className="font-bold text-2xl">{stats.completionRate}%</span>
           </div>
-          <Progress value={stats.completionRate} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-2">
+          <Progress className="h-2" value={stats.completionRate} />
+          <p className="mt-2 text-muted-foreground text-xs">
             Based on commitment completion rate
           </p>
         </CardContent>
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+      <Tabs
+        onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+        value={activeTab}
+      >
         <TabsList className="w-full">
-          <TabsTrigger value="all" className="flex-1">
+          <TabsTrigger className="flex-1" value="all">
             All ({openLoops.length})
           </TabsTrigger>
-          <TabsTrigger value="mine" className="flex-1">
+          <TabsTrigger className="flex-1" value="mine">
             I Owe ({stats.mine})
           </TabsTrigger>
-          <TabsTrigger value="others" className="flex-1">
+          <TabsTrigger className="flex-1" value="others">
             Owed to Me ({stats.others})
           </TabsTrigger>
         </TabsList>
@@ -763,9 +800,9 @@ export function OpenLoopsDashboard({
       ) : filteredLoops.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-4" />
+            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-green-500" />
             <h3 className="font-medium text-lg">All Clear!</h3>
-            <p className="text-muted-foreground mt-1">
+            <p className="mt-1 text-muted-foreground">
               No open loops. You're all caught up.
             </p>
           </CardContent>

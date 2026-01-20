@@ -116,7 +116,9 @@ const PII_PATTERNS: Array<{
       let sum = 0;
       let isEven = false;
       for (let i = digits.length - 1; i >= 0; i--) {
-        let digit = Number.parseInt(digits[i], 10);
+        const char = digits[i];
+        if (char === undefined) continue;
+        let digit = Number.parseInt(char, 10);
         if (isEven) {
           digit *= 2;
           if (digit > 9) digit -= 9;
@@ -134,8 +136,7 @@ const PII_PATTERNS: Array<{
   },
   {
     type: "phone",
-    pattern:
-      /\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+    pattern: /\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
     severity: "medium",
   },
   {
@@ -146,7 +147,7 @@ const PII_PATTERNS: Array<{
   {
     type: "dob",
     pattern:
-      /\b(?:dob|date of birth|born on|birthday)[\s:]*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/gi,
+      /\b(?:dob|date of birth|born on|birthday)[\s:]*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/gi,
     severity: "high",
   },
   {
@@ -156,7 +157,8 @@ const PII_PATTERNS: Array<{
   },
   {
     type: "drivers_license",
-    pattern: /\b(?:dl|driver'?s?\s*license|license\s*#?)[\s:]*[A-Z0-9]{5,15}\b/gi,
+    pattern:
+      /\b(?:dl|driver'?s?\s*license|license\s*#?)[\s:]*[A-Z0-9]{5,15}\b/gi,
     severity: "high",
   },
   {
@@ -369,7 +371,10 @@ export class SensitiveDataDetector {
 
           // Get surrounding context
           const contextStart = Math.max(0, start - 50);
-          const contextEnd = Math.min(content.length, start + keyword.length + 50);
+          const contextEnd = Math.min(
+            content.length,
+            start + keyword.length + 50
+          );
           const context = content.slice(contextStart, contextEnd);
 
           findings.push({
@@ -427,7 +432,9 @@ export class SensitiveDataDetector {
       );
       if (criticalConf.length > 0) {
         sensitiveTypes.push(
-          ...Array.from(new Set(criticalConf.map((c) => `Confidential: ${c.type}`)))
+          ...Array.from(
+            new Set(criticalConf.map((c) => `Confidential: ${c.type}`))
+          )
         );
       }
     }
@@ -480,9 +487,13 @@ export class SensitiveDataDetector {
         return "XXXX-XXXX-XXXX-" + value.slice(-4).replace(/\D/g, "");
       case "phone":
         return value.slice(0, -4).replace(/\d/g, "X") + value.slice(-4);
-      case "email":
+      case "email": {
         const [local, domain] = value.split("@");
-        return local[0] + "***@" + domain;
+        if (local && domain) {
+          return (local[0] ?? "X") + "***@" + domain;
+        }
+        return value.replace(/[A-Za-z0-9]/g, "X");
+      }
       default:
         return value.replace(/[A-Za-z0-9]/g, "X");
     }

@@ -2,6 +2,7 @@
 // WHATSAPP OAUTH HANDLER
 // =============================================================================
 
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   exchangeWhatsAppCode,
   getWhatsAppAuthorizationUrl,
@@ -18,7 +19,6 @@ import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { safeEncryptToken } from "../../lib/crypto/tokens";
 import { log } from "../../lib/logger";
 
@@ -198,6 +198,12 @@ whatsappOAuth.get("/callback", async (c) => {
 
     // Use the first WABA (or could let user choose)
     const waba = wabaAccounts[0];
+    if (!waba) {
+      // This should never happen due to the length check above, but TypeScript needs assurance
+      return c.redirect(
+        `${env.CORS_ORIGIN}${redirectPath}?error=no_whatsapp_accounts&source=whatsapp`
+      );
+    }
 
     // Check if this WABA is already connected to this organization
     const existingSourceAccount = await db.query.sourceAccount.findFirst({
@@ -285,7 +291,10 @@ whatsappOAuth.get("/callback", async (c) => {
       });
 
       // Get phone numbers
-      const phoneNumbers = await getWhatsAppPhoneNumbers(waba.id, tokens.access_token);
+      const phoneNumbers = await getWhatsAppPhoneNumbers(
+        waba.id,
+        tokens.access_token
+      );
 
       // Get WABA record ID
       const wabaRecord = await db.query.whatsappBusinessAccount.findFirst({
@@ -386,7 +395,9 @@ whatsappOAuth.post("/webhook", async (c) => {
       return c.json({ error: "Invalid signature" }, 401);
     }
   } else {
-    log.warn("WhatsApp webhook received without signature verification - WHATSAPP_APP_SECRET not configured");
+    log.warn(
+      "WhatsApp webhook received without signature verification - WHATSAPP_APP_SECRET not configured"
+    );
   }
 
   // Parse the payload from raw body
@@ -424,7 +435,9 @@ whatsappOAuth.post("/webhook", async (c) => {
                   contacts: value.contacts,
                 });
               } catch (e) {
-                log.warn("Failed to trigger WhatsApp message processing", { error: e });
+                log.warn("Failed to trigger WhatsApp message processing", {
+                  error: e,
+                });
               }
             }
           }

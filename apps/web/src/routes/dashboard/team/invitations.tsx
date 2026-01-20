@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Mail, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +60,10 @@ function InvitationsPage() {
           setInvitations(result.data as unknown as Invitation[]);
         }
       } catch (error) {
-        console.error("Failed to fetch invitations:", error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to fetch invitations:", error);
+        }
+        toast.error("Failed to load invitations");
       } finally {
         setIsPending(false);
       }

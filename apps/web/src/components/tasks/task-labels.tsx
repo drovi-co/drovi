@@ -69,7 +69,11 @@ interface TaskLabelBadgeProps {
   size?: "sm" | "md";
 }
 
-export function TaskLabelBadge({ label, onRemove, size = "md" }: TaskLabelBadgeProps) {
+export function TaskLabelBadge({
+  label,
+  onRemove,
+  size = "md",
+}: TaskLabelBadgeProps) {
   const textSize = size === "sm" ? "text-[10px]" : "text-[11px]";
   const padding = size === "sm" ? "px-1.5 py-0.5" : "px-2 py-1";
   const dotSize = size === "sm" ? "w-1.5 h-1.5" : "w-2 h-2";
@@ -87,18 +91,18 @@ export function TaskLabelBadge({ label, onRemove, size = "md" }: TaskLabelBadgeP
       }}
     >
       <span
-        className={cn("rounded-full shrink-0", dotSize)}
+        className={cn("shrink-0 rounded-full", dotSize)}
         style={{ backgroundColor: label.color }}
       />
       {label.name}
       {onRemove && (
         <button
-          type="button"
+          className="-mr-0.5 rounded-full p-0.5 transition-colors hover:bg-white/10"
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="hover:bg-white/10 rounded-full p-0.5 -mr-0.5 transition-colors"
+          type="button"
         >
           <X className="h-3 w-3" />
         </button>
@@ -191,7 +195,8 @@ export function TaskLabelPicker({
   const handleCreateLabel = () => {
     if (!newLabelName.trim()) return;
     // Pick a random color from the palette
-    const randomColor = LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)]!;
+    const randomColor =
+      LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)]!;
     createLabelMutation.mutate({
       organizationId,
       name: newLabelName.trim(),
@@ -217,14 +222,14 @@ export function TaskLabelPicker({
 
   const defaultTrigger = (
     <Button
-      variant="ghost"
+      className="h-7 gap-2 text-muted-foreground hover:bg-accent hover:text-foreground"
       size="sm"
-      className="gap-2 h-7 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+      variant="ghost"
     >
       <Tag className="h-3.5 w-3.5" />
       <span className="text-xs">Labels</span>
       {selectedLabels.length > 0 && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2a2b3d] text-[#d2d3e0] ml-1">
+        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-foreground text-[10px]">
           {selectedLabels.length}
         </span>
       )}
@@ -233,25 +238,28 @@ export function TaskLabelPicker({
 
   return (
     <>
-      <Popover open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) {
-          // Reset create input state when closing popover
-          setShowCreateInput(false);
-          setNewLabelName("");
-        }
-      }}>
+      <Popover
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) {
+            // Reset create input state when closing popover
+            setShowCreateInput(false);
+            setNewLabelName("");
+          }
+        }}
+        open={open}
+      >
         <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>
         <PopoverContent
           align={align}
-          className="w-56 p-2 bg-[#1a1b26] border-[#2a2b3d]"
+          className="w-56 border-border bg-card p-2"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-0.5">
             {labels.length === 0 ? (
-              <div className="text-[13px] text-[#4c4f6b] text-center py-4">
+              <div className="py-4 text-center text-muted-foreground text-[13px]">
                 No labels yet. Create one below.
               </div>
             ) : (
@@ -259,24 +267,24 @@ export function TaskLabelPicker({
                 const isSelected = selectedIds.has(label.id);
                 return (
                   <button
-                    key={label.id}
-                    type="button"
-                    onClick={() => handleToggleLabel(label)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px]",
-                      "hover:bg-[#2a2b3d] transition-colors",
-                      isSelected && "bg-[#2a2b3d]"
+                      "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px]",
+                      "transition-colors hover:bg-accent",
+                      isSelected && "bg-muted"
                     )}
+                    key={label.id}
+                    onClick={() => handleToggleLabel(label)}
+                    type="button"
                   >
                     <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: label.color }}
                     />
-                    <span className="flex-1 text-left truncate text-[#d2d3e0]">
+                    <span className="flex-1 truncate text-left text-foreground">
                       {label.name}
                     </span>
                     {isSelected && (
-                      <Check className="h-4 w-4 shrink-0 text-[#5e6ad2]" />
+                      <Check className="h-4 w-4 shrink-0 text-secondary" />
                     )}
                   </button>
                 );
@@ -285,12 +293,12 @@ export function TaskLabelPicker({
           </div>
 
           {/* Inline create label */}
-          <div className="border-t border-[#2a2b3d] mt-2 pt-2 space-y-2">
+          <div className="mt-2 space-y-2 border-border border-t pt-2">
             {showCreateInput ? (
               <div className="flex gap-1.5">
                 <Input
-                  placeholder="Label name..."
-                  value={newLabelName}
+                  autoFocus
+                  className="h-7 flex-1 border-border bg-muted text-foreground text-[13px] placeholder:text-muted-foreground focus:border-secondary"
                   onChange={(e) => setNewLabelName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -301,48 +309,50 @@ export function TaskLabelPicker({
                       setNewLabelName("");
                     }
                   }}
-                  autoFocus
-                  className="flex-1 h-7 text-[13px] bg-[#21232e] border-[#2a2b3d] text-[#d2d3e0] placeholder:text-[#4c4f6b] focus:border-[#5e6ad2]"
+                  placeholder="Label name..."
+                  value={newLabelName}
                 />
                 <Button
-                  size="sm"
-                  className="h-7 px-2 bg-[#5e6ad2] hover:bg-[#6b78e3] text-white"
+                  className="h-7 bg-secondary px-2 text-white hover:bg-secondary-hover"
+                  disabled={
+                    !newLabelName.trim() || createLabelMutation.isPending
+                  }
                   onClick={handleCreateLabel}
-                  disabled={!newLabelName.trim() || createLabelMutation.isPending}
+                  size="sm"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
                 <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+                  className="h-7 px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={() => {
                     setShowCreateInput(false);
                     setNewLabelName("");
                   }}
+                  size="sm"
+                  variant="ghost"
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (
               <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-2 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+                className="w-full justify-start gap-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setShowCreateInput(true)}
+                size="sm"
+                variant="ghost"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Create new label
               </Button>
             )}
             <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start gap-2 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
+              className="w-full justify-start gap-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={() => {
                 setOpen(false);
                 setManageOpen(true);
               }}
+              size="sm"
+              variant="ghost"
             >
               <Settings className="h-3.5 w-3.5" />
               Manage labels
@@ -352,9 +362,9 @@ export function TaskLabelPicker({
       </Popover>
 
       <LabelManageDialog
-        organizationId={organizationId}
-        open={manageOpen}
         onOpenChange={setManageOpen}
+        open={manageOpen}
+        organizationId={organizationId}
       />
     </>
   );
@@ -370,7 +380,11 @@ interface LabelManageDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDialogProps) {
+function LabelManageDialog({
+  organizationId,
+  open,
+  onOpenChange,
+}: LabelManageDialogProps) {
   const queryClient = useQueryClient();
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[10]!); // blue
@@ -435,7 +449,7 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
   };
 
   const handleUpdateLabel = () => {
-    if (!editingLabel || !editingLabel.name.trim()) return;
+    if (!(editingLabel && editingLabel.name.trim())) return;
     updateMutation.mutate({
       organizationId,
       labelId: editingLabel.id,
@@ -452,11 +466,11 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-[#1a1b26] border-[#2a2b3d]">
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="border-border bg-card sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-[#eeeffc]">Manage Labels</DialogTitle>
-          <DialogDescription className="text-[#858699]">
+          <DialogTitle className="text-foreground">Manage Labels</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Create, edit, or delete labels for your organization.
           </DialogDescription>
         </DialogHeader>
@@ -464,30 +478,27 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
         <div className="space-y-4 py-4">
           {/* Create new label */}
           <div className="space-y-2">
-            <label className="text-[13px] font-medium text-[#d2d3e0]">
+            <label className="font-medium text-foreground text-[13px]">
               Create new label
             </label>
             <div className="flex gap-2">
-              <ColorPicker
-                value={newLabelColor}
-                onChange={setNewLabelColor}
-              />
+              <ColorPicker onChange={setNewLabelColor} value={newLabelColor} />
               <Input
-                placeholder="Label name..."
-                value={newLabelName}
+                className="flex-1 border-border bg-muted text-foreground placeholder:text-muted-foreground focus:border-secondary"
                 onChange={(e) => setNewLabelName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleCreateLabel();
                   }
                 }}
-                className="flex-1 bg-[#21232e] border-[#2a2b3d] text-[#d2d3e0] placeholder:text-[#4c4f6b] focus:border-[#5e6ad2]"
+                placeholder="Label name..."
+                value={newLabelName}
               />
               <Button
-                size="sm"
-                onClick={handleCreateLabel}
+                className="bg-secondary text-white hover:bg-secondary-hover"
                 disabled={!newLabelName.trim() || createMutation.isPending}
-                className="bg-[#5e6ad2] hover:bg-[#6b78e3] text-white"
+                onClick={handleCreateLabel}
+                size="sm"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -496,32 +507,36 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
 
           {/* Existing labels */}
           <div className="space-y-2">
-            <label className="text-[13px] font-medium text-[#d2d3e0]">
+            <label className="font-medium text-foreground text-[13px]">
               Existing labels
             </label>
-            <div className="border border-[#2a2b3d] rounded-md divide-y divide-[#2a2b3d] max-h-[200px] overflow-y-auto bg-[#21232e]">
+            <div className="max-h-[200px] divide-y divide-border overflow-y-auto rounded-md border border-border bg-muted">
               {labels.length === 0 ? (
-                <div className="text-[13px] text-[#4c4f6b] text-center py-4">
+                <div className="py-4 text-center text-muted-foreground text-[13px]">
                   No labels yet
                 </div>
               ) : (
                 labels.map((label) => (
                   <div
+                    className="group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent"
                     key={label.id}
-                    className="group flex items-center gap-2 px-3 py-2.5 hover:bg-[#252736] transition-colors"
                   >
                     {editingLabel?.id === label.id ? (
                       <>
                         <ColorPicker
-                          value={editingLabel.color}
                           onChange={(color) =>
                             setEditingLabel({ ...editingLabel, color })
                           }
+                          value={editingLabel.color}
                         />
                         <Input
-                          value={editingLabel.name}
+                          autoFocus
+                          className="h-7 flex-1 border-border bg-card text-foreground focus:border-secondary"
                           onChange={(e) =>
-                            setEditingLabel({ ...editingLabel, name: e.target.value })
+                            setEditingLabel({
+                              ...editingLabel,
+                              name: e.target.value,
+                            })
                           }
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
@@ -531,22 +546,21 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
                               setEditingLabel(null);
                             }
                           }}
-                          autoFocus
-                          className="flex-1 h-7 bg-[#1a1b26] border-[#2a2b3d] text-[#d2d3e0] focus:border-[#5e6ad2]"
+                          value={editingLabel.name}
                         />
                         <Button
+                          className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500"
+                          onClick={handleUpdateLabel}
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 text-[#10b981] hover:text-[#10b981] hover:bg-[#10b981]/10"
-                          onClick={handleUpdateLabel}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
                         <Button
+                          className="h-7 w-7 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          onClick={() => setEditingLabel(null)}
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
-                          onClick={() => setEditingLabel(null)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -554,25 +568,25 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
                     ) : (
                       <>
                         <div
-                          className="w-3 h-3 rounded-full shrink-0"
+                          className="h-3 w-3 shrink-0 rounded-full"
                           style={{ backgroundColor: label.color }}
                         />
-                        <span className="flex-1 text-[13px] text-[#d2d3e0]">
+                        <span className="flex-1 text-foreground text-[13px]">
                           {label.name}
                         </span>
                         <Button
+                          className="h-7 w-7 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                          onClick={() => setEditingLabel(label)}
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-[#858699] hover:text-[#d2d3e0] hover:bg-[#2a2b3d]"
-                          onClick={() => setEditingLabel(label)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button
+                          className="h-7 w-7 text-destructive opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          onClick={() => handleDeleteLabel(label.id)}
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-[#f97583] hover:text-[#f97583] hover:bg-[#f97583]/10"
-                          onClick={() => handleDeleteLabel(label.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -587,9 +601,9 @@ function LabelManageDialog({ organizationId, open, onOpenChange }: LabelManageDi
 
         <DialogFooter>
           <Button
-            variant="outline"
+            className="border-border bg-transparent text-foreground hover:bg-accent hover:text-foreground"
             onClick={() => onOpenChange(false)}
-            className="bg-transparent border-[#2a2b3d] text-[#d2d3e0] hover:bg-[#2a2b3d] hover:text-[#eeeffc]"
+            variant="outline"
           >
             Done
           </Button>
@@ -613,26 +627,27 @@ function ColorPicker({ value, onChange }: ColorPickerProps) {
     <Popover>
       <PopoverTrigger asChild>
         <button
-          type="button"
-          className="w-8 h-8 rounded-md border border-[#2a2b3d] flex items-center justify-center shrink-0 hover:border-[#3a3b4d] transition-colors"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border transition-colors hover:border-border"
           style={{ backgroundColor: value }}
+          type="button"
         />
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-2 bg-[#1a1b26] border-[#2a2b3d]"
         align="start"
+        className="w-auto border-border bg-card p-2"
       >
         <div className="grid grid-cols-6 gap-1.5">
           {LABEL_COLORS.map((color) => (
             <button
-              key={color}
-              type="button"
               className={cn(
-                "w-6 h-6 rounded-md transition-all hover:scale-110",
-                color === value && "ring-2 ring-offset-2 ring-offset-[#1a1b26] ring-[#5e6ad2]"
+                "h-6 w-6 rounded-md transition-all hover:scale-110",
+                color === value &&
+                  "ring-2 ring-secondary ring-offset-2 ring-offset-card"
               )}
-              style={{ backgroundColor: color }}
+              key={color}
               onClick={() => onChange(color)}
+              style={{ backgroundColor: color }}
+              type="button"
             />
           ))}
         </div>
@@ -669,10 +684,12 @@ export function TaskLabelsDisplay({
         <TaskLabelBadge key={label.id} label={label} size={size} />
       ))}
       {remaining > 0 && (
-        <span className={cn(
-          "text-[#4c4f6b]",
-          size === "sm" ? "text-[10px]" : "text-[11px]"
-        )}>
+        <span
+          className={cn(
+            "text-muted-foreground",
+            size === "sm" ? "text-[10px]" : "text-[11px]"
+          )}
+        >
           +{remaining}
         </span>
       )}

@@ -22,8 +22,15 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ConfidenceBadge } from "@/components/evidence";
+import {
+  type TaskAssignee,
+  TaskAssigneeDropdown,
+  type TaskPriority,
+  TaskPriorityDropdown,
+  type TaskStatus,
+  TaskStatusDropdown,
+} from "@/components/tasks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -32,15 +39,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import {
-  TaskStatusDropdown,
-  TaskPriorityDropdown,
-  TaskAssigneeDropdown,
-  type TaskStatus,
-  type TaskPriority,
-  type TaskAssignee,
-} from "@/components/tasks";
+  getSourceColor,
+  getSourceConfig,
+  type SourceType,
+} from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -158,72 +162,78 @@ export function DecisionCard({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
-        "border-b border-border/40",
+        "group relative flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors",
+        "border-border/40 border-b",
         decision.isSuperseded || decision.supersededBy ? "opacity-60" : "",
         isHovered && !isSelected && "bg-accent/50",
         isSelected && "bg-accent"
       )}
+      onClick={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onSelect}
     >
       {/* Priority indicator bar */}
-      {!decision.isSuperseded && !decision.supersededBy && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500" />
+      {!(decision.isSuperseded || decision.supersededBy) && (
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-purple-500" />
       )}
 
       {/* Avatar for first owner or decision icon */}
       {decision.owners && decision.owners.length > 0 ? (
         <Avatar className="h-9 w-9 shrink-0">
-          <AvatarFallback className="text-xs bg-muted font-medium">
-            {getInitials(decision.owners[0]?.displayName, decision.owners[0]?.primaryEmail ?? "")}
+          <AvatarFallback className="bg-muted font-medium text-xs">
+            {getInitials(
+              decision.owners[0]?.displayName,
+              decision.owners[0]?.primaryEmail ?? ""
+            )}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="h-9 w-9 shrink-0 rounded-full bg-purple-500/10 flex items-center justify-center">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-500/10">
           <GitBranch className="h-4 w-4 text-purple-500" />
         </div>
       )}
 
       {/* Date */}
-      <span className="w-20 shrink-0 text-xs font-medium text-muted-foreground">
+      <span className="w-20 shrink-0 font-medium text-muted-foreground text-xs">
         {formatDecisionDate(decision.decidedAt)}
       </span>
 
       {/* Title - main content with AI indicator and source */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* Source indicator */}
-        {decision.sourceType && (() => {
-          const config = getSourceConfig(decision.sourceType);
-          const color = getSourceColor(decision.sourceType);
-          const SourceIcon = config.icon;
-          return (
-            <div
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-              style={{ backgroundColor: `${color}15` }}
-              title={`From ${config.label}`}
-            >
-              <SourceIcon className="h-3 w-3" style={{ color }} />
-            </div>
-          );
-        })()}
+        {decision.sourceType &&
+          (() => {
+            const config = getSourceConfig(decision.sourceType);
+            const color = getSourceColor(decision.sourceType);
+            const SourceIcon = config.icon;
+            return (
+              <div
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                style={{ backgroundColor: `${color}15` }}
+                title={`From ${config.label}`}
+              >
+                <SourceIcon className="h-3 w-3" style={{ color }} />
+              </div>
+            );
+          })()}
         {!decision.sourceType && (
-          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
         )}
-        <span className={cn(
-          "text-sm truncate text-muted-foreground",
-          decision.supersededBy && "line-through opacity-60"
-        )}>
+        <span
+          className={cn(
+            "truncate text-muted-foreground text-sm",
+            decision.supersededBy && "line-through opacity-60"
+          )}
+        >
           {decision.title}
         </span>
       </div>
 
       {/* Topics */}
       {decision.topics && decision.topics.length > 0 && !isHovered && (
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           {decision.topics.slice(0, 2).map((topic) => (
-            <Badge key={topic.id} variant="secondary" className="text-[10px]">
+            <Badge className="text-[10px]" key={topic.id} variant="secondary">
               {topic.name}
             </Badge>
           ))}
@@ -231,35 +241,35 @@ export function DecisionCard({
       )}
 
       {/* Quick actions - always visible */}
-      <div className="shrink-0 flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         {/* Task controls - shown if task data exists */}
         {hasTaskData && (
           <>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskAssigneeDropdown
-                taskId={decision.task!.id}
-                organizationId={organizationId!}
-                currentAssignee={decision.task!.assignee}
-                compact
                 align="end"
+                compact
+                currentAssignee={decision.task!.assignee}
+                organizationId={organizationId!}
+                taskId={decision.task!.id}
               />
             </div>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskPriorityDropdown
-                taskId={decision.task!.id}
-                organizationId={organizationId!}
-                currentPriority={decision.task!.priority}
-                compact
                 align="end"
+                compact
+                currentPriority={decision.task!.priority}
+                organizationId={organizationId!}
+                taskId={decision.task!.id}
               />
             </div>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskStatusDropdown
-                taskId={decision.task!.id}
-                organizationId={organizationId!}
-                currentStatus={decision.task!.status}
-                compact
                 align="end"
+                compact
+                currentStatus={decision.task!.status}
+                organizationId={organizationId!}
+                taskId={decision.task!.id}
               />
             </div>
           </>
@@ -269,20 +279,20 @@ export function DecisionCard({
         <ConfidenceBadge
           confidence={decision.confidence}
           isUserVerified={decision.isUserVerified}
-          size="sm"
           showDetails={false}
+          size="sm"
         />
 
         {/* Show Me - Evidence button */}
         {onShowEvidence && (
           <button
-            type="button"
+            className="rounded-md p-1.5 transition-colors hover:bg-background"
             onClick={(e) => {
               e.stopPropagation();
               onShowEvidence(decision.id);
             }}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
             title="Show evidence"
+            type="button"
           >
             <Eye className="h-4 w-4 text-purple-500" />
           </button>
@@ -291,13 +301,13 @@ export function DecisionCard({
         {/* Source thread link */}
         {decision.sourceThread && (
           <button
-            type="button"
+            className="rounded-md p-1.5 transition-colors hover:bg-background"
             onClick={(e) => {
               e.stopPropagation();
               onThreadClick?.(decision.sourceThread!.id);
             }}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
             title="View source thread"
+            type="button"
           >
             <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -307,9 +317,9 @@ export function DecisionCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
               <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -318,29 +328,31 @@ export function DecisionCard({
             {onShowEvidence && (
               <>
                 <DropdownMenuItem onClick={() => onShowEvidence(decision.id)}>
-                  <Eye className="h-4 w-4 mr-2" />
+                  <Eye className="mr-2 h-4 w-4" />
                   Show Evidence
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}
             <DropdownMenuItem onClick={handleCopyStatement}>
-              <Copy className="h-4 w-4 mr-2" />
+              <Copy className="mr-2 h-4 w-4" />
               Copy Statement
             </DropdownMenuItem>
             {decision.sourceThread && (
               <DropdownMenuItem
                 onClick={() => onThreadClick?.(decision.sourceThread!.id)}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 View Source Thread
               </DropdownMenuItem>
             )}
             {onViewSupersession && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onViewSupersession(decision.id)}>
-                  <GitBranch className="h-4 w-4 mr-2" />
+                <DropdownMenuItem
+                  onClick={() => onViewSupersession(decision.id)}
+                >
+                  <GitBranch className="mr-2 h-4 w-4" />
                   View Decision History
                 </DropdownMenuItem>
               </>
@@ -348,13 +360,16 @@ export function DecisionCard({
             <DropdownMenuSeparator />
             {!decision.isUserVerified && onVerify && (
               <DropdownMenuItem onClick={() => onVerify(decision.id)}>
-                <ThumbsUp className="h-4 w-4 mr-2" />
+                <ThumbsUp className="mr-2 h-4 w-4" />
                 Verify (Correct)
               </DropdownMenuItem>
             )}
             {onDismiss && (
-              <DropdownMenuItem onClick={() => onDismiss(decision.id)} className="text-destructive">
-                <ThumbsDown className="h-4 w-4 mr-2" />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => onDismiss(decision.id)}
+              >
+                <ThumbsDown className="mr-2 h-4 w-4" />
                 Dismiss (Incorrect)
               </DropdownMenuItem>
             )}

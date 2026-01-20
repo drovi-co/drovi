@@ -1,4 +1,13 @@
-import type { Redis } from "ioredis";
+// Redis type for optional Redis-based rate limiting
+interface Redis {
+  get(key: string): Promise<string | null>;
+  setex(key: string, seconds: number, value: string): Promise<string>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
+  del(key: string): Promise<number>;
+  ttl(key: string): Promise<number>;
+}
+
 import type { Context, MiddlewareHandler } from "hono";
 
 interface RateLimitStore {

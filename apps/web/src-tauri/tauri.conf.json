@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Memorystack",
+  "productName": "Drovi",
   "version": "0.1.0",
-  "identifier": "com.memorystack.app",
+  "identifier": "com.drovi.io",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3001",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Memorystack",
+        "title": "Drovi",
         "label": "main",
         "width": 1200,
         "height": 800,
@@ -29,7 +29,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.memorystack.com https://*.googleapis.com https://*.google.com https://*.posthog.com https://*.sentry.io wss://*.memorystack.com http://localhost:* ws://localhost:*; frame-src 'self' https://accounts.google.com"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.drovi.io https://*.googleapis.com https://*.google.com https://*.posthog.com https://*.sentry.io wss://*.drovi.io http://localhost:* ws://localhost:*; frame-src 'self' https://accounts.google.com"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -48,7 +48,7 @@
     ],
     "category": "Productivity",
     "shortDescription": "AI-powered email intelligence platform",
-    "longDescription": "Memorystack transforms your email into actionable intelligence with AI-powered extraction of commitments, decisions, and relationships.",
+    "longDescription": "Drovi transforms your email into actionable intelligence with AI-powered extraction of commitments, decisions, and relationships.",
     "macOS": {
       "minimumSystemVersion": "10.15",
       "entitlements": "./entitlements.plist"
@@ -65,7 +65,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["memorystack"]
+        "schemes": ["drovi"]
       }
     },
     "updater": {

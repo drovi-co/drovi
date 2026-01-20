@@ -2,6 +2,7 @@
 // NOTION OAUTH HANDLER
 // =============================================================================
 
+import { randomUUID } from "node:crypto";
 import {
   exchangeNotionCode,
   getNotionAuthorizationUrl,
@@ -12,7 +13,6 @@ import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { randomUUID } from "node:crypto";
 import { safeEncryptToken } from "../../lib/crypto/tokens";
 import { log } from "../../lib/logger";
 
@@ -248,7 +248,9 @@ notionOAuth.get("/callback", async (c) => {
           sourceAccountId: newSourceAccountId,
           fullSync: true,
         });
-        log.info("Triggered initial Notion sync", { sourceAccountId: newSourceAccountId });
+        log.info("Triggered initial Notion sync", {
+          sourceAccountId: newSourceAccountId,
+        });
       } catch (e) {
         log.warn("Failed to trigger initial Notion sync", { error: e });
       }

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
-  boolean,
   index,
   jsonb,
   pgEnum,
@@ -361,12 +360,7 @@ export type TaskStatus =
   | "done"
   | "cancelled";
 
-export type TaskPriority =
-  | "no_priority"
-  | "low"
-  | "medium"
-  | "high"
-  | "urgent";
+export type TaskPriority = "no_priority" | "low" | "medium" | "high" | "urgent";
 
 export type TaskSourceType =
   | "conversation"

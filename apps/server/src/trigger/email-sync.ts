@@ -9,7 +9,7 @@
 import { db } from "@memorystack/db";
 import { emailAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
-import { and, eq, lte, or } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { log } from "../lib/logger";
 import {
   getAccountsForSync,
@@ -253,7 +253,7 @@ export const syncEmailsSchedule = schedules.task({
         ),
         or(
           // Never synced
-          eq(emailAccount.lastSyncAt, null),
+          isNull(emailAccount.lastSyncAt),
           // Not synced in last 5 minutes
           lte(emailAccount.lastSyncAt, fiveMinutesAgo)
         )

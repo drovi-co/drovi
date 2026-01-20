@@ -437,6 +437,9 @@ export type NewClaimEmbedding = typeof claimEmbedding.$inferInsert;
 export type QueryEmbeddingCache = typeof queryEmbeddingCache.$inferSelect;
 export type NewQueryEmbeddingCache = typeof queryEmbeddingCache.$inferInsert;
 export type ConversationEmbedding = typeof conversationEmbedding.$inferSelect;
-export type NewConversationEmbedding = typeof conversationEmbedding.$inferInsert;
-export type GenericMessageEmbedding = typeof genericMessageEmbedding.$inferSelect;
-export type NewGenericMessageEmbedding = typeof genericMessageEmbedding.$inferInsert;
+export type NewConversationEmbedding =
+  typeof conversationEmbedding.$inferInsert;
+export type GenericMessageEmbedding =
+  typeof genericMessageEmbedding.$inferSelect;
+export type NewGenericMessageEmbedding =
+  typeof genericMessageEmbedding.$inferInsert;

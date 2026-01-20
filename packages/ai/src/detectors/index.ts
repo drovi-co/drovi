@@ -7,75 +7,90 @@
 
 // Contradiction detection
 export {
+  type ConflictDetail,
   ContradictionDetector,
-  createContradictionDetector,
   type ContradictionInput,
   type ContradictionResult,
-  type ConflictDetail,
+  createContradictionDetector,
   type HistoricalStatement,
   type ResolutionSuggestion,
 } from "./contradiction.js";
-
-// Sensitive data detection
-export {
-  SensitiveDataDetector,
-  createSensitiveDataDetector,
-  type SensitiveDataInput,
-  type SensitiveDataResult,
-  type PIIFinding,
-  type PIIType,
-  type ConfidentialFinding,
-  type ConfidentialType,
-  type RecipientWarning,
-  type RecipientInfo as SensitiveRecipientInfo,
-} from "./sensitive.js";
-
 // Fraud detection
 export {
-  FraudDetector,
   createFraudDetector,
   type FraudDetectionInput,
   type FraudDetectionResult,
+  FraudDetector,
+  type FraudRecommendation,
   type ImpersonationSignal,
   type InvoiceFraudSignal,
   type PhishingSignal,
-  type FraudRecommendation,
 } from "./fraud.js";
-
 // Policy enforcement
 export {
-  PolicyDetector,
+  type ActionType,
+  type ApprovalRequest,
+  type AttachmentInfo,
+  type AuditEntry,
+  type ConditionOperator,
+  type ConditionType,
   createPolicyDetector,
   createPolicyRule,
   DEFAULT_POLICY_RULES,
-  type PolicyRule,
-  type PolicyCategory,
-  type PolicySeverity,
-  type PolicyCondition,
-  type ConditionType,
-  type ConditionOperator,
-  type PolicyAction,
-  type ActionType,
-  type PolicyInput,
-  type RecipientInfo as PolicyRecipientInfo,
-  type SenderInfo,
-  type AttachmentInfo,
   type ExtractedAmount,
+  type PolicyAction,
+  type PolicyCategory,
+  type PolicyCondition,
+  PolicyDetector,
+  type PolicyInput,
   type PolicyResult,
+  type PolicyRule,
+  type PolicySeverity,
   type PolicyViolation,
   type PolicyWarning,
-  type ApprovalRequest,
-  type AuditEntry,
+  type RecipientInfo as PolicyRecipientInfo,
+  type SenderInfo,
 } from "./policy.js";
+// Sensitive data detection
+export {
+  type ConfidentialFinding,
+  type ConfidentialType,
+  createSensitiveDataDetector,
+  type PIIFinding,
+  type PIIType,
+  type RecipientInfo as SensitiveRecipientInfo,
+  type RecipientWarning,
+  SensitiveDataDetector,
+  type SensitiveDataInput,
+  type SensitiveDataResult,
+} from "./sensitive.js";
 
 // =============================================================================
 // COMBINED RISK ANALYSIS
 // =============================================================================
 
-import { ContradictionDetector, type ContradictionInput, type ContradictionResult, type HistoricalStatement } from "./contradiction.js";
-import { FraudDetector, type FraudDetectionInput, type FraudDetectionResult } from "./fraud.js";
-import { PolicyDetector, type PolicyInput, type PolicyResult, type PolicyRule } from "./policy.js";
-import { SensitiveDataDetector, type SensitiveDataInput, type SensitiveDataResult } from "./sensitive.js";
+import {
+  ContradictionDetector,
+  type ContradictionInput,
+  type ContradictionResult,
+  type HistoricalStatement,
+} from "./contradiction.js";
+import {
+  type FraudDetectionInput,
+  type FraudDetectionResult,
+  FraudDetector,
+} from "./fraud.js";
+import {
+  PolicyDetector,
+  type PolicyInput,
+  type PolicyResult,
+  type PolicyRule,
+} from "./policy.js";
+import {
+  SensitiveDataDetector,
+  type SensitiveDataInput,
+  type SensitiveDataResult,
+} from "./sensitive.js";
 
 export interface CombinedRiskInput {
   content: string;
@@ -173,7 +188,8 @@ export class CombinedRiskAnalyzer {
       })),
       organizationDomains: input.knownDomains,
     };
-    const sensitiveData = this.sensitiveDataDetector.checkSensitiveData(sensitiveInput);
+    const sensitiveData =
+      this.sensitiveDataDetector.checkSensitiveData(sensitiveInput);
 
     // Run fraud detection
     const fraudInput: FraudDetectionInput = {
@@ -212,14 +228,25 @@ export class CombinedRiskAnalyzer {
     // Calculate overall risk score
     const riskScores = {
       contradiction: 1 - contradiction.score,
-      sensitiveData: sensitiveData.severity === "critical" ? 1.0 :
-                     sensitiveData.severity === "high" ? 0.75 :
-                     sensitiveData.severity === "medium" ? 0.5 :
-                     sensitiveData.severity === "low" ? 0.25 : 0,
+      sensitiveData:
+        sensitiveData.severity === "critical"
+          ? 1.0
+          : sensitiveData.severity === "high"
+            ? 0.75
+            : sensitiveData.severity === "medium"
+              ? 0.5
+              : sensitiveData.severity === "low"
+                ? 0.25
+                : 0,
       fraud: fraud.score,
-      policy: policy.overallStatus === "blocked" ? 1.0 :
-              policy.overallStatus === "pending_approval" ? 0.6 :
-              policy.overallStatus === "warning" ? 0.3 : 0,
+      policy:
+        policy.overallStatus === "blocked"
+          ? 1.0
+          : policy.overallStatus === "pending_approval"
+            ? 0.6
+            : policy.overallStatus === "warning"
+              ? 0.3
+              : 0,
     };
 
     const overallRiskScore = Math.max(
@@ -230,12 +257,21 @@ export class CombinedRiskAnalyzer {
     );
 
     const overallRiskLevel =
-      overallRiskScore >= 0.8 ? "critical" :
-      overallRiskScore >= 0.6 ? "high" :
-      overallRiskScore >= 0.3 ? "medium" : "low";
+      overallRiskScore >= 0.8
+        ? "critical"
+        : overallRiskScore >= 0.6
+          ? "high"
+          : overallRiskScore >= 0.3
+            ? "medium"
+            : "low";
 
     // Build summary
-    const summary = this.buildSummary(contradiction, sensitiveData, fraud, policy);
+    const summary = this.buildSummary(
+      contradiction,
+      sensitiveData,
+      fraud,
+      policy
+    );
 
     // Compile recommendations
     const recommendations = this.compileRecommendations(
@@ -284,7 +320,10 @@ export class CombinedRiskAnalyzer {
     }
 
     // Count sensitive data issues
-    if (sensitiveData.piiFindings.length > 0 || sensitiveData.confidentialFindings.length > 0) {
+    if (
+      sensitiveData.piiFindings.length > 0 ||
+      sensitiveData.confidentialFindings.length > 0
+    ) {
       if (!categories.includes("sensitive_data")) {
         categories.push("sensitive_data");
       }
@@ -352,7 +391,9 @@ export class CombinedRiskAnalyzer {
       recommendations.push(warning.warning);
     }
     if (sensitiveData.piiFindings.length > 0) {
-      recommendations.push("Review and redact any unnecessary PII before sending");
+      recommendations.push(
+        "Review and redact any unnecessary PII before sending"
+      );
     }
 
     // Fraud recommendations

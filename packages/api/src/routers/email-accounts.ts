@@ -1,5 +1,9 @@
 import { randomBytes } from "node:crypto";
 import {
+  safeSignPayload,
+  safeVerifySignedPayload,
+} from "@memorystack/auth/lib/crypto";
+import {
   type EmailProvider,
   getGmailAuthorizationUrl,
   getOutlookAuthorizationUrl,
@@ -8,10 +12,6 @@ import {
   revokeGmailToken,
   revokeOutlookToken,
 } from "@memorystack/auth/providers";
-import {
-  safeSignPayload,
-  safeVerifySignedPayload,
-} from "@memorystack/auth/lib/crypto";
 import { db } from "@memorystack/db";
 import {
   type EmailAccountSettings,
@@ -355,7 +355,12 @@ export const emailAccountsRouter = router({
       }
 
       // Generate secure state token with org context and redirect info
-      const state = generateOAuthState(userId, organizationId, provider, redirectTo);
+      const state = generateOAuthState(
+        userId,
+        organizationId,
+        provider,
+        redirectTo
+      );
 
       // Generate authorization URL
       let authorizationUrl: string;
@@ -666,7 +671,11 @@ export const emailAccountsRouter = router({
 
       // Default to today's events
       const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
       const endOfDay = new Date(startOfDay);
       endOfDay.setDate(endOfDay.getDate() + 1);
 
@@ -676,7 +685,7 @@ export const emailAccountsRouter = router({
       for (const account of accounts) {
         try {
           const response = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events?" +
               new URLSearchParams({
                 timeMin: effectiveTimeMin,
                 timeMax: effectiveTimeMax,
@@ -692,11 +701,14 @@ export const emailAccountsRouter = router({
           );
 
           if (!response.ok) {
-            console.warn(`Failed to fetch calendar for ${account.email}:`, response.status);
+            console.warn(
+              `Failed to fetch calendar for ${account.email}:`,
+              response.status
+            );
             continue;
           }
 
-          const data = await response.json() as {
+          const data = (await response.json()) as {
             items?: Array<{
               id: string;
               summary?: string;
@@ -704,7 +716,9 @@ export const emailAccountsRouter = router({
               end?: { dateTime?: string; date?: string };
               location?: string;
               attendees?: Array<{ email: string }>;
-              conferenceData?: { entryPoints?: Array<{ entryPointType: string }> };
+              conferenceData?: {
+                entryPoints?: Array<{ entryPointType: string }>;
+              };
               hangoutLink?: string;
             }>;
           };
@@ -713,9 +727,12 @@ export const emailAccountsRouter = router({
             const isAllDay = !event.start?.dateTime;
             const startTime = event.start?.dateTime || event.start?.date || "";
             const endTime = event.end?.dateTime || event.end?.date || "";
-            const isVideoCall = !!(event.hangoutLink || event.conferenceData?.entryPoints?.some(
-              (e) => e.entryPointType === "video"
-            ));
+            const isVideoCall = !!(
+              event.hangoutLink ||
+              event.conferenceData?.entryPoints?.some(
+                (e) => e.entryPointType === "video"
+              )
+            );
 
             allEvents.push({
               id: event.id,
@@ -735,7 +752,10 @@ export const emailAccountsRouter = router({
       }
 
       // Sort by start time
-      allEvents.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      allEvents.sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      );
 
       return { events: allEvents };
     }),

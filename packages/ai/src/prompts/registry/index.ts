@@ -436,7 +436,7 @@ Classify into one of: inquiry, request, update, announcement, discussion, escala
 
 Respond with JSON: { "intent": "...", "confidence": 0.0-1.0 }`,
     inputVariables: ["content"],
-    outputSchema: '{ intent: string, confidence: number }',
+    outputSchema: "{ intent: string, confidence: number }",
   });
 
   // Urgency Scoring
@@ -462,7 +462,7 @@ Consider:
 
 Respond with JSON: { "score": 1-5, "reasons": ["..."] }`,
     inputVariables: ["content"],
-    outputSchema: '{ score: number, reasons: string[] }',
+    outputSchema: "{ score: number, reasons: string[] }",
   });
 
   // Commitment Extraction
@@ -499,7 +499,7 @@ For each commitment, identify:
 
 Respond with JSON array of commitments.`,
     inputVariables: ["content", "sourceContext"],
-    outputSchema: 'Commitment[]',
+    outputSchema: "Commitment[]",
   });
 
   // Decision Extraction
@@ -536,7 +536,7 @@ For each decision, identify:
 
 Respond with JSON array of decisions.`,
     inputVariables: ["content", "sourceContext"],
-    outputSchema: 'Decision[]',
+    outputSchema: "Decision[]",
   });
 
   // Thread Brief
@@ -564,6 +564,6 @@ The brief should:
 
 Respond with JSON: { "brief": "...", "keyPoints": ["..."] }`,
     inputVariables: ["subject", "content"],
-    outputSchema: '{ brief: string, keyPoints: string[] }',
+    outputSchema: "{ brief: string, keyPoints: string[] }",
   });
 }

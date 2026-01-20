@@ -61,13 +61,9 @@ export interface CalendarViewProps {
   className?: string;
 }
 
-export interface EventClickHandler {
-  (event: CalendarEvent): void;
-}
+export type EventClickHandler = (event: CalendarEvent) => void;
 
-export interface TimeSlotClickHandler {
-  (date: Date, hour?: number): void;
-}
+export type TimeSlotClickHandler = (date: Date, hour?: number) => void;
 
 // Event form data for creating/editing
 export interface EventFormData {

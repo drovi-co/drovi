@@ -276,16 +276,19 @@ Respond in JSON format:
 /**
  * Build contradiction analysis prompt.
  */
-export function buildContradictionPrompt(input: SemanticContradictionInput): string {
+export function buildContradictionPrompt(
+  input: SemanticContradictionInput
+): string {
   const historicalFormatted = input.historicalStatements
     .map(
       (s) => `[${s.id}] (${s.type}, ${s.date}, from: ${s.source}): "${s.text}"`
     )
     .join("\n");
 
-  return CONTRADICTION_ANALYSIS_PROMPT
-    .replace("{draftContent}", input.draftContent)
-    .replace("{historicalStatements}", historicalFormatted);
+  return CONTRADICTION_ANALYSIS_PROMPT.replace(
+    "{draftContent}",
+    input.draftContent
+  ).replace("{historicalStatements}", historicalFormatted);
 }
 
 /**
@@ -293,13 +296,16 @@ export function buildContradictionPrompt(input: SemanticContradictionInput): str
  */
 export function buildFraudAnalysisPrompt(input: FraudAnalysisInput): string {
   const signalsFormatted = [
-    ...input.signals.impersonation.map((s) => `Impersonation: ${s.type} - ${s.details}`),
-    ...input.signals.invoiceFraud.map((s) => `Invoice Fraud: ${s.type} - ${s.details}`),
+    ...input.signals.impersonation.map(
+      (s) => `Impersonation: ${s.type} - ${s.details}`
+    ),
+    ...input.signals.invoiceFraud.map(
+      (s) => `Invoice Fraud: ${s.type} - ${s.details}`
+    ),
     ...input.signals.phishing.map((s) => `Phishing: ${s.type} - ${s.details}`),
   ].join("\n");
 
-  return FRAUD_ANALYSIS_PROMPT
-    .replace("{content}", input.content)
+  return FRAUD_ANALYSIS_PROMPT.replace("{content}", input.content)
     .replace("{senderEmail}", input.sender.email)
     .replace("{senderName}", input.sender.name ?? "Unknown")
     .replace("{senderDomain}", input.sender.domain)
@@ -314,12 +320,16 @@ export function buildSensitiveDataPrompt(
   recipients: Array<{ email: string; name?: string; isExternal: boolean }>
 ): string {
   const recipientsFormatted = recipients
-    .map((r) => `${r.email} (${r.name ?? "Unknown"}) - ${r.isExternal ? "EXTERNAL" : "Internal"}`)
+    .map(
+      (r) =>
+        `${r.email} (${r.name ?? "Unknown"}) - ${r.isExternal ? "EXTERNAL" : "Internal"}`
+    )
     .join("\n");
 
-  return SENSITIVE_DATA_PROMPT
-    .replace("{content}", content)
-    .replace("{recipients}", recipientsFormatted);
+  return SENSITIVE_DATA_PROMPT.replace("{content}", content).replace(
+    "{recipients}",
+    recipientsFormatted
+  );
 }
 
 /**
@@ -340,8 +350,7 @@ export function buildPolicyEvaluationPrompt(
     .map((p) => `[${p.id}] ${p.name}: ${p.description}`)
     .join("\n");
 
-  return POLICY_EVALUATION_PROMPT
-    .replace("{content}", content)
+  return POLICY_EVALUATION_PROMPT.replace("{content}", content)
     .replace("{subject}", subject)
     .replace("{sender}", sender)
     .replace("{recipients}", recipientsFormatted)

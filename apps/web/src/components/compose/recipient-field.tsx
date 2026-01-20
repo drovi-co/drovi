@@ -1,9 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
+import { X } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
@@ -14,9 +16,6 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
-import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
 
 // =============================================================================
 // TYPES
@@ -133,7 +132,10 @@ export function RecipientField({
       const text = e.clipboardData.getData("text");
 
       // Split by comma, semicolon, or newline
-      const emails = text.split(/[,;\n\r]+/).map((s) => s.trim()).filter(Boolean);
+      const emails = text
+        .split(/[,;\n\r]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       const newRecipients: Recipient[] = [];
       for (const email of emails) {
@@ -166,47 +168,47 @@ export function RecipientField({
       <div className="flex flex-1 flex-wrap items-center gap-1">
         {recipients.map((recipient) => (
           <Badge
+            className="gap-1 py-0.5 pr-1 pl-2"
             key={recipient.email}
             variant="secondary"
-            className="gap-1 py-0.5 pl-2 pr-1"
           >
-            <span className="truncate max-w-[200px]">
+            <span className="max-w-[200px] truncate">
               {recipient.name || recipient.email}
             </span>
             <button
-              type="button"
-              onClick={() => removeRecipient(recipient.email)}
               className="rounded-full p-0.5 hover:bg-muted"
+              onClick={() => removeRecipient(recipient.email)}
+              type="button"
             >
               <X className="h-3 w-3" />
             </button>
           </Badge>
         ))}
 
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover onOpenChange={setOpen} open={open}>
           <PopoverTrigger asChild>
             <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
+              className="min-w-[200px] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               onChange={(e) => {
                 setInputValue(e.target.value);
                 if (e.target.value.length >= 2) {
                   setOpen(true);
                 }
               }}
+              onFocus={() => inputValue.length >= 2 && setOpen(true)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              onFocus={() => inputValue.length >= 2 && setOpen(true)}
               placeholder={recipients.length === 0 ? placeholder : ""}
-              className="flex-1 min-w-[200px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              ref={inputRef}
+              type="text"
+              value={inputValue}
             />
           </PopoverTrigger>
           <PopoverContent
-            className="w-[320px] p-0"
             align="start"
-            side="bottom"
+            className="w-[320px] p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
+            side="bottom"
           >
             <Command shouldFilter={false}>
               <CommandList>
@@ -219,6 +221,7 @@ export function RecipientField({
                   <CommandGroup heading="Contacts">
                     {contacts.map((contact) => (
                       <CommandItem
+                        className="cursor-pointer"
                         key={contact.id}
                         onSelect={() =>
                           addRecipient({
@@ -226,7 +229,6 @@ export function RecipientField({
                             name: contact.displayName ?? undefined,
                           })
                         }
-                        className="cursor-pointer"
                       >
                         <div className="flex flex-col">
                           {contact.displayName && (
@@ -247,8 +249,8 @@ export function RecipientField({
                 {inputValue.includes("@") && inputValue.includes(".") && (
                   <CommandGroup heading="Add new">
                     <CommandItem
-                      onSelect={() => addRecipient({ email: inputValue })}
                       className="cursor-pointer"
+                      onSelect={() => addRecipient({ email: inputValue })}
                     >
                       <span className="text-muted-foreground">Add: </span>
                       <span>{inputValue}</span>

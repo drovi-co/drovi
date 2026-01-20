@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { format, isToday, isTomorrow, addDays, startOfDay } from "date-fns";
+import { Link } from "@tanstack/react-router";
+import { addDays, format, isToday, isTomorrow, startOfDay } from "date-fns";
 import {
   Calendar,
   CheckCircle2,
@@ -14,7 +14,6 @@ import {
   Video,
 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -22,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -82,47 +82,47 @@ interface EventCardProps {
 function EventCard({ event, onClick }: EventCardProps) {
   return (
     <button
-      type="button"
-      onClick={() => onClick?.(event.id)}
       className={cn(
-        "w-full text-left p-3 rounded-lg border transition-colors",
+        "w-full rounded-lg border p-3 text-left transition-colors",
         "hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
       )}
+      onClick={() => onClick?.(event.id)}
+      type="button"
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "w-1 min-h-[40px] rounded-full self-stretch",
+            "min-h-[40px] w-1 self-stretch rounded-full",
             event.type === "meeting" && "bg-blue-500",
             event.type === "task" && "bg-green-500",
             event.type === "commitment" && "bg-purple-500",
             event.type === "reminder" && "bg-amber-500"
           )}
         />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{event.title}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-sm">{event.title}</p>
+          <p className="mt-0.5 text-muted-foreground text-xs">
             {formatTimeRange(event.startTime, event.endTime)}
           </p>
 
           {event.location && (
-            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 flex items-center gap-1 text-muted-foreground text-xs">
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{event.location}</span>
             </div>
           )}
 
           {event.isVideoCall && (
-            <div className="flex items-center gap-1 mt-1 text-xs text-blue-500">
+            <div className="mt-1 flex items-center gap-1 text-blue-500 text-xs">
               <Video className="h-3 w-3" />
               <span>Video call</span>
               {event.conferenceUrl && (
                 <a
-                  href={event.conferenceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
                   className="ml-1 hover:underline"
+                  href={event.conferenceUrl}
+                  onClick={(e) => e.stopPropagation()}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </a>
@@ -131,7 +131,7 @@ function EventCard({ event, onClick }: EventCardProps) {
           )}
 
           {event.attendees && event.attendees.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-muted-foreground text-xs">
               {event.attendees.length} attendee
               {event.attendees.length !== 1 ? "s" : ""}
             </p>
@@ -182,9 +182,9 @@ export function SchedulePanel({
   }).length;
 
   return (
-    <div className={cn("flex flex-col h-full bg-background", className)}>
+    <div className={cn("flex h-full flex-col bg-background", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">
@@ -194,29 +194,29 @@ export function SchedulePanel({
         <div className="flex items-center gap-1">
           {!isViewingToday && (
             <Button
-              variant="ghost"
-              size="sm"
+              className="h-7 px-2 text-xs"
               onClick={() => setSelectedDate(new Date())}
-              className="text-xs h-7 px-2"
+              size="sm"
+              variant="ghost"
             >
               Today
             </Button>
           )}
           <Button
-            variant="ghost"
-            size="icon"
+            aria-label="Previous day"
             className="h-7 w-7"
             onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-            aria-label="Previous day"
+            size="icon"
+            variant="ghost"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
-            variant="ghost"
-            size="icon"
+            aria-label="Next day"
             className="h-7 w-7"
             onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-            aria-label="Next day"
+            size="icon"
+            variant="ghost"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -227,36 +227,32 @@ export function SchedulePanel({
       <div className="flex-1 overflow-auto">
         {/* Events section */}
         {sortedEvents.length > 0 && (
-          <div className="p-4 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          <div className="space-y-2 p-4">
+            <h3 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Schedule
             </h3>
             {sortedEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onClick={onEventClick}
-              />
+              <EventCard event={event} key={event.id} onClick={onEventClick} />
             ))}
           </div>
         )}
 
         {/* Commitments section */}
         {dayCommitments.length > 0 && (
-          <div className="p-4 space-y-2 border-t">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          <div className="space-y-2 border-t p-4">
+            <h3 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Due Today
             </h3>
             {dayCommitments.map((commitment) => (
               <button
-                key={commitment.id}
-                type="button"
-                onClick={() => onCommitmentClick?.(commitment.id)}
                 className={cn(
-                  "w-full text-left p-2.5 rounded-lg transition-colors",
-                  "hover:bg-accent/50 flex items-center gap-2",
+                  "w-full rounded-lg p-2.5 text-left transition-colors",
+                  "flex items-center gap-2 hover:bg-accent/50",
                   "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
                 )}
+                key={commitment.id}
+                onClick={() => onCommitmentClick?.(commitment.id)}
+                type="button"
               >
                 <CheckCircle2
                   className={cn(
@@ -270,8 +266,9 @@ export function SchedulePanel({
                 />
                 <span
                   className={cn(
-                    "text-sm truncate",
-                    commitment.status === "completed" && "line-through text-muted-foreground"
+                    "truncate text-sm",
+                    commitment.status === "completed" &&
+                      "text-muted-foreground line-through"
                   )}
                 >
                   {commitment.title}
@@ -283,22 +280,20 @@ export function SchedulePanel({
 
         {/* Empty state */}
         {sortedEvents.length === 0 && dayCommitments.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-48 text-center p-4">
-            <Clock className="h-8 w-8 text-muted-foreground/50 mb-2" />
-            <p className="text-sm text-muted-foreground">
-              Nothing scheduled
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <div className="flex h-48 flex-col items-center justify-center p-4 text-center">
+            <Clock className="mb-2 h-8 w-8 text-muted-foreground/50" />
+            <p className="text-muted-foreground text-sm">Nothing scheduled</p>
+            <p className="mt-1 text-muted-foreground text-xs">
               {isViewingToday ? "Your day is clear" : "No events for this day"}
             </p>
             {onCreateEvent && (
               <Button
-                variant="outline"
-                size="sm"
                 className="mt-3"
                 onClick={onCreateEvent}
+                size="sm"
+                variant="outline"
               >
-                <Plus className="h-3 w-3 mr-1" />
+                <Plus className="mr-1 h-3 w-3" />
                 Add event
               </Button>
             )}
@@ -307,9 +302,9 @@ export function SchedulePanel({
       </div>
 
       {/* Footer with calendar link */}
-      <div className="border-t p-3 space-y-2">
+      <div className="space-y-2 border-t p-3">
         {upcomingCount > 0 && (
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-center text-muted-foreground text-xs">
             {upcomingCount} event{upcomingCount !== 1 ? "s" : ""} this week
           </p>
         )}
@@ -318,13 +313,13 @@ export function SchedulePanel({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8"
                   asChild
+                  className="h-8 flex-1"
+                  size="sm"
+                  variant="outline"
                 >
                   <Link to="/dashboard/calendar">
-                    <Calendar className="h-4 w-4 mr-2" />
+                    <Calendar className="mr-2 h-4 w-4" />
                     Open Calendar
                   </Link>
                 </Button>
@@ -338,10 +333,10 @@ export function SchedulePanel({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="default"
-                    size="icon"
                     className="h-8 w-8 shrink-0"
                     onClick={onCreateEvent}
+                    size="icon"
+                    variant="default"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

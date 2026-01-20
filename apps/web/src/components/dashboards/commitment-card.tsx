@@ -7,7 +7,7 @@
 // surface showing the full context of the promise.
 //
 
-import { format, isPast, isToday, isTomorrow, isThisWeek } from "date-fns";
+import { format, isPast, isThisWeek, isToday, isTomorrow } from "date-fns";
 import {
   Check,
   Clock,
@@ -23,8 +23,15 @@ import {
 import { useState } from "react";
 
 import { ConfidenceBadge } from "@/components/evidence";
+import {
+  type TaskAssignee,
+  TaskAssigneeDropdown,
+  type TaskPriority,
+  TaskPriorityDropdown,
+  type TaskStatus,
+  TaskStatusDropdown,
+} from "@/components/tasks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -33,15 +40,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import {
-  TaskStatusDropdown,
-  TaskPriorityDropdown,
-  TaskAssigneeDropdown,
-  type TaskStatus,
-  type TaskPriority,
-  type TaskAssignee,
-} from "@/components/tasks";
+  getSourceColor,
+  getSourceConfig,
+  type SourceType,
+} from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -51,7 +55,14 @@ export interface CommitmentCardData {
   id: string;
   title: string;
   description?: string | null;
-  status: "pending" | "in_progress" | "completed" | "cancelled" | "overdue" | "waiting" | "snoozed";
+  status:
+    | "pending"
+    | "in_progress"
+    | "completed"
+    | "cancelled"
+    | "overdue"
+    | "waiting"
+    | "snoozed";
   priority: "low" | "medium" | "high" | "urgent";
   direction: "owed_by_me" | "owed_to_me";
   dueDate?: Date | null;
@@ -107,7 +118,10 @@ interface CommitmentCardProps {
 // URGENCY HELPERS
 // =============================================================================
 
-function getUrgencyLevel(dueDate: Date | null | undefined, status: string): "overdue" | "urgent" | "soon" | "normal" {
+function getUrgencyLevel(
+  dueDate: Date | null | undefined,
+  status: string
+): "overdue" | "urgent" | "soon" | "normal" {
   if (status === "overdue") return "overdue";
   if (!dueDate) return "normal";
 
@@ -117,7 +131,9 @@ function getUrgencyLevel(dueDate: Date | null | undefined, status: string): "ove
   return "normal";
 }
 
-function getUrgencyStyles(urgency: "overdue" | "urgent" | "soon" | "normal"): string {
+function getUrgencyStyles(
+  urgency: "overdue" | "urgent" | "soon" | "normal"
+): string {
   switch (urgency) {
     case "overdue":
       return "border-l-red-500 bg-red-500/5";
@@ -130,7 +146,10 @@ function getUrgencyStyles(urgency: "overdue" | "urgent" | "soon" | "normal"): st
   }
 }
 
-function getPriorityBadge(priority: string): { variant: "default" | "secondary" | "destructive" | "outline"; label: string } {
+function getPriorityBadge(priority: string): {
+  variant: "default" | "secondary" | "destructive" | "outline";
+  label: string;
+} {
   switch (priority) {
     case "urgent":
       return { variant: "destructive", label: "Urgent" };
@@ -143,7 +162,10 @@ function getPriorityBadge(priority: string): { variant: "default" | "secondary" 
   }
 }
 
-function getStatusBadge(status: string): { variant: "default" | "secondary" | "destructive" | "outline"; label: string } {
+function getStatusBadge(status: string): {
+  variant: "default" | "secondary" | "destructive" | "outline";
+  label: string;
+} {
   switch (status) {
     case "overdue":
       return { variant: "destructive", label: "Overdue" };
@@ -198,145 +220,151 @@ export function CommitmentCard({
   const hasTaskData = commitment.task && organizationId;
 
   // The person responsible or expecting
-  const otherPerson = commitment.direction === "owed_by_me"
-    ? commitment.creditor
-    : commitment.debtor;
+  const otherPerson =
+    commitment.direction === "owed_by_me"
+      ? commitment.creditor
+      : commitment.debtor;
 
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
-        "border-b border-border/40",
+        "group relative flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors",
+        "border-border/40 border-b",
         isHovered && !isSelected && "bg-accent/50",
         isSelected && "bg-accent"
       )}
+      onClick={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onSelect}
     >
       {/* Priority indicator bar */}
       {urgency === "overdue" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-red-500" />
       )}
       {urgency === "urgent" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-orange-500" />
       )}
       {urgency === "soon" && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500" />
       )}
 
       {/* Avatar */}
       {otherPerson ? (
         <Avatar className="h-9 w-9 shrink-0">
-          <AvatarFallback className="text-xs bg-muted font-medium">
+          <AvatarFallback className="bg-muted font-medium text-xs">
             {getInitials(otherPerson.displayName, otherPerson.primaryEmail)}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="h-9 w-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
           <Check className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
 
       {/* Direction badge */}
-      <span className={cn(
-        "text-xs font-medium px-1.5 py-0.5 rounded shrink-0",
-        commitment.direction === "owed_by_me"
-          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-      )}>
+      <span
+        className={cn(
+          "shrink-0 rounded px-1.5 py-0.5 font-medium text-xs",
+          commitment.direction === "owed_by_me"
+            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+            : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+        )}
+      >
         {commitment.direction === "owed_by_me" ? "I owe" : "Owed to me"}
       </span>
 
       {/* Other Person */}
       {otherPerson && (
         <button
-          type="button"
+          className="w-32 shrink-0 truncate text-left font-medium text-foreground/80 text-sm transition-colors hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();
             onContactClick?.(otherPerson.primaryEmail);
           }}
-          className="w-32 shrink-0 truncate text-sm font-medium text-foreground/80 hover:text-foreground transition-colors text-left"
+          type="button"
         >
           {otherPerson.displayName ?? otherPerson.primaryEmail}
         </button>
       )}
 
       {/* Title - main content with AI indicator and source */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* Source indicator */}
-        {commitment.sourceType && (() => {
-          const config = getSourceConfig(commitment.sourceType);
-          const color = getSourceColor(commitment.sourceType);
-          const SourceIcon = config.icon;
-          return (
-            <div
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-              style={{ backgroundColor: `${color}15` }}
-              title={`From ${config.label}`}
-            >
-              <SourceIcon className="h-3 w-3" style={{ color }} />
-            </div>
-          );
-        })()}
+        {commitment.sourceType &&
+          (() => {
+            const config = getSourceConfig(commitment.sourceType);
+            const color = getSourceColor(commitment.sourceType);
+            const SourceIcon = config.icon;
+            return (
+              <div
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                style={{ backgroundColor: `${color}15` }}
+                title={`From ${config.label}`}
+              >
+                <SourceIcon className="h-3 w-3" style={{ color }} />
+              </div>
+            );
+          })()}
         {!commitment.sourceType && (
-          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
         )}
-        <span className="text-sm truncate text-muted-foreground">
+        <span className="truncate text-muted-foreground text-sm">
           {commitment.title}
         </span>
       </div>
 
       {/* Due Date */}
       {commitment.dueDate && !isHovered && (
-        <span className={cn(
-          "text-xs shrink-0",
-          urgency === "overdue" && "text-red-600 dark:text-red-400 font-medium",
-          urgency === "urgent" && "text-orange-600 dark:text-orange-400",
-          urgency === "soon" && "text-amber-600 dark:text-amber-400",
-          urgency === "normal" && "text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            "shrink-0 text-xs",
+            urgency === "overdue" &&
+              "font-medium text-red-600 dark:text-red-400",
+            urgency === "urgent" && "text-orange-600 dark:text-orange-400",
+            urgency === "soon" && "text-amber-600 dark:text-amber-400",
+            urgency === "normal" && "text-muted-foreground"
+          )}
+        >
           {isPast(commitment.dueDate)
             ? `${commitment.daysOverdue ?? Math.floor((Date.now() - commitment.dueDate.getTime()) / (1000 * 60 * 60 * 24))}d overdue`
             : isToday(commitment.dueDate)
               ? "Today"
               : isTomorrow(commitment.dueDate)
                 ? "Tomorrow"
-                : format(commitment.dueDate, "MMM d")
-          }
+                : format(commitment.dueDate, "MMM d")}
         </span>
       )}
 
       {/* Quick actions - always visible */}
-      <div className="shrink-0 flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         {/* Task controls - shown if task data exists */}
         {hasTaskData && (
           <>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskAssigneeDropdown
-                taskId={commitment.task!.id}
-                organizationId={organizationId!}
-                currentAssignee={commitment.task!.assignee}
-                compact
                 align="end"
+                compact
+                currentAssignee={commitment.task!.assignee}
+                organizationId={organizationId!}
+                taskId={commitment.task!.id}
               />
             </div>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskPriorityDropdown
-                taskId={commitment.task!.id}
-                organizationId={organizationId!}
-                currentPriority={commitment.task!.priority}
-                compact
                 align="end"
+                compact
+                currentPriority={commitment.task!.priority}
+                organizationId={organizationId!}
+                taskId={commitment.task!.id}
               />
             </div>
             <div onClick={(e) => e.stopPropagation()}>
               <TaskStatusDropdown
-                taskId={commitment.task!.id}
-                organizationId={organizationId!}
-                currentStatus={commitment.task!.status}
-                compact
                 align="end"
+                compact
+                currentStatus={commitment.task!.status}
+                organizationId={organizationId!}
+                taskId={commitment.task!.id}
               />
             </div>
           </>
@@ -344,7 +372,7 @@ export function CommitmentCard({
 
         {/* Status badge - only show if no task controls */}
         {!hasTaskData && (
-          <Badge variant={statusBadge.variant} className="text-[10px] shrink-0">
+          <Badge className="shrink-0 text-[10px]" variant={statusBadge.variant}>
             {statusBadge.label}
           </Badge>
         )}
@@ -353,47 +381,49 @@ export function CommitmentCard({
         <ConfidenceBadge
           confidence={commitment.confidence}
           isUserVerified={commitment.isUserVerified}
-          size="sm"
           showDetails={false}
+          size="sm"
         />
 
         {/* Show Me - Evidence button */}
         {onShowEvidence && (
           <button
-            type="button"
+            className="rounded-md p-1.5 transition-colors hover:bg-background"
             onClick={(e) => {
               e.stopPropagation();
               onShowEvidence(commitment.id);
             }}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
             title="Show evidence"
+            type="button"
           >
             <Eye className="h-4 w-4 text-purple-500" />
           </button>
         )}
 
         {/* Complete button for active commitments */}
-        {commitment.status !== "completed" && commitment.status !== "cancelled" && onComplete && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onComplete(commitment.id);
-            }}
-            className="p-1.5 rounded-md hover:bg-background transition-colors"
-            title="Mark complete"
-          >
-            <Check className="h-4 w-4 text-green-600" />
-          </button>
-        )}
+        {commitment.status !== "completed" &&
+          commitment.status !== "cancelled" &&
+          onComplete && (
+            <button
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
+              onClick={(e) => {
+                e.stopPropagation();
+                onComplete(commitment.id);
+              }}
+              title="Mark complete"
+              type="button"
+            >
+              <Check className="h-4 w-4 text-green-600" />
+            </button>
+          )}
 
         {/* More actions menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
               <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -402,15 +432,17 @@ export function CommitmentCard({
             {onShowEvidence && (
               <>
                 <DropdownMenuItem onClick={() => onShowEvidence(commitment.id)}>
-                  <Eye className="h-4 w-4 mr-2" />
+                  <Eye className="mr-2 h-4 w-4" />
                   Show Evidence
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}
             {commitment.sourceThread && (
-              <DropdownMenuItem onClick={() => onThreadClick?.(commitment.sourceThread!.id)}>
-                <ExternalLink className="h-4 w-4 mr-2" />
+              <DropdownMenuItem
+                onClick={() => onThreadClick?.(commitment.sourceThread!.id)}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
                 View Source Thread
               </DropdownMenuItem>
             )}
@@ -418,23 +450,29 @@ export function CommitmentCard({
               <>
                 {onComplete && (
                   <DropdownMenuItem onClick={() => onComplete(commitment.id)}>
-                    <Check className="h-4 w-4 mr-2" />
+                    <Check className="mr-2 h-4 w-4" />
                     Mark Complete
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 {onSnooze && (
                   <>
-                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 1)}>
-                      <Clock className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem
+                      onClick={() => onSnooze(commitment.id, 1)}
+                    >
+                      <Clock className="mr-2 h-4 w-4" />
                       Snooze 1 day
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 3)}>
-                      <Pause className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem
+                      onClick={() => onSnooze(commitment.id, 3)}
+                    >
+                      <Pause className="mr-2 h-4 w-4" />
                       Snooze 3 days
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSnooze(commitment.id, 7)}>
-                      <Pause className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem
+                      onClick={() => onSnooze(commitment.id, 7)}
+                    >
+                      <Pause className="mr-2 h-4 w-4" />
                       Snooze 1 week
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -442,25 +480,32 @@ export function CommitmentCard({
                 )}
               </>
             )}
-            {commitment.direction === "owed_to_me" && urgency === "overdue" && onGenerateFollowUp && (
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onGenerateFollowUp(commitment.id);
-              }}>
-                <Mail className="h-4 w-4 mr-2" />
-                Generate Follow-up
-              </DropdownMenuItem>
-            )}
+            {commitment.direction === "owed_to_me" &&
+              urgency === "overdue" &&
+              onGenerateFollowUp && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGenerateFollowUp(commitment.id);
+                  }}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Generate Follow-up
+                </DropdownMenuItem>
+              )}
             <DropdownMenuSeparator />
             {!commitment.isUserVerified && onVerify && (
               <DropdownMenuItem onClick={() => onVerify(commitment.id)}>
-                <ThumbsUp className="h-4 w-4 mr-2" />
+                <ThumbsUp className="mr-2 h-4 w-4" />
                 Verify (Correct)
               </DropdownMenuItem>
             )}
             {onDismiss && (
-              <DropdownMenuItem onClick={() => onDismiss(commitment.id)} className="text-destructive">
-                <ThumbsDown className="h-4 w-4 mr-2" />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => onDismiss(commitment.id)}
+              >
+                <ThumbsDown className="mr-2 h-4 w-4" />
                 Dismiss (Incorrect)
               </DropdownMenuItem>
             )}

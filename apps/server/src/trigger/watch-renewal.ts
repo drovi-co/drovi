@@ -10,7 +10,7 @@ import { db } from "@memorystack/db";
 import { emailAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
 import { schedules, task } from "@trigger.dev/sdk";
-import { and, eq, lt, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
 import { GmailEmailClient } from "../lib/email-client";
 import { log } from "../lib/logger";
@@ -47,7 +47,9 @@ export const watchRenewalTask = task({
     maxTimeoutInMs: 60_000,
     factor: 2,
   },
-  run: async (payload: { accountId?: string }): Promise<{
+  run: async (payload: {
+    accountId?: string;
+  }): Promise<{
     results: WatchRenewalResult[];
     summary: { total: number; successful: number; failed: number };
   }> => {
@@ -63,7 +65,9 @@ export const watchRenewalTask = task({
     }
 
     // Find accounts that need watch renewal
-    let accountsToRenew: Awaited<ReturnType<typeof db.query.emailAccount.findMany>>;
+    let accountsToRenew: Awaited<
+      ReturnType<typeof db.query.emailAccount.findMany>
+    >;
 
     if (payload.accountId) {
       // Renew specific account
@@ -90,7 +94,9 @@ export const watchRenewalTask = task({
 
       // Filter to accounts with expiring or missing watches
       accountsToRenew = accountsToRenew.filter((account) => {
-        const settings = account.settings as { watchExpiration?: string } | null;
+        const settings = account.settings as {
+          watchExpiration?: string;
+        } | null;
         if (!settings?.watchExpiration) {
           // No watch set up - needs renewal
           return true;
@@ -159,12 +165,15 @@ async function renewAccountWatch(
       refreshToken,
       account.tokenExpiresAt ?? new Date()
     );
-    const watchResult = await client.setupWatch(env.GMAIL_PUBSUB_TOPIC as string);
+    const watchResult = await client.setupWatch(
+      env.GMAIL_PUBSUB_TOPIC as string
+    );
 
     // Update account with new watch info
     // Note: We update syncCursor only if it's not already set (initial setup)
     // During normal operation, the sync task manages syncCursor
-    const currentSettings = (account.settings as Record<string, unknown>) || {};
+    const currentSettings =
+      (account.settings as unknown as Record<string, unknown>) ?? {};
     const updateData: Record<string, unknown> = {
       settings: {
         ...currentSettings,
@@ -211,10 +220,13 @@ async function renewAccountWatch(
       errorMessage.includes("Token has been expired");
 
     if (isAuthError) {
-      log.warn("Watch renewal failed due to auth error - may need reconnection", {
-        accountId: account.id,
-        email: account.email,
-      });
+      log.warn(
+        "Watch renewal failed due to auth error - may need reconnection",
+        {
+          accountId: account.id,
+          email: account.email,
+        }
+      );
     }
   }
 

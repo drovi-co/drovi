@@ -1,17 +1,11 @@
 "use client";
 
-import type * as React from "react";
-import { Copy, Eye, MoreHorizontal } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
+import { Copy, Eye, MoreHorizontal } from "lucide-react";
+import type * as React from "react";
 import { toast } from "sonner";
-
-import { cn } from "@/lib/utils";
-import { type SourceType } from "@/lib/source-config";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { PriorityIcon, type Priority } from "@/components/ui/priority-icon";
-import { StatusIcon, type Status } from "@/components/ui/status-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { SourceIcon } from "@/components/inbox/source-icon";
+import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -20,6 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { IssueCheckbox } from "@/components/ui/issue-checkbox";
+import { PriorityIcon } from "@/components/ui/priority-icon";
+import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import type { SourceType } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 /**
  * Linear-style Decision Row component
@@ -58,7 +57,8 @@ export interface DecisionRowData {
   sourceType?: SourceType;
 }
 
-interface DecisionRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect"> {
+interface DecisionRowProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect"> {
   decision: DecisionRowData;
   isSelected?: boolean;
   isActive?: boolean;
@@ -73,11 +73,11 @@ interface DecisionRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "o
 
 // Fixed column widths for perfect alignment
 const COL = {
-  checkbox: "w-7",      // 28px
-  priority: "w-7",      // 28px
-  source: "w-6",        // 24px
-  status: "w-7",        // 28px
-  owner: "w-[120px]",   // 120px
+  checkbox: "w-7", // 28px
+  priority: "w-7", // 28px
+  source: "w-6", // 24px
+  status: "w-7", // 28px
+  owner: "w-[120px]", // 120px
 } as const;
 
 function getStatus(decision: DecisionRowData): Status {
@@ -86,7 +86,10 @@ function getStatus(decision: DecisionRowData): Status {
 }
 
 function getOwnerName(
-  owner: { displayName?: string | null; primaryEmail: string } | null | undefined
+  owner:
+    | { displayName?: string | null; primaryEmail: string }
+    | null
+    | undefined
 ): string {
   if (!owner) return "Unknown";
   return owner.displayName || owner.primaryEmail.split("@")[0] || "Unknown";
@@ -136,24 +139,28 @@ function DecisionRow({
   return (
     <div
       className={cn(
-        "group flex items-center h-10",
+        "group flex h-10 items-center",
         "cursor-pointer transition-colors duration-100",
-        "border-b border-[#1E1F2E]",
+        "border-border border-b",
         isSuperseded && "opacity-60",
-        isSelected && "bg-[#252736]",
-        isActive && "bg-[#252736] border-l-2 border-l-[#9333EA] pl-[calc(0.75rem-2px)]",
+        isSelected && "bg-accent",
+        isActive &&
+          "border-l-2 border-l-secondary bg-accent pl-[calc(0.75rem-2px)]",
         !isActive && "pl-3",
         "pr-3",
-        !isSelected && !isActive && "hover:bg-[#1E1F2E]",
+        !(isSelected || isActive) && "hover:bg-muted",
         className
       )}
-      onClick={onClick}
       data-slot="decision-row"
+      onClick={onClick}
       {...props}
     >
       {/* Checkbox - fixed width */}
       <div
-        className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <IssueCheckbox
@@ -164,63 +171,74 @@ function DecisionRow({
       </div>
 
       {/* Priority - fixed width (always none for decisions) */}
-      <div className={cn(COL.priority, "shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(
+          COL.priority,
+          "flex shrink-0 items-center justify-center"
+        )}
+      >
         <PriorityIcon priority="none" size="sm" />
       </div>
 
       {/* Source - fixed width */}
-      <div className={cn(COL.source, "shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(COL.source, "flex shrink-0 items-center justify-center")}
+      >
         {decision.sourceType ? (
-          <SourceIcon sourceType={decision.sourceType} size="sm" />
+          <SourceIcon size="sm" sourceType={decision.sourceType} />
         ) : (
-          <div className="w-4 h-4" />
+          <div className="h-4 w-4" />
         )}
       </div>
 
       {/* Status - fixed width */}
-      <div className={cn(COL.status, "shrink-0 flex items-center justify-center")}>
-        <StatusIcon status={status} size="sm" />
+      <div
+        className={cn(COL.status, "flex shrink-0 items-center justify-center")}
+      >
+        <StatusIcon size="sm" status={status} />
       </div>
 
       {/* Owner - fixed width */}
       <div className={cn(COL.owner, "shrink-0 px-1")}>
         <div className="flex items-center gap-1.5">
           <AssigneeIcon
-            name={firstOwner?.displayName ?? undefined}
             email={firstOwner?.primaryEmail}
+            name={firstOwner?.displayName ?? undefined}
             size="xs"
           />
-          <span className="text-[13px] font-medium text-[#EEEFFC] truncate">
+          <span className="truncate font-medium text-foreground text-[13px]">
             {ownerName}
           </span>
         </div>
       </div>
 
       {/* Title - flexible width */}
-      <div className="flex-1 min-w-0 px-2">
-        <span className={cn(
-          "text-[13px] font-normal text-[#6B7280] truncate block",
-          isSuperseded && "line-through"
-        )}>
+      <div className="min-w-0 flex-1 px-2">
+        <span
+          className={cn(
+            "block truncate font-normal text-muted-foreground text-[13px]",
+            isSuperseded && "line-through"
+          )}
+        >
           {decision.title}
         </span>
       </div>
 
       {/* Right section - fixed width, perfectly aligned */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         {/* Default state: Date + Topic + Confidence - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Date */}
-          <span className="w-14 text-right text-[12px] font-normal text-[#6B7280] whitespace-nowrap">
+          <span className="w-14 whitespace-nowrap text-right font-normal text-muted-foreground text-[12px]">
             {dateDisplay}
           </span>
 
           {/* Topic badge */}
-          <div className="w-7 flex items-center justify-center">
+          <div className="flex w-7 items-center justify-center">
             {firstTopic ? (
               <Badge
+                className="h-4 max-w-[28px] truncate px-1 py-0 text-[9px]"
                 variant="secondary"
-                className="text-[9px] px-1 py-0 h-4 max-w-[28px] truncate"
               >
                 {firstTopic.name.slice(0, 3)}
               </Badge>
@@ -230,14 +248,15 @@ function DecisionRow({
           </div>
 
           {/* Confidence indicator */}
-          <div className="w-7 flex items-center justify-center">
+          <div className="flex w-7 items-center justify-center">
             <div
               className={cn(
-                "w-2 h-2 rounded-full",
+                "h-2 w-2 rounded-full",
                 confidenceLevel === "high" && "bg-green-500",
                 confidenceLevel === "medium" && "bg-yellow-500",
                 confidenceLevel === "low" && "bg-red-500",
-                decision.isUserVerified && "ring-2 ring-green-400 ring-offset-1 ring-offset-[#13141B]"
+                decision.isUserVerified &&
+                  "ring-2 ring-green-400 ring-offset-1 ring-offset-card"
               )}
               title={`${Math.round(decision.confidence * 100)}% confidence${decision.isUserVerified ? " (verified)" : ""}`}
             />
@@ -245,21 +264,21 @@ function DecisionRow({
         </div>
 
         {/* Hover state: Actions - replaces entire section */}
-        <div className="hidden group-hover:flex items-center justify-end gap-0.5">
+        <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           {/* Copy button */}
           <button
-            type="button"
+            aria-label="Copy statement"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-[4px]",
+              "transition-colors duration-100",
+              "text-muted-foreground",
+              "hover:bg-accent hover:text-foreground"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               handleCopy();
             }}
-            className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-[4px]",
-              "transition-colors duration-100",
-              "text-[#6B7280]",
-              "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-            )}
-            aria-label="Copy statement"
+            type="button"
           >
             <Copy className="size-4" />
           </button>
@@ -267,18 +286,18 @@ function DecisionRow({
           {/* Evidence button */}
           {onShowEvidence && (
             <button
-              type="button"
+              aria-label="Show evidence"
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-[4px]",
+                "transition-colors duration-100",
+                "text-purple-500",
+                "hover:bg-accent hover:text-purple-400"
+              )}
               onClick={(e) => {
                 e.stopPropagation();
                 onShowEvidence();
               }}
-              className={cn(
-                "w-7 h-7 flex items-center justify-center rounded-[4px]",
-                "transition-colors duration-100",
-                "text-purple-500",
-                "hover:bg-[#292B41] hover:text-purple-400"
-              )}
-              aria-label="Show evidence"
+              type="button"
             >
               <Eye className="size-4" />
             </button>
@@ -288,15 +307,15 @@ function DecisionRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                type="button"
-                onClick={(e) => e.stopPropagation()}
-                className={cn(
-                  "w-7 h-7 flex items-center justify-center rounded-[4px]",
-                  "transition-colors duration-100",
-                  "text-[#6B7280]",
-                  "hover:bg-[#292B41] hover:text-[#EEEFFC]"
-                )}
                 aria-label="More actions"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-[4px]",
+                  "transition-colors duration-100",
+                  "text-muted-foreground",
+                  "hover:bg-accent hover:text-foreground"
+                )}
+                onClick={(e) => e.stopPropagation()}
+                type="button"
               >
                 <MoreHorizontal className="size-4" />
               </button>
@@ -322,7 +341,7 @@ function DecisionRow({
                 </DropdownMenuItem>
               )}
               {onDismiss && (
-                <DropdownMenuItem onClick={onDismiss} className="text-red-400">
+                <DropdownMenuItem className="text-red-400" onClick={onDismiss}>
                   Dismiss (Incorrect)
                 </DropdownMenuItem>
               )}
@@ -353,16 +372,21 @@ function DecisionListHeader({
   return (
     <div
       className={cn(
-        "flex items-center h-8 px-3",
-        "bg-[#13141B] border-b border-[#1E1F2E]",
-        "text-[11px] font-medium text-[#6B7280] uppercase tracking-wider",
+        "flex h-8 items-center px-3",
+        "border-border border-b bg-background",
+        "font-medium text-muted-foreground text-[11px] uppercase tracking-wider",
         className
       )}
       data-slot="decision-list-header"
       {...props}
     >
       {/* Checkbox */}
-      <div className={cn(COL.checkbox, "shrink-0 flex items-center justify-center")}>
+      <div
+        className={cn(
+          COL.checkbox,
+          "flex shrink-0 items-center justify-center"
+        )}
+      >
         <IssueCheckbox
           checked={allSelected ? true : someSelected ? "indeterminate" : false}
           onCheckedChange={(checked) => onSelectAll?.(checked)}
@@ -386,9 +410,9 @@ function DecisionListHeader({
       <div className="flex-1 px-2">Decision</div>
 
       {/* Right section */}
-      <div className="shrink-0 w-[140px] flex items-center justify-end">
+      <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 text-right whitespace-nowrap">Date</span>
+          <span className="w-14 whitespace-nowrap text-right">Date</span>
           <div className="w-7" />
           <div className="w-7" />
         </div>
@@ -397,4 +421,9 @@ function DecisionListHeader({
   );
 }
 
-export { DecisionRow, DecisionListHeader, type DecisionRowProps, type DecisionListHeaderProps };
+export {
+  DecisionRow,
+  DecisionListHeader,
+  type DecisionRowProps,
+  type DecisionListHeaderProps,
+};

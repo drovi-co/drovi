@@ -1517,7 +1517,10 @@ export const calendarRouter = router({
       const total = countResult[0]?.count ?? 0;
 
       // Optionally include related threads
-      let relatedMap: Map<string, Array<{ id: string; title: string | null; type: string }>> = new Map();
+      const relatedMap: Map<
+        string,
+        Array<{ id: string; title: string | null; type: string }>
+      > = new Map();
 
       if (input.includeRelated && events.length > 0) {
         const eventIds = events.map((e) => e.id);

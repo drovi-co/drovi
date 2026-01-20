@@ -20,11 +20,7 @@ import {
   emailThread,
 } from "./email";
 import { organization } from "./organization";
-import {
-  conversation,
-  message,
-  sourceAccount,
-} from "./sources";
+import { conversation, message, sourceAccount } from "./sources";
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -36,7 +32,13 @@ export interface ClaimMetadata {
   temporalReferences?: string[];
   relatedClaimIds?: string[];
   // Multi-source support
-  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceType?:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs";
 }
 
 export interface CommitmentMetadata {
@@ -48,7 +50,13 @@ export interface CommitmentMetadata {
     daysBefore: number[];
   };
   // Multi-source support
-  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceType?:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs";
   sourceQuote?: string;
   commitmentType?: "promise" | "request";
   // WhatsApp-specific
@@ -78,6 +86,18 @@ export interface CommitmentMetadata {
   promiseeEmail?: string;
   requesterEmail?: string;
   requesteeEmail?: string;
+  // Calendar-specific
+  eventId?: string;
+  calendarId?: string;
+  isOrganizer?: boolean;
+  attendance?: {
+    total: number;
+    accepted: number;
+    declined: number;
+    tentative: number;
+    pending: number;
+  };
+  organizerEmail?: string;
 }
 
 export interface DecisionAlternative {
@@ -94,7 +114,13 @@ export interface DecisionMetadata {
   impactAreas?: string[];
   stakeholders?: string[];
   // Multi-source support
-  sourceType?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  sourceType?:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs";
   sourceQuote?: string;
   decision?: string;
   rationale?: string;
@@ -120,7 +146,13 @@ export interface ContactMetadata {
   enrichmentSources?: string[];
   customFields?: Record<string, string>;
   // Multi-source support
-  source?: "email" | "slack" | "calendar" | "whatsapp" | "notion" | "google_docs";
+  source?:
+    | "email"
+    | "slack"
+    | "calendar"
+    | "whatsapp"
+    | "notion"
+    | "google_docs";
   sourceAccountId?: string;
   // WhatsApp-specific
   waId?: string;
@@ -440,6 +472,9 @@ export const commitment = pgTable(
       { onDelete: "set null" }
     ),
 
+    // Link to Unified Intelligence Object (for cross-source tracking)
+    unifiedObjectId: text("unified_object_id"),
+
     // Confidence
     confidence: real("confidence").notNull().default(0.5),
 
@@ -534,6 +569,9 @@ export const decision = pgTable(
     sourceGenericMessageIds: text("source_generic_message_ids")
       .array()
       .default([]),
+
+    // Link to Unified Intelligence Object (for cross-source tracking)
+    unifiedObjectId: text("unified_object_id"),
 
     // Topics (array of topic IDs)
     topicIds: text("topic_ids").array().default([]),
@@ -1110,7 +1148,8 @@ export const riskAnalysis = pgTable(
 
     // Approval workflow
     requiresApproval: boolean("requires_approval").default(false),
-    approvalStatus: approvalStatusEnum("approval_status").default("not_required"),
+    approvalStatus:
+      approvalStatusEnum("approval_status").default("not_required"),
     approvalRequestedBy: text("approval_requested_by"),
     approvalRequestedAt: timestamp("approval_requested_at"),
     approvalReason: text("approval_reason"),
@@ -1121,14 +1160,15 @@ export const riskAnalysis = pgTable(
     // Draft content (for draft analysis)
     draftContent: text("draft_content"),
     draftSubject: text("draft_subject"),
-    draftRecipients: jsonb("draft_recipients").$type<
-      Array<{
-        email: string;
-        name?: string;
-        domain: string;
-        isExternal: boolean;
-      }>
-    >(),
+    draftRecipients:
+      jsonb("draft_recipients").$type<
+        Array<{
+          email: string;
+          name?: string;
+          domain: string;
+          isExternal: boolean;
+        }>
+      >(),
 
     // Detailed results
     details: jsonb("details").$type<RiskAnalysisDetails>(),
@@ -1168,7 +1208,14 @@ export interface PolicyCondition {
 }
 
 export interface PolicyAction {
-  type: "block" | "warn" | "require_approval" | "notify" | "audit_log" | "redact" | "encrypt";
+  type:
+    | "block"
+    | "warn"
+    | "require_approval"
+    | "notify"
+    | "audit_log"
+    | "redact"
+    | "encrypt";
   config?: Record<string, unknown>;
 }
 

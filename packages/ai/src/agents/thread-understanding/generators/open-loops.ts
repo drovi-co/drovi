@@ -100,7 +100,7 @@ function findOpenLoopsFromClaims(
         owner: question.asker,
         sourceMessageId: question.evidence[0]?.messageId || "",
         sourceQuotedText: question.evidence[0]?.quotedText || question.text,
-        age,
+        age: age ?? null,
         priority: "medium",
       });
     }
@@ -127,7 +127,7 @@ function findOpenLoopsFromClaims(
         owner: request.requestee,
         sourceMessageId: request.evidence[0]?.messageId || "",
         sourceQuotedText: request.evidence[0]?.quotedText || request.text,
-        age,
+        age: age ?? null,
         priority: request.priority || "medium",
       });
     }

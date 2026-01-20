@@ -1,6 +1,6 @@
 import { db } from "@memorystack/db";
 import { emailMessage, emailThread } from "@memorystack/db/schema";
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 async function main() {
   const accountId = "9ce21a5f-93ec-4b57-a903-d004ce8bdbd2";
@@ -18,7 +18,9 @@ async function main() {
   }
 
   console.log("Threads by messageCount metadata:");
-  for (const [count, num] of Object.entries(byMessageCount).sort((a, b) => Number(a[0]) - Number(b[0]))) {
+  for (const [count, num] of Object.entries(byMessageCount).sort(
+    (a, b) => Number(a[0]) - Number(b[0])
+  )) {
     console.log(`  messageCount=${count}: ${num} threads`);
   }
 
@@ -26,23 +28,32 @@ async function main() {
   const threadIdsWithMessages = await db
     .selectDistinct({ threadId: emailMessage.threadId })
     .from(emailMessage)
-    .where(inArray(emailMessage.threadId, threads.map(t => t.id)));
+    .where(
+      inArray(
+        emailMessage.threadId,
+        threads.map((t) => t.id)
+      )
+    );
 
-  const withMessagesSet = new Set(threadIdsWithMessages.map(t => t.threadId));
+  const withMessagesSet = new Set(threadIdsWithMessages.map((t) => t.threadId));
 
   // Count threads with messageCount > 0 but no actual messages
   const orphanedWithExpectedMessages = threads.filter(
-    t => t.messageCount > 0 && !withMessagesSet.has(t.id)
+    (t) => t.messageCount > 0 && !withMessagesSet.has(t.id)
   );
 
   // Count threads with messageCount = 0
-  const threadsWithZeroCount = threads.filter(t => t.messageCount === 0);
+  const threadsWithZeroCount = threads.filter((t) => t.messageCount === 0);
 
   console.log("\nSummary:");
   console.log(`  Total threads: ${threads.length}`);
   console.log(`  Threads with actual messages in DB: ${withMessagesSet.size}`);
-  console.log(`  Threads with messageCount > 0 but no messages: ${orphanedWithExpectedMessages.length}`);
-  console.log(`  Threads with messageCount = 0: ${threadsWithZeroCount.length}`);
+  console.log(
+    `  Threads with messageCount > 0 but no messages: ${orphanedWithExpectedMessages.length}`
+  );
+  console.log(
+    `  Threads with messageCount = 0: ${threadsWithZeroCount.length}`
+  );
 
   // Sample some orphaned threads to check
   console.log("\nSample orphaned threads (first 5):");

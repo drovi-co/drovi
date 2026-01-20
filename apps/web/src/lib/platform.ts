@@ -1,5 +1,5 @@
 /**
- * Platform detection utilities for Memorystack
+ * Platform detection utilities for Drovi
  * Detects whether the app is running in a web browser or Tauri desktop environment
  */
 

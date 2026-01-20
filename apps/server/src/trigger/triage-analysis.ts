@@ -269,9 +269,11 @@ export const triageThreadTask = task({
                   : "Important Email",
               message: `From ${senderName}: ${thread.subject ?? "No subject"}`,
               link: `/dashboard/email/thread/${threadId}`,
-              priority: suggestion.priority.tier === "urgent" ? "urgent" : "high",
+              priority:
+                suggestion.priority.tier === "urgent" ? "urgent" : "high",
               actionRequired: suggestion.action === "respond",
-              actionType: suggestion.action === "respond" ? "respond" : "review",
+              actionType:
+                suggestion.action === "respond" ? "respond" : "review",
               entityId: threadId,
               entityType: "thread",
               metadata: {

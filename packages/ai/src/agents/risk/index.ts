@@ -21,8 +21,8 @@ import {
   buildContradictionPrompt,
   buildFraudAnalysisPrompt,
   type ContradictionAnalysisResult,
-  type FraudAnalysisResult,
   type FraudAnalysisInput,
+  type FraudAnalysisResult,
   parseJsonResponse,
   RISK_ANALYSIS_SYSTEM_PROMPT,
   type SemanticContradictionInput,
@@ -166,8 +166,7 @@ export class RiskAgent {
     let semanticAnalysis: SemanticAnalysisResult | undefined;
     if (
       this.config.enableSemanticAnalysis &&
-      (result.fraud.score > 0.3 ||
-        result.contradiction.conflicts.length > 0)
+      (result.fraud.score > 0.3 || result.contradiction.conflicts.length > 0)
     ) {
       semanticAnalysis = await this.runSemanticAnalysis(
         request,
@@ -303,7 +302,7 @@ export class RiskAgent {
       model: this.config.model,
       system: RISK_ANALYSIS_SYSTEM_PROMPT,
       prompt,
-      maxTokens: 2000,
+      maxOutputTokens: 2000,
     });
 
     const parsed = parseJsonResponse<ContradictionAnalysisResult>(
@@ -331,7 +330,7 @@ export class RiskAgent {
       model: this.config.model,
       system: RISK_ANALYSIS_SYSTEM_PROMPT,
       prompt,
-      maxTokens: 2000,
+      maxOutputTokens: 2000,
     });
 
     const parsed = parseJsonResponse<FraudAnalysisResult>(response.text);

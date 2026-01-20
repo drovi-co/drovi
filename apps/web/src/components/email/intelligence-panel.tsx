@@ -1,22 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -29,21 +13,31 @@ import {
   ChevronRight,
   Clock,
   Edit3,
-  ExternalLink,
-  FileText,
   HelpCircle,
   Link2,
-  MessageSquare,
-  MoreHorizontal,
   ShieldAlert,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
   User,
-  X,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -137,8 +131,15 @@ interface IntelligencePanelProps {
   riskWarnings?: RiskWarningData[];
   isLoading?: boolean;
   onEvidenceClick?: (evidence: EvidenceLink) => void;
-  onCommitmentAction?: (id: string, action: "complete" | "dismiss" | "edit") => void;
-  onFeedback?: (type: "commitment" | "decision", id: string, positive: boolean) => void;
+  onCommitmentAction?: (
+    id: string,
+    action: "complete" | "dismiss" | "edit"
+  ) => void;
+  onFeedback?: (
+    type: "commitment" | "decision",
+    id: string,
+    positive: boolean
+  ) => void;
   className?: string;
 }
 
@@ -187,14 +188,14 @@ export function IntelligencePanel({
   if (!hasContent) {
     return (
       <div className={cn("p-4", className)}>
-        <div className="flex flex-col items-center justify-center text-center py-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Sparkles className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             No intelligence extracted yet
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-muted-foreground text-xs">
             AI analysis in progress...
           </p>
         </div>
@@ -204,11 +205,11 @@ export function IntelligencePanel({
 
   return (
     <ScrollArea className={cn("h-full", className)}>
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         {/* Header */}
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-purple-500" />
-          <h3 className="text-sm font-semibold">Thread Intelligence</h3>
+          <h3 className="font-semibold text-sm">Thread Intelligence</h3>
         </div>
 
         {/* Risk warnings (always visible when present) */}
@@ -217,8 +218,8 @@ export function IntelligencePanel({
             {riskWarnings.map((warning) => (
               <RiskWarningCard
                 key={warning.id}
-                warning={warning}
                 onEvidenceClick={onEvidenceClick}
+                warning={warning}
               />
             ))}
           </div>
@@ -227,20 +228,20 @@ export function IntelligencePanel({
         {/* Commitments */}
         {commitments.length > 0 && (
           <IntelligenceSection
-            title="Commitments"
-            icon={<CheckCircle2 className="h-4 w-4 text-blue-500" />}
+            color="blue"
             count={commitments.length}
             expanded={expandedSections.has("commitments")}
+            icon={<CheckCircle2 className="h-4 w-4 text-blue-500" />}
             onToggle={() => toggleSection("commitments")}
-            color="blue"
+            title="Commitments"
           >
             <div className="space-y-2">
               {commitments.map((commitment) => (
                 <CommitmentCard
-                  key={commitment.id}
                   commitment={commitment}
-                  onEvidenceClick={onEvidenceClick}
+                  key={commitment.id}
                   onAction={onCommitmentAction}
+                  onEvidenceClick={onEvidenceClick}
                   onFeedback={onFeedback}
                 />
               ))}
@@ -251,18 +252,18 @@ export function IntelligencePanel({
         {/* Decisions */}
         {decisions.length > 0 && (
           <IntelligenceSection
-            title="Decisions"
-            icon={<BookOpen className="h-4 w-4 text-purple-500" />}
+            color="purple"
             count={decisions.length}
             expanded={expandedSections.has("decisions")}
+            icon={<BookOpen className="h-4 w-4 text-purple-500" />}
             onToggle={() => toggleSection("decisions")}
-            color="purple"
+            title="Decisions"
           >
             <div className="space-y-2">
               {decisions.map((decision) => (
                 <DecisionCard
-                  key={decision.id}
                   decision={decision}
+                  key={decision.id}
                   onEvidenceClick={onEvidenceClick}
                   onFeedback={onFeedback}
                 />
@@ -274,12 +275,12 @@ export function IntelligencePanel({
         {/* Open questions */}
         {openQuestions.length > 0 && (
           <IntelligenceSection
-            title="Open Questions"
-            icon={<HelpCircle className="h-4 w-4 text-amber-500" />}
+            color="amber"
             count={openQuestions.filter((q) => !q.isAnswered).length}
             expanded={expandedSections.has("questions")}
+            icon={<HelpCircle className="h-4 w-4 text-amber-500" />}
             onToggle={() => toggleSection("questions")}
-            color="amber"
+            title="Open Questions"
           >
             <div className="space-y-2">
               {openQuestions.map((question) => (
@@ -322,19 +323,19 @@ function IntelligenceSection({
   };
 
   return (
-    <Collapsible open={expanded} onOpenChange={onToggle}>
+    <Collapsible onOpenChange={onToggle} open={expanded}>
       <CollapsibleTrigger asChild>
         <button
-          type="button"
           className={cn(
-            "flex items-center gap-2 w-full p-2 rounded-lg border transition-colors",
+            "flex w-full items-center gap-2 rounded-lg border p-2 transition-colors",
             colors[color],
             "hover:bg-accent"
           )}
+          type="button"
         >
           {icon}
-          <span className="text-sm font-medium">{title}</span>
-          <Badge variant="secondary" className="text-[10px] ml-auto">
+          <span className="font-medium text-sm">{title}</span>
+          <Badge className="ml-auto text-[10px]" variant="secondary">
             {count}
           </Badge>
           {expanded ? (
@@ -347,10 +348,10 @@ function IntelligenceSection({
       <CollapsibleContent>
         <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
             className="pt-2"
+            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, height: 0 }}
           >
             {children}
           </motion.div>
@@ -369,7 +370,11 @@ function CommitmentCard({
   commitment: CommitmentData;
   onEvidenceClick?: (evidence: EvidenceLink) => void;
   onAction?: (id: string, action: "complete" | "dismiss" | "edit") => void;
-  onFeedback?: (type: "commitment" | "decision", id: string, positive: boolean) => void;
+  onFeedback?: (
+    type: "commitment" | "decision",
+    id: string,
+    positive: boolean
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -389,19 +394,19 @@ function CommitmentCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 space-y-2",
+        "space-y-2 rounded-lg border bg-card p-3",
         isOverdue && "border-red-500/50"
       )}
     >
       {/* Header */}
       <div className="flex items-start gap-2">
         <div
-          className={cn("h-2 w-2 rounded-full mt-1.5 shrink-0", status.color)}
+          className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", status.color)}
         />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">{commitment.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm">{commitment.title}</p>
           {commitment.description && (
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+            <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
               {commitment.description}
             </p>
           )}
@@ -410,7 +415,7 @@ function CommitmentCard({
       </div>
 
       {/* Metadata */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
         <span className="flex items-center gap-1">
           <User className="h-3 w-3" />
           {commitment.debtor.name}
@@ -436,10 +441,10 @@ function CommitmentCard({
           <Link2 className="h-3 w-3 text-muted-foreground" />
           {commitment.evidence.slice(0, 2).map((ev) => (
             <button
+              className="rounded bg-muted px-1.5 py-0.5 text-[10px] transition-colors hover:bg-muted/80"
               key={ev.id}
-              type="button"
               onClick={() => onEvidenceClick?.(ev)}
-              className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 transition-colors"
+              type="button"
             >
               {ev.title}
             </button>
@@ -459,10 +464,12 @@ function CommitmentCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-6 w-6"
-                  onClick={() => onFeedback?.("commitment", commitment.id, true)}
+                  onClick={() =>
+                    onFeedback?.("commitment", commitment.id, true)
+                  }
+                  size="icon"
+                  variant="ghost"
                 >
                   <ThumbsUp className="h-3 w-3" />
                 </Button>
@@ -474,10 +481,12 @@ function CommitmentCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-6 w-6"
-                  onClick={() => onFeedback?.("commitment", commitment.id, false)}
+                  onClick={() =>
+                    onFeedback?.("commitment", commitment.id, false)
+                  }
+                  size="icon"
+                  variant="ghost"
                 >
                   <ThumbsDown className="h-3 w-3" />
                 </Button>
@@ -489,20 +498,20 @@ function CommitmentCard({
         <div className="flex items-center gap-1">
           {commitment.status === "pending" && (
             <Button
-              variant="ghost"
-              size="sm"
               className="h-6 text-xs"
               onClick={() => onAction?.(commitment.id, "complete")}
+              size="sm"
+              variant="ghost"
             >
-              <Check className="h-3 w-3 mr-1" />
+              <Check className="mr-1 h-3 w-3" />
               Complete
             </Button>
           )}
           <Button
-            variant="ghost"
-            size="icon"
             className="h-6 w-6"
             onClick={() => onAction?.(commitment.id, "edit")}
+            size="icon"
+            variant="ghost"
           >
             <Edit3 className="h-3 w-3" />
           </Button>
@@ -519,18 +528,22 @@ function DecisionCard({
 }: {
   decision: DecisionData;
   onEvidenceClick?: (evidence: EvidenceLink) => void;
-  onFeedback?: (type: "commitment" | "decision", id: string, positive: boolean) => void;
+  onFeedback?: (
+    type: "commitment" | "decision",
+    id: string,
+    positive: boolean
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border bg-card p-3 space-y-2">
+    <div className="space-y-2 rounded-lg border bg-card p-3">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <BookOpen className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">{decision.title}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+        <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm">{decision.title}</p>
+          <p className="mt-0.5 text-muted-foreground text-xs">
             {decision.statement}
           </p>
         </div>
@@ -538,7 +551,7 @@ function DecisionCard({
       </div>
 
       {/* Metadata */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
         <span className="flex items-center gap-1">
           <User className="h-3 w-3" />
           {decision.maker.name}
@@ -548,7 +561,7 @@ function DecisionCard({
           {formatDistanceToNow(decision.date, { addSuffix: true })}
         </span>
         {decision.category && (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge className="text-[10px]" variant="outline">
             {decision.category}
           </Badge>
         )}
@@ -556,11 +569,11 @@ function DecisionCard({
 
       {/* Rationale (expandable) */}
       {decision.rationale && (
-        <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <Collapsible onOpenChange={setExpanded} open={expanded}>
           <CollapsibleTrigger asChild>
             <button
+              className="flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
               type="button"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               {expanded ? (
                 <ChevronDown className="h-3 w-3" />
@@ -571,7 +584,7 @@ function DecisionCard({
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <p className="text-xs text-muted-foreground mt-1 p-2 rounded bg-muted/50">
+            <p className="mt-1 rounded bg-muted/50 p-2 text-muted-foreground text-xs">
               {decision.rationale}
             </p>
           </CollapsibleContent>
@@ -584,10 +597,10 @@ function DecisionCard({
           <Link2 className="h-3 w-3 text-muted-foreground" />
           {decision.evidence.slice(0, 2).map((ev) => (
             <button
+              className="rounded bg-muted px-1.5 py-0.5 text-[10px] transition-colors hover:bg-muted/80"
               key={ev.id}
-              type="button"
               onClick={() => onEvidenceClick?.(ev)}
-              className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 transition-colors"
+              type="button"
             >
               {ev.title}
             </button>
@@ -601,10 +614,10 @@ function DecisionCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
-                size="icon"
                 className="h-6 w-6"
                 onClick={() => onFeedback?.("decision", decision.id, true)}
+                size="icon"
+                variant="ghost"
               >
                 <ThumbsUp className="h-3 w-3" />
               </Button>
@@ -616,10 +629,10 @@ function DecisionCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
-                size="icon"
                 className="h-6 w-6"
                 onClick={() => onFeedback?.("decision", decision.id, false)}
+                size="icon"
+                variant="ghost"
               >
                 <ThumbsDown className="h-3 w-3" />
               </Button>
@@ -636,20 +649,20 @@ function QuestionCard({ question }: { question: OpenQuestionData }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 space-y-2",
+        "space-y-2 rounded-lg border bg-card p-3",
         question.isAnswered && "opacity-60"
       )}
     >
       <div className="flex items-start gap-2">
         <HelpCircle
           className={cn(
-            "h-4 w-4 mt-0.5 shrink-0",
+            "mt-0.5 h-4 w-4 shrink-0",
             question.isAnswered ? "text-green-500" : "text-amber-500"
           )}
         />
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm">{question.question}</p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
               {question.askedBy.name}
@@ -664,7 +677,7 @@ function QuestionCard({ question }: { question: OpenQuestionData }) {
       </div>
 
       {question.isAnswered && question.answeredBy && (
-        <div className="flex items-center gap-1 text-xs text-green-600">
+        <div className="flex items-center gap-1 text-green-600 text-xs">
           <Check className="h-3 w-3" />
           Answered by {question.answeredBy.name}
         </div>
@@ -703,22 +716,22 @@ function RiskWarningCard({
   const Icon = severity.icon;
 
   return (
-    <div className={cn("rounded-lg border p-3 space-y-2", severity.color)}>
+    <div className={cn("space-y-2 rounded-lg border p-3", severity.color)}>
       <div className="flex items-start gap-2">
-        <Icon className="h-4 w-4 mt-0.5 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">{warning.title}</p>
-          <p className="text-xs mt-0.5 opacity-90">{warning.description}</p>
+        <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm">{warning.title}</p>
+          <p className="mt-0.5 text-xs opacity-90">{warning.description}</p>
         </div>
         <Badge
+          className={cn("shrink-0 text-[10px]", severity.color)}
           variant="outline"
-          className={cn("text-[10px] shrink-0", severity.color)}
         >
           {warning.severity}
         </Badge>
       </div>
 
-      <div className="text-xs pl-6">
+      <div className="pl-6 text-xs">
         <span className="font-medium">Recommendation:</span>{" "}
         {warning.recommendation}
       </div>
@@ -742,11 +755,11 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
           <div className="flex items-center gap-0.5">
             {[0.33, 0.66, 1].map((threshold, i) => (
               <div
-                key={threshold}
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
                   confidence >= threshold ? config[level].color : "bg-muted"
                 )}
+                key={threshold}
               />
             ))}
           </div>
@@ -774,7 +787,7 @@ function PriorityBadge({
   if (priority === "low" || priority === "medium") return null;
 
   return (
-    <span className={cn("text-[10px] font-medium", config[priority].color)}>
+    <span className={cn("font-medium text-[10px]", config[priority].color)}>
       {config[priority].label}
     </span>
   );
@@ -786,13 +799,13 @@ function PriorityBadge({
 
 function IntelligencePanelSkeleton() {
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex items-center gap-2">
         <Skeleton className="h-4 w-4" />
         <Skeleton className="h-4 w-32" />
       </div>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="space-y-2">
+        <div className="space-y-2" key={i}>
           <Skeleton className="h-10 w-full rounded-lg" />
           <Skeleton className="h-20 w-full rounded-lg" />
         </div>

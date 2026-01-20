@@ -27,9 +27,9 @@ function Switch({
         "h-[20px] w-[30px] rounded-full",
         "outline-none transition-colors duration-150",
         // Off state - Figma: bg #151621
-        "bg-[#151621] border border-[#393A4B]",
+        "border border-border bg-background",
         // On state - Figma: bg primary
-        "data-[state=checked]:bg-primary data-[state=checked]:border-primary",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-primary",
         // Focus state
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         // Disabled state

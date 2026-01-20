@@ -4,4 +4,6 @@ export { InvitationAcceptedEmail } from "./invitation-accepted.js";
 export { MagicLinkEmail } from "./magic-link.js";
 export { PasswordResetEmail } from "./password-reset.js";
 export { TwoFactorOTPEmail } from "./two-factor-otp.js";
+export { WaitlistApprovalEmail } from "./waitlist-approval.js";
+export { WaitlistConfirmationEmail } from "./waitlist-confirmation.js";
 export { WelcomeEmail } from "./welcome.js";

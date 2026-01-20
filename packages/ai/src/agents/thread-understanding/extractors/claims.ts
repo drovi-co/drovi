@@ -100,8 +100,14 @@ export async function extractAllClaims(
       other: [],
     };
   } catch (error) {
-    console.error("[extractAllClaims] Error:", error instanceof Error ? error.message : error);
-    console.error("[extractAllClaims] Stack:", error instanceof Error ? error.stack : "");
+    console.error(
+      "[extractAllClaims] Error:",
+      error instanceof Error ? error.message : error
+    );
+    console.error(
+      "[extractAllClaims] Stack:",
+      error instanceof Error ? error.stack : ""
+    );
 
     trace.generation({
       name: "extract-all-claims-error",

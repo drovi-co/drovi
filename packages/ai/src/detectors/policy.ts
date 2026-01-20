@@ -264,7 +264,7 @@ export const DEFAULT_POLICY_RULES: Omit<
         type: "amount_exceeds",
         field: "extractedAmounts",
         operator: "greater_than",
-        value: 10000,
+        value: 10_000,
       },
     ],
     actions: [
@@ -327,16 +327,7 @@ export const DEFAULT_POLICY_RULES: Omit<
         type: "attachment_type",
         field: "attachments",
         operator: "in",
-        value: [
-          ".exe",
-          ".bat",
-          ".cmd",
-          ".ps1",
-          ".vbs",
-          ".js",
-          ".jar",
-          ".msi",
-        ],
+        value: [".exe", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".jar", ".msi"],
       },
     ],
     actions: [{ type: "block" }, { type: "audit_log" }],
@@ -502,9 +493,7 @@ export class PolicyDetector {
     );
     if (criticalViolations.length > 0) {
       overallStatus = "blocked";
-      blockedReason = criticalViolations
-        .map((v) => v.description)
-        .join("; ");
+      blockedReason = criticalViolations.map((v) => v.description).join("; ");
     } else if (requiredApprovals.length > 0) {
       overallStatus = "pending_approval";
     } else if (violations.length > 0 || warnings.length > 0) {
@@ -855,6 +844,8 @@ export function createPolicyRule(
 /**
  * Create a policy detector with optional custom rules.
  */
-export function createPolicyDetector(customRules?: PolicyRule[]): PolicyDetector {
+export function createPolicyDetector(
+  customRules?: PolicyRule[]
+): PolicyDetector {
   return new PolicyDetector(customRules);
 }

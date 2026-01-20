@@ -9,11 +9,12 @@
 // message body. This enables unified intelligence across all sources.
 //
 
+import { randomUUID } from "node:crypto";
 import {
+  type CalendarEventCommitment,
+  type CalendarEventData,
   calendarAdapter,
   extractSingleEventCommitment,
-  type CalendarEventData,
-  type CalendarEventCommitment,
 } from "@memorystack/ai";
 import { db } from "@memorystack/db";
 import {
@@ -27,7 +28,6 @@ import {
 } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import {
   createCalendarClient,
   isCalendarSupported,
@@ -38,6 +38,7 @@ import {
   createTaskForCommitmentTask,
   createTaskForConversationTask,
 } from "./task-sync";
+import { processCommitmentTask } from "./unified-object-processing";
 
 // =============================================================================
 // TYPES
@@ -125,7 +126,9 @@ export const syncCalendarEventsTask = task({
 
       // Check if provider supports calendar
       if (!isCalendarSupported(account.provider ?? "")) {
-        result.errors.push(`Provider ${account.provider} does not support calendar`);
+        result.errors.push(
+          `Provider ${account.provider} does not support calendar`
+        );
         return result;
       }
 
@@ -200,7 +203,9 @@ export const syncCalendarEventsTask = task({
       // Calculate time range
       const now = new Date();
       const timeMin = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-      const timeMax = new Date(now.getTime() + daysForward * 24 * 60 * 60 * 1000);
+      const timeMax = new Date(
+        now.getTime() + daysForward * 24 * 60 * 60 * 1000
+      );
 
       // Get calendars
       const calendars = await calendarClient.listCalendars();
@@ -248,7 +253,8 @@ export const syncCalendarEventsTask = task({
               result.commitmentsCreated += eventResult.commitmentsCreated;
               result.relatedThreadsLinked += eventResult.relatedThreadsLinked;
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
+              const message =
+                error instanceof Error ? error.message : String(error);
               result.errors.push(`Event ${event.id}: ${message}`);
               log.error("Failed to process calendar event", error, {
                 eventId: event.id,
@@ -256,7 +262,8 @@ export const syncCalendarEventsTask = task({
             }
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`Calendar ${calendar.id}: ${message}`);
           log.error("Failed to sync calendar", error, {
             calendarId: calendar.id,
@@ -346,7 +353,10 @@ async function processCalendarEvent(
 
   if (existingConversation) {
     // Update existing conversation
-    if (force || event.updated > (existingConversation.updatedAt ?? new Date(0))) {
+    if (
+      force ||
+      event.updated > (existingConversation.updatedAt ?? new Date(0))
+    ) {
       await db
         .update(conversation)
         .set({
@@ -356,6 +366,10 @@ async function processCalendarEvent(
           lastMessageAt: event.start,
           metadata: conversationData.metadata,
           briefSummary: buildEventBrief(event),
+          // Update priority fields (urgency changes based on time until event)
+          urgencyScore: calculateEventUrgency(event),
+          importanceScore: calculateEventImportance(event),
+          priorityTier: determineEventPriority(event),
           updatedAt: now,
         })
         .where(eq(conversation.id, existingConversation.id));
@@ -366,7 +380,9 @@ async function processCalendarEvent(
     // Create new conversation
     const conversationId = randomUUID();
 
-    const convType = event.recurrence ? "recurring_event" as const : "event" as const;
+    const convType = event.recurrence
+      ? ("recurring_event" as const)
+      : ("event" as const);
     const priority = determineEventPriority(event);
 
     await db.insert(conversation).values({
@@ -435,7 +451,8 @@ async function processCalendarEvent(
   }
 
   // Set conversation ID for linking
-  const targetConversationId = existingConversation?.id ?? result.conversationId;
+  const targetConversationId =
+    existingConversation?.id ?? result.conversationId;
 
   // Link to related email threads
   if (targetConversationId) {
@@ -463,13 +480,42 @@ async function processCalendarEvent(
 
     // Determine direction: organizer owns the commitment to host, attendee owns commitment to attend
     const direction: "owed_by_me" | "owed_to_me" = eventCommitment.isOrganizer
-      ? "owed_by_me"  // I'm hosting, I owe the meeting to attendees
+      ? "owed_by_me" // I'm hosting, I owe the meeting to attendees
       : "owed_to_me"; // I'm invited, organizer expects me to attend
 
     // Map the event commitment status to database status
     const dbStatus = mapEventCommitmentStatus(eventCommitment.status);
 
-    if (!existingCommitment) {
+    if (existingCommitment) {
+      // ALWAYS update existing commitment with latest status/attendance
+      await db
+        .update(commitment)
+        .set({
+          title: eventCommitment.title,
+          description: eventCommitment.description,
+          dueDate: eventCommitment.dueDate,
+          status: dbStatus,
+          confidence: eventCommitment.confidence,
+          metadata: {
+            eventId: event.id,
+            calendarId: event.calendarId,
+            isOrganizer: eventCommitment.isOrganizer,
+            attendance: eventCommitment.attendance,
+            organizerEmail: eventCommitment.organizer.email,
+            context: `Calendar event from ${event.calendarId}. ${eventCommitment.attendance.accepted}/${eventCommitment.attendance.total} confirmed.`,
+          },
+          updatedAt: now,
+        })
+        .where(eq(commitment.id, existingCommitment.id));
+
+      log.debug("Updated calendar commitment", {
+        commitmentId: existingCommitment.id,
+        eventId: event.id,
+        title: eventCommitment.title,
+        status: dbStatus,
+        previousStatus: existingCommitment.status,
+      });
+    } else {
       // Create new commitment for this event
       const commitmentId = randomUUID();
 
@@ -502,6 +548,22 @@ async function processCalendarEvent(
         commitmentId,
       });
 
+      // Trigger UIO processing for cross-source intelligence
+      await processCommitmentTask.trigger({
+        organizationId,
+        commitment: {
+          id: commitmentId,
+          title: eventCommitment.title,
+          description: eventCommitment.description,
+          dueDate: eventCommitment.dueDate,
+          confidence: eventCommitment.confidence,
+        },
+        sourceType: "calendar",
+        sourceAccountId,
+        conversationId: existingConversation?.id ?? targetConversationId,
+        originalCommitmentId: commitmentId,
+      });
+
       result.commitmentsCreated++;
 
       log.debug("Created calendar commitment", {
@@ -509,35 +571,6 @@ async function processCalendarEvent(
         eventId: event.id,
         title: eventCommitment.title,
         status: dbStatus,
-      });
-    } else {
-      // ALWAYS update existing commitment with latest status/attendance
-      await db
-        .update(commitment)
-        .set({
-          title: eventCommitment.title,
-          description: eventCommitment.description,
-          dueDate: eventCommitment.dueDate,
-          status: dbStatus,
-          confidence: eventCommitment.confidence,
-          metadata: {
-            eventId: event.id,
-            calendarId: event.calendarId,
-            isOrganizer: eventCommitment.isOrganizer,
-            attendance: eventCommitment.attendance,
-            organizerEmail: eventCommitment.organizer.email,
-            context: `Calendar event from ${event.calendarId}. ${eventCommitment.attendance.accepted}/${eventCommitment.attendance.total} confirmed.`,
-          },
-          updatedAt: now,
-        })
-        .where(eq(commitment.id, existingCommitment.id));
-
-      log.debug("Updated calendar commitment", {
-        commitmentId: existingCommitment.id,
-        eventId: event.id,
-        title: eventCommitment.title,
-        status: dbStatus,
-        previousStatus: existingCommitment.status,
       });
     }
   }
@@ -577,8 +610,12 @@ async function linkRelatedEmailThreads(
   // Look for email threads in the organization with matching participants
   // and optionally matching subject keywords
   // Search within a reasonable time window (30 days before/after event creation)
-  const searchStartDate = new Date(event.created.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const searchEndDate = new Date(event.start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const searchStartDate = new Date(
+    event.created.getTime() - 30 * 24 * 60 * 60 * 1000
+  );
+  const searchEndDate = new Date(
+    event.start.getTime() + 7 * 24 * 60 * 60 * 1000
+  );
 
   // Query for potentially related email threads
   const potentialMatches = await db.query.emailThread.findMany({
@@ -626,14 +663,13 @@ async function linkRelatedEmailThreads(
     // Check participant overlap
     const threadParticipants = thread.participantEmails ?? [];
     const participantOverlap = attendeeEmails.filter((email) =>
-      threadParticipants.some(
-        (p) => p.toLowerCase() === email.toLowerCase()
-      )
+      threadParticipants.some((p) => p.toLowerCase() === email.toLowerCase())
     );
 
     if (participantOverlap.length > 0) {
       // Score based on overlap ratio
-      const overlapRatio = participantOverlap.length / Math.max(attendeeEmails.length, 1);
+      const overlapRatio =
+        participantOverlap.length / Math.max(attendeeEmails.length, 1);
       matchScore += overlapRatio * 0.6; // Max 0.6 from participants
       matchReasons.push(`shared_participants:${participantOverlap.length}`);
     }
@@ -741,14 +777,75 @@ function extractSearchKeywords(text: string): string[] {
 
   // Common stop words to filter out
   const stopWords = new Set([
-    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "as", "is", "was", "are", "were", "been",
-    "be", "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "must", "shall", "can", "need",
-    "dare", "ought", "used", "about", "above", "after", "again", "all",
-    "also", "am", "any", "because", "before", "being", "below", "between",
-    "both", "call", "catch", "re", "meeting", "call", "sync", "update",
-    "discussion", "review", "follow", "up", "weekly", "daily", "monthly",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "is",
+    "was",
+    "are",
+    "were",
+    "been",
+    "be",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "can",
+    "need",
+    "dare",
+    "ought",
+    "used",
+    "about",
+    "above",
+    "after",
+    "again",
+    "all",
+    "also",
+    "am",
+    "any",
+    "because",
+    "before",
+    "being",
+    "below",
+    "between",
+    "both",
+    "call",
+    "catch",
+    "re",
+    "meeting",
+    "call",
+    "sync",
+    "update",
+    "discussion",
+    "review",
+    "follow",
+    "up",
+    "weekly",
+    "daily",
+    "monthly",
   ]);
 
   // Split into words, filter, and return
@@ -799,9 +896,10 @@ function buildEventBrief(event: CalendarEventData): string {
     contextParts.push("Video call");
   } else if (event.location) {
     // Truncate long locations
-    const loc = event.location.length > 30
-      ? `${event.location.slice(0, 30)}...`
-      : event.location;
+    const loc =
+      event.location.length > 30
+        ? `${event.location.slice(0, 30)}...`
+        : event.location;
     contextParts.push(loc);
   }
 
@@ -823,7 +921,8 @@ function buildEventBrief(event: CalendarEventData): string {
  */
 function calculateEventUrgency(event: CalendarEventData): number {
   const now = new Date();
-  const hoursUntilEvent = (event.start.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const hoursUntilEvent =
+    (event.start.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   // Events happening soon are more urgent
   if (hoursUntilEvent < 1) return 1.0;
@@ -878,7 +977,14 @@ function determineEventPriority(event: CalendarEventData): PriorityTier {
 /**
  * Map single event commitment status to database status.
  */
-type CommitmentStatus = "pending" | "in_progress" | "completed" | "cancelled" | "overdue" | "waiting" | "snoozed";
+type CommitmentStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "overdue"
+  | "waiting"
+  | "snoozed";
 
 function mapEventCommitmentStatus(
   status: CalendarEventCommitment["status"]
@@ -961,7 +1067,9 @@ export const syncCalendarOnDemandTask = task({
     factor: 2,
   },
   run: async (payload: { accountId: string }): Promise<CalendarSyncResult> => {
-    log.info("On-demand calendar sync starting", { accountId: payload.accountId });
+    log.info("On-demand calendar sync starting", {
+      accountId: payload.accountId,
+    });
 
     // Use the main sync task with default settings
     const result = await syncCalendarEventsTask.triggerAndWait({

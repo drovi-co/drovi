@@ -1,7 +1,7 @@
+import { analyzeThread, type ThreadInput } from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
 import { emailThread } from "@memorystack/db/schema";
 import { eq } from "drizzle-orm";
-import { analyzeThread, type ThreadInput } from "@memorystack/ai/agents";
 
 async function main() {
   // Get thread with messages
@@ -28,7 +28,9 @@ async function main() {
   // Print message content
   for (const m of thread.messages) {
     console.log(`From: ${m.fromEmail}`);
-    console.log(`Body: ${m.bodyText?.substring(0, 300) || m.snippet || "(empty)"}`);
+    console.log(
+      `Body: ${m.bodyText?.substring(0, 300) || m.snippet || "(empty)"}`
+    );
     console.log("---");
   }
   console.log("");
@@ -36,20 +38,25 @@ async function main() {
   // Build thread input
   const threadInput: ThreadInput = {
     id: thread.id,
+    providerThreadId: thread.providerThreadId ?? thread.id,
     accountId: thread.accountId,
     organizationId: thread.account.organizationId,
     subject: thread.subject || "",
     userEmail: thread.account.email,
-    messages: thread.messages.map((m) => ({
+    messages: thread.messages.map((m, index) => ({
       id: m.id,
+      providerMessageId: m.providerMessageId ?? m.id,
       fromEmail: m.fromEmail,
       fromName: m.fromName || undefined,
-      toEmails: (m.toRecipients as Array<{ email: string }>)?.map((r) => r.email) || [],
-      ccEmails: (m.ccRecipients as Array<{ email: string }>)?.map((r) => r.email) || [],
+      toRecipients:
+        (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
+      ccRecipients:
+        (m.ccRecipients as Array<{ email: string; name?: string }>) ?? [],
       subject: m.subject || undefined,
-      body: m.bodyText || m.snippet || "",
-      timestamp: m.sentAt || new Date(),
+      bodyText: m.bodyText || m.snippet || "",
+      sentAt: m.sentAt || new Date(),
       isFromUser: m.fromEmail === thread.account.email,
+      messageIndex: index,
     })),
   };
 

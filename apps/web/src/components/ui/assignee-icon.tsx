@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  */
 const assigneeIconVariants = cva(
   [
-    "inline-flex items-center justify-center shrink-0",
+    "inline-flex shrink-0 items-center justify-center",
     "rounded-full",
     "overflow-hidden",
     "font-medium",
@@ -94,13 +94,22 @@ function AssigneeIcon({
   const identifier = name || email || "";
   const initials = getInitials(name, email);
   const bgColor = getAvatarColor(identifier);
-  const iconSize = size === "xs" ? 8 : size === "sm" ? 10 : size === "lg" ? 14 : size === "xl" ? 18 : 12;
+  const iconSize =
+    size === "xs"
+      ? 8
+      : size === "sm"
+        ? 10
+        : size === "lg"
+          ? 14
+          : size === "xl"
+            ? 18
+            : 12;
 
   const content = imageUrl ? (
     <img
-      src={imageUrl}
       alt={name || email || "Assignee"}
       className="size-full object-cover"
+      src={imageUrl}
     />
   ) : identifier ? (
     <span className="text-white">{initials}</span>
@@ -116,12 +125,13 @@ function AssigneeIcon({
       className={cn(
         assigneeIconVariants({ size }),
         !imageUrl && identifier && "border-0",
-        !imageUrl && !identifier && "border border-dashed border-[#4C4F6B] bg-transparent",
+        !(imageUrl || identifier) &&
+          "border border-muted-foreground border-dashed bg-transparent",
         className
       )}
+      data-slot="assignee-icon"
       style={!imageUrl && identifier ? { backgroundColor: bgColor } : undefined}
       title={showTooltip ? name || email : undefined}
-      data-slot="assignee-icon"
       {...props}
     >
       {content}
@@ -160,20 +170,20 @@ function AssigneeStack({
     >
       {visibleAssignees.map((assignee, index) => (
         <AssigneeIcon
-          key={assignee.email || assignee.name || index}
-          name={assignee.name}
+          className="ring-1 ring-background"
           email={assignee.email}
           imageUrl={assignee.imageUrl}
-          size={size}
-          className="ring-1 ring-background"
+          key={assignee.email || assignee.name || index}
+          name={assignee.name}
           showTooltip
+          size={size}
         />
       ))}
       {overflow > 0 && (
         <div
           className={cn(
             assigneeIconVariants({ size }),
-            "bg-muted border border-border text-muted-foreground ring-1 ring-background"
+            "border border-border bg-muted text-muted-foreground ring-1 ring-background"
           )}
         >
           +{overflow}
@@ -194,4 +204,11 @@ function UnassignedIcon({
   return <AssigneeIcon className={className} size={size} {...props} />;
 }
 
-export { AssigneeIcon, AssigneeStack, UnassignedIcon, assigneeIconVariants, getAvatarColor, getInitials };
+export {
+  AssigneeIcon,
+  AssigneeStack,
+  UnassignedIcon,
+  assigneeIconVariants,
+  getAvatarColor,
+  getInitials,
+};

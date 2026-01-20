@@ -57,6 +57,7 @@ export async function classifyIntent(
       intent: "other",
       confidence: 0,
       reasoning: "Classification failed",
+      secondaryIntents: null,
     };
   }
 }

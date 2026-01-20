@@ -24,7 +24,7 @@ export function BillingFailedEmail({
   planName,
   amount,
   retryDate,
-  billingUrl = "https://app.memorystack.app/dashboard/billing",
+  billingUrl = "https://app.drovi.io/dashboard/billing",
 }: BillingFailedEmailProps) {
   return (
     <Html>

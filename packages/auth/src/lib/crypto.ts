@@ -40,9 +40,7 @@ function getSigningKey(): Buffer {
   const keyBuffer = Buffer.from(keyString, "utf-8");
 
   if (keyBuffer.length < 32) {
-    throw new Error(
-      "Signing key must be at least 32 characters."
-    );
+    throw new Error("Signing key must be at least 32 characters.");
   }
 
   // Use first 32 bytes

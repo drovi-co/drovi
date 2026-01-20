@@ -1,3 +1,12 @@
-export { InboxRow, InboxListHeader, type InboxItem, type InboxRowProps, type InboxListHeaderProps } from "./inbox-row";
+export {
+  type InboxItem,
+  InboxListHeader,
+  type InboxListHeaderProps,
+  InboxRow,
+  type InboxRowProps,
+} from "./inbox-row";
+export {
+  IntelligenceDots,
+  type IntelligenceDotsProps,
+} from "./intelligence-dots";
 export { SourceIcon, type SourceIconProps } from "./source-icon";
-export { IntelligenceDots, type IntelligenceDotsProps } from "./intelligence-dots";

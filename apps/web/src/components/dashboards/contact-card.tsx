@@ -7,7 +7,7 @@
 // relationship intelligence surface.
 //
 
-import { formatDistanceToNow, isToday, isYesterday, format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import {
   Calendar,
   Heart,
@@ -25,7 +25,6 @@ import { useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { getSourceConfig, getSourceColor, type SourceType } from "@/lib/source-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  getSourceColor,
+  getSourceConfig,
+  type SourceType,
+} from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -134,27 +138,27 @@ export function ContactCard({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors",
-        "border-b border-border/40",
+        "group relative flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors",
+        "border-border/40 border-b",
         isHovered && !isSelected && "bg-accent/50",
         isSelected && "bg-accent"
       )}
+      onClick={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onSelect}
     >
       {/* Priority indicator bar */}
       {contact.isAtRisk && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-red-500" />
       )}
       {contact.isVip && !contact.isAtRisk && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500" />
       )}
 
       {/* Avatar */}
       <Avatar className="h-9 w-9 shrink-0">
-        <AvatarImage src={contact.avatarUrl ?? undefined} alt={displayName} />
-        <AvatarFallback className="text-xs bg-muted font-medium">
+        <AvatarImage alt={displayName} src={contact.avatarUrl ?? undefined} />
+        <AvatarFallback className="bg-muted font-medium text-xs">
           {getInitials(contact.displayName, contact.primaryEmail)}
         </AvatarFallback>
       </Avatar>
@@ -162,24 +166,24 @@ export function ContactCard({
       {/* Name with source indicators */}
       <div className="w-40 shrink-0">
         <div className="flex items-center gap-1">
-          <span className="text-sm font-medium text-foreground/80 truncate">
+          <span className="truncate font-medium text-foreground/80 text-sm">
             {displayName}
           </span>
           {contact.isVip && (
-            <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+            <Star className="h-3 w-3 shrink-0 fill-amber-500 text-amber-500" />
           )}
         </div>
         {/* Source badges */}
         {contact.sources && contact.sources.length > 0 && (
-          <div className="flex items-center gap-0.5 mt-0.5">
+          <div className="mt-0.5 flex items-center gap-0.5">
             {contact.sources.slice(0, 4).map((sourceType) => {
               const config = getSourceConfig(sourceType);
               const color = getSourceColor(sourceType);
               const SourceIcon = config.icon;
               return (
                 <div
-                  key={sourceType}
                   className="flex h-4 w-4 items-center justify-center rounded"
+                  key={sourceType}
                   style={{ backgroundColor: `${color}15` }}
                   title={config.label}
                 >
@@ -192,7 +196,7 @@ export function ContactCard({
       </div>
 
       {/* Title & Company */}
-      <div className="w-48 shrink-0 truncate text-sm text-muted-foreground">
+      <div className="w-48 shrink-0 truncate text-muted-foreground text-sm">
         {contact.title || contact.company ? (
           <>
             {contact.title}
@@ -205,62 +209,70 @@ export function ContactCard({
       </div>
 
       {/* Email with AI indicator */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {(contact.healthScore !== null || contact.importanceScore !== null) && (
-          <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-purple-500" />
         )}
         <button
-          type="button"
+          className="truncate text-left text-muted-foreground text-sm hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();
             onEmailClick?.(contact.primaryEmail);
           }}
-          className="text-sm text-muted-foreground hover:text-foreground truncate text-left"
+          type="button"
         >
           {contact.primaryEmail}
         </button>
       </div>
 
       {/* Health Score as colored pill */}
-      {contact.healthScore !== null && contact.healthScore !== undefined && !isHovered && (
-        <span className={cn(
-          "flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0",
-          contact.healthScore >= 0.7 && "bg-green-500/10 text-green-600 dark:text-green-400",
-          contact.healthScore >= 0.4 && contact.healthScore < 0.7 && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-          contact.healthScore < 0.4 && "bg-red-500/10 text-red-600 dark:text-red-400"
-        )}>
-          <Heart className="h-3 w-3" />
-          {Math.round(contact.healthScore * 100)}%
-        </span>
-      )}
+      {contact.healthScore !== null &&
+        contact.healthScore !== undefined &&
+        !isHovered && (
+          <span
+            className={cn(
+              "flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium text-xs",
+              contact.healthScore >= 0.7 &&
+                "bg-green-500/10 text-green-600 dark:text-green-400",
+              contact.healthScore >= 0.4 &&
+                contact.healthScore < 0.7 &&
+                "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+              contact.healthScore < 0.4 &&
+                "bg-red-500/10 text-red-600 dark:text-red-400"
+            )}
+          >
+            <Heart className="h-3 w-3" />
+            {Math.round(contact.healthScore * 100)}%
+          </span>
+        )}
 
       {/* At-Risk Badge */}
       {contact.isAtRisk && !isHovered && (
-        <Badge variant="destructive" className="text-[10px] shrink-0">
-          <TrendingDown className="h-3 w-3 mr-1" />
+        <Badge className="shrink-0 text-[10px]" variant="destructive">
+          <TrendingDown className="mr-1 h-3 w-3" />
           At Risk
         </Badge>
       )}
 
       {/* Last Interaction */}
       {contact.lastInteractionAt && !isHovered && (
-        <span className="text-xs text-muted-foreground font-medium shrink-0 w-24 text-right whitespace-nowrap">
+        <span className="w-24 shrink-0 whitespace-nowrap text-right font-medium text-muted-foreground text-xs">
           {formatLastInteraction(contact.lastInteractionAt)}
         </span>
       )}
 
       {/* Quick actions (on hover) */}
-      <div className="w-24 shrink-0 flex items-center justify-end gap-1">
+      <div className="flex w-24 shrink-0 items-center justify-end gap-1">
         {isHovered ? (
           <>
             {onToggleVip && (
               <button
-                type="button"
+                className="rounded-md p-1.5 transition-colors hover:bg-background"
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleVip(contact.id);
                 }}
-                className="p-1.5 rounded-md hover:bg-background transition-colors"
+                type="button"
               >
                 {contact.isVip ? (
                   <StarOff className="h-4 w-4 text-muted-foreground" />
@@ -270,53 +282,61 @@ export function ContactCard({
               </button>
             )}
             <button
-              type="button"
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
               onClick={(e) => {
                 e.stopPropagation();
                 onEmailClick?.(contact.primaryEmail);
               }}
-              className="p-1.5 rounded-md hover:bg-background transition-colors"
+              type="button"
             >
               <Mail className="h-4 w-4 text-muted-foreground" />
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  type="button"
+                  className="rounded-md p-1.5 transition-colors hover:bg-background"
                   onClick={(e) => e.stopPropagation()}
-                  className="p-1.5 rounded-md hover:bg-background transition-colors"
+                  type="button"
                 >
                   <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onViewProfile?.(contact.id)}>
-                  <User className="h-4 w-4 mr-2" />
+                  <User className="mr-2 h-4 w-4" />
                   View Full Profile
                 </DropdownMenuItem>
                 {onGenerateMeetingBrief && (
-                  <DropdownMenuItem onClick={() => onGenerateMeetingBrief(contact.id)}>
-                    <Calendar className="h-4 w-4 mr-2" />
+                  <DropdownMenuItem
+                    onClick={() => onGenerateMeetingBrief(contact.id)}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
                     Generate Meeting Brief
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onEmailClick?.(contact.primaryEmail)}>
-                  <Mail className="h-4 w-4 mr-2" />
+                <DropdownMenuItem
+                  onClick={() => onEmailClick?.(contact.primaryEmail)}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
                   Send Email
                 </DropdownMenuItem>
                 {contact.phone && (
                   <DropdownMenuItem asChild>
                     <a href={`tel:${contact.phone}`}>
-                      <Phone className="h-4 w-4 mr-2" />
+                      <Phone className="mr-2 h-4 w-4" />
                       Call
                     </a>
                   </DropdownMenuItem>
                 )}
                 {contact.linkedinUrl && (
                   <DropdownMenuItem asChild>
-                    <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer">
-                      <Linkedin className="h-4 w-4 mr-2" />
+                    <a
+                      href={contact.linkedinUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      <Linkedin className="mr-2 h-4 w-4" />
                       LinkedIn
                     </a>
                   </DropdownMenuItem>
@@ -326,12 +346,12 @@ export function ContactCard({
                   <DropdownMenuItem onClick={() => onToggleVip(contact.id)}>
                     {contact.isVip ? (
                       <>
-                        <StarOff className="h-4 w-4 mr-2" />
+                        <StarOff className="mr-2 h-4 w-4" />
                         Remove VIP Status
                       </>
                     ) : (
                       <>
-                        <Star className="h-4 w-4 mr-2" />
+                        <Star className="mr-2 h-4 w-4" />
                         Mark as VIP
                       </>
                     )}

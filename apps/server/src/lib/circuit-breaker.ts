@@ -72,7 +72,10 @@ export class CircuitBreaker {
   private readonly resetTimeout: number;
   private readonly successThreshold: number;
   private readonly name: string;
-  private readonly onStateChange?: (from: CircuitState, to: CircuitState) => void;
+  private readonly onStateChange?: (
+    from: CircuitState,
+    to: CircuitState
+  ) => void;
 
   constructor(options: CircuitBreakerOptions) {
     this.failureThreshold = options.failureThreshold;
@@ -208,7 +211,9 @@ export class CircuitBreaker {
     if (this.state !== newState) {
       const oldState = this.state;
       this.state = newState;
-      log.info(`Circuit breaker ${this.name} state change: ${oldState} -> ${newState}`);
+      log.info(
+        `Circuit breaker ${this.name} state change: ${oldState} -> ${newState}`
+      );
       this.onStateChange?.(oldState, newState);
     }
   }
@@ -222,7 +227,7 @@ export class CircuitBreaker {
 export const googleCalendarBreaker = new CircuitBreaker({
   name: "google-calendar",
   failureThreshold: 5,
-  resetTimeout: 30000, // 30 seconds
+  resetTimeout: 30_000, // 30 seconds
   successThreshold: 2,
 });
 
@@ -230,7 +235,7 @@ export const googleCalendarBreaker = new CircuitBreaker({
 export const microsoftGraphBreaker = new CircuitBreaker({
   name: "microsoft-graph",
   failureThreshold: 5,
-  resetTimeout: 30000,
+  resetTimeout: 30_000,
   successThreshold: 2,
 });
 
@@ -238,7 +243,7 @@ export const microsoftGraphBreaker = new CircuitBreaker({
 export const gmailBreaker = new CircuitBreaker({
   name: "gmail",
   failureThreshold: 5,
-  resetTimeout: 30000,
+  resetTimeout: 30_000,
   successThreshold: 2,
 });
 
@@ -246,7 +251,7 @@ export const gmailBreaker = new CircuitBreaker({
 export const slackBreaker = new CircuitBreaker({
   name: "slack",
   failureThreshold: 5,
-  resetTimeout: 30000,
+  resetTimeout: 30_000,
   successThreshold: 2,
 });
 
@@ -254,7 +259,7 @@ export const slackBreaker = new CircuitBreaker({
 export const whatsappBreaker = new CircuitBreaker({
   name: "whatsapp",
   failureThreshold: 5,
-  resetTimeout: 30000,
+  resetTimeout: 30_000,
   successThreshold: 2,
 });
 
@@ -262,7 +267,7 @@ export const whatsappBreaker = new CircuitBreaker({
 export const notionBreaker = new CircuitBreaker({
   name: "notion",
   failureThreshold: 5,
-  resetTimeout: 30000,
+  resetTimeout: 30_000,
   successThreshold: 2,
 });
 
@@ -273,7 +278,10 @@ export const notionBreaker = new CircuitBreaker({
 /**
  * Get all circuit breaker stats for health monitoring
  */
-export function getAllCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
+export function getAllCircuitBreakerStats(): Record<
+  string,
+  CircuitBreakerStats
+> {
   return {
     "google-calendar": googleCalendarBreaker.getStats(),
     "microsoft-graph": microsoftGraphBreaker.getStats(),
@@ -306,7 +314,7 @@ export function createCircuitBreaker(
   return new CircuitBreaker({
     name,
     failureThreshold: options?.failureThreshold ?? 5,
-    resetTimeout: options?.resetTimeout ?? 30000,
+    resetTimeout: options?.resetTimeout ?? 30_000,
     successThreshold: options?.successThreshold ?? 2,
     onStateChange: options?.onStateChange,
   });

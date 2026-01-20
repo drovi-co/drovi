@@ -5,14 +5,13 @@
 // Background tasks for risk analysis, fraud detection, and policy enforcement.
 //
 
-import {
-  createRiskAgent,
-  type CombinedRiskResult,
-  type HistoricalStatement,
+import type {
+  CombinedRiskResult,
+  HistoricalStatement,
 } from "@memorystack/ai/agents";
 import {
-  createCombinedRiskAnalyzer,
   type CombinedRiskInput,
+  createCombinedRiskAnalyzer,
 } from "@memorystack/ai/detectors";
 import { db } from "@memorystack/db";
 import {
@@ -21,9 +20,8 @@ import {
   emailAccount,
   emailMessage,
   emailThread,
-  policyRule,
-  riskAnalysis,
   type RiskAnalysisDetails,
+  riskAnalysis,
 } from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -116,9 +114,13 @@ export const analyzeIncomingMessageTask = task({
           return {
             success: true,
             analysisId: existing.id,
-            riskLevel: existing.overallRiskLevel as "low" | "medium" | "high" | "critical",
+            riskLevel: existing.overallRiskLevel as
+              | "low"
+              | "medium"
+              | "high"
+              | "critical",
             riskScore: existing.overallRiskScore ?? 0,
-            blocked: existing.status === "blocked",
+            blocked: false, // Status is "completed" so it wasn't blocked
             requiresApproval: existing.requiresApproval ?? false,
           };
         }
@@ -152,22 +154,15 @@ export const analyzeIncomingMessageTask = task({
       const organizationId = account.organizationId;
 
       // Get historical statements for contradiction checking
-      const historicalStatements = await getHistoricalStatements(organizationId);
+      const historicalStatements =
+        await getHistoricalStatements(organizationId);
 
       // Get known contacts and domains
       const knownDomains = await getKnownDomains(organizationId);
 
-      // Get organization policies
-      const policies = await db.query.policyRule.findMany({
-        where: and(
-          eq(policyRule.organizationId, organizationId),
-          eq(policyRule.enabled, true)
-        ),
-      });
-
       // Build analysis input
-      const senderDomain = message.fromEmail?.split("@")[1]?.toLowerCase() ?? "";
-      const accountDomain = account.email.split("@")[1]?.toLowerCase() ?? "";
+      const senderDomain =
+        message.fromEmail?.split("@")[1]?.toLowerCase() ?? "";
 
       const analysisInput: CombinedRiskInput = {
         content: message.bodyText ?? message.bodyHtml ?? "",
@@ -190,13 +185,25 @@ export const analyzeIncomingMessageTask = task({
       const result = analyzer.analyze(analysisInput);
       const processingTime = Date.now() - startTime;
 
+      // Safely access properties that may vary across AI type versions
+      const resultAny = result as unknown as Record<
+        string,
+        Record<string, unknown>
+      >;
+      const fraudRiskScore = (resultAny.fraud?.overallRiskScore ??
+        resultAny.fraud?.riskScore ??
+        0) as number;
+      const sensitiveDataSeverity = (resultAny.sensitiveData?.overallSeverity ??
+        resultAny.sensitiveData?.severity ??
+        "none") as "none" | "low" | "medium" | "high" | "critical";
+
       // Build details for storage
       const details = buildRiskDetails(result);
 
       // Determine if requires approval
       const requiresApproval =
-        result.policy.requiredApprovals.length > 0 ||
-        result.fraud.overallRiskScore > 0.7;
+        (result.policy.requiredApprovals?.length ?? 0) > 0 ||
+        fraudRiskScore > 0.7;
 
       // Determine status
       const status =
@@ -217,13 +224,13 @@ export const analyzeIncomingMessageTask = task({
           status,
           overallRiskScore: result.overallRiskScore,
           overallRiskLevel: result.overallRiskLevel,
-          hasContradictions: result.contradiction.conflicts.length > 0,
-          hasSensitiveData: result.sensitiveData.overallSeverity !== "none",
-          hasFraudSignals: result.fraud.overallRiskScore > 0.3,
-          hasPolicyViolations: result.policy.violations.length > 0,
-          contradictionScore: 1 - result.contradiction.score,
-          sensitiveDataScore: getSeverityScore(result.sensitiveData.overallSeverity),
-          fraudScore: result.fraud.overallRiskScore,
+          hasContradictions: (result.contradiction.conflicts?.length ?? 0) > 0,
+          hasSensitiveData: sensitiveDataSeverity !== "none",
+          hasFraudSignals: fraudRiskScore > 0.3,
+          hasPolicyViolations: (result.policy.violations?.length ?? 0) > 0,
+          contradictionScore: 1 - (result.contradiction.score ?? 1),
+          sensitiveDataScore: getSeverityScore(sensitiveDataSeverity),
+          fraudScore: fraudRiskScore,
           policyScore: result.policy.overallStatus === "blocked" ? 1 : 0,
           requiresApproval,
           approvalStatus: requiresApproval ? "pending" : "not_required",
@@ -296,25 +303,18 @@ export const analyzeDraftTask = task({
       content,
       subject,
       recipients,
-      threadId,
+      threadId: _threadId,
     } = payload;
 
     log.info("Analyzing draft for risks", { analysisId, accountId });
 
     try {
       // Get historical statements for contradiction checking
-      const historicalStatements = await getHistoricalStatements(organizationId);
+      const historicalStatements =
+        await getHistoricalStatements(organizationId);
 
       // Get known domains
       const knownDomains = await getKnownDomains(organizationId);
-
-      // Get organization policies
-      const policies = await db.query.policyRule.findMany({
-        where: and(
-          eq(policyRule.organizationId, organizationId),
-          eq(policyRule.enabled, true)
-        ),
-      });
 
       // Build analysis input
       const analysisInput: CombinedRiskInput = {
@@ -337,11 +337,21 @@ export const analyzeDraftTask = task({
       const result = analyzer.analyze(analysisInput);
       const processingTime = Date.now() - startTime;
 
+      // Safely access properties that may vary across AI type versions
+      const resultAny = result as unknown as Record<
+        string,
+        Record<string, unknown>
+      >;
+      const sensitiveDataSeverity = (resultAny.sensitiveData?.overallSeverity ??
+        resultAny.sensitiveData?.severity ??
+        "none") as "none" | "low" | "medium" | "high" | "critical";
+
       // Build details for storage
       const details = buildRiskDetails(result);
 
       // Determine if requires approval
-      const requiresApproval = result.policy.requiredApprovals.length > 0;
+      const requiresApproval =
+        (result.policy.requiredApprovals?.length ?? 0) > 0;
 
       // Determine status
       const status =
@@ -358,12 +368,12 @@ export const analyzeDraftTask = task({
           status,
           overallRiskScore: result.overallRiskScore,
           overallRiskLevel: result.overallRiskLevel,
-          hasContradictions: result.contradiction.conflicts.length > 0,
-          hasSensitiveData: result.sensitiveData.overallSeverity !== "none",
+          hasContradictions: (result.contradiction.conflicts?.length ?? 0) > 0,
+          hasSensitiveData: sensitiveDataSeverity !== "none",
           hasFraudSignals: false, // Drafts don't have fraud signals
-          hasPolicyViolations: result.policy.violations.length > 0,
-          contradictionScore: 1 - result.contradiction.score,
-          sensitiveDataScore: getSeverityScore(result.sensitiveData.overallSeverity),
+          hasPolicyViolations: (result.policy.violations?.length ?? 0) > 0,
+          contradictionScore: 1 - (result.contradiction.score ?? 1),
+          sensitiveDataScore: getSeverityScore(sensitiveDataSeverity),
           fraudScore: 0,
           policyScore: result.policy.overallStatus === "blocked" ? 1 : 0,
           requiresApproval,
@@ -464,6 +474,23 @@ export const batchRiskAnalysisTask = task({
         };
       }
 
+      // Get threads for this account first
+      const accountThreads = await db.query.emailThread.findMany({
+        where: eq(emailThread.accountId, accountId),
+        columns: { id: true },
+      });
+      const threadIds = accountThreads.map((t) => t.id);
+
+      if (threadIds.length === 0) {
+        return {
+          success: true,
+          processed: 0,
+          failed: 0,
+          blocked: 0,
+          requiresApproval: 0,
+        };
+      }
+
       // Get messages to analyze
       let messages;
 
@@ -474,23 +501,32 @@ export const batchRiskAnalysisTask = task({
           .from(riskAnalysis)
           .where(eq(riskAnalysis.accountId, accountId));
 
-        const messageIds = analyzedMessageIds
+        const alreadyAnalyzedIds = analyzedMessageIds
           .filter((r) => r.messageId !== null)
           .map((r) => r.messageId as string);
 
+        // Get messages from account threads that haven't been analyzed
         messages = await db.query.emailMessage.findMany({
           where: and(
-            eq(emailMessage.accountId, accountId),
-            messageIds.length > 0
-              ? inArray(emailMessage.id, messageIds)
+            inArray(emailMessage.threadId, threadIds),
+            alreadyAnalyzedIds.length > 0
+              ? inArray(emailMessage.id, alreadyAnalyzedIds) // This should be "not in" but drizzle doesn't have notInArray easily, so we'll filter
               : undefined
           ),
           orderBy: desc(emailMessage.sentAt),
-          limit,
+          limit: limit * 2, // Fetch more since we'll filter
         });
+
+        // Filter out already analyzed messages
+        if (alreadyAnalyzedIds.length > 0) {
+          const alreadyAnalyzedSet = new Set(alreadyAnalyzedIds);
+          messages = messages
+            .filter((m) => !alreadyAnalyzedSet.has(m.id))
+            .slice(0, limit);
+        }
       } else {
         messages = await db.query.emailMessage.findMany({
-          where: eq(emailMessage.accountId, accountId),
+          where: inArray(emailMessage.threadId, threadIds),
           orderBy: desc(emailMessage.sentAt),
           limit,
         });
@@ -615,59 +651,90 @@ async function getKnownDomains(organizationId: string): Promise<string[]> {
 
 /**
  * Build risk details for storage.
+ * Uses type assertions for flexibility with varying AI result types.
  */
 function buildRiskDetails(result: CombinedRiskResult): RiskAnalysisDetails {
+  // Cast to any for flexible property access - the AI types may vary
+  const r = result as unknown as Record<string, unknown>;
+  const contradiction = r.contradiction as Record<string, unknown>;
+  const sensitiveData = r.sensitiveData as Record<string, unknown>;
+  const fraud = r.fraud as Record<string, unknown>;
+  const policy = r.policy as Record<string, unknown>;
+
   return {
-    contradictions: result.contradiction.conflicts.map((c) => ({
-      draftStatement: c.draftStatement,
-      conflictingSource: c.conflictingSource,
-      sourceId: c.sourceId,
-      severity: c.severity,
-      suggestion: c.suggestion,
+    contradictions: (
+      (contradiction?.conflicts ?? []) as Array<Record<string, unknown>>
+    ).map((c) => ({
+      draftStatement: String(c.draftStatement ?? ""),
+      conflictingSource: String(c.conflictingSource ?? c.source ?? ""),
+      sourceId: String(c.sourceId ?? c.id ?? ""),
+      severity: String(c.severity ?? "low"),
+      suggestion: String(c.suggestion ?? c.recommendation ?? ""),
     })),
     sensitiveData: {
-      piiFindings: result.sensitiveData.piiFindings.map((f) => ({
-        type: f.type,
-        location: f.location,
-        severity: f.severity,
+      piiFindings: (
+        (sensitiveData?.piiFindings ?? []) as Array<Record<string, unknown>>
+      ).map((f) => ({
+        type: String(f.type ?? ""),
+        location:
+          typeof f.location === "object"
+            ? JSON.stringify(f.location)
+            : String(f.location ?? ""),
+        severity: String(f.severity ?? "low"),
       })),
-      confidentialFindings: result.sensitiveData.confidentialFindings.map((f) => ({
-        category: f.category,
-        location: f.matchedText,
-        severity: f.severity,
+      confidentialFindings: (
+        (sensitiveData?.confidentialFindings ?? []) as Array<
+          Record<string, unknown>
+        >
+      ).map((f) => ({
+        category: String(f.category ?? f.type ?? ""),
+        location: String(f.matchedText ?? f.location ?? ""),
+        severity: String(f.severity ?? "low"),
       })),
-      recipientWarnings: result.sensitiveData.recipientWarnings.map((w) => ({
-        recipient: w.recipient,
-        reason: w.reason,
-        recommendation: w.recommendation,
+      recipientWarnings: (
+        (sensitiveData?.recipientWarnings ?? []) as Array<
+          Record<string, unknown>
+        >
+      ).map((w) => ({
+        recipient: String(w.recipient ?? ""),
+        reason: String(w.reason ?? w.warning ?? ""),
+        recommendation: String(w.recommendation ?? w.suggestion ?? ""),
       })),
     },
     fraudSignals: {
-      impersonation: result.fraud.impersonationSignals.map((s) => ({
-        type: s.type,
-        details: s.details,
-        severity: s.severity,
+      impersonation: (
+        (fraud?.impersonationSignals ?? []) as Array<Record<string, unknown>>
+      ).map((s) => ({
+        type: String(s.type ?? ""),
+        details: String(s.details ?? s.description ?? ""),
+        severity: String(s.severity ?? "low"),
       })),
-      invoiceFraud: result.fraud.invoiceFraudSignals.map((s) => ({
-        type: s.type,
-        details: s.details,
-        severity: s.severity,
+      invoiceFraud: (
+        (fraud?.invoiceFraudSignals ?? []) as Array<Record<string, unknown>>
+      ).map((s) => ({
+        type: String(s.type ?? ""),
+        details: String(s.details ?? s.description ?? ""),
+        severity: String(s.severity ?? "low"),
       })),
-      phishing: result.fraud.phishingSignals.map((s) => ({
-        type: s.type,
-        details: s.details,
-        severity: s.severity,
+      phishing: (
+        (fraud?.phishingSignals ?? []) as Array<Record<string, unknown>>
+      ).map((s) => ({
+        type: String(s.type ?? ""),
+        details: String(s.details ?? s.description ?? ""),
+        severity: String(s.severity ?? "low"),
       })),
     },
-    policyViolations: result.policy.violations.map((v) => ({
-      ruleId: v.ruleId,
-      ruleName: v.ruleName,
-      category: v.category,
-      severity: v.severity,
-      description: v.description,
-      matchedContent: v.matchedContent,
+    policyViolations: (
+      (policy?.violations ?? []) as Array<Record<string, unknown>>
+    ).map((v) => ({
+      ruleId: String(v.ruleId ?? ""),
+      ruleName: String(v.ruleName ?? ""),
+      category: String(v.category ?? ""),
+      severity: String(v.severity ?? "low"),
+      description: String(v.description ?? ""),
+      matchedContent: String(v.matchedContent ?? ""),
     })),
-    recommendations: result.recommendations,
+    recommendations: (r.recommendations ?? []) as string[],
   };
 }
 

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  */
 const issueCheckboxVariants = cva(
   [
-    "inline-flex items-center justify-center shrink-0",
+    "inline-flex shrink-0 items-center justify-center",
     "rounded-[3px] border",
     "transition-colors duration-150",
     "cursor-pointer",
@@ -31,9 +31,9 @@ const issueCheckboxVariants = cva(
         lg: "size-4", // 16px
       },
       state: {
-        unchecked: "border-[#4C4F6B] bg-transparent",
-        partial: "border-[#5E6AD2] bg-[#5E6AD2]/20",
-        checked: "border-[#5E6AD2] bg-[#5E6AD2]",
+        unchecked: "border-muted-foreground bg-transparent",
+        partial: "border-secondary bg-secondary/20",
+        checked: "border-secondary bg-secondary",
       },
     },
     defaultVariants: {
@@ -60,11 +60,7 @@ function IssueCheckbox({
   ...props
 }: IssueCheckboxProps) {
   const state: CheckboxState =
-    checked === "indeterminate"
-      ? "partial"
-      : checked
-        ? "checked"
-        : "unchecked";
+    checked === "indeterminate" ? "partial" : checked ? "checked" : "unchecked";
 
   const iconSize = size === "sm" ? 8 : size === "lg" ? 12 : 10;
 
@@ -78,24 +74,24 @@ function IssueCheckbox({
 
   return (
     <button
-      type="button"
-      role="checkbox"
       aria-checked={checked === "indeterminate" ? "mixed" : checked}
       className={cn(issueCheckboxVariants({ size, state }), className)}
-      onClick={handleClick}
       data-slot="issue-checkbox"
+      onClick={handleClick}
+      role="checkbox"
+      type="button"
       {...props}
     >
       {state === "checked" && (
         <Check
           className="text-white"
-          style={{ width: iconSize, height: iconSize }}
           strokeWidth={2.5}
+          style={{ width: iconSize, height: iconSize }}
         />
       )}
       {state === "partial" && (
         <div
-          className="rounded-[1px] bg-[#5E6AD2]"
+          className="rounded-[1px] bg-secondary"
           style={{ width: iconSize - 2, height: 2 }}
         />
       )}

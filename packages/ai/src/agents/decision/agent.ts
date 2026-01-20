@@ -30,8 +30,8 @@ import {
   SupersessionDetectionResponseSchema,
 } from "./types";
 
-// Model version for tracking
-const MODEL_VERSION = "1.0.0";
+// Model version for tracking - currently unused but kept for future versioning
+// const MODEL_VERSION = "1.0.0";
 
 /**
  * Decision Agent
@@ -94,6 +94,7 @@ export class DecisionAgent {
         if (llmDecision.participantEmails) {
           for (const email of llmDecision.participantEmails) {
             participants.push({
+              name: null,
               email,
               isUser: email.toLowerCase() === context.userEmail.toLowerCase(),
               role: "participant",
@@ -127,9 +128,9 @@ export class DecisionAgent {
           rationale: llmDecision.rationale,
           topic: llmDecision.topic,
           impactAreas: llmDecision.impactAreas,
-          alternatives: alternatives.length > 0 ? alternatives : undefined,
-          owners: owners.length > 0 ? owners : undefined,
-          participants: participants.length > 0 ? participants : undefined,
+          alternatives: alternatives.length > 0 ? alternatives : null,
+          owners: owners.length > 0 ? owners : null,
+          participants: participants.length > 0 ? participants : null,
           decidedAt: llmDecision.decidedAt,
           sourceClaimId: sourceClaim?.id || "",
           sourceThreadId: context.threadId,
@@ -262,7 +263,7 @@ export class DecisionAgent {
       const prompt = buildSupersessionPrompt(
         {
           title: newDecision.title,
-          statement: newDecision.statement,
+          statement: newDecision.statement ?? undefined,
           topic: newDecision.topic,
           decidedAt: newDecision.decidedAt,
         },
@@ -387,7 +388,7 @@ export class DecisionAgent {
 
       return {
         relevantDecisions,
-        answer: result.object.answer,
+        answer: result.object.answer ?? undefined,
       };
     } catch (error) {
       trace.generation({
@@ -426,7 +427,7 @@ export class DecisionAgent {
     if (sourceMessage) {
       owners.push({
         email: sourceMessage.fromEmail,
-        name: sourceMessage.fromName,
+        name: sourceMessage.fromName ?? null,
         isUser: sourceMessage.isFromUser,
         role: "decision_maker",
         confidence: 0.7,

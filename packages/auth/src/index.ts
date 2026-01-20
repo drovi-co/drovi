@@ -1,8 +1,8 @@
-import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { db } from "@memorystack/db";
 import * as schema from "@memorystack/db/schema";
 import { InvitationEmail, sendEmail } from "@memorystack/email";
 import { env } from "@memorystack/env/server";
+import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins/admin";
@@ -18,7 +18,7 @@ export const auth = betterAuth({
     schema,
   }),
   trustedOrigins: [env.CORS_ORIGIN],
-  appName: "MemoryStack",
+  appName: "Drovi",
   // MEMORYSTACK: Disable email/password - OAuth only
   emailAndPassword: {
     enabled: false,
@@ -140,30 +140,31 @@ export const auth = betterAuth({
     },
   },
   // Disable rate limiting in development, use permissive limits in production
-  rateLimit: env.NODE_ENV === "development"
-    ? { enabled: false }
-    : {
-        window: 60, // 60 seconds
-        max: 100, // 100 requests per window
-        customRules: {
-          "/sign-in/*": {
-            window: 60,
-            max: 10,
-          },
-          "/sign-up/*": {
-            window: 60,
-            max: 10,
-          },
-          "/magic-link/*": {
-            window: 60,
-            max: 10,
-          },
-          "/forgot-password/*": {
-            window: 60,
-            max: 5,
+  rateLimit:
+    env.NODE_ENV === "development"
+      ? { enabled: false }
+      : {
+          window: 60, // 60 seconds
+          max: 100, // 100 requests per window
+          customRules: {
+            "/sign-in/*": {
+              window: 60,
+              max: 10,
+            },
+            "/sign-up/*": {
+              window: 60,
+              max: 10,
+            },
+            "/magic-link/*": {
+              window: 60,
+              max: 10,
+            },
+            "/forgot-password/*": {
+              window: 60,
+              max: 5,
+            },
           },
         },
-      },
   // MEMORYSTACK: OAuth-only authentication with Google and Microsoft
   // These same credentials are used for email access (Gmail/Outlook)
   socialProviders: {

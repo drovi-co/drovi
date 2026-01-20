@@ -12,16 +12,15 @@
 //
 
 import { db } from "@memorystack/db";
+import type { TaskMetadata } from "@memorystack/db/schema";
 import {
   commitment,
   conversation,
   decision,
-  sourceAccount,
   task,
 } from "@memorystack/db/schema";
-import type { TaskMetadata } from "@memorystack/db/schema";
 import { task as triggerTask } from "@trigger.dev/sdk";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { log } from "../lib/logger";
 
 // =============================================================================
@@ -72,9 +71,9 @@ interface BatchTaskCreationResult {
  * Generate a URL for the source item
  */
 function getSourceUrl(
-  sourceType: string,
-  sourceAccountType: string,
-  externalId: string
+  _sourceType: string,
+  _sourceAccountType: string,
+  _externalId: string
 ): string | undefined {
   // TODO: Implement proper URL generation based on source type
   // For now, return undefined - this can be enhanced later
@@ -138,7 +137,9 @@ export const createTaskForConversationTask = triggerTask({
 
       // Create task with proper fields from conversation schema
       const title =
-        conv.title || conv.snippet?.slice(0, 100) || `${conv.conversationType ?? "Message"} from ${conv.sourceAccount.type}`;
+        conv.title ||
+        conv.snippet?.slice(0, 100) ||
+        `${conv.conversationType ?? "Message"} from ${conv.sourceAccount.type}`;
 
       // Build description from available AI analysis
       const descriptionParts: string[] = [];
@@ -146,7 +147,9 @@ export const createTaskForConversationTask = triggerTask({
         descriptionParts.push(conv.briefSummary);
       }
       if (conv.suggestedAction) {
-        descriptionParts.push(`\n**Suggested action:** ${conv.suggestedAction}`);
+        descriptionParts.push(
+          `\n**Suggested action:** ${conv.suggestedAction}`
+        );
       }
       if (conv.snippet && !conv.briefSummary) {
         descriptionParts.push(conv.snippet);
@@ -158,11 +161,15 @@ export const createTaskForConversationTask = triggerTask({
       const importance = conv.importanceScore ?? 0;
       const priorityScore = Math.max(urgency, importance);
       const priority =
-        priorityScore >= 0.8 ? "urgent" as const :
-        priorityScore >= 0.6 ? "high" as const :
-        priorityScore >= 0.4 ? "medium" as const :
-        priorityScore >= 0.2 ? "low" as const :
-        "no_priority" as const;
+        priorityScore >= 0.8
+          ? ("urgent" as const)
+          : priorityScore >= 0.6
+            ? ("high" as const)
+            : priorityScore >= 0.4
+              ? ("medium" as const)
+              : priorityScore >= 0.2
+                ? ("low" as const)
+                : ("no_priority" as const);
 
       const metadata: TaskMetadata = {
         sourceUrl: getSourceUrl(
@@ -248,6 +255,13 @@ export const createTaskForCommitmentTask = triggerTask({
         return {
           success: false,
           error: "Commitment not found",
+        };
+      }
+
+      if (!comm.organizationId) {
+        return {
+          success: false,
+          error: "Commitment has no organization",
         };
       }
 
@@ -354,6 +368,13 @@ export const createTaskForDecisionTask = triggerTask({
         };
       }
 
+      if (!dec.organizationId) {
+        return {
+          success: false,
+          error: "Decision has no organization",
+        };
+      }
+
       // Check if task already exists
       const existingTask = await db.query.task.findFirst({
         where: eq(task.sourceDecisionId, decisionId),
@@ -379,7 +400,9 @@ export const createTaskForDecisionTask = triggerTask({
         .values({
           organizationId: dec.organizationId,
           title: dec.title.slice(0, 500),
-          description: dec.statement + (dec.rationale ? `\n\nRationale: ${dec.rationale}` : ""),
+          description:
+            dec.statement +
+            (dec.rationale ? `\n\nRationale: ${dec.rationale}` : ""),
           sourceType: "decision",
           sourceDecisionId: decisionId,
           status: "backlog",

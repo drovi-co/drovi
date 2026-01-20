@@ -2,22 +2,22 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import {
-  Plus,
-  Expand,
-  Paperclip,
-  MoreHorizontal,
-  Link2,
-  Copy,
-  Trash2,
-  Edit,
-  ExternalLink,
-  ChevronRight,
   ChevronDown,
-  Settings,
-  Search,
+  ChevronRight,
+  Copy,
+  Edit,
+  Expand,
+  ExternalLink,
   Filter,
+  Link2,
+  MoreHorizontal,
+  Paperclip,
+  Plus,
+  Search,
+  Settings,
+  Trash2,
 } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
  */
 const iconButtonVariants = cva(
   [
-    "inline-flex items-center justify-center shrink-0",
+    "inline-flex shrink-0 items-center justify-center",
     "rounded-[4px]",
     "transition-colors duration-150",
     "cursor-pointer",
@@ -99,20 +99,31 @@ function IconButton({
   ...props
 }: IconButtonProps) {
   const iconSize =
-    size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 18 : size === "xl" ? 20 : 16;
+    size === "xs"
+      ? 12
+      : size === "sm"
+        ? 14
+        : size === "lg"
+          ? 18
+          : size === "xl"
+            ? 20
+            : 16;
 
   return (
     <button
-      type="button"
       aria-label={label}
       className={cn(iconButtonVariants({ variant, size }), className)}
       data-slot="icon-button"
+      type="button"
       {...props}
     >
       {React.isValidElement(icon)
-        ? React.cloneElement(icon as React.ReactElement<{ style?: React.CSSProperties }>, {
-            style: { width: iconSize, height: iconSize },
-          })
+        ? React.cloneElement(
+            icon as React.ReactElement<{ style?: React.CSSProperties }>,
+            {
+              style: { width: iconSize, height: iconSize },
+            }
+          )
         : icon}
     </button>
   );
@@ -134,7 +145,9 @@ function AttachButton(props: Omit<IconButtonProps, "icon" | "label">) {
 }
 
 function MoreButton(props: Omit<IconButtonProps, "icon" | "label">) {
-  return <IconButton icon={<MoreHorizontal />} label="More options" {...props} />;
+  return (
+    <IconButton icon={<MoreHorizontal />} label="More options" {...props} />
+  );
 }
 
 function LinkButton(props: Omit<IconButtonProps, "icon" | "label">) {
@@ -146,7 +159,14 @@ function CopyButton(props: Omit<IconButtonProps, "icon" | "label">) {
 }
 
 function DeleteButton(props: Omit<IconButtonProps, "icon" | "label">) {
-  return <IconButton icon={<Trash2 />} label="Delete" variant="destructive" {...props} />;
+  return (
+    <IconButton
+      icon={<Trash2 />}
+      label="Delete"
+      variant="destructive"
+      {...props}
+    />
+  );
 }
 
 function EditButton(props: Omit<IconButtonProps, "icon" | "label">) {
@@ -154,7 +174,9 @@ function EditButton(props: Omit<IconButtonProps, "icon" | "label">) {
 }
 
 function ExternalLinkButton(props: Omit<IconButtonProps, "icon" | "label">) {
-  return <IconButton icon={<ExternalLink />} label="Open in new tab" {...props} />;
+  return (
+    <IconButton icon={<ExternalLink />} label="Open in new tab" {...props} />
+  );
 }
 
 function ExpandRightButton(props: Omit<IconButtonProps, "icon" | "label">) {

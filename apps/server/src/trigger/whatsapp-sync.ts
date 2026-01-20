@@ -13,7 +13,18 @@
 // 4. Triggers intelligence extraction for unprocessed messages
 //
 
-import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { randomUUID } from "node:crypto";
+import {
+  analyzeThread,
+  claimsToDbFormat,
+  type ThreadInput,
+  type ThreadMessage,
+} from "@memorystack/ai/agents";
+import {
+  debugWhatsAppToken,
+  getWhatsAppPhoneNumbers,
+  WHATSAPP_API_BASE,
+} from "@memorystack/auth/providers/whatsapp";
 import { db } from "@memorystack/db";
 import {
   claim,
@@ -29,21 +40,18 @@ import {
   whatsappPhoneNumber,
   whatsappTemplate,
 } from "@memorystack/db/schema";
+import { logger, schedules, task } from "@trigger.dev/sdk/v3";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
-import {
-  debugWhatsAppToken,
-  getWhatsAppPhoneNumbers,
-  WHATSAPP_API_BASE,
-} from "@memorystack/auth/providers/whatsapp";
 import { safeDecryptToken } from "../lib/crypto/tokens";
-import {
-  analyzeThread,
-  claimsToDbFormat,
-  type ThreadInput,
-  type ThreadMessage,
-} from "@memorystack/ai/agents";
 import { embedConversationTask } from "./embedding-generation";
+import {
+  checkExistingCommitment,
+  checkExistingDecision,
+} from "./lib/commitment-dedup";
+import {
+  processCommitmentTask,
+  processDecisionTask,
+} from "./unified-object-processing";
 
 const log = logger;
 
@@ -80,9 +88,20 @@ interface WhatsAppMessageReceivedPayload {
     image?: { id: string; mime_type: string; sha256: string; caption?: string };
     audio?: { id: string; mime_type: string; voice?: boolean };
     video?: { id: string; mime_type: string; sha256: string; caption?: string };
-    document?: { id: string; mime_type: string; sha256: string; filename?: string; caption?: string };
+    document?: {
+      id: string;
+      mime_type: string;
+      sha256: string;
+      filename?: string;
+      caption?: string;
+    };
     sticker?: { id: string; mime_type: string; animated?: boolean };
-    location?: { latitude: number; longitude: number; name?: string; address?: string };
+    location?: {
+      latitude: number;
+      longitude: number;
+      name?: string;
+      address?: string;
+    };
     contacts?: unknown[];
     context?: { from: string; id: string; forwarded?: boolean };
     reaction?: { message_id: string; emoji: string };
@@ -187,7 +206,10 @@ export const syncWhatsAppTask = task({
 
       // Sync phone numbers
       try {
-        const phoneNumbers = await getWhatsAppPhoneNumbers(waba.wabaId, accessToken);
+        const phoneNumbers = await getWhatsAppPhoneNumbers(
+          waba.wabaId,
+          accessToken
+        );
 
         for (const pn of phoneNumbers) {
           await db
@@ -205,7 +227,10 @@ export const syncWhatsAppTask = task({
               updatedAt: new Date(),
             })
             .onConflictDoUpdate({
-              target: [whatsappPhoneNumber.wabaId, whatsappPhoneNumber.phoneNumberId],
+              target: [
+                whatsappPhoneNumber.wabaId,
+                whatsappPhoneNumber.phoneNumberId,
+              ],
               set: {
                 displayPhoneNumber: pn.display_phone_number,
                 verifiedName: pn.verified_name,
@@ -246,7 +271,11 @@ export const syncWhatsAppTask = task({
               updatedAt: new Date(),
             })
             .onConflictDoUpdate({
-              target: [whatsappTemplate.wabaId, whatsappTemplate.name, whatsappTemplate.language],
+              target: [
+                whatsappTemplate.wabaId,
+                whatsappTemplate.name,
+                whatsappTemplate.language,
+              ],
               set: {
                 templateId: template.id,
                 category: template.category,
@@ -365,18 +394,22 @@ export const whatsappMessageReceivedTask = task({
           profileName: contactName,
           pushName: contactName,
           messageCount: 1,
-          lastMessageAt: new Date(parseInt(msg.timestamp, 10) * 1000),
+          lastMessageAt: new Date(Number.parseInt(msg.timestamp, 10) * 1000),
           lastFetchedAt: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: [whatsappContactCache.sourceAccountId, whatsappContactCache.waId],
+          target: [
+            whatsappContactCache.sourceAccountId,
+            whatsappContactCache.waId,
+          ],
           set: {
-            profileName: contactName ?? sql`${whatsappContactCache.profileName}`,
+            profileName:
+              contactName ?? sql`${whatsappContactCache.profileName}`,
             pushName: contactName ?? sql`${whatsappContactCache.pushName}`,
             messageCount: sql`${whatsappContactCache.messageCount} + 1`,
-            lastMessageAt: new Date(parseInt(msg.timestamp, 10) * 1000),
+            lastMessageAt: new Date(Number.parseInt(msg.timestamp, 10) * 1000),
             lastFetchedAt: new Date(),
             updatedAt: new Date(),
           },
@@ -392,11 +425,24 @@ export const whatsappMessageReceivedTask = task({
       });
 
       const now = new Date();
-      const sentAt = new Date(parseInt(msg.timestamp, 10) * 1000);
+      const sentAt = new Date(Number.parseInt(msg.timestamp, 10) * 1000);
 
       let convId: string;
 
-      if (!existingConv) {
+      if (existingConv) {
+        // Update existing conversation
+        convId = existingConv.id;
+        await db
+          .update(conversation)
+          .set({
+            snippet: getMessageSnippet(msg),
+            messageCount: sql`${conversation.messageCount} + 1`,
+            lastMessageAt: sentAt,
+            isRead: false,
+            updatedAt: now,
+          })
+          .where(eq(conversation.id, convId));
+      } else {
         // Create new conversation
         convId = randomUUID();
         await db.insert(conversation).values({
@@ -422,19 +468,6 @@ export const whatsappMessageReceivedTask = task({
           createdAt: now,
           updatedAt: now,
         });
-      } else {
-        // Update existing conversation
-        convId = existingConv.id;
-        await db
-          .update(conversation)
-          .set({
-            snippet: getMessageSnippet(msg),
-            messageCount: sql`${conversation.messageCount} + 1`,
-            lastMessageAt: sentAt,
-            isRead: false,
-            updatedAt: now,
-          })
-          .where(eq(conversation.id, convId));
       }
 
       // Insert message
@@ -501,9 +534,13 @@ export const whatsappMessageReceivedTask = task({
             },
           }
         );
-        log.info("Triggered WhatsApp conversation analysis", { conversationId: convId });
+        log.info("Triggered WhatsApp conversation analysis", {
+          conversationId: convId,
+        });
       } catch (e) {
-        log.warn("Failed to trigger WhatsApp conversation analysis", { error: e });
+        log.warn("Failed to trigger WhatsApp conversation analysis", {
+          error: e,
+        });
       }
 
       return { success: true, messageId, conversationId: convId };
@@ -530,20 +567,27 @@ type WhatsAppTemplateComponent = {
   format?: string;
   text?: string;
   example?: { header_text?: string[]; body_text?: string[][] };
-  buttons?: Array<{ type: string; text: string; url?: string; phone_number?: string }>;
+  buttons?: Array<{
+    type: string;
+    text: string;
+    url?: string;
+    phone_number?: string;
+  }>;
 };
 
 async function fetchMessageTemplates(
   wabaId: string,
   accessToken: string
-): Promise<Array<{
-  id: string;
-  name: string;
-  language: string;
-  category: string;
-  status: string;
-  components: WhatsAppTemplateComponent[];
-}>> {
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    language: string;
+    category: string;
+    status: string;
+    components: WhatsAppTemplateComponent[];
+  }>
+> {
   const response = await fetch(
     `${WHATSAPP_API_BASE}/${wabaId}/message_templates?access_token=${accessToken}`
   );
@@ -574,7 +618,9 @@ async function fetchMessageTemplates(
 /**
  * Extract text content from a WhatsApp message.
  */
-function getMessageText(msg: WhatsAppMessageReceivedPayload["message"]): string {
+function getMessageText(
+  msg: WhatsAppMessageReceivedPayload["message"]
+): string {
   switch (msg.type) {
     case "text":
       return msg.text?.body ?? "";
@@ -585,7 +631,10 @@ function getMessageText(msg: WhatsAppMessageReceivedPayload["message"]): string 
     case "audio":
       return msg.audio?.voice ? "[Voice Message]" : "[Audio]";
     case "document":
-      return msg.document?.caption ?? `[Document: ${msg.document?.filename ?? "file"}]`;
+      return (
+        msg.document?.caption ??
+        `[Document: ${msg.document?.filename ?? "file"}]`
+      );
     case "sticker":
       return "[Sticker]";
     case "location":
@@ -602,7 +651,9 @@ function getMessageText(msg: WhatsAppMessageReceivedPayload["message"]): string 
 /**
  * Get a short snippet for conversation preview.
  */
-function getMessageSnippet(msg: WhatsAppMessageReceivedPayload["message"]): string {
+function getMessageSnippet(
+  msg: WhatsAppMessageReceivedPayload["message"]
+): string {
   const text = getMessageText(msg);
   return text.length > 100 ? `${text.slice(0, 97)}...` : text;
 }
@@ -617,7 +668,9 @@ function hasMedia(msg: WhatsAppMessageReceivedPayload["message"]): boolean {
 /**
  * Get media ID from message.
  */
-function getMediaId(msg: WhatsAppMessageReceivedPayload["message"]): string | undefined {
+function getMediaId(
+  msg: WhatsAppMessageReceivedPayload["message"]
+): string | undefined {
   switch (msg.type) {
     case "image":
       return msg.image?.id;
@@ -637,7 +690,9 @@ function getMediaId(msg: WhatsAppMessageReceivedPayload["message"]): string | un
 /**
  * Get media MIME type from message.
  */
-function getMediaMimeType(msg: WhatsAppMessageReceivedPayload["message"]): string | undefined {
+function getMediaMimeType(
+  msg: WhatsAppMessageReceivedPayload["message"]
+): string | undefined {
   switch (msg.type) {
     case "image":
       return msg.image?.mime_type;
@@ -697,10 +752,15 @@ export const analyzeWhatsAppConversationTask = task({
   },
   maxDuration: 180, // 3 minutes max
 
-  run: async (payload: WhatsAppConversationAnalysisPayload): Promise<WhatsAppConversationAnalysisResult> => {
+  run: async (
+    payload: WhatsAppConversationAnalysisPayload
+  ): Promise<WhatsAppConversationAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
-    log.info("Starting WhatsApp conversation analysis", { conversationId, force });
+    log.info("Starting WhatsApp conversation analysis", {
+      conversationId,
+      force,
+    });
 
     const result: WhatsAppConversationAnalysisResult = {
       success: false,
@@ -742,23 +802,27 @@ export const analyzeWhatsAppConversationTask = task({
       }
 
       // Get the phone number for this conversation (the "user")
-      const metadata = conv.metadata as { phoneNumberId?: string; contactName?: string } | undefined;
+      const metadata = conv.metadata as
+        | { phoneNumberId?: string; contactName?: string }
+        | undefined;
       const phoneNumberId = metadata?.phoneNumberId ?? "";
 
       // Convert WhatsApp messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map((msg, index) => ({
-        id: msg.id,
-        providerMessageId: msg.externalId ?? msg.id,
-        fromEmail: msg.senderExternalId ?? "unknown",
-        fromName: msg.senderName ?? undefined,
-        toRecipients: [{ email: phoneNumberId, name: "You" }],
-        subject: undefined,
-        bodyText: msg.bodyText ?? "",
-        sentAt: msg.sentAt ?? undefined,
-        receivedAt: msg.receivedAt ?? undefined,
-        isFromUser: msg.isFromUser ?? false,
-        messageIndex: index,
-      }));
+      const threadMessages: ThreadMessage[] = conv.messages.map(
+        (msg, index) => ({
+          id: msg.id,
+          providerMessageId: msg.externalId ?? msg.id,
+          fromEmail: msg.senderExternalId ?? "unknown",
+          fromName: msg.senderName ?? undefined,
+          toRecipients: [{ email: phoneNumberId, name: "You" }],
+          subject: undefined,
+          bodyText: msg.bodyText ?? "",
+          sentAt: msg.sentAt ?? undefined,
+          receivedAt: msg.receivedAt ?? undefined,
+          isFromUser: msg.isFromUser ?? false,
+          messageIndex: index,
+        })
+      );
 
       // Build ThreadInput for the agent
       const threadInput: ThreadInput = {
@@ -800,7 +864,11 @@ export const analyzeWhatsAppConversationTask = task({
       });
 
       // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(analysis.claims, conversationId, conv.sourceAccount.organizationId);
+      const dbClaims = claimsToDbFormat(
+        analysis.claims,
+        conversationId,
+        conv.sourceAccount.organizationId
+      );
 
       // Insert claims into database
       if (dbClaims.length > 0) {
@@ -827,7 +895,14 @@ export const analyzeWhatsAppConversationTask = task({
       // Update conversation with analysis results
       // Map urgency score to priority tier
       const urgencyScore = analysis.classification.urgency.score;
-      const priorityTier = urgencyScore >= 0.8 ? "urgent" : urgencyScore >= 0.6 ? "high" : urgencyScore >= 0.4 ? "medium" : "low";
+      const priorityTier =
+        urgencyScore >= 0.8
+          ? "urgent"
+          : urgencyScore >= 0.6
+            ? "high"
+            : urgencyScore >= 0.4
+              ? "medium"
+              : "low";
 
       await db
         .update(conversation)
@@ -838,7 +913,9 @@ export const analyzeWhatsAppConversationTask = task({
           priorityTier,
           urgencyScore: analysis.classification.urgency.score,
           importanceScore: analysis.classification.urgency.score, // Use urgency as proxy for importance
-          suggestedAction: analysis.brief?.actionRequired ? analysis.brief.actionDescription : null,
+          suggestedAction: analysis.brief?.actionRequired
+            ? analysis.brief.actionDescription
+            : null,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -856,8 +933,27 @@ export const analyzeWhatsAppConversationTask = task({
         });
 
         for (const promise of promiseClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: promise.text.slice(0, 200),
+            description: promise.text,
+            dueDate: promise.deadline ? new Date(promise.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (promise)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -866,7 +962,8 @@ export const analyzeWhatsAppConversationTask = task({
             status: "pending",
             confidence: promise.confidence,
             dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction: promise.promisor === phoneNumberId ? "owed_by_me" : "owed_to_me",
+            direction:
+              promise.promisor === phoneNumberId ? "owed_by_me" : "owed_to_me",
             metadata: {
               sourceType: "whatsapp" as const,
               sourceQuote: promise.evidence[0]?.quotedText,
@@ -878,11 +975,49 @@ export const analyzeWhatsAppConversationTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: promise.text.slice(0, 200),
+              description: promise.text,
+              dueDate: promise.deadline
+                ? new Date(promise.deadline)
+                : undefined,
+              confidence: promise.confidence,
+              sourceQuote: promise.evidence[0]?.quotedText,
+            },
+            sourceType: "whatsapp",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
 
         for (const request of requestClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingCommitment({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: request.text.slice(0, 200),
+            description: request.text,
+            dueDate: request.deadline ? new Date(request.deadline) : null,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate commitment (request)", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const commitmentId = randomUUID();
           await db.insert(commitment).values({
-            id: randomUUID(),
+            id: commitmentId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -891,7 +1026,8 @@ export const analyzeWhatsAppConversationTask = task({
             status: "pending",
             confidence: request.confidence,
             dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction: request.requester === phoneNumberId ? "owed_to_me" : "owed_by_me",
+            direction:
+              request.requester === phoneNumberId ? "owed_to_me" : "owed_by_me",
             metadata: {
               sourceType: "whatsapp" as const,
               sourceQuote: request.evidence[0]?.quotedText,
@@ -903,6 +1039,25 @@ export const analyzeWhatsAppConversationTask = task({
             },
           });
           result.commitmentsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processCommitmentTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            commitment: {
+              id: commitmentId,
+              title: request.text.slice(0, 200),
+              description: request.text,
+              dueDate: request.deadline
+                ? new Date(request.deadline)
+                : undefined,
+              confidence: request.confidence,
+              sourceQuote: request.evidence[0]?.quotedText,
+            },
+            sourceType: "whatsapp",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalCommitmentId: commitmentId,
+          });
         }
       }
 
@@ -916,8 +1071,26 @@ export const analyzeWhatsAppConversationTask = task({
         });
 
         for (const decisionClaim of decisionClaims) {
+          // Check for existing duplicate in same conversation
+          const dedupCheck = await checkExistingDecision({
+            organizationId: conv.sourceAccount.organizationId,
+            sourceConversationId: conversationId,
+            title: decisionClaim.text.slice(0, 200),
+            statement: decisionClaim.text,
+          });
+
+          if (dedupCheck.isDuplicate) {
+            log.info("Skipping duplicate decision", {
+              conversationId,
+              existingId: dedupCheck.existingId,
+              reason: dedupCheck.reason,
+            });
+            continue;
+          }
+
+          const decisionId = randomUUID();
           await db.insert(decision).values({
-            id: randomUUID(),
+            id: decisionId,
             organizationId: conv.sourceAccount.organizationId,
             sourceConversationId: conversationId,
             sourceAccountId: conv.sourceAccountId,
@@ -934,6 +1107,26 @@ export const analyzeWhatsAppConversationTask = task({
             },
           });
           result.decisionsCreated++;
+
+          // Trigger UIO processing for cross-source intelligence
+          await processDecisionTask.trigger({
+            organizationId: conv.sourceAccount.organizationId,
+            decision: {
+              id: decisionId,
+              title: decisionClaim.text.slice(0, 200),
+              statement: decisionClaim.text,
+              rationale: decisionClaim.rationale ?? undefined,
+              decidedAt: new Date(),
+              confidence: decisionClaim.confidence,
+              ownerContactIds: [],
+              participantContactIds: [],
+              sourceQuote: decisionClaim.evidence[0]?.quotedText,
+            },
+            sourceType: "whatsapp",
+            sourceAccountId: conv.sourceAccountId,
+            conversationId,
+            originalDecisionId: decisionId,
+          });
         }
       }
 
@@ -962,7 +1155,17 @@ export const analyzeWhatsAppConversationTask = task({
           ),
         });
 
-        if (!existingContact) {
+        if (existingContact) {
+          // Update existing contact
+          await db
+            .update(contact)
+            .set({
+              lastInteractionAt: conv.lastMessageAt ?? new Date(),
+              totalMessages: sql`${contact.totalMessages} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(contact.id, existingContact.id));
+        } else {
           await db.insert(contact).values({
             id: randomUUID(),
             organizationId: conv.sourceAccount.organizationId,
@@ -978,16 +1181,6 @@ export const analyzeWhatsAppConversationTask = task({
               source: "whatsapp",
             },
           });
-        } else {
-          // Update existing contact
-          await db
-            .update(contact)
-            .set({
-              lastInteractionAt: conv.lastMessageAt ?? new Date(),
-              totalMessages: sql`${contact.totalMessages} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(contact.id, existingContact.id));
         }
       }
 
@@ -1003,9 +1196,14 @@ export const analyzeWhatsAppConversationTask = task({
             },
           }
         );
-        log.info("Triggered embedding generation for WhatsApp conversation", { conversationId });
+        log.info("Triggered embedding generation for WhatsApp conversation", {
+          conversationId,
+        });
       } catch (e) {
-        log.warn("Failed to trigger embedding generation", { conversationId, error: e });
+        log.warn("Failed to trigger embedding generation", {
+          conversationId,
+          error: e,
+        });
       }
 
       result.success = true;
@@ -1021,7 +1219,10 @@ export const analyzeWhatsAppConversationTask = task({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       result.error = errorMsg;
-      log.error("WhatsApp conversation analysis failed", { conversationId, error: errorMsg });
+      log.error("WhatsApp conversation analysis failed", {
+        conversationId,
+        error: errorMsg,
+      });
       return result;
     }
   },
@@ -1035,13 +1236,17 @@ export const analyzeWhatsAppConversationsBatchTask = task({
   queue: { name: "whatsapp-analysis", concurrencyLimit: 3 },
   retry: {
     maxAttempts: 2,
-    minTimeoutInMs: 10000,
+    minTimeoutInMs: 10_000,
     maxTimeoutInMs: 120_000,
     factor: 2,
   },
   maxDuration: 600, // 10 minutes max
 
-  run: async (payload: { sourceAccountId: string; limit?: number; force?: boolean }) => {
+  run: async (payload: {
+    sourceAccountId: string;
+    limit?: number;
+    force?: boolean;
+  }) => {
     const { sourceAccountId, limit = 50, force = false } = payload;
 
     log.info("Starting batch WhatsApp conversation analysis", {
@@ -1139,7 +1344,9 @@ export const syncWhatsAppSchedule = schedules.task({
       });
     }
 
-    log.info("Scheduled WhatsApp sync triggered", { accounts: whatsappAccounts.length });
+    log.info("Scheduled WhatsApp sync triggered", {
+      accounts: whatsappAccounts.length,
+    });
 
     return { scheduled: true, accountsTriggered: whatsappAccounts.length };
   },

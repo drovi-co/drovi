@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  * - Hover states for interactivity
  */
 const priorityIconVariants = cva(
-  "inline-flex items-center justify-center shrink-0",
+  "inline-flex shrink-0 items-center justify-center",
   {
     variants: {
       size: {
@@ -54,27 +54,30 @@ function PriorityIcon({
   ...props
 }: PriorityIconProps) {
   const config = priorityConfig[priority];
-  const sizeValue = size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16;
+  const sizeValue =
+    size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16;
 
   if (priority === "none") {
     // Three dots icon for no priority
     return (
       <div className={cn("inline-flex items-center gap-1.5", className)}>
         <svg
-          width={sizeValue}
-          height={sizeValue}
-          viewBox="0 0 16 16"
-          fill="none"
           className={priorityIconVariants({ size })}
           data-slot="priority-icon"
+          fill="none"
+          height={sizeValue}
+          viewBox="0 0 16 16"
+          width={sizeValue}
           {...props}
         >
-          <circle cx="3" cy="8" r="1.5" fill={config.color} />
-          <circle cx="8" cy="8" r="1.5" fill={config.color} />
-          <circle cx="13" cy="8" r="1.5" fill={config.color} />
+          <circle cx="3" cy="8" fill={config.color} r="1.5" />
+          <circle cx="8" cy="8" fill={config.color} r="1.5" />
+          <circle cx="13" cy="8" fill={config.color} r="1.5" />
         </svg>
         {showLabel && (
-          <span className="text-[12px] text-muted-foreground">{config.label}</span>
+          <span className="text-[12px] text-muted-foreground">
+            {config.label}
+          </span>
         )}
       </div>
     );
@@ -85,22 +88,22 @@ function PriorityIcon({
     return (
       <div className={cn("inline-flex items-center gap-1.5", className)}>
         <svg
-          width={sizeValue}
-          height={sizeValue}
-          viewBox="0 0 16 16"
-          fill="none"
           className={priorityIconVariants({ size })}
           data-slot="priority-icon"
+          fill="none"
+          height={sizeValue}
+          viewBox="0 0 16 16"
+          width={sizeValue}
           {...props}
         >
-          <rect x="2" y="2" width="12" height="12" rx="2" fill={config.color} />
+          <rect fill={config.color} height="12" rx="2" width="12" x="2" y="2" />
           <path
             d="M8 5v4"
             stroke="white"
-            strokeWidth="1.5"
             strokeLinecap="round"
+            strokeWidth="1.5"
           />
-          <circle cx="8" cy="11" r="0.75" fill="white" />
+          <circle cx="8" cy="11" fill="white" r="0.75" />
         </svg>
         {showLabel && (
           <span className="text-[12px]" style={{ color: config.color }}>
@@ -117,43 +120,43 @@ function PriorityIcon({
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
       <svg
-        width={sizeValue}
-        height={sizeValue}
-        viewBox="0 0 16 16"
-        fill="none"
         className={priorityIconVariants({ size })}
         data-slot="priority-icon"
+        fill="none"
+        height={sizeValue}
+        viewBox="0 0 16 16"
+        width={sizeValue}
         {...props}
       >
         {/* Left bar (always shown) */}
         <rect
+          fill={bars >= 1 ? config.color : "#858699"}
+          height="4"
+          opacity={bars >= 1 ? 1 : 0.3}
+          rx="0.5"
+          width="3"
           x="2"
           y="10"
-          width="3"
-          height="4"
-          rx="0.5"
-          fill={bars >= 1 ? config.color : "#858699"}
-          opacity={bars >= 1 ? 1 : 0.3}
         />
         {/* Middle bar */}
         <rect
+          fill={bars >= 2 ? config.color : "#858699"}
+          height="7"
+          opacity={bars >= 2 ? 1 : 0.3}
+          rx="0.5"
+          width="3"
           x="6.5"
           y="7"
-          width="3"
-          height="7"
-          rx="0.5"
-          fill={bars >= 2 ? config.color : "#858699"}
-          opacity={bars >= 2 ? 1 : 0.3}
         />
         {/* Right bar */}
         <rect
+          fill={bars >= 3 ? config.color : "#858699"}
+          height="10"
+          opacity={bars >= 3 ? 1 : 0.3}
+          rx="0.5"
+          width="3"
           x="11"
           y="4"
-          width="3"
-          height="10"
-          rx="0.5"
-          fill={bars >= 3 ? config.color : "#858699"}
-          opacity={bars >= 3 ? 1 : 0.3}
         />
       </svg>
       {showLabel && (

@@ -26,9 +26,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         // Default - Primary purple
-        default: [
-          "border-primary/30 bg-primary/10 text-primary",
-        ].join(" "),
+        default: ["border-primary/30 bg-primary/10 text-primary"].join(" "),
 
         // Secondary - Subtle grey
         secondary: [
@@ -41,9 +39,9 @@ const badgeVariants = cva(
         ].join(" "),
 
         // Outline - Border only
-        outline: [
-          "border-border bg-transparent text-muted-foreground",
-        ].join(" "),
+        outline: ["border-border bg-transparent text-muted-foreground"].join(
+          " "
+        ),
 
         // Success - Green
         success: [
@@ -51,14 +49,12 @@ const badgeVariants = cva(
         ].join(" "),
 
         // Warning - Amber
-        warning: [
-          "border-amber-500/30 bg-amber-500/10 text-amber-500",
-        ].join(" "),
+        warning: ["border-amber-500/30 bg-amber-500/10 text-amber-500"].join(
+          " "
+        ),
 
         // Info - Blue
-        info: [
-          "border-blue-500/30 bg-blue-500/10 text-blue-500",
-        ].join(" "),
+        info: ["border-blue-500/30 bg-blue-500/10 text-blue-500"].join(" "),
       },
     },
     defaultVariants: {

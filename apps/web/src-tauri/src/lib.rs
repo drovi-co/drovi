@@ -27,7 +27,7 @@ fn setup_plugins(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("memorystack.log".into()),
+                        file_name: Some("drovi.log".into()),
                     }),
                 ])
                 .build(),
@@ -43,7 +43,7 @@ fn setup_plugins(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     // Process plugin - for process management
     app.handle().plugin(tauri_plugin_process::init())?;
 
-    // Deep link plugin - for handling memorystack:// URLs
+    // Deep link plugin - for handling drovi:// URLs
     app.handle().plugin(tauri_plugin_deep_link::init())?;
 
     // Updater plugin - for auto-updates
@@ -76,7 +76,7 @@ fn setup_plugins(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
             // Handle deep link from second instance
             if argv.len() > 1 {
                 let url = &argv[1];
-                if url.starts_with("memorystack://") {
+                if url.starts_with("drovi://") {
                     let _ = app.emit("deep-link", url.clone());
                 }
             }
@@ -88,10 +88,10 @@ fn setup_plugins(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
 /// Create the system tray menu
 fn create_tray_menu(app: &tauri::App) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
-    let show_item = MenuItem::with_id(app, "show", "Show Memorystack", true, None::<&str>)?;
+    let show_item = MenuItem::with_id(app, "show", "Show Drovi", true, None::<&str>)?;
     let check_updates_item = MenuItem::with_id(app, "check_updates", "Check for Updates", true, None::<&str>)?;
     let separator = MenuItem::with_id(app, "sep", "---", false, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Memorystack", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Drovi", true, None::<&str>)?;
 
     let menu = Menu::with_items(app, &[&show_item, &check_updates_item, &separator, &quit_item])?;
 
@@ -105,7 +105,7 @@ fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .tooltip("Memorystack")
+        .tooltip("Drovi")
         .menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
@@ -147,7 +147,7 @@ fn setup_deep_links(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let handle = app.handle().clone();
-        tauri_plugin_deep_link::register("memorystack", move |request| {
+        tauri_plugin_deep_link::register("drovi", move |request| {
             log::info!("Deep link received: {:?}", request);
             let _ = handle.emit("deep-link", request.to_string());
         })?;
@@ -160,7 +160,7 @@ fn setup_deep_links(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            log::info!("Setting up Memorystack desktop app");
+            log::info!("Setting up Drovi desktop app");
 
             // Set macOS activation policy to regular (shows in dock)
             #[cfg(target_os = "macos")]
@@ -184,7 +184,7 @@ pub fn run() {
                 // Deep link failure is not fatal
             }
 
-            log::info!("Memorystack desktop app setup complete");
+            log::info!("Drovi desktop app setup complete");
             Ok(())
         })
         .on_window_event(|window, event| {

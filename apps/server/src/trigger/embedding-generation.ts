@@ -576,14 +576,13 @@ export const embedConversationTask = task({
 
       // Get embeddings for all messages
       const messageIds = conv.messages.map((m) => m.id);
-      const existingEmbeddings = await db.query.genericMessageEmbedding.findMany(
-        {
+      const existingEmbeddings =
+        await db.query.genericMessageEmbedding.findMany({
           where: and(
             inArray(genericMessageEmbedding.messageId, messageIds),
             eq(genericMessageEmbedding.status, "completed")
           ),
-        }
-      );
+        });
 
       // If not all messages have embeddings, generate them first
       if (existingEmbeddings.length < messageIds.length) {
@@ -732,7 +731,9 @@ export const embedGenericMessageTask = task({
     factor: 2,
   },
   maxDuration: 30,
-  run: async (payload: EmbedGenericMessagePayload): Promise<EmbeddingResult> => {
+  run: async (
+    payload: EmbedGenericMessagePayload
+  ): Promise<EmbeddingResult> => {
     const { messageId, force = false } = payload;
 
     log.info("Generating generic message embedding", { messageId, force });

@@ -2,6 +2,7 @@
 // SLACK OAUTH HANDLER
 // =============================================================================
 
+import { randomUUID } from "node:crypto";
 import {
   exchangeSlackCode,
   getSlackAuthorizationUrl,
@@ -12,7 +13,6 @@ import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { randomUUID } from "node:crypto";
 import { safeEncryptToken } from "../../lib/crypto/tokens";
 import { log } from "../../lib/logger";
 
@@ -164,7 +164,9 @@ slackOAuth.get("/callback", async (c) => {
     });
 
     // Encrypt tokens
-    const encryptedAccessToken = await safeEncryptToken(tokens.access_token ?? "");
+    const encryptedAccessToken = await safeEncryptToken(
+      tokens.access_token ?? ""
+    );
 
     if (existingAccount) {
       // Update existing account
@@ -269,7 +271,9 @@ slackOAuth.get("/callback", async (c) => {
         sourceAccountId: newSourceAccountId,
         fullSync: true,
       });
-      log.info("Triggered initial Slack sync", { sourceAccountId: newSourceAccountId });
+      log.info("Triggered initial Slack sync", {
+        sourceAccountId: newSourceAccountId,
+      });
     } catch (e) {
       log.warn("Failed to trigger initial Slack sync", { error: e });
     }

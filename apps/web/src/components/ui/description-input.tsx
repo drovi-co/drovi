@@ -1,6 +1,6 @@
 "use client";
 
-import { Paperclip, FileText, ChevronRight } from "lucide-react";
+import { ChevronRight, FileText, Paperclip } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 
@@ -30,10 +30,8 @@ function AttachmentDisplay({
 }: AttachmentDisplayProps) {
   return (
     <button
-      type="button"
-      onClick={onClick}
       className={cn(
-        "flex items-center justify-between w-full",
+        "flex w-full items-center justify-between",
         "px-[18px] py-[14px]",
         "rounded-[3px]",
         "bg-[rgba(67,69,99,0.17)]",
@@ -42,13 +40,15 @@ function AttachmentDisplay({
         "transition-colors duration-150",
         "hover:bg-[rgba(67,69,99,0.25)]"
       )}
+      onClick={onClick}
+      type="button"
     >
       <div className="flex items-center gap-px">
-        <div className="flex items-center h-9 pr-4">
-          <FileText className="size-4 text-[#DCD8FE]" />
+        <div className="flex h-9 items-center pr-4">
+          <FileText className="size-4 text-primary" />
         </div>
         <div className="flex flex-col items-start gap-2">
-          <span className="text-[13px] font-normal text-[#EEEFFC]">
+          <span className="font-normal text-foreground text-[13px]">
             {filename}
           </span>
           <span className="text-[11px] text-[rgba(220,216,254,0.56)]">
@@ -56,7 +56,7 @@ function AttachmentDisplay({
           </span>
         </div>
       </div>
-      <ChevronRight className="size-2 text-[#858699] rotate-90" />
+      <ChevronRight className="size-2 rotate-90 text-muted-foreground" />
     </button>
   );
 }
@@ -111,28 +111,26 @@ function DescriptionInput({
         {readOnly ? (
           <p
             className={cn(
-              "text-[15px] leading-[22px] font-normal text-[#EEEFFC]",
+              "font-normal text-foreground text-[15px] leading-[22px]",
               "whitespace-pre-wrap"
             )}
           >
-            {value || (
-              <span className="text-[#4C4F6B]">{placeholder}</span>
-            )}
+            {value || <span className="text-muted-foreground">{placeholder}</span>}
           </p>
         ) : (
           <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            placeholder={placeholder}
             className={cn(
-              "w-full min-h-[80px] resize-none",
+              "min-h-[80px] w-full resize-none",
               "bg-transparent",
-              "text-[15px] leading-[22px] font-normal text-[#EEEFFC]",
-              "placeholder:text-[#4C4F6B]",
+              "font-normal text-foreground text-[15px] leading-[22px]",
+              "placeholder:text-muted-foreground",
               "focus:outline-none"
             )}
+            onBlur={() => setIsFocused(false)}
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            placeholder={placeholder}
+            value={value}
           />
         )}
       </div>
@@ -142,9 +140,9 @@ function DescriptionInput({
         <div className="flex flex-col gap-2 pb-[10px]">
           {attachments.map((attachment) => (
             <AttachmentDisplay
-              key={attachment.id}
               filename={attachment.filename}
               filesize={attachment.filesize}
+              key={attachment.id}
               onClick={() => onAttachmentClick?.(attachment)}
             />
           ))}
@@ -154,16 +152,16 @@ function DescriptionInput({
       {/* Attach Button (shows on hover/focus) */}
       {showAttachButton && (
         <button
-          type="button"
-          onClick={onAttach}
+          aria-label="Attach file"
           className={cn(
             "absolute top-0 right-0",
-            "p-[6px] rounded-[4px]",
-            "text-[#858699]",
+            "rounded-[4px] p-[6px]",
+            "text-muted-foreground",
             "transition-colors duration-150",
             "hover:bg-muted hover:text-foreground"
           )}
-          aria-label="Attach file"
+          onClick={onAttach}
+          type="button"
         >
           <Paperclip className="size-4" />
         </button>

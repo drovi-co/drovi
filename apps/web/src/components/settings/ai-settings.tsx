@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { queryClient, trpc } from "@/utils/trpc";
 
 // =============================================================================
@@ -106,17 +106,18 @@ export function AISettings() {
   });
 
   // Update mutation
-  const updateMutation = useMutation({
-    ...trpcClient.user.updateAISettings.mutationOptions(),
-    onSuccess: () => {
-      toast.success("AI settings saved");
-      setHasChanges(false);
-      queryClient.invalidateQueries({ queryKey: ["user", "getAISettings"] });
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to save settings: ${error.message}`);
-    },
-  });
+  const updateMutation = useMutation(
+    trpcClient.user.updateAISettings.mutationOptions({
+      onSuccess: () => {
+        toast.success("AI settings saved");
+        setHasChanges(false);
+        queryClient.invalidateQueries({ queryKey: ["user", "getAISettings"] });
+      },
+      onError: (error) => {
+        toast.error(`Failed to save settings: ${error.message}`);
+      },
+    })
+  );
 
   // Initialize form with fetched data
   useEffect(() => {
@@ -131,7 +132,8 @@ export function AISettings() {
         phone: currentSettings.phone ?? "",
         linkedinUrl: currentSettings.linkedinUrl ?? "",
         calendarBookingLink: currentSettings.calendarBookingLink ?? "",
-        workingHours: currentSettings.workingHours ?? DEFAULT_SETTINGS.workingHours,
+        workingHours:
+          currentSettings.workingHours ?? DEFAULT_SETTINGS.workingHours,
       });
     }
   }, [currentSettings]);
@@ -189,7 +191,10 @@ export function AISettings() {
     const newDays = current.includes(day)
       ? current.filter((d) => d !== day)
       : [...current, day].sort();
-    updateField("workingHours", { ...settings.workingHours, workDays: newDays });
+    updateField("workingHours", {
+      ...settings.workingHours,
+      workDays: newDays,
+    });
   };
 
   if (isLoading) {
@@ -210,16 +215,17 @@ export function AISettings() {
           <CardTitle>AI Assistant Settings</CardTitle>
         </div>
         <CardDescription>
-          Configure how AI generates email drafts. These settings help personalize
-          AI-generated content with your information.
+          Configure how AI generates email drafts. These settings help
+          personalize AI-generated content with your information.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Professional Info */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">Professional Information</h3>
-          <p className="text-xs text-muted-foreground">
-            This information is used to replace placeholders like [Your Name], [Your Title], etc.
+          <h3 className="font-medium text-sm">Professional Information</h3>
+          <p className="text-muted-foreground text-xs">
+            This information is used to replace placeholders like [Your Name],
+            [Your Title], etc.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -227,36 +233,36 @@ export function AISettings() {
               <Label htmlFor="title">Job Title</Label>
               <Input
                 id="title"
-                value={settings.title}
                 onChange={(e) => updateField("title", e.target.value)}
                 placeholder="e.g., Software Engineer"
+                value={settings.title}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="company">Company</Label>
               <Input
                 id="company"
-                value={settings.company}
                 onChange={(e) => updateField("company", e.target.value)}
                 placeholder="e.g., Acme Inc."
+                value={settings.company}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
               <Input
                 id="department"
-                value={settings.department}
                 onChange={(e) => updateField("department", e.target.value)}
                 placeholder="e.g., Engineering"
+                value={settings.department}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
-                value={settings.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
                 placeholder="e.g., +1 (555) 123-4567"
+                value={settings.phone}
               />
             </div>
           </div>
@@ -266,29 +272,31 @@ export function AISettings() {
 
         {/* Links */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">Links</h3>
+          <h3 className="font-medium text-sm">Links</h3>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
               <Input
                 id="linkedinUrl"
-                type="url"
-                value={settings.linkedinUrl}
                 onChange={(e) => updateField("linkedinUrl", e.target.value)}
                 placeholder="https://linkedin.com/in/yourprofile"
+                type="url"
+                value={settings.linkedinUrl}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="calendarBookingLink">Calendar Booking Link</Label>
               <Input
                 id="calendarBookingLink"
+                onChange={(e) =>
+                  updateField("calendarBookingLink", e.target.value)
+                }
+                placeholder="https://calendly.com/yourname"
                 type="url"
                 value={settings.calendarBookingLink}
-                onChange={(e) => updateField("calendarBookingLink", e.target.value)}
-                placeholder="https://calendly.com/yourname"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Used when AI suggests scheduling a meeting
               </p>
             </div>
@@ -299,14 +307,19 @@ export function AISettings() {
 
         {/* Writing Style */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">Writing Style</h3>
+          <h3 className="font-medium text-sm">Writing Style</h3>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="preferredTone">Preferred Tone</Label>
               <Select
+                onValueChange={(value) =>
+                  updateField(
+                    "preferredTone",
+                    value as AISettingsForm["preferredTone"]
+                  )
+                }
                 value={settings.preferredTone}
-                onValueChange={(value) => updateField("preferredTone", value as AISettingsForm["preferredTone"])}
               >
                 <SelectTrigger id="preferredTone">
                   <SelectValue placeholder="Select tone" />
@@ -323,8 +336,8 @@ export function AISettings() {
             <div className="space-y-2">
               <Label htmlFor="signOff">Sign-off</Label>
               <Select
-                value={settings.signOff}
                 onValueChange={(value) => updateField("signOff", value)}
+                value={settings.signOff}
               >
                 <SelectTrigger id="signOff">
                   <SelectValue placeholder="Select sign-off" />
@@ -347,16 +360,16 @@ export function AISettings() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium">Email Signature</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="font-medium text-sm">Email Signature</h3>
+              <p className="text-muted-foreground text-xs">
                 This signature will be added to AI-generated emails
               </p>
             </div>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={generateSignature}
               className="gap-1"
+              onClick={generateSignature}
+              size="sm"
+              variant="outline"
             >
               <Sparkles className="h-3 w-3" />
               Generate
@@ -364,11 +377,11 @@ export function AISettings() {
           </div>
 
           <Textarea
-            value={settings.signature}
+            className="font-mono text-sm"
             onChange={(e) => updateField("signature", e.target.value)}
             placeholder="Enter your email signature..."
             rows={5}
-            className="font-mono text-sm"
+            value={settings.signature}
           />
         </div>
 
@@ -376,8 +389,8 @@ export function AISettings() {
 
         {/* Working Hours */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">Working Hours</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="font-medium text-sm">Working Hours</h3>
+          <p className="text-muted-foreground text-xs">
             Used when AI suggests meeting times or availability
           </p>
 
@@ -386,35 +399,34 @@ export function AISettings() {
               <Label htmlFor="startTime">Start Time</Label>
               <Input
                 id="startTime"
-                type="time"
-                value={settings.workingHours.start}
                 onChange={(e) =>
                   updateField("workingHours", {
                     ...settings.workingHours,
                     start: e.target.value,
                   })
                 }
+                type="time"
+                value={settings.workingHours.start}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="endTime">End Time</Label>
               <Input
                 id="endTime"
-                type="time"
-                value={settings.workingHours.end}
                 onChange={(e) =>
                   updateField("workingHours", {
                     ...settings.workingHours,
                     end: e.target.value,
                   })
                 }
+                type="time"
+                value={settings.workingHours.end}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
               <Input
                 id="timezone"
-                value={settings.workingHours.timezone}
                 onChange={(e) =>
                   updateField("workingHours", {
                     ...settings.workingHours,
@@ -422,6 +434,7 @@ export function AISettings() {
                   })
                 }
                 placeholder="America/New_York"
+                value={settings.workingHours.timezone}
               />
             </div>
           </div>
@@ -431,12 +444,16 @@ export function AISettings() {
             <div className="flex flex-wrap gap-2">
               {WORK_DAYS.map((day) => (
                 <Button
-                  key={day.value}
-                  type="button"
-                  variant={settings.workingHours.workDays.includes(day.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleWorkDay(day.value)}
                   className="w-12"
+                  key={day.value}
+                  onClick={() => toggleWorkDay(day.value)}
+                  size="sm"
+                  type="button"
+                  variant={
+                    settings.workingHours.workDays.includes(day.value)
+                      ? "default"
+                      : "outline"
+                  }
                 >
                   {day.label}
                 </Button>
@@ -448,9 +465,9 @@ export function AISettings() {
         {/* Save Button */}
         <div className="flex justify-end pt-4">
           <Button
-            onClick={handleSave}
-            disabled={!hasChanges || updateMutation.isPending}
             className="gap-2"
+            disabled={!hasChanges || updateMutation.isPending}
+            onClick={handleSave}
           >
             {updateMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -44,14 +44,18 @@ export async function processThread(
   const { skipExisting = true, forceUpdate = false } = options;
 
   // Validate that we have messages to process
-  const hasMessagesInPayload = threadData.messages && threadData.messages.length > 0;
+  const hasMessagesInPayload =
+    threadData.messages && threadData.messages.length > 0;
 
   if (!hasMessagesInPayload && threadData.messageCount > 0) {
-    log.warn("Thread has messageCount but no messages in payload - skipping to avoid orphaned thread", {
-      providerThreadId: threadData.providerThreadId,
-      expectedMessageCount: threadData.messageCount,
-      actualMessageCount: threadData.messages?.length ?? 0,
-    });
+    log.warn(
+      "Thread has messageCount but no messages in payload - skipping to avoid orphaned thread",
+      {
+        providerThreadId: threadData.providerThreadId,
+        expectedMessageCount: threadData.messageCount,
+        actualMessageCount: threadData.messages?.length ?? 0,
+      }
+    );
     // Return early - don't create orphaned thread
     return {
       thread: threadData,
@@ -96,7 +100,12 @@ export async function processThread(
 
   // Use actual message count from payload, not metadata
   const actualMessageCount = threadData.messages?.length ?? 0;
-  const threadRecord = mapThreadToRecord(accountId, threadId, threadData, actualMessageCount);
+  const threadRecord = mapThreadToRecord(
+    accountId,
+    threadId,
+    threadData,
+    actualMessageCount
+  );
 
   if (existingThread) {
     await db
@@ -119,7 +128,10 @@ export async function processThread(
         ...message,
         messageIndex: idx,
       };
-      await processMessage(threadId, messageWithIndex, { skipExisting, forceUpdate });
+      await processMessage(threadId, messageWithIndex, {
+        skipExisting,
+        forceUpdate,
+      });
       processedCount++;
     } catch (error) {
       log.error("Failed to process message", error, {

@@ -4,8 +4,8 @@ import {
   auditLog,
   dataExportRequest,
   session,
-  user,
   type UserAISettings,
+  user,
 } from "@memorystack/db/schema";
 import { tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
@@ -19,17 +19,21 @@ const aiSettingsSchema = z.object({
   company: z.string().max(100).optional(),
   department: z.string().max(100).optional(),
   signature: z.string().max(2000).optional(),
-  preferredTone: z.enum(["formal", "casual", "professional", "friendly"]).optional(),
+  preferredTone: z
+    .enum(["formal", "casual", "professional", "friendly"])
+    .optional(),
   signOff: z.string().max(100).optional(),
   phone: z.string().max(50).optional(),
   linkedinUrl: z.string().url().max(200).optional().or(z.literal("")),
   calendarBookingLink: z.string().url().max(200).optional().or(z.literal("")),
-  workingHours: z.object({
-    timezone: z.string(),
-    start: z.string().regex(/^\d{2}:\d{2}$/),
-    end: z.string().regex(/^\d{2}:\d{2}$/),
-    workDays: z.array(z.number().min(0).max(6)),
-  }).optional(),
+  workingHours: z
+    .object({
+      timezone: z.string(),
+      start: z.string().regex(/^\d{2}:\d{2}$/),
+      end: z.string().regex(/^\d{2}:\d{2}$/),
+      workDays: z.array(z.number().min(0).max(6)),
+    })
+    .optional(),
 });
 
 export const userRouter = router({

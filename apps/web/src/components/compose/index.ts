@@ -1,8 +1,12 @@
 export { ComposeDialog } from "./compose-dialog";
-export { RecipientField, type Recipient } from "./recipient-field";
-export { ContradictionAlert, type Contradiction, type ContradictionAlertProps } from "./contradiction-alert";
 export {
-  ContradictionWarning,
-  type ContradictionCheckResult,
+  type Contradiction,
+  ContradictionAlert,
+  type ContradictionAlertProps,
+} from "./contradiction-alert";
+export {
   type Contradiction as ContradictionDetail,
+  type ContradictionCheckResult,
+  ContradictionWarning,
 } from "./contradiction-warning";
+export { type Recipient, RecipientField } from "./recipient-field";

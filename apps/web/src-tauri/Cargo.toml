@@ -1,10 +1,10 @@
 [package]
-name = "memorystack-desktop"
+name = "drovi-desktop"
 version = "0.1.0"
-description = "Memorystack - AI-powered email intelligence platform"
-authors = ["Memorystack Team"]
+description = "Drovi - AI-powered email intelligence platform"
+authors = ["Drovi Team"]
 license = "MIT"
-repository = "https://github.com/memorystack/memorystack"
+repository = "https://github.com/drovi-io/drovi"
 edition = "2021"
 rust-version = "1.77.2"
 

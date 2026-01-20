@@ -55,7 +55,7 @@ function DropdownMenuContent({
           "bg-popover text-popover-foreground",
           "p-1 shadow-dropdown",
           // Animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
           "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
@@ -203,7 +203,7 @@ function DropdownMenuLabel({
     <DropdownMenuPrimitive.Label
       className={cn(
         "px-2 py-1.5",
-        "text-[11px] font-medium uppercase tracking-wider",
+        "font-medium text-[11px] uppercase tracking-wider",
         "text-muted-foreground",
         "data-[inset]:pl-8",
         className
@@ -295,7 +295,7 @@ function DropdownMenuSubContent({
         "bg-popover text-popover-foreground",
         "p-1 shadow-dropdown",
         // Animations
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:animate-out data-[state=open]:animate-in",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
         "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",

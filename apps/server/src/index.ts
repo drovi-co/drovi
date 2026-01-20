@@ -4,10 +4,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@memorystack/api/context";
 import { appRouter } from "@memorystack/api/routers/index";
 import { auth } from "@memorystack/auth";
-import {
-  checkDatabaseHealth,
-  disconnectDatabase,
-} from "@memorystack/db";
+import { checkDatabaseHealth, disconnectDatabase } from "@memorystack/db";
 import {
   checkRedisHealth,
   disconnectRedis,
@@ -19,11 +16,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { log } from "./lib/logger";
 import { captureException, initSentry } from "./lib/sentry";
-import {
-  rateLimit,
-  standardRateLimit,
-  strictRateLimit,
-} from "./middleware/rate-limit";
+import { rateLimit } from "./middleware/rate-limit";
 import { requestLogger } from "./middleware/request-logger";
 import { composeRoutes } from "./routes/compose";
 import { oauthRoutes } from "./routes/oauth";
@@ -68,19 +61,43 @@ app.use(
   })
 );
 
-// Apply strict rate limiting to auth endpoints (5 requests per 15 minutes)
-app.use("/api/auth/sign-in/*", strictRateLimit);
-app.use("/api/auth/sign-up/*", strictRateLimit);
-app.use("/api/auth/forgot-password/*", strictRateLimit);
-app.use("/api/auth/reset-password/*", strictRateLimit);
+// Apply strict rate limiting to auth endpoints (5 requests per 15 minutes) - skip in development
+const skipInDev = () => env.NODE_ENV === "development";
 
-// Standard rate limiting for other auth endpoints (100 requests per minute)
-app.use("/api/auth/*", standardRateLimit);
+app.use(
+  "/api/auth/sign-in/*",
+  rateLimit({ limit: 5, windowMs: 15 * 60 * 1000, skip: skipInDev })
+);
+app.use(
+  "/api/auth/sign-up/*",
+  rateLimit({ limit: 5, windowMs: 15 * 60 * 1000, skip: skipInDev })
+);
+app.use(
+  "/api/auth/forgot-password/*",
+  rateLimit({ limit: 5, windowMs: 15 * 60 * 1000, skip: skipInDev })
+);
+app.use(
+  "/api/auth/reset-password/*",
+  rateLimit({ limit: 5, windowMs: 15 * 60 * 1000, skip: skipInDev })
+);
+
+// Standard rate limiting for other auth endpoints (100 requests per minute) - skip in development
+app.use(
+  "/api/auth/*",
+  rateLimit({ limit: 100, windowMs: 60 * 1000, skip: skipInDev })
+);
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-// Rate limit tRPC endpoints (100 requests per minute)
-app.use("/trpc/*", standardRateLimit);
+// Rate limit tRPC endpoints (100 requests per minute) - skip in development
+app.use(
+  "/trpc/*",
+  rateLimit({
+    limit: 100,
+    windowMs: 60 * 1000,
+    skip: () => env.NODE_ENV === "development",
+  })
+);
 
 app.use(
   "/trpc/*",
@@ -92,13 +109,14 @@ app.use(
   })
 );
 
-// Rate limit AI endpoint (lower limit for expensive operations)
+// Rate limit AI endpoint (lower limit for expensive operations) - skip in development
 app.use(
   "/ai",
   rateLimit({
     limit: 20,
     windowMs: 60 * 1000,
     message: "AI rate limit exceeded. Please wait before making more requests.",
+    skip: skipInDev,
   })
 );
 
@@ -171,7 +189,9 @@ app.get("/ready", async (c) => {
   // Check all dependencies
   const [dbHealth, redisHealth] = await Promise.all([
     checkDatabaseHealth(),
-    isRedisConfigured() ? checkRedisHealth() : Promise.resolve({ connected: true, latencyMs: null, error: undefined }),
+    isRedisConfigured()
+      ? checkRedisHealth()
+      : Promise.resolve({ connected: true, latencyMs: null, error: undefined }),
   ]);
 
   const checks = {
@@ -243,7 +263,7 @@ async function shutdown(signal: string): Promise<void> {
   isShuttingDown = true;
 
   // Wait for active requests to complete (max 30 seconds)
-  const deadline = Date.now() + 30000;
+  const deadline = Date.now() + 30_000;
   while (activeRequests > 0 && Date.now() < deadline) {
     log.info(`Waiting for ${activeRequests} active requests to complete...`);
     await new Promise((r) => setTimeout(r, 500));

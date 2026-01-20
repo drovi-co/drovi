@@ -34,22 +34,24 @@ function extractFriendlyName(email: string): string {
   const servicePatterns: Record<string, string> = {
     "messaging-digest-noreply": "LinkedIn",
     "invitations-noreply": "LinkedIn",
-    "invitations": "LinkedIn",
+    invitations: "LinkedIn",
     "jobalerts-noreply": "LinkedIn",
     "jobs-noreply": "LinkedIn",
     "notifications-noreply": "LinkedIn",
     "inmail-hit-reply": "LinkedIn",
-    "noreply": domain.includes("linkedin") ? "LinkedIn" : domain.split(".")[0] ?? "Unknown",
+    noreply: domain.includes("linkedin")
+      ? "LinkedIn"
+      : (domain.split(".")[0] ?? "Unknown"),
     "no-reply": domain.split(".")[0] ?? "Unknown",
-    "notification": domain.split(".")[0] ?? "Unknown",
-    "notifications": domain.split(".")[0] ?? "Unknown",
-    "newsletter": domain.split(".")[0] ?? "Newsletter",
-    "billing": domain.split(".")[0] ?? "Billing",
-    "support": domain.split(".")[0] ?? "Support",
-    "info": domain.split(".")[0] ?? "Info",
-    "hello": domain.split(".")[0] ?? "Hello",
-    "team": domain.split(".")[0] ?? "Team",
-    "mail": domain.split(".")[0] ?? "Mail",
+    notification: domain.split(".")[0] ?? "Unknown",
+    notifications: domain.split(".")[0] ?? "Unknown",
+    newsletter: domain.split(".")[0] ?? "Newsletter",
+    billing: domain.split(".")[0] ?? "Billing",
+    support: domain.split(".")[0] ?? "Support",
+    info: domain.split(".")[0] ?? "Info",
+    hello: domain.split(".")[0] ?? "Hello",
+    team: domain.split(".")[0] ?? "Team",
+    mail: domain.split(".")[0] ?? "Mail",
   };
 
   // Check if local part matches a known service pattern
@@ -72,7 +74,8 @@ function extractFriendlyName(email: string): string {
   if (domain.includes("netlify")) return "Netlify";
   if (domain.includes("heroku")) return "Heroku";
   if (domain.includes("aws") || domain.includes("amazon")) return "AWS";
-  if (domain.includes("microsoft") || domain.includes("outlook")) return "Microsoft";
+  if (domain.includes("microsoft") || domain.includes("outlook"))
+    return "Microsoft";
   if (domain.includes("apple")) return "Apple";
   if (domain.includes("dropbox")) return "Dropbox";
 
@@ -167,16 +170,37 @@ const triggerAnalysisSchema = z.object({
 // Additional schemas for inbox functionality
 const listThreadsInboxSchema = z.object({
   accountId: z.string().uuid().optional(),
-  filter: z.enum(["all", "unread", "starred", "snoozed", "sent", "drafts", "archived", "trash"]).default("all"),
+  filter: z
+    .enum([
+      "all",
+      "unread",
+      "starred",
+      "snoozed",
+      "sent",
+      "drafts",
+      "archived",
+      "trash",
+    ])
+    .default("all"),
   sort: z.enum(["date", "priority", "sender", "subject"]).default("date"),
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
-  intelligenceFilter: z.enum(["all", "has_commitments", "has_decisions", "needs_response", "has_risk"]).default("all"),
+  intelligenceFilter: z
+    .enum([
+      "all",
+      "has_commitments",
+      "has_decisions",
+      "needs_response",
+      "has_risk",
+    ])
+    .default("all"),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
 });
 
 // Helper to get organization ID from session
-async function getActiveOrgId(ctx: { session: { session: { activeOrganizationId: string | null } } }): Promise<string> {
+async function getActiveOrgId(ctx: {
+  session: { session: { activeOrganizationId: string | null } };
+}): Promise<string> {
   const orgId = ctx.session.session.activeOrganizationId;
   if (!orgId) {
     throw new TRPCError({
@@ -501,18 +525,19 @@ export const threadsRouter = router({
 
       // Batch load messages for all threads (single query instead of N queries)
       const threadIds = threads.map((t) => t.id);
-      const allMessages = threadIds.length > 0
-        ? await db.query.emailMessage.findMany({
-            where: inArray(emailMessage.threadId, threadIds),
-            columns: {
-              threadId: true,
-              fromEmail: true,
-              fromName: true,
-              messageIndex: true,
-            },
-            orderBy: [asc(emailMessage.messageIndex)],
-          })
-        : [];
+      const allMessages =
+        threadIds.length > 0
+          ? await db.query.emailMessage.findMany({
+              where: inArray(emailMessage.threadId, threadIds),
+              columns: {
+                threadId: true,
+                fromEmail: true,
+                fromName: true,
+                messageIndex: true,
+              },
+              orderBy: [asc(emailMessage.messageIndex)],
+            })
+          : [];
 
       // Group messages by threadId and limit to 5 per thread (in memory)
       const messagesByThread = new Map<string, typeof allMessages>();
@@ -1101,8 +1126,11 @@ export const threadsRouter = router({
               email: m.fromEmail,
               name: m.fromName ?? extractFriendlyName(m.fromEmail),
             },
-            to: (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
-            cc: m.ccRecipients as Array<{ email: string; name?: string }> | undefined,
+            to:
+              (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
+            cc: m.ccRecipients as
+              | Array<{ email: string; name?: string }>
+              | undefined,
             date: m.sentAt ?? m.receivedAt ?? new Date(),
             body: plainBody || snippet, // Use extracted text as fallback body
             bodyHtml: htmlBody,
@@ -1140,7 +1168,9 @@ export const threadsRouter = router({
             email: c.attributedTo ?? "",
             name: c.attributedTo ?? "Unknown",
           },
-          dueDate: c.metadata ? (c.metadata as { dueDate?: string }).dueDate : undefined,
+          dueDate: c.metadata
+            ? (c.metadata as { dueDate?: string }).dueDate
+            : undefined,
           status: "pending" as const,
           priority: "medium" as const,
           confidence: c.confidence,
@@ -1176,7 +1206,8 @@ export const threadsRouter = router({
             name: c.attributedTo ?? "Unknown",
           },
           askedAt: c.extractedAt ?? new Date(),
-          isAnswered: (c.metadata as { isAnswered?: boolean })?.isAnswered ?? false,
+          isAnswered:
+            (c.metadata as { isAnswered?: boolean })?.isAnswered ?? false,
           confidence: c.confidence,
         }));
 
@@ -1242,7 +1273,10 @@ export const threadsRouter = router({
         .from(emailThread)
         .where(
           and(
-            inArray(emailThread.accountId, accounts.map((a) => a.id)),
+            inArray(
+              emailThread.accountId,
+              accounts.map((a) => a.id)
+            ),
             eq(emailThread.isRead, false),
             eq(emailThread.isArchived, false)
           )
@@ -1269,10 +1303,12 @@ export const threadsRouter = router({
    * Star/unstar a thread.
    */
   star: protectedProcedure
-    .input(z.object({
-      threadId: z.string().uuid(),
-      starred: z.boolean(),
-    }))
+    .input(
+      z.object({
+        threadId: z.string().uuid(),
+        starred: z.boolean(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       await db
         .update(emailThread)
@@ -1286,10 +1322,12 @@ export const threadsRouter = router({
    * Mark thread as read/unread.
    */
   markRead: protectedProcedure
-    .input(z.object({
-      threadId: z.string().uuid(),
-      read: z.boolean(),
-    }))
+    .input(
+      z.object({
+        threadId: z.string().uuid(),
+        read: z.boolean(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       await db
         .update(emailThread)
@@ -1321,10 +1359,12 @@ export const threadsRouter = router({
    * Snooze a thread.
    */
   snooze: protectedProcedure
-    .input(z.object({
-      threadId: z.string().uuid(),
-      until: z.date(),
-    }))
+    .input(
+      z.object({
+        threadId: z.string().uuid(),
+        until: z.date(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       await db
         .update(emailThread)
@@ -1342,9 +1382,11 @@ export const threadsRouter = router({
    * Get thread statistics for dashboard.
    */
   getStats: protectedProcedure
-    .input(z.object({
-      organizationId: z.string().min(1),
-    }))
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -1367,45 +1409,46 @@ export const threadsRouter = router({
       const accountIdList = accountIds.map((a) => a.id);
 
       // Get counts in parallel
-      const [totalResult, unreadResult, starredResult, archivedResult] = await Promise.all([
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailThread)
-          .where(
-            and(
-              inArray(emailThread.accountId, accountIdList),
-              eq(emailThread.isArchived, false)
-            )
-          ),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailThread)
-          .where(
-            and(
-              inArray(emailThread.accountId, accountIdList),
-              eq(emailThread.isArchived, false),
-              eq(emailThread.isRead, false)
-            )
-          ),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailThread)
-          .where(
-            and(
-              inArray(emailThread.accountId, accountIdList),
-              eq(emailThread.isStarred, true)
-            )
-          ),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailThread)
-          .where(
-            and(
-              inArray(emailThread.accountId, accountIdList),
-              eq(emailThread.isArchived, true)
-            )
-          ),
-      ]);
+      const [totalResult, unreadResult, starredResult, archivedResult] =
+        await Promise.all([
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(emailThread)
+            .where(
+              and(
+                inArray(emailThread.accountId, accountIdList),
+                eq(emailThread.isArchived, false)
+              )
+            ),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(emailThread)
+            .where(
+              and(
+                inArray(emailThread.accountId, accountIdList),
+                eq(emailThread.isArchived, false),
+                eq(emailThread.isRead, false)
+              )
+            ),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(emailThread)
+            .where(
+              and(
+                inArray(emailThread.accountId, accountIdList),
+                eq(emailThread.isStarred, true)
+              )
+            ),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(emailThread)
+            .where(
+              and(
+                inArray(emailThread.accountId, accountIdList),
+                eq(emailThread.isArchived, true)
+              )
+            ),
+        ]);
 
       return {
         total: totalResult[0]?.count ?? 0,

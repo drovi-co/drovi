@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@memorystack/db";
 import { notification, notificationPreferences } from "@memorystack/db/schema";
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -68,7 +68,9 @@ type QuietHoursPrefs = {
 };
 
 function isInQuietHours(prefs: QuietHoursPrefs): boolean {
-  if (!prefs?.quietHoursEnabled || !prefs.quietHoursStart || !prefs.quietHoursEnd) {
+  if (
+    !(prefs?.quietHoursEnabled && prefs.quietHoursStart && prefs.quietHoursEnd)
+  ) {
     return false;
   }
 
@@ -86,7 +88,9 @@ function isInQuietHours(prefs: QuietHoursPrefs): boolean {
     const [currentHour, currentMinute] = currentTime.split(":").map(Number);
     const currentMinutes = currentHour * 60 + currentMinute;
 
-    const [startHour, startMinute] = prefs.quietHoursStart.split(":").map(Number);
+    const [startHour, startMinute] = prefs.quietHoursStart
+      .split(":")
+      .map(Number);
     const [endHour, endMinute] = prefs.quietHoursEnd.split(":").map(Number);
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
@@ -126,18 +130,31 @@ function isCategoryEnabled(
     case "commitment":
       if (subcategory === "new") return prefs.commitmentsNewEnabled ?? false;
       if (subcategory === "due") return prefs.commitmentsDueEnabled ?? false;
-      if (subcategory === "overdue") return prefs.commitmentsOverdueEnabled ?? false;
-      return (prefs.commitmentsNewEnabled ?? false) || (prefs.commitmentsDueEnabled ?? false) || (prefs.commitmentsOverdueEnabled ?? false);
+      if (subcategory === "overdue")
+        return prefs.commitmentsOverdueEnabled ?? false;
+      return (
+        (prefs.commitmentsNewEnabled ?? false) ||
+        (prefs.commitmentsDueEnabled ?? false) ||
+        (prefs.commitmentsOverdueEnabled ?? false)
+      );
     case "decision":
       if (subcategory === "new") return prefs.decisionsNewEnabled ?? false;
-      if (subcategory === "superseded") return prefs.decisionsSupersededEnabled ?? false;
-      return (prefs.decisionsNewEnabled ?? false) || (prefs.decisionsSupersededEnabled ?? false);
+      if (subcategory === "superseded")
+        return prefs.decisionsSupersededEnabled ?? false;
+      return (
+        (prefs.decisionsNewEnabled ?? false) ||
+        (prefs.decisionsSupersededEnabled ?? false)
+      );
     case "calendar":
       return prefs.calendarRemindersEnabled ?? false;
     case "email":
       if (subcategory === "urgent") return prefs.emailUrgentEnabled ?? false;
-      if (subcategory === "important") return prefs.emailImportantEnabled ?? false;
-      return (prefs.emailUrgentEnabled ?? false) || (prefs.emailImportantEnabled ?? false);
+      if (subcategory === "important")
+        return prefs.emailImportantEnabled ?? false;
+      return (
+        (prefs.emailUrgentEnabled ?? false) ||
+        (prefs.emailImportantEnabled ?? false)
+      );
     case "system":
       return prefs.syncStatusEnabled ?? false;
     default:
@@ -233,9 +250,17 @@ export const notificationsRouter = router({
 
       // Group by time periods
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-      const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const todayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+      const yesterdayStart = new Date(
+        todayStart.getTime() - 24 * 60 * 60 * 1000
+      );
+      const weekStart = new Date(
+        todayStart.getTime() - 7 * 24 * 60 * 60 * 1000
+      );
 
       const grouped = {
         today: [] as typeof notifications,
@@ -319,7 +344,9 @@ export const notificationsRouter = router({
       z.object({
         inAppEnabled: z.boolean().optional(),
         emailDigestEnabled: z.boolean().optional(),
-        emailDigestFrequency: z.enum(["daily", "weekly", "realtime", "never"]).optional(),
+        emailDigestFrequency: z
+          .enum(["daily", "weekly", "realtime", "never"])
+          .optional(),
         commitmentsNewEnabled: z.boolean().optional(),
         commitmentsDueEnabled: z.boolean().optional(),
         commitmentsOverdueEnabled: z.boolean().optional(),

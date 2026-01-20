@@ -93,19 +93,19 @@ export function TaskStatusDropdown({
 
   const defaultTrigger = compact ? (
     <Button
-      variant="ghost"
-      size="icon"
       className="h-7 w-7"
       disabled={disabled || updateStatusMutation.isPending}
+      size="icon"
+      variant="ghost"
     >
       <Icon className={cn("h-4 w-4", config.color)} />
     </Button>
   ) : (
     <Button
-      variant="outline"
-      size="sm"
-      className="gap-2 h-7"
+      className="h-7 gap-2"
       disabled={disabled || updateStatusMutation.isPending}
+      size="sm"
+      variant="outline"
     >
       <Icon className={cn("h-3.5 w-3.5", config.color)} />
       <span className="text-xs">{config.label}</span>
@@ -125,11 +125,11 @@ export function TaskStatusDropdown({
 
           return (
             <DropdownMenuItem
+              className={cn(isSelected && "bg-accent")}
               key={status}
               onClick={() => handleStatusChange(status)}
-              className={cn(isSelected && "bg-accent")}
             >
-              <StatusIcon className={cn("h-4 w-4 mr-2", statusConfig.color)} />
+              <StatusIcon className={cn("mr-2 h-4 w-4", statusConfig.color)} />
               <span>{statusConfig.label}</span>
             </DropdownMenuItem>
           );
@@ -162,7 +162,7 @@ export function TaskStatusBadge({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium text-xs",
         config.bgColor,
         config.color,
         className

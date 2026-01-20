@@ -183,20 +183,18 @@ export function NotificationCard({
             <span className="text-muted-foreground text-xs">
               {formatTimeAgo(notification.createdAt)}
             </span>
-            {confidence !== undefined && (
-              <ConfidenceBadge value={confidence} />
-            )}
+            {confidence !== undefined && <ConfidenceBadge value={confidence} />}
           </div>
 
           {/* Quick Actions */}
           <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             {notification.link && (
               <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
                 asChild
+                className="h-6 w-6"
                 onClick={(e) => e.stopPropagation()}
+                size="icon"
+                variant="ghost"
               >
                 <Link to={notification.link}>
                   <ExternalLink className="h-3 w-3" />
@@ -206,21 +204,21 @@ export function NotificationCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-6 w-6"
                   onClick={(e) => e.stopPropagation()}
+                  size="icon"
+                  variant="ghost"
                 >
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
+                  className="text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
                   }}
-                  className="text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
@@ -233,7 +231,7 @@ export function NotificationCard({
         {/* Action Required Badge */}
         {notification.actionRequired && (
           <div className="mt-2">
-            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950/50 dark:text-amber-400">
+            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-700 text-xs ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950/50 dark:text-amber-400">
               Action required
             </span>
           </div>
@@ -244,14 +242,14 @@ export function NotificationCard({
 
   if (notification.link) {
     return (
-      <Link to={notification.link} onClick={onClick} className="block">
+      <Link className="block" onClick={onClick} to={notification.link}>
         {content}
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} className="w-full text-left">
+    <button className="w-full text-left" onClick={onClick} type="button">
       {content}
     </button>
   );
@@ -275,7 +273,7 @@ function ConfidenceBadge({ value }: { value: number }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded px-1.5 py-0.5 font-medium text-xs",
         color
       )}
       title="AI confidence score"

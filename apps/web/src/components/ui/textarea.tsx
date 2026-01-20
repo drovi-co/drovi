@@ -20,7 +20,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         "rounded-[6px] border bg-input",
         "border-input-border",
         "px-[10px] py-[8px]",
-        "text-[13px] leading-[1.5] text-foreground",
+        "text-[13px] text-foreground leading-[1.5]",
         "placeholder:text-muted-foreground",
         // Resize
         "resize-none",

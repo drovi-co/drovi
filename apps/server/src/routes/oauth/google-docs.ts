@@ -2,6 +2,7 @@
 // GOOGLE DOCS OAUTH HANDLER
 // =============================================================================
 
+import { randomUUID } from "node:crypto";
 import {
   exchangeGoogleDocsCode,
   getGoogleDocsAuthorizationUrl,
@@ -13,7 +14,6 @@ import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { randomUUID } from "node:crypto";
 import { safeEncryptToken } from "../../lib/crypto/tokens";
 import { log } from "../../lib/logger";
 
@@ -255,7 +255,9 @@ googleDocsOAuth.get("/callback", async (c) => {
           sourceAccountId: newSourceAccountId,
           fullSync: true,
         });
-        log.info("Triggered initial Google Docs sync", { sourceAccountId: newSourceAccountId });
+        log.info("Triggered initial Google Docs sync", {
+          sourceAccountId: newSourceAccountId,
+        });
       } catch (e) {
         log.warn("Failed to trigger initial Google Docs sync", { error: e });
       }

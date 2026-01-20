@@ -2,20 +2,19 @@
 
 import {
   Bold,
-  Italic,
-  Strikethrough,
+  CheckSquare,
   Code,
+  FileCode,
+  Italic,
   List,
   ListOrdered,
-  CheckSquare,
   Quote,
-  FileCode,
+  Strikethrough,
 } from "lucide-react";
 import type * as React from "react";
-
-import { cn } from "@/lib/utils";
-import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
+import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 
 /**
  * Linear-style Text Editor Toolbar component
@@ -36,17 +35,22 @@ interface ToolbarButtonProps {
   onClick?: () => void;
 }
 
-function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonProps) {
+function ToolbarButton({
+  icon: Icon,
+  label,
+  isActive,
+  onClick,
+}: ToolbarButtonProps) {
   return (
     <Toggle
-      size="sm"
-      pressed={isActive}
-      onPressedChange={() => onClick?.()}
       aria-label={label}
       className={cn(
         "size-7 p-0",
         "data-[state=on]:bg-primary/20 data-[state=on]:text-primary"
       )}
+      onPressedChange={() => onClick?.()}
+      pressed={isActive}
+      size="sm"
     >
       <Icon className="size-4" />
     </Toggle>
@@ -83,64 +87,64 @@ function TextEditorToolbar({
       {/* Text formatting */}
       <ToolbarButton
         icon={Bold}
-        label="Bold"
         isActive={isActive("bold")}
+        label="Bold"
         onClick={() => toggleFormat("bold")}
       />
       <ToolbarButton
         icon={Italic}
-        label="Italic"
         isActive={isActive("italic")}
+        label="Italic"
         onClick={() => toggleFormat("italic")}
       />
       <ToolbarButton
         icon={Strikethrough}
-        label="Strikethrough"
         isActive={isActive("strikethrough")}
+        label="Strikethrough"
         onClick={() => toggleFormat("strikethrough")}
       />
       <ToolbarButton
         icon={Code}
-        label="Inline Code"
         isActive={isActive("code")}
+        label="Inline Code"
         onClick={() => toggleFormat("code")}
       />
 
-      <Separator orientation="vertical" className="mx-1 h-4" />
+      <Separator className="mx-1 h-4" orientation="vertical" />
 
       {/* Lists */}
       <ToolbarButton
         icon={List}
-        label="Bullet List"
         isActive={isActive("bulletList")}
+        label="Bullet List"
         onClick={() => toggleFormat("bulletList")}
       />
       <ToolbarButton
         icon={ListOrdered}
-        label="Numbered List"
         isActive={isActive("orderedList")}
+        label="Numbered List"
         onClick={() => toggleFormat("orderedList")}
       />
       <ToolbarButton
         icon={CheckSquare}
-        label="Checklist"
         isActive={isActive("taskList")}
+        label="Checklist"
         onClick={() => toggleFormat("taskList")}
       />
 
-      <Separator orientation="vertical" className="mx-1 h-4" />
+      <Separator className="mx-1 h-4" orientation="vertical" />
 
       {/* Blocks */}
       <ToolbarButton
         icon={Quote}
-        label="Quote"
         isActive={isActive("blockquote")}
+        label="Quote"
         onClick={() => toggleFormat("blockquote")}
       />
       <ToolbarButton
         icon={FileCode}
-        label="Code Block"
         isActive={isActive("codeBlock")}
+        label="Code Block"
         onClick={() => toggleFormat("codeBlock")}
       />
     </div>

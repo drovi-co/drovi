@@ -35,7 +35,7 @@ function TabsList({
     <TabsPrimitive.List
       className={cn(
         "inline-flex h-8 items-center gap-1",
-        "border-b border-border",
+        "border-border border-b",
         className
       )}
       data-slot="tabs-list"
@@ -53,7 +53,7 @@ function TabsTrigger({
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5",
         "whitespace-nowrap px-3 pb-px",
-        "text-[13px] font-medium text-muted-foreground",
+        "font-medium text-[13px] text-muted-foreground",
         "outline-none transition-colors duration-150",
         // Hover state
         "hover:text-foreground",

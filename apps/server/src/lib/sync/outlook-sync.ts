@@ -123,8 +123,8 @@ export async function syncOutlookIncremental(
     result.duration = Date.now() - startTime;
 
     log.info("Outlook incremental sync completed", {
-      accountId,
       ...result,
+      accountId,
     });
 
     return result;
@@ -306,9 +306,9 @@ export async function backfillOutlookPhase(
     result.duration = Date.now() - startTime;
 
     log.info("Outlook phase backfill completed", {
+      ...result,
       accountId: config.accountId,
       phase: config.phase,
-      ...result,
       throughput: `${Math.round((result.threadsProcessed / result.duration) * 1000)} threads/sec`,
     });
 

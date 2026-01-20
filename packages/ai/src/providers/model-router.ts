@@ -99,7 +99,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "claude-3-5-sonnet-20241022": {
     id: "claude-3-5-sonnet-20241022",
     provider: "anthropic",
-    contextWindow: 200000,
+    contextWindow: 200_000,
     inputCostPer1M: 300,
     outputCostPer1M: 1500,
     qualityScore: 9,
@@ -110,7 +110,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "claude-3-5-haiku-20241022": {
     id: "claude-3-5-haiku-20241022",
     provider: "anthropic",
-    contextWindow: 200000,
+    contextWindow: 200_000,
     inputCostPer1M: 80,
     outputCostPer1M: 400,
     qualityScore: 7,
@@ -121,7 +121,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "claude-3-opus-20240229": {
     id: "claude-3-opus-20240229",
     provider: "anthropic",
-    contextWindow: 200000,
+    contextWindow: 200_000,
     inputCostPer1M: 1500,
     outputCostPer1M: 7500,
     qualityScore: 10,
@@ -134,7 +134,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "gpt-4o": {
     id: "gpt-4o",
     provider: "openai",
-    contextWindow: 128000,
+    contextWindow: 128_000,
     inputCostPer1M: 250,
     outputCostPer1M: 1000,
     qualityScore: 8,
@@ -145,7 +145,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "gpt-4o-mini": {
     id: "gpt-4o-mini",
     provider: "openai",
-    contextWindow: 128000,
+    contextWindow: 128_000,
     inputCostPer1M: 15,
     outputCostPer1M: 60,
     qualityScore: 6,
@@ -156,7 +156,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "gpt-4-turbo": {
     id: "gpt-4-turbo",
     provider: "openai",
-    contextWindow: 128000,
+    contextWindow: 128_000,
     inputCostPer1M: 1000,
     outputCostPer1M: 3000,
     qualityScore: 8,
@@ -169,7 +169,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
     provider: "google",
-    contextWindow: 1000000,
+    contextWindow: 1_000_000,
     inputCostPer1M: 7.5,
     outputCostPer1M: 30,
     qualityScore: 7,
@@ -180,7 +180,7 @@ const MODEL_PROFILES: Record<ModelId, ModelProfile> = {
   "gemini-1.5-pro": {
     id: "gemini-1.5-pro",
     provider: "google",
-    contextWindow: 2000000,
+    contextWindow: 2_000_000,
     inputCostPer1M: 125,
     outputCostPer1M: 500,
     qualityScore: 8,
@@ -270,7 +270,10 @@ export function selectModel(requirements: ModelRequirements): ModelId {
   let profile = MODEL_PROFILES[selectedModel];
 
   // Check context window requirements
-  if (estimatedInputTokens && estimatedInputTokens > profile.contextWindow * 0.8) {
+  if (
+    estimatedInputTokens &&
+    estimatedInputTokens > profile.contextWindow * 0.8
+  ) {
     // Need a larger context window model
     const largeContextModels: ModelId[] = [
       "gemini-1.5-pro",
@@ -359,8 +362,8 @@ export function getModelsByProvider(
  * Get the cheapest model that meets minimum quality requirements.
  */
 export function getCheapestModel(
-  minQuality: number = 6,
-  structuredOutput: boolean = false
+  minQuality = 6,
+  structuredOutput = false
 ): ModelId {
   const candidates = Object.values(MODEL_PROFILES)
     .filter((m) => m.qualityScore >= minQuality)
@@ -374,8 +377,8 @@ export function getCheapestModel(
  * Get the fastest model that meets minimum quality requirements.
  */
 export function getFastestModel(
-  minQuality: number = 6,
-  structuredOutput: boolean = false
+  minQuality = 6,
+  structuredOutput = false
 ): ModelId {
   const candidates = Object.values(MODEL_PROFILES)
     .filter((m) => m.qualityScore >= minQuality)
@@ -390,7 +393,7 @@ export function getFastestModel(
  */
 export function getBestModelWithinBudget(
   maxCostPer1M: number,
-  structuredOutput: boolean = false
+  structuredOutput = false
 ): ModelId {
   const candidates = Object.values(MODEL_PROFILES)
     .filter((m) => m.inputCostPer1M <= maxCostPer1M)

@@ -93,9 +93,9 @@ export async function syncGmailIncremental(
       result.duration = Date.now() - startTime;
 
       log.info("Gmail catch-up sync completed", {
+        ...result,
         accountId,
         newCursor: result.newCursor,
-        ...result,
       });
 
       return result;
@@ -142,8 +142,8 @@ export async function syncGmailIncremental(
     result.duration = Date.now() - startTime;
 
     log.info("Gmail incremental sync completed", {
-      accountId,
       ...result,
+      accountId,
     });
 
     return result;
@@ -343,9 +343,9 @@ export async function backfillGmailPhase(
     result.duration = Date.now() - startTime;
 
     log.info("Gmail phase backfill completed", {
+      ...result,
       accountId: config.accountId,
       phase: config.phase,
-      ...result,
       throughput: `${Math.round((result.threadsProcessed / result.duration) * 1000)} threads/sec`,
     });
 

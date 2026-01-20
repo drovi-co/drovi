@@ -46,8 +46,14 @@ export async function generateBrief(
 
     return result.object;
   } catch (error) {
-    console.error("[generateBrief] Error:", error instanceof Error ? error.message : error);
-    console.error("[generateBrief] Stack:", error instanceof Error ? error.stack : "");
+    console.error(
+      "[generateBrief] Error:",
+      error instanceof Error ? error.message : error
+    );
+    console.error(
+      "[generateBrief] Stack:",
+      error instanceof Error ? error.stack : ""
+    );
 
     trace.generation({
       name: "generate-brief-error",
@@ -62,6 +68,7 @@ export async function generateBrief(
       summary: subject || "Email thread",
       keyPoints: [],
       actionRequired: false,
+      actionDescription: null,
       participants,
     };
   }
@@ -109,7 +116,7 @@ function getParticipants(
 
   return Array.from(participantMap.entries()).map(([email, data]) => ({
     email,
-    name: data.name,
+    name: data.name ?? null,
     role: data.role,
   }));
 }

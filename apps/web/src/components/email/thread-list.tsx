@@ -1,24 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -41,10 +22,28 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ThreadBrief,
-  ThreadBriefSkeleton,
   type ThreadBriefData,
+  ThreadBriefSkeleton,
 } from "./thread-brief";
 
 // =============================================================================
@@ -167,46 +166,53 @@ export function ThreadList({
   }, [threads, totalCount, unreadCount]);
 
   const hasSelection = selectedThreads.size > 0;
-  const allSelected = selectedThreads.size === threads.length && threads.length > 0;
+  const allSelected =
+    selectedThreads.size === threads.length && threads.length > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
         {/* Primary tabs */}
         <div className="flex items-center gap-2 px-4 py-2">
           <Tabs
-            value={filter}
             onValueChange={(v) => onFilterChange(v as InboxFilter)}
+            value={filter}
           >
             <TabsList className="h-8">
-              <TabsTrigger value="all" className="text-xs px-3 gap-1.5">
+              <TabsTrigger className="gap-1.5 px-3 text-xs" value="all">
                 <Inbox className="h-3.5 w-3.5" />
                 Inbox
                 {filterCounts.all > 0 && (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
                     {filterCounts.all}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="unread" className="text-xs px-3 gap-1.5">
+              <TabsTrigger className="gap-1.5 px-3 text-xs" value="unread">
                 <Mail className="h-3.5 w-3.5" />
                 Unread
                 {filterCounts.unread > 0 && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="destructive"
+                  >
                     {filterCounts.unread}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="starred" className="text-xs px-3 gap-1.5">
+              <TabsTrigger className="gap-1.5 px-3 text-xs" value="starred">
                 <Star className="h-3.5 w-3.5" />
                 Starred
               </TabsTrigger>
-              <TabsTrigger value="snoozed" className="text-xs px-3 gap-1.5">
+              <TabsTrigger className="gap-1.5 px-3 text-xs" value="snoozed">
                 <Clock className="h-3.5 w-3.5" />
                 Snoozed
               </TabsTrigger>
-              <TabsTrigger value="sent" className="text-xs px-3 gap-1.5">
+              <TabsTrigger className="gap-1.5 px-3 text-xs" value="sent">
                 <Send className="h-3.5 w-3.5" />
                 Sent
               </TabsTrigger>
@@ -217,114 +223,118 @@ export function ThreadList({
 
           {/* Refresh */}
           <Button
-            variant="ghost"
-            size="icon"
             className="h-8 w-8"
             onClick={onRefresh}
+            size="icon"
+            variant="ghost"
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Secondary toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-t bg-muted/30">
+        <div className="flex items-center gap-2 border-t bg-muted/30 px-4 py-2">
           {/* Select all */}
           <Checkbox
             checked={allSelected}
-            onCheckedChange={handleSelectAll}
             className="mr-2"
+            onCheckedChange={handleSelectAll}
           />
 
           {/* Batch actions (visible when items selected) */}
           <AnimatePresence>
             {hasSelection ? (
               <motion.div
-                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
                 className="flex items-center gap-1"
+                exit={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: -10 }}
               >
-                <Badge variant="secondary" className="mr-2">
+                <Badge className="mr-2" variant="secondary">
                   {selectedThreads.size} selected
                 </Badge>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleBatchAction("archive")}
                   className="h-7 text-xs"
+                  onClick={() => handleBatchAction("archive")}
+                  size="sm"
+                  variant="ghost"
                 >
-                  <Archive className="h-3.5 w-3.5 mr-1" />
+                  <Archive className="mr-1 h-3.5 w-3.5" />
                   Archive
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleBatchAction("mark_read")}
                   className="h-7 text-xs"
+                  onClick={() => handleBatchAction("mark_read")}
+                  size="sm"
+                  variant="ghost"
                 >
-                  <MailOpen className="h-3.5 w-3.5 mr-1" />
+                  <MailOpen className="mr-1 h-3.5 w-3.5" />
                   Mark read
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleBatchAction("star")}
                   className="h-7 text-xs"
+                  onClick={() => handleBatchAction("star")}
+                  size="sm"
+                  variant="ghost"
                 >
-                  <Star className="h-3.5 w-3.5 mr-1" />
+                  <Star className="mr-1 h-3.5 w-3.5" />
                   Star
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs">
+                    <Button className="h-7 text-xs" size="sm" variant="ghost">
                       More
-                      <ChevronDown className="h-3 w-3 ml-1" />
+                      <ChevronDown className="ml-1 h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleBatchAction("snooze")}>
-                      <Clock className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem
+                      onClick={() => handleBatchAction("snooze")}
+                    >
+                      <Clock className="mr-2 h-4 w-4" />
                       Snooze
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleBatchAction("label")}>
-                      <Tag className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem
+                      onClick={() => handleBatchAction("label")}
+                    >
+                      <Tag className="mr-2 h-4 w-4" />
                       Add label
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleBatchAction("delete")}
                       className="text-red-500"
+                      onClick={() => handleBatchAction("delete")}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  className="ml-2 h-7 w-7"
                   onClick={() => setSelectedThreads(new Set())}
-                  className="h-7 w-7 ml-2"
+                  size="icon"
+                  variant="ghost"
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </motion.div>
             ) : (
               <motion.div
-                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
                 className="flex items-center gap-2"
+                exit={{ opacity: 0, x: 10 }}
+                initial={{ opacity: 0, x: 10 }}
               >
                 {/* Intelligence filter */}
                 <Select
-                  value={intelligenceFilter}
                   onValueChange={(v) =>
                     onIntelligenceFilterChange(v as IntelligenceFilter)
                   }
+                  value={intelligenceFilter}
                 >
                   <SelectTrigger className="h-7 w-[160px] text-xs">
-                    <Filter className="h-3.5 w-3.5 mr-1.5" />
+                    <Filter className="mr-1.5 h-3.5 w-3.5" />
                     <SelectValue placeholder="Filter by..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -358,8 +368,8 @@ export function ThreadList({
 
                 {/* Sort */}
                 <Select
-                  value={sort}
                   onValueChange={(v) => onSortChange(v as InboxSort)}
+                  value={sort}
                 >
                   <SelectTrigger className="h-7 w-[130px] text-xs">
                     <SelectValue placeholder="Sort by..." />
@@ -373,12 +383,14 @@ export function ThreadList({
                 </Select>
 
                 <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-7 w-7"
                   onClick={() =>
-                    onSortDirectionChange(sortDirection === "asc" ? "desc" : "asc")
+                    onSortDirectionChange(
+                      sortDirection === "asc" ? "desc" : "asc"
+                    )
                   }
+                  size="icon"
+                  variant="ghost"
                 >
                   {sortDirection === "asc" ? (
                     <ArrowUp className="h-3.5 w-3.5" />
@@ -393,9 +405,9 @@ export function ThreadList({
       </div>
 
       {/* Thread list with virtualization */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={parentRef}>
         {isLoading ? (
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <ThreadBriefSkeleton key={`skeleton-${i}`} />
             ))}
@@ -415,6 +427,7 @@ export function ThreadList({
               if (!thread) return null;
               return (
                 <div
+                  className="overflow-hidden px-3 py-2"
                   key={thread.id}
                   style={{
                     position: "absolute",
@@ -424,14 +437,13 @@ export function ThreadList({
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  className="px-3 py-2 overflow-hidden"
                 >
                   <ThreadBrief
-                    thread={thread}
                     isSelected={selectedThreads.has(thread.id)}
-                    onSelect={handleSelectThread}
-                    onClick={onThreadClick}
                     onAction={onThreadAction}
+                    onClick={onThreadClick}
+                    onSelect={handleSelectThread}
+                    thread={thread}
                   />
                 </div>
               );
@@ -494,12 +506,12 @@ function EmptyState({ filter }: { filter: InboxFilter }) {
   const { icon: Icon, title, description } = config[filter];
 
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+    <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
         <Icon className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-medium">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      <h3 className="font-medium text-lg">{title}</h3>
+      <p className="mt-1 text-muted-foreground text-sm">{description}</p>
     </div>
   );
 }

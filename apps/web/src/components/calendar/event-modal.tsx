@@ -1,49 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  format,
   addHours,
+  format,
+  isBefore,
   setHours,
   setMinutes,
   startOfDay,
-  isBefore,
 } from "date-fns";
 import {
   Calendar,
-  Clock,
+  Check,
+  ExternalLink,
+  Loader2,
   MapPin,
+  Trash2,
   Users,
   Video,
-  Trash2,
-  Loader2,
-  Check,
-  X,
-  ExternalLink,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +31,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/utils/trpc";
 import type { CalendarEvent } from "./types";
 
@@ -312,7 +309,7 @@ export function EventModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog onOpenChange={onOpenChange} open={open}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
@@ -325,28 +322,28 @@ export function EventModal({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
+                autoFocus
                 id="title"
-                value={form.title}
                 onChange={(e) => updateField("title", e.target.value)}
                 placeholder="Add title"
-                autoFocus
+                value={form.title}
               />
             </div>
 
             {/* All Day Toggle */}
             <div className="flex items-center justify-between">
-              <Label htmlFor="all-day" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2" htmlFor="all-day">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 All day
               </Label>
               <Switch
-                id="all-day"
                 checked={form.isAllDay}
+                id="all-day"
                 onCheckedChange={(checked) => updateField("isAllDay", checked)}
               />
             </div>
@@ -358,9 +355,9 @@ export function EventModal({
                   <Label htmlFor="start-date">Start</Label>
                   <Input
                     id="start-date"
+                    onChange={(e) => updateField("startDate", e.target.value)}
                     type="date"
                     value={form.startDate}
-                    onChange={(e) => updateField("startDate", e.target.value)}
                   />
                 </div>
                 {!form.isAllDay && (
@@ -368,9 +365,9 @@ export function EventModal({
                     <Label htmlFor="start-time">Time</Label>
                     <Input
                       id="start-time"
+                      onChange={(e) => updateField("startTime", e.target.value)}
                       type="time"
                       value={form.startTime}
-                      onChange={(e) => updateField("startTime", e.target.value)}
                     />
                   </div>
                 )}
@@ -381,9 +378,9 @@ export function EventModal({
                   <Label htmlFor="end-date">End</Label>
                   <Input
                     id="end-date"
+                    onChange={(e) => updateField("endDate", e.target.value)}
                     type="date"
                     value={form.endDate}
-                    onChange={(e) => updateField("endDate", e.target.value)}
                   />
                 </div>
                 {!form.isAllDay && (
@@ -391,9 +388,9 @@ export function EventModal({
                     <Label htmlFor="end-time">Time</Label>
                     <Input
                       id="end-time"
+                      onChange={(e) => updateField("endTime", e.target.value)}
                       type="time"
                       value={form.endTime}
-                      onChange={(e) => updateField("endTime", e.target.value)}
                     />
                   </div>
                 )}
@@ -402,30 +399,30 @@ export function EventModal({
 
             {/* Location */}
             <div className="space-y-2">
-              <Label htmlFor="location" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2" htmlFor="location">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 Location
               </Label>
               <Input
                 id="location"
-                value={form.location}
                 onChange={(e) => updateField("location", e.target.value)}
                 placeholder="Add location"
+                value={form.location}
               />
             </div>
 
             {/* Video Conference */}
             <div className="flex items-center justify-between">
               <Label
-                htmlFor="add-conference"
                 className="flex items-center gap-2"
+                htmlFor="add-conference"
               >
                 <Video className="h-4 w-4 text-muted-foreground" />
                 Add video call
               </Label>
               <Switch
-                id="add-conference"
                 checked={form.addConference}
+                id="add-conference"
                 onCheckedChange={(checked) =>
                   updateField("addConference", checked)
                 }
@@ -434,12 +431,12 @@ export function EventModal({
 
             {/* Existing conference link */}
             {isEditing && event?.conferenceData && (
-              <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="rounded-lg bg-muted/50 p-3">
                 <a
+                  className="flex items-center gap-2 text-blue-600 text-sm hover:underline"
                   href={event.conferenceData.entryPoints[0]?.uri}
-                  target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  target="_blank"
                 >
                   <Video className="h-4 w-4" />
                   Join video call
@@ -450,15 +447,15 @@ export function EventModal({
 
             {/* Attendees */}
             <div className="space-y-2">
-              <Label htmlFor="attendees" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2" htmlFor="attendees">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 Attendees
               </Label>
               <Input
                 id="attendees"
-                value={form.attendees}
                 onChange={(e) => updateField("attendees", e.target.value)}
                 placeholder="Add emails, separated by commas"
+                value={form.attendees}
               />
             </div>
 
@@ -466,10 +463,10 @@ export function EventModal({
             <div className="space-y-2">
               <Label htmlFor="visibility">Visibility</Label>
               <Select
-                value={form.visibility}
                 onValueChange={(value: "default" | "public" | "private") =>
                   updateField("visibility", value)
                 }
+                value={form.visibility}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -487,39 +484,39 @@ export function EventModal({
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
                 placeholder="Add description"
                 rows={3}
+                value={form.description}
               />
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
               {isEditing && (
                 <Button
+                  className="mr-auto"
+                  disabled={isLoading}
+                  onClick={() => setShowDeleteConfirm(true)}
                   type="button"
                   variant="destructive"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isLoading}
-                  className="mr-auto"
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
+                  <Trash2 className="mr-1 h-4 w-4" />
                   Delete
                 </Button>
               )}
               <Button
+                disabled={isLoading}
+                onClick={() => onOpenChange(false)}
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isLoading}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button disabled={isLoading} type="submit">
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 ) : (
-                  <Check className="h-4 w-4 mr-1" />
+                  <Check className="mr-1 h-4 w-4" />
                 )}
                 {isEditing ? "Save" : "Create"}
               </Button>
@@ -529,7 +526,7 @@ export function EventModal({
       </Dialog>
 
       {/* Delete confirmation */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialog onOpenChange={setShowDeleteConfirm} open={showDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Event</AlertDialogTitle>
@@ -537,7 +534,7 @@ export function EventModal({
               Are you sure you want to delete &ldquo;{event?.title}&rdquo;? This
               action cannot be undone.
               {event?.attendees && event.attendees.length > 1 && (
-                <span className="block mt-2">
+                <span className="mt-2 block">
                   Attendees will be notified of the cancellation.
                 </span>
               )}
@@ -548,14 +545,14 @@ export function EventModal({
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={handleDelete}
             >
               {deleteMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="mr-1 h-4 w-4" />
               )}
               Delete
             </AlertDialogAction>

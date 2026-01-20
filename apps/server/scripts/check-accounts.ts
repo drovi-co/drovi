@@ -1,5 +1,5 @@
 import { db } from "@memorystack/db";
-import { emailAccount, emailMessage, emailThread } from "@memorystack/db/schema";
+import { emailMessage, emailThread } from "@memorystack/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 async function main() {

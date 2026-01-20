@@ -140,14 +140,12 @@ export async function markAsResolved(
 /**
  * Get pending DLQ jobs for review.
  */
-export async function getPendingDLQJobs(
-  options?: {
-    organizationId?: string;
-    taskId?: string;
-    limit?: number;
-    offset?: number;
-  }
-): Promise<typeof failedJob.$inferSelect[]> {
+export async function getPendingDLQJobs(options?: {
+  organizationId?: string;
+  taskId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<(typeof failedJob.$inferSelect)[]> {
   const conditions = [eq(failedJob.status, "pending")];
 
   if (options?.organizationId) {
@@ -201,7 +199,7 @@ export interface DLQTaskOptions {
  * Trigger.dev tasks typically throw with attempt info.
  */
 export function shouldSendToDLQ(
-  error: Error,
+  _error: Error,
   attemptNumber: number,
   maxRetries: number
 ): boolean {

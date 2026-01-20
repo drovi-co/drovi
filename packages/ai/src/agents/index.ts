@@ -1,4 +1,4 @@
-import { type CoreMessage, generateText, streamText } from "ai";
+import { generateText, type ModelMessage, streamText } from "ai";
 import { observability } from "../observability.js";
 import {
   type AIProvider,
@@ -28,14 +28,14 @@ export interface AgentContext {
 // Base agent class
 export class BaseAgent {
   protected config: AgentConfig;
-  protected messages: CoreMessage[] = [];
+  protected messages: ModelMessage[] = [];
 
   constructor(config: AgentConfig) {
     this.config = config;
   }
 
   // Add system message
-  protected getSystemMessage(): CoreMessage {
+  protected getSystemMessage(): ModelMessage {
     return {
       role: "system",
       content: this.config.systemPrompt,
@@ -48,7 +48,7 @@ export class BaseAgent {
       ? getModel(this.config.provider, this.config.model)
       : getDefaultModel();
 
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       this.getSystemMessage(),
       ...this.messages,
       { role: "user", content: userMessage },
@@ -70,7 +70,7 @@ export class BaseAgent {
       const { text, usage } = await generateText({
         model,
         messages,
-        maxTokens: this.config.maxTokens ?? 2048,
+        maxOutputTokens: this.config.maxTokens ?? 2048,
         temperature: this.config.temperature ?? 0.7,
       });
 
@@ -82,9 +82,9 @@ export class BaseAgent {
         output: text,
         usage: usage
           ? {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens,
+              promptTokens: usage.inputTokens ?? 0,
+              completionTokens: usage.outputTokens ?? 0,
+              totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
             }
           : undefined,
       });
@@ -117,7 +117,7 @@ export class BaseAgent {
       ? getModel(this.config.provider, this.config.model)
       : getDefaultModel();
 
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       this.getSystemMessage(),
       ...this.messages,
       { role: "user", content: userMessage },
@@ -138,7 +138,7 @@ export class BaseAgent {
       const { textStream, text: fullText } = streamText({
         model,
         messages,
-        maxTokens: this.config.maxTokens ?? 2048,
+        maxOutputTokens: this.config.maxTokens ?? 2048,
         temperature: this.config.temperature ?? 0.7,
       });
 
@@ -179,7 +179,7 @@ export class BaseAgent {
   }
 
   // Get conversation history
-  getHistory(): CoreMessage[] {
+  getHistory(): ModelMessage[] {
     return [...this.messages];
   }
 }
@@ -511,3 +511,49 @@ export type {
   SensitiveDataResult,
 } from "./risk/index.js";
 export { createRiskAgent, RiskAgent } from "./risk/index.js";
+
+// =============================================================================
+// DEDUPLICATION AGENT (Cross-Source Unification)
+// =============================================================================
+
+export type {
+  DeduplicationAction,
+  DeduplicationContext,
+  DeduplicationResult,
+  DetectionMethod,
+  ExtractedCommitmentForDedup,
+  LLMMatchAnalysis,
+  MatchCandidate,
+  ResolvedParties,
+  SimilarUIO,
+} from "./deduplication/index.js";
+export {
+  createDeduplicationAgent,
+  DeduplicationActionSchema,
+  DeduplicationAgent,
+  DeduplicationResultSchema,
+  LLMMatchAnalysisSchema,
+} from "./deduplication/index.js";
+
+// =============================================================================
+// UPDATE DETECTION AGENT (Cross-Source Update Detection)
+// =============================================================================
+
+export type {
+  DetectedReference,
+  ExtractedUpdateInfo,
+  LLMUpdateDetectionResponse,
+  MessageInput as UpdateMessageInput,
+  TrackedUIO,
+  UpdateDetectionContext,
+  UpdateDetectionResult,
+  UpdateType,
+} from "./update-detection/index.js";
+export {
+  createUpdateDetectionAgent,
+  DetectedReferenceSchema,
+  ExtractedUpdateInfoSchema,
+  LLMUpdateDetectionResponseSchema,
+  UpdateDetectionAgent,
+  UpdateTypeSchema,
+} from "./update-detection/index.js";

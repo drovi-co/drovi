@@ -26,8 +26,8 @@ function TeamIcon({ color = "#00B2BF", className }: TeamIconProps) {
     <div
       className={cn(
         "inline-flex items-center justify-center",
-        "p-px rounded-[4px]",
-        "bg-[#292B41]",
+        "rounded-[4px] p-px",
+        "bg-accent",
         className
       )}
     >
@@ -54,11 +54,11 @@ function IssueBreadcrumb({
   return (
     <div className={cn("flex items-center gap-[14px]", className)}>
       <TeamIcon color={teamColor} />
-      <div className="flex items-center text-[13px] font-medium text-[#EEEFFC]">
+      <div className="flex items-center font-medium text-foreground text-[13px]">
         <button
-          type="button"
+          className="cursor-pointer hover:underline"
           onClick={onTeamClick}
-          className="hover:underline cursor-pointer"
+          type="button"
         >
           {teamName}
         </button>
@@ -96,32 +96,32 @@ function IssueHeader({
       data-slot="issue-header"
       {...props}
     >
-      <div className="flex items-center justify-between py-3 border-b border-[#2C2D3C]">
+      <div className="flex items-center justify-between border-border border-b py-3">
         <div className="flex items-center gap-3">
           <IssueBreadcrumb
-            teamName={teamName}
             issueId={issueId}
-            teamColor={teamColor}
             onTeamClick={onTeamClick}
+            teamColor={teamColor}
+            teamName={teamName}
           />
           <IssueStar
-            starred={starred}
             onStarredChange={onStarredChange}
             size="sm"
+            starred={starred}
           />
         </div>
 
         <button
-          type="button"
-          onClick={onMoreClick}
+          aria-label="More options"
           className={cn(
             "inline-flex items-center justify-center",
-            "p-[6px] rounded-[4px]",
-            "text-[#858699]",
+            "rounded-[4px] p-[6px]",
+            "text-muted-foreground",
             "transition-colors duration-150",
             "hover:bg-muted hover:text-foreground"
           )}
-          aria-label="More options"
+          onClick={onMoreClick}
+          type="button"
         >
           <MoreHorizontal className="size-4" />
         </button>

@@ -57,8 +57,8 @@ export function createClaimEvidence(
   return {
     messageId,
     quotedText,
-    startIndex,
-    endIndex,
+    startIndex: startIndex ?? null,
+    endIndex: endIndex ?? null,
   };
 }
 
@@ -159,15 +159,15 @@ export function claimsToDbFormat(
     dbClaims.push({
       type: "fact",
       text: fact.text,
-      normalizedText: fact.normalizedText,
+      normalizedText: fact.normalizedText ?? undefined,
       confidence: fact.confidence,
       threadId,
       organizationId,
       messageId: fact.evidence[0]?.messageId,
       sourceMessageIds: fact.evidence.map((e) => e.messageId),
       quotedText: fact.evidence[0]?.quotedText,
-      quotedTextStart: fact.evidence[0]?.startIndex,
-      quotedTextEnd: fact.evidence[0]?.endIndex,
+      quotedTextStart: fact.evidence[0]?.startIndex ?? undefined,
+      quotedTextEnd: fact.evidence[0]?.endIndex ?? undefined,
       metadata: {
         entities: fact.entities,
         temporalReference: fact.temporalReference,
@@ -186,8 +186,8 @@ export function claimsToDbFormat(
       messageId: promise.evidence[0]?.messageId,
       sourceMessageIds: promise.evidence.map((e) => e.messageId),
       quotedText: promise.evidence[0]?.quotedText,
-      quotedTextStart: promise.evidence[0]?.startIndex,
-      quotedTextEnd: promise.evidence[0]?.endIndex,
+      quotedTextStart: promise.evidence[0]?.startIndex ?? undefined,
+      quotedTextEnd: promise.evidence[0]?.endIndex ?? undefined,
       metadata: {
         promisor: promise.promisor,
         promisee: promise.promisee,
@@ -210,8 +210,8 @@ export function claimsToDbFormat(
       messageId: request.evidence[0]?.messageId,
       sourceMessageIds: request.evidence.map((e) => e.messageId),
       quotedText: request.evidence[0]?.quotedText,
-      quotedTextStart: request.evidence[0]?.startIndex,
-      quotedTextEnd: request.evidence[0]?.endIndex,
+      quotedTextStart: request.evidence[0]?.startIndex ?? undefined,
+      quotedTextEnd: request.evidence[0]?.endIndex ?? undefined,
       metadata: {
         requester: request.requester,
         requestee: request.requestee,
@@ -233,8 +233,8 @@ export function claimsToDbFormat(
       messageId: question.evidence[0]?.messageId,
       sourceMessageIds: question.evidence.map((e) => e.messageId),
       quotedText: question.evidence[0]?.quotedText,
-      quotedTextStart: question.evidence[0]?.startIndex,
-      quotedTextEnd: question.evidence[0]?.endIndex,
+      quotedTextStart: question.evidence[0]?.startIndex ?? undefined,
+      quotedTextEnd: question.evidence[0]?.endIndex ?? undefined,
       metadata: {
         asker: question.asker,
         isRhetorical: question.isRhetorical,
@@ -256,8 +256,8 @@ export function claimsToDbFormat(
       messageId: decision.evidence[0]?.messageId,
       sourceMessageIds: decision.evidence.map((e) => e.messageId),
       quotedText: decision.evidence[0]?.quotedText,
-      quotedTextStart: decision.evidence[0]?.startIndex,
-      quotedTextEnd: decision.evidence[0]?.endIndex,
+      quotedTextStart: decision.evidence[0]?.startIndex ?? undefined,
+      quotedTextEnd: decision.evidence[0]?.endIndex ?? undefined,
       metadata: {
         decision: decision.decision,
         decisionMaker: decision.decisionMaker,
