@@ -45,8 +45,8 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build all packages
-RUN bun run build
+# Build only the server and its dependencies
+RUN bun run turbo build --filter=server...
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
