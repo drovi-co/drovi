@@ -45,11 +45,8 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Add node_modules/.bin to PATH for build tools
-ENV PATH="/app/node_modules/.bin:$PATH"
-
 # Build only the server and its dependencies
-RUN turbo build --filter=server...
+RUN bunx --bun turbo build --filter=server...
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
