@@ -30,8 +30,8 @@ COPY packages/ai/package.json ./packages/ai/
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies
-RUN bun install
+# Install dependencies (including devDependencies for build)
+RUN bun install --production=false
 
 # -----------------------------------------------------------------------------
 # Stage 3: Build the application
