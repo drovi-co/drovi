@@ -31,7 +31,7 @@ COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # -----------------------------------------------------------------------------
 # Stage 3: Build the application
