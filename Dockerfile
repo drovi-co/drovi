@@ -45,9 +45,9 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build the server (packages are TypeScript and don't need separate build)
+# Build the server using the installed tsdown
 WORKDIR /app/apps/server
-RUN bunx tsdown
+RUN /app/node_modules/.bin/tsdown
 WORKDIR /app
 
 # -----------------------------------------------------------------------------
