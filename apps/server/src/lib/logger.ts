@@ -2,21 +2,10 @@ import { env } from "@memorystack/env/server";
 import pino from "pino";
 
 // Create base logger with appropriate configuration
+// Note: pino-pretty is NOT used - it causes bundler issues with Trigger.dev
+// In production, logs are JSON formatted (better for log aggregation anyway)
 export const logger = pino({
   level: env.NODE_ENV === "production" ? "info" : "debug",
-
-  // Use pretty printing in development
-  transport:
-    env.NODE_ENV === "development"
-      ? {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname",
-          },
-        }
-      : undefined,
 
   // Base fields included in every log
   base: {
