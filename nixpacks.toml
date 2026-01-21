@@ -4,8 +4,5 @@ nixPkgs = ["bun"]
 [phases.install]
 cmds = ["bun install"]
 
-[phases.build]
-cmds = ["bun run build"]
-
 [start]
-cmd = "bun run --cwd apps/server start"
+cmd = "bun run apps/server/src/index.ts"

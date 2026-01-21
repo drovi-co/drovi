@@ -69,7 +69,7 @@ USER hono
 
 EXPOSE 3000
 
-CMD ["bun", "run", "apps/server/src/index.ts"]
+CMD ["bun", "run", "--cwd", "apps/server", "start"]
 
 # -----------------------------------------------------------------------------
 # Stage 5: Production web image (static files served via nginx)
