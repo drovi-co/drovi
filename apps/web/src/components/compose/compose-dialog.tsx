@@ -1,6 +1,30 @@
+// =============================================================================
+// COMPOSE DIALOG
+// =============================================================================
+//
+// Main compose dialog component. Supports email composition with AI assistance,
+// attachments, and pre-send contradiction checking.
+//
+// This is the entry point for compose functionality. It uses:
+// - StandaloneEmailFields for email-specific fields (To, Cc, Bcc, Subject)
+// - AIAssistPanel for AI-powered drafting
+// - AttachmentList for displaying attachments
+// - ContradictionWarning for pre-send safety checks
+//
+
 import { env } from "@memorystack/env/web";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import {
+  Loader2,
+  Paperclip,
+  Send,
+  Shield,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,295 +32,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/utils/trpc";
 
-// =============================================================================
-// AI SETTINGS & PLACEHOLDER REPLACEMENT
-// =============================================================================
-
-interface AISettings {
-  title?: string;
-  company?: string;
-  department?: string;
-  signature?: string;
-  preferredTone?: "formal" | "casual" | "professional" | "friendly";
-  signOff?: string;
-  phone?: string;
-  linkedinUrl?: string;
-  calendarBookingLink?: string;
-  workingHours?: {
-    timezone: string;
-    start: string;
-    end: string;
-    workDays: number[];
-  };
-  userName?: string | null;
-  userEmail?: string | null;
-}
-
-/**
- * Extracts subject line from AI draft text.
- * Handles formats like "Subject: Foo" at the start of the body.
- */
-function extractSubjectFromBody(body: string): {
-  subject: string | null;
-  cleanBody: string;
-} {
-  const lines = body.split("\n");
-  const subjectLine = lines[0];
-
-  // Check for "Subject:" prefix (case insensitive)
-  const subjectMatch = subjectLine?.match(/^Subject:\s*(.+)$/i);
-  if (subjectMatch?.[1]) {
-    // Remove the subject line from body
-    const cleanBody = lines.slice(1).join("\n").replace(/^\n+/, "");
-    return { subject: subjectMatch[1].trim(), cleanBody };
-  }
-
-  return { subject: null, cleanBody: body };
-}
-
-/**
- * Generate suggested availability slots based on working hours settings.
- * Returns 3 time slots for the next few available work days.
- */
-function generateAvailabilitySlots(
-  workingHours?: AISettings["workingHours"]
-): string[] {
-  if (!workingHours) {
-    // Default availability if no settings
-    const today = new Date();
-    const slots: string[] = [];
-
-    for (let i = 1; i <= 7 && slots.length < 3; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayOfWeek = date.getDay();
-
-      // Default to weekdays only
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-        const dateStr = date.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-        });
-
-        // Suggest morning, mid-day, and afternoon slots
-        const times = ["10:00 AM", "2:00 PM", "4:00 PM"];
-        const timeIdx = slots.length % 3;
-        slots.push(`${dayName}, ${dateStr} at ${times[timeIdx]}`);
-      }
-    }
-
-    return slots;
-  }
-
-  const { start, end, workDays } = workingHours;
-  const today = new Date();
-  const slots: string[] = [];
-
-  // Parse working hours
-  const [startHour] = start.split(":").map(Number);
-  const [endHour] = end.split(":").map(Number);
-
-  // Generate suggested times within working hours
-  const suggestedHours = [
-    startHour + 1, // 1 hour after start
-    Math.floor((startHour + endHour) / 2), // Mid-day
-    endHour - 2, // 2 hours before end
-  ].filter((h) => h >= (startHour ?? 9) && h < (endHour ?? 17));
-
-  // Find next available work days
-  for (let i = 1; i <= 14 && slots.length < 3; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    const dayOfWeek = date.getDay();
-
-    if (workDays.includes(dayOfWeek)) {
-      const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-      const dateStr = date.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-      });
-
-      // Pick a suggested time
-      const hourIdx = slots.length % suggestedHours.length;
-      const hour = suggestedHours[hourIdx] ?? 10;
-      const timeStr =
-        hour >= 12 ? `${hour === 12 ? 12 : hour - 12}:00 PM` : `${hour}:00 AM`;
-
-      slots.push(`${dayName}, ${dateStr} at ${timeStr}`);
-    }
-  }
-
-  return slots;
-}
-
-/**
- * Replace placeholder text with actual user settings values.
- */
-function replacePlaceholders(text: string, settings: AISettings): string {
-  let result = text;
-
-  // Name placeholders
-  if (settings.userName) {
-    result = result.replace(/\[Your Name\]/gi, settings.userName);
-    result = result.replace(/\[Your Full Name\]/gi, settings.userName);
-    result = result.replace(/\[Name\]/gi, settings.userName);
-  }
-
-  // Title/Role placeholders
-  if (settings.title) {
-    result = result.replace(/\[Your Title\]/gi, settings.title);
-    result = result.replace(/\[Your Role\]/gi, settings.title);
-    result = result.replace(/\[Your Role\/Title\]/gi, settings.title);
-    result = result.replace(/\[Your Position\]/gi, settings.title);
-    result = result.replace(/\[Title\]/gi, settings.title);
-    result = result.replace(/\[Role\]/gi, settings.title);
-  }
-
-  // Company placeholders
-  if (settings.company) {
-    result = result.replace(/\[Your Company\]/gi, settings.company);
-    result = result.replace(/\[Company Name\]/gi, settings.company);
-    result = result.replace(/\[Company\]/gi, settings.company);
-  }
-
-  // Department placeholders
-  if (settings.department) {
-    result = result.replace(/\[Your Department\]/gi, settings.department);
-    result = result.replace(/\[Department\]/gi, settings.department);
-  }
-
-  // Phone placeholders
-  if (settings.phone) {
-    result = result.replace(/\[Your Phone\]/gi, settings.phone);
-    result = result.replace(/\[Phone Number\]/gi, settings.phone);
-    result = result.replace(/\[Phone\]/gi, settings.phone);
-  }
-
-  // Email placeholders
-  if (settings.userEmail) {
-    result = result.replace(/\[Your Email\]/gi, settings.userEmail);
-    result = result.replace(/\[Email\]/gi, settings.userEmail);
-  }
-
-  // LinkedIn placeholders
-  if (settings.linkedinUrl) {
-    result = result.replace(/\[LinkedIn URL\]/gi, settings.linkedinUrl);
-    result = result.replace(/\[Your LinkedIn\]/gi, settings.linkedinUrl);
-    result = result.replace(/\[LinkedIn\]/gi, settings.linkedinUrl);
-  }
-
-  // Calendar booking link placeholders
-  if (settings.calendarBookingLink) {
-    result = result.replace(
-      /\[Calendar Link\]/gi,
-      settings.calendarBookingLink
-    );
-    result = result.replace(/\[Booking Link\]/gi, settings.calendarBookingLink);
-    result = result.replace(/\[Calendly\]/gi, settings.calendarBookingLink);
-    result = result.replace(
-      /\[Schedule Link\]/gi,
-      settings.calendarBookingLink
-    );
-  }
-
-  // Sign-off placeholder - replace if user has one configured
-  if (settings.signOff) {
-    // Common AI-generated sign-off placeholders
-    result = result.replace(/\[Your Sign-off\]/gi, settings.signOff);
-    result = result.replace(
-      /Best regards,?\n?\[Your Name\]/gi,
-      `${settings.signOff},\n${settings.userName ?? "[Your Name]"}`
-    );
-  }
-
-  // Signature placeholder - insert full signature
-  if (settings.signature) {
-    result = result.replace(/\[Your Signature\]/gi, settings.signature);
-    result = result.replace(/\[Signature\]/gi, settings.signature);
-  }
-
-  // Availability placeholders - replace [Day, Date] at [Time] patterns
-  // Look for patterns like "- [Day, Date] at [Time]"
-  const availabilityPattern = /- \[Day,?\s*Date\]\s*at\s*\[Time\]/gi;
-  const matches = result.match(availabilityPattern);
-
-  if (matches && matches.length > 0) {
-    const slots = generateAvailabilitySlots(settings.workingHours);
-
-    // Replace each placeholder with actual availability
-    let matchIndex = 0;
-    result = result.replace(availabilityPattern, () => {
-      const slot = slots[matchIndex % slots.length];
-      matchIndex++;
-      return slot
-        ? `- ${slot}`
-        : "- [Please check my calendar for availability]";
-    });
-  }
-
-  return result;
-}
-
-import {
-  ChevronDown,
-  FileIcon,
-  FileText,
-  ImageIcon,
-  Loader2,
-  Paperclip,
-  Send,
-  Shield,
-  Sparkles,
-  Trash2,
-  Wand2,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import {
   type ContradictionCheckResult,
   ContradictionWarning,
 } from "./contradiction-warning";
-import { type Recipient, RecipientField } from "./recipient-field";
-
-// =============================================================================
-// ATTACHMENT TYPES & HELPERS
-// =============================================================================
-
-interface Attachment {
-  id: string;
-  filename: string;
-  mimeType: string;
-  size: number;
-  content: string; // Base64 encoded
-}
-
-const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25MB per file
-const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  if (mimeType.includes("pdf") || mimeType.includes("document"))
-    return FileText;
-  return FileIcon;
-}
+import type { Recipient } from "./recipient-field";
+import { AIAssistPanel } from "./shared/ai-assist-panel";
+import {
+  AttachmentList,
+  ATTACHMENT_LIMITS,
+  type Attachment,
+} from "./shared/attachment-zone";
+import { StandaloneEmailFields } from "./sources/email-compose";
 
 // =============================================================================
 // API HELPERS
@@ -433,7 +183,6 @@ export function ComposeDialog({
   const [bcc, setBcc] = useState<Recipient[]>([]);
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
-  const [showCcBcc, setShowCcBcc] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -442,7 +191,6 @@ export function ComposeDialog({
 
   // AI Assist state
   const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
 
   // Pre-send contradiction check state
   const [contradictionResult, setContradictionResult] =
@@ -453,7 +201,6 @@ export function ComposeDialog({
     useState(false);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const aiInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch reply context if replying
@@ -465,28 +212,18 @@ export function ComposeDialog({
     enabled: !!replyToThreadId,
   });
 
-  // Fetch AI settings for placeholder replacement
-  const { data: aiSettings } = useQuery({
-    ...trpc.user.getAISettings.queryOptions(),
-  });
-
   // Apply reply context when loaded
   useEffect(() => {
     if (replyContext) {
       setTo(replyContext.toRecipients);
       setCc(replyContext.ccRecipients);
       setSubject(replyContext.subject ?? "");
-      // Don't prefill body with quoted content - keep it clean for typing
-      if (replyContext.ccRecipients.length > 0) {
-        setShowCcBcc(true);
-      }
     }
   }, [replyContext]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (!open) {
-      // Only reset after a delay to allow close animation
       const timer = setTimeout(() => {
         if (!replyToThreadId) {
           setTo(initialTo);
@@ -497,12 +234,10 @@ export function ComposeDialog({
           setAttachments([]);
           setDraftId(null);
           setHasUnsavedChanges(false);
-          setShowCcBcc(false);
         }
       }, 200);
       return () => clearTimeout(timer);
     }
-    // When dialog opens with initial values (forward), apply them
     if (open && initialSubject) {
       setSubject(initialSubject);
     }
@@ -562,7 +297,6 @@ export function ComposeDialog({
   const checkDraftMutation = useMutation(
     trpc.risk.checkDraft.mutationOptions({
       onSuccess: (data) => {
-        // Transform API response to match ContradictionCheckResult type
         const result: ContradictionCheckResult = {
           ...data,
           riskLevel: data.riskLevel as "low" | "medium" | "high" | "critical",
@@ -576,85 +310,17 @@ export function ComposeDialog({
         setIsCheckingContradictions(false);
 
         if (data.contradictions.length > 0) {
-          // Show warning if contradictions found
           setShowContradictionWarning(true);
         } else {
-          // No contradictions - proceed with send
           performSend();
         }
       },
       onError: (error) => {
         setIsCheckingContradictions(false);
-        // If check fails, allow sending anyway with a warning
         toast.error(
           `Contradiction check failed: ${error.message}. Proceeding with send.`
         );
         performSend();
-      },
-    })
-  );
-
-  // AI Generate Draft mutation (for replies with thread context)
-  const generateDraftMutation = useMutation(
-    trpc.drafts.generateDraft.mutationOptions({
-      onSuccess: (data) => {
-        let draftBody = data.draft.body;
-
-        // Extract subject if provided in the draft
-        if (data.draft.subject && !subject) {
-          setSubject(data.draft.subject);
-        }
-
-        // Also check if subject is embedded in the body text
-        const { subject: extractedSubject, cleanBody } =
-          extractSubjectFromBody(draftBody);
-        if (extractedSubject && !subject) {
-          setSubject(extractedSubject);
-          draftBody = cleanBody;
-        }
-
-        // Replace placeholders with user settings
-        if (aiSettings) {
-          draftBody = replacePlaceholders(draftBody, aiSettings);
-        }
-
-        setBody(draftBody);
-        setAiPopoverOpen(false);
-        setAiPrompt("");
-        toast.success("Draft generated with AI");
-      },
-      onError: (error) => {
-        toast.error(`AI generation failed: ${error.message}`);
-      },
-    })
-  );
-
-  // AI Refine Draft mutation (for new messages or editing existing)
-  const refineDraftMutation = useMutation(
-    trpc.drafts.refineDraft.mutationOptions({
-      onSuccess: (data) => {
-        let draftBody = data.refinedBody;
-
-        // Check if subject is embedded in the body text
-        const { subject: extractedSubject, cleanBody } =
-          extractSubjectFromBody(draftBody);
-        if (extractedSubject && !subject) {
-          setSubject(extractedSubject);
-          draftBody = cleanBody;
-        }
-
-        // Replace placeholders with user settings
-        if (aiSettings) {
-          draftBody = replacePlaceholders(draftBody, aiSettings);
-        }
-
-        setBody(draftBody);
-        setAiPopoverOpen(false);
-        setAiPrompt("");
-        toast.success("Draft refined with AI");
-      },
-      onError: (error) => {
-        toast.error(`AI refinement failed: ${error.message}`);
       },
     })
   );
@@ -665,34 +331,30 @@ export function ComposeDialog({
       const files = event.target.files;
       if (!files || files.length === 0) return;
 
+      const limits = ATTACHMENT_LIMITS.email;
       const currentTotalSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
       for (const file of Array.from(files)) {
-        // Check individual file size
-        if (file.size > MAX_ATTACHMENT_SIZE) {
+        if (file.size > limits.maxFileSize) {
           toast.error(`File "${file.name}" exceeds maximum size of 25MB`);
           continue;
         }
 
-        // Check total size
-        if (currentTotalSize + file.size > MAX_TOTAL_SIZE) {
+        if (currentTotalSize + file.size > limits.maxTotalSize) {
           toast.error("Total attachment size exceeds 50MB limit");
           break;
         }
 
-        // Check for duplicates
         if (attachments.some((a) => a.filename === file.name)) {
           toast.error(`File "${file.name}" is already attached`);
           continue;
         }
 
-        // Read file as base64
         try {
           const content = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
               const result = reader.result as string;
-              // Remove data URL prefix (e.g., "data:application/pdf;base64,")
               const base64 = result.split(",")[1];
               resolve(base64 ?? "");
             };
@@ -714,7 +376,6 @@ export function ComposeDialog({
         }
       }
 
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -732,7 +393,6 @@ export function ComposeDialog({
     fileInputRef.current?.click();
   }, []);
 
-  // Handle send
   // The actual send function (called after contradiction check passes)
   const performSend = useCallback(() => {
     sendMutation.mutate({
@@ -781,12 +441,10 @@ export function ComposeDialog({
       return;
     }
 
-    // Reset previous contradiction state
     setShowContradictionWarning(false);
     setContradictionResult(null);
     setIsCheckingContradictions(true);
 
-    // Run contradiction check before sending
     checkDraftMutation.mutate({
       organizationId,
       accountId,
@@ -810,7 +468,7 @@ export function ComposeDialog({
     saveDraftMutation.mutate({
       organizationId,
       accountId,
-      to: to.length > 0 ? to : [{ email: "draft@example.com" }], // Placeholder for empty drafts
+      to: to.length > 0 ? to : [{ email: "draft@example.com" }],
       cc: cc.length > 0 ? cc : undefined,
       bcc: bcc.length > 0 ? bcc : undefined,
       subject: subject || "(No subject)",
@@ -854,87 +512,44 @@ export function ComposeDialog({
     }
   }, [draftId, organizationId, accountId, deleteDraftMutation, onOpenChange]);
 
-  // Handle close with unsaved changes warning
+  // Handle close
   const handleClose = useCallback(() => {
-    if (hasUnsavedChanges) {
-      // For now, just close. Could add a confirmation dialog
-      onOpenChange(false);
-    } else {
-      onOpenChange(false);
-    }
-  }, [hasUnsavedChanges, onOpenChange]);
+    onOpenChange(false);
+  }, [onOpenChange]);
 
-  // Handle AI assist
-  const handleAiAssist = useCallback(() => {
-    if (!aiPrompt.trim()) {
-      toast.error("Please enter what you want to write");
-      return;
-    }
+  // Handle AI body change
+  const handleBodyChange = useCallback((newBody: string) => {
+    setBody(newBody);
+  }, []);
 
-    const recipientName =
-      to[0]?.name ?? to[0]?.email?.split("@")[0] ?? undefined;
-
-    if (replyToThreadId) {
-      // Use generateDraft for replies - has full thread context
-      generateDraftMutation.mutate({
-        organizationId,
-        threadId: replyToThreadId,
-        userIntent: aiPrompt,
-        options: {
-          tone: "professional",
-          includeGreeting: true,
-          includeSignoff: true,
-        },
-      });
-    } else {
-      // Use refineDraft for new messages
-      refineDraftMutation.mutate({
-        organizationId,
-        originalDraft:
-          body || `Subject: ${subject}\n\nWrite an email about: ${aiPrompt}`,
-        feedback: aiPrompt,
-        recipientName,
-      });
-    }
-  }, [
-    aiPrompt,
-    to,
-    body,
-    subject,
-    organizationId,
-    replyToThreadId,
-    generateDraftMutation,
-    refineDraftMutation,
-  ]);
+  // Handle AI subject change
+  const handleSubjectChange = useCallback((newSubject: string) => {
+    setSubject(newSubject);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     if (!open) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Enter = Send
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         handleSend();
         return;
       }
 
-      // Cmd/Ctrl + J = AI Assist
       if ((e.metaKey || e.ctrlKey) && e.key === "j") {
         e.preventDefault();
         setAiPopoverOpen(true);
-        setTimeout(() => aiInputRef.current?.focus(), 100);
         return;
       }
 
-      // Cmd/Ctrl + Shift + D = Save Draft
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "d") {
         e.preventDefault();
         handleSaveDraft();
         return;
       }
 
-      // Escape = Close popover or dialog
       if (e.key === "Escape") {
         e.preventDefault();
         if (aiPopoverOpen) {
@@ -979,55 +594,19 @@ export function ComposeDialog({
           </div>
         </DialogHeader>
 
-        {/* Recipients */}
-        <RecipientField
-          label="To"
-          onRecipientsChange={setTo}
+        {/* Email-specific fields (To, Cc, Bcc, Subject) */}
+        <StandaloneEmailFields
+          bcc={bcc}
+          cc={cc}
+          onBccChange={setBcc}
+          onCcChange={setCc}
+          onSubjectChange={setSubject}
+          onToChange={setTo}
           organizationId={organizationId}
-          recipients={to}
+          showCcBccByDefault={cc.length > 0 || bcc.length > 0}
+          subject={subject}
+          to={to}
         />
-
-        {/* CC/BCC Toggle */}
-        {!showCcBcc && (
-          <button
-            className="flex items-center gap-1 border-b px-4 py-2 text-muted-foreground text-sm hover:bg-muted/30"
-            onClick={() => setShowCcBcc(true)}
-            type="button"
-          >
-            <ChevronDown className="h-3 w-3" />
-            Add Cc/Bcc
-          </button>
-        )}
-
-        {/* CC Field */}
-        {showCcBcc && (
-          <RecipientField
-            label="Cc"
-            onRecipientsChange={setCc}
-            organizationId={organizationId}
-            recipients={cc}
-          />
-        )}
-
-        {/* BCC Field */}
-        {showCcBcc && (
-          <RecipientField
-            label="Bcc"
-            onRecipientsChange={setBcc}
-            organizationId={organizationId}
-            recipients={bcc}
-          />
-        )}
-
-        {/* Subject */}
-        <div className="border-b px-4 py-3">
-          <Input
-            className="border-0 p-0 text-base shadow-none focus-visible:ring-0"
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Subject"
-            value={subject}
-          />
-        </div>
 
         {/* Body */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
@@ -1041,41 +620,12 @@ export function ComposeDialog({
 
           {/* Attachments Display */}
           {attachments.length > 0 && (
-            <div className="mt-3 border-t pt-3">
-              <div className="flex flex-wrap gap-2">
-                {attachments.map((attachment) => {
-                  const IconComponent = getFileIcon(attachment.mimeType);
-                  return (
-                    <Badge
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
-                      key={attachment.id}
-                      variant="secondary"
-                    >
-                      <IconComponent className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="max-w-[150px] truncate">
-                        {attachment.filename}
-                      </span>
-                      <span className="text-muted-foreground">
-                        ({formatFileSize(attachment.size)})
-                      </span>
-                      <button
-                        className="ml-1 rounded p-0.5 hover:bg-muted"
-                        onClick={() => handleRemoveAttachment(attachment.id)}
-                        type="button"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-muted-foreground text-xs">
-                Total:{" "}
-                {formatFileSize(
-                  attachments.reduce((sum, a) => sum + a.size, 0)
-                )}
-              </p>
-            </div>
+            <AttachmentList
+              attachments={attachments}
+              className="mt-3"
+              onRemove={handleRemoveAttachment}
+              sourceType="email"
+            />
           )}
         </div>
 
@@ -1107,12 +657,10 @@ export function ComposeDialog({
                 performSend();
               }}
               onViewThread={(threadId) => {
-                // Navigate to thread view in the app
                 navigate({
                   to: "/dashboard/email/thread/$threadId",
                   params: { threadId },
                 });
-                // Close the compose dialog to show the thread
                 onOpenChange(false);
               }}
               result={contradictionResult}
@@ -1159,70 +707,18 @@ export function ComposeDialog({
             </Button>
           </div>
           <div className="flex items-center gap-1">
-            <Popover onOpenChange={setAiPopoverOpen} open={aiPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  className="h-8 w-8"
-                  size="icon"
-                  title="AI Assist (Cmd+J)"
-                  variant="ghost"
-                >
-                  {generateDraftMutation.isPending ||
-                  refineDraftMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Wand2 className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">AI Assist</span>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {replyToThreadId
-                      ? "Describe how you want to reply and AI will draft it based on the conversation context."
-                      : "Describe what you want to write and AI will draft it for you."}
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      className="flex-1 text-sm"
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAiAssist();
-                        }
-                      }}
-                      placeholder={
-                        replyToThreadId
-                          ? "e.g., Accept the meeting but suggest Tuesday instead"
-                          : "e.g., Introduce myself and ask for a meeting"
-                      }
-                      ref={aiInputRef}
-                      value={aiPrompt}
-                    />
-                    <Button
-                      disabled={
-                        generateDraftMutation.isPending ||
-                        refineDraftMutation.isPending
-                      }
-                      onClick={handleAiAssist}
-                      size="sm"
-                    >
-                      {generateDraftMutation.isPending ||
-                      refineDraftMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Generate"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <AIAssistPanel
+              body={body}
+              onBodyChange={handleBodyChange}
+              onOpenChange={setAiPopoverOpen}
+              onSubjectChange={handleSubjectChange}
+              open={aiPopoverOpen}
+              organizationId={organizationId}
+              recipientName={to[0]?.name ?? to[0]?.email?.split("@")[0]}
+              replyToThreadId={replyToThreadId}
+              sourceType="email"
+              subject={subject}
+            />
             <Button
               className="h-8 w-8"
               onClick={handleAttachClick}

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
+import { env } from "@memorystack/env/web";
 
 export const Route = createFileRoute("/onboarding/connect-email")({
   component: ConnectEmailPage,
@@ -126,7 +127,7 @@ function ConnectEmailPage() {
       userId: session.user.id,
       redirect: "/onboarding/connect-email?success=true&source=slack",
     });
-    window.location.href = `/api/oauth/slack/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/slack/authorize?${params.toString()}`;
   };
 
   const handleConnectNotion = () => {
@@ -140,7 +141,7 @@ function ConnectEmailPage() {
       userId: session.user.id,
       redirect: "/onboarding/connect-email?success=true&source=notion",
     });
-    window.location.href = `/api/oauth/notion/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/notion/authorize?${params.toString()}`;
   };
 
   const handleSkip = () => {

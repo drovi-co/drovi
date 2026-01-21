@@ -15,9 +15,11 @@ import {
 } from "@memorystack/ai/agents";
 import {
   extractTextFromBlocks,
+  extractTextFromProperties,
   getNotionBlocks,
   getNotionComments,
   getNotionPageTitle,
+  queryNotionDatabase,
   type NotionBlock,
   type NotionComment,
   type NotionPage,
@@ -229,9 +231,11 @@ export const syncNotionTask = task({
           for (const item of searchResult.results) {
             if (item.object === "database") {
               await syncNotionDatabaseMetadata(
+                accessToken,
                 item as unknown as NotionDatabaseData,
                 sourceAccountId,
                 workspaceId,
+                account.organizationId,
                 result
               );
             }
@@ -342,12 +346,37 @@ async function syncNotionPage(
 
     const pageUpdatedAt = new Date(page.last_edited_time);
 
+    // Check if conversation exists and has messages
+    let needsReprocessing = false;
+    if (existingCache) {
+      // Look up the conversation by externalId (page.id)
+      const existingConv = await db.query.conversation.findFirst({
+        where: and(
+          eq(conversation.sourceAccountId, sourceAccountId),
+          eq(conversation.externalId, page.id)
+        ),
+        columns: { id: true },
+      });
+
+      if (existingConv) {
+        const existingMessages = await db.query.message.findFirst({
+          where: eq(message.conversationId, existingConv.id),
+          columns: { id: true },
+        });
+        if (!existingMessages) {
+          needsReprocessing = true;
+          log.info("Re-processing page without messages", { pageId: page.id });
+        }
+      }
+    }
+
     if (
+      !needsReprocessing &&
       existingCache &&
       existingCache.notionUpdatedAt &&
       existingCache.notionUpdatedAt >= pageUpdatedAt
     ) {
-      // Page hasn't changed, skip
+      // Page hasn't changed and has messages, skip
       return;
     }
 
@@ -374,6 +403,18 @@ async function syncNotionPage(
       contentText = extractTextFromBlocks(blocks);
     } catch (error) {
       log.warn("Failed to get page blocks", { pageId: page.id, error });
+    }
+
+    // If no block content, extract from properties (for database entries)
+    if (!contentText && page.properties) {
+      const propsText = extractTextFromProperties(page.properties);
+      if (propsText) {
+        contentText = propsText;
+        log.info("Using properties text for database entry", {
+          pageId: page.id,
+          textLength: propsText.length,
+        });
+      }
     }
 
     // Get page comments
@@ -640,12 +681,14 @@ async function syncNotionPage(
 }
 
 /**
- * Sync Notion database metadata.
+ * Sync Notion database metadata and its entries.
  */
 async function syncNotionDatabaseMetadata(
+  accessToken: string,
   database: NotionDatabaseData,
   sourceAccountId: string,
   workspaceId: string,
+  organizationId: string,
   result: NotionSyncResult
 ): Promise<void> {
   try {
@@ -698,6 +741,51 @@ async function syncNotionDatabaseMetadata(
     result.databasesSynced++;
 
     log.info("Synced Notion database", { databaseId: database.id, title });
+
+    // Query and sync database entries (pages inside this database)
+    if (!database.archived && !database.in_trash) {
+      try {
+        let entryCursor: string | undefined;
+        let hasMoreEntries = true;
+
+        while (hasMoreEntries) {
+          const entriesResult = await queryNotionDatabase(
+            accessToken,
+            database.id,
+            {
+              sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+              startCursor: entryCursor,
+              pageSize: 100,
+            }
+          );
+
+          for (const entry of entriesResult.results) {
+            // Each entry is a page inside the database
+            await syncNotionPage(
+              accessToken,
+              entry,
+              sourceAccountId,
+              workspaceId,
+              organizationId,
+              result
+            );
+          }
+
+          hasMoreEntries = entriesResult.has_more;
+          entryCursor = entriesResult.next_cursor ?? undefined;
+
+          // Rate limiting
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+      } catch (entryError) {
+        const errorMsg =
+          entryError instanceof Error ? entryError.message : String(entryError);
+        log.warn("Failed to sync database entries", {
+          databaseId: database.id,
+          error: errorMsg,
+        });
+      }
+    }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     result.errors.push(`Database sync failed for ${database.id}: ${errorMsg}`);

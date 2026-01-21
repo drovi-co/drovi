@@ -42,24 +42,45 @@ notionOAuth.get("/authorize", async (c) => {
     return c.json({ error: "userId is required" }, 400);
   }
 
-  // Create state token with user info
-  const state = Buffer.from(
-    JSON.stringify({
-      organizationId,
-      userId,
-      provider: "notion",
-      redirectTo: redirect || "/dashboard/sources",
-      timestamp: Date.now(),
-      nonce: randomUUID(),
-    })
-  ).toString("base64url");
+  const redirectPath = redirect || "/dashboard/sources";
 
-  // Generate Notion authorization URL
-  const authorizationUrl = getNotionAuthorizationUrl(state);
+  try {
+    // Create state token with user info
+    const state = Buffer.from(
+      JSON.stringify({
+        organizationId,
+        userId,
+        provider: "notion",
+        redirectTo: redirectPath,
+        timestamp: Date.now(),
+        nonce: randomUUID(),
+      })
+    ).toString("base64url");
 
-  log.info("Initiating Notion OAuth flow", { organizationId });
+    // Generate Notion authorization URL
+    const authorizationUrl = getNotionAuthorizationUrl(state);
 
-  return c.redirect(authorizationUrl);
+    log.info("Initiating Notion OAuth flow", { organizationId });
+
+    return c.redirect(authorizationUrl);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log.error("Failed to initiate Notion OAuth", { error: errorMsg });
+
+    // Check if it's a configuration error
+    if (errorMsg.includes("not configured") || errorMsg.includes("NOTION_CLIENT")) {
+      return c.json(
+        {
+          error: "Notion integration not configured",
+          message: "Please contact your administrator to set up Notion integration.",
+          details: "Missing NOTION_CLIENT_ID or NOTION_CLIENT_SECRET environment variables.",
+        },
+        503
+      );
+    }
+
+    return c.json({ error: "Failed to initiate Notion authorization", message: errorMsg }, 500);
+  }
 });
 
 // =============================================================================
@@ -116,8 +137,17 @@ notionOAuth.get("/callback", async (c) => {
 
   const { organizationId, userId, provider, redirectTo } = parsedState;
 
-  // Use custom redirect or default
-  const redirectPath = redirectTo || "/dashboard/sources";
+  // Use custom redirect or default - handle both paths and full URLs
+  let redirectPath = redirectTo || "/dashboard/sources";
+  // If redirectTo is a full URL, extract just the pathname
+  if (redirectPath.startsWith("http://") || redirectPath.startsWith("https://")) {
+    try {
+      const url = new URL(redirectPath);
+      redirectPath = url.pathname + url.search;
+    } catch {
+      redirectPath = "/dashboard/sources";
+    }
+  }
 
   if (provider !== "notion") {
     log.warn("Notion OAuth state has wrong provider", { provider });

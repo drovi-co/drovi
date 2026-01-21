@@ -65,6 +65,7 @@ import {
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
+import { env } from "@memorystack/env/web";
 
 export const Route = createFileRoute("/dashboard/sources/")({
   component: SourcesPage,
@@ -174,7 +175,7 @@ function SourcesPage() {
       userId: session?.user?.id ?? "",
       redirect: window.location.href,
     });
-    window.location.href = `/api/oauth/slack/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/slack/authorize?${params.toString()}`;
   };
 
   const handleConnectWhatsApp = () => {
@@ -182,9 +183,9 @@ function SourcesPage() {
     const params = new URLSearchParams({
       organizationId: activeOrg?.id ?? "",
       userId: session?.user?.id ?? "",
-      redirect: window.location.href,
+      redirect: window.location.pathname,
     });
-    window.location.href = `/api/oauth/whatsapp/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/whatsapp/authorize?${params.toString()}`;
   };
 
   const handleConnectNotion = () => {
@@ -192,9 +193,9 @@ function SourcesPage() {
     const params = new URLSearchParams({
       organizationId: activeOrg?.id ?? "",
       userId: session?.user?.id ?? "",
-      redirect: window.location.href,
+      redirect: window.location.pathname,
     });
-    window.location.href = `/api/oauth/notion/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/notion/authorize?${params.toString()}`;
   };
 
   const handleConnectGoogleDocs = () => {
@@ -202,9 +203,9 @@ function SourcesPage() {
     const params = new URLSearchParams({
       organizationId: activeOrg?.id ?? "",
       userId: session?.user?.id ?? "",
-      redirect: window.location.href,
+      redirect: window.location.pathname,
     });
-    window.location.href = `/api/oauth/google-docs/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/google-docs/authorize?${params.toString()}`;
   };
 
   const handleConnectGoogleSheets = () => {
@@ -212,9 +213,9 @@ function SourcesPage() {
     const params = new URLSearchParams({
       organizationId: activeOrg?.id ?? "",
       userId: session?.user?.id ?? "",
-      redirect: window.location.href,
+      redirect: window.location.pathname,
     });
-    window.location.href = `/api/oauth/google-docs/authorize?${params.toString()}`;
+    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/google-docs/authorize?${params.toString()}`;
   };
 
   const handleConnectCalendar = () => {
@@ -465,14 +466,14 @@ function SourcesPage() {
 
       {/* Connect Source Dialog */}
       <Dialog onOpenChange={setConnectDialogOpen} open={connectDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Connect a Source</DialogTitle>
             <DialogDescription>
               Choose a data source to connect to your intelligence platform
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 overflow-y-auto py-4 pr-2">
             {/* Email */}
             <div className="space-y-2">
               <h4 className="font-medium text-muted-foreground text-sm">

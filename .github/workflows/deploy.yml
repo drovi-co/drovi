@@ -2,102 +2,93 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging, develop]
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'staging'
+        default: 'development'
         type: choice
         options:
+          - development
           - staging
           - production
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
+  # Determine environment from branch
+  setup:
+    name: Setup Environment
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      environment: ${{ steps.env.outputs.environment }}
+      api_url: ${{ steps.env.outputs.api_url }}
+      web_url: ${{ steps.env.outputs.web_url }}
+    steps:
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENV="production"
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            ENV="staging"
+          else
+            ENV="development"
+          fi
+
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+
+          case $ENV in
+            production)
+              echo "api_url=https://api.drovi.co" >> $GITHUB_OUTPUT
+              echo "web_url=https://app.drovi.co" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "api_url=https://api-staging.drovi.co" >> $GITHUB_OUTPUT
+              echo "web_url=https://staging.drovi.co" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "api_url=https://api-dev.drovi.co" >> $GITHUB_OUTPUT
+              echo "web_url=https://dev.drovi.co" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+          echo "Deploying to: $ENV"
+
+  # Deploy API to Railway
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    needs: setup
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+      url: ${{ needs.setup.outputs.api_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy to Railway
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy-staging:
-    name: Deploy to Staging
+  # Deploy Web to Cloudflare Pages
+  deploy-web:
+    name: Deploy Web
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'staging'
+    needs: setup
     environment:
-      name: staging
-      url: https://staging.yourapp.com
-    steps:
-      - name: Deploy to staging
-        run: |
-          echo "Deploying to staging environment..."
-          # Add your deployment commands here
-          # Examples:
-          # - kubectl apply -f k8s/staging/
-          # - railway deploy
-          # - fly deploy --config fly.staging.toml
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-push, deploy-staging]
-    if: github.event.inputs.environment == 'production'
-    environment:
-      name: production
-      url: https://yourapp.com
-    steps:
-      - name: Deploy to production
-        run: |
-          echo "Deploying to production environment..."
-          # Add your production deployment commands here
-
-  trigger-deploy:
-    name: Deploy Trigger.dev
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+      name: ${{ needs.setup.outputs.environment }}
+      url: ${{ needs.setup.outputs.web_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,23 +101,87 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Deploy Trigger.dev
+      - name: Build web app
+        run: bun run build
+        working-directory: apps/web
+        env:
+          VITE_SERVER_URL: ${{ needs.setup.outputs.api_url }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: drovi-web
+          directory: apps/web/dist
+          branch: ${{ github.ref_name }}
+
+  # Deploy Trigger.dev tasks
+  deploy-trigger:
+    name: Deploy Trigger.dev
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-api]
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Deploy Trigger.dev tasks
         run: bunx trigger.dev@latest deploy
+        working-directory: apps/server
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
 
-  notify:
-    name: Send Notification
+  # Run database migrations
+  migrate:
+    name: Run Migrations
     runs-on: ubuntu-latest
-    needs: [deploy-staging]
+    needs: [setup, deploy-api]
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run migrations
+        run: bun run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # Notify on completion
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-api, deploy-web, deploy-trigger, migrate]
     if: always()
     steps:
-      - name: Send deployment notification
+      - name: Deployment Summary
         run: |
-          if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
-            echo "Deployment successful!"
-            # Add Slack/Discord notification here
-          else
-            echo "Deployment failed!"
-            # Add failure notification here
-          fi
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.setup.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**API URL:** ${{ needs.setup.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Web URL:** ${{ needs.setup.outputs.web_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "- API: ${{ needs.deploy-api.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Web: ${{ needs.deploy-web.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger.dev: ${{ needs.deploy-trigger.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Migrations: ${{ needs.migrate.result }}" >> $GITHUB_STEP_SUMMARY

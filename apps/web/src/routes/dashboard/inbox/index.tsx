@@ -27,7 +27,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
-import { SchedulePanel } from "@/components/email/schedule-panel";
+import {
+  InboxSidebar,
+  type CalendarEvent as SidebarCalendarEvent,
+  type SidebarCommitment,
+  type InboxStats,
+  type Insight,
+} from "@/components/inbox/inbox-sidebar";
 import {
   type InboxItem,
   InboxListHeader,
@@ -319,25 +325,90 @@ function UnifiedInboxPage() {
     lastMessageAt: item.lastMessageAt ? new Date(item.lastMessageAt) : null,
   }));
 
-  // Transform schedule data
-  const scheduleEvents = (calendarData?.events ?? []).map((event) => ({
-    id: event.id,
-    title: event.title,
-    startTime: new Date(event.startTime),
-    endTime: new Date(event.endTime),
-    type: "meeting" as const,
-    attendees: event.attendees,
-    location: event.location,
-    isVideoCall: event.isVideoCall,
-  }));
+  // Transform schedule data for the sidebar
+  const sidebarEvents: SidebarCalendarEvent[] = (calendarData?.events ?? []).map(
+    (event) => ({
+      id: event.id,
+      title: event.title,
+      startTime: new Date(event.startTime),
+      endTime: new Date(event.endTime),
+      type: "meeting" as const,
+      attendees: event.attendees,
+      location: event.location,
+      isVideoCall: event.isVideoCall,
+      conferenceUrl: event.conferenceUrl,
+    })
+  );
 
-  const scheduleCommitments = (commitmentsData?.commitments ?? []).map((c) => ({
+  const sidebarCommitments: SidebarCommitment[] = (
+    commitmentsData?.commitments ?? []
+  ).map((c) => ({
     id: c.id,
     title: c.title,
-    dueDate: c.dueDate ? new Date(c.dueDate) : new Date(),
-    status: c.status as "pending" | "in_progress" | "completed",
-    priority: (c.priority ?? "medium") as "high" | "medium" | "low",
+    dueDate: c.dueDate ? new Date(c.dueDate) : null,
+    status: c.status,
+    priority: c.priority ?? "medium",
+    direction: c.direction as "owed_by_me" | "owed_to_me",
+    daysOverdue: c.daysOverdue,
+    creditor: c.creditor,
   }));
+
+  // Build sidebar stats from inbox stats
+  const sidebarStats: InboxStats = {
+    unread: statsData?.unread ?? 0,
+    starred: statsData?.starred ?? 0,
+    urgent: items.filter(
+      (i) => i.priorityTier === "urgent" || (i.urgencyScore ?? 0) > 80
+    ).length,
+    avgResponseTimeHours: 2.3, // Could come from analytics
+    responseTrend: "stable" as const,
+  };
+
+  // Generate insights from data
+  const sidebarInsights: Insight[] = [];
+
+  // Open loops insight
+  const openLoopCount = items.filter((i) => i.hasOpenLoops).length;
+  if (openLoopCount > 0) {
+    sidebarInsights.push({
+      id: "open-loops",
+      type: "open_loops",
+      title: `${openLoopCount} open loops need follow-up`,
+      count: openLoopCount,
+      link: "/dashboard/inbox?filter=open-loops",
+      color: "amber",
+    });
+  }
+
+  // Decisions insight
+  const decisionsCount = items.filter((i) => i.hasDecisions).length;
+  if (decisionsCount > 0) {
+    sidebarInsights.push({
+      id: "decisions",
+      type: "decisions",
+      title: `${decisionsCount} decisions recorded`,
+      count: decisionsCount,
+      link: "/dashboard/decisions",
+      color: "purple",
+    });
+  }
+
+  // Stale threads insight
+  const staleCount = items.filter(
+    (i) =>
+      !i.isRead &&
+      i.lastMessageAt &&
+      Date.now() - new Date(i.lastMessageAt).getTime() > 3 * 24 * 60 * 60 * 1000
+  ).length;
+  if (staleCount > 0) {
+    sidebarInsights.push({
+      id: "stale",
+      type: "stale_threads",
+      title: `${staleCount} threads waiting 3+ days`,
+      count: staleCount,
+      color: "red",
+    });
+  }
 
   // Virtualizer for performant rendering
   const virtualizer = useVirtualizer({
@@ -1003,27 +1074,21 @@ function UnifiedInboxPage() {
             </div>
           </div>
 
-          {/* Schedule panel */}
-          <div
-            className={cn(
-              "overflow-hidden border-l transition-all duration-300 ease-in-out",
-              showSchedule ? "w-80" : "w-0"
-            )}
-          >
-            {showSchedule && (
-              <SchedulePanel
-                commitments={scheduleCommitments}
-                events={scheduleEvents}
-                onCommitmentClick={(id) => {
-                  navigate({ to: "/dashboard/commitments" });
-                }}
-                onEventClick={(eventId) => {
-                  // Navigate to calendar view
-                  navigate({ to: "/dashboard/calendar" });
-                }}
-              />
-            )}
-          </div>
+          {/* Inbox Sidebar */}
+          {showSchedule && (
+            <InboxSidebar
+              commitments={sidebarCommitments}
+              events={sidebarEvents}
+              insights={sidebarInsights}
+              onCommitmentClick={(id) => {
+                navigate({ to: "/dashboard/commitments" });
+              }}
+              onEventClick={(eventId) => {
+                navigate({ to: "/dashboard/calendar" });
+              }}
+              stats={sidebarStats}
+            />
+          )}
         </div>
       </div>
 

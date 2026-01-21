@@ -1,6 +1,22 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { config } from "dotenv";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+
+// Load .env files from multiple possible locations for monorepo compatibility
+// Priority: apps/server/.env > .env (root)
+const possibleEnvPaths = [
+  resolve(process.cwd(), "apps/server/.env"),
+  resolve(process.cwd(), ".env"),
+];
+
+for (const envPath of possibleEnvPaths) {
+  if (existsSync(envPath)) {
+    config({ path: envPath });
+    break;
+  }
+}
 
 // Skip validation during Trigger.dev build/indexing process or when explicitly requested
 // Trigger.dev indexing runs in a worker context without env vars loaded

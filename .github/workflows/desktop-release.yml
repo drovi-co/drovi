@@ -118,7 +118,7 @@ jobs:
         run: bun run build
         working-directory: apps/web
         env:
-          VITE_SERVER_URL: "https://api.memorystack.com"
+          VITE_SERVER_URL: "https://api.drovi.co"
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -138,7 +138,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: memorystack-${{ matrix.name }}
+          name: drovi-${{ matrix.name }}
           path: |
             apps/web/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
             apps/web/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
@@ -180,7 +180,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Memorystack v${{ steps.version.outputs.version }}
+          name: Drovi v${{ steps.version.outputs.version }}
           tag_name: v${{ steps.version.outputs.version }}
           draft: true
           prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
@@ -192,7 +192,7 @@ jobs:
             artifacts/**/*.exe
             artifacts/**/*.msi
           body: |
-            ## Memorystack v${{ steps.version.outputs.version }}
+            ## Drovi v${{ steps.version.outputs.version }}
 
             ### Downloads
 

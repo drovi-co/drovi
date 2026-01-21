@@ -127,8 +127,26 @@ function getStatus(isRead: boolean, isArchived: boolean): Status {
 
 function getSenderName(
   participants: Array<{ id: string; name?: string; email?: string }>,
-  currentUserId?: string
+  currentUserId?: string,
+  sourceType?: SourceType,
+  sourceAccountName?: string,
+  title?: string
 ): string {
+  // For document-based sources, use title or source name instead of "sender"
+  if (sourceType === "notion" || sourceType === "google_docs") {
+    // Use the page/document title, truncated
+    if (title && title !== "Untitled" && title !== "No subject") {
+      return title.length > 20 ? `${title.slice(0, 20)}...` : title;
+    }
+    // Fallback to source account name
+    if (sourceAccountName) {
+      return sourceAccountName;
+    }
+    // Last fallback to source type name
+    return sourceType === "notion" ? "Notion" : "Google Docs";
+  }
+
+  // For messaging sources (email, slack, whatsapp), show participant names
   const sender = participants.find((p) => p.id !== currentUserId);
   if (!sender) {
     const first = participants[0];
@@ -204,15 +222,34 @@ function InboxRow({
 }: InboxRowProps) {
   const priority = getPriority(item.urgencyScore, item.priorityTier);
   const status = getStatus(item.isRead, item.isArchived);
-  const senderName = getSenderName(item.participants, currentUserId);
+  const senderName = getSenderName(
+    item.participants,
+    currentUserId,
+    item.sourceType,
+    item.sourceAccountName,
+    item.title
+  );
   const dateDisplay = formatDate(item.lastMessageAt);
-  // Fallback chain for brief text: AI brief → suggested action → title → snippet
-  const briefText =
-    item.brief ||
-    item.suggestedAction ||
-    item.title ||
-    item.snippet ||
-    "No summary available";
+  // Fallback chain for brief text depends on source type
+  // For document sources (Notion, Google Docs), prefer snippet since title is shown in "From"
+  const getBriefText = () => {
+    // AI-generated brief always takes priority
+    if (item.brief) return item.brief;
+    if (item.suggestedAction) return item.suggestedAction;
+
+    // For document sources, show snippet (page content preview)
+    if (item.sourceType === "notion" || item.sourceType === "google_docs") {
+      if (item.snippet && item.snippet.trim()) return item.snippet;
+      // If no snippet, fall back to something descriptive
+      return item.conversationType === "notion_database"
+        ? "Database entry"
+        : "Document content";
+    }
+
+    // For messaging sources, title then snippet
+    return item.title || item.snippet || "No summary available";
+  };
+  const briefText = getBriefText();
   // Check if we should use task controls
   const hasTaskData = item.task && organizationId;
 

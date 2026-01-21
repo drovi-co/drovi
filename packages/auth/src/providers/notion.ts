@@ -667,3 +667,92 @@ export function extractTextFromBlocks(blocks: NotionBlock[]): string {
 
   return textParts.join("\n");
 }
+
+/**
+ * Extract plain text from Notion page properties.
+ * Useful for database entries where content is in properties, not blocks.
+ */
+export function extractTextFromProperties(
+  properties: Record<string, NotionPropertyValue>
+): string {
+  const textParts: string[] = [];
+
+  for (const [key, value] of Object.entries(properties)) {
+    let text = "";
+
+    switch (value.type) {
+      case "title":
+        text = value.title.map((t) => t.plain_text).join("");
+        break;
+      case "rich_text":
+        text = value.rich_text.map((t) => t.plain_text).join("");
+        break;
+      case "number":
+        if (value.number !== null) {
+          text = `${key}: ${value.number}`;
+        }
+        break;
+      case "select":
+        if (value.select) {
+          text = `${key}: ${value.select.name}`;
+        }
+        break;
+      case "multi_select":
+        if (value.multi_select.length > 0) {
+          text = `${key}: ${value.multi_select.map((s) => s.name).join(", ")}`;
+        }
+        break;
+      case "status":
+        if (value.status) {
+          text = `${key}: ${value.status.name}`;
+        }
+        break;
+      case "date":
+        if (value.date) {
+          text = `${key}: ${value.date.start}${value.date.end ? ` - ${value.date.end}` : ""}`;
+        }
+        break;
+      case "checkbox":
+        text = `${key}: ${value.checkbox ? "Yes" : "No"}`;
+        break;
+      case "url":
+        if (value.url) {
+          text = `${key}: ${value.url}`;
+        }
+        break;
+      case "email":
+        if (value.email) {
+          text = `${key}: ${value.email}`;
+        }
+        break;
+      case "phone_number":
+        if (value.phone_number) {
+          text = `${key}: ${value.phone_number}`;
+        }
+        break;
+      case "formula":
+        if (value.formula.string) {
+          text = `${key}: ${value.formula.string}`;
+        } else if (value.formula.number !== undefined) {
+          text = `${key}: ${value.formula.number}`;
+        }
+        break;
+      // Skip system properties and relations
+      case "created_time":
+      case "last_edited_time":
+      case "created_by":
+      case "last_edited_by":
+      case "people":
+      case "files":
+      case "relation":
+      case "rollup":
+        break;
+    }
+
+    if (text) {
+      textParts.push(text);
+    }
+  }
+
+  return textParts.join("\n");
+}

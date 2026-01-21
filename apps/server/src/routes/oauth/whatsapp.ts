@@ -162,8 +162,17 @@ whatsappOAuth.get("/callback", async (c) => {
 
   const { organizationId, userId, provider, redirectTo } = parsedState;
 
-  // Use custom redirect or default
-  const redirectPath = redirectTo || "/dashboard/sources";
+  // Use custom redirect or default - handle both paths and full URLs
+  let redirectPath = redirectTo || "/dashboard/sources";
+  // If redirectTo is a full URL, extract just the pathname
+  if (redirectPath.startsWith("http://") || redirectPath.startsWith("https://")) {
+    try {
+      const url = new URL(redirectPath);
+      redirectPath = url.pathname + url.search;
+    } catch {
+      redirectPath = "/dashboard/sources";
+    }
+  }
 
   if (provider !== "whatsapp") {
     log.warn("WhatsApp OAuth state has wrong provider", { provider });

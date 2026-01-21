@@ -133,6 +133,7 @@ export interface UnifiedFeedItem {
 export interface UnifiedInboxStats {
   total: number;
   unread: number;
+  starred: number;
   bySource: Record<string, { total: number; unread: number }>;
   byPriority: {
     urgent: number;
@@ -745,6 +746,17 @@ export const unifiedInboxRouter = router({
         )
       );
 
+    const [starredResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(conversation)
+      .where(
+        and(
+          inArray(conversation.sourceAccountId, accountIds),
+          eq(conversation.isArchived, false),
+          eq(conversation.isStarred, true)
+        )
+      );
+
     // Get counts by source type
     const bySourceResults = await db
       .select({
@@ -804,6 +816,7 @@ export const unifiedInboxRouter = router({
     return {
       total: totalResult?.count ?? 0,
       unread: unreadResult?.count ?? 0,
+      starred: starredResult?.count ?? 0,
       bySource,
       byPriority,
     } satisfies UnifiedInboxStats;
@@ -1480,6 +1493,7 @@ async function getEmailFallbackStats(
     return {
       total: 0,
       unread: 0,
+      starred: 0,
       bySource: {},
       byPriority: { urgent: 0, high: 0, medium: 0, low: 0 },
     };
@@ -1508,9 +1522,21 @@ async function getEmailFallbackStats(
       )
     );
 
+  const [starredResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(emailThread)
+    .where(
+      and(
+        inArray(emailThread.accountId, accountIds),
+        eq(emailThread.isArchived, false),
+        eq(emailThread.isStarred, true)
+      )
+    );
+
   return {
     total: totalResult?.count ?? 0,
     unread: unreadResult?.count ?? 0,
+    starred: starredResult?.count ?? 0,
     bySource: {
       email: {
         total: totalResult?.count ?? 0,

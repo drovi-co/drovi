@@ -62,8 +62,17 @@ outlookOAuth.get("/callback", async (c) => {
 
   const { userId, organizationId, provider, redirectTo } = parsedState;
 
-  // Use custom redirect or default to dashboard email accounts
-  const redirectPath = redirectTo || "/dashboard/email-accounts";
+  // Use custom redirect or default - handle both paths and full URLs
+  let redirectPath = redirectTo || "/dashboard/email-accounts";
+  // If redirectTo is a full URL, extract just the pathname
+  if (redirectPath.startsWith("http://") || redirectPath.startsWith("https://")) {
+    try {
+      const url = new URL(redirectPath);
+      redirectPath = url.pathname + url.search;
+    } catch {
+      redirectPath = "/dashboard/email-accounts";
+    }
+  }
 
   if (provider !== "outlook") {
     log.warn("Outlook OAuth state has wrong provider", { provider });
