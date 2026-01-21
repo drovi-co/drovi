@@ -3,6 +3,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_deep_link::DeepLinkExt;
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
@@ -106,7 +107,7 @@ fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .tooltip("Drovi")
-        .menu_on_left_click(false)
+        .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
@@ -143,14 +144,31 @@ fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Set up deep link handling
 fn setup_deep_links(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    // Register deep link handler
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let handle = app.handle().clone();
+
+    // Register callback for when deep links are opened while app is running
+    app.deep_link().on_open_url(move |event| {
+        log::info!("Deep link received: {:?}", event.urls());
+        for url in event.urls() {
+            let _ = handle.emit("deep-link", url.to_string());
+        }
+    });
+
+    // On Windows/Linux, register the protocol scheme at runtime
+    #[cfg(not(any(target_os = "macos", target_os = "android", target_os = "ios")))]
     {
+        if let Err(e) = app.deep_link().register("drovi") {
+            log::warn!("Failed to register deep link protocol: {}", e);
+        }
+    }
+
+    // Check if app was launched via deep link
+    if let Ok(Some(urls)) = app.deep_link().get_current() {
+        log::info!("App launched with deep links: {:?}", urls);
         let handle = app.handle().clone();
-        tauri_plugin_deep_link::register("drovi", move |request| {
-            log::info!("Deep link received: {:?}", request);
-            let _ = handle.emit("deep-link", request.to_string());
-        })?;
+        for url in urls {
+            let _ = handle.emit("deep-link", url.to_string());
+        }
     }
 
     Ok(())
@@ -187,7 +205,7 @@ pub fn run() {
             log::info!("Drovi desktop app setup complete");
             Ok(())
         })
-        .on_window_event(|window, event| {
+        .on_window_event(|_window, event| {
             // Save window state on close
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 log::info!("Window close requested");

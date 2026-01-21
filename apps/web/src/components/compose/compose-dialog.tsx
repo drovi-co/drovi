@@ -15,13 +15,7 @@
 import { env } from "@memorystack/env/web";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  Loader2,
-  Paperclip,
-  Send,
-  Shield,
-  Trash2,
-} from "lucide-react";
+import { Loader2, Paperclip, Send, Shield, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,9 +36,9 @@ import {
 import type { Recipient } from "./recipient-field";
 import { AIAssistPanel } from "./shared/ai-assist-panel";
 import {
-  AttachmentList,
   ATTACHMENT_LIMITS,
   type Attachment,
+  AttachmentList,
 } from "./shared/attachment-zone";
 import { StandaloneEmailFields } from "./sources/email-compose";
 

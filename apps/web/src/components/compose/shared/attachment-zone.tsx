@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 
 import type { Attachment, SourceType } from "../compose-provider";
 
+// Re-export Attachment type for convenience
+export type { Attachment };
+
 // =============================================================================
 // TYPES & CONSTANTS
 // =============================================================================
@@ -176,7 +179,9 @@ export function AttachmentList({
                   isFileOverLimit ? "text-destructive" : "text-muted-foreground"
                 )}
               />
-              <span className="max-w-[150px] truncate">{attachment.filename}</span>
+              <span className="max-w-[150px] truncate">
+                {attachment.filename}
+              </span>
               <span
                 className={cn(
                   isFileOverLimit ? "text-destructive" : "text-muted-foreground"
@@ -267,7 +272,9 @@ export function AttachmentZone({
             return file.type === type;
           });
           if (!isAllowed) {
-            toast.error(`File type "${file.type}" is not supported for ${sourceType}`);
+            toast.error(
+              `File type "${file.type}" is not supported for ${sourceType}`
+            );
             continue;
           }
         }

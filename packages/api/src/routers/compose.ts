@@ -204,7 +204,8 @@ export const composeRouter = router({
         recipientEmails.length > 0
           ? claims.filter((c) => {
               // Check if claim is related to any recipient
-              const attributedTo = c.attributedTo?.toLowerCase() ?? "";
+              const meta = c.metadata as { attributedTo?: string } | null;
+              const attributedTo = meta?.attributedTo?.toLowerCase() ?? "";
               return recipientEmails.some((email) =>
                 attributedTo.includes(email.toLowerCase())
               );

@@ -6,6 +6,7 @@
 // and policy enforcement.
 //
 
+import { randomUUID } from "node:crypto";
 import { db } from "@memorystack/db";
 import {
   auditLog,
@@ -124,7 +125,7 @@ const createPolicySchema = z.object({
         "redact",
         "encrypt",
       ]),
-      config: z.record(z.unknown()).optional(),
+      config: z.record(z.string(), z.unknown()).optional(),
     })
   ),
   severity: z.enum(["info", "warning", "violation", "critical"]),
@@ -158,7 +159,7 @@ const updatePolicySchema = z.object({
           "redact",
           "encrypt",
         ]),
-        config: z.record(z.unknown()).optional(),
+        config: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .optional(),
@@ -388,11 +389,6 @@ export const riskRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
       await verifyAccountAccess(input.organizationId, input.accountId);
 
-      // Get recipient emails for context
-      const recipientEmails = input.recipients.map((r) =>
-        r.email.toLowerCase()
-      );
-
       // Fetch recent commitments (last 90 days) that are relevant
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -506,24 +502,6 @@ export const riskRouter = router({
       }> = [];
 
       const contentLower = input.content.toLowerCase();
-      const subjectLower = input.subject?.toLowerCase() ?? "";
-
-      // Check for timeline contradictions
-      const timelinePatterns = [
-        { pattern: /by\s+(\w+\s+\d+|\d+\/\d+|\d+-\d+)/, extract: "deadline" },
-        {
-          pattern: /deliver\s+by|complete\s+by|finish\s+by|ready\s+by/i,
-          extract: "deadline",
-        },
-        {
-          pattern: /earliest\s+(is|would be|could be)\s+/i,
-          extract: "availability",
-        },
-        {
-          pattern: /can('t|not)\s+meet|unable\s+to\s+meet|won't\s+be\s+able/i,
-          extract: "inability",
-        },
-      ];
 
       // Check for contradictory dates/timelines
       for (const statement of historicalStatements) {
@@ -981,14 +959,22 @@ export const riskRouter = router({
         })
         .returning();
 
+      if (!policy) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create policy",
+        });
+      }
+
       // Log policy creation
       await db.insert(auditLog).values({
+        id: randomUUID(),
         organizationId: input.organizationId,
         userId,
         action: "policy.created",
-        resourceType: "policy",
+        resource: "policy",
         resourceId: policy.id,
-        details: { policyName: input.name, category: input.category },
+        metadata: { policyName: input.name, category: input.category },
       });
 
       return policy;
@@ -1037,12 +1023,13 @@ export const riskRouter = router({
 
       // Log policy update
       await db.insert(auditLog).values({
+        id: randomUUID(),
         organizationId: input.organizationId,
         userId,
         action: "policy.updated",
-        resourceType: "policy",
+        resource: "policy",
         resourceId: input.policyId,
-        details: { updates: Object.keys(updates) },
+        metadata: { updates: Object.keys(updates) },
       });
 
       return updatedPolicy;
@@ -1075,12 +1062,13 @@ export const riskRouter = router({
 
       // Log policy deletion
       await db.insert(auditLog).values({
+        id: randomUUID(),
         organizationId: input.organizationId,
         userId,
         action: "policy.deleted",
-        resourceType: "policy",
+        resource: "policy",
         resourceId: input.policyId,
-        details: { policyName: existingPolicy.name },
+        metadata: { policyName: existingPolicy.name },
       });
 
       return { success: true };
@@ -1173,12 +1161,13 @@ export const riskRouter = router({
 
       // Log approval request
       await db.insert(auditLog).values({
+        id: randomUUID(),
         organizationId: input.organizationId,
         userId,
         action: "risk.approval_requested",
-        resourceType: "risk_analysis",
+        resource: "risk_analysis",
         resourceId: input.analysisId,
-        details: { reason: input.reason },
+        metadata: { reason: input.reason },
       });
 
       return updated;
@@ -1231,14 +1220,15 @@ export const riskRouter = router({
 
       // Log approval decision
       await db.insert(auditLog).values({
+        id: randomUUID(),
         organizationId: input.organizationId,
         userId,
         action: input.approved
           ? "risk.approval_granted"
           : "risk.approval_denied",
-        resourceType: "risk_analysis",
+        resource: "risk_analysis",
         resourceId: input.analysisId,
-        details: { comments: input.comments },
+        metadata: { comments: input.comments },
       });
 
       return updated;

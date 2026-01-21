@@ -32,7 +32,10 @@ const issueButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: ["bg-muted-foreground/30 text-foreground", "hover:bg-muted-foreground/40"],
+        default: [
+          "bg-muted-foreground/30 text-foreground",
+          "hover:bg-muted-foreground/40",
+        ],
         ghost: [
           "bg-transparent text-muted-foreground",
           "hover:bg-muted hover:text-foreground",

@@ -7,13 +7,12 @@
 //
 
 export {
-  ContradictionWarning,
-  type Contradiction,
-  type ContradictionCheckResult,
-} from "../contradiction-warning";
-
-export {
-  ContradictionAlert,
   type Contradiction as ContradictionAlertItem,
+  ContradictionAlert,
   type ContradictionAlertProps,
 } from "../contradiction-alert";
+export {
+  type Contradiction,
+  type ContradictionCheckResult,
+  ContradictionWarning,
+} from "../contradiction-warning";

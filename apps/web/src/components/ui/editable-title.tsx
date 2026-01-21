@@ -77,7 +77,7 @@ function EditableTitle({
           className={cn(
             "w-full",
             "bg-transparent",
-            "font-semibold text-foreground text-[24px] leading-tight",
+            "font-semibold text-[24px] text-foreground leading-tight",
             "placeholder:text-muted-foreground",
             "outline-none",
             "border-primary/50 border-b-2"
@@ -103,11 +103,11 @@ function EditableTitle({
       {...props}
     >
       {value ? (
-        <h1 className="font-semibold text-foreground text-[24px] leading-tight">
+        <h1 className="font-semibold text-[24px] text-foreground leading-tight">
           {value}
         </h1>
       ) : (
-        <h1 className="font-semibold text-muted-foreground text-[24px] leading-tight">
+        <h1 className="font-semibold text-[24px] text-muted-foreground leading-tight">
           {placeholder}
         </h1>
       )}
@@ -222,7 +222,9 @@ function EditableText({
           {value}
         </span>
       ) : (
-        <span className={cn(sizeClasses[size], "font-medium text-muted-foreground")}>
+        <span
+          className={cn(sizeClasses[size], "font-medium text-muted-foreground")}
+        >
           {placeholder}
         </span>
       )}

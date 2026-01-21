@@ -229,7 +229,7 @@ export function TaskLabelPicker({
       <Tag className="h-3.5 w-3.5" />
       <span className="text-xs">Labels</span>
       {selectedLabels.length > 0 && (
-        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-foreground text-[10px]">
+        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
           {selectedLabels.length}
         </span>
       )}
@@ -259,7 +259,7 @@ export function TaskLabelPicker({
         >
           <div className="space-y-0.5">
             {labels.length === 0 ? (
-              <div className="py-4 text-center text-muted-foreground text-[13px]">
+              <div className="py-4 text-center text-[13px] text-muted-foreground">
                 No labels yet. Create one below.
               </div>
             ) : (
@@ -298,7 +298,7 @@ export function TaskLabelPicker({
               <div className="flex gap-1.5">
                 <Input
                   autoFocus
-                  className="h-7 flex-1 border-border bg-muted text-foreground text-[13px] placeholder:text-muted-foreground focus:border-secondary"
+                  className="h-7 flex-1 border-border bg-muted text-[13px] text-foreground placeholder:text-muted-foreground focus:border-secondary"
                   onChange={(e) => setNewLabelName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -478,7 +478,7 @@ function LabelManageDialog({
         <div className="space-y-4 py-4">
           {/* Create new label */}
           <div className="space-y-2">
-            <label className="font-medium text-foreground text-[13px]">
+            <label className="font-medium text-[13px] text-foreground">
               Create new label
             </label>
             <div className="flex gap-2">
@@ -507,12 +507,12 @@ function LabelManageDialog({
 
           {/* Existing labels */}
           <div className="space-y-2">
-            <label className="font-medium text-foreground text-[13px]">
+            <label className="font-medium text-[13px] text-foreground">
               Existing labels
             </label>
             <div className="max-h-[200px] divide-y divide-border overflow-y-auto rounded-md border border-border bg-muted">
               {labels.length === 0 ? (
-                <div className="py-4 text-center text-muted-foreground text-[13px]">
+                <div className="py-4 text-center text-[13px] text-muted-foreground">
                   No labels yet
                 </div>
               ) : (
@@ -571,7 +571,7 @@ function LabelManageDialog({
                           className="h-3 w-3 shrink-0 rounded-full"
                           style={{ backgroundColor: label.color }}
                         />
-                        <span className="flex-1 text-foreground text-[13px]">
+                        <span className="flex-1 text-[13px] text-foreground">
                           {label.name}
                         </span>
                         <Button

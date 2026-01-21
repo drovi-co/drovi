@@ -81,7 +81,8 @@ export class UnifiedObjectService {
   async processNewCommitment(
     input: CreateUIOInput
   ): Promise<typeof schema.unifiedIntelligenceObject.$inferSelect> {
-    const deduplicationAgent = createDeduplicationAgent(db);
+    // biome-ignore lint/suspicious/noExplicitAny: db type is compatible but TypeScript can't infer it
+    const deduplicationAgent = createDeduplicationAgent(db as any);
 
     const result = await deduplicationAgent.checkForDuplicates({
       organizationId: input.source.organizationId,

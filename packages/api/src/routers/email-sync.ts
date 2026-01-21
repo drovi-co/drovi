@@ -7,6 +7,7 @@
 //
 
 import { db } from "@memorystack/db";
+import type { EmailAccountSettings } from "@memorystack/db/schema";
 import { emailAccount, emailThread, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
@@ -295,13 +296,19 @@ export const emailSyncRouter = router({
           where: eq(emailAccount.id, input.accountId),
         });
 
+        const existingSettings =
+          (existingAccount?.settings as EmailAccountSettings | null) ?? {
+            syncEnabled: true,
+            syncFrequencyMinutes: 15,
+          };
+
         await db
           .update(emailAccount)
           .set({
             settings: {
-              ...(existingAccount?.settings as object),
+              ...existingSettings,
               backfillDays: input.backfillDays,
-            },
+            } as EmailAccountSettings,
             updatedAt: new Date(),
           })
           .where(eq(emailAccount.id, input.accountId));
@@ -353,8 +360,12 @@ export const emailSyncRouter = router({
       }
 
       // Merge with existing settings
-      const existingSettings = (account.settings as object) ?? {};
-      const newSettings = {
+      const existingSettings =
+        (account.settings as EmailAccountSettings | null) ?? {
+          syncEnabled: true,
+          syncFrequencyMinutes: 15,
+        };
+      const newSettings: EmailAccountSettings = {
         ...existingSettings,
         ...input.settings,
       };

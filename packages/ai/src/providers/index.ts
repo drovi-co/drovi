@@ -2,7 +2,9 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModelV1 } from "@ai-sdk/provider";
+
+// Use the actual return type from the provider to avoid version mismatches
+type AnyLanguageModel = ReturnType<ReturnType<typeof createOpenAI>>;
 
 // Provider types
 export type AIProvider = "openai" | "anthropic" | "google" | "groq";
@@ -95,7 +97,7 @@ export function isReasoningModel(modelName: string): boolean {
 export function getModel(
   provider: AIProvider,
   modelName?: string
-): LanguageModelV1 {
+): AnyLanguageModel {
   switch (provider) {
     case "openai": {
       const model = modelName ?? "gpt-5.2";
@@ -103,15 +105,15 @@ export function getModel(
     }
     case "anthropic": {
       const model = modelName ?? "claude-3-5-sonnet-20241022";
-      return getAnthropic()(model);
+      return getAnthropic()(model) as unknown as AnyLanguageModel;
     }
     case "google": {
       const model = modelName ?? "gemini-2.0-flash-exp";
-      return getGoogle()(model);
+      return getGoogle()(model) as unknown as AnyLanguageModel;
     }
     case "groq": {
       const model = modelName ?? "llama-3.3-70b-versatile";
-      return getGroq()(model);
+      return getGroq()(model) as unknown as AnyLanguageModel;
     }
     default:
       throw new Error(`Unknown provider: ${provider}`);
@@ -131,6 +133,6 @@ export function getDefaultProvider(): AIProvider {
 }
 
 // Get default model for the configured provider
-export function getDefaultModel(): LanguageModelV1 {
+export function getDefaultModel(): AnyLanguageModel {
   return getModel(getDefaultProvider());
 }

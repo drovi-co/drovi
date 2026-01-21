@@ -99,7 +99,7 @@ function LoginPage() {
 
   const getDescription = () => {
     // Special description for invited users
-    if (code && codeValidation?.valid) {
+    if (code && codeValidation?.valid && "name" in codeValidation) {
       return `Welcome ${codeValidation.name}! Create your account to get started with Drovi.`;
     }
     switch (view) {
@@ -118,7 +118,9 @@ function LoginPage() {
       {showInvalidCode && (
         <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="font-medium text-destructive text-sm">
-            {codeValidation?.reason ?? "Invalid or expired invite code"}
+            {codeValidation && "reason" in codeValidation
+              ? codeValidation.reason
+              : "Invalid or expired invite code"}
           </p>
           <p className="mt-1 text-muted-foreground text-sm">
             Please check your invite code or request a new one.
@@ -154,9 +156,15 @@ function LoginPage() {
       {view === "sign-up" && (
         <SignUpForm
           defaultEmail={
-            codeValidation?.valid ? codeValidation.email : undefined
+            codeValidation?.valid && "email" in codeValidation
+              ? codeValidation.email
+              : undefined
           }
-          defaultName={codeValidation?.valid ? codeValidation.name : undefined}
+          defaultName={
+            codeValidation?.valid && "name" in codeValidation
+              ? codeValidation.name
+              : undefined
+          }
           onSwitchToSignIn={() => setView("sign-in")}
         />
       )}

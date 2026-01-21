@@ -48,7 +48,7 @@ function AttachmentDisplay({
           <FileText className="size-4 text-primary" />
         </div>
         <div className="flex flex-col items-start gap-2">
-          <span className="font-normal text-foreground text-[13px]">
+          <span className="font-normal text-[13px] text-foreground">
             {filename}
           </span>
           <span className="text-[11px] text-[rgba(220,216,254,0.56)]">
@@ -111,18 +111,20 @@ function DescriptionInput({
         {readOnly ? (
           <p
             className={cn(
-              "font-normal text-foreground text-[15px] leading-[22px]",
+              "font-normal text-[15px] text-foreground leading-[22px]",
               "whitespace-pre-wrap"
             )}
           >
-            {value || <span className="text-muted-foreground">{placeholder}</span>}
+            {value || (
+              <span className="text-muted-foreground">{placeholder}</span>
+            )}
           </p>
         ) : (
           <textarea
             className={cn(
               "min-h-[80px] w-full resize-none",
               "bg-transparent",
-              "font-normal text-foreground text-[15px] leading-[22px]",
+              "font-normal text-[15px] text-foreground leading-[22px]",
               "placeholder:text-muted-foreground",
               "focus:outline-none"
             )}

@@ -56,7 +56,7 @@ function StatItem({
         <Icon className="h-3.5 w-3.5" />
       </div>
       <span className="font-medium text-base tabular-nums">{value}</span>
-      <span className="text-muted-foreground text-[10px] uppercase tracking-wide">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
         {label}
       </span>
     </motion.div>
@@ -123,7 +123,7 @@ export function InboxPulse({ stats, className }: InboxPulseProps) {
           <div className="rounded-lg bg-primary/10 p-1">
             <Activity className="h-3.5 w-3.5 text-primary-foreground/60" />
           </div>
-          <h4 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             Inbox Pulse
           </h4>
         </div>
@@ -161,7 +161,9 @@ export function InboxPulse({ stats, className }: InboxPulseProps) {
           {hasActivity && (
             <>
               <motion.div
-                animate={{ width: `${Math.min((stats.unread / 50) * 100, 60)}%` }}
+                animate={{
+                  width: `${Math.min((stats.unread / 50) * 100, 60)}%`,
+                }}
                 className="bg-indigo-400/60 dark:bg-indigo-500/50"
                 initial={{ width: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
@@ -175,7 +177,9 @@ export function InboxPulse({ stats, className }: InboxPulseProps) {
                 transition={{ delay: 0.35, duration: 0.5 }}
               />
               <motion.div
-                animate={{ width: `${Math.min((stats.urgent / 10) * 100, 15)}%` }}
+                animate={{
+                  width: `${Math.min((stats.urgent / 10) * 100, 15)}%`,
+                }}
                 className="bg-rose-400/60 dark:bg-rose-500/50"
                 initial={{ width: 0 }}
                 transition={{ delay: 0.4, duration: 0.5 }}

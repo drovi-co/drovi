@@ -66,7 +66,10 @@ gmailOAuth.get("/callback", async (c) => {
   // Use custom redirect or default - handle both paths and full URLs
   let redirectPath = redirectTo || "/dashboard/email-accounts";
   // If redirectTo is a full URL, extract just the pathname
-  if (redirectPath.startsWith("http://") || redirectPath.startsWith("https://")) {
+  if (
+    redirectPath.startsWith("http://") ||
+    redirectPath.startsWith("https://")
+  ) {
     try {
       const url = new URL(redirectPath);
       redirectPath = url.pathname + url.search;

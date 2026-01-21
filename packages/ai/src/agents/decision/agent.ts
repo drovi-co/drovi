@@ -264,7 +264,7 @@ export class DecisionAgent {
         {
           title: newDecision.title,
           statement: newDecision.statement ?? undefined,
-          topic: newDecision.topic,
+          topic: newDecision.topic ?? undefined,
           decidedAt: newDecision.decidedAt,
         },
         relevantDecisions

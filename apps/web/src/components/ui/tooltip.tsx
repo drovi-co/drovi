@@ -63,7 +63,7 @@ function TooltipContent({
           // Figma shadow: 0px 2px 4px rgba(0,0,0,0.1)
           "shadow-[0px_2px_4px_rgba(0,0,0,0.1)]",
           // Tooltip text - uses popover foreground from design system
-          "text-popover-foreground text-[11px] leading-[1.1]",
+          "text-[11px] text-popover-foreground leading-[1.1]",
           // Animations
           "fade-in-0 zoom-in-95 animate-in",
           "data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out",

@@ -507,7 +507,7 @@ function getTimezoneOffsetMinutes(timeZone: string, dateTime: string): number {
     if (tzPart?.value) {
       // Parse offset like "GMT+01:00" or "GMT-05:00"
       const match = tzPart.value.match(/GMT([+-])(\d{2}):(\d{2})/);
-      if (match) {
+      if (match?.[1] && match[2] && match[3]) {
         const sign = match[1] === "+" ? 1 : -1;
         const hours = Number.parseInt(match[2], 10);
         const minutes = Number.parseInt(match[3], 10);
@@ -541,7 +541,10 @@ function parseGoogleDateTime(
     // All-day event - use the date field
     // Parse as local midnight
     if (date) {
-      const [year, month, day] = date.split("-").map(Number);
+      const [yearStr, monthStr, dayStr] = date.split("-");
+      const year = Number(yearStr) || 2000;
+      const month = Number(monthStr) || 1;
+      const day = Number(dayStr) || 1;
       return new Date(year, month - 1, day);
     }
     return new Date();
@@ -563,11 +566,15 @@ function parseGoogleDateTime(
     const offsetMinutes = getTimezoneOffsetMinutes(timeZone, dateTime);
 
     // Parse the datetime parts manually
-    const [datePart, timePart] = dateTime.split("T");
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hours, minutes, seconds = 0] = timePart
-      .split(":")
-      .map((n) => Number.parseInt(n, 10));
+    const [datePart = "", timePart = "00:00:00"] = dateTime.split("T");
+    const [yearStr, monthStr, dayStr] = datePart.split("-");
+    const year = Number(yearStr) || 2000;
+    const month = Number(monthStr) || 1;
+    const day = Number(dayStr) || 1;
+    const [hoursStr, minutesStr, secondsStr = "0"] = timePart.split(":");
+    const hours = Number.parseInt(hoursStr || "0", 10);
+    const minutes = Number.parseInt(minutesStr || "0", 10);
+    const seconds = Number.parseInt(secondsStr, 10);
 
     // Create UTC date by subtracting the timezone offset
     const utcMs =
@@ -659,10 +666,12 @@ function convertGoogleEvent(
             )?.type || "other",
           entryPoints: (
             (conferenceData.entryPoints as Record<string, string>[]) || []
-          ).map((ep) => ({
-            type: ep.entryPointType,
-            uri: ep.uri,
-          })),
+          )
+            .filter((ep) => ep.entryPointType && ep.uri)
+            .map((ep) => ({
+              type: ep.entryPointType as string,
+              uri: ep.uri as string,
+            })),
         }
       : undefined,
     htmlLink: event.htmlLink as string | undefined,

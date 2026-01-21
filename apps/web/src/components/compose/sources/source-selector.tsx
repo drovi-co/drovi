@@ -142,7 +142,11 @@ export function SourceSelector({
                 </p>
                 {config.available && (
                   <p className="mt-1 text-muted-foreground text-xs">
-                    Press <kbd className="rounded bg-muted px-1">⌘{config.shortcut}</kbd> to select
+                    Press{" "}
+                    <kbd className="rounded bg-muted px-1">
+                      ⌘{config.shortcut}
+                    </kbd>{" "}
+                    to select
                   </p>
                 )}
               </TooltipContent>
@@ -181,10 +185,20 @@ export function SourceSelector({
                 isSelected ? config.bgColor : "bg-muted"
               )}
             >
-              <Icon className={cn("h-5 w-5", isSelected ? config.color : "text-muted-foreground")} />
+              <Icon
+                className={cn(
+                  "h-5 w-5",
+                  isSelected ? config.color : "text-muted-foreground"
+                )}
+              />
             </div>
             <div className="flex-1 text-left">
-              <p className={cn("font-medium text-sm", isSelected && config.color)}>
+              <p
+                className={cn(
+                  "font-medium text-sm",
+                  isSelected && config.color
+                )}
+              >
                 {config.label}
               </p>
               <p className="text-muted-foreground text-xs">
@@ -225,12 +239,20 @@ export function SourceIndicator({
 
   return (
     <div className={cn("flex items-center gap-2 text-sm", className)}>
-      <div className={cn("flex items-center justify-center rounded", config.bgColor, "p-1")}>
+      <div
+        className={cn(
+          "flex items-center justify-center rounded",
+          config.bgColor,
+          "p-1"
+        )}
+      >
         <Icon className={cn("h-3.5 w-3.5", config.color)} />
       </div>
       <span className="text-muted-foreground">
         Sending as:{" "}
-        <span className="font-medium text-foreground">{accountLabel || config.label}</span>
+        <span className="font-medium text-foreground">
+          {accountLabel || config.label}
+        </span>
       </span>
     </div>
   );

@@ -70,18 +70,26 @@ slackOAuth.get("/authorize", async (c) => {
     log.error("Failed to initiate Slack OAuth", { error: errorMsg });
 
     // Check if it's a configuration error
-    if (errorMsg.includes("not configured") || errorMsg.includes("SLACK_CLIENT")) {
+    if (
+      errorMsg.includes("not configured") ||
+      errorMsg.includes("SLACK_CLIENT")
+    ) {
       return c.json(
         {
           error: "Slack integration not configured",
-          message: "Please contact your administrator to set up Slack integration.",
-          details: "Missing SLACK_CLIENT_ID or SLACK_CLIENT_SECRET environment variables.",
+          message:
+            "Please contact your administrator to set up Slack integration.",
+          details:
+            "Missing SLACK_CLIENT_ID or SLACK_CLIENT_SECRET environment variables.",
         },
         503
       );
     }
 
-    return c.json({ error: "Failed to initiate Slack authorization", message: errorMsg }, 500);
+    return c.json(
+      { error: "Failed to initiate Slack authorization", message: errorMsg },
+      500
+    );
   }
 });
 
@@ -142,7 +150,10 @@ slackOAuth.get("/callback", async (c) => {
   // Use custom redirect or default - handle both paths and full URLs
   let redirectPath = redirectTo || "/dashboard/sources";
   // If redirectTo is a full URL, extract just the pathname
-  if (redirectPath.startsWith("http://") || redirectPath.startsWith("https://")) {
+  if (
+    redirectPath.startsWith("http://") ||
+    redirectPath.startsWith("https://")
+  ) {
     try {
       const url = new URL(redirectPath);
       redirectPath = url.pathname + url.search;

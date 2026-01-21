@@ -28,17 +28,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
 import {
-  InboxSidebar,
-  type CalendarEvent as SidebarCalendarEvent,
-  type SidebarCommitment,
-  type InboxStats,
-  type Insight,
-} from "@/components/inbox/inbox-sidebar";
-import {
   type InboxItem,
   InboxListHeader,
   InboxRow,
 } from "@/components/inbox/inbox-row";
+import {
+  InboxSidebar,
+  type InboxStats,
+  type Insight,
+  type CalendarEvent as SidebarCalendarEvent,
+  type SidebarCommitment,
+} from "@/components/inbox/inbox-sidebar";
 import { IntelligenceSheet } from "@/components/inbox/intelligence-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -326,32 +326,60 @@ function UnifiedInboxPage() {
   }));
 
   // Transform schedule data for the sidebar
-  const sidebarEvents: SidebarCalendarEvent[] = (calendarData?.events ?? []).map(
-    (event) => ({
-      id: event.id,
-      title: event.title,
-      startTime: new Date(event.startTime),
-      endTime: new Date(event.endTime),
-      type: "meeting" as const,
-      attendees: event.attendees,
-      location: event.location,
-      isVideoCall: event.isVideoCall,
-      conferenceUrl: event.conferenceUrl,
-    })
-  );
+  const sidebarEvents: SidebarCalendarEvent[] = (
+    calendarData?.events ?? []
+  ).map((event) => ({
+    id: event.id,
+    title: event.title,
+    startTime: new Date(event.startTime),
+    endTime: new Date(event.endTime),
+    type: "meeting" as const,
+    attendees: event.attendees,
+    location: event.location,
+    isVideoCall: event.isVideoCall,
+    conferenceUrl: (event as { conferenceUrl?: string }).conferenceUrl,
+  }));
 
   const sidebarCommitments: SidebarCommitment[] = (
     commitmentsData?.commitments ?? []
-  ).map((c) => ({
-    id: c.id,
-    title: c.title,
-    dueDate: c.dueDate ? new Date(c.dueDate) : null,
-    status: c.status,
-    priority: c.priority ?? "medium",
-    direction: c.direction as "owed_by_me" | "owed_to_me",
-    daysOverdue: c.daysOverdue,
-    creditor: c.creditor,
-  }));
+  ).map((c) => {
+    const commitment = c as {
+      id: string;
+      title: string;
+      dueDate?: string | null;
+      status: string;
+      priority?: string;
+      direction?: string;
+      daysOverdue?: number;
+      creditor?: {
+        name?: string;
+        email?: string;
+        displayName?: string;
+        primaryEmail?: string;
+      } | null;
+    };
+    return {
+      id: commitment.id,
+      title: commitment.title,
+      dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
+      status: commitment.status,
+      priority: commitment.priority ?? "medium",
+      direction: (commitment.direction ?? "owed_by_me") as
+        | "owed_by_me"
+        | "owed_to_me",
+      daysOverdue: commitment.daysOverdue,
+      creditor: commitment.creditor
+        ? {
+            displayName:
+              commitment.creditor.displayName ??
+              commitment.creditor.name ??
+              null,
+            primaryEmail:
+              commitment.creditor.primaryEmail ?? commitment.creditor.email,
+          }
+        : null,
+    };
+  });
 
   // Build sidebar stats from inbox stats
   const sidebarStats: InboxStats = {

@@ -223,8 +223,9 @@ export function calculateDirection(
 
   for (const thread of threads) {
     // Find the first message in the thread
+    if (thread.messages.length === 0) continue;
     const firstMessage = thread.messages.reduce((earliest, current) => {
-      const earliestTime = earliest.sentAt?.getTime() ?? Number.MAX_VALUE;
+      const earliestTime = earliest?.sentAt?.getTime() ?? Number.MAX_VALUE;
       const currentTime = current.sentAt?.getTime() ?? Number.MAX_VALUE;
       return currentTime < earliestTime ? current : earliest;
     }, thread.messages[0]);
@@ -238,7 +239,6 @@ export function calculateDirection(
     }
   }
 
-  const total = initiatedByUser + initiatedByContact;
   const initiationRatio =
     initiatedByContact > 0
       ? initiatedByUser / initiatedByContact

@@ -152,7 +152,7 @@ function SelectItem({
         "relative flex w-full cursor-default select-none items-center",
         // Linear item styling - pixel perfect from Figma
         "rounded-[6px] py-[8px] pr-[3px] pl-[6px]",
-        "text-foreground text-[13px] outline-none",
+        "text-[13px] text-foreground outline-none",
         "transition-colors duration-75",
         // Focus/hover state - Figma: #26273B
         "focus:bg-accent focus:text-foreground",

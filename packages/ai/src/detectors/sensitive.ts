@@ -499,7 +499,7 @@ export class SensitiveDataDetector {
     }
   }
 
-  private calculatePIIConfidence(value: string, type: PIIType): number {
+  private calculatePIIConfidence(_value: string, type: PIIType): number {
     // Base confidence by type
     const baseConfidence: Record<PIIType, number> = {
       ssn: 0.95,

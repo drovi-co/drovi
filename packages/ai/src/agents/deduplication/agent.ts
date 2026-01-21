@@ -8,7 +8,6 @@
 
 import { generateObject } from "ai";
 import { sql } from "drizzle-orm";
-import type { PgDatabase } from "drizzle-orm/pg-core";
 import { observability } from "../../observability";
 import { getDefaultModel } from "../../providers";
 import type {
@@ -39,6 +38,19 @@ const WEIGHTS = {
 };
 
 // =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Database interface for deduplication queries.
+ * Uses duck typing to accept any Drizzle database instance.
+ */
+interface DatabaseClient {
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle db.execute accepts various query types
+  execute<T>(query: any): Promise<{ rows: T[] }>;
+}
+
+// =============================================================================
 // DEDUPLICATION AGENT
 // =============================================================================
 
@@ -49,9 +61,9 @@ const WEIGHTS = {
  * Unified Intelligence Objects across sources.
  */
 export class DeduplicationAgent {
-  private db: PgDatabase<unknown>;
+  private db: DatabaseClient;
 
-  constructor(db: PgDatabase<unknown>) {
+  constructor(db: DatabaseClient) {
     this.db = db;
   }
 
@@ -600,9 +612,10 @@ Return your analysis.`;
 
 /**
  * Create a new DeduplicationAgent instance.
+ * Accepts any Drizzle database instance that has an execute method.
  */
 export function createDeduplicationAgent(
-  db: PgDatabase<unknown>
+  db: DatabaseClient
 ): DeduplicationAgent {
   return new DeduplicationAgent(db);
 }

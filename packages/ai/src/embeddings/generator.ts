@@ -123,9 +123,9 @@ export async function generateEmbedding(
   }
 
   const openai = getOpenAI();
-  const embeddingModel = openai.textEmbeddingModel(model, {
-    dimensions: options.dimensions ?? EMBEDDING_DIMENSIONS,
-  });
+  // Note: In @ai-sdk/openai v3, dimensions are controlled by model selection
+  // text-embedding-3-small defaults to 1536 dimensions
+  const embeddingModel = openai.textEmbeddingModel(model);
 
   const response = await embeddingModel.doEmbed({
     values: [preparedText],
@@ -188,9 +188,8 @@ export async function batchGenerateEmbeddings(
   let totalTokens = 0;
 
   const openai = getOpenAI();
-  const embeddingModel = openai.textEmbeddingModel(model, {
-    dimensions: options.dimensions ?? EMBEDDING_DIMENSIONS,
-  });
+  // Note: In @ai-sdk/openai v3, dimensions are controlled by model selection
+  const embeddingModel = openai.textEmbeddingModel(model);
 
   for (const chunk of chunks) {
     const response = await embeddingModel.doEmbed({
@@ -382,7 +381,7 @@ export function aggregateEmbeddings(
   if (method === "mean") {
     for (const embedding of embeddings) {
       for (let i = 0; i < dimensions; i++) {
-        result[i] += (embedding[i] ?? 0) / embeddings.length;
+        result[i] = (result[i] ?? 0) + (embedding[i] ?? 0) / embeddings.length;
       }
     }
   } else if (method === "max_pool") {

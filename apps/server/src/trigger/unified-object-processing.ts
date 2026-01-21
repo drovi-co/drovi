@@ -138,7 +138,8 @@ export const processCommitmentTask = task({
 
     try {
       // Use deduplication agent to check for duplicates
-      const deduplicationAgent = createDeduplicationAgent(db);
+      // biome-ignore lint/suspicious/noExplicitAny: db type is compatible but TypeScript can't infer it
+      const deduplicationAgent = createDeduplicationAgent(db as any);
       const result = await deduplicationAgent.checkForDuplicates({
         organizationId,
         newCommitment: {

@@ -54,7 +54,7 @@ function IssueBreadcrumb({
   return (
     <div className={cn("flex items-center gap-[14px]", className)}>
       <TeamIcon color={teamColor} />
-      <div className="flex items-center font-medium text-foreground text-[13px]">
+      <div className="flex items-center font-medium text-[13px] text-foreground">
         <button
           className="cursor-pointer hover:underline"
           onClick={onTeamClick}

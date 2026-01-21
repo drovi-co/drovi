@@ -370,7 +370,7 @@ function InboxRow({
 
       {/* Brief - flexible width, takes remaining space */}
       <div className="min-w-0 flex-1 px-2">
-        <span className="block truncate font-normal text-muted-foreground text-[13px]">
+        <span className="block truncate font-normal text-[13px] text-muted-foreground">
           {briefText}
         </span>
       </div>
@@ -380,7 +380,7 @@ function InboxRow({
         {/* Default state: Date + Assignee + Dots - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Date - fixed width, right aligned text */}
-          <span className="w-14 whitespace-nowrap text-right font-normal text-muted-foreground text-[12px]">
+          <span className="w-14 whitespace-nowrap text-right font-normal text-[12px] text-muted-foreground">
             {dateDisplay}
           </span>
 
@@ -489,7 +489,7 @@ function InboxListHeader({
       className={cn(
         "flex h-8 items-center px-3",
         "border-border border-b bg-background",
-        "font-medium text-muted-foreground text-[11px] uppercase tracking-wider",
+        "font-medium text-[11px] text-muted-foreground uppercase tracking-wider",
         className
       )}
       data-slot="inbox-list-header"

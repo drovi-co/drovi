@@ -24,18 +24,18 @@ import {
   type SidebarCommitment,
 } from "./commitments-section";
 import { InboxPulse, type InboxStats } from "./inbox-pulse";
-import { QuickInsights, type Insight } from "./quick-insights";
-import { ScheduleSection, type CalendarEvent } from "./schedule-section";
+import { type Insight, QuickInsights } from "./quick-insights";
+import { type CalendarEvent, ScheduleSection } from "./schedule-section";
 import { SidebarHeader } from "./sidebar-header";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export type { CalendarEvent } from "./schedule-section";
 export type { SidebarCommitment } from "./commitments-section";
 export type { InboxStats } from "./inbox-pulse";
 export type { Insight } from "./quick-insights";
+export type { CalendarEvent } from "./schedule-section";
 
 export interface InboxSidebarProps {
   // Data

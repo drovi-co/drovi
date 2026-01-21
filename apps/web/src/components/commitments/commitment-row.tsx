@@ -277,7 +277,7 @@ function CommitmentRow({
             name={otherPerson?.displayName ?? undefined}
             size="xs"
           />
-          <span className="truncate font-medium text-foreground text-[13px]">
+          <span className="truncate font-medium text-[13px] text-foreground">
             {personName}
           </span>
         </div>
@@ -287,7 +287,7 @@ function CommitmentRow({
       <div className="min-w-0 flex-1 px-2">
         <span
           className={cn(
-            "block truncate font-normal text-muted-foreground text-[13px]",
+            "block truncate font-normal text-[13px] text-muted-foreground",
             isCompleted && "line-through opacity-60"
           )}
         >
@@ -462,7 +462,7 @@ function CommitmentListHeader({
       className={cn(
         "flex h-8 items-center px-3",
         "border-border border-b bg-background",
-        "font-medium text-muted-foreground text-[11px] uppercase tracking-wider",
+        "font-medium text-[11px] text-muted-foreground uppercase tracking-wider",
         className
       )}
       data-slot="commitment-list-header"

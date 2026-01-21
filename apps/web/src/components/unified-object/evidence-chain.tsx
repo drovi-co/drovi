@@ -11,7 +11,7 @@ import {
   Mail,
   MessageSquare,
 } from "lucide-react";
-import type * as React from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -194,7 +194,7 @@ export function EvidenceChain({
   className,
   ...props
 }: EvidenceChainProps) {
-  const [isOpen, setIsOpen] = React.useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Sort sources: origin first, then by timestamp
   const sortedSources = [...sources].sort((a, b) => {

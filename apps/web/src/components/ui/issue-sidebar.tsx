@@ -60,7 +60,9 @@ function PropertyRow({ label, children, className }: PropertyRowProps) {
   return (
     <div className={cn("flex items-center", className)}>
       <div className="w-[95px] shrink-0 py-[10px]">
-        <span className="font-medium text-muted-foreground text-[13px]">{label}</span>
+        <span className="font-medium text-[13px] text-muted-foreground">
+          {label}
+        </span>
       </div>
       <div className="flex-1">{children}</div>
     </div>
@@ -116,7 +118,7 @@ function StatusSelector({ value = "todo", onClick }: StatusSelectorProps) {
   return (
     <PropertySelector onClick={onClick}>
       <StatusIcon size="sm" status={value} />
-      <span className="font-normal text-foreground text-[12px]">
+      <span className="font-normal text-[12px] text-foreground">
         {labels[value]}
       </span>
     </PropertySelector>
@@ -141,7 +143,7 @@ function PrioritySelector({ value = "none", onClick }: PrioritySelectorProps) {
   return (
     <PropertySelector onClick={onClick}>
       <PriorityIcon priority={value} size="sm" />
-      <span className="font-normal text-foreground text-[12px]">
+      <span className="font-normal text-[12px] text-foreground">
         {labels[value]}
       </span>
     </PropertySelector>
@@ -214,7 +216,7 @@ function LabelsSelector({
         type="button"
       >
         <Plus className="size-2 text-muted-foreground" />
-        <span className="font-normal text-muted-foreground text-[12px]">
+        <span className="font-normal text-[12px] text-muted-foreground">
           Add label
         </span>
       </button>
@@ -238,7 +240,7 @@ function LabelsSelector({
           type="button"
         >
           <LabelDot color={label.color} labelType={label.type} size="sm" />
-          <span className="font-normal text-foreground text-[12px]">
+          <span className="font-normal text-[12px] text-foreground">
             {label.name}
           </span>
         </button>
@@ -294,7 +296,7 @@ function IssueSidebar({
       {/* Header with ID and actions */}
       <div className="border-border border-b px-6 py-[14.5px]">
         <div className="flex items-center justify-between">
-          <span className="w-[95px] font-medium text-muted-foreground text-[13px]">
+          <span className="w-[95px] font-medium text-[13px] text-muted-foreground">
             {issueId}
           </span>
           <div className="flex items-center gap-3">

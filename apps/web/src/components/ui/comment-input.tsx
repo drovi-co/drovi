@@ -174,10 +174,10 @@ function Comment({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center gap-2">
-          <span className="font-medium text-foreground text-[12px]">
+          <span className="font-medium text-[12px] text-foreground">
             {author.name}
           </span>
-          <span className="text-muted-foreground text-[12px]">{timestamp}</span>
+          <span className="text-[12px] text-muted-foreground">{timestamp}</span>
         </div>
         <p className="whitespace-pre-wrap text-[13px] text-foreground">
           {content}

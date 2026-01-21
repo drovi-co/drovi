@@ -249,7 +249,7 @@ export const creditsRouter = router({
 
       // Create Polar checkout session
       const checkout = await polarClient.checkouts.create({
-        productId: pkg.polarProductId,
+        products: [pkg.polarProductId],
         successUrl: `${env.CORS_ORIGIN}/dashboard/billing?success=credits`,
         metadata: {
           organizationId: orgId,

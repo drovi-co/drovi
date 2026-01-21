@@ -385,13 +385,15 @@ export function checkConsistencyRules(
     // Check for date conflicts
     const draftDates = extractDates(draft);
     const statementDates = extractDates(statement.text);
+    const firstDraftDate = draftDates[0];
     if (
       draftDates.length > 0 &&
       statementDates.length > 0 &&
+      firstDraftDate &&
       hasDateConflict(draftDates, statementDates)
     ) {
       conflicts.push({
-        draftStatement: extractRelevantSentence(draft, draftDates[0]),
+        draftStatement: extractRelevantSentence(draft, firstDraftDate),
         conflictingSource: statement.text,
         sourceId: statement.id,
         severity: "info",

@@ -694,7 +694,7 @@ function TaskListView({
                 {/* Label */}
                 <span className="text-foreground">{config.label}</span>
                 {/* Count Badge */}
-                <span className="ml-1 text-muted-foreground text-[12px]">
+                <span className="ml-1 text-[12px] text-muted-foreground">
                   {statusTasks.length}
                 </span>
               </button>
@@ -722,7 +722,7 @@ function TaskListView({
                     <button
                       className={cn(
                         "flex w-full items-center justify-center gap-2 px-4 py-2",
-                        "text-secondary text-[13px] hover:text-secondary",
+                        "text-[13px] text-secondary hover:text-secondary",
                         "bg-card hover:bg-muted",
                         "border-border border-b",
                         "cursor-pointer transition-colors"
@@ -758,7 +758,7 @@ function TaskListView({
         className={cn(
           "flex h-8 items-center px-3",
           "border-border border-b bg-background",
-          "font-medium text-muted-foreground text-[11px] uppercase tracking-wider"
+          "font-medium text-[11px] text-muted-foreground uppercase tracking-wider"
         )}
       >
         {/* Checkbox */}
@@ -821,7 +821,7 @@ function TaskListView({
         <button
           className={cn(
             "flex w-full items-center justify-center gap-2 px-4 py-3",
-            "text-secondary text-[13px] hover:text-secondary",
+            "text-[13px] text-secondary hover:text-secondary",
             "bg-card hover:bg-muted",
             "border-border border-b",
             "cursor-pointer transition-colors"
@@ -838,7 +838,7 @@ function TaskListView({
       )}
 
       {/* Total count footer */}
-      <div className="border-border border-t px-4 py-2 text-center text-muted-foreground text-[11px]">
+      <div className="border-border border-t px-4 py-2 text-center text-[11px] text-muted-foreground">
         Showing {visibleTasks.length} of {tasks.length} tasks
       </div>
     </div>
@@ -1118,14 +1118,14 @@ function TaskRow({
 
       {/* Task ID - fixed width (matches sender column in inbox) */}
       <div className={cn(COL.taskId, "shrink-0 px-1")}>
-        <span className="block truncate font-medium text-foreground text-[13px]">
+        <span className="block truncate font-medium text-[13px] text-foreground">
           {getTaskIdDisplay(task)}
         </span>
       </div>
 
       {/* Title - flexible width, takes remaining space */}
       <div className="min-w-0 flex-1 px-2">
-        <span className="block truncate font-normal text-muted-foreground text-[13px]">
+        <span className="block truncate font-normal text-[13px] text-muted-foreground">
           {task.title}
         </span>
       </div>

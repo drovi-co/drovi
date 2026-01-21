@@ -434,7 +434,7 @@ export function parseJsonResponse<T>(response: string): T | null {
   try {
     // Try to extract JSON from markdown code blocks
     const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
+    if (jsonMatch?.[1]) {
       return JSON.parse(jsonMatch[1]) as T;
     }
 

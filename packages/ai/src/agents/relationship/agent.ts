@@ -7,6 +7,7 @@
 //
 
 import { generateObject } from "ai";
+import { z } from "zod";
 import { observability } from "../../observability";
 import { getDefaultModel } from "../../providers/index";
 import {
@@ -500,35 +501,22 @@ export class RelationshipAgent {
     try {
       const prompt = buildOpenLoopDetectionPrompt(contactName, threads);
 
+      const OpenLoopSchema = z.object({
+        openLoops: z.array(
+          z.object({
+            type: z.enum(["commitment", "question", "request"]),
+            title: z.string(),
+            direction: z.enum(["owed_by_contact", "owed_to_contact"]),
+            dueDate: z.string().nullable().optional(),
+            threadId: z.string(),
+            threadSubject: z.string().optional(),
+          })
+        ),
+      });
+
       const result = await generateObject({
         model: getDefaultModel(),
-        schema: {
-          type: "object",
-          properties: {
-            openLoops: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  type: {
-                    type: "string",
-                    enum: ["commitment", "question", "request"],
-                  },
-                  title: { type: "string" },
-                  direction: {
-                    type: "string",
-                    enum: ["owed_by_contact", "owed_to_contact"],
-                  },
-                  dueDate: { type: "string", nullable: true },
-                  threadId: { type: "string" },
-                  threadSubject: { type: "string" },
-                },
-                required: ["type", "title", "direction", "threadId"],
-              },
-            },
-          },
-          required: ["openLoops"],
-        },
+        schema: OpenLoopSchema,
         prompt,
         temperature: 0.3,
       });

@@ -566,11 +566,7 @@ ${messageBody}`;
                         const debtorName =
                           typeof c.debtor === "object" && c.debtor
                             ? c.debtor.name || c.debtor.email || "Unknown"
-                            : c.debtor || "Unknown";
-                        const creditorName =
-                          typeof c.creditor === "object" && c.creditor
-                            ? c.creditor.name || c.creditor.email || "Unknown"
-                            : c.creditor || "Unknown";
+                            : "Unknown";
                         return (
                           <IntelligenceCard
                             badge={c.status}

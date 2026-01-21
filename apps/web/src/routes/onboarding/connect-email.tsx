@@ -1,3 +1,4 @@
+import { env } from "@memorystack/env/web";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -21,7 +22,6 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
-import { env } from "@memorystack/env/web";
 
 export const Route = createFileRoute("/onboarding/connect-email")({
   component: ConnectEmailPage,

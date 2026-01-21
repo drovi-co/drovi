@@ -1,18 +1,9 @@
 import { env } from "@memorystack/env/server";
+import { GOOGLE_OAUTH_URLS } from "./gmail";
 
 // =============================================================================
 // GOOGLE DOCS OAUTH CONFIGURATION
 // =============================================================================
-
-/**
- * Google OAuth 2.0 endpoints
- */
-export const GOOGLE_OAUTH_URLS = {
-  authorization: "https://accounts.google.com/o/oauth2/v2/auth",
-  token: "https://oauth2.googleapis.com/token",
-  revoke: "https://oauth2.googleapis.com/revoke",
-  userinfo: "https://www.googleapis.com/oauth2/v2/userinfo",
-} as const;
 
 /**
  * Google Drive API base URL

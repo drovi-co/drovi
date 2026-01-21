@@ -161,12 +161,6 @@ const updateClaimSchema = z.object({
     .optional(),
 });
 
-const triggerAnalysisSchema = z.object({
-  organizationId: z.string().min(1),
-  threadId: z.string().uuid(),
-  force: z.boolean().default(false),
-});
-
 // Additional schemas for inbox functionality
 const listThreadsInboxSchema = z.object({
   accountId: z.string().uuid().optional(),
@@ -199,7 +193,7 @@ const listThreadsInboxSchema = z.object({
 
 // Helper to get organization ID from session
 async function getActiveOrgId(ctx: {
-  session: { session: { activeOrganizationId: string | null } };
+  session: { session: { activeOrganizationId?: string | null } };
 }): Promise<string> {
   const orgId = ctx.session.session.activeOrganizationId;
   if (!orgId) {
@@ -1042,7 +1036,7 @@ export const threadsRouter = router({
    */
   getById: protectedProcedure
     .input(threadIdSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input }) => {
       const thread = await db.query.emailThread.findFirst({
         where: eq(emailThread.id, input.threadId),
         with: {
@@ -1077,7 +1071,7 @@ export const threadsRouter = router({
    */
   getMessages: protectedProcedure
     .input(threadIdSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input }) => {
       const thread = await db.query.emailThread.findFirst({
         where: eq(emailThread.id, input.threadId),
         with: {
@@ -1147,7 +1141,7 @@ export const threadsRouter = router({
    */
   getIntelligence: protectedProcedure
     .input(threadIdSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input }) => {
       // Get claims for this thread
       const claims = await db.query.claim.findMany({
         where: and(
@@ -1160,56 +1154,68 @@ export const threadsRouter = router({
       // Transform claims to commitments, decisions, and questions
       const commitments = claims
         .filter((c) => c.type === "promise")
-        .map((c) => ({
-          id: c.id,
-          title: c.text,
-          description: c.evidence ?? undefined,
-          debtor: {
-            email: c.attributedTo ?? "",
-            name: c.attributedTo ?? "Unknown",
-          },
-          dueDate: c.metadata
-            ? (c.metadata as { dueDate?: string }).dueDate
-            : undefined,
-          status: "pending" as const,
-          priority: "medium" as const,
-          confidence: c.confidence,
-          evidence: [],
-          extractedFrom: c.messageId ?? "",
-          reasoning: c.evidence ?? undefined,
-        }));
+        .map((c) => {
+          const meta = c.metadata as {
+            dueDate?: string;
+            attributedTo?: string;
+          } | null;
+          return {
+            id: c.id,
+            title: c.text,
+            description: c.quotedText ?? undefined,
+            debtor: {
+              email: meta?.attributedTo ?? "",
+              name: meta?.attributedTo ?? "Unknown",
+            },
+            dueDate: meta?.dueDate,
+            status: "pending" as const,
+            priority: "medium" as const,
+            confidence: c.confidence,
+            evidence: [],
+            extractedFrom: c.messageId ?? "",
+            reasoning: c.quotedText ?? undefined,
+          };
+        });
 
       const decisions = claims
         .filter((c) => c.type === "decision")
-        .map((c) => ({
-          id: c.id,
-          title: c.text,
-          statement: c.text,
-          rationale: c.evidence ?? undefined,
-          maker: {
-            email: c.attributedTo ?? "",
-            name: c.attributedTo ?? "Unknown",
-          },
-          date: c.extractedAt ?? new Date(),
-          confidence: c.confidence,
-          evidence: [],
-          extractedFrom: c.messageId ?? "",
-        }));
+        .map((c) => {
+          const meta = c.metadata as { attributedTo?: string } | null;
+          return {
+            id: c.id,
+            title: c.text,
+            statement: c.text,
+            rationale: c.quotedText ?? undefined,
+            maker: {
+              email: meta?.attributedTo ?? "",
+              name: meta?.attributedTo ?? "Unknown",
+            },
+            date: c.extractedAt ?? new Date(),
+            confidence: c.confidence,
+            evidence: [],
+            extractedFrom: c.messageId ?? "",
+          };
+        });
 
       const openQuestions = claims
         .filter((c) => c.type === "question")
-        .map((c) => ({
-          id: c.id,
-          question: c.text,
-          askedBy: {
-            email: c.attributedTo ?? "",
-            name: c.attributedTo ?? "Unknown",
-          },
-          askedAt: c.extractedAt ?? new Date(),
-          isAnswered:
-            (c.metadata as { isAnswered?: boolean })?.isAnswered ?? false,
-          confidence: c.confidence,
-        }));
+        .map((c) => {
+          const meta = c.metadata as {
+            isAnswered?: boolean;
+            attributedTo?: string;
+          } | null;
+          return {
+            id: c.id,
+            question: c.text,
+            askedBy: {
+              email: meta?.attributedTo ?? "",
+              name: meta?.attributedTo ?? "Unknown",
+            },
+            askedAt: c.extractedAt ?? new Date(),
+            isAnswered: meta?.isAnswered ?? false,
+            confidence: c.confidence,
+          };
+        });
 
       return {
         commitments,
@@ -1224,7 +1230,7 @@ export const threadsRouter = router({
    */
   getRelatedContext: protectedProcedure
     .input(threadIdSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input: _input }) => {
       // For now, return empty context - can be enhanced later
       return {
         relatedThreads: [],
@@ -1290,7 +1296,7 @@ export const threadsRouter = router({
    */
   archive: protectedProcedure
     .input(threadIdSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db
         .update(emailThread)
         .set({ isArchived: true, updatedAt: new Date() })
@@ -1309,7 +1315,7 @@ export const threadsRouter = router({
         starred: z.boolean(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db
         .update(emailThread)
         .set({ isStarred: input.starred, updatedAt: new Date() })
@@ -1328,7 +1334,7 @@ export const threadsRouter = router({
         read: z.boolean(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db
         .update(emailThread)
         .set({ isRead: input.read, updatedAt: new Date() })
@@ -1342,7 +1348,7 @@ export const threadsRouter = router({
    */
   delete: protectedProcedure
     .input(threadIdSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       // Soft delete by marking as trashed
       await db
         .update(emailThread)
@@ -1365,7 +1371,7 @@ export const threadsRouter = router({
         until: z.date(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db
         .update(emailThread)
         .set({

@@ -309,7 +309,7 @@ export function resolveIdentity(
   // Find the primary email (prefer work email over personal)
   const workEmails = uniqueEmails.filter((e) => !isFreeEmailProvider(e));
   // We know uniqueEmails has at least one element due to the check above
-  const primaryEmail = workEmails[0] ?? uniqueEmails[0] ?? emails[0];
+  const primaryEmail = workEmails[0] ?? uniqueEmails[0] ?? emails[0] ?? "";
 
   // Build aliases
   const aliases: EmailAlias[] = uniqueEmails

@@ -131,7 +131,7 @@ export async function exchangeWhatsAppCode(
   const response = await fetch(`${META_OAUTH_URLS.token}?${params.toString()}`);
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = (await response.json()) as { error?: { message?: string } };
     throw new Error(
       `WhatsApp token exchange failed: ${error.error?.message ?? response.statusText}`
     );
@@ -339,13 +339,16 @@ export async function sendWhatsAppMessage(
   );
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = (await response.json()) as { error?: { message?: string } };
     throw new Error(
       `Failed to send WhatsApp message: ${error.error?.message ?? response.statusText}`
     );
   }
 
-  return response.json();
+  return (await response.json()) as {
+    messaging_product: string;
+    messages: { id: string }[];
+  };
 }
 
 /**

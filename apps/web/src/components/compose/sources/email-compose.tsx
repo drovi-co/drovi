@@ -25,7 +25,11 @@ interface EmailComposeProps {
   /** Whether to show Cc/Bcc by default */
   showCcBccByDefault?: boolean;
   /** Optional callback when recipients change */
-  onRecipientsChange?: (to: Recipient[], cc: Recipient[], bcc: Recipient[]) => void;
+  onRecipientsChange?: (
+    to: Recipient[],
+    cc: Recipient[],
+    bcc: Recipient[]
+  ) => void;
   /** Custom class name */
   className?: string;
 }
@@ -42,7 +46,9 @@ export function EmailCompose({
 }: EmailComposeProps) {
   const { state, actions } = useCompose();
   const [showCcBcc, setShowCcBcc] = useState(
-    showCcBccByDefault || state.email.cc.length > 0 || state.email.bcc.length > 0
+    showCcBccByDefault ||
+      state.email.cc.length > 0 ||
+      state.email.bcc.length > 0
   );
 
   // Handlers that sync with provider

@@ -1,6 +1,6 @@
+import { existsSync } from "node:fs";
 import { syncEnvVars } from "@trigger.dev/build/extensions/core";
 import { defineConfig } from "@trigger.dev/sdk";
-import { existsSync } from "node:fs";
 
 export default defineConfig({
   project: "proj_zmpryelvppbqvzeghxbk",

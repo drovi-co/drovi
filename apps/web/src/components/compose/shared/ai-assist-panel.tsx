@@ -287,7 +287,10 @@ function getToneSuggestion(sourceType: SourceType): string {
 /**
  * Get placeholder text based on context
  */
-function getPlaceholderText(sourceType: SourceType, hasThread: boolean): string {
+function getPlaceholderText(
+  sourceType: SourceType,
+  hasThread: boolean
+): string {
   if (hasThread) {
     switch (sourceType) {
       case "slack":
@@ -413,7 +416,10 @@ export function AIAssistPanel({
         threadId: replyToThreadId,
         userIntent: prompt,
         options: {
-          tone: getToneSuggestion(sourceType) as "professional" | "casual" | "friendly",
+          tone: getToneSuggestion(sourceType) as
+            | "professional"
+            | "casual"
+            | "friendly",
           includeGreeting: sourceType === "email",
           includeSignoff: sourceType === "email",
         },
@@ -423,7 +429,8 @@ export function AIAssistPanel({
       refineDraftMutation.mutate({
         organizationId,
         originalDraft:
-          body || `Subject: ${subject || "New message"}\n\nWrite about: ${prompt}`,
+          body ||
+          `Subject: ${subject || "New message"}\n\nWrite about: ${prompt}`,
         feedback: prompt,
         recipientName,
       });

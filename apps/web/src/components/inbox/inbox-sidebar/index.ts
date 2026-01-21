@@ -6,18 +6,17 @@
 // Displays schedule, commitments, stats, and AI insights.
 //
 
-export { InboxSidebar } from "./inbox-sidebar";
-export { SidebarHeader } from "./sidebar-header";
-export { ScheduleSection } from "./schedule-section";
 export { CommitmentsSection } from "./commitments-section";
 export { InboxPulse } from "./inbox-pulse";
-export { QuickInsights } from "./quick-insights";
-
 // Types
 export type {
-  InboxSidebarProps,
   CalendarEvent,
-  SidebarCommitment,
+  InboxSidebarProps,
   InboxStats,
   Insight,
+  SidebarCommitment,
 } from "./inbox-sidebar";
+export { InboxSidebar } from "./inbox-sidebar";
+export { QuickInsights } from "./quick-insights";
+export { ScheduleSection } from "./schedule-section";
+export { SidebarHeader } from "./sidebar-header";

@@ -580,7 +580,7 @@ export const tasksRouter = router({
       }
 
       // Create task
-      const [newTask] = await db
+      const [createdTask] = await db
         .insert(task)
         .values({
           organizationId: input.organizationId,
@@ -599,8 +599,15 @@ export const tasksRouter = router({
         })
         .returning();
 
+      if (!createdTask) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create task",
+        });
+      }
+
       // Log activity
-      await logTaskActivity(newTask.id, userId, "created");
+      await logTaskActivity(createdTask.id, userId, "created");
 
       // Add labels if provided
       if (input.labelIds && input.labelIds.length > 0) {
@@ -610,13 +617,13 @@ export const tasksRouter = router({
 
         await db.insert(taskLabelJunction).values(
           input.labelIds.map((labelId) => ({
-            taskId: newTask.id,
+            taskId: createdTask.id,
             labelId,
           }))
         );
       }
 
-      return newTask;
+      return createdTask;
     }),
 
   /**

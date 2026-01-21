@@ -489,7 +489,7 @@ function UIODetailPage() {
                     // Navigate to source based on type
                     if (source.emailThreadId) {
                       navigate({
-                        to: "/dashboard/email/thread.$threadId",
+                        to: "/dashboard/email/thread/$threadId",
                         params: { threadId: source.emailThreadId },
                       });
                     }

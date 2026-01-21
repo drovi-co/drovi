@@ -7,8 +7,14 @@
 // Email, Slack, WhatsApp, and other sources.
 //
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 // =============================================================================
 // TYPES
@@ -192,7 +198,10 @@ export function ComposeProvider({
   replyToMessageId,
 }: ComposeProviderProps) {
   const [state, setState] = useState<ComposeState>(() => {
-    const initial = createInitialState(initialSourceType, initialSourceAccountId);
+    const initial = createInitialState(
+      initialSourceType,
+      initialSourceAccountId
+    );
 
     // Apply initial email state if provided
     if (initialEmail) {
@@ -285,13 +294,16 @@ export function ComposeProvider({
   }, []);
 
   // Slack actions
-  const setSlackChannel = useCallback((channelId: string, channelName?: string) => {
-    setState((prev) => ({
-      ...prev,
-      slack: { ...prev.slack, channelId, channelName },
-      hasUnsavedChanges: true,
-    }));
-  }, []);
+  const setSlackChannel = useCallback(
+    (channelId: string, channelName?: string) => {
+      setState((prev) => ({
+        ...prev,
+        slack: { ...prev.slack, channelId, channelName },
+        hasUnsavedChanges: true,
+      }));
+    },
+    []
+  );
 
   const setSlackThread = useCallback((threadTs?: string) => {
     setState((prev) => ({
@@ -302,13 +314,16 @@ export function ComposeProvider({
   }, []);
 
   // WhatsApp actions
-  const setWhatsAppPhone = useCallback((phoneNumber: string, contactName?: string) => {
-    setState((prev) => ({
-      ...prev,
-      whatsapp: { ...prev.whatsapp, phoneNumber, contactName },
-      hasUnsavedChanges: true,
-    }));
-  }, []);
+  const setWhatsAppPhone = useCallback(
+    (phoneNumber: string, contactName?: string) => {
+      setState((prev) => ({
+        ...prev,
+        whatsapp: { ...prev.whatsapp, phoneNumber, contactName },
+        hasUnsavedChanges: true,
+      }));
+    },
+    []
+  );
 
   // Draft management
   const setDraftId = useCallback((id: string | null) => {
@@ -324,12 +339,15 @@ export function ComposeProvider({
   }, []);
 
   // Reply context
-  const setReplyContext = useCallback((conversationId: string, messageId?: string) => {
-    setState((prev) => ({
-      ...prev,
-      replyTo: { conversationId, messageId },
-    }));
-  }, []);
+  const setReplyContext = useCallback(
+    (conversationId: string, messageId?: string) => {
+      setState((prev) => ({
+        ...prev,
+        replyTo: { conversationId, messageId },
+      }));
+    },
+    []
+  );
 
   const clearReplyContext = useCallback(() => {
     setState((prev) => ({ ...prev, replyTo: undefined }));
@@ -392,9 +410,7 @@ export function ComposeProvider({
   const value = useMemo(() => ({ state, actions }), [state, actions]);
 
   return (
-    <ComposeContext.Provider value={value}>
-      {children}
-    </ComposeContext.Provider>
+    <ComposeContext.Provider value={value}>{children}</ComposeContext.Provider>
   );
 }
 

@@ -85,13 +85,17 @@ function isInQuietHours(prefs: QuietHoursPrefs): boolean {
       hour12: false,
     });
     const currentTime = formatter.format(now);
-    const [currentHour, currentMinute] = currentTime.split(":").map(Number);
+    const [currentHourStr, currentMinuteStr] = currentTime.split(":");
+    const currentHour = Number(currentHourStr) || 0;
+    const currentMinute = Number(currentMinuteStr) || 0;
     const currentMinutes = currentHour * 60 + currentMinute;
 
-    const [startHour, startMinute] = prefs.quietHoursStart
-      .split(":")
-      .map(Number);
-    const [endHour, endMinute] = prefs.quietHoursEnd.split(":").map(Number);
+    const [startHourStr, startMinuteStr] = prefs.quietHoursStart.split(":");
+    const startHour = Number(startHourStr) || 0;
+    const startMinute = Number(startMinuteStr) || 0;
+    const [endHourStr, endMinuteStr] = prefs.quietHoursEnd.split(":");
+    const endHour = Number(endHourStr) || 0;
+    const endMinute = Number(endMinuteStr) || 0;
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
 

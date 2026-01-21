@@ -8,8 +8,10 @@
 
 import { createRelationshipAgent } from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
+import type { EmailRecipient } from "@memorystack/db/schema";
 import {
   contact,
+  emailAccount,
   emailThread,
   member,
   threadTopic,
@@ -237,9 +239,23 @@ export const contactsRouter = router({
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       const contactEmail = found.primaryEmail.toLowerCase();
 
+      // Get account IDs for this organization
+      const accounts = await db.query.emailAccount.findMany({
+        where: eq(emailAccount.organizationId, input.organizationId),
+        columns: { id: true },
+      });
+      const accountIds = accounts.map((a) => a.id);
+
+      if (accountIds.length === 0) {
+        return {
+          contact: found,
+          recentThreads: [],
+        };
+      }
+
       const recentThreads = await db.query.emailThread.findMany({
         where: and(
-          eq(emailThread.organizationId, input.organizationId),
+          inArray(emailThread.accountId, accountIds),
           gte(emailThread.lastMessageAt, ninetyDaysAgo)
         ),
         with: {
@@ -258,7 +274,9 @@ export const contactsRouter = router({
           t.messages.some(
             (m) =>
               m.fromEmail.toLowerCase() === contactEmail ||
-              m.toEmails?.some((e) => e.toLowerCase() === contactEmail)
+              (m.toRecipients as EmailRecipient[] | null)?.some(
+                (r) => r.email?.toLowerCase() === contactEmail
+              )
           )
         )
         .slice(0, 10);
@@ -374,9 +392,45 @@ export const contactsRouter = router({
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const contactEmail = contactRecord.primaryEmail.toLowerCase();
 
+      // Get account IDs for this organization
+      const accounts = await db.query.emailAccount.findMany({
+        where: eq(emailAccount.organizationId, input.organizationId),
+        columns: { id: true },
+      });
+      const accountIds = accounts.map((a) => a.id);
+
+      if (accountIds.length === 0) {
+        return {
+          contactId: input.contactId,
+          generatedAt: new Date(),
+          profile: {
+            name: contactRecord.displayName ?? contactRecord.primaryEmail,
+            email: contactRecord.primaryEmail,
+            title: contactRecord.title ?? undefined,
+            company: contactRecord.company ?? undefined,
+          },
+          relationshipSummary: {
+            firstContact: contactRecord.firstInteractionAt ?? new Date(),
+            totalThreads: 0,
+            totalMessages: 0,
+            lastInteraction: contactRecord.lastInteractionAt ?? new Date(),
+            healthScore: 0,
+          },
+          communicationPatterns: {
+            threadsPerMonth: 0,
+            messagesPerMonth: 0,
+            avgResponseTimeMinutes: 0,
+            responseRate: 0,
+          },
+          recentTopics: [],
+          commitments: [],
+          recentDecisions: [],
+        };
+      }
+
       const threads = await db.query.emailThread.findMany({
         where: and(
-          eq(emailThread.organizationId, input.organizationId),
+          inArray(emailThread.accountId, accountIds),
           gte(emailThread.lastMessageAt, thirtyDaysAgo)
         ),
         with: {
@@ -394,7 +448,9 @@ export const contactsRouter = router({
         t.messages.some(
           (m) =>
             m.fromEmail.toLowerCase() === contactEmail ||
-            m.toEmails?.some((e) => e.toLowerCase() === contactEmail)
+            (m.toRecipients as EmailRecipient[] | null)?.some(
+              (r) => r.email?.toLowerCase() === contactEmail
+            )
         )
       );
 
@@ -453,7 +509,12 @@ export const contactsRouter = router({
         subject: t.subject ?? undefined,
         participants: [
           ...new Set(
-            t.messages.flatMap((m) => [m.fromEmail, ...(m.toEmails ?? [])])
+            t.messages.flatMap((m) => [
+              m.fromEmail,
+              ...((m.toRecipients as EmailRecipient[] | null) ?? [])
+                .map((r) => r.email)
+                .filter((e): e is string => !!e),
+            ])
           ),
         ],
         messageCount: t.messages.length,

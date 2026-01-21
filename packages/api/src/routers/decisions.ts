@@ -155,13 +155,14 @@ export const decisionsRouter = router({
       // Search in title and statement
       if (input.search) {
         const searchPattern = `%${input.search}%`;
-        conditions.push(
-          or(
-            sql`${decision.title} ILIKE ${searchPattern}`,
-            sql`${decision.statement} ILIKE ${searchPattern}`,
-            sql`${decision.rationale} ILIKE ${searchPattern}`
-          )
+        const searchCondition = or(
+          sql`${decision.title} ILIKE ${searchPattern}`,
+          sql`${decision.statement} ILIKE ${searchPattern}`,
+          sql`${decision.rationale} ILIKE ${searchPattern}`
         );
+        if (searchCondition) {
+          conditions.push(searchCondition);
+        }
       }
 
       // Count total

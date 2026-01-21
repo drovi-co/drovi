@@ -188,10 +188,10 @@ function GroupHeader({ status, count }: GroupHeaderProps) {
   return (
     <div className="flex items-center gap-2 bg-muted px-4 py-1">
       <StatusIcon size="md" status={iconStatus} />
-      <span className="font-medium text-foreground text-[13px]">
+      <span className="font-medium text-[13px] text-foreground">
         {config.label}
       </span>
-      <span className="text-muted-foreground text-[13px]">{count}</span>
+      <span className="text-[13px] text-muted-foreground">{count}</span>
       <button className="ml-auto rounded p-1.5 transition-colors hover:bg-accent">
         <Plus className="h-3 w-3 text-muted-foreground" />
       </button>
@@ -368,7 +368,7 @@ function VirtualTaskRow({
 
       {/* Title - flexible width, takes remaining space (matches brief in inbox) */}
       <div className="min-w-0 flex-1 px-2">
-        <span className="block truncate font-normal text-muted-foreground text-[13px]">
+        <span className="block truncate font-normal text-[13px] text-muted-foreground">
           {task.title}
         </span>
       </div>

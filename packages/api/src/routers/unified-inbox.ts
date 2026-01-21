@@ -198,7 +198,7 @@ const getConversationSchema = z.object({
  * Get the active organization ID from session.
  */
 async function getActiveOrgId(ctx: {
-  session: { session: { activeOrganizationId: string | null } };
+  session: { session: { activeOrganizationId?: string | null } };
 }): Promise<string> {
   const orgId = ctx.session.session.activeOrganizationId;
   if (!orgId) {
@@ -1044,7 +1044,7 @@ export const unifiedInboxRouter = router({
               email: m.senderEmail,
               name: m.senderName,
             },
-            recipients: m.recipientIds as Array<{
+            recipients: m.recipients as Array<{
               id: string;
               name?: string;
               type: string;
@@ -1130,7 +1130,7 @@ export const unifiedInboxRouter = router({
         read: z.boolean(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db.transaction(async (tx) => {
         // Update in conversation table
         await tx
@@ -1159,7 +1159,7 @@ export const unifiedInboxRouter = router({
         starred: z.boolean(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db.transaction(async (tx) => {
         await tx
           .update(conversation)
@@ -1181,7 +1181,7 @@ export const unifiedInboxRouter = router({
    */
   archive: protectedProcedure
     .input(getConversationSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db.transaction(async (tx) => {
         await tx
           .update(conversation)
@@ -1203,7 +1203,7 @@ export const unifiedInboxRouter = router({
    */
   delete: protectedProcedure
     .input(getConversationSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db.transaction(async (tx) => {
         // Soft delete in conversation table
         await tx
@@ -1227,7 +1227,7 @@ export const unifiedInboxRouter = router({
    */
   restore: protectedProcedure
     .input(getConversationSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx: _ctx, input }) => {
       await db.transaction(async (tx) => {
         // Restore in conversation table
         await tx
@@ -1254,12 +1254,7 @@ export const unifiedInboxRouter = router({
  * Fall back to email-based inbox when no source accounts are configured.
  */
 async function getEmailFallbackInbox(
-  ctx: {
-    session: {
-      user: { id: string };
-      session: { activeOrganizationId: string | null };
-    };
-  },
+  _ctx: unknown,
   input: z.infer<typeof listInboxSchema>,
   orgId: string
 ): Promise<{ items: UnifiedFeedItem[]; total: number; hasMore: boolean }> {
@@ -1291,7 +1286,10 @@ async function getEmailFallbackInbox(
       statusConditions.push(eq(emailThread.isArchived, true));
     }
     if (statusConditions.length > 0) {
-      conditions.push(or(...statusConditions));
+      const statusCondition = or(...statusConditions);
+      if (statusCondition) {
+        conditions.push(statusCondition);
+      }
     }
   } else {
     conditions.push(eq(emailThread.isArchived, false));
@@ -1322,12 +1320,13 @@ async function getEmailFallbackInbox(
   // Search
   if (input.search) {
     const searchPattern = `%${input.search}%`;
-    conditions.push(
-      or(
-        sql`${emailThread.subject} ILIKE ${searchPattern}`,
-        sql`${emailThread.snippet} ILIKE ${searchPattern}`
-      )
+    const searchCondition = or(
+      sql`${emailThread.subject} ILIKE ${searchPattern}`,
+      sql`${emailThread.snippet} ILIKE ${searchPattern}`
     );
+    if (searchCondition) {
+      conditions.push(searchCondition);
+    }
   }
 
   // Count
@@ -1481,7 +1480,7 @@ async function getEmailFallbackInbox(
  * Fall back to email stats when no source accounts are configured.
  */
 async function getEmailFallbackStats(
-  ctx: { session: { user: { id: string } } },
+  _ctx: unknown,
   orgId: string
 ): Promise<UnifiedInboxStats> {
   const accounts = await db.query.emailAccount.findMany({

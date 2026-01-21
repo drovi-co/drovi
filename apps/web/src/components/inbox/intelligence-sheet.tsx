@@ -178,7 +178,7 @@ function CommitmentCard({ commitment }: { commitment: CommitmentData }) {
       {commitment.timeline && commitment.timeline.length > 0 && (
         <div className="mt-2 border-border border-t pt-2">
           <button
-            className="flex items-center gap-1 text-secondary text-[11px] hover:underline"
+            className="flex items-center gap-1 text-[11px] text-secondary hover:underline"
             onClick={() => setShowTimeline(!showTimeline)}
             type="button"
           >
@@ -271,7 +271,7 @@ function DecisionCard({ decision }: { decision: DecisionData }) {
       {decision.timeline && decision.timeline.length > 0 && (
         <div className="mt-2 border-border border-t pt-2">
           <button
-            className="flex items-center gap-1 text-purple-500 text-[11px] hover:underline"
+            className="flex items-center gap-1 text-[11px] text-purple-500 hover:underline"
             onClick={() => setShowTimeline(!showTimeline)}
             type="button"
           >

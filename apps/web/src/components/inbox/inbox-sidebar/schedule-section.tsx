@@ -9,7 +9,6 @@
 import { differenceInMinutes, format } from "date-fns";
 import { motion } from "framer-motion";
 import {
-  Calendar,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -64,7 +63,8 @@ function EventItem({
   index: number;
 }) {
   const duration = formatDuration(event.startTime, event.endTime);
-  const isLongMeeting = differenceInMinutes(event.endTime, event.startTime) > 60;
+  const isLongMeeting =
+    differenceInMinutes(event.endTime, event.startTime) > 60;
 
   return (
     <motion.button
@@ -81,7 +81,9 @@ function EventItem({
     >
       {/* Time */}
       <div className="w-16 shrink-0 text-right">
-        <span className="font-medium text-xs">{formatEventTime(event.startTime)}</span>
+        <span className="font-medium text-xs">
+          {formatEventTime(event.startTime)}
+        </span>
       </div>
 
       {/* Color indicator */}
@@ -90,7 +92,8 @@ function EventItem({
           "h-8 w-1 shrink-0 rounded-full",
           event.type === "meeting" && "bg-indigo-400/70 dark:bg-indigo-500/60",
           event.type === "task" && "bg-emerald-400/70 dark:bg-emerald-500/60",
-          event.type === "commitment" && "bg-violet-400/70 dark:bg-violet-500/60",
+          event.type === "commitment" &&
+            "bg-violet-400/70 dark:bg-violet-500/60",
           event.type === "reminder" && "bg-amber-400/70 dark:bg-amber-500/60",
           !event.type && "bg-indigo-400/70 dark:bg-indigo-500/60"
         )}
@@ -101,7 +104,7 @@ function EventItem({
         <p className="truncate font-medium text-sm">{event.title}</p>
         <div className="flex items-center gap-2">
           {event.isVideoCall && (
-            <span className="inline-flex items-center gap-1 text-indigo-600/70 dark:text-indigo-400/70 text-xs">
+            <span className="inline-flex items-center gap-1 text-indigo-600/70 text-xs dark:text-indigo-400/70">
               <Video className="h-3 w-3" />
               Video
             </span>
@@ -165,7 +168,7 @@ export function ScheduleSection({
           <div className="rounded-lg bg-primary/10 p-1">
             <Clock className="h-3.5 w-3.5 text-primary-foreground/60" />
           </div>
-          <h4 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             Schedule
           </h4>
         </div>

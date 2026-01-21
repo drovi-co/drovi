@@ -346,7 +346,9 @@ function DroppableColumn({
         <span className="font-medium text-foreground text-sm">
           {config.label}
         </span>
-        <span className="ml-auto text-muted-foreground text-sm">{tasks.length}</span>
+        <span className="ml-auto text-muted-foreground text-sm">
+          {tasks.length}
+        </span>
       </div>
 
       {/* Column Content - use overflow-y-auto instead of ScrollArea for better control */}
@@ -395,7 +397,7 @@ function DroppableColumn({
             <button
               className={cn(
                 "flex w-full items-center justify-center gap-1.5 px-3 py-2",
-                "text-secondary text-[12px] hover:text-secondary",
+                "text-[12px] text-secondary hover:text-secondary",
                 "bg-muted hover:bg-accent",
                 "rounded-lg border border-border hover:border-border",
                 "cursor-pointer transition-colors"
@@ -533,7 +535,7 @@ function KanbanCard({
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <h3 className="line-clamp-2 break-words font-medium text-foreground text-[13px] leading-snug">
+          <h3 className="line-clamp-2 break-words font-medium text-[13px] text-foreground leading-snug">
             {task.title}
           </h3>
         </div>
@@ -541,7 +543,7 @@ function KanbanCard({
 
       {/* Description - always show if present */}
       {task.description && (
-        <p className="mt-2 ml-6 line-clamp-2 break-words text-muted-foreground text-[12px] leading-relaxed">
+        <p className="mt-2 ml-6 line-clamp-2 break-words text-[12px] text-muted-foreground leading-relaxed">
           {task.description}
         </p>
       )}
@@ -566,7 +568,7 @@ function KanbanCard({
             </span>
           ))}
           {task.labels.length > 2 && (
-            <span className="px-1.5 py-0.5 text-muted-foreground text-[10px]">
+            <span className="px-1.5 py-0.5 text-[10px] text-muted-foreground">
               +{task.labels.length - 2}
             </span>
           )}

@@ -296,7 +296,7 @@ function extractGreetings(samples: string[]): string[] {
   for (const sample of samples) {
     for (const pattern of COMMON_GREETINGS) {
       const match = sample.match(pattern);
-      if (match) {
+      if (match?.[1]) {
         const greeting = match[1];
         greetings.set(greeting, (greetings.get(greeting) ?? 0) + 1);
       }
@@ -319,7 +319,7 @@ function extractSignoffs(samples: string[]): string[] {
   for (const sample of samples) {
     for (const pattern of COMMON_SIGNOFFS) {
       const match = sample.match(pattern);
-      if (match) {
+      if (match?.[1]) {
         const signoff = match[1];
         signoffs.set(signoff, (signoffs.get(signoff) ?? 0) + 1);
       }

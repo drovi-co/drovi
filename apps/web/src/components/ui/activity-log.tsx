@@ -126,7 +126,9 @@ function ActivityEntry({
   const renderContent = () => {
     switch (activity.type) {
       case "created":
-        return <span className="text-muted-foreground">created the issue.</span>;
+        return (
+          <span className="text-muted-foreground">created the issue.</span>
+        );
 
       case "status_change":
         return (
@@ -154,7 +156,9 @@ function ActivityEntry({
 
       case "self_assigned":
         return (
-          <span className="text-muted-foreground">self-assigned this issue.</span>
+          <span className="text-muted-foreground">
+            self-assigned this issue.
+          </span>
         );
 
       case "assigned":
@@ -228,7 +232,11 @@ function ActivityEntry({
         );
 
       case "description_updated":
-        return <span className="text-muted-foreground">updated the description.</span>;
+        return (
+          <span className="text-muted-foreground">
+            updated the description.
+          </span>
+        );
 
       case "comment":
         return (
@@ -306,14 +314,16 @@ function ActivityHeader({
     <div
       className={cn(
         "flex items-center gap-2 py-2",
-        "font-medium text-muted-foreground text-[13px]",
+        "font-medium text-[13px] text-muted-foreground",
         className
       )}
       data-slot="activity-header"
       {...props}
     >
       <span>{title}</span>
-      {count !== undefined && <span className="text-muted-foreground">({count})</span>}
+      {count !== undefined && (
+        <span className="text-muted-foreground">({count})</span>
+      )}
     </div>
   );
 }
@@ -338,7 +348,7 @@ function SubscriberButton({
       className={cn(
         "flex items-center gap-1",
         "rounded-[4px] px-2 py-1",
-        "text-muted-foreground text-[12px]",
+        "text-[12px] text-muted-foreground",
         "transition-colors duration-150",
         "hover:bg-muted hover:text-foreground",
         isSubscribed && "text-foreground",

@@ -621,9 +621,7 @@ export class FraudDetector {
     return signals;
   }
 
-  private analyzeLinkSafety(
-    link: string
-  ): {
+  private analyzeLinkSafety(link: string): {
     confidence: number;
     severity: "low" | "medium" | "high" | "critical";
     reason: string;
@@ -683,9 +681,7 @@ export class FraudDetector {
     return null;
   }
 
-  private analyzeAttachmentSafety(
-    attachment: AttachmentInfo
-  ): {
+  private analyzeAttachmentSafety(attachment: AttachmentInfo): {
     confidence: number;
     severity: "low" | "medium" | "high" | "critical";
     reason: string;

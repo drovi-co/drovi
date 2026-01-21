@@ -48,7 +48,10 @@ export function extractCitationMarkers(text: string): string[] {
   let match = markerPattern.exec(text);
 
   while (match !== null) {
-    markers.push(match[1]);
+    const marker = match[1];
+    if (marker) {
+      markers.push(marker);
+    }
     match = markerPattern.exec(text);
   }
 
@@ -240,7 +243,9 @@ export function insertCitationMarkers(
 function findCitationPosition(text: string, quotedText: string): number {
   // Try to find exact match first
   const normalizedQuote = normalizeText(quotedText);
-  const normalizedText = normalizeText(text);
+  // Note: normalizedText would be used for direct matching against text
+  // Currently using sentence-based matching instead
+  void normalizeText(text);
 
   // Find sentences or phrases that might reference the quote
   const sentences = text.split(/(?<=[.!?])\s+/);

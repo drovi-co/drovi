@@ -19,10 +19,10 @@ import {
   getNotionBlocks,
   getNotionComments,
   getNotionPageTitle,
-  queryNotionDatabase,
   type NotionBlock,
   type NotionComment,
   type NotionPage,
+  queryNotionDatabase,
   searchNotion,
 } from "@memorystack/auth/providers/notion";
 import { db } from "@memorystack/db";
@@ -743,7 +743,7 @@ async function syncNotionDatabaseMetadata(
     log.info("Synced Notion database", { databaseId: database.id, title });
 
     // Query and sync database entries (pages inside this database)
-    if (!database.archived && !database.in_trash) {
+    if (!(database.archived || database.in_trash)) {
       try {
         let entryCursor: string | undefined;
         let hasMoreEntries = true;
@@ -753,7 +753,9 @@ async function syncNotionDatabaseMetadata(
             accessToken,
             database.id,
             {
-              sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+              sorts: [
+                { timestamp: "last_edited_time", direction: "descending" },
+              ],
               startCursor: entryCursor,
               pageSize: 100,
             }

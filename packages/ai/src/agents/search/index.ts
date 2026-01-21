@@ -48,7 +48,7 @@ export interface SearchOptions {
 
 export interface SearchResult {
   id: string;
-  type: "message" | "thread" | "claim";
+  type: "message" | "thread" | "claim" | "decision" | "commitment";
   content: string;
   score: number;
   metadata: {

@@ -14,15 +14,15 @@
 /* Light mode - All colors derived from Drovi lavender #eae9fe */
 :root {
   /* Background colors - Pure white so lavender stands out */
-  --background: #FFFFFF;
+  --background: #ffffff;
   --foreground: #1a1a2e;
 
   /* Card/Surface colors */
-  --card: #FFFFFF;
+  --card: #ffffff;
   --card-foreground: #1a1a2e;
 
   /* Popover/Dropdown colors */
-  --popover: #FFFFFF;
+  --popover: #ffffff;
   --popover-foreground: #1a1a2e;
 
   /* Primary - The exact Drovi lavender #eae9fe */
@@ -31,8 +31,8 @@
   --primary-foreground: #1a1a2e;
 
   /* Secondary - Deeper lavender for contrast */
-  --secondary: #6C70D6;
-  --secondary-hover: #5B5FC5;
+  --secondary: #6c70d6;
+  --secondary-hover: #5b5fc5;
   --secondary-foreground: #ffffff;
 
   /* Muted - Subtle lavender backgrounds */
@@ -51,28 +51,28 @@
   /* Border & Input */
   --border: #e5e5f0;
   --border-hover: #d5d5e5;
-  --input: #FFFFFF;
+  --input: #ffffff;
   --input-border: #e5e5f0;
 
   /* Ring (focus) - Deeper lavender for visibility */
-  --ring: #6C70D6;
+  --ring: #6c70d6;
 
   /* Sidebar */
-  --sidebar: #FAFAFC;
+  --sidebar: #fafafc;
   --sidebar-foreground: #1a1a2e;
   --sidebar-primary: #eae9fe;
   --sidebar-primary-foreground: #1a1a2e;
   --sidebar-accent: #eae9fe;
   --sidebar-accent-foreground: #1a1a2e;
   --sidebar-border: #e5e5f0;
-  --sidebar-ring: #6C70D6;
+  --sidebar-ring: #6c70d6;
 
   /* Chart colors - Lavender-based palette */
-  --chart-1: #6C70D6;
-  --chart-2: #8B8FE8;
-  --chart-3: #A5A8F0;
-  --chart-4: #5B5FC5;
-  --chart-5: #4A4EB4;
+  --chart-1: #6c70d6;
+  --chart-2: #8b8fe8;
+  --chart-3: #a5a8f0;
+  --chart-4: #5b5fc5;
+  --chart-5: #4a4eb4;
 
   /* Border radius */
   --radius: 0.5rem;
@@ -104,8 +104,8 @@
   --primary-foreground: #0e0e1a;
 
   /* Secondary - Deeper lavender */
-  --secondary: #7B7FD4;
-  --secondary-hover: #6C70C5;
+  --secondary: #7b7fd4;
+  --secondary-hover: #6c70c5;
   --secondary-foreground: #ffffff;
 
   /* Muted - Dark lavender surfaces */
@@ -143,7 +143,7 @@
   /* Chart colors - Lavender-based palette for dark mode */
   --chart-1: #c8c6f7;
   --chart-2: #9090e0;
-  --chart-3: #7B7FD4;
+  --chart-3: #7b7fd4;
   --chart-4: #6060b0;
   --chart-5: #5050a0;
 

@@ -2,6 +2,7 @@
 // SOURCES PAGE - Multi-Source Connection Management
 // =============================================================================
 
+import { env } from "@memorystack/env/web";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -65,7 +66,6 @@ import {
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
-import { env } from "@memorystack/env/web";
 
 export const Route = createFileRoute("/dashboard/sources/")({
   component: SourcesPage,

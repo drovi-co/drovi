@@ -508,7 +508,7 @@ export async function getUsageAnalytics(organizationId: string, days = 30) {
   >();
 
   for (const tx of transactions) {
-    const date = tx.createdAt.toISOString().split("T")[0];
+    const date = tx.createdAt.toISOString().split("T")[0] ?? "unknown";
     const existing = dailyUsage.get(date) ?? {
       credits: 0,
       tokens: 0,

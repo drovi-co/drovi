@@ -105,7 +105,8 @@ function CommitmentItem({
         <div
           className={cn(
             "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-            urgency.color === "red" && "bg-rose-500/80 shadow-sm shadow-rose-500/30",
+            urgency.color === "red" &&
+              "bg-rose-500/80 shadow-rose-500/30 shadow-sm",
             urgency.color === "amber" && "bg-amber-500/70",
             urgency.color === "blue" && "bg-indigo-500/70",
             urgency.color === "gray" && "bg-muted-foreground/40"
@@ -119,9 +120,12 @@ function CommitmentItem({
             <span
               className={cn(
                 "inline-flex items-center gap-1 text-xs",
-                urgency.color === "red" && "text-rose-600/80 dark:text-rose-400/80",
-                urgency.color === "amber" && "text-amber-600/80 dark:text-amber-400/80",
-                urgency.color === "blue" && "text-indigo-600/80 dark:text-indigo-400/80",
+                urgency.color === "red" &&
+                  "text-rose-600/80 dark:text-rose-400/80",
+                urgency.color === "amber" &&
+                  "text-amber-600/80 dark:text-amber-400/80",
+                urgency.color === "blue" &&
+                  "text-indigo-600/80 dark:text-indigo-400/80",
                 urgency.color === "gray" && "text-muted-foreground"
               )}
             >
@@ -188,7 +192,7 @@ export function CommitmentsSection({
           <div className="rounded-lg bg-primary/10 p-1">
             <Target className="h-3.5 w-3.5 text-primary-foreground/60" />
           </div>
-          <h4 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             Commitments
           </h4>
         </div>

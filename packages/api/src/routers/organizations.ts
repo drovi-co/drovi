@@ -26,17 +26,8 @@ export const organizationsRouter = router({
         organizationId: z.string(),
       })
     )
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input }) => {
       const { organizationId } = input;
-
-      // Verify user has access to this organization
-      const userMembership = await db.query.member.findFirst({
-        where: eq(member.organizationId, organizationId),
-        columns: { id: true },
-      });
-
-      // For now, allow access if user is querying (we'll add proper auth later)
-      // In production, verify ctx.session.user.id is a member
 
       // Fetch all members with user info
       const members = await db.query.member.findMany({

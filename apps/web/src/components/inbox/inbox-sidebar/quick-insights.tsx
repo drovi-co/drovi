@@ -22,7 +22,12 @@ import { cn } from "@/lib/utils";
 
 export interface Insight {
   id: string;
-  type: "open_loops" | "decisions" | "active_contact" | "stale_threads" | "trend";
+  type:
+    | "open_loops"
+    | "decisions"
+    | "active_contact"
+    | "stale_threads"
+    | "trend";
   title: string;
   count?: number;
   link?: string;
@@ -180,7 +185,7 @@ export function QuickInsights({
           <div className="rounded-lg bg-primary/10 p-1">
             <Sparkles className="h-3.5 w-3.5 text-primary-foreground/60" />
           </div>
-          <h4 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             Insights
           </h4>
         </div>
