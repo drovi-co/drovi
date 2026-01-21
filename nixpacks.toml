@@ -5,4 +5,4 @@ nixPkgs = ["bun"]
 cmds = ["bun install"]
 
 [start]
-cmd = "bun run apps/server/src/index.ts"
+cmd = "bun apps/server/src/index.ts"
