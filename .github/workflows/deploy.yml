@@ -108,13 +108,11 @@ jobs:
           VITE_SERVER_URL: ${{ needs.setup.outputs.api_url }}
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: drovi-web
-          directory: apps/web/dist
-          branch: ${{ github.ref_name }}
+          command: pages deploy apps/web/dist --project-name=drovi-web --branch=${{ github.ref_name }}
 
   # Deploy Trigger.dev tasks
   deploy-trigger:
