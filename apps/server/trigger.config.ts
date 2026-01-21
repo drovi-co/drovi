@@ -19,8 +19,8 @@ export default defineConfig({
   },
   dirs: ["./src/trigger"],
   build: {
-    // Don't mark workspace packages as external - they need to be bundled
-    // since they're not published to npm
+    // Mark pino-pretty as external - it uses dynamic imports that don't bundle well
+    external: ["pino-pretty"],
     extensions: [
       // Sync env vars from .env file if it exists (local dev only)
       // For production/staging, manage env vars in Trigger.dev dashboard
