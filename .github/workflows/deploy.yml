@@ -54,32 +54,15 @@ jobs:
               echo "web_url=https://staging.drovi.co" >> $GITHUB_OUTPUT
               ;;
             *)
-              echo "api_url=https://api-dev.drovi.co" >> $GITHUB_OUTPUT
+              echo "api_url=https://api-develop.drovi.co" >> $GITHUB_OUTPUT
               echo "web_url=https://dev.drovi.co" >> $GITHUB_OUTPUT
               ;;
           esac
 
           echo "Deploying to: $ENV"
 
-  # Deploy API to Railway
-  deploy-api:
-    name: Deploy API
-    runs-on: ubuntu-latest
-    needs: setup
-    environment:
-      name: ${{ needs.setup.outputs.environment }}
-      url: ${{ needs.setup.outputs.api_url }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
-        run: railway up --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  # Note: Railway API deploys automatically via GitHub integration
+  # Note: Trigger.dev deploys automatically via GitHub integration
 
   # Deploy Web to Cloudflare Pages
   deploy-web:
@@ -114,14 +97,11 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy apps/web/dist --project-name=drovi-web --branch=${{ github.ref_name }}
 
-  # Note: Trigger.dev deploys automatically via GitHub integration
-  # No need for manual deploy job
-
   # Run database migrations
   migrate:
     name: Run Migrations
     runs-on: ubuntu-latest
-    needs: [setup, deploy-api]
+    needs: setup
     environment:
       name: ${{ needs.setup.outputs.environment }}
     steps:
@@ -145,7 +125,7 @@ jobs:
   notify:
     name: Notify
     runs-on: ubuntu-latest
-    needs: [setup, deploy-api, deploy-web, migrate]
+    needs: [setup, deploy-web, migrate]
     if: always()
     steps:
       - name: Deployment Summary
@@ -157,7 +137,7 @@ jobs:
           echo "**Web URL:** ${{ needs.setup.outputs.web_url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Job Results" >> $GITHUB_STEP_SUMMARY
-          echo "- API: ${{ needs.deploy-api.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Web: ${{ needs.deploy-web.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Migrations: ${{ needs.migrate.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Trigger.dev: (auto-deployed via GitHub integration)" >> $GITHUB_STEP_SUMMARY
+          echo "- API (Railway): auto-deployed via GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger.dev: auto-deployed via GitHub" >> $GITHUB_STEP_SUMMARY
