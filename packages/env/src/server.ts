@@ -107,7 +107,8 @@ export const env = createEnv({
 
     // Email (Resend)
     RESEND_API_KEY: z.string().optional(),
-    EMAIL_FROM: z.string().email().optional(),
+    // Accepts both "email@domain.com" and "Display Name <email@domain.com>" formats
+    EMAIL_FROM: z.string().optional(),
 
     // AI providers (optional)
     AI_PROVIDER: z
