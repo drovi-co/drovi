@@ -45,8 +45,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build only the server and its dependencies
-RUN bunx --bun turbo build --filter=server...
+# Build the server (packages are TypeScript and don't need separate build)
+WORKDIR /app/apps/server
+RUN bunx tsdown
+WORKDIR /app
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
