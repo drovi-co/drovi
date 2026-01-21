@@ -1,4 +1,8 @@
-import { devToolsMiddleware } from "@ai-sdk/devtools";
+// devToolsMiddleware is only available in development
+const devToolsMiddleware =
+  process.env.NODE_ENV === "development"
+    ? require("@ai-sdk/devtools").devToolsMiddleware
+    : () => undefined;
 import { google } from "@ai-sdk/google";
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@memorystack/api/context";
