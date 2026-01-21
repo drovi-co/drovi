@@ -1,5 +1,6 @@
 import { syncEnvVars } from "@trigger.dev/build/extensions/core";
 import { defineConfig } from "@trigger.dev/sdk";
+import { existsSync } from "node:fs";
 
 export default defineConfig({
   project: "proj_zmpryelvppbqvzeghxbk",
@@ -25,17 +26,22 @@ export default defineConfig({
       "@memorystack/env",
     ],
     extensions: [
-      // Sync env vars from local .env file during build
+      // Sync env vars from .env file if it exists (local dev only)
+      // For production/staging, manage env vars in Trigger.dev dashboard
       syncEnvVars(async () => {
-        // Load from .env file for local dev
-        const dotenv = await import("dotenv");
-        const result = dotenv.config({ path: ".env" });
         const envVars: Record<string, string> = {};
 
-        if (result.parsed) {
-          for (const [key, value] of Object.entries(result.parsed)) {
-            if (value) {
-              envVars[key] = value;
+        // Only load from .env if it exists (local dev)
+        const envPath = ".env";
+        if (existsSync(envPath)) {
+          const dotenv = await import("dotenv");
+          const result = dotenv.config({ path: envPath });
+
+          if (result.parsed) {
+            for (const [key, value] of Object.entries(result.parsed)) {
+              if (value) {
+                envVars[key] = value;
+              }
             }
           }
         }
