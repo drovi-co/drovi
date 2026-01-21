@@ -45,8 +45,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build the server using bun's built-in bundler
-RUN bun build apps/server/src/index.ts --outdir apps/server/dist --target bun
+# No build step needed - bun runs TypeScript directly
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
@@ -70,7 +69,7 @@ USER hono
 
 EXPOSE 3000
 
-CMD ["bun", "run", "apps/server/dist/index.js"]
+CMD ["bun", "run", "apps/server/src/index.ts"]
 
 # -----------------------------------------------------------------------------
 # Stage 5: Production web image (static files served via nginx)
