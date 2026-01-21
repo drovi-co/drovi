@@ -45,10 +45,8 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build the server using the installed tsdown
-WORKDIR /app/apps/server
-RUN /app/node_modules/.bin/tsdown
-WORKDIR /app
+# Build the server using bun's built-in bundler
+RUN bun build apps/server/src/index.ts --outdir apps/server/dist --target bun
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
