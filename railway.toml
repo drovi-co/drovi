@@ -3,5 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+startCommand = "bun apps/server/src/index.ts"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
