@@ -30,8 +30,8 @@ COPY packages/ai/package.json ./packages/ai/
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies (including devDependencies for build)
-RUN bun install --production=false
+# Install all dependencies (devDependencies included by default)
+RUN bun install
 
 # -----------------------------------------------------------------------------
 # Stage 3: Build the application
@@ -45,8 +45,11 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
+# Add node_modules/.bin to PATH for build tools
+ENV PATH="/app/node_modules/.bin:$PATH"
+
 # Build only the server and its dependencies
-RUN ./node_modules/.bin/turbo build --filter=server...
+RUN turbo build --filter=server...
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production server image
