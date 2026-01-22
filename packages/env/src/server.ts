@@ -33,8 +33,8 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     POLAR_ACCESS_TOKEN: z.string().optional(),
-    POLAR_PRODUCT_ID: z.string().optional(),
-    POLAR_SUCCESS_URL: z.string().url().optional(),
+    POLAR_PRO_PRODUCT_ID: z.string().optional(),
+    POLAR_BUSINESS_PRODUCT_ID: z.string().optional(),
     POLAR_WEBHOOK_SECRET: z.string().optional(),
     CORS_ORIGIN: z.url(),
     NODE_ENV: z
