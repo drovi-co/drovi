@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ArrowRight,
   Brain,
@@ -25,10 +25,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { WaitlistDialog } from "@/components/waitlist/waitlist-dialog";
-import { useSession } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
+import { isDesktop } from "@/lib/platform";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
+  beforeLoad: async () => {
+    // Desktop app should skip the landing page and go directly to the app
+    if (isDesktop()) {
+      const session = await authClient.getSession();
+      if (session.data?.user) {
+        throw redirect({ to: "/dashboard" });
+      }
+      throw redirect({ to: "/login" });
+    }
+  },
 });
 
 function LandingPage() {
