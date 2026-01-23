@@ -7,7 +7,7 @@
 //
 
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { and, eq, or } from "drizzle-orm";
 import { safeDecryptToken } from "../crypto/tokens";
 import {
@@ -44,8 +44,11 @@ export * from "./types";
  * Get email account with decrypted tokens.
  */
 export async function getAccountForSync(accountId: string) {
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  const account = await db.query.sourceAccount.findFirst({
+    where: and(
+      eq(sourceAccount.id, accountId),
+      eq(sourceAccount.type, "email")
+    ),
   });
 
   if (!account) {
@@ -60,14 +63,18 @@ export async function getAccountForSync(accountId: string) {
  */
 export async function getAccountsForSync(organizationId?: string) {
   const conditions = [
-    or(eq(emailAccount.status, "active"), eq(emailAccount.status, "syncing")),
+    eq(sourceAccount.type, "email"),
+    or(
+      eq(sourceAccount.status, "connected"),
+      eq(sourceAccount.status, "syncing")
+    ),
   ];
 
   if (organizationId) {
-    conditions.push(eq(emailAccount.organizationId, organizationId));
+    conditions.push(eq(sourceAccount.organizationId, organizationId));
   }
 
-  return await db.query.emailAccount.findMany({
+  return await db.query.sourceAccount.findMany({
     where: and(...conditions),
   });
 }
@@ -89,9 +96,9 @@ export async function performIncrementalSync(
 
   // Update status to syncing
   await db
-    .update(emailAccount)
+    .update(sourceAccount)
     .set({ status: "syncing", updatedAt: new Date() })
-    .where(eq(emailAccount.id, accountId));
+    .where(eq(sourceAccount.id, accountId));
 
   try {
     // Create email client
@@ -107,14 +114,14 @@ export async function performIncrementalSync(
       // Update tokens in database
       const newTokenInfo = client.getTokenInfo();
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: newTokenInfo.accessToken,
           refreshToken: newTokenInfo.refreshToken,
           tokenExpiresAt: newTokenInfo.expiresAt,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, accountId));
     }
 
     // Perform provider-specific sync
@@ -142,15 +149,15 @@ export async function performIncrementalSync(
 
     // Update account with new cursor and stats
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "connected",
         syncCursor: result.newCursor ?? account.syncCursor,
         lastSyncAt: new Date(),
         lastSyncError: result.success ? null : result.errors[0]?.message,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, accountId));
 
     return result;
   } catch (error) {
@@ -159,13 +166,13 @@ export async function performIncrementalSync(
       error instanceof Error ? error.message : "Unknown error";
 
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "connected",
         lastSyncError: errorMessage,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, accountId));
 
     log.error("Incremental sync failed", error, { accountId });
 
@@ -218,9 +225,9 @@ export async function performBackfill(
 
   // Update status to syncing
   await db
-    .update(emailAccount)
+    .update(sourceAccount)
     .set({ status: "syncing", updatedAt: new Date() })
-    .where(eq(emailAccount.id, accountId));
+    .where(eq(sourceAccount.id, accountId));
 
   try {
     // Create email client
@@ -236,14 +243,14 @@ export async function performBackfill(
       // Update tokens in database
       const newTokenInfo = client.getTokenInfo();
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: newTokenInfo.accessToken,
           refreshToken: newTokenInfo.refreshToken,
           tokenExpiresAt: newTokenInfo.expiresAt,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, accountId));
     }
 
     // Get date range for phase
@@ -254,7 +261,7 @@ export async function performBackfill(
     const concurrency = BACKFILL_CONCURRENCY[phase];
 
     const config: BackfillConfig = {
-      accountId,
+      sourceAccountId: accountId, // TODO: Migrate to sourceAccount
       organizationId: account.organizationId,
       phase,
       afterDate: dateRange.afterDate,
@@ -285,15 +292,15 @@ export async function performBackfill(
 
     // Update account with new cursor and stats
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "connected",
         syncCursor: result.newCursor ?? account.syncCursor,
         lastSyncAt: new Date(),
         lastSyncError: result.success ? null : result.errors[0]?.message,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, accountId));
 
     return result;
   } catch (error) {
@@ -302,13 +309,13 @@ export async function performBackfill(
       error instanceof Error ? error.message : "Unknown error";
 
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "connected",
         lastSyncError: errorMessage,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, accountId));
 
     log.error("Backfill failed", error, { accountId });
 
@@ -343,8 +350,8 @@ export async function performBackfill(
  * Get sync status for an account.
  */
 export async function getSyncStatus(accountId: string) {
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  const account = await db.query.sourceAccount.findFirst({
+    where: eq(sourceAccount.id, accountId),
     columns: {
       id: true,
       status: true,
@@ -372,8 +379,8 @@ export async function getSyncStatus(accountId: string) {
  * Check if an account is currently syncing.
  */
 export async function isAccountSyncing(accountId: string): Promise<boolean> {
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  const account = await db.query.sourceAccount.findFirst({
+    where: eq(sourceAccount.id, accountId),
     columns: { status: true },
   });
 

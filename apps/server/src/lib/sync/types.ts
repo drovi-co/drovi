@@ -38,8 +38,8 @@ export const BACKFILL_PHASE_RANGES = {
  */
 export const BACKFILL_CONCURRENCY = {
   priority: {
-    threadFetchConcurrency: 5, // Reduced to avoid OOM on Trigger.dev
-    batchSize: 25,
+    threadFetchConcurrency: 10, // Increased for faster backfill (Gmail handles this well)
+    batchSize: 50, // Larger batches for fewer DB round trips
     queueConcurrency: 5,
   },
   extended: {
@@ -166,8 +166,8 @@ export interface ProviderSyncOptions {
  * Backfill configuration for phase-based import
  */
 export interface BackfillConfig {
-  /** Account ID to backfill */
-  accountId: string;
+  /** Source account ID to backfill */
+  sourceAccountId: string;
   /** Organization ID */
   organizationId: string;
   /** Current backfill phase */

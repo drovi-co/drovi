@@ -15,23 +15,14 @@
 
 import { randomUUID } from "node:crypto";
 import {
-  analyzeThread,
-  claimsToDbFormat,
-  type ThreadInput,
-  type ThreadMessage,
-} from "@memorystack/ai/agents";
-import {
   debugWhatsAppToken,
   getWhatsAppPhoneNumbers,
   WHATSAPP_API_BASE,
 } from "@memorystack/auth/providers/whatsapp";
 import { db } from "@memorystack/db";
 import {
-  claim,
-  commitment,
   contact,
   conversation,
-  decision,
   message,
   sourceAccount,
   whatsappBusinessAccount,
@@ -43,15 +34,10 @@ import {
 import { logger, schedules, task } from "@trigger.dev/sdk/v3";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
-import { embedConversationTask } from "./embedding-generation";
 import {
-  checkExistingCommitment,
-  checkExistingDecision,
-} from "./lib/commitment-dedup";
-import {
-  processCommitmentTask,
-  processDecisionTask,
-} from "./unified-object-processing";
+  callPythonIntelligence,
+  checkIntelligenceBackendHealth,
+} from "../lib/intelligence-backend";
 
 const log = logger;
 
@@ -739,7 +725,7 @@ interface WhatsAppConversationAnalysisResult {
 
 /**
  * Analyze a WhatsApp conversation for intelligence extraction.
- * This is the equivalent of thread-analysis for email, adapted for WhatsApp.
+ * Uses Python backend for all AI processing.
  */
 export const analyzeWhatsAppConversationTask = task({
   id: "whatsapp-conversation-analysis",
@@ -757,7 +743,7 @@ export const analyzeWhatsAppConversationTask = task({
   ): Promise<WhatsAppConversationAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
-    log.info("Starting WhatsApp conversation analysis", {
+    log.info("Starting WhatsApp conversation analysis via Python backend", {
       conversationId,
       force,
     });
@@ -771,6 +757,13 @@ export const analyzeWhatsAppConversationTask = task({
     };
 
     try {
+      // Verify Python backend is available
+      const isHealthy = await checkIntelligenceBackendHealth();
+      if (!isHealthy) {
+        result.error = "Python intelligence backend is not available";
+        return result;
+      }
+
       // Get conversation with messages and source account
       const conv = await db.query.conversation.findFirst({
         where: eq(conversation.id, conversationId),
@@ -801,334 +794,76 @@ export const analyzeWhatsAppConversationTask = task({
         }
       }
 
-      // Get the phone number for this conversation (the "user")
-      const metadata = conv.metadata as
-        | { phoneNumberId?: string; contactName?: string }
-        | undefined;
-      const phoneNumberId = metadata?.phoneNumberId ?? "";
-
-      // Convert WhatsApp messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map(
-        (msg, index) => ({
-          id: msg.id,
-          providerMessageId: msg.externalId ?? msg.id,
-          fromEmail: msg.senderExternalId ?? "unknown",
-          fromName: msg.senderName ?? undefined,
-          toRecipients: [{ email: phoneNumberId, name: "You" }],
-          subject: undefined,
-          bodyText: msg.bodyText ?? "",
-          sentAt: msg.sentAt ?? undefined,
-          receivedAt: msg.receivedAt ?? undefined,
-          isFromUser: msg.isFromUser ?? false,
-          messageIndex: index,
-        })
-      );
-
-      // Build ThreadInput for the agent
-      const threadInput: ThreadInput = {
-        id: conversationId,
-        accountId: conv.sourceAccountId,
-        organizationId: conv.sourceAccount.organizationId,
-        providerThreadId: conv.externalId ?? conversationId,
-        subject: conv.title ?? "WhatsApp Conversation",
-        participantEmails: conv.participantIds ?? [],
-        userEmail: phoneNumberId, // Use phone number as the "user" identifier
-        messages: threadMessages,
-      };
-
       // Skip analysis if not enough content
-      if (threadMessages.length === 0) {
+      if (conv.messages.length === 0) {
         log.info("Skipping analysis - no messages", { conversationId });
         result.success = true;
         return result;
       }
 
-      // Run the Thread Understanding Agent analysis
-      log.info("Running thread analysis on WhatsApp conversation", {
+      // Build content string from messages for Python backend
+      const content = conv.messages
+        .map((msg) => {
+          const sender = msg.senderName ?? msg.senderExternalId ?? "Unknown";
+          const timestamp = msg.sentAt?.toISOString() ?? "";
+          return `[${timestamp}] ${sender}: ${msg.bodyText ?? ""}`;
+        })
+        .join("\n");
+
+      // Call Python backend for intelligence extraction
+      log.info("Calling Python backend for WhatsApp analysis", {
         conversationId,
-        messageCount: threadMessages.length,
+        messageCount: conv.messages.length,
+        contentLength: content.length,
       });
 
-      const analysis = await analyzeThread(threadInput);
-
-      log.info("Thread analysis completed", {
-        conversationId,
-        claims: {
-          facts: analysis.claims.facts.length,
-          promises: analysis.claims.promises.length,
-          requests: analysis.claims.requests.length,
-          questions: analysis.claims.questions.length,
-          decisions: analysis.claims.decisions.length,
-        },
-        openLoops: analysis.openLoops.length,
+      const analysis = await callPythonIntelligence({
+        content,
+        organization_id: conv.sourceAccount.organizationId,
+        source_type: "whatsapp",
+        source_id: conv.externalId ?? conversationId,
+        source_account_id: conv.sourceAccountId,
+        conversation_id: conversationId,
       });
 
-      // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(
-        analysis.claims,
+      log.info("Python backend analysis completed", {
         conversationId,
-        conv.sourceAccount.organizationId
-      );
+        claims: analysis.claims.length,
+        commitments: analysis.commitments.length,
+        decisions: analysis.decisions.length,
+        risks: analysis.risks.length,
+      });
 
-      // Insert claims into database
-      if (dbClaims.length > 0) {
-        await db.insert(claim).values(
-          dbClaims.map((c) => ({
-            id: randomUUID(),
-            organizationId: conv.sourceAccount.organizationId,
-            conversationId, // Reference to conversation table
-            sourceAccountId: conv.sourceAccountId,
-            type: c.type,
-            text: c.text,
-            confidence: c.confidence,
-            extractedAt: new Date(),
-            quotedText: c.quotedText,
-            sourceMessageIds: c.sourceMessageIds,
-            metadata: {
-              sourceType: "whatsapp" as const,
-            },
-          }))
-        );
-        result.claimsCreated = dbClaims.length;
-      }
+      // Update result counts (Python already persisted to DB)
+      result.claimsCreated = analysis.claims.length;
+      result.commitmentsCreated = analysis.commitments.length;
+      result.decisionsCreated = analysis.decisions.length;
 
       // Update conversation with analysis results
-      // Map urgency score to priority tier
-      const urgencyScore = analysis.classification.urgency.score;
       const priorityTier =
-        urgencyScore >= 0.8
+        analysis.overall_confidence >= 0.8
           ? "urgent"
-          : urgencyScore >= 0.6
+          : analysis.overall_confidence >= 0.6
             ? "high"
-            : urgencyScore >= 0.4
+            : analysis.overall_confidence >= 0.4
               ? "medium"
               : "low";
 
       await db
         .update(conversation)
         .set({
-          briefSummary: analysis.brief?.summary,
-          hasOpenLoops: analysis.openLoops.length > 0,
-          openLoopCount: analysis.openLoops.length,
+          hasOpenLoops: analysis.commitments.length > 0,
+          openLoopCount: analysis.commitments.length,
           priorityTier,
-          urgencyScore: analysis.classification.urgency.score,
-          importanceScore: analysis.classification.urgency.score, // Use urgency as proxy for importance
-          suggestedAction: analysis.brief?.actionRequired
-            ? analysis.brief.actionDescription
-            : null,
+          urgencyScore: analysis.overall_confidence,
+          importanceScore: analysis.overall_confidence,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(conversation.id, conversationId));
 
-      // Extract commitments from promises and requests
-      const promiseClaims = analysis.claims.promises;
-      const requestClaims = analysis.claims.requests;
-
-      if (promiseClaims.length > 0 || requestClaims.length > 0) {
-        log.info("Extracting commitments from WhatsApp conversation", {
-          conversationId,
-          promises: promiseClaims.length,
-          requests: requestClaims.length,
-        });
-
-        for (const promise of promiseClaims) {
-          // Check for existing duplicate in same conversation
-          const dedupCheck = await checkExistingCommitment({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: promise.text.slice(0, 200),
-            description: promise.text,
-            dueDate: promise.deadline ? new Date(promise.deadline) : null,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate commitment (promise)", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const commitmentId = randomUUID();
-          await db.insert(commitment).values({
-            id: commitmentId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: promise.text.slice(0, 200),
-            description: promise.text,
-            status: "pending",
-            confidence: promise.confidence,
-            dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction:
-              promise.promisor === phoneNumberId ? "owed_by_me" : "owed_to_me",
-            metadata: {
-              sourceType: "whatsapp" as const,
-              sourceQuote: promise.evidence[0]?.quotedText,
-              commitmentType: "promise" as const,
-              debtorWaId: promise.promisor,
-              creditorWaId: promise.promisee ?? phoneNumberId,
-              isConditional: promise.isConditional,
-              condition: promise.condition ?? undefined,
-            },
-          });
-          result.commitmentsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processCommitmentTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            commitment: {
-              id: commitmentId,
-              title: promise.text.slice(0, 200),
-              description: promise.text,
-              dueDate: promise.deadline
-                ? new Date(promise.deadline)
-                : undefined,
-              confidence: promise.confidence,
-              sourceQuote: promise.evidence[0]?.quotedText,
-            },
-            sourceType: "whatsapp",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalCommitmentId: commitmentId,
-          });
-        }
-
-        for (const request of requestClaims) {
-          // Check for existing duplicate in same conversation
-          const dedupCheck = await checkExistingCommitment({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: request.text.slice(0, 200),
-            description: request.text,
-            dueDate: request.deadline ? new Date(request.deadline) : null,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate commitment (request)", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const commitmentId = randomUUID();
-          await db.insert(commitment).values({
-            id: commitmentId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: request.text.slice(0, 200),
-            description: request.text,
-            status: "pending",
-            confidence: request.confidence,
-            dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction:
-              request.requester === phoneNumberId ? "owed_to_me" : "owed_by_me",
-            metadata: {
-              sourceType: "whatsapp" as const,
-              sourceQuote: request.evidence[0]?.quotedText,
-              commitmentType: "request" as const,
-              debtorWaId: request.requestee ?? phoneNumberId,
-              creditorWaId: request.requester,
-              isExplicit: request.isExplicit,
-              priority: request.priority ?? undefined,
-            },
-          });
-          result.commitmentsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processCommitmentTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            commitment: {
-              id: commitmentId,
-              title: request.text.slice(0, 200),
-              description: request.text,
-              dueDate: request.deadline
-                ? new Date(request.deadline)
-                : undefined,
-              confidence: request.confidence,
-              sourceQuote: request.evidence[0]?.quotedText,
-            },
-            sourceType: "whatsapp",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalCommitmentId: commitmentId,
-          });
-        }
-      }
-
-      // Extract decisions
-      const decisionClaims = analysis.claims.decisions;
-
-      if (decisionClaims.length > 0) {
-        log.info("Extracting decisions from WhatsApp conversation", {
-          conversationId,
-          decisions: decisionClaims.length,
-        });
-
-        for (const decisionClaim of decisionClaims) {
-          // Check for existing duplicate in same conversation
-          const dedupCheck = await checkExistingDecision({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: decisionClaim.text.slice(0, 200),
-            statement: decisionClaim.text,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate decision", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const decisionId = randomUUID();
-          await db.insert(decision).values({
-            id: decisionId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: decisionClaim.text.slice(0, 200),
-            statement: decisionClaim.text,
-            rationale: decisionClaim.rationale ?? undefined,
-            confidence: decisionClaim.confidence,
-            decidedAt: new Date(),
-            metadata: {
-              sourceType: "whatsapp" as const,
-              sourceQuote: decisionClaim.evidence[0]?.quotedText,
-              decision: decisionClaim.decision,
-              decisionMakerWaId: decisionClaim.decisionMaker ?? undefined,
-            },
-          });
-          result.decisionsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processDecisionTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            decision: {
-              id: decisionId,
-              title: decisionClaim.text.slice(0, 200),
-              statement: decisionClaim.text,
-              rationale: decisionClaim.rationale ?? undefined,
-              decidedAt: new Date(),
-              confidence: decisionClaim.confidence,
-              ownerContactIds: [],
-              participantContactIds: [],
-              sourceQuote: decisionClaim.evidence[0]?.quotedText,
-            },
-            sourceType: "whatsapp",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalDecisionId: decisionId,
-          });
-        }
-      }
+      // Note: Python backend handles commitment/decision/claim persistence
+      // Only handle contact creation here
 
       // Extract and create/update contacts
       const contactEmails = new Set<string>();
@@ -1184,27 +919,7 @@ export const analyzeWhatsAppConversationTask = task({
         }
       }
 
-      // Trigger embedding generation for this conversation
-      try {
-        await embedConversationTask.trigger(
-          { conversationId },
-          {
-            debounce: {
-              key: `embedding-conversation-${conversationId}`,
-              delay: "10s",
-              mode: "trailing",
-            },
-          }
-        );
-        log.info("Triggered embedding generation for WhatsApp conversation", {
-          conversationId,
-        });
-      } catch (e) {
-        log.warn("Failed to trigger embedding generation", {
-          conversationId,
-          error: e,
-        });
-      }
+      // Note: Embedding generation and memory episodes are handled by the Python intelligence backend
 
       result.success = true;
 

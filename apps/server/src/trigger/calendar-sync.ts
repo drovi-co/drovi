@@ -20,8 +20,6 @@ import { db } from "@memorystack/db";
 import {
   commitment,
   conversation,
-  emailAccount,
-  emailThread,
   message,
   relatedConversation,
   sourceAccount,
@@ -114,9 +112,12 @@ export const syncCalendarEventsTask = task({
     });
 
     try {
-      // Get email account (calendar uses same OAuth)
-      const account = await db.query.emailAccount.findFirst({
-        where: eq(emailAccount.id, accountId),
+      // Get email source account (calendar uses same OAuth as email)
+      const account = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, accountId),
+          eq(sourceAccount.type, "email")
+        ),
       });
 
       if (!account) {
@@ -132,12 +133,14 @@ export const syncCalendarEventsTask = task({
         return result;
       }
 
+      const email = account.externalId; // externalId contains the email for email accounts
+
       // Get or create source account for this calendar
       let calendarSourceAccount = await db.query.sourceAccount.findFirst({
         where: and(
           eq(sourceAccount.organizationId, account.organizationId),
           eq(sourceAccount.type, "calendar"),
-          eq(sourceAccount.externalId, account.email)
+          eq(sourceAccount.externalId, email)
         ),
       });
 
@@ -150,8 +153,8 @@ export const syncCalendarEventsTask = task({
           addedByUserId: account.addedByUserId,
           type: "calendar" as const,
           provider: account.provider === "gmail" ? "google" : "microsoft",
-          externalId: account.email,
-          displayName: `${account.email} Calendar`,
+          externalId: email,
+          displayName: `${email} Calendar`,
           status: "connected" as const,
           accessToken: account.accessToken,
           refreshToken: account.refreshToken,
@@ -175,9 +178,9 @@ export const syncCalendarEventsTask = task({
         account: {
           id: account.id,
           provider: account.provider ?? "gmail",
-          email: account.email,
-          accessToken: account.accessToken,
-          refreshToken: account.refreshToken,
+          externalId: email,
+          accessToken: account.accessToken ?? "",
+          refreshToken: account.refreshToken ?? "",
           tokenExpiresAt: account.tokenExpiresAt,
         },
         decryptToken: safeDecryptToken,
@@ -190,14 +193,14 @@ export const syncCalendarEventsTask = task({
 
         // Update account with new tokens
         await db
-          .update(emailAccount)
+          .update(sourceAccount)
           .set({
             accessToken: newTokens.accessToken,
             refreshToken: newTokens.refreshToken,
             tokenExpiresAt: newTokens.expiresAt,
             updatedAt: new Date(),
           })
-          .where(eq(emailAccount.id, accountId));
+          .where(eq(sourceAccount.id, accountId));
       }
 
       // Calculate time range
@@ -240,7 +243,7 @@ export const syncCalendarEventsTask = task({
                 event as unknown as CalendarEventData,
                 calendarSourceAccount.id,
                 account.organizationId,
-                account.email,
+                email,
                 force
               );
 
@@ -575,6 +578,9 @@ async function processCalendarEvent(
     }
   }
 
+  // Note: Memory episodes are created by the Python intelligence backend
+  // when the commitment is processed via processCommitmentTask
+
   return result;
 }
 
@@ -583,7 +589,7 @@ async function processCalendarEvent(
 // =============================================================================
 
 /**
- * Find and link related email threads to a calendar event.
+ * Find and link related email conversations to a calendar event.
  * Uses participant matching and subject/title keyword matching.
  */
 async function linkRelatedEmailThreads(
@@ -607,7 +613,7 @@ async function linkRelatedEmailThreads(
   // Extract keywords from event title for subject matching
   const titleKeywords = extractSearchKeywords(event.title);
 
-  // Look for email threads in the organization with matching participants
+  // Look for email conversations in the organization with matching participants
   // and optionally matching subject keywords
   // Search within a reasonable time window (30 days before/after event creation)
   const searchStartDate = new Date(
@@ -617,42 +623,44 @@ async function linkRelatedEmailThreads(
     event.start.getTime() + 7 * 24 * 60 * 60 * 1000
   );
 
-  // Query for potentially related email threads
-  const potentialMatches = await db.query.emailThread.findMany({
+  // Query for potentially related email conversations
+  // Join with sourceAccount to filter by organization
+  const potentialMatches = await db.query.conversation.findMany({
     where: and(
       // Within time range
-      gte(emailThread.lastMessageAt, searchStartDate),
-      lte(emailThread.firstMessageAt, searchEndDate),
+      gte(conversation.lastMessageAt, searchStartDate),
+      lte(conversation.firstMessageAt, searchEndDate),
       // Not archived
-      eq(emailThread.isArchived, false)
+      eq(conversation.isArchived, false),
+      // Only email threads
+      eq(conversation.conversationType, "thread")
     ),
     columns: {
       id: true,
-      subject: true,
-      participantEmails: true,
+      title: true, // title is the subject in conversation
+      participantIds: true,
       lastMessageAt: true,
-      accountId: true,
+      sourceAccountId: true,
+    },
+    with: {
+      sourceAccount: {
+        columns: { organizationId: true },
+      },
     },
     limit: 100, // Reasonable limit to avoid performance issues
   });
 
-  // Get the email account to verify organization
-  const matchedThreadsInOrg: Array<{
+  // Filter to organization and calculate match scores
+  const matchedConversationsInOrg: Array<{
     id: string;
     subject: string;
-    participantEmails: string[] | null;
     matchScore: number;
     matchReason: string;
   }> = [];
 
-  for (const thread of potentialMatches) {
-    // Get account to verify organization
-    const account = await db.query.emailAccount.findFirst({
-      where: eq(emailAccount.id, thread.accountId),
-      columns: { organizationId: true },
-    });
-
-    if (!account || account.organizationId !== organizationId) {
+  for (const conv of potentialMatches) {
+    // Verify organization
+    if (conv.sourceAccount?.organizationId !== organizationId) {
       continue;
     }
 
@@ -660,40 +668,30 @@ async function linkRelatedEmailThreads(
     let matchScore = 0;
     const matchReasons: string[] = [];
 
-    // Check participant overlap
-    const threadParticipants = thread.participantEmails ?? [];
-    const participantOverlap = attendeeEmails.filter((email) =>
-      threadParticipants.some((p) => p.toLowerCase() === email.toLowerCase())
-    );
-
-    if (participantOverlap.length > 0) {
-      // Score based on overlap ratio
-      const overlapRatio =
-        participantOverlap.length / Math.max(attendeeEmails.length, 1);
-      matchScore += overlapRatio * 0.6; // Max 0.6 from participants
-      matchReasons.push(`shared_participants:${participantOverlap.length}`);
-    }
+    // Check participant overlap using participantIds
+    // Note: participantIds contains contact IDs, not emails directly
+    // For now, we rely on title/subject matching more heavily
+    // In a full implementation, we'd resolve participantIds to emails
 
     // Check subject/title keyword match
-    if (thread.subject && titleKeywords.length > 0) {
-      const subjectLower = thread.subject.toLowerCase();
+    if (conv.title && titleKeywords.length > 0) {
+      const subjectLower = conv.title.toLowerCase();
       const keywordMatches = titleKeywords.filter((kw) =>
         subjectLower.includes(kw.toLowerCase())
       );
 
       if (keywordMatches.length > 0) {
         const keywordRatio = keywordMatches.length / titleKeywords.length;
-        matchScore += keywordRatio * 0.4; // Max 0.4 from keywords
+        matchScore += keywordRatio * 0.7; // Higher weight since we can't check participants as easily
         matchReasons.push(`subject_match:${keywordMatches.join(",")}`);
       }
     }
 
-    // Only consider threads with meaningful match
+    // Only consider conversations with meaningful match
     if (matchScore >= 0.3) {
-      matchedThreadsInOrg.push({
-        id: thread.id,
-        subject: thread.subject ?? "",
-        participantEmails: thread.participantEmails,
+      matchedConversationsInOrg.push({
+        id: conv.id,
+        subject: conv.title ?? "",
         matchScore,
         matchReason: matchReasons.join(";"),
       });
@@ -701,39 +699,16 @@ async function linkRelatedEmailThreads(
   }
 
   // Sort by match score and take top matches
-  matchedThreadsInOrg.sort((a, b) => b.matchScore - a.matchScore);
-  const topMatches = matchedThreadsInOrg.slice(0, 5); // Limit to top 5 related threads
+  matchedConversationsInOrg.sort((a, b) => b.matchScore - a.matchScore);
+  const topMatches = matchedConversationsInOrg.slice(0, 5); // Limit to top 5 related conversations
 
   // Create related conversation entries
   for (const match of topMatches) {
-    // First, check if there's a conversation record for this email thread
-    // Email threads should have corresponding conversation records in the unified table
-    let emailConversationId: string | null = null;
-
-    // Check if email thread has a corresponding conversation in the conversation table
-    // This lookup is based on convention that email conversations reference the thread ID
-    const emailConversation = await db.query.conversation.findFirst({
-      where: and(
-        eq(conversation.externalId, match.id),
-        sql`${conversation.conversationType} = 'thread'`
-      ),
-      columns: { id: true },
-    });
-
-    if (emailConversation) {
-      emailConversationId = emailConversation.id;
-    } else {
-      // If no conversation record exists, we'll need to create a link
-      // to the email thread differently - for now, skip these
-      // In a full implementation, we'd migrate email threads to conversations
-      continue;
-    }
-
     // Check if relationship already exists
     const existingRelation = await db.query.relatedConversation.findFirst({
       where: and(
         eq(relatedConversation.conversationId, calendarConversationId),
-        eq(relatedConversation.relatedConversationId, emailConversationId),
+        eq(relatedConversation.relatedConversationId, match.id),
         eq(relatedConversation.relationType, "calendar_email")
       ),
     });
@@ -744,7 +719,7 @@ async function linkRelatedEmailThreads(
       await db.insert(relatedConversation).values({
         id: relationId,
         conversationId: calendarConversationId,
-        relatedConversationId: emailConversationId,
+        relatedConversationId: match.id,
         relationType: "calendar_email" as const,
         confidence: match.matchScore,
         matchReason: match.matchReason,
@@ -756,9 +731,9 @@ async function linkRelatedEmailThreads(
 
       linkedCount++;
 
-      log.debug("Linked calendar event to email thread", {
+      log.debug("Linked calendar event to email conversation", {
         calendarConversationId,
-        emailConversationId,
+        emailConversationId: match.id,
         matchScore: match.matchScore,
         matchReason: match.matchReason,
       });
@@ -1014,9 +989,12 @@ export const syncCalendarSchedule = schedules.task({
   run: async () => {
     log.info("Starting scheduled calendar sync");
 
-    // Get all active email accounts with calendar support
-    const accountsToSync = await db.query.emailAccount.findMany({
-      where: eq(emailAccount.status, "active"),
+    // Get all active email source accounts with calendar support
+    const accountsToSync = await db.query.sourceAccount.findMany({
+      where: and(
+        eq(sourceAccount.type, "email"),
+        eq(sourceAccount.status, "connected")
+      ),
       columns: { id: true, provider: true },
     });
 

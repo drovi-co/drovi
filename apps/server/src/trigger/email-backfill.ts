@@ -9,9 +9,14 @@
 // Phase 2 (Extended):  90 days → 1 year - Medium concurrency, background
 // Phase 3 (Archive):   1+ years → ALL   - Steady concurrency, full history
 //
+// Uses ONLY the unified schema (sourceAccount, conversation, message).
+//
 
 import { db } from "@memorystack/db";
-import { type BackfillProgress, emailAccount } from "@memorystack/db/schema";
+import {
+  sourceAccount,
+  type SourceBackfillProgress,
+} from "@memorystack/db/schema";
 import { task } from "@trigger.dev/sdk";
 import { eq } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
@@ -35,12 +40,12 @@ import {
 // =============================================================================
 
 interface PhaseBackfillPayload {
-  accountId: string;
+  sourceAccountId: string;
   phase: "priority" | "extended" | "archive";
 }
 
 interface BackfillOrchestratorPayload {
-  accountId: string;
+  sourceAccountId: string;
 }
 
 // =============================================================================
@@ -51,7 +56,7 @@ interface BackfillOrchestratorPayload {
  * Priority Phase Backfill (Last 90 days)
  *
  * High-concurrency import for immediate value.
- * Goal: Complete in < 5 minutes for typical accounts.
+ * Increased timeout to handle power users with thousands of threads.
  */
 export const priorityBackfillTask = task({
   id: "email-backfill-priority",
@@ -65,9 +70,9 @@ export const priorityBackfillTask = task({
     maxTimeoutInMs: 60_000,
     factor: 2,
   },
-  maxDuration: 600, // 10 minutes max
+  maxDuration: 1800, // 30 minutes max (handles 2000+ threads)
   run: async (payload: PhaseBackfillPayload): Promise<PhaseBackfillResult> => {
-    return await executePhaseBackfill(payload.accountId, "priority");
+    return await executePhaseBackfill(payload.sourceAccountId, "priority");
   },
 });
 
@@ -91,7 +96,7 @@ export const extendedBackfillTask = task({
   },
   maxDuration: 1800, // 30 minutes max
   run: async (payload: PhaseBackfillPayload): Promise<PhaseBackfillResult> => {
-    return await executePhaseBackfill(payload.accountId, "extended");
+    return await executePhaseBackfill(payload.sourceAccountId, "extended");
   },
 });
 
@@ -115,7 +120,7 @@ export const archiveBackfillTask = task({
   },
   maxDuration: 3600, // 1 hour max per run (will resume if needed)
   run: async (payload: PhaseBackfillPayload): Promise<PhaseBackfillResult> => {
-    return await executePhaseBackfill(payload.accountId, "archive");
+    return await executePhaseBackfill(payload.sourceAccountId, "archive");
   },
 });
 
@@ -140,40 +145,39 @@ export const backfillOrchestratorTask = task({
   },
   run: async (
     payload: BackfillOrchestratorPayload
-  ): Promise<{ started: boolean; accountId: string }> => {
-    const { accountId } = payload;
+  ): Promise<{ started: boolean; sourceAccountId: string }> => {
+    const { sourceAccountId } = payload;
 
-    log.info("Backfill orchestrator starting", { accountId });
+    log.info("Backfill orchestrator starting", { sourceAccountId });
 
     // Verify account exists
-    const account = await db.query.emailAccount.findFirst({
-      where: eq(emailAccount.id, accountId),
+    const account = await db.query.sourceAccount.findFirst({
+      where: eq(sourceAccount.id, sourceAccountId),
     });
 
     if (!account) {
-      throw new Error(`Account not found: ${accountId}`);
+      throw new Error(`Source account not found: ${sourceAccountId}`);
     }
 
     // Check if already backfilling
-    const progress = account.backfillProgress as BackfillProgress | null;
+    const progress = account.backfillProgress;
     if (
       progress &&
       progress.phase !== "idle" &&
       progress.phase !== "complete"
     ) {
       log.warn("Backfill already in progress", {
-        accountId,
+        sourceAccountId,
         currentPhase: progress.phase,
       });
-      return { started: false, accountId };
+      return { started: false, sourceAccountId };
     }
 
     // Initialize backfill progress
-    await updateBackfillProgress(accountId, {
+    await updateBackfillProgress(sourceAccountId, {
       phase: "priority",
-      totalThreads: 0,
-      processedThreads: 0,
-      totalMessages: 0,
+      totalItems: 0,
+      processedItems: 0,
       phaseProgress: 0,
       overallProgress: 0,
       phaseStartedAt: new Date().toISOString(),
@@ -182,13 +186,15 @@ export const backfillOrchestratorTask = task({
 
     // Start priority phase
     await priorityBackfillTask.trigger({
-      accountId,
+      sourceAccountId,
       phase: "priority",
     });
 
-    log.info("Backfill orchestrator: priority phase triggered", { accountId });
+    log.info("Backfill orchestrator: priority phase triggered", {
+      sourceAccountId,
+    });
 
-    return { started: true, accountId };
+    return { started: true, sourceAccountId };
   },
 });
 
@@ -202,13 +208,13 @@ export const autoBackfillTask = task({
     concurrencyLimit: 20,
   },
   run: async (payload: {
-    accountId: string;
+    sourceAccountId: string;
   }): Promise<{ triggered: boolean }> => {
-    const { accountId } = payload;
+    const { sourceAccountId } = payload;
 
-    log.info("Auto-backfill triggered for new account", { accountId });
+    log.info("Auto-backfill triggered for new account", { sourceAccountId });
 
-    await backfillOrchestratorTask.trigger({ accountId });
+    await backfillOrchestratorTask.trigger({ sourceAccountId });
 
     return { triggered: true };
   },
@@ -222,30 +228,37 @@ export const autoBackfillTask = task({
  * Execute a specific backfill phase for an account.
  */
 async function executePhaseBackfill(
-  accountId: string,
+  sourceAccountId: string,
   phase: "priority" | "extended" | "archive"
 ): Promise<PhaseBackfillResult> {
-  log.info(`Starting ${phase} phase backfill`, { accountId });
+  log.info(`Starting ${phase} phase backfill`, { sourceAccountId });
 
   // Get account
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  const account = await db.query.sourceAccount.findFirst({
+    where: eq(sourceAccount.id, sourceAccountId),
   });
 
   if (!account) {
-    throw new Error(`Account not found: ${accountId}`);
+    throw new Error(`Source account not found: ${sourceAccountId}`);
   }
 
   // Update status
   await db
-    .update(emailAccount)
+    .update(sourceAccount)
     .set({ status: "syncing", updatedAt: new Date() })
-    .where(eq(emailAccount.id, accountId));
+    .where(eq(sourceAccount.id, sourceAccountId));
 
   try {
-    // Create email client
+    // Create email client from source account
     const client = createEmailClient({
-      account,
+      account: {
+        id: account.id,
+        provider: account.provider as "gmail" | "outlook",
+        accessToken: account.accessToken ?? "",
+        refreshToken: account.refreshToken ?? "",
+        tokenExpiresAt: account.tokenExpiresAt,
+        externalId: account.externalId,
+      },
       skipCache: true,
       decryptToken: safeDecryptToken,
     });
@@ -255,14 +268,14 @@ async function executePhaseBackfill(
       await client.refreshToken();
       const newTokenInfo = client.getTokenInfo();
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: newTokenInfo.accessToken,
           refreshToken: newTokenInfo.refreshToken,
           tokenExpiresAt: newTokenInfo.expiresAt,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, sourceAccountId));
     }
 
     // Get date range for phase
@@ -273,7 +286,7 @@ async function executePhaseBackfill(
     let result: PhaseBackfillResult;
 
     const backfillConfig = {
-      accountId,
+      sourceAccountId,
       organizationId: account.organizationId,
       phase,
       afterDate: dateRange.afterDate,
@@ -288,7 +301,7 @@ async function executePhaseBackfill(
         backfillConfig,
         async (processed, total, estimated) => {
           await updatePhaseProgress(
-            accountId,
+            sourceAccountId,
             phase,
             processed,
             total,
@@ -302,7 +315,7 @@ async function executePhaseBackfill(
         backfillConfig,
         async (processed, total, estimated) => {
           await updatePhaseProgress(
-            accountId,
+            sourceAccountId,
             phase,
             processed,
             total,
@@ -316,23 +329,24 @@ async function executePhaseBackfill(
 
     // Handle phase completion
     if (result.phaseComplete) {
-      await handlePhaseComplete(accountId, phase, result);
+      await handlePhaseComplete(sourceAccountId, phase, result);
     }
 
     // Update account status
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "connected",
         lastSyncAt: new Date(),
+        lastSyncStatus: result.success ? "success" : "error",
         lastSyncError: result.success ? null : result.errors[0]?.message,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, sourceAccountId));
 
     log.info(`${phase} phase backfill completed`, {
       ...result,
-      accountId,
+      sourceAccountId,
     });
 
     return result;
@@ -342,30 +356,31 @@ async function executePhaseBackfill(
 
     // Update error state
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
-        status: "active",
+        status: "error",
+        lastSyncStatus: "error",
         lastSyncError: errorMessage,
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, accountId));
+      .where(eq(sourceAccount.id, sourceAccountId));
 
     // Increment error count in progress
-    const currentProgress = await getBackfillProgress(accountId);
+    const currentProgress = await getBackfillProgress(sourceAccountId);
     if (currentProgress) {
-      await updateBackfillProgress(accountId, {
+      await updateBackfillProgress(sourceAccountId, {
         ...currentProgress,
         lastError: errorMessage,
         errorCount: currentProgress.errorCount + 1,
       });
     }
 
-    log.error(`${phase} phase backfill failed`, error, { accountId });
+    log.error(`${phase} phase backfill failed`, error, { sourceAccountId });
 
     return {
       success: false,
       jobId: crypto.randomUUID(),
-      accountId,
+      accountId: sourceAccountId,
       type: "backfill",
       phase,
       phaseComplete: false,
@@ -391,7 +406,7 @@ async function executePhaseBackfill(
  * Update phase progress in database.
  */
 async function updatePhaseProgress(
-  accountId: string,
+  sourceAccountId: string,
   phase: BackfillPhase,
   processed: number,
   total: number,
@@ -418,35 +433,41 @@ async function updatePhaseProgress(
     phaseWeights[phase] +
     Math.round((phaseProgress / 100) * phaseContribution[phase]);
 
-  const currentProgress = await getBackfillProgress(accountId);
+  const currentProgress = await getBackfillProgress(sourceAccountId);
 
-  await updateBackfillProgress(accountId, {
+  await updateBackfillProgress(sourceAccountId, {
     ...currentProgress,
     phase,
-    totalThreads: total,
-    processedThreads: processed,
+    totalItems: total,
+    processedItems: processed,
     phaseProgress,
     overallProgress,
     estimatedTimeRemaining: estimatedSeconds,
-  } as BackfillProgress);
+    errorCount: currentProgress?.errorCount ?? 0,
+  });
 }
 
 /**
  * Handle phase completion and trigger next phase.
  */
 async function handlePhaseComplete(
-  accountId: string,
+  sourceAccountId: string,
   phase: "priority" | "extended" | "archive",
-  result: PhaseBackfillResult
+  _result: PhaseBackfillResult
 ): Promise<void> {
-  const currentProgress = await getBackfillProgress(accountId);
+  const currentProgress = await getBackfillProgress(sourceAccountId);
   const now = new Date().toISOString();
 
   // Update progress with completion timestamp
-  const updates: Partial<BackfillProgress> = {
-    ...currentProgress,
-    totalMessages:
-      (currentProgress?.totalMessages ?? 0) + result.messagesProcessed,
+  const updates: SourceBackfillProgress = {
+    ...(currentProgress ?? {
+      phase: "idle",
+      totalItems: 0,
+      processedItems: 0,
+      phaseProgress: 0,
+      overallProgress: 0,
+      errorCount: 0,
+    }),
   };
 
   if (phase === "priority") {
@@ -457,46 +478,51 @@ async function handlePhaseComplete(
     updates.archiveCompletedAt = now;
   }
 
-  await updateBackfillProgress(accountId, updates as BackfillProgress);
+  await updateBackfillProgress(sourceAccountId, updates);
 
   // Trigger next phase
   if (phase === "priority") {
     log.info("Priority phase complete, triggering extended phase", {
-      accountId,
+      sourceAccountId,
     });
-    await updateBackfillProgress(accountId, {
+    await updateBackfillProgress(sourceAccountId, {
       ...updates,
       phase: "extended",
       phaseStartedAt: now,
-      processedThreads: 0,
-      totalThreads: 0,
+      processedItems: 0,
+      totalItems: 0,
       phaseProgress: 0,
-    } as BackfillProgress);
-    await extendedBackfillTask.trigger({ accountId, phase: "extended" });
+    });
+    await extendedBackfillTask.trigger({
+      sourceAccountId,
+      phase: "extended",
+    });
   } else if (phase === "extended") {
     log.info("Extended phase complete, triggering archive phase", {
-      accountId,
+      sourceAccountId,
     });
-    await updateBackfillProgress(accountId, {
+    await updateBackfillProgress(sourceAccountId, {
       ...updates,
       phase: "archive",
       phaseStartedAt: now,
-      processedThreads: 0,
-      totalThreads: 0,
+      processedItems: 0,
+      totalItems: 0,
       phaseProgress: 0,
-    } as BackfillProgress);
-    await archiveBackfillTask.trigger({ accountId, phase: "archive" });
+    });
+    await archiveBackfillTask.trigger({
+      sourceAccountId,
+      phase: "archive",
+    });
   } else if (phase === "archive") {
-    log.info("Archive phase complete, full backfill finished", { accountId });
-    await updateBackfillProgress(accountId, {
+    log.info("Archive phase complete, full backfill finished", {
+      sourceAccountId,
+    });
+    await updateBackfillProgress(sourceAccountId, {
       ...updates,
       phase: "complete",
       overallProgress: 100,
       phaseProgress: 100,
-    } as BackfillProgress);
-
-    // Set sync cursor for incremental sync
-    // The cursor should have been set by the phase backfill
+    });
   }
 }
 
@@ -504,30 +530,30 @@ async function handlePhaseComplete(
  * Get current backfill progress.
  */
 async function getBackfillProgress(
-  accountId: string
-): Promise<BackfillProgress | null> {
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  sourceAccountId: string
+): Promise<SourceBackfillProgress | null> {
+  const account = await db.query.sourceAccount.findFirst({
+    where: eq(sourceAccount.id, sourceAccountId),
     columns: { backfillProgress: true },
   });
 
-  return (account?.backfillProgress as BackfillProgress) ?? null;
+  return account?.backfillProgress ?? null;
 }
 
 /**
  * Update backfill progress in database.
  */
 async function updateBackfillProgress(
-  accountId: string,
-  progress: BackfillProgress
+  sourceAccountId: string,
+  progress: SourceBackfillProgress
 ): Promise<void> {
   await db
-    .update(emailAccount)
+    .update(sourceAccount)
     .set({
       backfillProgress: progress,
       updatedAt: new Date(),
     })
-    .where(eq(emailAccount.id, accountId));
+    .where(eq(sourceAccount.id, sourceAccountId));
 }
 
 // =============================================================================

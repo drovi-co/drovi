@@ -9,7 +9,7 @@ import {
   validateGmailScopes,
 } from "@memorystack/auth/providers";
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
@@ -106,10 +106,11 @@ gmailOAuth.get("/callback", async (c) => {
     const userInfo = await getGmailUserInfo(tokens.accessToken);
 
     // Check if this email is already connected to this organization
-    const existingAccount = await db.query.emailAccount.findFirst({
+    const existingAccount = await db.query.sourceAccount.findFirst({
       where: and(
-        eq(emailAccount.organizationId, organizationId),
-        eq(emailAccount.email, userInfo.email)
+        eq(sourceAccount.organizationId, organizationId),
+        eq(sourceAccount.type, "email"),
+        eq(sourceAccount.externalId, userInfo.email)
       ),
     });
 
@@ -132,18 +133,17 @@ gmailOAuth.get("/callback", async (c) => {
       }
 
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: safeEncryptToken(tokens.accessToken),
           refreshToken: safeEncryptToken(tokens.refreshToken),
           tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-          status: "active",
+          status: "connected",
           displayName: userInfo.name,
-          lastSyncStatus: null,
           lastSyncError: null,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, existingAccount.id));
+        .where(eq(sourceAccount.id, existingAccount.id));
 
       accountId = existingAccount.id;
     } else {
@@ -154,33 +154,25 @@ gmailOAuth.get("/callback", async (c) => {
         email: userInfo.email,
       });
 
-      // Check if organization has any other accounts to determine if this should be primary
-      const existingAccounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, organizationId),
-      });
-
-      const isPrimary = existingAccounts.length === 0;
-
       const result = await db
-        .insert(emailAccount)
+        .insert(sourceAccount)
         .values({
           organizationId,
           addedByUserId: userId,
+          type: "email",
           provider: "gmail",
-          email: userInfo.email,
+          externalId: userInfo.email,
           displayName: userInfo.name,
           accessToken: safeEncryptToken(tokens.accessToken),
           refreshToken: safeEncryptToken(tokens.refreshToken),
           tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-          status: "active",
-          isPrimary,
+          status: "connected",
           settings: {
             syncEnabled: true,
             syncFrequencyMinutes: 5,
-            backfillDays: 90,
           },
         })
-        .returning({ id: emailAccount.id });
+        .returning({ id: sourceAccount.id });
 
       const newAccount = result[0];
       if (!newAccount) {
@@ -202,17 +194,18 @@ gmailOAuth.get("/callback", async (c) => {
 
         // Store watch expiration and historyId as sync cursor
         await db
-          .update(emailAccount)
+          .update(sourceAccount)
           .set({
             syncCursor: watchResult.historyId,
             settings: {
               syncEnabled: true,
               syncFrequencyMinutes: 5,
-              backfillDays: 90,
-              watchExpiration: Number(watchResult.expiration),
+              customSettings: {
+                watchExpiration: Number(watchResult.expiration),
+              },
             },
           })
-          .where(eq(emailAccount.id, accountId));
+          .where(eq(sourceAccount.id, accountId));
 
         log.info("Gmail Watch setup complete", {
           accountId,

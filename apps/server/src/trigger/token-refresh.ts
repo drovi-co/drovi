@@ -11,7 +11,7 @@ import {
   refreshOutlookToken,
 } from "@memorystack/auth/providers";
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, gt, lt, or } from "drizzle-orm";
 import { safeDecryptToken, safeEncryptToken } from "../lib/crypto/tokens";
@@ -22,7 +22,7 @@ import { log } from "../lib/logger";
 // =============================================================================
 
 interface RefreshResult {
-  accountId: string;
+  sourceAccountId: string;
   email: string;
   provider: "gmail" | "outlook";
   success: boolean;
@@ -43,13 +43,16 @@ export const tokenRefreshTask = task({
     name: "token-management",
     concurrencyLimit: 5,
   },
-  run: async (payload: { accountId?: string }) => {
+  run: async (payload: { sourceAccountId?: string }) => {
     const results: RefreshResult[] = [];
 
     // If a specific account is provided, only refresh that one
-    if (payload.accountId) {
-      const account = await db.query.emailAccount.findFirst({
-        where: eq(emailAccount.id, payload.accountId),
+    if (payload.sourceAccountId) {
+      const account = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, payload.sourceAccountId),
+          eq(sourceAccount.type, "email")
+        ),
       });
 
       if (account) {
@@ -60,18 +63,19 @@ export const tokenRefreshTask = task({
       return { refreshed: results };
     }
 
-    // Otherwise, find all accounts with tokens expiring in the next 10 minutes
+    // Otherwise, find all email accounts with tokens expiring in the next 10 minutes
     const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
     const now = new Date();
 
-    const accountsToRefresh = await db.query.emailAccount.findMany({
+    const accountsToRefresh = await db.query.sourceAccount.findMany({
       where: and(
+        eq(sourceAccount.type, "email"),
         or(
-          eq(emailAccount.status, "active"),
-          eq(emailAccount.status, "syncing")
+          eq(sourceAccount.status, "connected"),
+          eq(sourceAccount.status, "syncing")
         ),
-        lt(emailAccount.tokenExpiresAt, tenMinutesFromNow),
-        gt(emailAccount.tokenExpiresAt, now) // Don't try to refresh already-expired tokens
+        lt(sourceAccount.tokenExpiresAt, tenMinutesFromNow),
+        gt(sourceAccount.tokenExpiresAt, now) // Don't try to refresh already-expired tokens
       ),
     });
 
@@ -118,18 +122,18 @@ export const tokenRefreshTask = task({
  * Refresh token for a single account
  */
 async function refreshAccountToken(
-  account: typeof emailAccount.$inferSelect
+  account: typeof sourceAccount.$inferSelect
 ): Promise<RefreshResult> {
   const result: RefreshResult = {
-    accountId: account.id,
-    email: account.email,
+    sourceAccountId: account.id,
+    email: account.externalId, // externalId contains the email for email accounts
     provider: account.provider as "gmail" | "outlook",
     success: false,
   };
 
   try {
     // Decrypt the refresh token
-    const refreshToken = safeDecryptToken(account.refreshToken);
+    const refreshToken = safeDecryptToken(account.refreshToken ?? "");
 
     // Refresh based on provider
     let newAccessToken: string;
@@ -152,18 +156,18 @@ async function refreshAccountToken(
 
     // Update the account with new tokens
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set({
         accessToken: safeEncryptToken(newAccessToken),
         refreshToken: safeEncryptToken(newRefreshToken),
         tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
         updatedAt: new Date(),
       })
-      .where(eq(emailAccount.id, account.id));
+      .where(eq(sourceAccount.id, account.id));
 
     log.info("Token refreshed successfully", {
-      accountId: account.id,
-      email: account.email,
+      sourceAccountId: account.id,
+      email: account.externalId,
       provider: account.provider,
       expiresIn,
     });
@@ -174,8 +178,8 @@ async function refreshAccountToken(
       error instanceof Error ? error.message : "Unknown error";
 
     log.error("Token refresh failed", error, {
-      accountId: account.id,
-      email: account.email,
+      sourceAccountId: account.id,
+      email: account.externalId,
       provider: account.provider,
     });
 
@@ -193,17 +197,17 @@ async function refreshAccountToken(
 
       // Mark the account as expired
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           status: "expired",
           lastSyncError: "Token refresh failed - reconnection required",
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, account.id));
+        .where(eq(sourceAccount.id, account.id));
 
       log.warn("Account marked as expired - requires reconnection", {
-        accountId: account.id,
-        email: account.email,
+        sourceAccountId: account.id,
+        email: account.externalId,
       });
     }
   }

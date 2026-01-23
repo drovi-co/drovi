@@ -1,40 +1,45 @@
-// Export all trigger tasks for easy importing
+// =============================================================================
+// TRIGGER.DEV TASK EXPORTS
+// =============================================================================
+//
+// All intelligence extraction is handled by the Python backend (drovi-intelligence).
+// These TypeScript tasks handle:
+// - Data synchronization (email, calendar, slack, etc.)
+// - OAuth token refresh
+// - Task management
+// - Integration with Python intelligence backend
+//
 
+// Audit and cleanup
 export * from "./audit-log.js";
-// Calendar sync tasks (Multi-Source Intelligence)
-export * from "./calendar-sync.js";
 export * from "./cleanup.js";
-// Commitment and decision extraction tasks (PRD-04)
-export * from "./commitment-extraction.js";
 export * from "./credits.js";
+
+// Daily digest generation
 export * from "./daily-digest.js";
+
+// Data export
 export * from "./data-export.js";
-export * from "./decision-extraction.js";
+
+// Email infrastructure
 export * from "./email-backfill.js";
-export * from "./email-process.js";
-// Email sync tasks (PRD-02)
 export * from "./email-sync.js";
-// Embedding generation tasks (PRD-06)
-export * from "./embedding-generation.js";
-// Google Docs sync tasks (Multi-Source Intelligence)
-export * from "./google-docs-sync.js";
-// Notion sync tasks (Multi-Source Intelligence)
-export * from "./notion-sync.js";
-// Relationship analysis tasks (PRD-05)
-export * from "./relationship-analysis.js";
-// Risk analysis tasks (PRD-09)
-export * from "./risk-analysis.js";
-export * from "./send-email.js";
-// Slack sync tasks (Multi-Source Intelligence)
-export * from "./slack-sync.js";
-// Task sync (auto-create tasks for conversations, commitments, decisions)
-export * from "./task-sync.js";
-// Thread analysis tasks (PRD-03)
-export * from "./thread-analysis.js";
 export * from "./token-refresh.js";
-// Triage analysis tasks (PRD-07)
-export * from "./triage-analysis.js";
-// Unified Object Processing (Cross-Source UIOs)
-export * from "./unified-object-processing.js";
-// WhatsApp sync tasks (Multi-Source Intelligence)
+
+// Multi-source sync tasks
+export * from "./calendar-sync.js";
+export * from "./google-docs-sync.js";
+export * from "./notion-sync.js";
+export * from "./slack-sync.js";
 export * from "./whatsapp-sync.js";
+
+// Graph and intelligence (bridge to Python backend)
+export * from "./graph-backfill.js";
+export * from "./intelligence-extraction.js";
+
+// Task and UIO management
+export * from "./task-sync.js";
+export * from "./unified-object-processing.js";
+
+// Email sending
+export * from "./send-email.js";

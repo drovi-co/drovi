@@ -2,19 +2,25 @@
 // EMAIL PROCESSING PIPELINE
 // =============================================================================
 //
-// Transforms raw email data from providers into Evidence Store format.
-// Handles thread reconstruction, message normalization, participant extraction,
-// and attachment metadata processing.
+// Transforms raw email data from providers into the unified schema.
+// Handles conversation reconstruction, message normalization, and
+// attachment metadata processing.
+//
+// Uses ONLY the unified schema (conversation, message, attachment).
+// Legacy email_* tables have been removed.
 //
 
 import { db } from "@memorystack/db";
 import {
-  emailAttachment,
-  emailMessage,
-  emailParticipant,
-  emailThread,
+  attachment,
+  conversation,
+  type ConversationMetadata,
+  message,
+  type MessageMetadata,
+  type MessageRecipient,
+  sourceAccount,
 } from "@memorystack/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type {
   AttachmentMetadata,
   EmailMessageData,
@@ -29,15 +35,15 @@ import type { BatchResult, ProcessedThread, SyncError } from "./types";
 // =============================================================================
 
 /**
- * Process a thread and its messages into the Evidence Store.
+ * Process a thread and its messages into the unified schema.
  *
- * @param accountId - Email account ID
+ * @param sourceAccountId - Source account ID (unified schema)
  * @param threadData - Thread with messages from provider
  * @param options - Processing options
  * @returns Processed thread result
  */
 export async function processThread(
-  accountId: string,
+  sourceAccountId: string,
   threadData: EmailThreadWithMessages,
   options: { skipExisting?: boolean; forceUpdate?: boolean } = {}
 ): Promise<ProcessedThread> {
@@ -49,14 +55,14 @@ export async function processThread(
 
   if (!hasMessagesInPayload && threadData.messageCount > 0) {
     log.warn(
-      "Thread has messageCount but no messages in payload - skipping to avoid orphaned thread",
+      "Thread has messageCount but no messages in payload - skipping to avoid orphaned conversation",
       {
         providerThreadId: threadData.providerThreadId,
         expectedMessageCount: threadData.messageCount,
         actualMessageCount: threadData.messages?.length ?? 0,
       }
     );
-    // Return early - don't create orphaned thread
+    // Return early - don't create orphaned conversation
     return {
       thread: threadData,
       messages: [],
@@ -65,28 +71,28 @@ export async function processThread(
     };
   }
 
-  // Check if thread exists
-  const existingThread = await db.query.emailThread.findFirst({
+  // Check if conversation exists
+  const existingConversation = await db.query.conversation.findFirst({
     where: and(
-      eq(emailThread.accountId, accountId),
-      eq(emailThread.providerThreadId, threadData.providerThreadId)
+      eq(conversation.sourceAccountId, sourceAccountId),
+      eq(conversation.externalId, threadData.providerThreadId)
     ),
   });
 
-  const isNew = !existingThread;
+  const isNew = !existingConversation;
 
-  // Check if thread has messages (to handle orphaned threads from crashed syncs)
+  // Check if conversation has messages (to handle orphaned conversations from crashed syncs)
   let hasMessagesInDb = false;
-  if (existingThread) {
-    const messageCount = await db.query.emailMessage.findFirst({
-      where: eq(emailMessage.threadId, existingThread.id),
+  if (existingConversation) {
+    const msgCount = await db.query.message.findFirst({
+      where: eq(message.conversationId, existingConversation.id),
       columns: { id: true },
     });
-    hasMessagesInDb = !!messageCount;
+    hasMessagesInDb = !!msgCount;
   }
 
-  // Skip only if thread exists WITH messages and not forcing update
-  if (existingThread && hasMessagesInDb && skipExisting && !forceUpdate) {
+  // Skip only if conversation exists WITH messages and not forcing update
+  if (existingConversation && hasMessagesInDb && skipExisting && !forceUpdate) {
     return {
       thread: threadData,
       messages: threadData.messages,
@@ -95,48 +101,41 @@ export async function processThread(
     };
   }
 
-  // Upsert thread
-  const threadId = existingThread?.id ?? crypto.randomUUID();
+  // Upsert conversation
+  const conversationId = existingConversation?.id ?? crypto.randomUUID();
 
   // Use actual message count from payload, not metadata
   const actualMessageCount = threadData.messages?.length ?? 0;
-  const threadRecord = mapThreadToRecord(
-    accountId,
-    threadId,
-    threadData,
-    actualMessageCount
-  );
 
-  if (existingThread) {
-    await db
-      .update(emailThread)
-      .set({ ...threadRecord, updatedAt: new Date() })
-      .where(eq(emailThread.id, existingThread.id));
-  } else {
-    await db.insert(emailThread).values(threadRecord);
-  }
+  await upsertConversation(
+    sourceAccountId,
+    conversationId,
+    threadData,
+    actualMessageCount,
+    isNew
+  );
 
   // Process messages with index for ordering
   let processedCount = 0;
   for (let idx = 0; idx < (threadData.messages?.length ?? 0); idx++) {
-    const message = threadData.messages[idx];
-    if (!message) continue;
+    const msg = threadData.messages[idx];
+    if (!msg) continue;
 
     try {
-      // Add message index for ordering within thread
+      // Add message index for ordering within conversation
       const messageWithIndex = {
-        ...message,
+        ...msg,
         messageIndex: idx,
       };
-      await processMessage(threadId, messageWithIndex, {
+      await processMessage(conversationId, messageWithIndex, {
         skipExisting,
         forceUpdate,
       });
       processedCount++;
     } catch (error) {
       log.error("Failed to process message", error, {
-        threadId,
-        providerMessageId: message.providerMessageId,
+        conversationId,
+        providerMessageId: msg.providerMessageId,
         messageIndex: idx,
       });
     }
@@ -145,7 +144,7 @@ export async function processThread(
   // Log if we didn't process all expected messages
   if (processedCount < actualMessageCount) {
     log.warn("Not all messages were processed", {
-      threadId,
+      conversationId,
       providerThreadId: threadData.providerThreadId,
       expected: actualMessageCount,
       processed: processedCount,
@@ -160,36 +159,54 @@ export async function processThread(
   };
 }
 
+// =============================================================================
+// CONVERSATION HELPERS
+// =============================================================================
+
 /**
- * Map thread data to database record format
+ * Upsert a conversation to the unified schema.
  */
-function mapThreadToRecord(
-  accountId: string,
-  threadId: string,
+async function upsertConversation(
+  sourceAccountId: string,
+  conversationId: string,
   thread: EmailThreadData,
-  actualMessageCount?: number
-) {
-  return {
-    id: threadId,
-    accountId,
-    providerThreadId: thread.providerThreadId,
-    subject: thread.subject,
-    snippet: thread.snippet,
-    participantEmails: thread.participants.map((p) => p.email),
-    // Use actual message count if provided, otherwise fall back to metadata
-    messageCount: actualMessageCount ?? thread.messageCount,
-    hasAttachments: thread.hasAttachments,
+  messageCount: number,
+  isNew: boolean
+): Promise<void> {
+  const metadata: ConversationMetadata = {
+    labels: thread.labels,
+  };
+
+  const record = {
+    id: conversationId,
+    sourceAccountId,
+    externalId: thread.providerThreadId,
+    conversationType: "thread" as const,
+    title: thread.subject ?? null,
+    snippet: thread.snippet ?? null,
+    participantIds: thread.participants.map((p) => p.email),
+    messageCount,
     firstMessageAt: thread.firstMessageAt,
     lastMessageAt: thread.lastMessageAt,
-    labels: thread.labels,
     isRead: thread.isRead,
     isStarred: thread.isStarred,
     isArchived: thread.isArchived,
-    isDraft: thread.isDraft,
     isTrashed: thread.isTrashed,
-    createdAt: new Date(),
+    metadata,
     updatedAt: new Date(),
   };
+
+  if (!isNew) {
+    await db
+      .update(conversation)
+      .set(record)
+      .where(eq(conversation.id, conversationId));
+  } else {
+    await db.insert(conversation).values({
+      ...record,
+      createdAt: new Date(),
+    });
+  }
 }
 
 // =============================================================================
@@ -197,25 +214,25 @@ function mapThreadToRecord(
 // =============================================================================
 
 /**
- * Process a single message into the Evidence Store.
+ * Process a single message into the unified schema.
  *
- * @param threadId - Thread ID in our database
- * @param message - Message data from provider
+ * @param conversationId - Conversation ID in our database
+ * @param msg - Message data from provider
  * @param options - Processing options
  * @returns Message ID
  */
 export async function processMessage(
-  threadId: string,
-  message: EmailMessageData,
+  conversationId: string,
+  msg: EmailMessageData & { messageIndex?: number },
   options: { skipExisting?: boolean; forceUpdate?: boolean } = {}
 ): Promise<string> {
   const { skipExisting = true, forceUpdate = false } = options;
 
   // Check if message exists
-  const existingMessage = await db.query.emailMessage.findFirst({
+  const existingMessage = await db.query.message.findFirst({
     where: and(
-      eq(emailMessage.threadId, threadId),
-      eq(emailMessage.providerMessageId, message.providerMessageId)
+      eq(message.conversationId, conversationId),
+      eq(message.externalId, msg.providerMessageId)
     ),
   });
 
@@ -225,127 +242,81 @@ export async function processMessage(
   }
 
   const messageId = existingMessage?.id ?? crypto.randomUUID();
-  const messageRecord = mapMessageToRecord(threadId, messageId, message);
 
-  if (existingMessage) {
-    await db
-      .update(emailMessage)
-      .set({ ...messageRecord, updatedAt: new Date() })
-      .where(eq(emailMessage.id, existingMessage.id));
-  } else {
-    await db.insert(emailMessage).values(messageRecord);
+  await upsertMessage(conversationId, messageId, msg, !existingMessage);
 
-    // Process participants for new messages
-    await processParticipants(messageId, message);
-
-    // Process attachments for new messages
-    await processAttachments(messageId, message.attachments);
+  // Process attachments for new messages
+  if (!existingMessage && msg.attachments?.length) {
+    await processAttachments(messageId, msg.attachments);
   }
 
   return messageId;
 }
 
 /**
- * Map message data to database record format
+ * Upsert a message to the unified schema.
  */
-function mapMessageToRecord(
-  threadId: string,
+async function upsertMessage(
+  conversationId: string,
   messageId: string,
-  message: EmailMessageData & { messageIndex?: number }
-) {
-  return {
+  msg: EmailMessageData & { messageIndex?: number },
+  isNew: boolean
+): Promise<void> {
+  const recipients: MessageRecipient[] = [
+    ...msg.to.map((r) => ({
+      id: r.email,
+      email: r.email,
+      name: r.name,
+      type: "to" as const,
+    })),
+    ...msg.cc.map((r) => ({
+      id: r.email,
+      email: r.email,
+      name: r.name,
+      type: "cc" as const,
+    })),
+    ...msg.bcc.map((r) => ({
+      id: r.email,
+      email: r.email,
+      name: r.name,
+      type: "bcc" as const,
+    })),
+  ];
+
+  const metadata: MessageMetadata = {
+    headers: msg.headers,
+    labelIds: msg.labels,
+    sizeBytes: msg.sizeBytes,
+  };
+
+  const record = {
     id: messageId,
-    threadId,
-    providerMessageId: message.providerMessageId,
-    inReplyTo: message.inReplyTo,
-    references: message.references,
-    fromEmail: message.from.email,
-    fromName: message.from.name ?? null,
-    toRecipients: message.to.map((r) => ({ email: r.email, name: r.name })),
-    ccRecipients: message.cc.map((r) => ({ email: r.email, name: r.name })),
-    bccRecipients: message.bcc.map((r) => ({ email: r.email, name: r.name })),
-    subject: message.subject,
-    bodyText: message.bodyText,
-    bodyHtml: message.bodyHtml,
-    snippet: message.snippet,
-    sentAt: message.sentAt,
-    receivedAt: message.receivedAt,
-    headers: message.headers,
-    labelIds: message.labels,
-    sizeBytes: message.sizeBytes,
-    messageIndex: message.messageIndex ?? 0,
-    isFromUser: message.isFromUser,
-    createdAt: new Date(),
+    conversationId,
+    externalId: msg.providerMessageId,
+    senderExternalId: msg.from.email,
+    senderName: msg.from.name ?? null,
+    senderEmail: msg.from.email,
+    recipients,
+    subject: msg.subject ?? null,
+    bodyText: msg.bodyText ?? null,
+    bodyHtml: msg.bodyHtml ?? null,
+    snippet: msg.snippet ?? null,
+    sentAt: msg.sentAt,
+    receivedAt: msg.receivedAt,
+    messageIndex: msg.messageIndex ?? 0,
+    isFromUser: msg.isFromUser,
+    hasAttachments: (msg.attachments?.length ?? 0) > 0,
+    metadata,
     updatedAt: new Date(),
   };
-}
 
-// =============================================================================
-// PARTICIPANT PROCESSING
-// =============================================================================
-
-/**
- * Extract and store participants from a message.
- *
- * @param messageId - Message ID in our database
- * @param message - Message data with participants
- */
-export async function processParticipants(
-  messageId: string,
-  message: EmailMessageData
-): Promise<void> {
-  const participants: Array<{
-    id: string;
-    messageId: string;
-    email: string;
-    displayName: string | null;
-    role: "from" | "to" | "cc" | "bcc";
-  }> = [];
-
-  // From
-  participants.push({
-    id: crypto.randomUUID(),
-    messageId,
-    email: message.from.email,
-    displayName: message.from.name ?? null,
-    role: "from",
-  });
-
-  // To
-  for (const recipient of message.to) {
-    participants.push({
-      id: crypto.randomUUID(),
-      messageId,
-      email: recipient.email,
-      displayName: recipient.name ?? null,
-      role: "to",
+  if (!isNew) {
+    await db.update(message).set(record).where(eq(message.id, messageId));
+  } else {
+    await db.insert(message).values({
+      ...record,
+      createdAt: new Date(),
     });
-  }
-
-  // CC
-  for (const recipient of message.cc) {
-    participants.push({
-      id: crypto.randomUUID(),
-      messageId,
-      email: recipient.email,
-      displayName: recipient.name ?? null,
-      role: "cc",
-    });
-  }
-
-  // BCC
-  for (const recipient of message.bcc) {
-    participants.push({
-      id: crypto.randomUUID(),
-      messageId,
-      email: recipient.email,
-      displayName: recipient.name ?? null,
-      role: "bcc",
-    });
-  }
-
-  if (participants.length > 0) {
-    await db.insert(emailParticipant).values(participants);
   }
 }
 
@@ -367,19 +338,31 @@ export async function processAttachments(
     return;
   }
 
-  const records = attachments.map((attachment) => ({
-    id: crypto.randomUUID(),
-    messageId,
-    providerAttachmentId: attachment.id,
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
-    sizeBytes: attachment.size,
-    contentId: attachment.contentId,
-    isInline: attachment.isInline,
-    createdAt: new Date(),
-  }));
+  for (const att of attachments) {
+    const attachmentId = crypto.randomUUID();
 
-  await db.insert(emailAttachment).values(records);
+    // Check if attachment already exists
+    const existing = await db.query.attachment.findFirst({
+      where: and(
+        eq(attachment.messageId, messageId),
+        eq(attachment.externalId, att.id ?? "")
+      ),
+    });
+
+    if (!existing) {
+      await db.insert(attachment).values({
+        id: attachmentId,
+        messageId,
+        externalId: att.id ?? null,
+        filename: att.filename,
+        mimeType: att.mimeType ?? null,
+        sizeBytes: att.size ?? null,
+        contentId: att.contentId ?? null,
+        isInline: att.isInline ?? false,
+        createdAt: new Date(),
+      });
+    }
+  }
 }
 
 // =============================================================================
@@ -389,13 +372,13 @@ export async function processAttachments(
 /**
  * Process a batch of threads.
  *
- * @param accountId - Email account ID
+ * @param sourceAccountId - Source account ID (unified schema)
  * @param threads - Threads to process
  * @param options - Processing options
  * @returns Batch result summary
  */
 export async function processBatch(
-  accountId: string,
+  sourceAccountId: string,
   threads: EmailThreadWithMessages[],
   options: {
     skipExisting?: boolean;
@@ -417,7 +400,11 @@ export async function processBatch(
 
     for (const threadData of batch) {
       try {
-        const processed = await processThread(accountId, threadData, options);
+        const processed = await processThread(
+          sourceAccountId,
+          threadData,
+          options
+        );
         result.threads.push(processed);
 
         if (processed.isNew || processed.wasUpdated) {
@@ -436,7 +423,7 @@ export async function processBatch(
 
         log.error("Error processing thread", error, {
           threadId: threadData.id,
-          accountId,
+          sourceAccountId,
         });
       }
     }
@@ -446,57 +433,56 @@ export async function processBatch(
 }
 
 // =============================================================================
-// THREAD METADATA UPDATES
+// CONVERSATION METADATA UPDATES
 // =============================================================================
 
 /**
- * Update thread metadata without reprocessing messages.
+ * Update conversation metadata without reprocessing messages.
  * Used for label changes, read status, etc.
  *
- * @param accountId - Email account ID
- * @param providerThreadId - Provider's thread ID
+ * @param sourceAccountId - Source account ID
+ * @param externalId - Provider's thread ID
  * @param updates - Fields to update
  */
-export async function updateThreadMetadata(
-  accountId: string,
-  providerThreadId: string,
+export async function updateConversationMetadata(
+  sourceAccountId: string,
+  externalId: string,
   updates: Partial<{
-    labels: string[];
     isRead: boolean;
     isStarred: boolean;
     isArchived: boolean;
-    isDraft: boolean;
     isTrashed: boolean;
+    metadata: ConversationMetadata;
   }>
 ): Promise<void> {
   await db
-    .update(emailThread)
+    .update(conversation)
     .set({ ...updates, updatedAt: new Date() })
     .where(
       and(
-        eq(emailThread.accountId, accountId),
-        eq(emailThread.providerThreadId, providerThreadId)
+        eq(conversation.sourceAccountId, sourceAccountId),
+        eq(conversation.externalId, externalId)
       )
     );
 }
 
 /**
- * Mark a thread as deleted (soft delete).
+ * Mark a conversation as deleted (soft delete).
  *
- * @param accountId - Email account ID
- * @param providerThreadId - Provider's thread ID
+ * @param sourceAccountId - Source account ID
+ * @param externalId - Provider's thread ID
  */
 export async function markThreadDeleted(
-  accountId: string,
-  providerThreadId: string
+  sourceAccountId: string,
+  externalId: string
 ): Promise<void> {
   await db
-    .update(emailThread)
+    .update(conversation)
     .set({ isTrashed: true, updatedAt: new Date() })
     .where(
       and(
-        eq(emailThread.accountId, accountId),
-        eq(emailThread.providerThreadId, providerThreadId)
+        eq(conversation.sourceAccountId, sourceAccountId),
+        eq(conversation.externalId, externalId)
       )
     );
 }
@@ -506,69 +492,117 @@ export async function markThreadDeleted(
 // =============================================================================
 
 /**
- * Get thread ID from provider thread ID.
+ * Get conversation ID from provider thread ID.
  */
-export async function getThreadId(
-  accountId: string,
-  providerThreadId: string
+export async function getConversationId(
+  sourceAccountId: string,
+  externalId: string
 ): Promise<string | null> {
-  const thread = await db.query.emailThread.findFirst({
+  const conv = await db.query.conversation.findFirst({
     where: and(
-      eq(emailThread.accountId, accountId),
-      eq(emailThread.providerThreadId, providerThreadId)
+      eq(conversation.sourceAccountId, sourceAccountId),
+      eq(conversation.externalId, externalId)
     ),
     columns: { id: true },
   });
-  return thread?.id ?? null;
+  return conv?.id ?? null;
 }
 
 /**
  * Check if a message exists by provider ID.
  */
 export async function messageExists(
-  threadId: string,
-  providerMessageId: string
+  conversationId: string,
+  externalId: string
 ): Promise<boolean> {
-  const message = await db.query.emailMessage.findFirst({
+  const msg = await db.query.message.findFirst({
     where: and(
-      eq(emailMessage.threadId, threadId),
-      eq(emailMessage.providerMessageId, providerMessageId)
+      eq(message.conversationId, conversationId),
+      eq(message.externalId, externalId)
     ),
     columns: { id: true },
   });
-  return !!message;
+  return !!msg;
 }
 
 /**
- * Get sync statistics for an account.
+ * Get sync statistics for a source account.
  */
-export async function getSyncStats(accountId: string): Promise<{
-  threadCount: number;
+export async function getSyncStats(sourceAccountId: string): Promise<{
+  conversationCount: number;
   messageCount: number;
   lastSyncAt: Date | null;
 }> {
-  const [threadCount] = await db
-    .select({ count: emailThread.id })
-    .from(emailThread)
-    .where(eq(emailThread.accountId, accountId));
+  // Count conversations
+  const [convCountResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(conversation)
+    .where(eq(conversation.sourceAccountId, sourceAccountId));
 
   // Get the most recent message's receivedAt as lastSyncAt
-  const latestThread = await db.query.emailThread.findFirst({
-    where: eq(emailThread.accountId, accountId),
-    orderBy: (t, { desc }) => [desc(t.lastMessageAt)],
+  const latestConv = await db.query.conversation.findFirst({
+    where: eq(conversation.sourceAccountId, sourceAccountId),
+    orderBy: (c, { desc }) => [desc(c.lastMessageAt)],
     columns: { lastMessageAt: true },
   });
 
-  // Count messages across all threads for this account
-  const threads = await db.query.emailThread.findMany({
-    where: eq(emailThread.accountId, accountId),
+  // Count messages across all conversations for this account
+  const conversations = await db.query.conversation.findMany({
+    where: eq(conversation.sourceAccountId, sourceAccountId),
     columns: { messageCount: true },
   });
-  const messageCount = threads.reduce((sum, t) => sum + t.messageCount, 0);
+  const msgCount = conversations.reduce((sum, c) => sum + c.messageCount, 0);
 
   return {
-    threadCount: Number(threadCount?.count ?? 0),
-    messageCount,
-    lastSyncAt: latestThread?.lastMessageAt ?? null,
+    conversationCount: convCountResult?.count ?? 0,
+    messageCount: msgCount,
+    lastSyncAt: latestConv?.lastMessageAt ?? null,
   };
+}
+
+/**
+ * Get or create a source account ID for email processing.
+ * This bridges the legacy emailAccount to the unified sourceAccount.
+ */
+export async function getOrCreateSourceAccount(
+  organizationId: string,
+  email: string,
+  provider: string,
+  addedByUserId: string
+): Promise<string> {
+  // Check if source account already exists
+  const existing = await db.query.sourceAccount.findFirst({
+    where: and(
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email"),
+      eq(sourceAccount.externalId, email)
+    ),
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  // Create new source account
+  const [newAccount] = await db
+    .insert(sourceAccount)
+    .values({
+      organizationId,
+      addedByUserId,
+      type: "email",
+      provider,
+      externalId: email,
+      displayName: email,
+      status: "connected",
+      settings: {
+        syncEnabled: true,
+        syncFrequencyMinutes: 5,
+      },
+      isPrimary: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning();
+
+  return newAccount!.id;
 }

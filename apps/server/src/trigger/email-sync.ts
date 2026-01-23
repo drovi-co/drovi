@@ -4,12 +4,13 @@
 //
 // Background tasks for incremental email synchronization.
 // Runs on schedule and on-demand to keep Evidence Store current.
+// Intelligence extraction is handled by the Python backend via orchestratorExtractTask.
 //
 
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { conversation, sourceAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { log } from "../lib/logger";
 import {
   getAccountsForSync,
@@ -17,15 +18,15 @@ import {
   performIncrementalSync,
   type SyncResult,
 } from "../lib/sync";
-import { batchAnalyzeThreadsTask } from "./thread-analysis";
+import { orchestratorExtractTask } from "./intelligence-extraction";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 interface SyncPayload {
-  /** Specific account ID to sync (optional) */
-  accountId?: string;
+  /** Specific source account ID to sync (optional) */
+  sourceAccountId?: string;
   /** Organization ID to sync all accounts for (optional) */
   organizationId?: string;
   /** Force sync even if recently synced */
@@ -76,10 +77,13 @@ export const syncEmailsTask = task({
     // Get accounts to sync
     let accounts: Awaited<ReturnType<typeof getAccountsForSync>>;
 
-    if (payload.accountId) {
-      // Single account sync
-      const account = await db.query.emailAccount.findFirst({
-        where: eq(emailAccount.id, payload.accountId),
+    if (payload.sourceAccountId) {
+      // Single account sync - use sourceAccount table
+      const account = await db.query.sourceAccount.findFirst({
+        where: and(
+          eq(sourceAccount.id, payload.sourceAccountId),
+          eq(sourceAccount.type, "email")
+        ),
       });
       accounts = account ? [account] : [];
     } else {
@@ -90,7 +94,7 @@ export const syncEmailsTask = task({
     log.info("Email sync starting", {
       accountCount: accounts.length,
       organizationId: payload.organizationId,
-      accountId: payload.accountId,
+      sourceAccountId: payload.sourceAccountId,
     });
 
     result.total = accounts.length;
@@ -99,7 +103,7 @@ export const syncEmailsTask = task({
       // Skip if already syncing (unless forced)
       if (!payload.force && (await isAccountSyncing(account.id))) {
         log.debug("Skipping account - already syncing", {
-          accountId: account.id,
+          sourceAccountId: account.id,
         });
         result.skipped++;
         continue;
@@ -107,15 +111,14 @@ export const syncEmailsTask = task({
 
       // Skip if recently synced (unless forced)
       if (!payload.force && account.lastSyncAt) {
-        const syncInterval =
-          (account.settings as { syncFrequencyMinutes?: number } | null)
-            ?.syncFrequencyMinutes ?? 5;
+        const settings = account.settings as { syncFrequencyMinutes?: number } | null;
+        const syncInterval = settings?.syncFrequencyMinutes ?? 5;
         const minSyncInterval = syncInterval * 60 * 1000; // Convert to ms
         const timeSinceLastSync = Date.now() - account.lastSyncAt.getTime();
 
         if (timeSinceLastSync < minSyncInterval) {
           log.debug("Skipping account - recently synced", {
-            accountId: account.id,
+            sourceAccountId: account.id,
             timeSinceLastSync,
             minSyncInterval,
           });
@@ -131,25 +134,54 @@ export const syncEmailsTask = task({
         if (syncResult.success) {
           result.successful++;
 
-          // Trigger AI analysis for new threads
+          // Trigger intelligence extraction for new conversations
           if (syncResult.newThreads > 0) {
-            log.info("Triggering AI analysis for new threads", {
-              accountId: account.id,
-              newThreads: syncResult.newThreads,
+            log.info("Triggering intelligence extraction for new conversations", {
+              sourceAccountId: account.id,
+              newConversations: syncResult.newThreads,
             });
 
-            await batchAnalyzeThreadsTask.trigger({
-              accountId: account.id,
+            // Get recent conversations for this account
+            const recentConversations = await db.query.conversation.findMany({
+              where: eq(conversation.sourceAccountId, account.id),
+              orderBy: [desc(conversation.createdAt)],
               limit: Math.min(syncResult.newThreads, 50),
-              force: false,
+              with: {
+                messages: {
+                  orderBy: (m, { asc }) => [asc(m.messageIndex)],
+                },
+              },
             });
+
+            // Trigger intelligence extraction for each conversation
+            for (const conv of recentConversations) {
+              if (conv.messages.length > 0) {
+                // Combine messages into content for extraction
+                const content = conv.messages
+                  .map((m) => {
+                    const from = m.senderName ?? m.senderEmail ?? "Unknown";
+                    const body = m.bodyText ?? "";
+                    return `From: ${from}\n${body}`;
+                  })
+                  .join("\n\n---\n\n");
+
+                await orchestratorExtractTask.trigger({
+                  organizationId: account.organizationId,
+                  sourceType: "email",
+                  content,
+                  sourceId: account.id,
+                  conversationId: conv.id,
+                  userEmail: account.externalId,
+                });
+              }
+            }
           }
         } else {
           result.failed++;
         }
 
         log.info("Account sync completed", {
-          accountId: account.id,
+          sourceAccountId: account.id,
           success: syncResult.success,
           threadsProcessed: syncResult.threadsProcessed,
           newThreads: syncResult.newThreads,
@@ -158,7 +190,7 @@ export const syncEmailsTask = task({
       } catch (error) {
         result.failed++;
         log.error("Account sync failed", error, {
-          accountId: account.id,
+          sourceAccountId: account.id,
         });
       }
 
@@ -199,27 +231,60 @@ export const syncEmailsOnDemandTask = task({
     maxTimeoutInMs: 10_000,
     factor: 2,
   },
-  run: async (payload: { accountId: string }): Promise<SyncResult> => {
-    log.info("On-demand sync starting", { accountId: payload.accountId });
+  run: async (payload: { sourceAccountId: string }): Promise<SyncResult> => {
+    log.info("On-demand sync starting", { sourceAccountId: payload.sourceAccountId });
 
-    const result = await performIncrementalSync(payload.accountId);
+    const result = await performIncrementalSync(payload.sourceAccountId);
 
-    // Trigger AI analysis for new threads
-    if (result.success && result.newThreads > 0) {
-      log.info("Triggering AI analysis for new threads", {
-        accountId: payload.accountId,
-        newThreads: result.newThreads,
+    // Get account for organization ID
+    const account = await db.query.sourceAccount.findFirst({
+      where: eq(sourceAccount.id, payload.sourceAccountId),
+    });
+
+    // Trigger intelligence extraction for new conversations
+    if (result.success && result.newThreads > 0 && account) {
+      log.info("Triggering intelligence extraction for new conversations", {
+        sourceAccountId: payload.sourceAccountId,
+        newConversations: result.newThreads,
       });
 
-      await batchAnalyzeThreadsTask.trigger({
-        accountId: payload.accountId,
+      // Get recent conversations
+      const recentConversations = await db.query.conversation.findMany({
+        where: eq(conversation.sourceAccountId, payload.sourceAccountId),
+        orderBy: [desc(conversation.createdAt)],
         limit: Math.min(result.newThreads, 50),
-        force: false,
+        with: {
+          messages: {
+            orderBy: (m, { asc }) => [asc(m.messageIndex)],
+          },
+        },
       });
+
+      // Trigger intelligence extraction for each conversation
+      for (const conv of recentConversations) {
+        if (conv.messages.length > 0) {
+          const content = conv.messages
+            .map((m) => {
+              const from = m.senderName ?? m.senderEmail ?? "Unknown";
+              const body = m.bodyText ?? "";
+              return `From: ${from}\n${body}`;
+            })
+            .join("\n\n---\n\n");
+
+          await orchestratorExtractTask.trigger({
+            organizationId: account.organizationId,
+            sourceType: "email",
+            content,
+            sourceId: account.id,
+            conversationId: conv.id,
+            userEmail: account.externalId,
+          });
+        }
+      }
     }
 
     log.info("On-demand sync completed", {
-      accountId: payload.accountId,
+      sourceAccountId: payload.sourceAccountId,
       success: result.success,
       threadsProcessed: result.threadsProcessed,
       newThreads: result.newThreads,
@@ -245,17 +310,18 @@ export const syncEmailsSchedule = schedules.task({
     // Find accounts that need syncing
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-    const accountsToSync = await db.query.emailAccount.findMany({
+    const accountsToSync = await db.query.sourceAccount.findMany({
       where: and(
+        eq(sourceAccount.type, "email"),
         or(
-          eq(emailAccount.status, "active"),
-          eq(emailAccount.status, "syncing")
+          eq(sourceAccount.status, "connected"),
+          eq(sourceAccount.status, "syncing")
         ),
         or(
           // Never synced
-          isNull(emailAccount.lastSyncAt),
+          isNull(sourceAccount.lastSyncAt),
           // Not synced in last 5 minutes
-          lte(emailAccount.lastSyncAt, fiveMinutesAgo)
+          lte(sourceAccount.lastSyncAt, fiveMinutesAgo)
         )
       ),
       columns: { id: true },
@@ -269,7 +335,7 @@ export const syncEmailsSchedule = schedules.task({
     // Trigger sync task for each account
     for (const account of accountsToSync) {
       await syncEmailsTask.trigger({
-        accountId: account.id,
+        sourceAccountId: account.id,
       });
     }
 

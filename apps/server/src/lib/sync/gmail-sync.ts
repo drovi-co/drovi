@@ -5,6 +5,8 @@
 // Implements Gmail's sync strategy using the History API for incremental sync
 // and parallel thread fetching for high-speed backfill.
 //
+// Uses ONLY the unified schema (sourceAccount, conversation, message).
+//
 
 import type { GmailEmailClient } from "../email-client/gmail";
 import type { EmailThreadWithMessages } from "../email-client/types";
@@ -34,20 +36,20 @@ import type {
  * Uses the History API to fetch changes since the last sync cursor.
  *
  * @param client - Gmail client instance
- * @param accountId - Email account ID in our database
+ * @param sourceAccountId - Source account ID in our database
  * @param options - Sync options including cursor
  * @returns Sync result with statistics
  */
 export async function syncGmailIncremental(
   client: GmailEmailClient,
-  accountId: string,
+  sourceAccountId: string,
   options: ProviderSyncOptions
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const result: SyncResult = {
     success: false,
     jobId: crypto.randomUUID(),
-    accountId,
+    accountId: sourceAccountId,
     type: "incremental",
     threadsProcessed: 0,
     messagesProcessed: 0,
@@ -64,7 +66,7 @@ export async function syncGmailIncremental(
     const delta = await client.getChanges(options.cursor);
 
     log.info("Gmail incremental sync: changes detected", {
-      accountId,
+      sourceAccountId,
       changedThreads: delta.changedThreadIds.length,
       deletedThreads: delta.deletedThreadIds.length,
       fullSyncRequired: delta.fullSyncRequired,
@@ -74,12 +76,12 @@ export async function syncGmailIncremental(
     // Instead of failing, we fetch recent threads and get a fresh cursor
     if (delta.fullSyncRequired) {
       log.warn("Gmail history expired - performing catch-up sync", {
-        accountId,
+        sourceAccountId,
         oldCursor: options.cursor,
       });
 
       // Fetch recent threads (last 7 days) to catch up
-      const catchUpResult = await performCatchUpSync(client, accountId);
+      const catchUpResult = await performCatchUpSync(client, sourceAccountId);
 
       result.threadsProcessed = catchUpResult.threadsProcessed;
       result.newThreads = catchUpResult.newThreads;
@@ -94,7 +96,7 @@ export async function syncGmailIncremental(
 
       log.info("Gmail catch-up sync completed", {
         ...result,
-        accountId,
+        sourceAccountId,
         newCursor: result.newCursor,
       });
 
@@ -104,7 +106,7 @@ export async function syncGmailIncremental(
     // Handle deleted threads
     for (const threadId of delta.deletedThreadIds) {
       try {
-        await markThreadDeleted(accountId, threadId);
+        await markThreadDeleted(sourceAccountId, threadId);
       } catch (error) {
         result.errors.push({
           code: "DELETE_ERROR",
@@ -119,7 +121,7 @@ export async function syncGmailIncremental(
     if (delta.changedThreadIds.length > 0) {
       const batchResult = await fetchAndProcessThreads(
         client,
-        accountId,
+        sourceAccountId,
         delta.changedThreadIds,
         { forceUpdate: true }
       );
@@ -143,7 +145,7 @@ export async function syncGmailIncremental(
 
     log.info("Gmail incremental sync completed", {
       ...result,
-      accountId,
+      sourceAccountId,
     });
 
     return result;
@@ -154,7 +156,7 @@ export async function syncGmailIncremental(
       retryable: true,
     });
     result.duration = Date.now() - startTime;
-    log.error("Gmail incremental sync failed", error, { accountId });
+    log.error("Gmail incremental sync failed", error, { sourceAccountId });
     return result;
   }
 }
@@ -185,7 +187,7 @@ export async function backfillGmailPhase(
   const result: PhaseBackfillResult = {
     success: false,
     jobId: crypto.randomUUID(),
-    accountId: config.accountId,
+    accountId: config.sourceAccountId,
     type: "backfill",
     phase: config.phase,
     phaseComplete: false,
@@ -202,7 +204,7 @@ export async function backfillGmailPhase(
   try {
     // Step 1: Collect thread IDs for the date range
     log.info("Gmail phase backfill: collecting thread IDs", {
-      accountId: config.accountId,
+      sourceAccountId: config.sourceAccountId,
       phase: config.phase,
       afterDate: config.afterDate?.toISOString(),
       beforeDate: config.beforeDate?.toISOString(),
@@ -218,7 +220,7 @@ export async function backfillGmailPhase(
     );
 
     log.info("Gmail phase backfill: thread IDs collected", {
-      accountId: config.accountId,
+      sourceAccountId: config.sourceAccountId,
       phase: config.phase,
       totalThreads: allThreadIds.length,
     });
@@ -231,16 +233,16 @@ export async function backfillGmailPhase(
       return result;
     }
 
-    // Step 2: Deduplicate against existing threads
+    // Step 2: Deduplicate against existing conversations
     const dedupeResult = await batchDeduplicateThreads(
-      config.accountId,
+      config.sourceAccountId,
       allThreadIds
     );
 
     const newThreadIds = dedupeResult.newIds;
 
     log.info("Gmail phase backfill: deduplication complete", {
-      accountId: config.accountId,
+      sourceAccountId: config.sourceAccountId,
       phase: config.phase,
       newThreads: newThreadIds.length,
       existingThreads: dedupeResult.existingIds.length,
@@ -282,7 +284,7 @@ export async function backfillGmailPhase(
       // Process fetched threads into database
       if (fetchResult.threads.length > 0) {
         const batchResult = await processBatch(
-          config.accountId,
+          config.sourceAccountId,
           fetchResult.threads,
           { skipExisting: true }
         );
@@ -298,7 +300,7 @@ export async function backfillGmailPhase(
 
         // Log batch summary for debugging
         log.debug("Batch processing summary", {
-          accountId: config.accountId,
+          sourceAccountId: config.sourceAccountId,
           phase: config.phase,
           threadsInBatch: fetchResult.threads.length,
           threadsProcessed: batchResult.processed,
@@ -307,7 +309,7 @@ export async function backfillGmailPhase(
         });
       } else {
         log.warn("No threads returned from fetch", {
-          accountId: config.accountId,
+          sourceAccountId: config.sourceAccountId,
           phase: config.phase,
           batchSize: batch.length,
           fetchErrors: fetchResult.errors.length,
@@ -327,7 +329,7 @@ export async function backfillGmailPhase(
       onProgress?.(processedCount, newThreadIds.length, estimated);
 
       log.debug("Gmail phase backfill: batch complete", {
-        accountId: config.accountId,
+        sourceAccountId: config.sourceAccountId,
         phase: config.phase,
         batchSize: batch.length,
         batchDuration: Date.now() - batchStartTime,
@@ -344,7 +346,7 @@ export async function backfillGmailPhase(
 
     log.info("Gmail phase backfill completed", {
       ...result,
-      accountId: config.accountId,
+      sourceAccountId: config.sourceAccountId,
       phase: config.phase,
       throughput: `${Math.round((result.threadsProcessed / result.duration) * 1000)} threads/sec`,
     });
@@ -358,7 +360,7 @@ export async function backfillGmailPhase(
     });
     result.duration = Date.now() - startTime;
     log.error("Gmail phase backfill failed", error, {
-      accountId: config.accountId,
+      sourceAccountId: config.sourceAccountId,
       phase: config.phase,
     });
     return result;
@@ -396,12 +398,12 @@ interface CatchUpResult {
  * Fetches recent threads (last 7 days) to ensure we're up to date.
  *
  * @param client - Gmail client
- * @param accountId - Account ID
+ * @param sourceAccountId - Source account ID
  * @returns Catch-up sync result
  */
 async function performCatchUpSync(
   client: GmailEmailClient,
-  accountId: string
+  sourceAccountId: string
 ): Promise<CatchUpResult> {
   const result: CatchUpResult = {
     threadsProcessed: 0,
@@ -417,7 +419,7 @@ async function performCatchUpSync(
     const dateQuery = `after:${sevenDaysAgo.getFullYear()}/${sevenDaysAgo.getMonth() + 1}/${sevenDaysAgo.getDate()}`;
 
     log.info("Gmail catch-up sync: fetching recent threads", {
-      accountId,
+      sourceAccountId,
       query: dateQuery,
     });
 
@@ -441,7 +443,7 @@ async function performCatchUpSync(
       // Safety limit: max 500 threads in catch-up
       if (threadIds.length >= 500) {
         log.warn("Gmail catch-up sync: hit thread limit", {
-          accountId,
+          sourceAccountId,
           threadCount: threadIds.length,
         });
         break;
@@ -449,7 +451,7 @@ async function performCatchUpSync(
     } while (pageToken);
 
     log.info("Gmail catch-up sync: collected thread IDs", {
-      accountId,
+      sourceAccountId,
       threadCount: threadIds.length,
     });
 
@@ -457,8 +459,11 @@ async function performCatchUpSync(
       return result;
     }
 
-    // Deduplicate against existing threads
-    const dedupeResult = await batchDeduplicateThreads(accountId, threadIds);
+    // Deduplicate against existing conversations
+    const dedupeResult = await batchDeduplicateThreads(
+      sourceAccountId,
+      threadIds
+    );
     const threadsToProcess = [
       ...dedupeResult.newIds,
       // Also re-process some existing threads to catch updates
@@ -466,7 +471,7 @@ async function performCatchUpSync(
     ];
 
     log.info("Gmail catch-up sync: processing threads", {
-      accountId,
+      sourceAccountId,
       newThreads: dedupeResult.newIds.length,
       existingToUpdate: Math.min(dedupeResult.existingIds.length, 50),
       totalToProcess: threadsToProcess.length,
@@ -476,7 +481,7 @@ async function performCatchUpSync(
     if (threadsToProcess.length > 0) {
       const batchResult = await fetchAndProcessThreads(
         client,
-        accountId,
+        sourceAccountId,
         threadsToProcess,
         { forceUpdate: true }
       );
@@ -498,7 +503,7 @@ async function performCatchUpSync(
       message: error instanceof Error ? error.message : "Unknown error",
       retryable: true,
     });
-    log.error("Gmail catch-up sync failed", error, { accountId });
+    log.error("Gmail catch-up sync failed", error, { sourceAccountId });
   }
 
   return result;
@@ -509,17 +514,17 @@ async function performCatchUpSync(
 // =============================================================================
 
 /**
- * Fetch full thread data and process into Evidence Store.
+ * Fetch full thread data and process into unified schema.
  *
  * @param client - Gmail client
- * @param accountId - Account ID
+ * @param sourceAccountId - Source account ID
  * @param threadIds - Provider thread IDs to fetch
  * @param options - Processing options
  * @returns Batch processing result
  */
 async function fetchAndProcessThreads(
   client: GmailEmailClient,
-  accountId: string,
+  sourceAccountId: string,
   threadIds: string[],
   options: { skipExisting?: boolean; forceUpdate?: boolean } = {}
 ): Promise<BatchResult> {
@@ -544,7 +549,7 @@ async function fetchAndProcessThreads(
   }
 
   // Process fetched threads
-  const batchResult = await processBatch(accountId, threads, options);
+  const batchResult = await processBatch(sourceAccountId, threads, options);
   batchResult.errors.push(...errors);
 
   return batchResult;

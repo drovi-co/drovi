@@ -9,7 +9,7 @@ import {
   validateOutlookScopes,
 } from "@memorystack/auth/providers";
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
 import { tasks } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
@@ -108,10 +108,11 @@ outlookOAuth.get("/callback", async (c) => {
     const userInfo = await getOutlookUserInfo(tokens.accessToken);
 
     // Check if this email is already connected to this organization
-    const existingAccount = await db.query.emailAccount.findFirst({
+    const existingAccount = await db.query.sourceAccount.findFirst({
       where: and(
-        eq(emailAccount.organizationId, organizationId),
-        eq(emailAccount.email, userInfo.email)
+        eq(sourceAccount.organizationId, organizationId),
+        eq(sourceAccount.type, "email"),
+        eq(sourceAccount.externalId, userInfo.email)
       ),
     });
 
@@ -134,18 +135,17 @@ outlookOAuth.get("/callback", async (c) => {
       }
 
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: safeEncryptToken(tokens.accessToken),
           refreshToken: safeEncryptToken(tokens.refreshToken),
           tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-          status: "active",
+          status: "connected",
           displayName: userInfo.displayName,
-          lastSyncStatus: null,
           lastSyncError: null,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, existingAccount.id));
+        .where(eq(sourceAccount.id, existingAccount.id));
 
       accountId = existingAccount.id;
     } else {
@@ -156,33 +156,25 @@ outlookOAuth.get("/callback", async (c) => {
         email: userInfo.email,
       });
 
-      // Check if organization has any other accounts to determine if this should be primary
-      const existingAccounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, organizationId),
-      });
-
-      const isPrimary = existingAccounts.length === 0;
-
       const result = await db
-        .insert(emailAccount)
+        .insert(sourceAccount)
         .values({
           organizationId,
           addedByUserId: userId,
+          type: "email",
           provider: "outlook",
-          email: userInfo.email,
+          externalId: userInfo.email,
           displayName: userInfo.displayName,
           accessToken: safeEncryptToken(tokens.accessToken),
           refreshToken: safeEncryptToken(tokens.refreshToken),
           tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-          status: "active",
-          isPrimary,
+          status: "connected",
           settings: {
             syncEnabled: true,
             syncFrequencyMinutes: 5,
-            backfillDays: 90,
           },
         })
-        .returning({ id: emailAccount.id });
+        .returning({ id: sourceAccount.id });
 
       const newAccount = result[0];
       if (!newAccount) {

@@ -12,9 +12,9 @@
 //
 
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { log } from "../../lib/logger";
 import { syncEmailsOnDemandTask } from "../../trigger/email-sync";
@@ -98,8 +98,11 @@ gmailWebhook.post("/", async (c) => {
   });
 
   // Find the email account by email address
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.email, emailAddress),
+  const account = await db.query.sourceAccount.findFirst({
+    where: and(
+      eq(sourceAccount.type, "email"),
+      eq(sourceAccount.externalId, emailAddress)
+    ),
     columns: {
       id: true,
       status: true,
@@ -117,7 +120,7 @@ gmailWebhook.post("/", async (c) => {
     });
   }
 
-  if (account.status !== "active" && account.status !== "syncing") {
+  if (account.status !== "connected" && account.status !== "syncing") {
     log.info("Gmail webhook - account not active", {
       emailAddress,
       status: account.status,
@@ -136,7 +139,7 @@ gmailWebhook.post("/", async (c) => {
   // Using debounce to avoid triggering multiple syncs for rapid notifications
   try {
     await syncEmailsOnDemandTask.trigger(
-      { accountId: account.id },
+      { sourceAccountId: account.id },
       {
         debounce: {
           key: `gmail-push-${account.id}`,

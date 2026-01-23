@@ -12,21 +12,12 @@ import {
   type SlackMessageData,
   slackAdapter,
 } from "@memorystack/ai";
-import {
-  analyzeThread,
-  claimsToDbFormat,
-  type ThreadInput,
-  type ThreadMessage,
-} from "@memorystack/ai/agents";
 import { SLACK_API_BASE } from "@memorystack/auth/providers/slack";
 import { db } from "@memorystack/db";
 import {
   type ConversationMetadata,
-  claim,
-  commitment,
   contact,
   conversation,
-  decision,
   message,
   slackChannel,
   slackTeam,
@@ -36,15 +27,10 @@ import {
 import { logger, schedules, task } from "@trigger.dev/sdk/v3";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { safeDecryptToken } from "../lib/crypto/tokens";
-import { embedConversationTask } from "./embedding-generation";
 import {
-  checkExistingCommitment,
-  checkExistingDecision,
-} from "./lib/commitment-dedup";
-import {
-  processCommitmentTask,
-  processDecisionTask,
-} from "./unified-object-processing";
+  callPythonIntelligence,
+  checkIntelligenceBackendHealth,
+} from "../lib/intelligence-backend";
 
 const log = logger;
 
@@ -991,7 +977,7 @@ interface SlackConversationAnalysisResult {
 
 /**
  * Analyze a Slack conversation for intelligence extraction.
- * Extracts claims, commitments, decisions, and enriches contacts.
+ * Uses Python backend for extraction - creates UIOs directly.
  */
 export const analyzeSlackConversationTask = task({
   id: "slack-conversation-analysis",
@@ -1009,7 +995,7 @@ export const analyzeSlackConversationTask = task({
   ): Promise<SlackConversationAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
-    log.info("Starting Slack conversation analysis", { conversationId, force });
+    log.info("Starting Slack conversation analysis via Python backend", { conversationId, force });
 
     const result: SlackConversationAnalysisResult = {
       success: false,
@@ -1021,6 +1007,13 @@ export const analyzeSlackConversationTask = task({
     };
 
     try {
+      // Verify Python backend is available
+      const isHealthy = await checkIntelligenceBackendHealth();
+      if (!isHealthy) {
+        result.error = "Python intelligence backend is not available";
+        return result;
+      }
+
       // Get conversation with messages and source account
       const conv = await db.query.conversation.findFirst({
         where: eq(conversation.id, conversationId),
@@ -1051,99 +1044,65 @@ export const analyzeSlackConversationTask = task({
         }
       }
 
-      // Get the authenticated user identifier from source account settings
-      const settings = conv.sourceAccount.settings as {
-        customSettings?: { authedUserId?: string; botUserId?: string };
-      } | null;
-      const userIdentifier = settings?.customSettings?.authedUserId ?? "";
-
-      // Convert Slack messages to ThreadMessage format for the agent
-      const threadMessages: ThreadMessage[] = conv.messages.map(
-        (msg, index) => ({
-          id: msg.id,
-          providerMessageId: msg.externalId ?? msg.id,
-          fromEmail: msg.senderExternalId ?? "unknown",
-          fromName: msg.senderName ?? undefined,
-          toRecipients: [{ email: userIdentifier, name: "You" }],
-          subject: undefined,
-          bodyText: msg.bodyText ?? "",
-          sentAt: msg.sentAt ?? undefined,
-          receivedAt: msg.receivedAt ?? undefined,
-          isFromUser: msg.isFromUser ?? false,
-          messageIndex: index,
-        })
-      );
-
-      // Build ThreadInput for the agent
-      const threadInput: ThreadInput = {
-        id: conversationId,
-        accountId: conv.sourceAccountId,
-        organizationId: conv.sourceAccount.organizationId,
-        providerThreadId: conv.externalId ?? conversationId,
-        subject: conv.title ?? "Slack Conversation",
-        participantEmails: conv.participantIds ?? [],
-        userEmail: userIdentifier,
-        messages: threadMessages,
-      };
-
       // Skip analysis if not enough content
-      if (threadMessages.length === 0) {
+      if (conv.messages.length === 0) {
         log.info("Skipping analysis - no messages", { conversationId });
         result.success = true;
         return result;
       }
 
-      // Run the Thread Understanding Agent analysis
-      log.info("Running thread analysis on Slack conversation", {
+      // Build content string from messages
+      const content = conv.messages
+        .map((msg) => {
+          const sender = msg.senderName ?? msg.senderExternalId ?? "Unknown";
+          const timestamp = msg.sentAt?.toISOString() ?? "";
+          return `[${timestamp}] ${sender}: ${msg.bodyText ?? ""}`;
+        })
+        .join("\n");
+
+      // Get the authenticated user email from source account settings
+      const settings = conv.sourceAccount.settings as {
+        customSettings?: { authedUserId?: string };
+      } | null;
+      const userEmail = settings?.customSettings?.authedUserId ?? "";
+
+      // Call Python backend for intelligence extraction
+      // Python backend handles: extraction, PostgreSQL persistence, FalkorDB graph, memory episodes
+      log.info("Calling Python intelligence backend", {
         conversationId,
-        messageCount: threadMessages.length,
+        messageCount: conv.messages.length,
+        contentLength: content.length,
       });
 
-      const analysis = await analyzeThread(threadInput);
-
-      log.info("Thread analysis completed", {
-        conversationId,
-        claims: {
-          facts: analysis.claims.facts.length,
-          promises: analysis.claims.promises.length,
-          requests: analysis.claims.requests.length,
-          questions: analysis.claims.questions.length,
-          decisions: analysis.claims.decisions.length,
-        },
-        openLoops: analysis.openLoops.length,
+      const analysis = await callPythonIntelligence({
+        content,
+        organization_id: conv.sourceAccount.organizationId,
+        source_type: "slack",
+        source_id: conv.externalId ?? conversationId,
+        source_account_id: conv.sourceAccountId,
+        conversation_id: conversationId,
+        message_ids: conv.messages.map((m) => m.id),
+        user_email: userEmail,
       });
 
-      // Convert claims to DB format and store
-      const dbClaims = claimsToDbFormat(
-        analysis.claims,
+      log.info("Python intelligence analysis completed", {
         conversationId,
-        conv.sourceAccount.organizationId
-      );
+        analysisId: analysis.analysis_id,
+        claims: analysis.claims.length,
+        commitments: analysis.commitments.length,
+        decisions: analysis.decisions.length,
+        risks: analysis.risks.length,
+        contacts: analysis.contacts.length,
+        confidence: analysis.overall_confidence,
+      });
 
-      // Insert claims into database
-      if (dbClaims.length > 0) {
-        await db.insert(claim).values(
-          dbClaims.map((c) => ({
-            id: randomUUID(),
-            organizationId: conv.sourceAccount.organizationId,
-            conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            type: c.type,
-            text: c.text,
-            confidence: c.confidence,
-            extractedAt: new Date(),
-            quotedText: c.quotedText,
-            sourceMessageIds: c.sourceMessageIds,
-            metadata: {
-              sourceType: "slack" as const,
-            },
-          }))
-        );
-        result.claimsCreated = dbClaims.length;
-      }
+      // Update result counts (Python already persisted to DB)
+      result.claimsCreated = analysis.claims.length;
+      result.commitmentsCreated = analysis.commitments.length;
+      result.decisionsCreated = analysis.decisions.length;
 
       // Update conversation with analysis results
-      const urgencyScore = analysis.classification.urgency.score;
+      const urgencyScore = analysis.overall_confidence;
       const priorityTier =
         urgencyScore >= 0.8
           ? "urgent"
@@ -1156,232 +1115,18 @@ export const analyzeSlackConversationTask = task({
       await db
         .update(conversation)
         .set({
-          briefSummary: analysis.brief?.summary,
-          hasOpenLoops: analysis.openLoops.length > 0,
-          openLoopCount: analysis.openLoops.length,
+          hasOpenLoops: analysis.risks.length > 0,
+          openLoopCount: analysis.risks.length,
           priorityTier,
-          urgencyScore: analysis.classification.urgency.score,
-          importanceScore: analysis.classification.urgency.score,
-          suggestedAction: analysis.brief?.actionRequired
-            ? analysis.brief.actionDescription
-            : null,
+          urgencyScore,
+          importanceScore: urgencyScore,
           lastAnalyzedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(conversation.id, conversationId));
 
-      // Extract commitments from promises and requests
-      const promiseClaims = analysis.claims.promises;
-      const requestClaims = analysis.claims.requests;
-
-      if (promiseClaims.length > 0 || requestClaims.length > 0) {
-        log.info("Extracting commitments from Slack conversation", {
-          conversationId,
-          promises: promiseClaims.length,
-          requests: requestClaims.length,
-        });
-
-        for (const promise of promiseClaims) {
-          // Check for existing duplicate in same conversation
-          const dedupCheck = await checkExistingCommitment({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: promise.text.slice(0, 200),
-            description: promise.text,
-            dueDate: promise.deadline ? new Date(promise.deadline) : null,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate commitment", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const commitmentId = randomUUID();
-          await db.insert(commitment).values({
-            id: commitmentId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: promise.text.slice(0, 200),
-            description: promise.text,
-            status: "pending",
-            confidence: promise.confidence,
-            dueDate: promise.deadline ? new Date(promise.deadline) : undefined,
-            direction:
-              promise.promisor === userIdentifier ? "owed_by_me" : "owed_to_me",
-            metadata: {
-              sourceType: "slack" as const,
-              sourceQuote: promise.evidence[0]?.quotedText,
-              commitmentType: "promise" as const,
-              promisorSlackId: promise.promisor,
-              promiseeSlackId: promise.promisee ?? userIdentifier,
-              isConditional: promise.isConditional,
-              condition: promise.condition ?? undefined,
-            },
-          });
-          result.commitmentsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processCommitmentTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            commitment: {
-              id: commitmentId,
-              title: promise.text.slice(0, 200),
-              description: promise.text,
-              dueDate: promise.deadline
-                ? new Date(promise.deadline)
-                : undefined,
-              confidence: promise.confidence,
-              sourceQuote: promise.evidence[0]?.quotedText,
-            },
-            sourceType: "slack",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalCommitmentId: commitmentId,
-          });
-        }
-
-        for (const request of requestClaims) {
-          // Check for existing duplicate in same conversation
-          const dedupCheck = await checkExistingCommitment({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: request.text.slice(0, 200),
-            description: request.text,
-            dueDate: request.deadline ? new Date(request.deadline) : null,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate commitment (request)", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const commitmentId = randomUUID();
-          await db.insert(commitment).values({
-            id: commitmentId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: request.text.slice(0, 200),
-            description: request.text,
-            status: "pending",
-            confidence: request.confidence,
-            dueDate: request.deadline ? new Date(request.deadline) : undefined,
-            direction:
-              request.requester === userIdentifier
-                ? "owed_to_me"
-                : "owed_by_me",
-            metadata: {
-              sourceType: "slack" as const,
-              sourceQuote: request.evidence[0]?.quotedText,
-              commitmentType: "request" as const,
-              requesterSlackId: request.requester,
-              requesteeSlackId: request.requestee ?? userIdentifier,
-              isExplicit: request.isExplicit,
-              priority: request.priority ?? undefined,
-            },
-          });
-          result.commitmentsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processCommitmentTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            commitment: {
-              id: commitmentId,
-              title: request.text.slice(0, 200),
-              description: request.text,
-              dueDate: request.deadline
-                ? new Date(request.deadline)
-                : undefined,
-              confidence: request.confidence,
-              sourceQuote: request.evidence[0]?.quotedText,
-            },
-            sourceType: "slack",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalCommitmentId: commitmentId,
-          });
-        }
-      }
-
-      // Extract decisions
-      const decisionClaims = analysis.claims.decisions;
-
-      if (decisionClaims.length > 0) {
-        log.info("Extracting decisions from Slack conversation", {
-          conversationId,
-          decisions: decisionClaims.length,
-        });
-
-        for (const decisionClaim of decisionClaims) {
-          // Check for existing duplicate decision in same conversation
-          const dedupCheck = await checkExistingDecision({
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            title: decisionClaim.text.slice(0, 200),
-            statement: decisionClaim.text,
-          });
-
-          if (dedupCheck.isDuplicate) {
-            log.info("Skipping duplicate decision", {
-              conversationId,
-              existingId: dedupCheck.existingId,
-              reason: dedupCheck.reason,
-            });
-            continue;
-          }
-
-          const decisionId = randomUUID();
-          await db.insert(decision).values({
-            id: decisionId,
-            organizationId: conv.sourceAccount.organizationId,
-            sourceConversationId: conversationId,
-            sourceAccountId: conv.sourceAccountId,
-            title: decisionClaim.text.slice(0, 200),
-            statement: decisionClaim.text,
-            rationale: decisionClaim.rationale ?? undefined,
-            confidence: decisionClaim.confidence,
-            decidedAt: new Date(),
-            metadata: {
-              sourceType: "slack" as const,
-              sourceQuote: decisionClaim.evidence[0]?.quotedText,
-              decision: decisionClaim.decision,
-              decisionMakerSlackId: decisionClaim.decisionMaker ?? undefined,
-            },
-          });
-          result.decisionsCreated++;
-
-          // Trigger UIO processing for cross-source intelligence
-          await processDecisionTask.trigger({
-            organizationId: conv.sourceAccount.organizationId,
-            decision: {
-              id: decisionId,
-              title: decisionClaim.text.slice(0, 200),
-              statement: decisionClaim.text,
-              rationale: decisionClaim.rationale ?? undefined,
-              decidedAt: new Date(),
-              confidence: decisionClaim.confidence,
-              ownerContactIds: [],
-              participantContactIds: [],
-              sourceQuote: decisionClaim.evidence[0]?.quotedText,
-            },
-            sourceType: "slack",
-            sourceAccountId: conv.sourceAccountId,
-            conversationId,
-            originalDecisionId: decisionId,
-          });
-        }
-      }
-
       // Extract and create/update contacts from Slack users
+      // Note: Commitments, decisions, and memory episodes are created by Python backend
       const slackUserIds = new Set<string>();
       for (const msg of conv.messages) {
         if (msg.senderExternalId && msg.senderExternalId !== "unknown") {
@@ -1437,28 +1182,6 @@ export const analyzeSlackConversationTask = task({
           });
           result.contactsCreated++;
         }
-      }
-
-      // Trigger embedding generation for this conversation
-      try {
-        await embedConversationTask.trigger(
-          { conversationId },
-          {
-            debounce: {
-              key: `embedding-conversation-${conversationId}`,
-              delay: "10s",
-              mode: "trailing",
-            },
-          }
-        );
-        log.info("Triggered embedding generation for Slack conversation", {
-          conversationId,
-        });
-      } catch (e) {
-        log.warn("Failed to trigger embedding generation", {
-          conversationId,
-          error: e,
-        });
       }
 
       result.success = true;

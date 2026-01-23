@@ -24,13 +24,25 @@ import { captureException, initSentry } from "./lib/sentry";
 import { rateLimit } from "./middleware/rate-limit";
 import { requestLogger } from "./middleware/request-logger";
 import { composeRoutes } from "./routes/compose";
+import { intelligenceApi } from "./routes/intelligence-api";
 import { oauthRoutes } from "./routes/oauth";
 import { publicApi } from "./routes/public-api";
 import { gmailWebhook } from "./routes/webhooks/gmail";
 import { polarWebhook } from "./routes/webhooks/polar";
+import {
+  initializeWebSocketServer,
+  handleWebSocketUpgrade,
+  closeWebSocketServer,
+  bunWebSocketHandlers,
+} from "./realtime";
 
 // Initialize Sentry for error tracking
 initSentry();
+
+// Initialize WebSocket server (async, runs in background)
+initializeWebSocketServer().catch((err) => {
+  log.error("Failed to initialize WebSocket server", err);
+});
 
 // =============================================================================
 // GRACEFUL SHUTDOWN STATE
@@ -142,6 +154,9 @@ app.post("/ai", async (c) => {
 
 // Mount public API routes (v1)
 app.route("/api/v1", publicApi);
+
+// Mount intelligence platform API routes (v1)
+app.route("/api/v1/intelligence", intelligenceApi);
 
 // OAuth callback routes (for email provider integration)
 app.route("/api/oauth", oauthRoutes);
@@ -267,6 +282,13 @@ async function shutdown(signal: string): Promise<void> {
   log.info(`Received ${signal}, starting graceful shutdown`);
   isShuttingDown = true;
 
+  // Close WebSocket connections first
+  try {
+    await closeWebSocketServer();
+  } catch (error) {
+    log.error("Error closing WebSocket server", error);
+  }
+
   // Wait for active requests to complete (max 30 seconds)
   const deadline = Date.now() + 30_000;
   while (activeRequests > 0 && Date.now() < deadline) {
@@ -302,4 +324,37 @@ async function shutdown(signal: string): Promise<void> {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
+// =============================================================================
+// SERVER STARTUP (for Bun with WebSocket support)
+// =============================================================================
+
+const port = Number(process.env.PORT) || 3000;
+
+Bun.serve({
+  port,
+  fetch: async (request, bunServer) => {
+    const url = new URL(request.url);
+
+    // Handle WebSocket upgrade requests
+    if (
+      url.pathname === "/ws" ||
+      url.pathname === "/api/v1/intelligence/ws"
+    ) {
+      const upgraded = await handleWebSocketUpgrade(bunServer, request);
+      if (upgraded) {
+        return undefined; // WebSocket upgrade handled
+      }
+      // Upgrade failed - return error
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
+
+    // Handle regular HTTP requests with Hono
+    return app.fetch(request);
+  },
+  websocket: bunWebSocketHandlers,
+});
+
+log.info(`Server listening on port ${port}`);
+
+// Also export the app for testing
 export default app;

@@ -9,10 +9,10 @@
 import { auth } from "@memorystack/auth";
 import { db } from "@memorystack/db";
 import {
-  emailAccount,
-  emailMessage,
-  emailThread,
+  conversation,
   member,
+  message,
+  sourceAccount,
 } from "@memorystack/db/schema";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { and, desc, eq } from "drizzle-orm";
@@ -101,10 +101,11 @@ async function getAccountWithAccess(
     return null;
   }
 
-  const account = await db.query.emailAccount.findFirst({
+  const account = await db.query.sourceAccount.findFirst({
     where: and(
-      eq(emailAccount.id, accountId),
-      eq(emailAccount.organizationId, organizationId)
+      eq(sourceAccount.id, accountId),
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email")
     ),
   });
 
@@ -112,52 +113,51 @@ async function getAccountWithAccess(
 }
 
 async function getThreadingInfo(
-  threadId: string,
+  conversationId: string,
   inReplyToMessageId?: string
 ): Promise<{
   threadId?: string;
   inReplyTo?: string;
   references?: string[];
 }> {
-  const thread = await db.query.emailThread.findFirst({
-    where: eq(emailThread.id, threadId),
+  const conv = await db.query.conversation.findFirst({
+    where: eq(conversation.id, conversationId),
     with: {
       messages: {
-        orderBy: [desc(emailMessage.sentAt)],
+        orderBy: [desc(message.sentAt)],
         limit: 10,
       },
     },
   });
 
-  if (!thread) {
+  if (!conv) {
     return {};
   }
 
-  const providerThreadId = thread.providerThreadId;
+  // Use the external ID as the provider thread ID
+  const providerThreadId = conv.externalId;
 
-  let replyToMessage = thread.messages[0];
+  let replyToMessage = conv.messages[0];
   if (inReplyToMessageId) {
-    const found = thread.messages.find((m) => m.id === inReplyToMessageId);
+    const found = conv.messages.find((m: typeof conv.messages[0]) => m.id === inReplyToMessageId);
     if (found) {
       replyToMessage = found;
     }
   }
 
   const references: string[] = [];
-  for (const msg of thread.messages.reverse()) {
-    const msgId = (msg.headers as Record<string, string> | null)?.[
-      "Message-ID"
-    ];
-    if (msgId) {
-      references.push(msgId);
+  for (const msg of conv.messages.reverse()) {
+    const msgId = (msg.metadata as Record<string, unknown> | null)?.headers as Record<string, string> | undefined;
+    const messageId = msgId?.["Message-ID"];
+    if (messageId) {
+      references.push(messageId);
     }
   }
 
-  const inReplyTo = replyToMessage
-    ? ((replyToMessage.headers as Record<string, string> | null)?.[
-        "Message-ID"
-      ] ?? undefined)
+  const replyHeaders = replyToMessage
+    ? ((replyToMessage.metadata as Record<string, unknown> | null)?.headers as Record<string, string> | undefined)
     : undefined;
+  const inReplyTo = replyHeaders?.["Message-ID"];
 
   return {
     threadId: providerThreadId,
@@ -212,9 +212,9 @@ composeRoutes.post("/send", async (c) => {
     return c.json({ error: "Email account not found or access denied" }, 404);
   }
 
-  if (account.status !== "active") {
+  if (account.status !== "connected") {
     return c.json(
-      { error: `Email account is not active (status: ${account.status})` },
+      { error: `Email account is not connected (status: ${account.status})` },
       400
     );
   }
@@ -239,7 +239,7 @@ composeRoutes.post("/send", async (c) => {
       account: {
         id: account.id,
         provider: account.provider,
-        email: account.email,
+        externalId: account.externalId,
         accessToken: account.accessToken,
         refreshToken: account.refreshToken,
         tokenExpiresAt: account.tokenExpiresAt,
@@ -324,9 +324,9 @@ composeRoutes.post("/draft", async (c) => {
     return c.json({ error: "Email account not found or access denied" }, 404);
   }
 
-  if (account.status !== "active") {
+  if (account.status !== "connected") {
     return c.json(
-      { error: `Email account is not active (status: ${account.status})` },
+      { error: `Email account is not connected (status: ${account.status})` },
       400
     );
   }
@@ -351,7 +351,7 @@ composeRoutes.post("/draft", async (c) => {
       account: {
         id: account.id,
         provider: account.provider,
-        email: account.email,
+        externalId: account.externalId,
         accessToken: account.accessToken,
         refreshToken: account.refreshToken,
         tokenExpiresAt: account.tokenExpiresAt,
@@ -428,7 +428,7 @@ composeRoutes.get("/draft/:accountId/:draftId", async (c) => {
       account: {
         id: account.id,
         provider: account.provider,
-        email: account.email,
+        externalId: account.externalId,
         accessToken: account.accessToken,
         refreshToken: account.refreshToken,
         tokenExpiresAt: account.tokenExpiresAt,
@@ -481,7 +481,7 @@ composeRoutes.delete("/draft/:accountId/:draftId", async (c) => {
       account: {
         id: account.id,
         provider: account.provider,
-        email: account.email,
+        externalId: account.externalId,
         accessToken: account.accessToken,
         refreshToken: account.refreshToken,
         tokenExpiresAt: account.tokenExpiresAt,

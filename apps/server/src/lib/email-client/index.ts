@@ -2,7 +2,7 @@
 // EMAIL CLIENT FACTORY
 // =============================================================================
 
-import type { EmailAccount } from "@memorystack/db/schema";
+import type { SourceAccount } from "@memorystack/db/schema";
 import { GmailEmailClient } from "./gmail";
 import { OutlookEmailClient } from "./outlook";
 import type { EmailClient, EmailProvider } from "./types";
@@ -54,10 +54,10 @@ setInterval(cleanCache, CACHE_MAX_AGE);
 interface CreateEmailClientOptions {
   /** Account record from database */
   account: Pick<
-    EmailAccount,
+    SourceAccount,
     | "id"
     | "provider"
-    | "email"
+    | "externalId"
     | "accessToken"
     | "refreshToken"
     | "tokenExpiresAt"
@@ -104,6 +104,15 @@ export function createEmailClient(
     }
   }
 
+  // Validate tokens exist
+  if (!account.accessToken || !account.refreshToken) {
+    throw new ProviderError(
+      "Account is missing OAuth tokens",
+      account.provider as EmailProvider,
+      undefined
+    );
+  }
+
   // Decrypt tokens if decryption function provided
   const accessToken = decryptToken
     ? decryptToken(account.accessToken)
@@ -118,19 +127,19 @@ export function createEmailClient(
   switch (account.provider) {
     case "gmail": {
       client = new GmailEmailClient(
-        account.email,
+        account.externalId,
         accessToken,
         refreshToken,
-        account.tokenExpiresAt
+        account.tokenExpiresAt ?? new Date()
       );
       break;
     }
     case "outlook": {
       client = new OutlookEmailClient(
-        account.email,
+        account.externalId,
         accessToken,
         refreshToken,
-        account.tokenExpiresAt
+        account.tokenExpiresAt ?? new Date()
       );
       break;
     }

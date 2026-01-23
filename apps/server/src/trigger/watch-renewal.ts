@@ -7,7 +7,7 @@
 //
 
 import { db } from "@memorystack/db";
-import { emailAccount } from "@memorystack/db/schema";
+import { sourceAccount } from "@memorystack/db/schema";
 import { env } from "@memorystack/env/server";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, or } from "drizzle-orm";
@@ -20,7 +20,7 @@ import { log } from "../lib/logger";
 // =============================================================================
 
 interface WatchRenewalResult {
-  accountId: string;
+  sourceAccountId: string;
   email: string;
   success: boolean;
   newExpiration?: string;
@@ -48,7 +48,7 @@ export const watchRenewalTask = task({
     factor: 2,
   },
   run: async (payload: {
-    accountId?: string;
+    sourceAccountId?: string;
   }): Promise<{
     results: WatchRenewalResult[];
     summary: { total: number; successful: number; failed: number };
@@ -66,15 +66,16 @@ export const watchRenewalTask = task({
 
     // Find accounts that need watch renewal
     let accountsToRenew: Awaited<
-      ReturnType<typeof db.query.emailAccount.findMany>
+      ReturnType<typeof db.query.sourceAccount.findMany>
     >;
 
-    if (payload.accountId) {
+    if (payload.sourceAccountId) {
       // Renew specific account
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, payload.accountId),
-          eq(emailAccount.provider, "gmail")
+          eq(sourceAccount.id, payload.sourceAccountId),
+          eq(sourceAccount.type, "email"),
+          eq(sourceAccount.provider, "gmail")
         ),
       });
       accountsToRenew = account ? [account] : [];
@@ -82,12 +83,13 @@ export const watchRenewalTask = task({
       // Find Gmail accounts with watches expiring in the next 24 hours
       const oneDayFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-      accountsToRenew = await db.query.emailAccount.findMany({
+      accountsToRenew = await db.query.sourceAccount.findMany({
         where: and(
-          eq(emailAccount.provider, "gmail"),
+          eq(sourceAccount.type, "email"),
+          eq(sourceAccount.provider, "gmail"),
           or(
-            eq(emailAccount.status, "active"),
-            eq(emailAccount.status, "syncing")
+            eq(sourceAccount.status, "connected"),
+            eq(sourceAccount.status, "syncing")
           )
         ),
       });
@@ -145,22 +147,24 @@ export const watchRenewalTask = task({
  * Renew watch for a single account
  */
 async function renewAccountWatch(
-  account: typeof emailAccount.$inferSelect
+  account: typeof sourceAccount.$inferSelect
 ): Promise<WatchRenewalResult> {
+  const email = account.externalId; // externalId contains the email for email accounts
+
   const result: WatchRenewalResult = {
-    accountId: account.id,
-    email: account.email,
+    sourceAccountId: account.id,
+    email,
     success: false,
   };
 
   try {
     // Decrypt tokens
-    const accessToken = safeDecryptToken(account.accessToken);
-    const refreshToken = safeDecryptToken(account.refreshToken);
+    const accessToken = safeDecryptToken(account.accessToken ?? "");
+    const refreshToken = safeDecryptToken(account.refreshToken ?? "");
 
     // Setup new watch
     const client = new GmailEmailClient(
-      account.email,
+      email,
       accessToken,
       refreshToken,
       account.tokenExpiresAt ?? new Date()
@@ -188,13 +192,13 @@ async function renewAccountWatch(
     }
 
     await db
-      .update(emailAccount)
+      .update(sourceAccount)
       .set(updateData)
-      .where(eq(emailAccount.id, account.id));
+      .where(eq(sourceAccount.id, account.id));
 
     log.info("Watch renewed successfully", {
-      accountId: account.id,
-      email: account.email,
+      sourceAccountId: account.id,
+      email,
       expiration: watchResult.expiration,
       historyId: watchResult.historyId,
     });
@@ -207,8 +211,8 @@ async function renewAccountWatch(
       error instanceof Error ? error.message : "Unknown error";
 
     log.error("Watch renewal failed", error, {
-      accountId: account.id,
-      email: account.email,
+      sourceAccountId: account.id,
+      email,
     });
 
     result.error = errorMessage;
@@ -223,8 +227,8 @@ async function renewAccountWatch(
       log.warn(
         "Watch renewal failed due to auth error - may need reconnection",
         {
-          accountId: account.id,
-          email: account.email,
+          sourceAccountId: account.id,
+          email,
         }
       );
     }

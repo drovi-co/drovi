@@ -2,7 +2,7 @@
 // CALENDAR CLIENT FACTORY
 // =============================================================================
 
-import type { EmailAccount } from "@memorystack/db/schema";
+import type { SourceAccount } from "@memorystack/db/schema";
 import { CalendarProviderError } from "./errors";
 import { GmailCalendarClient } from "./gmail";
 import { OutlookCalendarClient } from "./outlook";
@@ -54,10 +54,10 @@ setInterval(cleanCache, CACHE_MAX_AGE);
 interface CreateCalendarClientOptions {
   /** Account record from database */
   account: Pick<
-    EmailAccount,
+    SourceAccount,
     | "id"
     | "provider"
-    | "email"
+    | "externalId"
     | "accessToken"
     | "refreshToken"
     | "tokenExpiresAt"
@@ -107,6 +107,15 @@ export function createCalendarClient(
     }
   }
 
+  // Validate tokens exist
+  if (!account.accessToken || !account.refreshToken) {
+    throw new CalendarProviderError(
+      "Account is missing OAuth tokens",
+      account.provider as CalendarProvider,
+      400
+    );
+  }
+
   // Decrypt tokens if decryption function provided
   const accessToken = decryptToken
     ? decryptToken(account.accessToken)
@@ -121,19 +130,19 @@ export function createCalendarClient(
   switch (account.provider) {
     case "gmail": {
       client = new GmailCalendarClient(
-        account.email,
+        account.externalId,
         accessToken,
         refreshToken,
-        account.tokenExpiresAt
+        account.tokenExpiresAt ?? new Date()
       );
       break;
     }
     case "outlook": {
       client = new OutlookCalendarClient(
-        account.email,
+        account.externalId,
         accessToken,
         refreshToken,
-        account.tokenExpiresAt
+        account.tokenExpiresAt ?? new Date()
       );
       break;
     }

@@ -6,14 +6,120 @@
 // Summarizes overdue items, due today, and upcoming commitments.
 //
 
-import { createCommitmentAgent } from "@memorystack/ai/agents";
 import { createNotification } from "@memorystack/api/routers/notifications";
 import { db } from "@memorystack/db";
-import { commitment, emailAccount } from "@memorystack/db/schema";
+import { commitment, sourceAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { log } from "../lib/logger";
 import { sendEmailTask } from "./send-email";
+
+// =============================================================================
+// DIGEST TYPES (simplified from AI agents)
+// =============================================================================
+
+interface CommitmentItem {
+  title: string;
+  dueDate: Date;
+  daysOverdue: number;
+}
+
+interface DigestCategory {
+  overdue: CommitmentItem[];
+  dueToday: CommitmentItem[];
+  upcoming: CommitmentItem[];
+}
+
+interface Digest {
+  owedByMe: DigestCategory;
+  owedToMe: DigestCategory;
+  totalOpen: number;
+  generatedAt: Date;
+}
+
+/**
+ * Generate daily digest from commitments (simplified from AI agent).
+ * Categorizes commitments by due date and direction.
+ */
+function generateDailyDigest(
+  _userId: string,
+  _organizationId: string,
+  commitments: Array<{
+    id: string;
+    title: string;
+    status: string;
+    dueDate: Date | null;
+    direction: string;
+    debtorEmail: string | null;
+    creditorEmail: string | null;
+    sourceConversationId: string | null;
+    lastReminderAt: Date | null;
+    reminderCount: number;
+  }>
+): Digest {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const owedByMe: DigestCategory = { overdue: [], dueToday: [], upcoming: [] };
+  const owedToMe: DigestCategory = { overdue: [], dueToday: [], upcoming: [] };
+
+  for (const c of commitments) {
+    if (!c.dueDate) continue;
+
+    const dueDate = new Date(c.dueDate);
+    const daysOverdue = Math.floor(
+      (startOfToday.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)
+    );
+
+    const item: CommitmentItem = {
+      title: c.title,
+      dueDate,
+      daysOverdue: Math.max(0, daysOverdue),
+    };
+
+    const isOwedByMe = c.direction === "outgoing";
+    const category = isOwedByMe ? owedByMe : owedToMe;
+
+    if (dueDate < startOfToday) {
+      // Overdue
+      category.overdue.push(item);
+    } else if (dueDate >= startOfToday && dueDate < endOfToday) {
+      // Due today
+      category.dueToday.push(item);
+    } else if (dueDate >= endOfToday && dueDate < endOfWeek) {
+      // Upcoming this week
+      category.upcoming.push(item);
+    }
+  }
+
+  // Sort each category by due date
+  const sortByDueDate = (a: CommitmentItem, b: CommitmentItem) =>
+    a.dueDate.getTime() - b.dueDate.getTime();
+
+  owedByMe.overdue.sort(sortByDueDate);
+  owedByMe.dueToday.sort(sortByDueDate);
+  owedByMe.upcoming.sort(sortByDueDate);
+  owedToMe.overdue.sort(sortByDueDate);
+  owedToMe.dueToday.sort(sortByDueDate);
+  owedToMe.upcoming.sort(sortByDueDate);
+
+  const totalOpen =
+    owedByMe.overdue.length +
+    owedByMe.dueToday.length +
+    owedByMe.upcoming.length +
+    owedToMe.overdue.length +
+    owedToMe.dueToday.length +
+    owedToMe.upcoming.length;
+
+  return {
+    owedByMe,
+    owedToMe,
+    totalOpen,
+    generatedAt: now,
+  };
+}
 
 // =============================================================================
 // TYPES
@@ -93,9 +199,8 @@ export const generateDigestTask = task({
         };
       }
 
-      // Use CommitmentAgent to generate the digest
-      const agent = createCommitmentAgent();
-      const digest = agent.generateDailyDigest(
+      // Generate the digest (simplified local logic - no AI agent needed)
+      const digest = generateDailyDigest(
         userId,
         organizationId,
         commitments.map((c) => ({
@@ -113,7 +218,7 @@ export const generateDigestTask = task({
           direction: c.direction,
           debtorEmail: null, // We don't have email directly on commitment
           creditorEmail: null,
-          sourceThreadId: c.sourceThreadId,
+          sourceConversationId: c.sourceConversationId,
           lastReminderAt: c.lastReminderAt,
           reminderCount: c.reminderCount,
         }))
@@ -254,17 +359,18 @@ export const batchGenerateDigestsTask = task({
       specificOrgs: organizationIds?.length,
     });
 
-    // Get all active email accounts
-    const accountsQuery = db.query.emailAccount.findMany({
+    // Get all active email source accounts
+    const accountsQuery = db.query.sourceAccount.findMany({
       where: and(
-        eq(emailAccount.status, "active"),
-        isNotNull(emailAccount.organizationId)
+        eq(sourceAccount.type, "email"),
+        eq(sourceAccount.status, "connected"),
+        isNotNull(sourceAccount.organizationId)
       ),
       columns: {
         id: true,
         organizationId: true,
         addedByUserId: true,
-        email: true,
+        externalId: true, // externalId contains the email for email accounts
       },
     });
 
@@ -292,7 +398,7 @@ export const batchGenerateDigestsTask = task({
       if (!orgMap.has(account.organizationId)) {
         orgMap.set(account.organizationId, {
           userId: account.addedByUserId,
-          email: account.email,
+          email: account.externalId, // externalId contains the email for email accounts
         });
       }
     }
@@ -408,12 +514,7 @@ function buildDigestSubject(
 /**
  * Generate HTML email content for the digest.
  */
-function generateDigestEmailHtml(
-  digest: ReturnType<
-    ReturnType<typeof createCommitmentAgent>["generateDailyDigest"]
-  >,
-  _userEmail: string
-): string {
+function generateDigestEmailHtml(digest: Digest, _userEmail: string): string {
   const formatDate = (date: Date) =>
     date.toLocaleDateString("en-US", {
       weekday: "short",

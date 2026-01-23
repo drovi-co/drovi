@@ -40,14 +40,14 @@ import type {
  */
 export async function syncOutlookIncremental(
   client: OutlookEmailClient,
-  accountId: string,
+  sourceAccountId: string,
   options: ProviderSyncOptions
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const result: SyncResult = {
     success: false,
     jobId: crypto.randomUUID(),
-    accountId,
+    accountId: sourceAccountId,
     type: "incremental",
     threadsProcessed: 0,
     messagesProcessed: 0,
@@ -64,7 +64,7 @@ export async function syncOutlookIncremental(
     const delta = await client.getChanges(options.cursor);
 
     log.info("Outlook incremental sync: changes detected", {
-      accountId,
+      sourceAccountId,
       changedThreads: delta.changedThreadIds.length,
       deletedThreads: delta.deletedThreadIds.length,
       fullSyncRequired: delta.fullSyncRequired,
@@ -85,7 +85,7 @@ export async function syncOutlookIncremental(
     // Handle deleted threads (conversations)
     for (const threadId of delta.deletedThreadIds) {
       try {
-        await markThreadDeleted(accountId, threadId);
+        await markThreadDeleted(sourceAccountId, threadId);
       } catch (error) {
         result.errors.push({
           code: "DELETE_ERROR",
@@ -100,7 +100,7 @@ export async function syncOutlookIncremental(
     if (delta.changedThreadIds.length > 0) {
       const batchResult = await fetchAndProcessConversations(
         client,
-        accountId,
+        sourceAccountId,
         delta.changedThreadIds,
         { forceUpdate: true }
       );
@@ -124,7 +124,7 @@ export async function syncOutlookIncremental(
 
     log.info("Outlook incremental sync completed", {
       ...result,
-      accountId,
+      sourceAccountId,
     });
 
     return result;
@@ -135,7 +135,7 @@ export async function syncOutlookIncremental(
       retryable: true,
     });
     result.duration = Date.now() - startTime;
-    log.error("Outlook incremental sync failed", error, { accountId });
+    log.error("Outlook incremental sync failed", error, { sourceAccountId });
     return result;
   }
 }
@@ -166,7 +166,7 @@ export async function backfillOutlookPhase(
   const result: PhaseBackfillResult = {
     success: false,
     jobId: crypto.randomUUID(),
-    accountId: config.accountId,
+    accountId: config.sourceAccountId,
     type: "backfill",
     phase: config.phase,
     phaseComplete: false,
@@ -183,7 +183,7 @@ export async function backfillOutlookPhase(
   try {
     // Step 1: Collect conversation IDs for the date range
     log.info("Outlook phase backfill: collecting conversation IDs", {
-      accountId: config.accountId,
+      accountId: config.sourceAccountId,
       phase: config.phase,
       afterDate: config.afterDate?.toISOString(),
       beforeDate: config.beforeDate?.toISOString(),
@@ -199,7 +199,7 @@ export async function backfillOutlookPhase(
     );
 
     log.info("Outlook phase backfill: conversation IDs collected", {
-      accountId: config.accountId,
+      accountId: config.sourceAccountId,
       phase: config.phase,
       totalConversations: allThreadIds.length,
     });
@@ -214,14 +214,14 @@ export async function backfillOutlookPhase(
 
     // Step 2: Deduplicate against existing threads
     const dedupeResult = await batchDeduplicateThreads(
-      config.accountId,
+      config.sourceAccountId,
       allThreadIds
     );
 
     const newThreadIds = dedupeResult.newIds;
 
     log.info("Outlook phase backfill: deduplication complete", {
-      accountId: config.accountId,
+      accountId: config.sourceAccountId,
       phase: config.phase,
       newConversations: newThreadIds.length,
       existingConversations: dedupeResult.existingIds.length,
@@ -263,7 +263,7 @@ export async function backfillOutlookPhase(
       // Process fetched conversations into database
       if (fetchResult.threads.length > 0) {
         const batchResult = await processBatch(
-          config.accountId,
+          config.sourceAccountId,
           fetchResult.threads,
           { skipExisting: true }
         );
@@ -290,7 +290,7 @@ export async function backfillOutlookPhase(
       onProgress?.(processedCount, newThreadIds.length, estimated);
 
       log.debug("Outlook phase backfill: batch complete", {
-        accountId: config.accountId,
+        accountId: config.sourceAccountId,
         phase: config.phase,
         batchSize: batch.length,
         batchDuration: Date.now() - batchStartTime,
@@ -307,7 +307,7 @@ export async function backfillOutlookPhase(
 
     log.info("Outlook phase backfill completed", {
       ...result,
-      accountId: config.accountId,
+      accountId: config.sourceAccountId,
       phase: config.phase,
       throughput: `${Math.round((result.threadsProcessed / result.duration) * 1000)} threads/sec`,
     });
@@ -321,7 +321,7 @@ export async function backfillOutlookPhase(
     });
     result.duration = Date.now() - startTime;
     log.error("Outlook phase backfill failed", error, {
-      accountId: config.accountId,
+      accountId: config.sourceAccountId,
       phase: config.phase,
     });
     return result;
@@ -357,7 +357,7 @@ export async function backfillOutlook(
  */
 async function fetchAndProcessConversations(
   client: OutlookEmailClient,
-  accountId: string,
+  sourceAccountId: string,
   conversationIds: string[],
   options: { skipExisting?: boolean; forceUpdate?: boolean } = {}
 ): Promise<BatchResult> {
@@ -382,7 +382,7 @@ async function fetchAndProcessConversations(
   }
 
   // Process fetched conversations
-  const batchResult = await processBatch(accountId, threads, options);
+  const batchResult = await processBatch(sourceAccountId, threads, options);
   batchResult.errors.push(...errors);
 
   return batchResult;

@@ -6,15 +6,35 @@
 // Handles deduplication, update detection, embedding generation, and backfilling.
 //
 
-import {
-  createDeduplicationAgent,
-  createUpdateDetectionAgent,
-  type ExtractedCommitmentForDedup,
-} from "@memorystack/ai/agents";
 import { db, schema } from "@memorystack/db";
 import { task } from "@trigger.dev/sdk";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { log } from "../lib/logger";
+
+// =============================================================================
+// NOTE: AI-powered deduplication and update detection have been moved to Python.
+// The Python backend handles these during intelligence extraction.
+// This file now provides simplified UIO processing without AI agents.
+// =============================================================================
+
+/**
+ * Commitment data for UIO processing (simplified from AI agents type)
+ */
+interface ExtractedCommitmentForDedup {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate?: string | Date | null;
+  dueDateConfidence?: number;
+  debtorContactId?: string;
+  debtorEmail?: string;
+  debtorName?: string;
+  creditorContactId?: string;
+  creditorEmail?: string;
+  creditorName?: string;
+  confidence: number;
+  sourceQuote?: string;
+}
 
 // =============================================================================
 // TYPES
@@ -27,8 +47,6 @@ interface ProcessCommitmentPayload {
   sourceAccountId?: string;
   conversationId?: string;
   messageId?: string;
-  emailThreadId?: string;
-  emailMessageId?: string;
   sourceName?: string;
   messageTimestamp?: string;
   originalCommitmentId?: string;
@@ -77,8 +95,6 @@ interface ProcessDecisionPayload {
   sourceAccountId?: string;
   conversationId?: string;
   messageId?: string;
-  emailThreadId?: string;
-  emailMessageId?: string;
   sourceName?: string;
   messageTimestamp?: string;
   originalDecisionId?: string;
@@ -121,8 +137,6 @@ export const processCommitmentTask = task({
       sourceAccountId,
       conversationId,
       messageId,
-      emailThreadId,
-      emailMessageId,
       sourceName,
       messageTimestamp,
       originalCommitmentId,
@@ -137,23 +151,9 @@ export const processCommitmentTask = task({
     });
 
     try {
-      // Use deduplication agent to check for duplicates
-      // biome-ignore lint/suspicious/noExplicitAny: db type is compatible but TypeScript can't infer it
-      const deduplicationAgent = createDeduplicationAgent(db as any);
-      const result = await deduplicationAgent.checkForDuplicates({
-        organizationId,
-        newCommitment: {
-          ...commitment,
-          dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
-        },
-        sourceType,
-        sourceConversationId: conversationId || "",
-        sourceMessageId: messageId,
-        sourceAccountId,
-      });
-
-      let uio: typeof schema.unifiedIntelligenceObject.$inferSelect;
-      let action: "created" | "merged" | "pending_review";
+      // NOTE: AI-powered deduplication has been moved to Python backend.
+      // This task now always creates a new UIO - Python handles deduplication
+      // during intelligence extraction.
 
       const sourceContext = {
         organizationId,
@@ -161,228 +161,65 @@ export const processCommitmentTask = task({
         sourceAccountId,
         conversationId,
         messageId,
-        emailThreadId,
-        emailMessageId,
         sourceName,
         messageTimestamp: messageTimestamp
           ? new Date(messageTimestamp)
           : undefined,
       };
 
-      switch (result.action) {
-        case "create_new": {
-          // Create new UIO
-          const ownerContactId = await resolveContactFromEmail(
-            commitment.debtorEmail || commitment.creditorEmail,
-            organizationId
-          );
+      // Always create new UIO (Python backend handles deduplication during extraction)
+      const ownerContactId = await resolveContactFromEmail(
+        commitment.debtorEmail || commitment.creditorEmail,
+        organizationId
+      );
 
-          const [newUio] = await db
-            .insert(schema.unifiedIntelligenceObject)
-            .values({
-              organizationId,
-              type: "commitment",
-              status: "active",
-              canonicalTitle: commitment.title,
-              canonicalDescription: commitment.description,
-              dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
-              dueDateConfidence: commitment.dueDateConfidence,
-              dueDateLastUpdatedAt: new Date(),
-              ownerContactId,
-              participantContactIds: [],
-              overallConfidence: commitment.confidence,
-              firstSeenAt: new Date(),
-              lastUpdatedAt: new Date(),
-              lastActivitySourceType:
-                sourceType as (typeof schema.sourceTypeEnum.enumValues)[number],
-            })
-            .returning();
+      const [newUio] = await db
+        .insert(schema.unifiedIntelligenceObject)
+        .values({
+          organizationId,
+          type: "commitment",
+          status: "active",
+          canonicalTitle: commitment.title,
+          canonicalDescription: commitment.description,
+          dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
+          dueDateConfidence: commitment.dueDateConfidence,
+          dueDateLastUpdatedAt: new Date(),
+          ownerContactId,
+          participantContactIds: [],
+          overallConfidence: commitment.confidence,
+          firstSeenAt: new Date(),
+          lastUpdatedAt: new Date(),
+          lastActivitySourceType:
+            sourceType as (typeof schema.sourceTypeEnum.enumValues)[number],
+        })
+        .returning();
 
-          if (!newUio) {
-            throw new Error("Failed to create UIO");
-          }
-
-          uio = newUio;
-          action = "created";
-
-          // Add source reference
-          await addSourceToUIO(newUio.id, sourceContext, commitment, "origin", {
-            originalCommitmentId,
-            originalDecisionId,
-            originalClaimId,
-          });
-
-          // Add timeline event
-          await addTimelineEvent(newUio.id, {
-            eventType: "created",
-            eventDescription: `Created from ${sourceType}`,
-            sourceType,
-            sourceId: conversationId,
-            sourceName,
-            confidence: commitment.confidence,
-          });
-
-          // Trigger embedding generation
-          await embedUIOTask.trigger({ uioId: newUio.id });
-
-          break;
-        }
-
-        case "merge_into": {
-          if (!result.targetUioId) {
-            throw new Error("merge_into action requires targetUioId");
-          }
-
-          // Update existing UIO
-          const existingUio =
-            await db.query.unifiedIntelligenceObject.findFirst({
-              where: eq(
-                schema.unifiedIntelligenceObject.id,
-                result.targetUioId
-              ),
-            });
-
-          if (!existingUio) {
-            throw new Error(`UIO ${result.targetUioId} not found`);
-          }
-
-          // Update if we have more confident info
-          const updates: Partial<
-            typeof schema.unifiedIntelligenceObject.$inferInsert
-          > = {
-            lastUpdatedAt: new Date(),
-            lastActivitySourceType:
-              sourceType as (typeof schema.sourceTypeEnum.enumValues)[number],
-          };
-
-          if (
-            commitment.dueDate &&
-            (!existingUio.dueDate ||
-              (commitment.dueDateConfidence ?? 0) >
-                (existingUio.dueDateConfidence ?? 0))
-          ) {
-            updates.dueDate = new Date(commitment.dueDate);
-            updates.dueDateConfidence = commitment.dueDateConfidence;
-            updates.dueDateLastUpdatedAt = new Date();
-          }
-
-          await db
-            .update(schema.unifiedIntelligenceObject)
-            .set(updates)
-            .where(eq(schema.unifiedIntelligenceObject.id, result.targetUioId));
-
-          uio = {
-            ...existingUio,
-            ...updates,
-          } as typeof schema.unifiedIntelligenceObject.$inferSelect;
-          action = "merged";
-
-          // Add source reference
-          await addSourceToUIO(
-            result.targetUioId,
-            sourceContext,
-            commitment,
-            "update",
-            {
-              originalCommitmentId,
-              originalDecisionId,
-              originalClaimId,
-            }
-          );
-
-          // Add timeline event
-          await addTimelineEvent(result.targetUioId, {
-            eventType: "source_added",
-            eventDescription: `Mentioned in ${sourceType}`,
-            sourceType,
-            sourceId: conversationId,
-            sourceName,
-            messageId,
-            quotedText: commitment.sourceQuote,
-            confidence: commitment.confidence,
-          });
-
-          // Re-generate embedding
-          await embedUIOTask.trigger({ uioId: result.targetUioId });
-
-          break;
-        }
-
-        case "pending_review": {
-          // Create new UIO and deduplication candidate
-          const ownerContactId = await resolveContactFromEmail(
-            commitment.debtorEmail || commitment.creditorEmail,
-            organizationId
-          );
-
-          const [newUio] = await db
-            .insert(schema.unifiedIntelligenceObject)
-            .values({
-              organizationId,
-              type: "commitment",
-              status: "active",
-              canonicalTitle: commitment.title,
-              canonicalDescription: commitment.description,
-              dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
-              dueDateConfidence: commitment.dueDateConfidence,
-              dueDateLastUpdatedAt: new Date(),
-              ownerContactId,
-              participantContactIds: [],
-              overallConfidence: commitment.confidence,
-              firstSeenAt: new Date(),
-              lastUpdatedAt: new Date(),
-              lastActivitySourceType:
-                sourceType as (typeof schema.sourceTypeEnum.enumValues)[number],
-            })
-            .returning();
-
-          if (!newUio) {
-            throw new Error("Failed to create UIO");
-          }
-
-          uio = newUio;
-          action = "pending_review";
-
-          // Add source reference
-          await addSourceToUIO(newUio.id, sourceContext, commitment, "origin", {
-            originalCommitmentId,
-            originalDecisionId,
-            originalClaimId,
-          });
-
-          // Add timeline event
-          await addTimelineEvent(newUio.id, {
-            eventType: "created",
-            eventDescription: `Created from ${sourceType} (pending deduplication review)`,
-            sourceType,
-            sourceId: conversationId,
-            sourceName,
-            confidence: commitment.confidence,
-          });
-
-          // Create deduplication candidate
-          if (result.targetUioId) {
-            await db.insert(schema.deduplicationCandidate).values({
-              organizationId,
-              sourceObjectId: newUio.id,
-              targetObjectId: result.targetUioId,
-              semanticSimilarity: result.scores?.semanticSimilarity ?? 0,
-              partyMatchScore: result.scores?.partyMatchScore,
-              temporalScore: result.scores?.temporalScore,
-              overallScore: result.scores?.overallScore ?? result.confidence,
-              matchReasons: result.matchReasons,
-              matchExplanation: result.explanation,
-              status: "pending_review",
-              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            });
-          }
-
-          // Trigger embedding generation
-          await embedUIOTask.trigger({ uioId: newUio.id });
-
-          break;
-        }
+      if (!newUio) {
+        throw new Error("Failed to create UIO");
       }
+
+      const uio = newUio;
+      const action: "created" | "merged" | "pending_review" = "created";
+
+      // Add source reference
+      await addSourceToUIO(newUio.id, sourceContext, commitment, "origin", {
+        originalCommitmentId,
+        originalDecisionId,
+        originalClaimId,
+      });
+
+      // Add timeline event
+      await addTimelineEvent(newUio.id, {
+        eventType: "created",
+        eventDescription: `Created from ${sourceType}`,
+        sourceType,
+        sourceId: conversationId,
+        sourceName,
+        confidence: commitment.confidence,
+      });
+
+      // Trigger embedding generation
+      await embedUIOTask.trigger({ uioId: newUio.id });
 
       // Link original commitment/decision to UIO if provided
       if (originalCommitmentId) {
@@ -402,7 +239,7 @@ export const processCommitmentTask = task({
       log.info("Commitment processed into UIO system", {
         uioId: uio.id,
         action,
-        confidence: result.confidence,
+        confidence: commitment.confidence,
       });
 
       return {
@@ -463,8 +300,6 @@ export const processDecisionTask = task({
       sourceAccountId,
       conversationId,
       messageId,
-      emailThreadId,
-      emailMessageId,
       sourceName,
       messageTimestamp,
       originalDecisionId,
@@ -512,8 +347,6 @@ export const processDecisionTask = task({
         role: "origin",
         conversationId,
         messageId,
-        emailThreadId,
-        emailMessageId,
         originalDecisionId,
         quotedText: decision.sourceQuote,
         extractedTitle: decision.title,
@@ -582,9 +415,12 @@ export const processDecisionTask = task({
 // =============================================================================
 // DETECT UPDATES TO UIOS FROM NEW MESSAGES
 // =============================================================================
+// NOTE: Update detection has been moved to Python backend.
+// This task is kept for backwards compatibility but is now a no-op.
 
 /**
  * Detect updates to existing UIOs from a new message.
+ * @deprecated Update detection is now handled by Python backend during extraction.
  */
 export const detectUpdatesTask = task({
   id: "uio-detect-updates",
@@ -593,12 +429,9 @@ export const detectUpdatesTask = task({
     concurrencyLimit: 10,
   },
   retry: {
-    maxAttempts: 3,
-    minTimeoutInMs: 5000,
-    maxTimeoutInMs: 30_000,
-    factor: 2,
+    maxAttempts: 1,
   },
-  maxDuration: 120,
+  maxDuration: 10,
   run: async (
     payload: DetectUpdatesPayload
   ): Promise<{
@@ -607,99 +440,21 @@ export const detectUpdatesTask = task({
     uiosUpdated: string[];
     error?: string;
   }> => {
-    const {
-      organizationId,
-      messageId,
-      messageContent,
-      senderEmail,
-      senderName,
-      senderContactId,
-      timestamp,
-      sourceType,
-      sourceAccountId,
-      conversationId,
-      threadSubject,
-    } = payload;
-
-    log.info("Detecting UIO updates from message", {
-      organizationId,
-      messageId,
-      sourceType,
-    });
-
-    try {
-      const updateDetectionAgent = createUpdateDetectionAgent(db);
-
-      const result = await updateDetectionAgent.detectUpdates({
-        organizationId,
-        message: {
-          id: messageId,
-          content: messageContent,
-          senderEmail,
-          senderName,
-          senderContactId,
-          timestamp: new Date(timestamp),
-          sourceType,
-          conversationId,
-          threadSubject,
-        },
-        sourceAccountId,
-      });
-
-      if (!result.hasUpdates) {
-        log.info("No UIO updates detected", { messageId });
-        return {
-          success: true,
-          updatesFound: 0,
-          uiosUpdated: [],
-        };
+    // NOTE: Update detection has been moved to Python backend.
+    // This task is now a no-op for backwards compatibility.
+    log.info(
+      "Update detection task called (deprecated - Python handles this now)",
+      {
+        organizationId: payload.organizationId,
+        messageId: payload.messageId,
       }
+    );
 
-      // Apply updates
-      await updateDetectionAgent.applyUpdates(
-        {
-          organizationId,
-          message: {
-            id: messageId,
-            content: messageContent,
-            senderEmail,
-            senderName,
-            senderContactId,
-            timestamp: new Date(timestamp),
-            sourceType,
-            conversationId,
-            threadSubject,
-          },
-          sourceAccountId,
-        },
-        result.references
-      );
-
-      const uiosUpdated = result.references.map((r) => r.uioId);
-
-      log.info("UIO updates applied", {
-        messageId,
-        updatesFound: result.references.length,
-        uiosUpdated,
-      });
-
-      return {
-        success: true,
-        updatesFound: result.references.length,
-        uiosUpdated,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      log.error("Failed to detect UIO updates", error, { messageId });
-
-      return {
-        success: false,
-        updatesFound: 0,
-        uiosUpdated: [],
-        error: errorMessage,
-      };
-    }
+    return {
+      success: true,
+      updatesFound: 0,
+      uiosUpdated: [],
+    };
   },
 });
 
@@ -878,7 +633,6 @@ export const backfillUIOsTask = task({
           } | null;
           const sourceType = (metadata?.sourceType ??
             "email") as ProcessCommitmentPayload["sourceType"];
-          const isEmail = sourceType === "email";
 
           const result = await processCommitmentTask.triggerAndWait({
             organizationId,
@@ -897,13 +651,8 @@ export const backfillUIOsTask = task({
               confidence: commitment.confidence ?? 0.7,
             },
             sourceType,
-            conversationId: commitment.sourceThreadId ?? undefined, // Generic conversation ID
-            emailThreadId: isEmail
-              ? (commitment.sourceThreadId ?? undefined)
-              : undefined,
-            emailMessageId: isEmail
-              ? (commitment.sourceMessageId ?? undefined)
-              : undefined,
+            conversationId: commitment.sourceConversationId ?? undefined,
+            messageId: commitment.sourceMessageId ?? undefined,
             originalCommitmentId: commitment.id,
           });
 
@@ -989,8 +738,6 @@ async function addSourceToUIO(
     sourceAccountId?: string;
     conversationId?: string;
     messageId?: string;
-    emailThreadId?: string;
-    emailMessageId?: string;
     sourceName?: string;
     messageTimestamp?: Date;
   },
@@ -1010,8 +757,6 @@ async function addSourceToUIO(
     role,
     conversationId: context.conversationId,
     messageId: context.messageId,
-    emailThreadId: context.emailThreadId,
-    emailMessageId: context.emailMessageId,
     originalCommitmentId: links.originalCommitmentId,
     originalDecisionId: links.originalDecisionId,
     originalClaimId: links.originalClaimId,

@@ -5,9 +5,11 @@
 // Handles deduplication of emails during sync to prevent duplicate records.
 // Uses provider message IDs as the unique identifier.
 //
+// Uses ONLY the unified schema (conversation, message).
+//
 
 import { db } from "@memorystack/db";
-import { emailMessage, emailThread } from "@memorystack/db/schema";
+import { conversation, message } from "@memorystack/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
 // =============================================================================
@@ -24,87 +26,87 @@ export interface DeduplicationResult {
 }
 
 // =============================================================================
-// THREAD DEDUPLICATION
+// CONVERSATION DEDUPLICATION
 // =============================================================================
 
 /**
- * Check which thread IDs already exist in the database.
- * Threads without actual message records (orphaned) are treated as "new" for reprocessing.
+ * Check which conversation IDs already exist in the database.
+ * Conversations without actual message records (orphaned) are treated as "new" for reprocessing.
  *
- * @param accountId - Email account ID
- * @param providerThreadIds - Provider thread IDs to check
+ * @param sourceAccountId - Source account ID
+ * @param externalIds - Provider thread IDs to check
  * @returns Deduplication result
  */
 export async function deduplicateThreads(
-  accountId: string,
-  providerThreadIds: string[]
+  sourceAccountId: string,
+  externalIds: string[]
 ): Promise<DeduplicationResult> {
-  if (providerThreadIds.length === 0) {
+  if (externalIds.length === 0) {
     return { newIds: [], existingIds: [], existingMap: new Map() };
   }
 
-  // Batch check for existing threads
-  const existingThreads = await db.query.emailThread.findMany({
+  // Batch check for existing conversations
+  const existingConversations = await db.query.conversation.findMany({
     where: and(
-      eq(emailThread.accountId, accountId),
-      inArray(emailThread.providerThreadId, providerThreadIds)
+      eq(conversation.sourceAccountId, sourceAccountId),
+      inArray(conversation.externalId, externalIds)
     ),
     columns: {
       id: true,
-      providerThreadId: true,
+      externalId: true,
     },
   });
 
-  if (existingThreads.length === 0) {
+  if (existingConversations.length === 0) {
     return {
-      newIds: providerThreadIds,
+      newIds: externalIds,
       existingIds: [],
       existingMap: new Map(),
     };
   }
 
   const existingMap = new Map<string, string>();
-  const threadIdToProviderMap = new Map<string, string>();
+  const convIdToExternalMap = new Map<string, string>();
 
-  for (const thread of existingThreads) {
-    existingMap.set(thread.providerThreadId, thread.id);
-    threadIdToProviderMap.set(thread.id, thread.providerThreadId);
+  for (const conv of existingConversations) {
+    existingMap.set(conv.externalId, conv.id);
+    convIdToExternalMap.set(conv.id, conv.externalId);
   }
 
-  // Get all thread IDs that have at least one message (batch query)
-  const threadIdsWithMessages = await db
-    .selectDistinct({ threadId: emailMessage.threadId })
-    .from(emailMessage)
+  // Get all conversation IDs that have at least one message (batch query)
+  const convsWithMessages = await db
+    .selectDistinct({ conversationId: message.conversationId })
+    .from(message)
     .where(
       inArray(
-        emailMessage.threadId,
-        existingThreads.map((t) => t.id)
+        message.conversationId,
+        existingConversations.map((c) => c.id)
       )
     );
 
-  const threadsWithMessagesSet = new Set(
-    threadIdsWithMessages.map((t) => t.threadId)
+  const convsWithMessagesSet = new Set(
+    convsWithMessages.map((c) => c.conversationId)
   );
 
-  // Categorize threads
-  const existingProviderIds = new Set<string>();
-  const orphanedProviderIds = new Set<string>();
+  // Categorize conversations
+  const existingExternalIds = new Set<string>();
+  const orphanedExternalIds = new Set<string>();
 
-  for (const thread of existingThreads) {
-    if (threadsWithMessagesSet.has(thread.id)) {
-      existingProviderIds.add(thread.providerThreadId);
+  for (const conv of existingConversations) {
+    if (convsWithMessagesSet.has(conv.id)) {
+      existingExternalIds.add(conv.externalId);
     } else {
-      // Thread exists but has no messages - treat as orphaned
-      orphanedProviderIds.add(thread.providerThreadId);
+      // Conversation exists but has no messages - treat as orphaned
+      orphanedExternalIds.add(conv.externalId);
     }
   }
 
   // New = not in database OR orphaned (no actual message records)
-  const newIds = providerThreadIds.filter(
-    (id) => !existingProviderIds.has(id) || orphanedProviderIds.has(id)
+  const newIds = externalIds.filter(
+    (id) => !existingExternalIds.has(id) || orphanedExternalIds.has(id)
   );
-  const existingIds = providerThreadIds.filter(
-    (id) => existingProviderIds.has(id) && !orphanedProviderIds.has(id)
+  const existingIds = externalIds.filter(
+    (id) => existingExternalIds.has(id) && !orphanedExternalIds.has(id)
   );
 
   return { newIds, existingIds, existingMap };
@@ -117,44 +119,40 @@ export async function deduplicateThreads(
 /**
  * Check which message IDs already exist in the database.
  *
- * @param threadId - Thread ID in our database
- * @param providerMessageIds - Provider message IDs to check
+ * @param conversationId - Conversation ID in our database
+ * @param externalIds - Provider message IDs to check
  * @returns Deduplication result
  */
 export async function deduplicateMessages(
-  threadId: string,
-  providerMessageIds: string[]
+  conversationId: string,
+  externalIds: string[]
 ): Promise<DeduplicationResult> {
-  if (providerMessageIds.length === 0) {
+  if (externalIds.length === 0) {
     return { newIds: [], existingIds: [], existingMap: new Map() };
   }
 
   // Batch check for existing messages
-  const existingMessages = await db.query.emailMessage.findMany({
+  const existingMessages = await db.query.message.findMany({
     where: and(
-      eq(emailMessage.threadId, threadId),
-      inArray(emailMessage.providerMessageId, providerMessageIds)
+      eq(message.conversationId, conversationId),
+      inArray(message.externalId, externalIds)
     ),
     columns: {
       id: true,
-      providerMessageId: true,
+      externalId: true,
     },
   });
 
   const existingMap = new Map<string, string>();
-  const existingProviderIds = new Set<string>();
+  const existingExternalIds = new Set<string>();
 
-  for (const message of existingMessages) {
-    existingMap.set(message.providerMessageId, message.id);
-    existingProviderIds.add(message.providerMessageId);
+  for (const msg of existingMessages) {
+    existingMap.set(msg.externalId, msg.id);
+    existingExternalIds.add(msg.externalId);
   }
 
-  const newIds = providerMessageIds.filter(
-    (id) => !existingProviderIds.has(id)
-  );
-  const existingIds = providerMessageIds.filter((id) =>
-    existingProviderIds.has(id)
-  );
+  const newIds = externalIds.filter((id) => !existingExternalIds.has(id));
+  const existingIds = externalIds.filter((id) => existingExternalIds.has(id));
 
   return { newIds, existingIds, existingMap };
 }
@@ -164,17 +162,17 @@ export async function deduplicateMessages(
 // =============================================================================
 
 /**
- * Efficiently deduplicate a large batch of thread IDs.
+ * Efficiently deduplicate a large batch of conversation IDs.
  * Processes in chunks to avoid memory issues.
  *
- * @param accountId - Email account ID
- * @param providerThreadIds - Provider thread IDs to check
+ * @param sourceAccountId - Source account ID
+ * @param externalIds - Provider thread IDs to check
  * @param chunkSize - Number of IDs to process at once
  * @returns Combined deduplication result
  */
 export async function batchDeduplicateThreads(
-  accountId: string,
-  providerThreadIds: string[],
+  sourceAccountId: string,
+  externalIds: string[],
   chunkSize = 100
 ): Promise<DeduplicationResult> {
   const allNewIds: string[] = [];
@@ -182,9 +180,9 @@ export async function batchDeduplicateThreads(
   const existingMap = new Map<string, string>();
 
   // Process in chunks
-  for (let i = 0; i < providerThreadIds.length; i += chunkSize) {
-    const chunk = providerThreadIds.slice(i, i + chunkSize);
-    const result = await deduplicateThreads(accountId, chunk);
+  for (let i = 0; i < externalIds.length; i += chunkSize) {
+    const chunk = externalIds.slice(i, i + chunkSize);
+    const result = await deduplicateThreads(sourceAccountId, chunk);
 
     allNewIds.push(...result.newIds);
     allExistingIds.push(...result.existingIds);
@@ -205,22 +203,22 @@ export async function batchDeduplicateThreads(
 // =============================================================================
 
 /**
- * Get or create thread ID for a provider thread.
- * Used when you need to ensure a thread exists before processing messages.
+ * Get or create conversation ID for a provider thread.
+ * Used when you need to ensure a conversation exists before processing messages.
  *
- * @param accountId - Email account ID
- * @param providerThreadId - Provider's thread ID
- * @returns Object with thread ID and whether it was newly created
+ * @param sourceAccountId - Source account ID
+ * @param externalId - Provider's thread ID
+ * @returns Object with conversation ID and whether it was newly created
  */
-export async function getOrCreateThreadId(
-  accountId: string,
-  providerThreadId: string
+export async function getOrCreateConversationId(
+  sourceAccountId: string,
+  externalId: string
 ): Promise<{ id: string; isNew: boolean }> {
   // Check if exists
-  const existing = await db.query.emailThread.findFirst({
+  const existing = await db.query.conversation.findFirst({
     where: and(
-      eq(emailThread.accountId, accountId),
-      eq(emailThread.providerThreadId, providerThreadId)
+      eq(conversation.sourceAccountId, sourceAccountId),
+      eq(conversation.externalId, externalId)
     ),
     columns: { id: true },
   });
@@ -231,22 +229,18 @@ export async function getOrCreateThreadId(
 
   // Create placeholder (will be updated with full data later)
   const id = crypto.randomUUID();
-  await db.insert(emailThread).values({
+  await db.insert(conversation).values({
     id,
-    accountId,
-    providerThreadId,
-    subject: "",
+    sourceAccountId,
+    externalId,
+    conversationType: "thread",
+    title: "",
     snippet: "",
-    participantEmails: [],
+    participantIds: [],
     messageCount: 0,
-    hasAttachments: false,
-    firstMessageAt: new Date(),
-    lastMessageAt: new Date(),
-    labels: [],
     isRead: false,
     isStarred: false,
     isArchived: false,
-    isDraft: false,
     isTrashed: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -260,37 +254,39 @@ export async function getOrCreateThreadId(
 // =============================================================================
 
 /**
- * Find orphaned threads (threads with no messages).
+ * Find orphaned conversations (conversations with no messages).
  * Can happen if message processing fails.
  *
- * @param accountId - Email account ID
- * @returns List of orphaned thread IDs
+ * @param sourceAccountId - Source account ID
+ * @returns List of orphaned conversation IDs
  */
-export async function findOrphanedThreads(
-  accountId: string
+export async function findOrphanedConversations(
+  sourceAccountId: string
 ): Promise<string[]> {
-  const threads = await db.query.emailThread.findMany({
+  const conversations = await db.query.conversation.findMany({
     where: and(
-      eq(emailThread.accountId, accountId),
-      eq(emailThread.messageCount, 0)
+      eq(conversation.sourceAccountId, sourceAccountId),
+      eq(conversation.messageCount, 0)
     ),
     columns: { id: true },
   });
 
-  return threads.map((t) => t.id);
+  return conversations.map((c) => c.id);
 }
 
 /**
- * Remove orphaned threads.
+ * Remove orphaned conversations.
  *
- * @param threadIds - Thread IDs to remove
+ * @param conversationIds - Conversation IDs to remove
  */
-export async function removeOrphanedThreads(
-  threadIds: string[]
+export async function removeOrphanedConversations(
+  conversationIds: string[]
 ): Promise<void> {
-  if (threadIds.length === 0) {
+  if (conversationIds.length === 0) {
     return;
   }
 
-  await db.delete(emailThread).where(inArray(emailThread.id, threadIds));
+  await db
+    .delete(conversation)
+    .where(inArray(conversation.id, conversationIds));
 }
