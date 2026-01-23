@@ -14,8 +14,6 @@ import {
   commitment,
   conversation,
   decision,
-  emailAccount,
-  emailThread,
   member,
   message,
   sourceAccount,
@@ -364,37 +362,14 @@ export const unifiedInboxRouter = router({
         input.accountIds
       );
 
-      // Check if we should include legacy email threads
-      // Only include emails when:
-      // 1. No source type filter (showing "all") - include legacy emails
-      // 2. Source type filter explicitly includes "email"
-      const shouldIncludeLegacyEmails =
-        !input.sourceTypes || input.sourceTypes.includes("email");
-
       // If no source accounts found for the requested types
       if (accountIds.length === 0) {
-        // Only fall back to email if we're looking for emails or "all"
-        if (shouldIncludeLegacyEmails) {
-          return await getEmailFallbackInbox(ctx, input, orgId);
-        }
-        // Otherwise return empty - no source accounts for this type
+        // Return empty - no source accounts for this type
         return { items: [], total: 0, hasMore: false };
       }
 
-      // If showing "all" or "email" and there are legacy email accounts,
-      // we need to merge results from both conversation table AND emailThread table
-      if (shouldIncludeLegacyEmails) {
-        // Check for legacy email accounts not yet migrated to sourceAccount
-        const legacyEmailAccounts = await db.query.emailAccount.findMany({
-          where: eq(emailAccount.organizationId, orgId),
-          columns: { id: true },
-        });
-
-        // If there are legacy email accounts, use the combined approach
-        if (legacyEmailAccounts.length > 0) {
-          return await getCombinedInbox(ctx, input, orgId, accountIds);
-        }
-      }
+      // All email accounts are now in the unified sourceAccount table
+      // No need for legacy emailAccount checking
 
       conditions.push(inArray(conversation.sourceAccountId, accountIds));
 
@@ -719,9 +694,9 @@ export const unifiedInboxRouter = router({
     // Get source account IDs
     const accountIds = await getSourceAccountIds(orgId);
 
-    // If no source accounts, fall back to email stats
+    // If no source accounts, return empty stats
     if (accountIds.length === 0) {
-      return await getEmailFallbackStats(ctx, orgId);
+      return { total: 0, unread: 0, starred: 0, bySource: {}, byPriority: {} };
     }
 
     // Get total and unread counts
@@ -844,44 +819,17 @@ export const unifiedInboxRouter = router({
       },
     });
 
-    // Also check legacy email accounts for backward compatibility
-    const emailAccounts = await db.query.emailAccount.findMany({
-      where: eq(emailAccount.organizationId, orgId),
-      columns: {
-        id: true,
-        email: true,
-        provider: true,
-        status: true,
-        lastSyncAt: true,
-      },
-    });
-
-    // Combine sources
-    const allSources = [
-      ...sources.map((s) => ({
-        id: s.id,
-        type: s.type as SourceType,
-        provider: s.provider,
-        identifier: s.externalId,
-        displayName: s.displayName ?? getSourceDisplayName(s.type),
-        status: s.status,
-        lastSyncAt: s.lastSyncAt,
-        isLegacy: false,
-      })),
-      // Add email accounts not yet migrated to sourceAccount table
-      ...emailAccounts
-        .filter((e) => !sources.some((s) => s.externalId === e.email))
-        .map((e) => ({
-          id: e.id,
-          type: "email" as SourceType,
-          provider: e.provider ?? "gmail",
-          identifier: e.email,
-          displayName: e.email,
-          status: e.status,
-          lastSyncAt: e.lastSyncAt,
-          isLegacy: true,
-        })),
-    ];
+    // Build sources list from unified sourceAccount table
+    const allSources = sources.map((s) => ({
+      id: s.id,
+      type: s.type as SourceType,
+      provider: s.provider,
+      identifier: s.externalId,
+      displayName: s.displayName ?? getSourceDisplayName(s.type),
+      status: s.status,
+      lastSyncAt: s.lastSyncAt,
+      isLegacy: false,
+    }));
 
     return {
       sources: allSources,
@@ -939,47 +887,10 @@ export const unifiedInboxRouter = router({
 
       // Verify access
       if (!conv || conv.sourceAccount.organizationId !== orgId) {
-        // Try legacy email thread
-        const thread = await db.query.emailThread.findFirst({
-          where: eq(emailThread.id, input.conversationId),
-          with: {
-            account: {
-              columns: { organizationId: true },
-            },
-          },
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Conversation not found.",
         });
-
-        if (!thread || thread.account.organizationId !== orgId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Conversation not found.",
-          });
-        }
-
-        // Return email thread in unified format
-        return {
-          id: thread.id,
-          sourceType: "email" as SourceType,
-          sourceAccountId: thread.accountId,
-          externalId: thread.providerThreadId,
-          conversationType: "thread",
-          title: thread.subject ?? "No subject",
-          snippet: thread.snippet ?? "",
-          brief: thread.briefSummary,
-          participantIds: thread.participantEmails ?? [],
-          messageCount: thread.messageCount ?? 0,
-          lastMessageAt: thread.lastMessageAt,
-          isRead: thread.isRead ?? false,
-          isStarred: thread.isStarred ?? false,
-          isArchived: thread.isArchived ?? false,
-          priorityTier: thread.priorityTier,
-          urgencyScore: thread.urgencyScore,
-          importanceScore: thread.importanceScore,
-          hasOpenLoops: thread.hasOpenLoops,
-          openLoopCount: thread.openLoopCount,
-          suggestedAction: thread.suggestedAction,
-          isLegacy: true,
-        };
       }
 
       return {
@@ -1060,63 +971,11 @@ export const unifiedInboxRouter = router({
         };
       }
 
-      // Fall back to email thread
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.conversationId),
-        with: {
-          account: {
-            columns: { organizationId: true },
-          },
-          messages: {
-            orderBy: (m, { asc }) => [asc(m.messageIndex)],
-          },
-        },
+      // Conversation not found
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Conversation not found.",
       });
-
-      if (!thread || thread.account.organizationId !== orgId) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Conversation not found.",
-        });
-      }
-
-      return {
-        messages: thread.messages.map((m) => ({
-          id: m.id,
-          conversationId: input.conversationId,
-          externalId: m.providerMessageId,
-          from: {
-            id: m.fromEmail,
-            email: m.fromEmail,
-            name: m.fromName,
-          },
-          recipients: [
-            ...(
-              (m.toRecipients as Array<{ email: string; name?: string }>) ?? []
-            ).map((r) => ({
-              id: r.email,
-              email: r.email,
-              name: r.name,
-              type: "to",
-            })),
-            ...(
-              (m.ccRecipients as Array<{ email: string; name?: string }>) ?? []
-            ).map((r) => ({
-              id: r.email,
-              email: r.email,
-              name: r.name,
-              type: "cc",
-            })),
-          ],
-          subject: m.subject,
-          body: m.bodyText ?? "",
-          bodyHtml: m.bodyHtml,
-          date: m.sentAt ?? m.receivedAt ?? new Date(),
-          isFromUser: m.isFromUser ?? false,
-          messageIndex: m.messageIndex ?? 0,
-        })),
-        sourceType: "email",
-      };
     }),
 
   /**
@@ -1131,26 +990,17 @@ export const unifiedInboxRouter = router({
       })
     )
     .mutation(async ({ ctx: _ctx, input }) => {
-      await db.transaction(async (tx) => {
-        // Update in conversation table
-        await tx
-          .update(conversation)
-          .set({ isRead: input.read, updatedAt: new Date() })
-          .where(eq(conversation.id, input.conversationId));
-
-        // Also try email thread (for backward compatibility)
-        await tx
-          .update(emailThread)
-          .set({ isRead: input.read, updatedAt: new Date() })
-          .where(eq(emailThread.id, input.conversationId));
-      });
+      // Update in conversation table
+      await db
+        .update(conversation)
+        .set({ isRead: input.read, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
 
       return { success: true };
     }),
 
   /**
    * Star/unstar conversation.
-   * Uses transaction to ensure both tables are updated atomically.
    */
   star: protectedProcedure
     .input(
@@ -1160,676 +1010,53 @@ export const unifiedInboxRouter = router({
       })
     )
     .mutation(async ({ ctx: _ctx, input }) => {
-      await db.transaction(async (tx) => {
-        await tx
-          .update(conversation)
-          .set({ isStarred: input.starred, updatedAt: new Date() })
-          .where(eq(conversation.id, input.conversationId));
-
-        await tx
-          .update(emailThread)
-          .set({ isStarred: input.starred, updatedAt: new Date() })
-          .where(eq(emailThread.id, input.conversationId));
-      });
+      await db
+        .update(conversation)
+        .set({ isStarred: input.starred, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
 
       return { success: true };
     }),
 
   /**
    * Archive conversation.
-   * Uses transaction to ensure both tables are updated atomically.
    */
   archive: protectedProcedure
     .input(getConversationSchema)
     .mutation(async ({ ctx: _ctx, input }) => {
-      await db.transaction(async (tx) => {
-        await tx
-          .update(conversation)
-          .set({ isArchived: true, updatedAt: new Date() })
-          .where(eq(conversation.id, input.conversationId));
-
-        await tx
-          .update(emailThread)
-          .set({ isArchived: true, updatedAt: new Date() })
-          .where(eq(emailThread.id, input.conversationId));
-      });
+      await db
+        .update(conversation)
+        .set({ isArchived: true, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
 
       return { success: true };
     }),
 
   /**
    * Delete/trash conversation.
-   * Uses transaction to ensure both tables are updated atomically.
    */
   delete: protectedProcedure
     .input(getConversationSchema)
     .mutation(async ({ ctx: _ctx, input }) => {
-      await db.transaction(async (tx) => {
-        // Soft delete in conversation table
-        await tx
-          .update(conversation)
-          .set({ isTrashed: true, updatedAt: new Date() })
-          .where(eq(conversation.id, input.conversationId));
-
-        // Also soft delete in emailThread table (for backward compatibility)
-        await tx
-          .update(emailThread)
-          .set({ isTrashed: true, updatedAt: new Date() })
-          .where(eq(emailThread.id, input.conversationId));
-      });
+      await db
+        .update(conversation)
+        .set({ isTrashed: true, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
 
       return { success: true };
     }),
 
   /**
    * Restore a trashed conversation.
-   * Uses transaction to ensure both tables are updated atomically.
    */
   restore: protectedProcedure
     .input(getConversationSchema)
     .mutation(async ({ ctx: _ctx, input }) => {
-      await db.transaction(async (tx) => {
-        // Restore in conversation table
-        await tx
-          .update(conversation)
-          .set({ isTrashed: false, updatedAt: new Date() })
-          .where(eq(conversation.id, input.conversationId));
-
-        // Also restore in emailThread table (for backward compatibility)
-        await tx
-          .update(emailThread)
-          .set({ isTrashed: false, updatedAt: new Date() })
-          .where(eq(emailThread.id, input.conversationId));
-      });
+      await db
+        .update(conversation)
+        .set({ isTrashed: false, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
 
       return { success: true };
     }),
 });
-
-// =============================================================================
-// FALLBACK FUNCTIONS (for backward compatibility with email-only)
-// =============================================================================
-
-/**
- * Fall back to email-based inbox when no source accounts are configured.
- */
-async function getEmailFallbackInbox(
-  _ctx: unknown,
-  input: z.infer<typeof listInboxSchema>,
-  orgId: string
-): Promise<{ items: UnifiedFeedItem[]; total: number; hasMore: boolean }> {
-  // Get email accounts
-  const accounts = await db.query.emailAccount.findMany({
-    where: eq(emailAccount.organizationId, orgId),
-    columns: { id: true },
-  });
-
-  if (accounts.length === 0) {
-    return { items: [], total: 0, hasMore: false };
-  }
-
-  const accountIds = accounts.map((a) => a.id);
-
-  // Build conditions
-  const conditions = [inArray(emailThread.accountId, accountIds)];
-
-  // Status filters
-  if (input.status && input.status.length > 0) {
-    const statusConditions = [];
-    if (input.status.includes("unread")) {
-      statusConditions.push(eq(emailThread.isRead, false));
-    }
-    if (input.status.includes("starred")) {
-      statusConditions.push(eq(emailThread.isStarred, true));
-    }
-    if (input.status.includes("archived")) {
-      statusConditions.push(eq(emailThread.isArchived, true));
-    }
-    if (statusConditions.length > 0) {
-      const statusCondition = or(...statusConditions);
-      if (statusCondition) {
-        conditions.push(statusCondition);
-      }
-    }
-  } else {
-    conditions.push(eq(emailThread.isArchived, false));
-  }
-
-  // Priority filters
-  if (input.priority && input.priority.length > 0) {
-    conditions.push(inArray(emailThread.priorityTier, input.priority));
-  }
-
-  // Intelligence filters
-  if (input.hasOpenLoops !== undefined) {
-    conditions.push(eq(emailThread.hasOpenLoops, input.hasOpenLoops));
-  }
-
-  if (input.needsResponse) {
-    conditions.push(eq(emailThread.suggestedAction, "respond"));
-  }
-
-  // Date range
-  if (input.after) {
-    conditions.push(gte(emailThread.lastMessageAt, input.after));
-  }
-  if (input.before) {
-    conditions.push(lte(emailThread.lastMessageAt, input.before));
-  }
-
-  // Search
-  if (input.search) {
-    const searchPattern = `%${input.search}%`;
-    const searchCondition = or(
-      sql`${emailThread.subject} ILIKE ${searchPattern}`,
-      sql`${emailThread.snippet} ILIKE ${searchPattern}`
-    );
-    if (searchCondition) {
-      conditions.push(searchCondition);
-    }
-  }
-
-  // Count
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(emailThread)
-    .where(and(...conditions));
-
-  const total = countResult?.count ?? 0;
-
-  // Get threads
-  const threads = await db.query.emailThread.findMany({
-    where: and(...conditions),
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [desc(emailThread.lastMessageAt)],
-  });
-
-  // Batch lookup commitments and decisions for these threads
-  // For legacy emailThread, we need to find matching conversations by externalId
-  const threadExternalIds = threads
-    .map((t) => t.providerThreadId)
-    .filter(Boolean) as string[];
-
-  // Find conversations that match these email threads
-  const matchingConversations =
-    threadExternalIds.length > 0
-      ? await db
-          .select({ id: conversation.id, externalId: conversation.externalId })
-          .from(conversation)
-          .where(inArray(conversation.externalId, threadExternalIds))
-      : [];
-
-  const conversationIds = matchingConversations.map((c) => c.id);
-  const externalIdToConversationId = new Map(
-    matchingConversations.map((c) => [c.externalId, c.id])
-  );
-
-  // Batch lookup commitments
-  const commitmentCounts =
-    conversationIds.length > 0
-      ? await db
-          .select({
-            conversationId: commitment.sourceConversationId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(commitment)
-          .where(inArray(commitment.sourceConversationId, conversationIds))
-          .groupBy(commitment.sourceConversationId)
-      : [];
-
-  const commitmentMap = new Map(
-    commitmentCounts.map((c) => [c.conversationId, c.count])
-  );
-
-  // Batch lookup decisions
-  const decisionCounts =
-    conversationIds.length > 0
-      ? await db
-          .select({
-            conversationId: decision.sourceConversationId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(decision)
-          .where(inArray(decision.sourceConversationId, conversationIds))
-          .groupBy(decision.sourceConversationId)
-      : [];
-
-  const decisionMap = new Map(
-    decisionCounts.map((d) => [d.conversationId, d.count])
-  );
-
-  // Batch lookup for tasks linked to conversations
-  const linkedTasks =
-    conversationIds.length > 0
-      ? await db
-          .select({
-            conversationId: task.sourceConversationId,
-            taskId: task.id,
-            status: task.status,
-            priority: task.priority,
-            assigneeId: task.assigneeId,
-            assigneeName: user.name,
-            assigneeEmail: user.email,
-            assigneeImage: user.image,
-          })
-          .from(task)
-          .leftJoin(user, eq(task.assigneeId, user.id))
-          .where(inArray(task.sourceConversationId, conversationIds))
-      : [];
-
-  const taskMap = new Map(
-    linkedTasks.map((t) => [
-      t.conversationId,
-      {
-        id: t.taskId,
-        status: t.status as TaskStatus,
-        priority: t.priority as TaskPriority,
-        assignee: t.assigneeId
-          ? {
-              id: t.assigneeId,
-              name: t.assigneeName,
-              email: t.assigneeEmail ?? "",
-              image: t.assigneeImage,
-            }
-          : null,
-      },
-    ])
-  );
-
-  // Transform to UnifiedFeedItem
-  const items: UnifiedFeedItem[] = threads.map((t) => {
-    const convId = t.providerThreadId
-      ? externalIdToConversationId.get(t.providerThreadId)
-      : undefined;
-    const linkedTask = convId ? taskMap.get(convId) : undefined;
-    return {
-      id: t.id,
-      sourceType: "email" as SourceType,
-      sourceAccountId: t.accountId,
-      externalId: t.providerThreadId,
-      conversationType: "thread",
-      title: t.subject ?? "No subject",
-      snippet: t.snippet ?? "",
-      brief: t.briefSummary,
-      participants: (t.participantEmails ?? []).map((email) => ({
-        id: email as string,
-        email: email as string,
-      })),
-      messageCount: t.messageCount ?? 0,
-      lastMessageAt: t.lastMessageAt,
-      isRead: t.isRead ?? false,
-      isStarred: t.isStarred ?? false,
-      isArchived: t.isArchived ?? false,
-      priorityTier: t.priorityTier,
-      urgencyScore: t.urgencyScore,
-      importanceScore: t.importanceScore,
-      hasOpenLoops: t.hasOpenLoops,
-      openLoopCount: t.openLoopCount,
-      suggestedAction: t.suggestedAction,
-      hasCommitments: convId ? (commitmentMap.get(convId) ?? 0) > 0 : false,
-      hasDecisions: convId ? (decisionMap.get(convId) ?? 0) > 0 : false,
-      task: linkedTask,
-    };
-  });
-
-  return { items, total, hasMore: input.offset + items.length < total };
-}
-
-/**
- * Fall back to email stats when no source accounts are configured.
- */
-async function getEmailFallbackStats(
-  _ctx: unknown,
-  orgId: string
-): Promise<UnifiedInboxStats> {
-  const accounts = await db.query.emailAccount.findMany({
-    where: eq(emailAccount.organizationId, orgId),
-    columns: { id: true },
-  });
-
-  if (accounts.length === 0) {
-    return {
-      total: 0,
-      unread: 0,
-      starred: 0,
-      bySource: {},
-      byPriority: { urgent: 0, high: 0, medium: 0, low: 0 },
-    };
-  }
-
-  const accountIds = accounts.map((a) => a.id);
-
-  const [totalResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(emailThread)
-    .where(
-      and(
-        inArray(emailThread.accountId, accountIds),
-        eq(emailThread.isArchived, false)
-      )
-    );
-
-  const [unreadResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(emailThread)
-    .where(
-      and(
-        inArray(emailThread.accountId, accountIds),
-        eq(emailThread.isArchived, false),
-        eq(emailThread.isRead, false)
-      )
-    );
-
-  const [starredResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(emailThread)
-    .where(
-      and(
-        inArray(emailThread.accountId, accountIds),
-        eq(emailThread.isArchived, false),
-        eq(emailThread.isStarred, true)
-      )
-    );
-
-  return {
-    total: totalResult?.count ?? 0,
-    unread: unreadResult?.count ?? 0,
-    starred: starredResult?.count ?? 0,
-    bySource: {
-      email: {
-        total: totalResult?.count ?? 0,
-        unread: unreadResult?.count ?? 0,
-      },
-    },
-    byPriority: { urgent: 0, high: 0, medium: 0, low: 0 },
-  };
-}
-
-/**
- * Get combined inbox from both conversation table and legacy emailThread table.
- * This is used when showing "all" sources and there are both new source accounts
- * and legacy email accounts.
- */
-async function getCombinedInbox(
-  _ctx: unknown,
-  input: z.infer<typeof listInboxSchema>,
-  orgId: string,
-  sourceAccountIds: string[]
-): Promise<{ items: UnifiedFeedItem[]; total: number; hasMore: boolean }> {
-  // Get legacy email accounts
-  const emailAccounts = await db.query.emailAccount.findMany({
-    where: eq(emailAccount.organizationId, orgId),
-    columns: { id: true },
-  });
-  const emailAccountIds = emailAccounts.map((a) => a.id);
-
-  // Build base conditions for status filters
-  const buildStatusConditions = (
-    isReadCol: any,
-    isStarredCol: any,
-    isArchivedCol: any
-  ) => {
-    if (input.status && input.status.length > 0) {
-      const statusConditions = [];
-      if (input.status.includes("unread")) {
-        statusConditions.push(eq(isReadCol, false));
-      }
-      if (input.status.includes("read")) {
-        statusConditions.push(eq(isReadCol, true));
-      }
-      if (input.status.includes("starred")) {
-        statusConditions.push(eq(isStarredCol, true));
-      }
-      if (input.status.includes("archived")) {
-        statusConditions.push(eq(isArchivedCol, true));
-      }
-      return statusConditions.length > 0 ? or(...statusConditions) : undefined;
-    }
-    // Default: exclude archived
-    return eq(isArchivedCol, false);
-  };
-
-  // Get items from conversation table (new sources)
-  const convConditions = [
-    inArray(conversation.sourceAccountId, sourceAccountIds),
-  ];
-  const convStatusCond = buildStatusConditions(
-    conversation.isRead,
-    conversation.isStarred,
-    conversation.isArchived
-  );
-  if (convStatusCond) convConditions.push(convStatusCond);
-  if (input.priority && input.priority.length > 0) {
-    convConditions.push(inArray(conversation.priorityTier, input.priority));
-  }
-
-  // Fetch enough items to cover offset + limit from each table
-  // This ensures we can properly merge and paginate across both sources
-  const fetchLimit = input.offset + input.limit + 1;
-
-  const conversations = await db
-    .select({
-      id: conversation.id,
-      sourceAccountId: conversation.sourceAccountId,
-      externalId: conversation.externalId,
-      conversationType: conversation.conversationType,
-      title: conversation.title,
-      snippet: conversation.snippet,
-      briefSummary: conversation.briefSummary,
-      participantIds: conversation.participantIds,
-      messageCount: conversation.messageCount,
-      lastMessageAt: conversation.lastMessageAt,
-      isRead: conversation.isRead,
-      isStarred: conversation.isStarred,
-      isArchived: conversation.isArchived,
-      priorityTier: conversation.priorityTier,
-      urgencyScore: conversation.urgencyScore,
-      importanceScore: conversation.importanceScore,
-      hasOpenLoops: conversation.hasOpenLoops,
-      openLoopCount: conversation.openLoopCount,
-      suggestedAction: conversation.suggestedAction,
-      metadata: conversation.metadata,
-      sourceType: sourceAccount.type,
-      sourceDisplayName: sourceAccount.displayName,
-    })
-    .from(conversation)
-    .innerJoin(
-      sourceAccount,
-      eq(conversation.sourceAccountId, sourceAccount.id)
-    )
-    .where(and(...convConditions))
-    .orderBy(desc(conversation.lastMessageAt))
-    .limit(fetchLimit);
-
-  // Get items from emailThread table (legacy emails)
-  const emailConditions = [inArray(emailThread.accountId, emailAccountIds)];
-  const emailStatusCond = buildStatusConditions(
-    emailThread.isRead,
-    emailThread.isStarred,
-    emailThread.isArchived
-  );
-  if (emailStatusCond) emailConditions.push(emailStatusCond);
-  if (input.priority && input.priority.length > 0) {
-    emailConditions.push(inArray(emailThread.priorityTier, input.priority));
-  }
-
-  const threads = await db.query.emailThread.findMany({
-    where: and(...emailConditions),
-    limit: fetchLimit,
-    orderBy: [desc(emailThread.lastMessageAt)],
-  });
-
-  // Get all IDs for commitment/decision lookup
-  const allConvIds = conversations.map((c) => c.id);
-  const allThreadIds = threads.map((t) => t.id);
-  const allIds = [...allConvIds, ...allThreadIds];
-
-  // Batch lookup for commitments
-  const commitmentCounts =
-    allIds.length > 0
-      ? await db
-          .select({
-            conversationId: commitment.sourceConversationId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(commitment)
-          .where(inArray(commitment.sourceConversationId, allIds))
-          .groupBy(commitment.sourceConversationId)
-      : [];
-
-  // Batch lookup for decisions
-  const decisionCounts =
-    allIds.length > 0
-      ? await db
-          .select({
-            conversationId: decision.sourceConversationId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(decision)
-          .where(inArray(decision.sourceConversationId, allIds))
-          .groupBy(decision.sourceConversationId)
-      : [];
-
-  // Batch lookup for tasks linked to conversations
-  const linkedTasks =
-    allConvIds.length > 0
-      ? await db
-          .select({
-            conversationId: task.sourceConversationId,
-            taskId: task.id,
-            status: task.status,
-            priority: task.priority,
-            assigneeId: task.assigneeId,
-            assigneeName: user.name,
-            assigneeEmail: user.email,
-            assigneeImage: user.image,
-          })
-          .from(task)
-          .leftJoin(user, eq(task.assigneeId, user.id))
-          .where(inArray(task.sourceConversationId, allConvIds))
-      : [];
-
-  // Create lookup maps
-  const commitmentMap = new Map(
-    commitmentCounts.map((c) => [c.conversationId, c.count])
-  );
-  const decisionMap = new Map(
-    decisionCounts.map((d) => [d.conversationId, d.count])
-  );
-  const taskMap = new Map(
-    linkedTasks.map((t) => [
-      t.conversationId,
-      {
-        id: t.taskId,
-        status: t.status as TaskStatus,
-        priority: t.priority as TaskPriority,
-        assignee: t.assigneeId
-          ? {
-              id: t.assigneeId,
-              name: t.assigneeName,
-              email: t.assigneeEmail ?? "",
-              image: t.assigneeImage,
-            }
-          : null,
-      },
-    ])
-  );
-
-  // Transform and merge results
-  const convItems: UnifiedFeedItem[] = conversations.map((c) => ({
-    id: c.id,
-    sourceType: c.sourceType as SourceType,
-    sourceAccountId: c.sourceAccountId,
-    sourceAccountName:
-      c.sourceDisplayName ?? getSourceDisplayName(c.sourceType),
-    externalId: c.externalId,
-    conversationType: c.conversationType,
-    title: c.title ?? "No subject",
-    snippet: c.snippet ?? "",
-    brief: c.briefSummary,
-    participants: (c.participantIds ?? []).map((id) => ({
-      id: id as string,
-      name: undefined,
-      email: id as string,
-    })),
-    messageCount: c.messageCount ?? 0,
-    lastMessageAt: c.lastMessageAt,
-    isRead: c.isRead ?? false,
-    isStarred: c.isStarred ?? false,
-    isArchived: c.isArchived ?? false,
-    priorityTier: c.priorityTier,
-    urgencyScore: c.urgencyScore,
-    importanceScore: c.importanceScore,
-    hasOpenLoops: c.hasOpenLoops,
-    openLoopCount: c.openLoopCount,
-    suggestedAction: c.suggestedAction,
-    hasCommitments: (commitmentMap.get(c.id) ?? 0) > 0,
-    hasDecisions: (decisionMap.get(c.id) ?? 0) > 0,
-    task: taskMap.get(c.id),
-    metadata: c.metadata as Record<string, unknown> | undefined,
-  }));
-
-  const emailItems: UnifiedFeedItem[] = threads.map((t) => ({
-    id: t.id,
-    sourceType: "email" as SourceType,
-    sourceAccountId: t.accountId,
-    externalId: t.providerThreadId,
-    conversationType: "thread",
-    title: t.subject ?? "No subject",
-    snippet: t.snippet ?? "",
-    brief: t.briefSummary,
-    participants: (t.participantEmails ?? []).map((email) => ({
-      id: email as string,
-      email: email as string,
-    })),
-    messageCount: t.messageCount ?? 0,
-    lastMessageAt: t.lastMessageAt,
-    isRead: t.isRead ?? false,
-    isStarred: t.isStarred ?? false,
-    isArchived: t.isArchived ?? false,
-    priorityTier: t.priorityTier,
-    urgencyScore: t.urgencyScore,
-    importanceScore: t.importanceScore,
-    hasOpenLoops: t.hasOpenLoops,
-    openLoopCount: t.openLoopCount,
-    suggestedAction: t.suggestedAction,
-    hasCommitments: (commitmentMap.get(t.id) ?? 0) > 0,
-    hasDecisions: (decisionMap.get(t.id) ?? 0) > 0,
-  }));
-
-  // Merge and sort by lastMessageAt
-  const allItems = [...convItems, ...emailItems].sort((a, b) => {
-    const aTime = a.lastMessageAt?.getTime() ?? 0;
-    const bTime = b.lastMessageAt?.getTime() ?? 0;
-    return bTime - aTime; // Descending order
-  });
-
-  // Apply pagination - start at offset, take limit items
-  const paginatedItems = allItems.slice(
-    input.offset,
-    input.offset + input.limit
-  );
-
-  // Determine if there are more items after this page
-  const hasMore = allItems.length > input.offset + input.limit;
-
-  // Get total counts for accurate pagination info
-  const [convCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(conversation)
-    .where(and(...convConditions));
-
-  const [emailCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(emailThread)
-    .where(and(...emailConditions));
-
-  const total = (convCount?.count ?? 0) + (emailCount?.count ?? 0);
-
-  return {
-    items: paginatedItems,
-    total,
-    hasMore,
-  };
-}

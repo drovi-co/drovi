@@ -6,25 +6,27 @@
 //
 
 import {
-  createKnowledgeAgent,
-  createSearchAgent,
-  type EvidenceItem,
-  type ParsedQuery,
-} from "@memorystack/ai/agents";
-import {
   calculateInputHash,
   generateQueryEmbedding,
 } from "@memorystack/ai/embeddings";
+
+// =============================================================================
+// NOTE: Search AI functionality has been moved to Python backend.
+// AI-powered search procedures now return migration errors.
+// Use Python backend at /api/v1/search for AI-powered search.
+// =============================================================================
+
+// AI-powered search types now handled by Python backend at /api/v1/search
 import { db } from "@memorystack/db";
 import {
   claim,
   claimEmbedding,
-  emailAccount,
-  emailMessage,
-  emailThread,
+  conversation,
   member,
+  message,
   messageEmbedding,
   queryEmbeddingCache,
+  sourceAccount,
   threadEmbedding,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -211,8 +213,11 @@ async function getAccountIds(
   }
 
   // Get accounts
-  const accounts = await db.query.emailAccount.findMany({
-    where: eq(emailAccount.organizationId, organizationId),
+  const accounts = await db.query.sourceAccount.findMany({
+    where: and(
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email")
+    ),
     columns: { id: true },
   });
 
@@ -262,29 +267,29 @@ async function searchMessages(
   const conditions = [eq(messageEmbedding.status, "completed")];
 
   if (accountIds.length > 0) {
-    conditions.push(inArray(emailThread.accountId, accountIds));
+    conditions.push(inArray(conversation.sourceAccountId, accountIds));
   }
   if (options.after) {
-    conditions.push(gte(emailMessage.sentAt, options.after));
+    conditions.push(gte(message.sentAt, options.after));
   }
   if (options.before) {
-    conditions.push(lte(emailMessage.sentAt, options.before));
+    conditions.push(lte(message.sentAt, options.before));
   }
 
   const results = await db
     .select({
       id: messageEmbedding.messageId,
       score: similarity,
-      content: emailMessage.bodyText,
-      subject: emailMessage.subject,
-      sentAt: emailMessage.sentAt,
-      fromEmail: emailMessage.fromEmail,
-      threadId: emailThread.id,
-      threadSubject: emailThread.subject,
+      content: message.bodyText,
+      subject: conversation.title,
+      sentAt: message.sentAt,
+      fromEmail: message.senderEmail,
+      threadId: conversation.id,
+      threadSubject: conversation.title,
     })
     .from(messageEmbedding)
-    .innerJoin(emailMessage, eq(messageEmbedding.messageId, emailMessage.id))
-    .innerJoin(emailThread, eq(emailMessage.threadId, emailThread.id))
+    .innerJoin(message, eq(messageEmbedding.messageId, message.id))
+    .innerJoin(conversation, eq(message.conversationId, conversation.id))
     .where(and(...conditions))
     .orderBy(asc(distance))
     .limit(options.limit);
@@ -335,27 +340,27 @@ async function searchThreads(
   const conditions = [eq(threadEmbedding.status, "completed")];
 
   if (accountIds.length > 0) {
-    conditions.push(inArray(emailThread.accountId, accountIds));
+    conditions.push(inArray(conversation.sourceAccountId, accountIds));
   }
   if (options.after) {
-    conditions.push(gte(emailThread.lastMessageAt, options.after));
+    conditions.push(gte(conversation.lastMessageAt, options.after));
   }
   if (options.before) {
-    conditions.push(lte(emailThread.lastMessageAt, options.before));
+    conditions.push(lte(conversation.lastMessageAt, options.before));
   }
 
   const results = await db
     .select({
-      id: threadEmbedding.threadId,
+      id: threadEmbedding.conversationId,
       score: similarity,
-      subject: emailThread.subject,
-      snippet: emailThread.snippet,
-      lastMessageAt: emailThread.lastMessageAt,
-      messageCount: emailThread.messageCount,
-      briefSummary: emailThread.briefSummary,
+      subject: conversation.title,
+      snippet: conversation.snippet,
+      lastMessageAt: conversation.lastMessageAt,
+      messageCount: conversation.messageCount,
+      briefSummary: conversation.briefSummary,
     })
     .from(threadEmbedding)
-    .innerJoin(emailThread, eq(threadEmbedding.threadId, emailThread.id))
+    .innerJoin(conversation, eq(threadEmbedding.conversationId, conversation.id))
     .where(and(...conditions))
     .orderBy(asc(distance))
     .limit(options.limit);
@@ -405,7 +410,7 @@ async function searchClaims(
   const conditions = [eq(claimEmbedding.status, "completed")];
 
   if (accountIds.length > 0) {
-    conditions.push(inArray(emailThread.accountId, accountIds));
+    conditions.push(inArray(conversation.sourceAccountId, accountIds));
   }
   if (options.after) {
     conditions.push(gte(claim.createdAt, options.after));
@@ -421,13 +426,13 @@ async function searchClaims(
       text: claim.text,
       claimType: claim.type,
       confidence: claim.confidence,
-      threadId: claim.threadId,
-      threadSubject: emailThread.subject,
+      conversationId: claim.conversationId,
+      conversationTitle: conversation.title,
       createdAt: claim.createdAt,
     })
     .from(claimEmbedding)
     .innerJoin(claim, eq(claimEmbedding.claimId, claim.id))
-    .innerJoin(emailThread, eq(claim.threadId, emailThread.id))
+    .innerJoin(conversation, eq(claim.conversationId, conversation.id))
     .where(and(...conditions))
     .orderBy(asc(distance))
     .limit(options.limit);
@@ -441,8 +446,8 @@ async function searchClaims(
       metadata: {
         claimType: row.claimType,
         confidence: row.confidence,
-        threadId: row.threadId,
-        threadSubject: row.threadSubject,
+        threadId: row.conversationId,
+        threadSubject: row.conversationTitle,
         createdAt: row.createdAt,
       },
     }));
@@ -508,7 +513,31 @@ export const searchRouter = router({
   /**
    * Ask a question and get an answer with citations.
    */
-  ask: protectedProcedure.input(askSchema).mutation(async ({ ctx, input }) => {
+  ask: protectedProcedure
+    .input(askSchema)
+    .output(
+      z.object({
+        answer: z.string(),
+        citations: z.array(
+          z.object({
+            id: z.string(),
+            text: z.string(),
+            sourceType: z.string(),
+            sourceId: z.string(),
+            relevanceScore: z.number().optional(),
+          })
+        ),
+        confidence: z.number(),
+        sources: z.array(
+          z.object({
+            id: z.string(),
+            type: z.string(),
+            title: z.string().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
     const accountIds = await getAccountIds(
       ctx.session.user.id,
       input.organizationId,
@@ -524,63 +553,14 @@ export const searchRouter = router({
       };
     }
 
-    const searchAgent = createSearchAgent();
-
-    // Use the agent's search and answer pipeline
-    const result = await searchAgent.searchAndAnswer(
-      input.question,
-      async (_parsedQuery: ParsedQuery, queryEmbedding: number[]) => {
-        const searchOptions = {
-          limit: 20,
-          threshold: 0.5,
-          after: input.after,
-          before: input.before,
-        };
-
-        // Search all types
-        const [messageResults, claimResults] = await Promise.all([
-          searchMessages(queryEmbedding, accountIds, searchOptions),
-          searchClaims(queryEmbedding, accountIds, searchOptions),
-        ]);
-
-        // Convert to EvidenceItem format
-        const evidence: EvidenceItem[] = [
-          ...messageResults.map((r) => ({
-            id: r.id,
-            type: "message" as const,
-            content: r.content ?? "",
-            metadata: {
-              threadId: r.metadata.threadId as string | undefined,
-              threadSubject: r.metadata.threadSubject as string | undefined,
-              messageDate: r.metadata.sentAt
-                ? new Date(r.metadata.sentAt as string)
-                : undefined,
-              sender: r.metadata.fromAddress as string | undefined,
-            },
-            relevanceScore: r.score,
-          })),
-          ...claimResults.map((r) => ({
-            id: r.id,
-            type: "claim" as const,
-            content: r.content ?? "",
-            metadata: {
-              threadId: r.metadata.threadId as string | undefined,
-              threadSubject: r.metadata.threadSubject as string | undefined,
-              claimType: r.metadata.claimType as string | undefined,
-              confidence: r.metadata.confidence as number | undefined,
-            },
-            relevanceScore: r.score,
-          })),
-        ];
-
-        // Sort by relevance and take top results
-        return evidence
-          .sort((a, b) => b.relevanceScore - a.relevanceScore)
-          .slice(0, 10);
-      }
-    );
-
-    return result;
+    // NOTE: AI-powered search/ask has been migrated to Python backend
+    // Use Python backend at /api/v1/search for AI-powered search
+    throw new TRPCError({
+      code: "NOT_IMPLEMENTED",
+      message:
+        "AI-powered search functionality is being migrated to Python backend. " +
+        "Use /api/v1/search endpoint directly.",
+    });
   }),
 
   /**
@@ -596,7 +576,7 @@ export const searchRouter = router({
 
       // Get the source thread's embedding
       const sourceEmbedding = await db.query.threadEmbedding.findFirst({
-        where: eq(threadEmbedding.threadId, input.threadId),
+        where: eq(threadEmbedding.conversationId, input.threadId),
       });
 
       if (!(sourceEmbedding && sourceEmbedding.embedding)) {
@@ -615,24 +595,24 @@ export const searchRouter = router({
 
       const conditions = [
         eq(threadEmbedding.status, "completed"),
-        sql`${threadEmbedding.threadId} != ${input.threadId}`,
+        sql`${threadEmbedding.conversationId} != ${input.threadId}`,
       ];
 
       if (accountIds.length > 0) {
-        conditions.push(inArray(emailThread.accountId, accountIds));
+        conditions.push(inArray(conversation.sourceAccountId, accountIds));
       }
 
       const results = await db
         .select({
-          id: threadEmbedding.threadId,
+          id: threadEmbedding.conversationId,
           score: similarity,
-          subject: emailThread.subject,
-          snippet: emailThread.snippet,
-          lastMessageAt: emailThread.lastMessageAt,
-          messageCount: emailThread.messageCount,
+          subject: conversation.title,
+          snippet: conversation.snippet,
+          lastMessageAt: conversation.lastMessageAt,
+          messageCount: conversation.messageCount,
         })
         .from(threadEmbedding)
-        .innerJoin(emailThread, eq(threadEmbedding.threadId, emailThread.id))
+        .innerJoin(conversation, eq(threadEmbedding.conversationId, conversation.id))
         .where(and(...conditions))
         .orderBy(asc(distance))
         .limit(input.limit);
@@ -656,6 +636,23 @@ export const searchRouter = router({
    */
   summarizeTopic: protectedProcedure
     .input(summarizeTopicSchema)
+    .output(
+      z.object({
+        topic: z.string(),
+        summary: z.string(),
+        keyPoints: z.array(z.string()),
+        timeline: z.array(
+          z.object({
+            date: z.date(),
+            event: z.string(),
+            sourceId: z.string().optional(),
+          })
+        ),
+        participants: z.array(z.string()),
+        status: z.enum(["active", "resolved", "stale"]),
+        relatedTopics: z.array(z.string()),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const accountIds = await getAccountIds(
         ctx.session.user.id,
@@ -695,13 +692,12 @@ export const searchRouter = router({
 
       // Get full message details
       const messageIds = messageResults.map((r) => r.id);
-      const messages = await db.query.emailMessage.findMany({
-        where: inArray(emailMessage.id, messageIds),
+      const messages = await db.query.message.findMany({
+        where: inArray(message.id, messageIds),
         with: {
-          thread: {
-            columns: { id: true, subject: true },
+          conversation: {
+            columns: { id: true, title: true },
           },
-          participants: true,
         },
       });
 
@@ -709,19 +705,21 @@ export const searchRouter = router({
       const evidence = messages.map((m) => ({
         id: m.id,
         content: m.bodyText ?? m.snippet ?? "",
-        threadId: m.threadId,
-        threadSubject: m.thread?.subject ?? "",
+        threadId: m.conversationId,
+        threadSubject: m.conversation?.title ?? "",
         date: m.sentAt ?? new Date(),
-        participants: m.participants.map((p) => p.email),
+        participants: ((m.recipients as Array<{ email: string }>) ?? []).map((p) => p.email),
       }));
 
-      const knowledgeAgent = createKnowledgeAgent();
-      const summary = await knowledgeAgent.summarizeTopic(
-        input.topic,
-        evidence
-      );
-
-      return summary;
+      // NOTE: AI-powered topic summarization has been migrated to Python backend
+      // Evidence kept for future Python backend integration
+      void evidence;
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered topic summarization is being migrated to Python backend. " +
+          "Use /api/v1/memory/search endpoint directly.",
+      });
     }),
 
   /**
@@ -729,6 +727,20 @@ export const searchRouter = router({
    */
   getInsights: protectedProcedure
     .input(getInsightsSchema)
+    .output(
+      z.object({
+        insights: z.array(
+          z.object({
+            type: z.string(),
+            title: z.string(),
+            description: z.string(),
+            confidence: z.number().optional(),
+            relatedIds: z.array(z.string()).optional(),
+          })
+        ),
+        patternCount: z.number().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const accountIds = await getAccountIds(
         ctx.session.user.id,
@@ -744,15 +756,15 @@ export const searchRouter = router({
       const recentClaims = await db.query.claim.findMany({
         where: and(
           inArray(
-            claim.threadId,
+            claim.conversationId,
             db
-              .select({ id: emailThread.id })
-              .from(emailThread)
-              .where(inArray(emailThread.accountId, accountIds))
+              .select({ id: conversation.id })
+              .from(conversation)
+              .where(inArray(conversation.sourceAccountId, accountIds))
           ),
           gte(claim.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) // Last 30 days
         ),
-        orderBy: desc(claim.createdAt),
+        orderBy: [desc(claim.createdAt)],
         limit: 100,
       });
 
@@ -783,47 +795,13 @@ export const searchRouter = router({
         return { insights: [] };
       }
 
-      const knowledgeAgent = createKnowledgeAgent();
-
-      // Detect patterns
-      const patternInputs = claimsWithEmbeddings.map((c) => ({
-        id: c.id,
-        content: c.text,
-        embedding: embeddingMap.get(c.id) as number[],
-        metadata: {
-          date: c.createdAt,
-          threadId: c.threadId ?? "",
-          threadSubject: "",
-          participants: [],
-          type: c.type,
-        },
-      }));
-
-      const clusters = knowledgeAgent.detectPatterns(patternInputs);
-
-      // Analyze patterns
-      const patterns = await Promise.all(
-        Array.from(clusters.entries())
-          .slice(0, 5)
-          .map(([id, items]) => knowledgeAgent.analyzePattern(id, items))
-      );
-
-      // Generate insights
-      const recentActivity = claimsWithEmbeddings.slice(0, 10).map((c) => ({
-        type: c.type,
-        content: c.text,
-        date: c.createdAt,
-      }));
-
-      const insights = await knowledgeAgent.generateInsights(
-        patterns,
-        recentActivity
-      );
-
-      return {
-        insights: insights.slice(0, input.limit),
-        patternCount: patterns.length,
-      };
+      // NOTE: AI-powered insights has been migrated to Python backend
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered insights generation is being migrated to Python backend. " +
+          "Use /api/v1/graph/query endpoint for pattern analysis.",
+      });
     }),
 });
 

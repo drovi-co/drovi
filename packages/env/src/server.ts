@@ -136,8 +136,11 @@ export const env = createEnv({
     // Trigger.dev (optional)
     TRIGGER_SECRET_KEY: z.string().optional(),
 
-    // Redis (optional, for rate limiting & caching)
+    // Redis/FalkorDB (optional, for rate limiting, caching & graph)
     REDIS_URL: z.string().optional(),
+
+    // Python Intelligence Backend (optional, defaults to localhost:8000)
+    INTELLIGENCE_BACKEND_URL: z.string().url().optional(),
 
     // S3/R2 Storage (optional)
     S3_ENDPOINT: z.string().url().optional(),

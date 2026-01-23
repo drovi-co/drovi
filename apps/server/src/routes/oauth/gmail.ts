@@ -224,9 +224,9 @@ gmailOAuth.get("/callback", async (c) => {
     // Trigger initial sync job - starts multi-phase backfill orchestration
     try {
       await tasks.trigger("email-backfill-orchestrator", {
-        accountId,
+        sourceAccountId: accountId,
       });
-      log.info("Triggered email backfill orchestrator", { accountId });
+      log.info("Triggered email backfill orchestrator", { sourceAccountId: accountId });
     } catch (triggerError) {
       // Don't fail the OAuth flow if trigger fails
       log.error("Failed to trigger email backfill orchestrator", triggerError, {

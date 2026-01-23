@@ -7,8 +7,8 @@
 //
 
 import { db } from "@memorystack/db";
-import type { EmailAccountSettings } from "@memorystack/db/schema";
-import { emailAccount, emailThread, member } from "@memorystack/db/schema";
+import type { SourceAccountSettings } from "@memorystack/db/schema";
+import { conversation, member, sourceAccount } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -61,11 +61,14 @@ export const emailSyncRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const accounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, input.organizationId),
+      const accounts = await db.query.sourceAccount.findMany({
+        where: and(
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
+        ),
         columns: {
           id: true,
-          email: true,
+          externalId: true,
           provider: true,
           status: true,
           syncCursor: true,
@@ -73,33 +76,32 @@ export const emailSyncRouter = router({
           lastSyncError: true,
           settings: true,
         },
-        orderBy: [desc(emailAccount.createdAt)],
+        orderBy: [desc(sourceAccount.createdAt)],
       });
 
-      // Get thread counts for each account
+      // Get conversation counts for each account
       const accountsWithStats = await Promise.all(
         accounts.map(async (account) => {
-          const [threadCountResult] = await db
+          const [conversationCountResult] = await db
             .select({ count: count() })
-            .from(emailThread)
-            .where(eq(emailThread.accountId, account.id));
+            .from(conversation)
+            .where(eq(conversation.sourceAccountId, account.id));
 
           const settings = account.settings as {
             syncEnabled?: boolean;
             syncFrequencyMinutes?: number;
-            backfillDays?: number;
           } | null;
 
           return {
             id: account.id,
-            email: account.email,
+            email: account.externalId,
             provider: account.provider,
             status: account.status,
             hasCursor: !!account.syncCursor,
             needsBackfill: !account.syncCursor,
             lastSyncAt: account.lastSyncAt,
             lastSyncError: account.lastSyncError,
-            threadCount: threadCountResult?.count ?? 0,
+            threadCount: conversationCountResult?.count ?? 0,
             syncEnabled: settings?.syncEnabled ?? true,
             syncFrequencyMinutes: settings?.syncFrequencyMinutes ?? 5,
           };
@@ -109,7 +111,7 @@ export const emailSyncRouter = router({
       return {
         accounts: accountsWithStats,
         totalAccounts: accounts.length,
-        activeAccounts: accounts.filter((a) => a.status === "active").length,
+        activeAccounts: accounts.filter((a) => a.status === "connected").length,
         syncingAccounts: accounts.filter((a) => a.status === "syncing").length,
       };
     }),
@@ -128,10 +130,11 @@ export const emailSyncRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, input.accountId),
-          eq(emailAccount.organizationId, input.organizationId)
+          eq(sourceAccount.id, input.accountId),
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -142,18 +145,18 @@ export const emailSyncRouter = router({
         });
       }
 
-      // Get thread statistics
-      const [threadCountResult] = await db
+      // Get conversation statistics
+      const [conversationCountResult] = await db
         .select({ count: count() })
-        .from(emailThread)
-        .where(eq(emailThread.accountId, account.id));
+        .from(conversation)
+        .where(eq(conversation.sourceAccountId, account.id));
 
-      // Get most recent thread
-      const latestThread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.accountId, account.id),
-        orderBy: [desc(emailThread.lastMessageAt)],
+      // Get most recent conversation
+      const latestConversation = await db.query.conversation.findFirst({
+        where: eq(conversation.sourceAccountId, account.id),
+        orderBy: [desc(conversation.lastMessageAt)],
         columns: {
-          subject: true,
+          title: true,
           lastMessageAt: true,
         },
       });
@@ -161,12 +164,11 @@ export const emailSyncRouter = router({
       const settings = account.settings as {
         syncEnabled?: boolean;
         syncFrequencyMinutes?: number;
-        backfillDays?: number;
       } | null;
 
       return {
         id: account.id,
-        email: account.email,
+        email: account.externalId,
         provider: account.provider,
         status: account.status,
         hasCursor: !!account.syncCursor,
@@ -175,14 +177,13 @@ export const emailSyncRouter = router({
         lastSyncError: account.lastSyncError,
         createdAt: account.createdAt,
         stats: {
-          threadCount: threadCountResult?.count ?? 0,
-          latestThreadSubject: latestThread?.subject ?? null,
-          latestThreadAt: latestThread?.lastMessageAt ?? null,
+          threadCount: conversationCountResult?.count ?? 0,
+          latestThreadSubject: latestConversation?.title ?? null,
+          latestThreadAt: latestConversation?.lastMessageAt ?? null,
         },
         settings: {
           syncEnabled: settings?.syncEnabled ?? true,
           syncFrequencyMinutes: settings?.syncFrequencyMinutes ?? 5,
-          backfillDays: settings?.backfillDays ?? 90,
         },
       };
     }),
@@ -202,10 +203,11 @@ export const emailSyncRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       // Verify account belongs to organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, input.accountId),
-          eq(emailAccount.organizationId, input.organizationId)
+          eq(sourceAccount.id, input.accountId),
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
         ),
         columns: { id: true, status: true },
       });
@@ -229,12 +231,12 @@ export const emailSyncRouter = router({
       // For now, we'll just update the status and let the scheduled task pick it up
 
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           lastSyncAt: null, // Force next scheduled sync
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, input.accountId));
+        .where(eq(sourceAccount.id, input.accountId));
 
       return {
         triggered: true,
@@ -260,10 +262,11 @@ export const emailSyncRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       // Verify account belongs to organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, input.accountId),
-          eq(emailAccount.organizationId, input.organizationId)
+          eq(sourceAccount.id, input.accountId),
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
         ),
         columns: { id: true, status: true, syncCursor: true },
       });
@@ -290,28 +293,31 @@ export const emailSyncRouter = router({
         });
       }
 
-      // Update backfill settings if provided
+      // Update settings if provided (note: backfillDays now in customSettings)
       if (input.backfillDays) {
-        const existingAccount = await db.query.emailAccount.findFirst({
-          where: eq(emailAccount.id, input.accountId),
+        const existingAccount = await db.query.sourceAccount.findFirst({
+          where: eq(sourceAccount.id, input.accountId),
         });
 
         const existingSettings =
-          (existingAccount?.settings as EmailAccountSettings | null) ?? {
+          (existingAccount?.settings as SourceAccountSettings | null) ?? {
             syncEnabled: true,
             syncFrequencyMinutes: 15,
           };
 
         await db
-          .update(emailAccount)
+          .update(sourceAccount)
           .set({
             settings: {
               ...existingSettings,
-              backfillDays: input.backfillDays,
-            } as EmailAccountSettings,
+              customSettings: {
+                ...existingSettings.customSettings,
+                backfillDays: input.backfillDays,
+              },
+            } as SourceAccountSettings,
             updatedAt: new Date(),
           })
-          .where(eq(emailAccount.id, input.accountId));
+          .where(eq(sourceAccount.id, input.accountId));
       }
 
       // Trigger backfill via Trigger.dev
@@ -345,10 +351,11 @@ export const emailSyncRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       // Verify account belongs to organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, input.accountId),
-          eq(emailAccount.organizationId, input.organizationId)
+          eq(sourceAccount.id, input.accountId),
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -361,22 +368,23 @@ export const emailSyncRouter = router({
 
       // Merge with existing settings
       const existingSettings =
-        (account.settings as EmailAccountSettings | null) ?? {
+        (account.settings as SourceAccountSettings | null) ?? {
           syncEnabled: true,
           syncFrequencyMinutes: 15,
         };
-      const newSettings: EmailAccountSettings = {
+      const newSettings: SourceAccountSettings = {
         ...existingSettings,
-        ...input.settings,
+        syncEnabled: input.settings.syncEnabled ?? existingSettings.syncEnabled,
+        syncFrequencyMinutes: input.settings.syncFrequencyMinutes ?? existingSettings.syncFrequencyMinutes,
       };
 
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           settings: newSettings,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, input.accountId));
+        .where(eq(sourceAccount.id, input.accountId));
 
       return {
         success: true,
@@ -400,10 +408,11 @@ export const emailSyncRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       // Verify account belongs to organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, input.accountId),
-          eq(emailAccount.organizationId, input.organizationId)
+          eq(sourceAccount.id, input.accountId),
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
         ),
         columns: { id: true },
       });

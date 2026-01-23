@@ -1,7 +1,7 @@
 # =============================================================================
-# LEADMINER - Development Docker Compose
+# DROVI - Development Docker Compose
 # =============================================================================
-# This file provides only infrastructure services (DB, Redis) for local dev.
+# This file provides infrastructure services for local development.
 # Run your app locally with `bun run dev` while using containerized services.
 #
 # Usage:
@@ -10,15 +10,15 @@
 #   docker-compose -f docker-compose.dev.yml down -v   # Stop and remove volumes
 # =============================================================================
 
-name: memorystack-dev
+name: drovi-dev
 
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL Database
+  # PostgreSQL Database (with pgvector for embeddings)
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
-    container_name: memorystack-dev-postgres
+    image: pgvector/pgvector:pg16
+    container_name: drovi-dev-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: memorystack
@@ -35,17 +35,20 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
-  # Redis (Caching, Rate Limiting)
+  # FalkorDB (Redis-compatible + Graph Database)
   # ---------------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: memorystack-dev-redis
+  # FalkorDB is a drop-in replacement for Redis that also provides
+  # graph database functionality. All Redis clients work with FalkorDB.
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: drovi-dev-falkordb
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "6379:6379"   # Redis protocol (used by both Redis clients and graph)
+      - "3001:3000"   # FalkorDB browser UI (http://localhost:3001)
     volumes:
-      - redis_dev_data:/data
+      - falkordb_dev_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -57,7 +60,7 @@ services:
   # ---------------------------------------------------------------------------
   mailpit:
     image: axllent/mailpit:latest
-    container_name: memorystack-dev-mailpit
+    container_name: drovi-dev-mailpit
     restart: unless-stopped
     ports:
       - "8025:8025"  # Web UI
@@ -71,7 +74,7 @@ services:
   # ---------------------------------------------------------------------------
   langfuse:
     image: langfuse/langfuse:latest
-    container_name: memorystack-dev-langfuse
+    container_name: drovi-dev-langfuse
     restart: unless-stopped
     depends_on:
       postgres:
@@ -93,5 +96,5 @@ services:
 volumes:
   postgres_dev_data:
     driver: local
-  redis_dev_data:
+  falkordb_dev_data:
     driver: local

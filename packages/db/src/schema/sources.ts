@@ -13,7 +13,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-import { contact } from "./intelligence";
+import { contact, conversationTopic } from "./intelligence";
 import { organization } from "./organization";
 
 // =============================================================================
@@ -698,27 +698,6 @@ export const relatedConversation = pgTable(
 // =============================================================================
 // CONVERSATION-TOPIC JUNCTION TABLE
 // =============================================================================
-
-/**
- * Links conversations to topics (replaces thread-topic for multi-source).
- */
-export const conversationTopic = pgTable(
-  "conversation_topic",
-  {
-    conversationId: text("conversation_id")
-      .notNull()
-      .references(() => conversation.id, { onDelete: "cascade" }),
-    topicId: text("topic_id").notNull(),
-    confidence: real("confidence").notNull().default(0.5),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("conversation_topic_conv_idx").on(table.conversationId),
-    index("conversation_topic_topic_idx").on(table.topicId),
-  ]
-);
-
-// =============================================================================
 // RELATIONS
 // =============================================================================
 
@@ -776,16 +755,6 @@ export const attachmentRelations = relations(attachment, ({ one }) => ({
   }),
 }));
 
-export const conversationTopicRelations = relations(
-  conversationTopic,
-  ({ one }) => ({
-    conversation: one(conversation, {
-      fields: [conversationTopic.conversationId],
-      references: [conversation.id],
-    }),
-  })
-);
-
 export const relatedConversationRelations = relations(
   relatedConversation,
   ({ one }) => ({
@@ -816,8 +785,6 @@ export type Participant = typeof participant.$inferSelect;
 export type NewParticipant = typeof participant.$inferInsert;
 export type Attachment = typeof attachment.$inferSelect;
 export type NewAttachment = typeof attachment.$inferInsert;
-export type ConversationTopic = typeof conversationTopic.$inferSelect;
-export type NewConversationTopic = typeof conversationTopic.$inferInsert;
 export type RelatedConversation = typeof relatedConversation.$inferSelect;
 export type NewRelatedConversation = typeof relatedConversation.$inferInsert;
 

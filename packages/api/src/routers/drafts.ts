@@ -6,23 +6,58 @@
 // and consistency checking.
 //
 
-import {
-  createDraftingAgent,
-  type DraftOptions,
-  type FollowUpContext,
-  type ImprovementType,
-  type VariationType,
-} from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
+
+// =============================================================================
+// NOTE: Drafting AI functionality has been moved to Python backend.
+// All drafting procedures now return errors indicating this migration.
+// =============================================================================
+
+interface FollowUpContext {
+  commitment: {
+    id: string;
+    title: string;
+    description?: string;
+    direction: string;
+    dueDate?: Date;
+    status: string;
+    originalText?: string;
+  };
+  contact: {
+    email: string;
+    name?: string;
+    company?: string;
+    isVip: boolean;
+    responseRate?: number;
+    avgResponseTimeHours?: number;
+  };
+  originalThread?: {
+    subject: string;
+    lastMessageDate: Date;
+    lastMessageFrom: string;
+  };
+  daysSinceCommitment: number;
+  previousFollowUps: number;
+}
+
+/**
+ * Migration error for drafting AI.
+ */
+const DRAFTING_MIGRATION_ERROR = new TRPCError({
+  code: "NOT_IMPLEMENTED",
+  message:
+    "Drafting AI functionality is being migrated to Python backend. " +
+    "This feature will be available soon.",
+});
 import {
   claim,
   commitment,
   contact,
+  conversation,
   decision,
-  emailAccount,
-  emailMessage,
-  emailThread,
   member,
+  message,
+  sourceAccount,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
@@ -146,15 +181,15 @@ async function verifyOrgMembership(
 }
 
 async function getThreadWithContext(threadId: string) {
-  const thread = await db.query.emailThread.findFirst({
-    where: eq(emailThread.id, threadId),
+  const thread = await db.query.conversation.findFirst({
+    where: eq(conversation.id, threadId),
     with: {
       messages: {
-        orderBy: [desc(emailMessage.receivedAt)],
+        orderBy: [desc(message.receivedAt)],
         limit: 20,
       },
-      account: {
-        columns: { organizationId: true, email: true },
+      sourceAccount: {
+        columns: { organizationId: true, externalId: true },
       },
     },
   });
@@ -175,20 +210,20 @@ async function buildThreadContext(
 ) {
   // Get claims for the thread
   const claims = await db.query.claim.findMany({
-    where: eq(claim.threadId, thread.id),
+    where: eq(claim.conversationId, thread.id),
     orderBy: [desc(claim.createdAt)],
   });
 
   return {
     id: thread.id,
-    subject: thread.subject ?? "",
-    messages: thread.messages.map((m) => ({
+    subject: thread.title ?? "",
+    messages: thread.messages.map((m: typeof message.$inferSelect) => ({
       id: m.id,
-      from: m.fromEmail ?? "",
-      fromName: m.fromName ?? undefined,
+      from: m.senderEmail ?? "",
+      fromName: m.senderName ?? undefined,
       date: m.receivedAt ?? new Date(),
       bodyText: m.bodyText ?? "",
-      isFromUser: m.fromEmail === userEmail,
+      isFromUser: m.senderEmail === userEmail,
     })),
     claims: claims.map((c) => ({
       id: c.id,
@@ -258,7 +293,7 @@ async function getCommitmentContext(organizationId: string, threadId: string) {
   const commitments = await db.query.commitment.findMany({
     where: and(
       eq(commitment.organizationId, organizationId),
-      eq(commitment.sourceThreadId, threadId),
+      eq(commitment.sourceConversationId, threadId),
       inArray(commitment.status, ["pending", "in_progress", "overdue"])
     ),
     orderBy: [desc(commitment.dueDate)],
@@ -282,49 +317,49 @@ async function getUserToneSamples(
   limit = 5
 ) {
   // Get recent sent messages from user to analyze their writing style
-  const accounts = await db.query.emailAccount.findMany({
-    where: eq(emailAccount.organizationId, organizationId),
-    columns: { id: true, email: true },
+  const accounts = await db.query.sourceAccount.findMany({
+    where: and(
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email")
+    ),
+    columns: { id: true, externalId: true },
   });
 
-  const accountIds = accounts.map((a) => a.id);
+  const accountIds = accounts.map((a: { id: string }) => a.id);
 
   if (accountIds.length === 0) {
     return [];
   }
 
-  // Get threads from these accounts
-  const threads = await db.query.emailThread.findMany({
-    where: and(
-      inArray(emailThread.accountId, accountIds),
-      eq(emailThread.isDraft, false)
-    ),
+  // Get conversations from these accounts
+  const conversations = await db.query.conversation.findMany({
+    where: inArray(conversation.sourceAccountId, accountIds),
     limit: limit * 2,
-    orderBy: [desc(emailThread.lastMessageAt)],
+    orderBy: [desc(conversation.lastMessageAt)],
     columns: { id: true },
   });
 
-  if (threads.length === 0) {
+  if (conversations.length === 0) {
     return [];
   }
 
-  const threadIds = threads.map((t) => t.id);
+  const conversationIds = conversations.map((t: { id: string }) => t.id);
 
-  // Get messages from these threads where user is the sender
+  // Get messages from these conversations where user is the sender
   const sentMessages = await db
     .select({
-      bodyText: emailMessage.bodyText,
+      bodyText: message.bodyText,
     })
-    .from(emailMessage)
+    .from(message)
     .where(
       and(
-        inArray(emailMessage.threadId, threadIds),
-        eq(emailMessage.isFromUser, true),
-        sql`${emailMessage.bodyText} IS NOT NULL`,
-        sql`length(${emailMessage.bodyText}) > 100`
+        inArray(message.conversationId, conversationIds),
+        eq(message.isFromUser, true),
+        sql`${message.bodyText} IS NOT NULL`,
+        sql`length(${message.bodyText}) > 100`
       )
     )
-    .orderBy(desc(emailMessage.receivedAt))
+    .orderBy(desc(message.receivedAt))
     .limit(limit);
 
   return sentMessages
@@ -342,6 +377,29 @@ export const draftsRouter = router({
    */
   generateDraft: protectedProcedure
     .input(generateDraftSchema)
+    .output(
+      z.object({
+        draft: z.object({
+          body: z.string(),
+          subject: z.string().optional(),
+        }),
+        citations: z.array(
+          z.object({
+            id: z.string(),
+            text: z.string(),
+            sourceType: z.string(),
+            sourceId: z.string(),
+          })
+        ),
+        toneAnalysis: z
+          .object({
+            detected: z.string().optional(),
+            confidence: z.number().optional(),
+          })
+          .optional(),
+        warnings: z.array(z.string()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -349,67 +407,52 @@ export const draftsRouter = router({
       // Get thread with context
       const thread = await getThreadWithContext(input.threadId);
 
-      if (thread.account.organizationId !== input.organizationId) {
+      if (thread.sourceAccount?.organizationId !== input.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Thread does not belong to this organization.",
         });
       }
 
-      const userEmail = thread.account.email;
+      const userEmail = thread.sourceAccount?.externalId ?? "";
 
-      // Build all context
-      const threadContext = await buildThreadContext(thread, userEmail);
+      // Build all context (kept for future Python backend integration)
+      const _threadContext = await buildThreadContext(thread, userEmail);
 
       // Get sender email for relationship context
       const senderMessage = thread.messages.find(
-        (m) => m.fromEmail !== userEmail
+        (m: typeof message.$inferSelect) => m.senderEmail !== userEmail
       );
-      const senderEmail = senderMessage?.fromEmail ?? "";
+      const senderEmail = senderMessage?.senderEmail ?? "";
 
-      const relationshipContext = senderEmail
+      const _relationshipContext = senderEmail
         ? await getRelationshipContext(input.organizationId, senderEmail)
         : undefined;
 
-      const historicalContext = await getHistoricalContext(
+      const _historicalContext = await getHistoricalContext(
         input.organizationId,
         input.threadId,
         senderEmail
       );
 
-      const commitmentContext = await getCommitmentContext(
+      const _commitmentContext = await getCommitmentContext(
         input.organizationId,
         input.threadId
       );
 
       // Get user tone samples
-      const userToneSamples = input.includeToneSamples
+      const _userToneSamples = input.includeToneSamples
         ? await getUserToneSamples(input.organizationId, userEmail)
         : undefined;
 
-      // Create agent and generate draft
-      const agent = createDraftingAgent({
-        enableToneMatching: true,
-        enableConsistencyCheck: true,
-      });
-
-      const result = await agent.generateDraft({
-        threadId: input.threadId,
-        thread: threadContext,
-        userIntent: input.userIntent,
-        relationship: relationshipContext,
-        history: historicalContext,
-        commitments: commitmentContext,
-        userToneSamples,
-        options: input.options as DraftOptions,
-      });
-
-      return {
-        draft: result.draft,
-        citationSources: result.citationSources,
-        toneProfile: result.toneProfile,
-        consistencyCheck: result.consistencyCheck,
-      };
+      // NOTE: AI drafting has been migrated to Python backend
+      // Context vars above kept for future integration
+      void _threadContext;
+      void _relationshipContext;
+      void _historicalContext;
+      void _commitmentContext;
+      void _userToneSamples;
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -417,34 +460,18 @@ export const draftsRouter = router({
    */
   refineDraft: protectedProcedure
     .input(refineDraftSchema)
+    .output(
+      z.object({
+        refinedBody: z.string(),
+        changes: z.array(z.string()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      let threadSubject: string | undefined;
-      if (input.threadId) {
-        const thread = await getThreadWithContext(input.threadId);
-        if (thread.account.organizationId !== input.organizationId) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Thread does not belong to this organization.",
-          });
-        }
-        threadSubject = thread.subject ?? undefined;
-      }
-
-      const result = await agent.refineDraft(
-        input.originalDraft,
-        input.feedback,
-        {
-          threadSubject,
-          recipientName: input.recipientName,
-        }
-      );
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -452,19 +479,23 @@ export const draftsRouter = router({
    */
   generateVariations: protectedProcedure
     .input(generateVariationsSchema)
+    .output(
+      z.object({
+        variations: z.array(
+          z.object({
+            type: z.string(),
+            draft: z.string(),
+            description: z.string().optional(),
+          })
+        ),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      const result = await agent.generateVariations(
-        input.baseDraft,
-        input.intent,
-        input.variationTypes as VariationType[]
-      );
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -472,6 +503,14 @@ export const draftsRouter = router({
    */
   generateFollowUp: protectedProcedure
     .input(generateFollowUpSchema)
+    .output(
+      z.object({
+        subject: z.string(),
+        body: z.string(),
+        tone: z.string().optional(),
+        urgencyLevel: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -483,7 +522,7 @@ export const draftsRouter = router({
           eq(commitment.organizationId, input.organizationId)
         ),
         with: {
-          sourceThread: true,
+          sourceConversation: true,
           debtor: true,
           creditor: true,
         },
@@ -536,11 +575,11 @@ export const draftsRouter = router({
             ? targetContact.avgResponseTimeMinutes / 60
             : undefined,
         },
-        originalThread: commitmentRecord.sourceThread
+        originalThread: commitmentRecord.sourceConversation
           ? {
-              subject: commitmentRecord.sourceThread.subject ?? "",
+              subject: commitmentRecord.sourceConversation.title ?? "",
               lastMessageDate:
-                commitmentRecord.sourceThread.lastMessageAt ?? new Date(),
+                commitmentRecord.sourceConversation.lastMessageAt ?? new Date(),
               lastMessageFrom: "", // Would need to query
             }
           : undefined,
@@ -548,10 +587,10 @@ export const draftsRouter = router({
         previousFollowUps: commitmentRecord.reminderCount,
       };
 
-      const agent = createDraftingAgent();
-      const result = await agent.generateFollowUp(followUpContext);
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      // Context kept for future Python backend integration
+      void followUpContext;
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -559,19 +598,19 @@ export const draftsRouter = router({
    */
   adjustLength: protectedProcedure
     .input(adjustLengthSchema)
+    .output(
+      z.object({
+        draft: z.string(),
+        wordCount: z.number(),
+        changes: z.array(z.string()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      const result = await agent.adjustLength(
-        input.draft,
-        input.target,
-        input.preserveElements
-      );
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -579,18 +618,18 @@ export const draftsRouter = router({
    */
   improveDraft: protectedProcedure
     .input(improveDraftSchema)
+    .output(
+      z.object({
+        draft: z.string(),
+        improvements: z.array(z.string()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      const result = await agent.improveDraft(
-        input.draft,
-        input.improvementType as ImprovementType
-      );
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -598,15 +637,18 @@ export const draftsRouter = router({
    */
   quickAction: protectedProcedure
     .input(quickActionSchema)
+    .output(
+      z.object({
+        draft: z.string(),
+        action: z.string(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      const result = await agent.applyQuickAction(input.draft, input.action);
-
-      return { draft: result };
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -614,15 +656,25 @@ export const draftsRouter = router({
    */
   analyzeTone: protectedProcedure
     .input(analyzeToneSchema)
+    .output(
+      z.object({
+        toneProfile: z.object({
+          primary: z.string(),
+          secondary: z.string().optional(),
+          formality: z.number(),
+          warmth: z.number(),
+          assertiveness: z.number(),
+        }),
+        patterns: z.array(z.string()).optional(),
+        recommendations: z.array(z.string()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const agent = createDraftingAgent();
-
-      const result = await agent.analyzeTone(input.samples);
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -630,6 +682,20 @@ export const draftsRouter = router({
    */
   checkConsistency: protectedProcedure
     .input(checkConsistencySchema)
+    .output(
+      z.object({
+        isConsistent: z.boolean(),
+        conflicts: z.array(
+          z.object({
+            id: z.string(),
+            text: z.string(),
+            source: z.string(),
+            conflictType: z.string().optional(),
+          })
+        ),
+        score: z.number(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -685,10 +751,8 @@ export const draftsRouter = router({
         };
       }
 
-      const agent = createDraftingAgent();
-      const result = await agent.checkConsistency(input.draft, statements);
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 
   /**
@@ -699,6 +763,29 @@ export const draftsRouter = router({
       z.object({
         organizationId: z.string().min(1),
         commitmentId: z.string().uuid(),
+      })
+    )
+    .output(
+      z.object({
+        commitment: z.object({
+          id: z.string(),
+          title: z.string(),
+          dueDate: z.date().nullable(),
+        }),
+        schedule: z.array(
+          z.object({
+            date: z.date(),
+            type: z.string(),
+            message: z.string().optional(),
+          })
+        ),
+        contact: z
+          .object({
+            email: z.string(),
+            name: z.string().nullable(),
+            avgResponseTimeHours: z.number().nullable(),
+          })
+          .nullable(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -725,33 +812,7 @@ export const draftsRouter = router({
       }
 
       // Determine target contact
-      const targetContact =
-        commitmentRecord.direction === "owed_to_me"
-          ? commitmentRecord.debtor
-          : commitmentRecord.creditor;
-
-      const agent = createDraftingAgent();
-
-      const result = await agent.generateReminderSchedule(
-        {
-          title: commitmentRecord.title,
-          dueDate: commitmentRecord.dueDate ?? undefined,
-          importance: commitmentRecord.priority as
-            | "low"
-            | "medium"
-            | "high"
-            | "critical",
-        },
-        targetContact
-          ? {
-              avgResponseDays: targetContact.avgResponseTimeMinutes
-                ? targetContact.avgResponseTimeMinutes / (60 * 24)
-                : 3,
-              preferredDays: ["Tuesday", "Wednesday", "Thursday"],
-            }
-          : undefined
-      );
-
-      return result;
+      // NOTE: AI drafting has been migrated to Python backend
+      throw DRAFTING_MIGRATION_ERROR;
     }),
 });

@@ -24,7 +24,6 @@ import {
   commitment,
   conversation,
   decision,
-  emailAccount,
   member,
   sourceAccount,
 } from "@memorystack/db/schema";
@@ -203,11 +202,6 @@ export const sourcesRouter = router({
         where: eq(sourceAccount.organizationId, organizationId),
       });
 
-      // Also get legacy email accounts
-      const emailAccounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, organizationId),
-      });
-
       // Build source configurations
       const sources: SourceConfig[] = [];
 
@@ -222,24 +216,6 @@ export const sourcesRouter = router({
           provider: source.provider,
           displayName: source.displayName ?? display.label,
         });
-      }
-
-      // Add email accounts that aren't yet migrated
-      for (const email of emailAccounts) {
-        const alreadyAdded = connectedSources.some(
-          (s) => s.type === "email" && s.externalId === email.email
-        );
-        if (!alreadyAdded) {
-          sources.push({
-            type: "email",
-            enabled: email.status === "active" || email.status === "syncing",
-            connectionStatus: (email.status ??
-              "disconnected") as SourceConfig["connectionStatus"],
-            lastSyncAt: email.lastSyncAt,
-            provider: email.provider ?? "gmail",
-            displayName: email.email,
-          });
-        }
       }
 
       // Add available but unconnected sources
@@ -612,7 +588,7 @@ export const sourcesRouter = router({
           items.push({
             id: c.id,
             sourceType: "email", // Default, would need to join to get actual source type
-            sourceId: c.sourceConversationId ?? c.sourceThreadId ?? "",
+            sourceId: c.sourceConversationId ?? "",
             type: "commitment",
             title: c.title,
             description: c.description ?? undefined,
@@ -687,7 +663,7 @@ export const sourcesRouter = router({
           items.push({
             id: c.id,
             sourceType: "email",
-            sourceId: c.conversationId ?? c.threadId ?? "",
+            sourceId: c.conversationId ?? "",
             type: "claim",
             title: c.text,
             description: c.quotedText ?? undefined,
@@ -838,14 +814,17 @@ export const sourcesRouter = router({
             });
             break;
           case "calendar": {
-            // Calendar uses email account for OAuth
-            const emailAcct = await db.query.emailAccount.findFirst({
-              where: eq(emailAccount.organizationId, organizationId),
+            // Calendar uses email source account for OAuth
+            const emailSourceAcct = await db.query.sourceAccount.findFirst({
+              where: and(
+                eq(sourceAccount.organizationId, organizationId),
+                eq(sourceAccount.type, "email")
+              ),
               columns: { id: true },
             });
-            if (emailAcct) {
+            if (emailSourceAcct) {
               syncHandle = await tasks.trigger("calendar-sync", {
-                emailAccountId: emailAcct.id,
+                sourceAccountId: emailSourceAcct.id,
               });
             }
             break;

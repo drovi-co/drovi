@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto";
 import { db } from "@memorystack/db";
-import { emailAccount, member, organization } from "@memorystack/db/schema";
+import { member, organization, sourceAccount } from "@memorystack/db/schema";
 
 // =============================================================================
 // TYPES
@@ -126,24 +126,24 @@ export async function onboardNewUser(user: NewUser): Promise<void> {
 
     // 4. Connect the email account to the organization
     // Note: The OAuth tokens from better-auth are stored in the account table
-    // We need to copy them to our emailAccount table
+    // We need to copy them to our sourceAccount table
     if (oauthAccount.accessToken && oauthAccount.refreshToken) {
-      await db.insert(emailAccount).values({
+      await db.insert(sourceAccount).values({
         organizationId: orgId,
         addedByUserId: user.id,
+        type: "email",
         provider,
-        email: user.email,
+        externalId: user.email,
         displayName: user.name,
         accessToken: oauthAccount.accessToken,
         refreshToken: oauthAccount.refreshToken,
         tokenExpiresAt:
           oauthAccount.accessTokenExpiresAt ?? new Date(Date.now() + 3_600_000),
-        status: "active",
+        status: "connected",
         isPrimary: true,
         settings: {
           syncEnabled: true,
           syncFrequencyMinutes: 5,
-          backfillDays: 90,
         },
       });
 

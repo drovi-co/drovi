@@ -13,11 +13,11 @@ import {
   commitment,
   contact,
   decision,
-  emailAccount,
-  emailMessage,
   member,
+  message,
   policyRule,
   riskAnalysis,
+  sourceAccount,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
@@ -242,11 +242,12 @@ async function verifyApproverRole(
 async function verifyAccountAccess(
   organizationId: string,
   accountId: string
-): Promise<typeof emailAccount.$inferSelect> {
-  const account = await db.query.emailAccount.findFirst({
+): Promise<typeof sourceAccount.$inferSelect> {
+  const account = await db.query.sourceAccount.findFirst({
     where: and(
-      eq(emailAccount.id, accountId),
-      eq(emailAccount.organizationId, organizationId)
+      eq(sourceAccount.id, accountId),
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email")
     ),
   });
 
@@ -262,9 +263,14 @@ async function verifyAccountAccess(
 
 async function getOrgAccountIds(organizationId: string): Promise<string[]> {
   const accounts = await db
-    .select({ id: emailAccount.id })
-    .from(emailAccount)
-    .where(eq(emailAccount.organizationId, organizationId));
+    .select({ id: sourceAccount.id })
+    .from(sourceAccount)
+    .where(
+      and(
+        eq(sourceAccount.organizationId, organizationId),
+        eq(sourceAccount.type, "email")
+      )
+    );
 
   return accounts.map((a) => a.id);
 }
@@ -292,14 +298,14 @@ export const riskRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      // Get message with thread and account
-      const message = await db.query.emailMessage.findFirst({
-        where: eq(emailMessage.id, input.messageId),
+      // Get message with conversation and source account
+      const msg = await db.query.message.findFirst({
+        where: eq(message.id, input.messageId),
         with: {
-          thread: {
+          conversation: {
             with: {
-              account: {
-                columns: { id: true, organizationId: true, email: true },
+              sourceAccount: {
+                columns: { id: true, organizationId: true, externalId: true },
               },
             },
           },
@@ -307,8 +313,8 @@ export const riskRouter = router({
       });
 
       if (
-        !message ||
-        message.thread.account.organizationId !== input.organizationId
+        !msg ||
+        msg.conversation.sourceAccount?.organizationId !== input.organizationId
       ) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -329,8 +335,8 @@ export const riskRouter = router({
       const [analysis] = await db
         .insert(riskAnalysis)
         .values({
-          accountId: message.thread.account.id,
-          threadId: message.threadId,
+          sourceAccountId: msg.conversation.sourceAccount?.id ?? "",
+          conversationId: msg.conversationId,
           messageId: input.messageId,
           analysisType: "incoming",
           status: "pending",
@@ -354,7 +360,7 @@ export const riskRouter = router({
       );
 
       // Determine recipient domains and external status
-      const accountDomain = extractDomain(account.email);
+      const accountDomain = extractDomain(account.externalId);
       const recipients = input.recipients.map((r) => ({
         ...r,
         domain: extractDomain(r.email),
@@ -365,8 +371,8 @@ export const riskRouter = router({
       const [analysis] = await db
         .insert(riskAnalysis)
         .values({
-          accountId: input.accountId,
-          threadId: input.threadId ?? null,
+          sourceAccountId: input.accountId,
+          conversationId: input.threadId ?? null,
           analysisType: "draft",
           status: "pending",
           draftContent: input.content,
@@ -401,7 +407,7 @@ export const riskRouter = router({
           dueDate: commitment.dueDate,
           direction: commitment.direction,
           status: commitment.status,
-          sourceThreadId: commitment.sourceThreadId,
+          sourceConversationId: commitment.sourceConversationId,
           createdAt: commitment.createdAt,
           creditorEmail: contact.primaryEmail,
           creditorName: contact.displayName,
@@ -432,7 +438,7 @@ export const riskRouter = router({
           statement: decision.statement,
           rationale: decision.rationale,
           decidedAt: decision.decidedAt,
-          sourceThreadId: decision.sourceThreadId,
+          sourceConversationId: decision.sourceConversationId,
         })
         .from(decision)
         .where(
@@ -470,7 +476,7 @@ export const riskRouter = router({
           source:
             c.direction === "owed_by_me" ? "You committed" : "They committed",
           party: partyName ?? partyEmail ?? undefined,
-          threadId: c.sourceThreadId,
+          threadId: c.sourceConversationId,
         });
       }
 
@@ -482,7 +488,7 @@ export const riskRouter = router({
           type: "decision",
           date: d.decidedAt,
           source: "Decision made",
-          threadId: d.sourceThreadId,
+          threadId: d.sourceConversationId,
         });
       }
 
@@ -689,7 +695,7 @@ export const riskRouter = router({
       }
 
       // Build conditions
-      const conditions = [inArray(riskAnalysis.accountId, accountIds)];
+      const conditions = [inArray(riskAnalysis.sourceAccountId, accountIds)];
 
       if (input.riskLevel) {
         conditions.push(eq(riskAnalysis.overallRiskLevel, input.riskLevel));
@@ -707,8 +713,8 @@ export const riskRouter = router({
       const analyses = await db
         .select({
           id: riskAnalysis.id,
-          accountId: riskAnalysis.accountId,
-          threadId: riskAnalysis.threadId,
+          sourceAccountId: riskAnalysis.sourceAccountId,
+          conversationId: riskAnalysis.conversationId,
           messageId: riskAnalysis.messageId,
           analysisType: riskAnalysis.analysisType,
           status: riskAnalysis.status,
@@ -759,7 +765,7 @@ export const riskRouter = router({
       }
 
       // Verify access
-      await verifyAccountAccess(input.organizationId, analysis.accountId);
+      await verifyAccountAccess(input.organizationId, analysis.sourceAccountId);
 
       return analysis;
     }),
@@ -810,7 +816,7 @@ export const riskRouter = router({
         .from(riskAnalysis)
         .where(
           and(
-            inArray(riskAnalysis.accountId, accountIds),
+            inArray(riskAnalysis.sourceAccountId, accountIds),
             sql`${riskAnalysis.createdAt} >= ${since}`
           )
         )
@@ -827,7 +833,7 @@ export const riskRouter = router({
         .from(riskAnalysis)
         .where(
           and(
-            inArray(riskAnalysis.accountId, accountIds),
+            inArray(riskAnalysis.sourceAccountId, accountIds),
             sql`${riskAnalysis.createdAt} >= ${since}`
           )
         );
@@ -838,7 +844,7 @@ export const riskRouter = router({
         .from(riskAnalysis)
         .where(
           and(
-            inArray(riskAnalysis.accountId, accountIds),
+            inArray(riskAnalysis.sourceAccountId, accountIds),
             eq(riskAnalysis.requiresApproval, true),
             eq(riskAnalysis.approvalStatus, "pending")
           )
@@ -850,7 +856,7 @@ export const riskRouter = router({
         .from(riskAnalysis)
         .where(
           and(
-            inArray(riskAnalysis.accountId, accountIds),
+            inArray(riskAnalysis.sourceAccountId, accountIds),
             eq(riskAnalysis.status, "blocked"),
             sql`${riskAnalysis.createdAt} >= ${since}`
           )
@@ -1138,7 +1144,7 @@ export const riskRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, analysis.accountId);
+      await verifyAccountAccess(input.organizationId, analysis.sourceAccountId);
 
       if (!analysis.requiresApproval) {
         throw new TRPCError({
@@ -1196,7 +1202,7 @@ export const riskRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, analysis.accountId);
+      await verifyAccountAccess(input.organizationId, analysis.sourceAccountId);
 
       if (analysis.approvalStatus !== "pending") {
         throw new TRPCError({
@@ -1256,7 +1262,7 @@ export const riskRouter = router({
       }
 
       const conditions = [
-        inArray(riskAnalysis.accountId, accountIds),
+        inArray(riskAnalysis.sourceAccountId, accountIds),
         eq(riskAnalysis.requiresApproval, true),
         eq(riskAnalysis.approvalStatus, "pending"),
       ];

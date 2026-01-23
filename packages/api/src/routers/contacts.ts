@@ -6,15 +6,20 @@
 // Supports profile viewing, VIP management, and meeting brief generation.
 //
 
-import { createRelationshipAgent } from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
-import type { EmailRecipient } from "@memorystack/db/schema";
+
+// =============================================================================
+// NOTE: Relationship AI functionality has been moved to Python backend.
+// AI-powered procedures return migration errors or simplified logic.
+// =============================================================================
 import {
   contact,
-  emailAccount,
-  emailThread,
+  conversation,
+  conversationTopic,
   member,
-  threadTopic,
+  message,
+  type MessageRecipient,
+  sourceAccount,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
@@ -240,11 +245,14 @@ export const contactsRouter = router({
       const contactEmail = found.primaryEmail.toLowerCase();
 
       // Get account IDs for this organization
-      const accounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, input.organizationId),
+      const accounts = await db.query.sourceAccount.findMany({
+        where: and(
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
+        ),
         columns: { id: true },
       });
-      const accountIds = accounts.map((a) => a.id);
+      const accountIds = accounts.map((a: { id: string }) => a.id);
 
       if (accountIds.length === 0) {
         return {
@@ -253,18 +261,18 @@ export const contactsRouter = router({
         };
       }
 
-      const recentThreads = await db.query.emailThread.findMany({
+      const recentThreads = await db.query.conversation.findMany({
         where: and(
-          inArray(emailThread.accountId, accountIds),
-          gte(emailThread.lastMessageAt, ninetyDaysAgo)
+          inArray(conversation.sourceAccountId, accountIds),
+          gte(conversation.lastMessageAt, ninetyDaysAgo)
         ),
         with: {
           messages: {
-            orderBy: (m, { desc: d }) => [d(m.sentAt)],
+            orderBy: [desc(message.sentAt)],
             limit: 1,
           },
         },
-        orderBy: [desc(emailThread.lastMessageAt)],
+        orderBy: [desc(conversation.lastMessageAt)],
         limit: 100,
       });
 
@@ -273,8 +281,8 @@ export const contactsRouter = router({
         .filter((t) =>
           t.messages.some(
             (m) =>
-              m.fromEmail.toLowerCase() === contactEmail ||
-              (m.toRecipients as EmailRecipient[] | null)?.some(
+              m.senderEmail?.toLowerCase() === contactEmail ||
+              (m.recipients as MessageRecipient[] | null)?.some(
                 (r) => r.email?.toLowerCase() === contactEmail
               )
           )
@@ -285,7 +293,7 @@ export const contactsRouter = router({
         contact: found,
         recentThreads: contactThreads.map((t) => ({
           id: t.id,
-          subject: t.subject,
+          subject: t.title,
           snippet: t.snippet,
           lastMessageAt: t.lastMessageAt,
         })),
@@ -393,11 +401,14 @@ export const contactsRouter = router({
       const contactEmail = contactRecord.primaryEmail.toLowerCase();
 
       // Get account IDs for this organization
-      const accounts = await db.query.emailAccount.findMany({
-        where: eq(emailAccount.organizationId, input.organizationId),
+      const accounts = await db.query.sourceAccount.findMany({
+        where: and(
+          eq(sourceAccount.organizationId, input.organizationId),
+          eq(sourceAccount.type, "email")
+        ),
         columns: { id: true },
       });
-      const accountIds = accounts.map((a) => a.id);
+      const accountIds = accounts.map((a: { id: string }) => a.id);
 
       if (accountIds.length === 0) {
         return {
@@ -428,18 +439,16 @@ export const contactsRouter = router({
         };
       }
 
-      const threads = await db.query.emailThread.findMany({
+      const threads = await db.query.conversation.findMany({
         where: and(
-          inArray(emailThread.accountId, accountIds),
-          gte(emailThread.lastMessageAt, thirtyDaysAgo)
+          inArray(conversation.sourceAccountId, accountIds),
+          gte(conversation.lastMessageAt, thirtyDaysAgo)
         ),
         with: {
-          messages: {
-            orderBy: (m, { asc }) => [asc(m.messageIndex)],
-          },
-          account: true,
+          messages: true,
+          sourceAccount: true,
         },
-        orderBy: [desc(emailThread.lastMessageAt)],
+        orderBy: [desc(conversation.lastMessageAt)],
         limit: 20,
       });
 
@@ -447,8 +456,8 @@ export const contactsRouter = router({
       const contactThreads = threads.filter((t) =>
         t.messages.some(
           (m) =>
-            m.fromEmail.toLowerCase() === contactEmail ||
-            (m.toRecipients as EmailRecipient[] | null)?.some(
+            m.senderEmail?.toLowerCase() === contactEmail ||
+            (m.recipients as MessageRecipient[] | null)?.some(
               (r) => r.email?.toLowerCase() === contactEmail
             )
         )
@@ -481,8 +490,8 @@ export const contactsRouter = router({
 
       // Get thread topics
       const threadIds = contactThreads.map((t) => t.id);
-      const threadTopicAssocs = await db.query.threadTopic.findMany({
-        where: inArray(threadTopic.threadId, threadIds),
+      const threadTopicAssocs = await db.query.conversationTopic.findMany({
+        where: inArray(conversationTopic.conversationId, threadIds),
         with: { topic: true },
       });
 
@@ -492,58 +501,53 @@ export const contactsRouter = router({
         { topicId: string; topicName: string }[]
       >();
       for (const assoc of threadTopicAssocs) {
-        const existing = threadTopicsMap.get(assoc.threadId) ?? [];
+        const existing = threadTopicsMap.get(assoc.conversationId) ?? [];
         existing.push({
           topicId: assoc.topicId,
           topicName: assoc.topic.name,
         });
-        threadTopicsMap.set(assoc.threadId, existing);
+        threadTopicsMap.set(assoc.conversationId, existing);
       }
 
       // Get user email
-      const userEmail = contactThreads[0]?.account.email ?? "";
+      const userEmail = contactThreads[0]?.sourceAccount?.externalId ?? "";
 
       // Build thread context
       const threadContexts = contactThreads.map((t) => ({
         threadId: t.id,
-        subject: t.subject ?? undefined,
+        subject: t.title ?? undefined,
         participants: [
           ...new Set(
             t.messages.flatMap((m) => [
-              m.fromEmail,
-              ...((m.toRecipients as EmailRecipient[] | null) ?? [])
+              m.senderEmail,
+              ...((m.recipients as MessageRecipient[] | null) ?? [])
                 .map((r) => r.email)
                 .filter((e): e is string => !!e),
             ])
           ),
-        ],
+        ].filter((e): e is string => !!e),
         messageCount: t.messages.length,
         firstMessageAt: t.messages[0]?.sentAt ?? new Date(),
         lastMessageAt: t.messages.at(-1)?.sentAt ?? new Date(),
         messages: t.messages.map((m) => ({
           id: m.id,
-          fromEmail: m.fromEmail,
+          fromEmail: m.senderEmail ?? "",
           sentAt: m.sentAt ?? undefined,
           bodyText: m.bodyText ?? undefined,
           isFromUser: m.isFromUser,
         })),
       }));
 
-      // Generate meeting brief
-      const agent = createRelationshipAgent();
-      const brief = await agent.generateMeetingBrief(
-        {
-          contactId: input.contactId,
-          organizationId: input.organizationId,
-          primaryEmail: contactRecord.primaryEmail,
-          displayName: contactRecord.displayName ?? undefined,
-          userEmail,
-        },
-        threadContexts,
-        threadTopicsMap
-      );
-
-      return brief;
+      // NOTE: AI-powered meeting brief has been migrated to Python backend
+      // Context kept for future Python backend integration
+      void userEmail;
+      void threadContexts;
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered meeting brief generation is being migrated to Python backend. " +
+          "Use /api/v1/memory/search for contact context.",
+      });
     }),
 
   /**
@@ -656,17 +660,40 @@ export const contactsRouter = router({
         ),
       });
 
-      // Use the agent to find merge candidates
-      const agent = createRelationshipAgent();
-      const candidates = agent.findMergeCandidates(
-        targetContact.primaryEmail,
-        targetContact.displayName ?? undefined,
-        allContacts.map((c) => ({
-          id: c.id,
-          primaryEmail: c.primaryEmail,
-          displayName: c.displayName ?? undefined,
-        }))
-      );
+      // Simple merge candidate detection (replaces AI agent)
+      // Finds contacts with similar email domains or similar names
+      const targetEmailDomain = targetContact.primaryEmail.split("@")[1]?.toLowerCase();
+      const targetName = (targetContact.displayName ?? "").toLowerCase();
+
+      const candidates = allContacts
+        .map((c) => {
+          let similarity = 0;
+          const reasons: string[] = [];
+
+          // Check email domain match
+          const candidateDomain = c.primaryEmail.split("@")[1]?.toLowerCase();
+          if (targetEmailDomain && candidateDomain === targetEmailDomain) {
+            similarity += 0.3;
+            reasons.push("Same email domain");
+          }
+
+          // Check name similarity (simple substring match)
+          const candidateName = (c.displayName ?? "").toLowerCase();
+          if (targetName && candidateName && targetName.length > 2) {
+            if (candidateName.includes(targetName) || targetName.includes(candidateName)) {
+              similarity += 0.5;
+              reasons.push("Similar name");
+            }
+          }
+
+          return {
+            contactId: c.id,
+            similarity,
+            reasons,
+          };
+        })
+        .filter((c) => c.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity);
 
       // Enrich candidates with full contact data
       const enrichedCandidates = candidates.map((candidate) => {
@@ -855,4 +882,236 @@ export const contactsRouter = router({
         avgHealthScore: Math.round(avgHealthScore * 100) / 100,
       };
     }),
+
+  /**
+   * Get relationship intelligence for a contact.
+   * Used by the Relationship Intelligence Sidebar.
+   */
+  getIntelligence: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        contactId: z.string().uuid(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      // Get the contact
+      const contactRecord = await verifyContactAccess(
+        input.organizationId,
+        input.contactId
+      );
+
+      // Import commitment and decision tables dynamically
+      const { commitment, decision, contactRelationship } = await import(
+        "@memorystack/db/schema"
+      );
+
+      // Get open commitments involving this contact (as debtor or creditor)
+      const openCommitments = await db.query.commitment.findMany({
+        where: and(
+          eq(commitment.organizationId, input.organizationId),
+          inArray(commitment.status, ["pending", "in_progress", "waiting"]),
+          or(
+            eq(commitment.debtorContactId, input.contactId),
+            eq(commitment.creditorContactId, input.contactId)
+          )
+        ),
+        orderBy: [desc(commitment.dueDate)],
+        limit: 10,
+      });
+
+      // Get recent decisions involving this contact
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const recentDecisions = await db.query.decision.findMany({
+        where: and(
+          eq(decision.organizationId, input.organizationId),
+          sql`${input.contactId} = ANY(${decision.ownerContactIds})`,
+          gte(decision.decidedAt, thirtyDaysAgo)
+        ),
+        orderBy: [desc(decision.decidedAt)],
+        limit: 5,
+      });
+
+      // Get mutual connections (contacts this contact communicates with)
+      const relationships = await db.query.contactRelationship.findMany({
+        where: and(
+          eq(contactRelationship.organizationId, input.organizationId),
+          or(
+            eq(contactRelationship.contactAId, input.contactId),
+            eq(contactRelationship.contactBId, input.contactId)
+          )
+        ),
+        with: {
+          contactA: true,
+          contactB: true,
+        },
+        orderBy: [desc(contactRelationship.strength)],
+        limit: 10,
+      });
+
+      // Extract mutual contacts from relationships
+      const mutualContacts = relationships.map((rel) => {
+        const otherContact =
+          rel.contactAId === input.contactId ? rel.contactB : rel.contactA;
+        return {
+          id: otherContact.id,
+          displayName: otherContact.displayName,
+          primaryEmail: otherContact.primaryEmail,
+          avatarUrl: otherContact.avatarUrl,
+          company: otherContact.company,
+          strength: rel.strength,
+          relationshipType: rel.relationshipType,
+          lastInteractionAt: rel.lastInteractionAt,
+        };
+      });
+
+      // Calculate health insight message
+      const healthInsight = getHealthInsight(contactRecord);
+
+      // Calculate communication pattern description
+      const communicationPattern = getCommunicationPattern(contactRecord);
+
+      return {
+        contact: {
+          id: contactRecord.id,
+          displayName: contactRecord.displayName,
+          primaryEmail: contactRecord.primaryEmail,
+          company: contactRecord.company,
+          title: contactRecord.title,
+          avatarUrl: contactRecord.avatarUrl,
+          isVip: contactRecord.isVip,
+          isAtRisk: contactRecord.isAtRisk,
+        },
+        healthScore: contactRecord.healthScore ?? 0.5,
+        healthInsight,
+        communicationPattern,
+        metrics: {
+          totalThreads: contactRecord.totalThreads ?? 0,
+          totalMessages: contactRecord.totalMessages ?? 0,
+          avgResponseTimeMinutes: contactRecord.avgResponseTimeMinutes ?? 0,
+          responseRate: contactRecord.responseRate ?? 0,
+          sentimentScore: contactRecord.sentimentScore ?? 0,
+          engagementScore: contactRecord.engagementScore ?? 0,
+          daysSinceLastContact: contactRecord.daysSinceLastContact ?? 0,
+          firstInteractionAt: contactRecord.firstInteractionAt,
+          lastInteractionAt: contactRecord.lastInteractionAt,
+        },
+        openCommitments: openCommitments.map((c) => ({
+          id: c.id,
+          title: c.title,
+          status: c.status,
+          priority: c.priority,
+          dueDate: c.dueDate,
+          direction: c.direction,
+          isDebtor: c.debtorContactId === input.contactId,
+        })),
+        recentDecisions: recentDecisions.map((d) => ({
+          id: d.id,
+          title: d.title,
+          decisionDate: d.decidedAt,
+          status: d.supersededById ? "superseded" : "active",
+        })),
+        mutualContacts,
+      };
+    }),
+
+  /**
+   * Get contact by email.
+   * Useful for looking up a contact from thread participants.
+   */
+  getByEmail: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        email: z.string().email(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const contactRecord = await db.query.contact.findFirst({
+        where: and(
+          eq(contact.organizationId, input.organizationId),
+          eq(contact.primaryEmail, input.email.toLowerCase())
+        ),
+      });
+
+      return { contact: contactRecord ?? null };
+    }),
 });
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+function getHealthInsight(
+  contactRecord: typeof contact.$inferSelect
+): string {
+  const healthScore = contactRecord.healthScore ?? 0.5;
+  const responseRate = contactRecord.responseRate ?? 0;
+  const daysSince = contactRecord.daysSinceLastContact ?? 0;
+
+  if (healthScore >= 0.8) {
+    return "Strong relationship - frequent, positive engagement";
+  }
+  if (healthScore >= 0.6) {
+    if (responseRate >= 0.7) {
+      return "Good relationship - responsive and engaged";
+    }
+    return "Healthy relationship - regular communication";
+  }
+  if (healthScore >= 0.4) {
+    if (daysSince > 14) {
+      return "Consider reaching out - it's been a while";
+    }
+    return "Moderate engagement - could be strengthened";
+  }
+  if (daysSince > 30) {
+    return "At risk - no contact in over a month";
+  }
+  return "Needs attention - low engagement detected";
+}
+
+function getCommunicationPattern(
+  contactRecord: typeof contact.$inferSelect
+): string {
+  const avgResponse = contactRecord.avgResponseTimeMinutes;
+  const totalMessages = contactRecord.totalMessages ?? 0;
+  const responseRate = contactRecord.responseRate ?? 0;
+
+  const parts: string[] = [];
+
+  if (avgResponse !== null && avgResponse !== undefined) {
+    if (avgResponse < 60) {
+      parts.push("Responds quickly (usually within an hour)");
+    } else if (avgResponse < 240) {
+      parts.push("Responds within a few hours");
+    } else if (avgResponse < 1440) {
+      parts.push("Usually responds within a day");
+    } else {
+      parts.push("May take a few days to respond");
+    }
+  }
+
+  if (responseRate > 0) {
+    if (responseRate >= 0.8) {
+      parts.push("Very responsive");
+    } else if (responseRate >= 0.5) {
+      parts.push("Generally responsive");
+    } else if (responseRate >= 0.3) {
+      parts.push("Sometimes responsive");
+    }
+  }
+
+  if (totalMessages > 100) {
+    parts.push("Frequent communicator");
+  } else if (totalMessages > 20) {
+    parts.push("Regular communication");
+  }
+
+  return parts.join(" • ") || "Communication pattern not yet established";
+}

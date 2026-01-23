@@ -12,7 +12,6 @@ import {
   unique,
   vector,
 } from "drizzle-orm/pg-core";
-import { emailMessage, emailThread } from "./email";
 import { claim, commitment, contact, decision } from "./intelligence";
 import { organization } from "./organization";
 import {
@@ -216,19 +215,11 @@ export const unifiedObjectSource = pgTable(
     // What this source contributed
     role: sourceRoleEnum("role").notNull().default("context"),
 
-    // Links to actual source data (generic)
+    // Links to actual source data
     conversationId: text("conversation_id").references(() => conversation.id, {
       onDelete: "set null",
     }),
     messageId: text("message_id").references(() => message.id, {
-      onDelete: "set null",
-    }),
-
-    // Legacy email support
-    emailThreadId: text("email_thread_id").references(() => emailThread.id, {
-      onDelete: "set null",
-    }),
-    emailMessageId: text("email_message_id").references(() => emailMessage.id, {
       onDelete: "set null",
     }),
 
@@ -494,14 +485,6 @@ export const unifiedObjectSourceRelations = relations(
     message: one(message, {
       fields: [unifiedObjectSource.messageId],
       references: [message.id],
-    }),
-    emailThread: one(emailThread, {
-      fields: [unifiedObjectSource.emailThreadId],
-      references: [emailThread.id],
-    }),
-    emailMessage: one(emailMessage, {
-      fields: [unifiedObjectSource.emailMessageId],
-      references: [emailMessage.id],
     }),
     originalCommitment: one(commitment, {
       fields: [unifiedObjectSource.originalCommitmentId],

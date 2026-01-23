@@ -26,6 +26,7 @@ import type {
   SyncError,
   SyncResult,
 } from "./types";
+import { triggerIntelligenceExtraction } from "./intelligence-trigger";
 
 // =============================================================================
 // INCREMENTAL SYNC
@@ -306,6 +307,20 @@ export async function backfillGmailPhase(
           threadsProcessed: batchResult.processed,
           messagesInBatch,
           errors: batchResult.errors.length,
+        });
+
+        // Trigger intelligence extraction for new threads (fire and forget)
+        // This runs in parallel with the next batch fetch for speed
+        triggerIntelligenceExtraction(
+          batchResult.threads,
+          config.organizationId,
+          config.sourceAccountId
+        ).catch((err) => {
+          log.error("Failed to trigger intelligence extraction", err, {
+            sourceAccountId: config.sourceAccountId,
+            phase: config.phase,
+            batchSize: batchResult.threads.length,
+          });
         });
       } else {
         log.warn("No threads returned from fetch", {

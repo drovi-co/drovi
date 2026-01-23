@@ -20,15 +20,20 @@ import {
   HelpCircle,
   Lightbulb,
   Loader2,
+  PanelRightClose,
+  PanelRightOpen,
   Reply,
   Star,
   Trash2,
+  UserCircle,
   Users,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
+import { RelationshipSidebar } from "@/components/inbox/-relationship-sidebar";
+import { useActiveOrganization } from "@/lib/auth-client";
 
 import {
   ConversationView,
@@ -43,7 +48,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { queryClient, trpc } from "@/utils/trpc";
+import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -60,6 +65,7 @@ export const Route = createFileRoute("/dashboard/email/thread/$threadId")({
 function ThreadDetailPage() {
   const navigate = useNavigate();
   const { threadId } = useParams({ from: "/dashboard/email/thread/$threadId" });
+  const { data: activeOrg } = useActiveOrganization();
   const {
     open: commandBarOpen,
     setOpen: setCommandBarOpen,
@@ -67,6 +73,10 @@ function ThreadDetailPage() {
     openForward,
   } = useCommandBar();
   const [showFullIntelligence, setShowFullIntelligence] = useState(false);
+  const [showRelationshipSidebar, setShowRelationshipSidebar] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(
+    null
+  );
 
   // Fetch thread details
   const { data: threadData, isLoading: isLoadingThread } = useQuery({
@@ -407,6 +417,33 @@ ${messageBody}`;
                   <TooltipContent>Delete (#)</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              <div className="mx-1 h-5 w-px bg-border" />
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={() =>
+                        setShowRelationshipSidebar(!showRelationshipSidebar)
+                      }
+                      size="icon"
+                      variant={showRelationshipSidebar ? "secondary" : "ghost"}
+                    >
+                      {showRelationshipSidebar ? (
+                        <PanelRightClose className="h-4 w-4" />
+                      ) : (
+                        <PanelRightOpen className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {showRelationshipSidebar
+                      ? "Hide relationship intel"
+                      : "Show relationship intel"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -634,20 +671,172 @@ ${messageBody}`;
           </div>
         </div>
 
-        {/* Conversation View - Takes remaining space */}
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <ConversationView
-            className="h-full"
-            currentUserEmail={currentUserEmail}
-            isLoading={isLoadingMessages}
-            messages={messages}
-            showIntelligenceButton={false}
-            threadSubject={threadData?.thread?.subject ?? "Loading..."}
-          />
+        {/* Main content with optional sidebar */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* Conversation View - Takes remaining space */}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ConversationView
+              className="h-full"
+              currentUserEmail={currentUserEmail}
+              isLoading={isLoadingMessages}
+              messages={messages}
+              showIntelligenceButton={false}
+              threadSubject={threadData?.thread?.subject ?? "Loading..."}
+            />
+          </div>
+
+          {/* Relationship Intelligence Sidebar */}
+          {showRelationshipSidebar && activeOrg?.id && selectedContactId && (
+            <RelationshipSidebar
+              contactId={selectedContactId}
+              organizationId={activeOrg.id}
+              onClose={() => setShowRelationshipSidebar(false)}
+            />
+          )}
+
+          {/* Participant selector when sidebar is open but no contact selected */}
+          {showRelationshipSidebar && activeOrg?.id && !selectedContactId && (
+            <ParticipantSelector
+              organizationId={activeOrg.id}
+              participants={participants}
+              onClose={() => setShowRelationshipSidebar(false)}
+              onSelectParticipant={(contactId) => setSelectedContactId(contactId)}
+            />
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+// =============================================================================
+// PARTICIPANT SELECTOR COMPONENT
+// =============================================================================
+
+function ParticipantSelector({
+  participants,
+  organizationId,
+  onClose,
+  onSelectParticipant,
+}: {
+  participants: Array<{ name: string; email: string }>;
+  organizationId: string;
+  onClose: () => void;
+  onSelectParticipant: (contactId: string) => void;
+}) {
+  return (
+    <div className="flex w-80 flex-col border-l bg-background">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Select Participant</span>
+        </div>
+        <Button
+          className="h-7 w-7"
+          onClick={onClose}
+          size="icon"
+          variant="ghost"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="flex-1 overflow-auto p-4">
+        <p className="mb-3 text-sm text-muted-foreground">
+          Click a participant to see relationship intelligence:
+        </p>
+        <div className="space-y-2">
+          {participants.map((p) => (
+            <ParticipantButton
+              key={p.email}
+              email={p.email}
+              name={p.name}
+              organizationId={organizationId}
+              onSelect={onSelectParticipant}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ParticipantButton({
+  email,
+  name,
+  organizationId,
+  onSelect,
+}: {
+  email: string;
+  name: string;
+  organizationId: string;
+  onSelect: (contactId: string) => void;
+}) {
+  const { data: contactData, isLoading } = useQuery({
+    ...trpc.contacts.getByEmail.queryOptions({
+      organizationId,
+      email: email.toLowerCase(),
+    }),
+    enabled: !!organizationId && !!email,
+    staleTime: 60_000,
+  });
+
+  const handleClick = () => {
+    if (contactData?.contact?.id) {
+      onSelect(contactData.contact.id);
+    } else {
+      toast.info("Contact not found", {
+        description: `No profile exists for ${email} yet`,
+      });
+    }
+  };
+
+  return (
+    <Button
+      className="w-full justify-start gap-2"
+      disabled={isLoading}
+      onClick={handleClick}
+      variant="outline"
+    >
+      <UserCircle className="h-4 w-4 text-muted-foreground" />
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate text-sm font-medium">
+          {name || email.split("@")[0]}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{email}</p>
+      </div>
+      {contactData?.contact && (
+        <Badge className="shrink-0 text-[10px]" variant="secondary">
+          View
+        </Badge>
+      )}
+    </Button>
+  );
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+async function lookupContactByEmail(
+  email: string,
+  organizationId: string,
+  setContactId: (id: string | null) => void
+) {
+  try {
+    const result = await trpcClient.contacts.getByEmail.query({
+      organizationId,
+      email: email.toLowerCase(),
+    });
+    if (result.contact?.id) {
+      setContactId(result.contact.id);
+    } else {
+      toast.info("Contact not found", {
+        description: `No profile exists for ${email} yet`,
+      });
+    }
+  } catch {
+    toast.error("Failed to look up contact");
+  }
 }
 
 // =============================================================================

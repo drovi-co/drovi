@@ -68,6 +68,7 @@ export async function processThread(
       messages: [],
       isNew: false,
       wasUpdated: false,
+      conversationId: "", // Empty - no conversation created
     };
   }
 
@@ -98,6 +99,7 @@ export async function processThread(
       messages: threadData.messages,
       isNew: false,
       wasUpdated: false,
+      conversationId: existingConversation.id,
     };
   }
 
@@ -156,6 +158,7 @@ export async function processThread(
     messages: threadData.messages,
     isNew,
     wasUpdated: !isNew,
+    conversationId,
   };
 }
 

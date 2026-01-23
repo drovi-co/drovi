@@ -63,7 +63,7 @@ interface LinkedDecision {
 
 interface LinkedCommitmentsProps {
   /** Source thread ID to find related commitments */
-  sourceThreadId: string;
+  sourceConversationId: string;
   /** Organization ID */
   organizationId: string;
   /** Decision ID (to exclude from results if needed) */
@@ -79,7 +79,7 @@ interface LinkedCommitmentsProps {
  * "This decision led to these commitments..."
  */
 export function LinkedCommitments({
-  sourceThreadId,
+  sourceConversationId,
   organizationId,
   decisionId,
   onCommitmentClick,
@@ -98,10 +98,10 @@ export function LinkedCommitments({
       ...data,
       // Filter to commitments from the same thread
       commitments: data.commitments.filter(
-        (c) => c.sourceThreadId === sourceThreadId
+        (c) => c.sourceConversationId === sourceConversationId
       ),
     }),
-    enabled: Boolean(sourceThreadId && organizationId),
+    enabled: Boolean(sourceConversationId && organizationId),
   });
 
   const commitments = data?.commitments ?? [];
@@ -268,7 +268,7 @@ function LinkedCommitmentCard({
 
 interface LinkedDecisionsProps {
   /** Source thread ID to find related decisions */
-  sourceThreadId: string;
+  sourceConversationId: string;
   /** Organization ID */
   organizationId: string;
   /** Commitment ID (to exclude from results if needed) */
@@ -284,7 +284,7 @@ interface LinkedDecisionsProps {
  * "This commitment came from this decision..."
  */
 export function LinkedDecisions({
-  sourceThreadId,
+  sourceConversationId,
   organizationId,
   commitmentId,
   onDecisionClick,
@@ -303,10 +303,10 @@ export function LinkedDecisions({
       ...data,
       // Filter to decisions from the same thread
       decisions: data.decisions.filter(
-        (d) => d.sourceThreadId === sourceThreadId
+        (d) => d.sourceConversationId === sourceConversationId
       ),
     }),
-    enabled: Boolean(sourceThreadId && organizationId),
+    enabled: Boolean(sourceConversationId && organizationId),
   });
 
   const decisions = data?.decisions ?? [];

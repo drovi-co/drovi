@@ -13,14 +13,8 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import {
-  emailAccount,
-  emailMessage,
-  emailParticipant,
-  emailThread,
-} from "./email";
 import { organization } from "./organization";
-import { conversation, message, sourceAccount } from "./sources";
+import { conversation, message, participant, sourceAccount } from "./sources";
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -322,14 +316,8 @@ export const claim = pgTable(
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "cascade",
     }),
-    threadId: text("thread_id").references(() => emailThread.id, {
-      onDelete: "cascade",
-    }),
-    messageId: text("message_id").references(() => emailMessage.id, {
-      onDelete: "set null",
-    }),
 
-    // Generic source references (for multi-source support)
+    // Source references (unified schema)
     sourceAccountId: text("source_account_id").references(
       () => sourceAccount.id,
       { onDelete: "set null" }
@@ -337,7 +325,7 @@ export const claim = pgTable(
     conversationId: text("conversation_id").references(() => conversation.id, {
       onDelete: "cascade",
     }),
-    genericMessageId: text("generic_message_id").references(() => message.id, {
+    messageId: text("message_id").references(() => message.id, {
       onDelete: "set null",
     }),
 
@@ -376,11 +364,9 @@ export const claim = pgTable(
   },
   (table) => [
     index("claim_org_idx").on(table.organizationId),
-    index("claim_thread_idx").on(table.threadId),
-    index("claim_message_idx").on(table.messageId),
     index("claim_source_account_idx").on(table.sourceAccountId),
     index("claim_conversation_idx").on(table.conversationId),
-    index("claim_generic_message_idx").on(table.genericMessageId),
+    index("claim_message_idx").on(table.messageId),
     index("claim_type_idx").on(table.type),
     index("claim_confidence_idx").on(table.confidence),
     index("claim_extracted_idx").on(table.extractedAt),
@@ -447,18 +433,7 @@ export const commitment = pgTable(
     reminderCount: integer("reminder_count").notNull().default(0),
     nextReminderAt: timestamp("next_reminder_at"),
 
-    // Source evidence (email-specific - legacy)
-    sourceThreadId: text("source_thread_id").references(() => emailThread.id, {
-      onDelete: "set null",
-    }),
-    sourceMessageId: text("source_message_id").references(
-      () => emailMessage.id,
-      {
-        onDelete: "set null",
-      }
-    ),
-
-    // Generic source references (for multi-source support)
+    // Source evidence (unified schema)
     sourceAccountId: text("source_account_id").references(
       () => sourceAccount.id,
       { onDelete: "set null" }
@@ -467,10 +442,9 @@ export const commitment = pgTable(
       () => conversation.id,
       { onDelete: "set null" }
     ),
-    sourceGenericMessageId: text("source_generic_message_id").references(
-      () => message.id,
-      { onDelete: "set null" }
-    ),
+    sourceMessageId: text("source_message_id").references(() => message.id, {
+      onDelete: "set null",
+    }),
 
     // Link to Unified Intelligence Object (for cross-source tracking)
     unifiedObjectId: text("unified_object_id"),
@@ -500,7 +474,6 @@ export const commitment = pgTable(
     index("commitment_status_idx").on(table.status),
     index("commitment_priority_idx").on(table.priority),
     index("commitment_due_idx").on(table.dueDate),
-    index("commitment_source_thread_idx").on(table.sourceThreadId),
     index("commitment_source_account_idx").on(table.sourceAccountId),
     index("commitment_source_conversation_idx").on(table.sourceConversationId),
   ]
@@ -551,13 +524,7 @@ export const decision = pgTable(
     supersededAt: timestamp("superseded_at"),
     supersedes: text("supersedes"), // ID of decision this supersedes
 
-    // Source evidence (email-specific - legacy)
-    sourceThreadId: text("source_thread_id").references(() => emailThread.id, {
-      onDelete: "set null",
-    }),
-    sourceMessageIds: text("source_message_ids").array().default([]),
-
-    // Generic source references (for multi-source support)
+    // Source evidence (unified schema)
     sourceAccountId: text("source_account_id").references(
       () => sourceAccount.id,
       { onDelete: "set null" }
@@ -566,9 +533,7 @@ export const decision = pgTable(
       () => conversation.id,
       { onDelete: "set null" }
     ),
-    sourceGenericMessageIds: text("source_generic_message_ids")
-      .array()
-      .default([]),
+    sourceMessageIds: text("source_message_ids").array().default([]),
 
     // Link to Unified Intelligence Object (for cross-source tracking)
     unifiedObjectId: text("unified_object_id"),
@@ -594,7 +559,6 @@ export const decision = pgTable(
     index("decision_org_idx").on(table.organizationId),
     index("decision_decided_at_idx").on(table.decidedAt),
     index("decision_superseded_idx").on(table.supersededById),
-    index("decision_source_thread_idx").on(table.sourceThreadId),
     index("decision_confidence_idx").on(table.confidence),
     index("decision_source_account_idx").on(table.sourceAccountId),
     index("decision_source_conversation_idx").on(table.sourceConversationId),
@@ -656,18 +620,18 @@ export const topic = pgTable(
 );
 
 // =============================================================================
-// THREAD-TOPIC JUNCTION TABLE
+// CONVERSATION-TOPIC JUNCTION TABLE
 // =============================================================================
 
 /**
- * Many-to-many relationship between threads and topics.
+ * Many-to-many relationship between conversations and topics.
  */
-export const threadTopic = pgTable(
-  "thread_topic",
+export const conversationTopic = pgTable(
+  "conversation_topic",
   {
-    threadId: text("thread_id")
+    conversationId: text("conversation_id")
       .notNull()
-      .references(() => emailThread.id, { onDelete: "cascade" }),
+      .references(() => conversation.id, { onDelete: "cascade" }),
     topicId: text("topic_id")
       .notNull()
       .references(() => topic.id, { onDelete: "cascade" }),
@@ -675,9 +639,9 @@ export const threadTopic = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.threadId, table.topicId] }),
-    index("thread_topic_thread_idx").on(table.threadId),
-    index("thread_topic_topic_idx").on(table.topicId),
+    primaryKey({ columns: [table.conversationId, table.topicId] }),
+    index("conversation_topic_conversation_idx").on(table.conversationId),
+    index("conversation_topic_topic_idx").on(table.topicId),
   ]
 );
 
@@ -694,7 +658,7 @@ export const contactRelations = relations(contact, ({ many, one }) => ({
   commitmentsAsCreditor: many(commitment, {
     relationName: "creditorCommitments",
   }),
-  participants: many(emailParticipant),
+  participants: many(participant),
 }));
 
 export const claimRelations = relations(claim, ({ many, one }) => ({
@@ -702,13 +666,17 @@ export const claimRelations = relations(claim, ({ many, one }) => ({
     fields: [claim.organizationId],
     references: [organization.id],
   }),
-  thread: one(emailThread, {
-    fields: [claim.threadId],
-    references: [emailThread.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [claim.sourceAccountId],
+    references: [sourceAccount.id],
   }),
-  message: one(emailMessage, {
+  conversation: one(conversation, {
+    fields: [claim.conversationId],
+    references: [conversation.id],
+  }),
+  message: one(message, {
     fields: [claim.messageId],
-    references: [emailMessage.id],
+    references: [message.id],
   }),
   commitments: many(commitment),
   decisions: many(decision),
@@ -733,13 +701,17 @@ export const commitmentRelations = relations(commitment, ({ one }) => ({
     references: [contact.id],
     relationName: "creditorCommitments",
   }),
-  sourceThread: one(emailThread, {
-    fields: [commitment.sourceThreadId],
-    references: [emailThread.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [commitment.sourceAccountId],
+    references: [sourceAccount.id],
   }),
-  sourceMessage: one(emailMessage, {
+  sourceConversation: one(conversation, {
+    fields: [commitment.sourceConversationId],
+    references: [conversation.id],
+  }),
+  sourceMessage: one(message, {
     fields: [commitment.sourceMessageId],
-    references: [emailMessage.id],
+    references: [message.id],
   }),
 }));
 
@@ -752,9 +724,13 @@ export const decisionRelations = relations(decision, ({ one }) => ({
     fields: [decision.claimId],
     references: [claim.id],
   }),
-  sourceThread: one(emailThread, {
-    fields: [decision.sourceThreadId],
-    references: [emailThread.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [decision.sourceAccountId],
+    references: [sourceAccount.id],
+  }),
+  sourceConversation: one(conversation, {
+    fields: [decision.sourceConversationId],
+    references: [conversation.id],
   }),
 }));
 
@@ -769,19 +745,22 @@ export const topicRelations = relations(topic, ({ many, one }) => ({
     relationName: "topicHierarchy",
   }),
   children: many(topic, { relationName: "topicHierarchy" }),
-  threadTopics: many(threadTopic),
+  conversationTopics: many(conversationTopic),
 }));
 
-export const threadTopicRelations = relations(threadTopic, ({ one }) => ({
-  thread: one(emailThread, {
-    fields: [threadTopic.threadId],
-    references: [emailThread.id],
-  }),
-  topic: one(topic, {
-    fields: [threadTopic.topicId],
-    references: [topic.id],
-  }),
-}));
+export const conversationTopicRelations = relations(
+  conversationTopic,
+  ({ one }) => ({
+    conversation: one(conversation, {
+      fields: [conversationTopic.conversationId],
+      references: [conversation.id],
+    }),
+    topic: one(topic, {
+      fields: [conversationTopic.topicId],
+      references: [topic.id],
+    }),
+  })
+);
 
 // =============================================================================
 // TRIAGE ENUMS (Agent 6: Triage & Routing)
@@ -837,13 +816,13 @@ export const triageResult = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    threadId: text("thread_id")
+    conversationId: text("conversation_id")
       .notNull()
-      .references(() => emailThread.id, { onDelete: "cascade" })
+      .references(() => conversation.id, { onDelete: "cascade" })
       .unique(),
-    accountId: text("account_id")
+    sourceAccountId: text("source_account_id")
       .notNull()
-      .references(() => emailAccount.id, { onDelete: "cascade" }),
+      .references(() => sourceAccount.id, { onDelete: "cascade" }),
 
     // Suggested action
     suggestedAction: triageActionEnum("suggested_action").notNull(),
@@ -885,8 +864,8 @@ export const triageResult = pgTable(
       .notNull(),
   },
   (table) => [
-    index("triage_result_thread_idx").on(table.threadId),
-    index("triage_result_account_idx").on(table.accountId),
+    index("triage_result_conversation_idx").on(table.conversationId),
+    index("triage_result_source_account_idx").on(table.sourceAccountId),
     index("triage_result_action_idx").on(table.suggestedAction),
     index("triage_result_priority_idx").on(table.priorityTier),
     index("triage_result_created_idx").on(table.createdAt),
@@ -912,9 +891,9 @@ export const triageRule = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    accountId: text("account_id")
+    sourceAccountId: text("source_account_id")
       .notNull()
-      .references(() => emailAccount.id, { onDelete: "cascade" }),
+      .references(() => sourceAccount.id, { onDelete: "cascade" }),
 
     // Rule identity
     name: text("name").notNull(),
@@ -950,7 +929,7 @@ export const triageRule = pgTable(
       .notNull(),
   },
   (table) => [
-    index("triage_rule_account_idx").on(table.accountId),
+    index("triage_rule_source_account_idx").on(table.sourceAccountId),
     index("triage_rule_enabled_idx").on(table.enabled),
     index("triage_rule_priority_idx").on(table.priority),
   ]
@@ -961,13 +940,13 @@ export const triageRule = pgTable(
 // =============================================================================
 
 export const triageResultRelations = relations(triageResult, ({ one }) => ({
-  thread: one(emailThread, {
-    fields: [triageResult.threadId],
-    references: [emailThread.id],
+  conversation: one(conversation, {
+    fields: [triageResult.conversationId],
+    references: [conversation.id],
   }),
-  account: one(emailAccount, {
-    fields: [triageResult.accountId],
-    references: [emailAccount.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [triageResult.sourceAccountId],
+    references: [sourceAccount.id],
   }),
   matchedRule: one(triageRule, {
     fields: [triageResult.matchedRuleId],
@@ -976,9 +955,9 @@ export const triageResultRelations = relations(triageResult, ({ one }) => ({
 }));
 
 export const triageRuleRelations = relations(triageRule, ({ one, many }) => ({
-  account: one(emailAccount, {
-    fields: [triageRule.accountId],
-    references: [emailAccount.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [triageRule.sourceAccountId],
+    references: [sourceAccount.id],
   }),
   triageResults: many(triageResult),
 }));
@@ -997,8 +976,8 @@ export type Decision = typeof decision.$inferSelect;
 export type NewDecision = typeof decision.$inferInsert;
 export type Topic = typeof topic.$inferSelect;
 export type NewTopic = typeof topic.$inferInsert;
-export type ThreadTopic = typeof threadTopic.$inferSelect;
-export type NewThreadTopic = typeof threadTopic.$inferInsert;
+export type ConversationTopic = typeof conversationTopic.$inferSelect;
+export type NewConversationTopic = typeof conversationTopic.$inferInsert;
 export type TriageResult = typeof triageResult.$inferSelect;
 export type NewTriageResult = typeof triageResult.$inferInsert;
 export type TriageRule = typeof triageRule.$inferSelect;
@@ -1114,13 +1093,13 @@ export const riskAnalysis = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    accountId: text("account_id")
+    sourceAccountId: text("source_account_id")
       .notNull()
-      .references(() => emailAccount.id, { onDelete: "cascade" }),
-    threadId: text("thread_id").references(() => emailThread.id, {
+      .references(() => sourceAccount.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id").references(() => conversation.id, {
       onDelete: "set null",
     }),
-    messageId: text("message_id").references(() => emailMessage.id, {
+    messageId: text("message_id").references(() => message.id, {
       onDelete: "set null",
     }),
 
@@ -1185,8 +1164,8 @@ export const riskAnalysis = pgTable(
       .notNull(),
   },
   (table) => [
-    index("risk_analysis_account_idx").on(table.accountId),
-    index("risk_analysis_thread_idx").on(table.threadId),
+    index("risk_analysis_source_account_idx").on(table.sourceAccountId),
+    index("risk_analysis_conversation_idx").on(table.conversationId),
     index("risk_analysis_message_idx").on(table.messageId),
     index("risk_analysis_status_idx").on(table.status),
     index("risk_analysis_risk_level_idx").on(table.overallRiskLevel),
@@ -1278,17 +1257,17 @@ export const policyRule = pgTable(
 // =============================================================================
 
 export const riskAnalysisRelations = relations(riskAnalysis, ({ one }) => ({
-  account: one(emailAccount, {
-    fields: [riskAnalysis.accountId],
-    references: [emailAccount.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [riskAnalysis.sourceAccountId],
+    references: [sourceAccount.id],
   }),
-  thread: one(emailThread, {
-    fields: [riskAnalysis.threadId],
-    references: [emailThread.id],
+  conversation: one(conversation, {
+    fields: [riskAnalysis.conversationId],
+    references: [conversation.id],
   }),
-  message: one(emailMessage, {
+  message: one(message, {
     fields: [riskAnalysis.messageId],
-    references: [emailMessage.id],
+    references: [message.id],
   }),
 }));
 

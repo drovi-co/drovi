@@ -23,7 +23,7 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OnboardingInviteTeamRouteImport } from './routes/onboarding/invite-team'
 import { Route as OnboardingCreateOrgRouteImport } from './routes/onboarding/create-org'
-import { Route as OnboardingConnectEmailRouteImport } from './routes/onboarding/connect-email'
+import { Route as OnboardingConnectSourcesRouteImport } from './routes/onboarding/connect-sources'
 import { Route as OnboardingCompleteRouteImport } from './routes/onboarding/complete'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard/notifications'
@@ -42,6 +42,7 @@ import { Route as DashboardTasksIndexRouteImport } from './routes/dashboard/task
 import { Route as DashboardSourcesIndexRouteImport } from './routes/dashboard/sources/index'
 import { Route as DashboardSearchIndexRouteImport } from './routes/dashboard/search/index'
 import { Route as DashboardInboxIndexRouteImport } from './routes/dashboard/inbox/index'
+import { Route as DashboardGraphIndexRouteImport } from './routes/dashboard/graph/index'
 import { Route as DashboardDecisionsIndexRouteImport } from './routes/dashboard/decisions/index'
 import { Route as DashboardContactsIndexRouteImport } from './routes/dashboard/contacts/index'
 import { Route as DashboardCommitmentsIndexRouteImport } from './routes/dashboard/commitments/index'
@@ -122,11 +123,12 @@ const OnboardingCreateOrgRoute = OnboardingCreateOrgRouteImport.update({
   path: '/onboarding/create-org',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnboardingConnectEmailRoute = OnboardingConnectEmailRouteImport.update({
-  id: '/onboarding/connect-email',
-  path: '/onboarding/connect-email',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const OnboardingConnectSourcesRoute =
+  OnboardingConnectSourcesRouteImport.update({
+    id: '/onboarding/connect-sources',
+    path: '/onboarding/connect-sources',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const OnboardingCompleteRoute = OnboardingCompleteRouteImport.update({
   id: '/onboarding/complete',
   path: '/onboarding/complete',
@@ -217,6 +219,11 @@ const DashboardInboxIndexRoute = DashboardInboxIndexRouteImport.update({
   path: '/inbox/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardGraphIndexRoute = DashboardGraphIndexRouteImport.update({
+  id: '/graph/',
+  path: '/graph/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardDecisionsIndexRoute = DashboardDecisionsIndexRouteImport.update({
   id: '/decisions/',
   path: '/decisions/',
@@ -288,7 +295,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
-  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
+  '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin/': typeof AdminIndexRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/commitments': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
+  '/dashboard/graph': typeof DashboardGraphIndexRoute
   '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
@@ -330,7 +338,7 @@ export interface FileRoutesByTo {
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
-  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
+  '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin': typeof AdminIndexRoute
@@ -344,6 +352,7 @@ export interface FileRoutesByTo {
   '/dashboard/commitments': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
+  '/dashboard/graph': typeof DashboardGraphIndexRoute
   '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/search': typeof DashboardSearchIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
@@ -375,7 +384,7 @@ export interface FileRoutesById {
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
-  '/onboarding/connect-email': typeof OnboardingConnectEmailRoute
+  '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/admin/': typeof AdminIndexRoute
@@ -389,6 +398,7 @@ export interface FileRoutesById {
   '/dashboard/commitments/': typeof DashboardCommitmentsIndexRoute
   '/dashboard/contacts/': typeof DashboardContactsIndexRoute
   '/dashboard/decisions/': typeof DashboardDecisionsIndexRoute
+  '/dashboard/graph/': typeof DashboardGraphIndexRoute
   '/dashboard/inbox/': typeof DashboardInboxIndexRoute
   '/dashboard/search/': typeof DashboardSearchIndexRoute
   '/dashboard/sources/': typeof DashboardSourcesIndexRoute
@@ -421,7 +431,7 @@ export interface FileRouteTypes {
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
-    | '/onboarding/connect-email'
+    | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin/'
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/dashboard/commitments'
     | '/dashboard/contacts'
     | '/dashboard/decisions'
+    | '/dashboard/graph'
     | '/dashboard/inbox'
     | '/dashboard/search'
     | '/dashboard/sources'
@@ -463,7 +474,7 @@ export interface FileRouteTypes {
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
-    | '/onboarding/connect-email'
+    | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/dashboard/commitments'
     | '/dashboard/contacts'
     | '/dashboard/decisions'
+    | '/dashboard/graph'
     | '/dashboard/inbox'
     | '/dashboard/search'
     | '/dashboard/sources'
@@ -507,7 +519,7 @@ export interface FileRouteTypes {
     | '/dashboard/notifications'
     | '/dashboard/settings'
     | '/onboarding/complete'
-    | '/onboarding/connect-email'
+    | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/admin/'
@@ -521,6 +533,7 @@ export interface FileRouteTypes {
     | '/dashboard/commitments/'
     | '/dashboard/contacts/'
     | '/dashboard/decisions/'
+    | '/dashboard/graph/'
     | '/dashboard/inbox/'
     | '/dashboard/search/'
     | '/dashboard/sources/'
@@ -541,7 +554,7 @@ export interface RootRouteChildren {
   SuccessRoute: typeof SuccessRoute
   Verify2faRoute: typeof Verify2faRoute
   OnboardingCompleteRoute: typeof OnboardingCompleteRoute
-  OnboardingConnectEmailRoute: typeof OnboardingConnectEmailRoute
+  OnboardingConnectSourcesRoute: typeof OnboardingConnectSourcesRoute
   OnboardingCreateOrgRoute: typeof OnboardingCreateOrgRoute
   OnboardingInviteTeamRoute: typeof OnboardingInviteTeamRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
@@ -647,11 +660,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingCreateOrgRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/onboarding/connect-email': {
-      id: '/onboarding/connect-email'
-      path: '/onboarding/connect-email'
-      fullPath: '/onboarding/connect-email'
-      preLoaderRoute: typeof OnboardingConnectEmailRouteImport
+    '/onboarding/connect-sources': {
+      id: '/onboarding/connect-sources'
+      path: '/onboarding/connect-sources'
+      fullPath: '/onboarding/connect-sources'
+      preLoaderRoute: typeof OnboardingConnectSourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding/complete': {
@@ -780,6 +793,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardInboxIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/graph/': {
+      id: '/dashboard/graph/'
+      path: '/graph'
+      fullPath: '/dashboard/graph'
+      preLoaderRoute: typeof DashboardGraphIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/decisions/': {
       id: '/dashboard/decisions/'
       path: '/decisions'
@@ -883,6 +903,7 @@ interface DashboardRouteRouteChildren {
   DashboardCommitmentsIndexRoute: typeof DashboardCommitmentsIndexRoute
   DashboardContactsIndexRoute: typeof DashboardContactsIndexRoute
   DashboardDecisionsIndexRoute: typeof DashboardDecisionsIndexRoute
+  DashboardGraphIndexRoute: typeof DashboardGraphIndexRoute
   DashboardInboxIndexRoute: typeof DashboardInboxIndexRoute
   DashboardSearchIndexRoute: typeof DashboardSearchIndexRoute
   DashboardSourcesIndexRoute: typeof DashboardSourcesIndexRoute
@@ -909,6 +930,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardCommitmentsIndexRoute: DashboardCommitmentsIndexRoute,
   DashboardContactsIndexRoute: DashboardContactsIndexRoute,
   DashboardDecisionsIndexRoute: DashboardDecisionsIndexRoute,
+  DashboardGraphIndexRoute: DashboardGraphIndexRoute,
   DashboardInboxIndexRoute: DashboardInboxIndexRoute,
   DashboardSearchIndexRoute: DashboardSearchIndexRoute,
   DashboardSourcesIndexRoute: DashboardSourcesIndexRoute,
@@ -933,7 +955,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuccessRoute: SuccessRoute,
   Verify2faRoute: Verify2faRoute,
   OnboardingCompleteRoute: OnboardingCompleteRoute,
-  OnboardingConnectEmailRoute: OnboardingConnectEmailRoute,
+  OnboardingConnectSourcesRoute: OnboardingConnectSourcesRoute,
   OnboardingCreateOrgRoute: OnboardingCreateOrgRoute,
   OnboardingInviteTeamRoute: OnboardingInviteTeamRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,

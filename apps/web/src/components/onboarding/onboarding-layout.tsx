@@ -8,7 +8,7 @@ interface OnboardingLayoutProps {
 
 const steps = [
   { number: 1, label: "Create Organization" },
-  { number: 2, label: "Connect Email" },
+  { number: 2, label: "Connect Sources" },
   { number: 3, label: "Invite Team" },
   { number: 4, label: "Get Started" },
 ];

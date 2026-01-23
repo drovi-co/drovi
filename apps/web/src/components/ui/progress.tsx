@@ -14,11 +14,17 @@ import { cn } from "@/lib/utils";
  * - Primary color indicator
  * - Smooth transition
  */
+interface ProgressProps
+  extends React.ComponentProps<typeof ProgressPrimitive.Root> {
+  indicatorClassName?: string;
+}
+
 function Progress({
   className,
   value,
+  indicatorClassName,
   ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+}: ProgressProps) {
   return (
     <ProgressPrimitive.Root
       className={cn(
@@ -33,7 +39,8 @@ function Progress({
         className={cn(
           "h-full w-full flex-1 rounded-full",
           "bg-primary",
-          "transition-transform duration-300 ease-out"
+          "transition-transform duration-300 ease-out",
+          indicatorClassName
         )}
         data-slot="progress-indicator"
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}

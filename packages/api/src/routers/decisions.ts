@@ -6,8 +6,12 @@
 // Supports CRUD operations, querying, and supersession tracking.
 //
 
-import { createDecisionAgent } from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
+
+// =============================================================================
+// NOTE: Decision AI functionality has been moved to Python backend.
+// AI-powered procedures return migration errors.
+// =============================================================================
 import { contact, decision, member, topic } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
@@ -180,10 +184,10 @@ export const decisionsRouter = router({
         offset: input.offset,
         orderBy: [desc(decision.decidedAt)],
         with: {
-          sourceThread: {
+          sourceConversation: {
             columns: {
               id: true,
-              subject: true,
+              title: true,
               snippet: true,
             },
           },
@@ -229,10 +233,9 @@ export const decisionsRouter = router({
       const found = await db.query.decision.findFirst({
         where: eq(decision.id, input.decisionId),
         with: {
-          sourceThread: {
+          sourceConversation: {
             with: {
               messages: {
-                orderBy: (m, { asc }) => [asc(m.messageIndex)],
                 limit: 10,
               },
             },
@@ -410,6 +413,22 @@ export const decisionsRouter = router({
    */
   query: protectedProcedure
     .input(queryDecisionsSchema)
+    .output(
+      z.object({
+        relevantDecisions: z.array(
+          z.object({
+            id: z.string(),
+            title: z.string(),
+            statement: z.string(),
+            rationale: z.string().nullable().optional(),
+            confidence: z.number(),
+            decidedAt: z.date(),
+            relevanceScore: z.number().optional(),
+          })
+        ),
+        answer: z.string(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -432,26 +451,13 @@ export const decisionsRouter = router({
         };
       }
 
-      // Use the DecisionAgent to query
-      const agent = createDecisionAgent();
-      const result = await agent.queryDecisions(
-        input.query,
-        recentDecisions.map((d) => ({
-          id: d.id,
-          title: d.title,
-          statement: d.statement,
-          rationale: d.rationale ?? undefined,
-          decidedAt: d.decidedAt,
-        }))
-      );
-
-      // Limit to requested number
-      const limitedResults = result.relevantDecisions.slice(0, input.limit);
-
-      return {
-        relevantDecisions: limitedResults,
-        answer: result.answer,
-      };
+      // NOTE: AI-powered decision query has been migrated to Python backend
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered decision querying is being migrated to Python backend. " +
+          "Use /api/v1/memory/search for decision search.",
+      });
     }),
 
   /**
@@ -599,10 +605,10 @@ export const decisionsRouter = router({
         limit: input.limit,
         orderBy: [desc(decision.decidedAt)],
         with: {
-          sourceThread: {
+          sourceConversation: {
             columns: {
               id: true,
-              subject: true,
+              title: true,
             },
           },
         },

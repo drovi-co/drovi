@@ -264,16 +264,15 @@ export const auth = betterAuth({
             enableCustomerPortal: true,
             use: [
               checkout({
-                products: env.POLAR_PRODUCT_ID
+                products: env.POLAR_PRO_PRODUCT_ID
                   ? [
                       {
-                        productId: env.POLAR_PRODUCT_ID,
+                        productId: env.POLAR_PRO_PRODUCT_ID,
                         slug: "pro",
                       },
                     ]
                   : [],
-                successUrl:
-                  env.POLAR_SUCCESS_URL || `${env.CORS_ORIGIN}/billing/success`,
+                successUrl: `${env.CORS_ORIGIN}/billing/success`,
                 authenticatedUsersOnly: true,
               }),
               portal(),

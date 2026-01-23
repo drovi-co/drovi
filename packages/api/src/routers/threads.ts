@@ -3,15 +3,17 @@
 // =============================================================================
 //
 // API for accessing thread intelligence from the Thread Understanding Agent.
+// Uses the unified schema: conversation, message, sourceAccount.
 //
 
 import { db } from "@memorystack/db";
 import {
   claim,
-  emailAccount,
-  emailMessage,
-  emailThread,
+  conversation,
   member,
+  message,
+  sourceAccount,
+  type MessageRecipient,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
@@ -235,24 +237,24 @@ async function verifyOrgMembership(
 async function verifyThreadAccess(
   organizationId: string,
   threadId: string
-): Promise<typeof emailThread.$inferSelect> {
-  const thread = await db.query.emailThread.findFirst({
-    where: eq(emailThread.id, threadId),
+): Promise<typeof conversation.$inferSelect> {
+  const conv = await db.query.conversation.findFirst({
+    where: eq(conversation.id, threadId),
     with: {
-      account: {
+      sourceAccount: {
         columns: { organizationId: true },
       },
     },
   });
 
-  if (!thread || thread.account.organizationId !== organizationId) {
+  if (!conv || conv.sourceAccount.organizationId !== organizationId) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Thread not found.",
     });
   }
 
-  return thread;
+  return conv;
 }
 
 // =============================================================================
@@ -272,14 +274,15 @@ export const threadsRouter = router({
       // Build conditions
       const conditions = [];
 
-      // Get account IDs for this organization
+      // Get source account IDs for this organization (email type only)
       const accountIds = await db
-        .select({ id: emailAccount.id })
-        .from(emailAccount)
+        .select({ id: sourceAccount.id })
+        .from(sourceAccount)
         .where(
           and(
-            eq(emailAccount.organizationId, input.organizationId),
-            input.accountId ? eq(emailAccount.id, input.accountId) : undefined
+            eq(sourceAccount.organizationId, input.organizationId),
+            eq(sourceAccount.type, "email"),
+            input.accountId ? eq(sourceAccount.id, input.accountId) : undefined
           )
         );
 
@@ -289,45 +292,45 @@ export const threadsRouter = router({
 
       conditions.push(
         inArray(
-          emailThread.accountId,
+          conversation.sourceAccountId,
           accountIds.map((a) => a.id)
         )
       );
 
       // Apply filters
       if (input.hasOpenLoops !== undefined) {
-        conditions.push(eq(emailThread.hasOpenLoops, input.hasOpenLoops));
+        conditions.push(eq(conversation.hasOpenLoops, input.hasOpenLoops));
       }
 
       if (input.priorityTier) {
-        conditions.push(eq(emailThread.priorityTier, input.priorityTier));
+        conditions.push(eq(conversation.priorityTier, input.priorityTier));
       }
 
       if (input.intentClassification) {
         conditions.push(
-          eq(emailThread.intentClassification, input.intentClassification)
+          eq(conversation.intentClassification, input.intentClassification)
         );
       }
 
       if (input.isUnread !== undefined) {
-        conditions.push(eq(emailThread.isRead, !input.isUnread));
+        conditions.push(eq(conversation.isRead, !input.isUnread));
       }
 
       if (input.after) {
-        conditions.push(gte(emailThread.lastMessageAt, input.after));
+        conditions.push(gte(conversation.lastMessageAt, input.after));
       }
 
       if (input.before) {
-        conditions.push(lte(emailThread.lastMessageAt, input.before));
+        conditions.push(lte(conversation.lastMessageAt, input.before));
       }
 
-      // Search in subject and snippet
+      // Search in title and snippet
       if (input.search) {
         const searchPattern = `%${input.search}%`;
         conditions.push(
           or(
-            sql`${emailThread.subject} ILIKE ${searchPattern}`,
-            sql`${emailThread.snippet} ILIKE ${searchPattern}`
+            sql`${conversation.title} ILIKE ${searchPattern}`,
+            sql`${conversation.snippet} ILIKE ${searchPattern}`
           )
         );
       }
@@ -335,26 +338,25 @@ export const threadsRouter = router({
       // Count total
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(emailThread)
+        .from(conversation)
         .where(and(...conditions));
 
       const total = countResult?.count ?? 0;
 
       // Get threads
-      const threads = await db.query.emailThread.findMany({
+      const threads = await db.query.conversation.findMany({
         where: and(...conditions),
         limit: input.limit,
         offset: input.offset,
-        orderBy: [desc(emailThread.lastMessageAt)],
+        orderBy: [desc(conversation.lastMessageAt)],
         columns: {
           id: true,
-          accountId: true,
-          providerThreadId: true,
-          subject: true,
+          sourceAccountId: true,
+          externalId: true,
+          title: true,
           snippet: true,
-          participantEmails: true,
+          participantIds: true,
           messageCount: true,
-          hasAttachments: true,
           firstMessageAt: true,
           lastMessageAt: true,
           isRead: true,
@@ -374,8 +376,18 @@ export const threadsRouter = router({
         },
       });
 
+      // Map to expected format (accountId for backwards compatibility)
+      const mappedThreads = threads.map((t) => ({
+        ...t,
+        accountId: t.sourceAccountId,
+        subject: t.title,
+        providerThreadId: t.externalId,
+        participantEmails: t.participantIds,
+        hasAttachments: false, // Would need to check messages
+      }));
+
       return {
-        threads,
+        threads: mappedThreads,
         total,
         hasMore: input.offset + threads.length < total,
       };
@@ -389,14 +401,15 @@ export const threadsRouter = router({
     .query(async ({ ctx, input }) => {
       const orgId = await getActiveOrgId(ctx);
 
-      // Get account IDs for this organization
+      // Get source account IDs for this organization (email type only)
       const accountIds = await db
-        .select({ id: emailAccount.id })
-        .from(emailAccount)
+        .select({ id: sourceAccount.id })
+        .from(sourceAccount)
         .where(
           and(
-            eq(emailAccount.organizationId, orgId),
-            input.accountId ? eq(emailAccount.id, input.accountId) : undefined
+            eq(sourceAccount.organizationId, orgId),
+            eq(sourceAccount.type, "email"),
+            input.accountId ? eq(sourceAccount.id, input.accountId) : undefined
           )
         );
 
@@ -407,7 +420,7 @@ export const threadsRouter = router({
       // Build conditions
       const conditions = [
         inArray(
-          emailThread.accountId,
+          conversation.sourceAccountId,
           accountIds.map((a) => a.id)
         ),
       ];
@@ -415,21 +428,21 @@ export const threadsRouter = router({
       // Apply filter
       switch (input.filter) {
         case "unread":
-          conditions.push(eq(emailThread.isRead, false));
+          conditions.push(eq(conversation.isRead, false));
           break;
         case "starred":
-          conditions.push(eq(emailThread.isStarred, true));
+          conditions.push(eq(conversation.isStarred, true));
           break;
         case "archived":
-          conditions.push(eq(emailThread.isArchived, true));
+          conditions.push(eq(conversation.isArchived, true));
           break;
         case "sent":
           // Sent emails are threads where the user sent at least one message
           conditions.push(
             sql`EXISTS (
-              SELECT 1 FROM "email_message" em
-              WHERE em."thread_id" = ${emailThread.id}
-              AND em."is_from_user" = true
+              SELECT 1 FROM "message" m
+              WHERE m."conversation_id" = ${conversation.id}
+              AND m."is_from_user" = true
             )`
           );
           break;
@@ -438,28 +451,28 @@ export const threadsRouter = router({
       // Apply intelligence filter
       switch (input.intelligenceFilter) {
         case "has_commitments":
-          // Would need a claim count column or subquery
+          conditions.push(sql`${conversation.commitmentCount} > 0`);
           break;
         case "has_decisions":
-          // Would need a claim count column or subquery
+          conditions.push(sql`${conversation.decisionCount} > 0`);
           break;
         case "needs_response":
-          conditions.push(eq(emailThread.suggestedAction, "respond"));
+          conditions.push(eq(conversation.suggestedAction, "respond"));
           break;
         case "has_risk":
-          // Would need risk warning detection
+          conditions.push(eq(conversation.hasRiskWarning, true));
           break;
       }
 
       // Filter out archived by default unless explicitly requested
       if (input.filter !== "archived" && input.filter !== "trash") {
-        conditions.push(eq(emailThread.isArchived, false));
+        conditions.push(eq(conversation.isArchived, false));
       }
 
       // Count total
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(emailThread)
+        .from(conversation)
         .where(and(...conditions));
 
       const total = countResult?.count ?? 0;
@@ -470,36 +483,34 @@ export const threadsRouter = router({
         case "date":
           orderByColumns.push(
             input.sortDirection === "desc"
-              ? desc(emailThread.lastMessageAt)
-              : emailThread.lastMessageAt
+              ? desc(conversation.lastMessageAt)
+              : conversation.lastMessageAt
           );
           break;
         case "priority":
           orderByColumns.push(
             input.sortDirection === "desc"
-              ? desc(emailThread.urgencyScore)
-              : emailThread.urgencyScore
+              ? desc(conversation.urgencyScore)
+              : conversation.urgencyScore
           );
           break;
         default:
-          orderByColumns.push(desc(emailThread.lastMessageAt));
+          orderByColumns.push(desc(conversation.lastMessageAt));
       }
 
       // Get threads WITHOUT nested messages to avoid N+1 query
-      // The `with: { messages: { limit: 5 } }` pattern causes a separate query per thread
-      const threads = await db.query.emailThread.findMany({
+      const threads = await db.query.conversation.findMany({
         where: and(...conditions),
         limit: input.limit,
         offset: input.offset,
         orderBy: orderByColumns,
         columns: {
           id: true,
-          accountId: true,
-          subject: true,
+          sourceAccountId: true,
+          title: true,
           snippet: true,
-          participantEmails: true,
+          participantIds: true,
           messageCount: true,
-          hasAttachments: true,
           lastMessageAt: true,
           isRead: true,
           isStarred: true,
@@ -514,6 +525,10 @@ export const threadsRouter = router({
           openLoopCount: true,
           suggestedAction: true,
           priorityTier: true,
+          commitmentCount: true,
+          decisionCount: true,
+          hasRiskWarning: true,
+          riskLevel: true,
         },
       });
 
@@ -521,25 +536,25 @@ export const threadsRouter = router({
       const threadIds = threads.map((t) => t.id);
       const allMessages =
         threadIds.length > 0
-          ? await db.query.emailMessage.findMany({
-              where: inArray(emailMessage.threadId, threadIds),
+          ? await db.query.message.findMany({
+              where: inArray(message.conversationId, threadIds),
               columns: {
-                threadId: true,
-                fromEmail: true,
-                fromName: true,
+                conversationId: true,
+                senderEmail: true,
+                senderName: true,
                 messageIndex: true,
               },
-              orderBy: [asc(emailMessage.messageIndex)],
+              orderBy: [asc(message.messageIndex)],
             })
           : [];
 
-      // Group messages by threadId and limit to 5 per thread (in memory)
+      // Group messages by conversationId and limit to 5 per thread (in memory)
       const messagesByThread = new Map<string, typeof allMessages>();
       for (const msg of allMessages) {
-        const existing = messagesByThread.get(msg.threadId) ?? [];
+        const existing = messagesByThread.get(msg.conversationId) ?? [];
         if (existing.length < 5) {
           existing.push(msg);
-          messagesByThread.set(msg.threadId, existing);
+          messagesByThread.set(msg.conversationId, existing);
         }
       }
 
@@ -551,15 +566,16 @@ export const threadsRouter = router({
         // Build participant list from messages with actual names
         const participantMap = new Map<string, string>();
         for (const msg of threadMessages) {
-          if (msg.fromEmail && !participantMap.has(msg.fromEmail)) {
-            // Use fromName if available, otherwise try to extract a friendly name
-            const name = msg.fromName || extractFriendlyName(msg.fromEmail);
-            participantMap.set(msg.fromEmail, name);
+          if (msg.senderEmail && !participantMap.has(msg.senderEmail)) {
+            // Use senderName if available, otherwise try to extract a friendly name
+            const name =
+              msg.senderName || extractFriendlyName(msg.senderEmail);
+            participantMap.set(msg.senderEmail, name);
           }
         }
 
-        // Add any remaining emails from participantEmails that weren't in messages
-        for (const email of t.participantEmails ?? []) {
+        // Add any remaining emails from participantIds that weren't in messages
+        for (const email of t.participantIds ?? []) {
           if (!participantMap.has(email as string)) {
             participantMap.set(
               email as string,
@@ -574,7 +590,7 @@ export const threadsRouter = router({
 
         return {
           id: t.id,
-          subject: t.subject ?? "No subject",
+          subject: t.title ?? "No subject",
           brief: t.briefSummary ?? t.snippet ?? "",
           snippet: t.snippet ?? "",
           lastMessageDate: t.lastMessageAt ?? new Date(),
@@ -586,11 +602,11 @@ export const threadsRouter = router({
           participants,
           priority: t.priorityTier ?? "medium",
           suggestedAction: t.suggestedAction,
-          commitmentCount: 0,
-          decisionCount: 0,
+          commitmentCount: t.commitmentCount ?? 0,
+          decisionCount: t.decisionCount ?? 0,
           openQuestionCount: t.openLoopCount ?? 0,
-          hasRiskWarning: false,
-          riskLevel: undefined,
+          hasRiskWarning: t.hasRiskWarning ?? false,
+          riskLevel: t.riskLevel ?? undefined,
           labels: [],
           briefConfidence: 0.8,
         };
@@ -612,21 +628,20 @@ export const threadsRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
-          account: {
-            columns: { organizationId: true, email: true },
+          sourceAccount: {
+            columns: { organizationId: true, externalId: true },
           },
           messages: {
             orderBy: (m, { asc }) => [asc(m.messageIndex)],
             columns: {
               id: true,
-              providerMessageId: true,
-              fromEmail: true,
-              fromName: true,
-              toRecipients: true,
-              ccRecipients: true,
+              externalId: true,
+              senderEmail: true,
+              senderName: true,
+              recipients: true,
               subject: true,
               bodyText: true,
               bodyHtml: true,
@@ -639,7 +654,7 @@ export const threadsRouter = router({
         },
       });
 
-      if (!thread || thread.account.organizationId !== input.organizationId) {
+      if (!conv || conv.sourceAccount.organizationId !== input.organizationId) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -649,14 +664,67 @@ export const threadsRouter = router({
       // Get claims for this thread
       const threadClaims = await db.query.claim.findMany({
         where: and(
-          eq(claim.threadId, input.threadId),
+          eq(claim.conversationId, input.threadId),
           eq(claim.isUserDismissed, false)
         ),
         orderBy: [desc(claim.confidence)],
       });
 
+      // Map to expected format for backwards compatibility
+      const mappedMessages = conv.messages.map((m) => {
+        const recipients = (m.recipients as MessageRecipient[]) ?? [];
+        const toRecipients = recipients
+          .filter((r) => r.type === "to")
+          .map((r) => ({ email: r.email, name: r.name }));
+        const ccRecipients = recipients
+          .filter((r) => r.type === "cc")
+          .map((r) => ({ email: r.email, name: r.name }));
+
+        return {
+          id: m.id,
+          providerMessageId: m.externalId,
+          fromEmail: m.senderEmail,
+          fromName: m.senderName,
+          toRecipients,
+          ccRecipients,
+          subject: m.subject,
+          bodyText: m.bodyText,
+          bodyHtml: m.bodyHtml,
+          sentAt: m.sentAt,
+          receivedAt: m.receivedAt,
+          isFromUser: m.isFromUser,
+          messageIndex: m.messageIndex,
+        };
+      });
+
       return {
-        ...thread,
+        id: conv.id,
+        accountId: conv.sourceAccountId,
+        providerThreadId: conv.externalId,
+        subject: conv.title,
+        snippet: conv.snippet,
+        participantEmails: conv.participantIds,
+        messageCount: conv.messageCount,
+        firstMessageAt: conv.firstMessageAt,
+        lastMessageAt: conv.lastMessageAt,
+        isRead: conv.isRead,
+        isStarred: conv.isStarred,
+        isArchived: conv.isArchived,
+        briefSummary: conv.briefSummary,
+        intentClassification: conv.intentClassification,
+        urgencyScore: conv.urgencyScore,
+        importanceScore: conv.importanceScore,
+        sentimentScore: conv.sentimentScore,
+        hasOpenLoops: conv.hasOpenLoops,
+        openLoopCount: conv.openLoopCount,
+        suggestedAction: conv.suggestedAction,
+        priorityTier: conv.priorityTier,
+        lastAnalyzedAt: conv.lastAnalyzedAt,
+        account: {
+          organizationId: conv.sourceAccount.organizationId,
+          email: conv.sourceAccount.externalId,
+        },
+        messages: mappedMessages,
         claims: threadClaims,
       };
     }),
@@ -670,21 +738,21 @@ export const threadsRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const thread = await verifyThreadAccess(
+      const conv = await verifyThreadAccess(
         input.organizationId,
         input.threadId
       );
 
       return {
-        threadId: thread.id,
-        briefSummary: thread.briefSummary,
-        intentClassification: thread.intentClassification,
-        urgencyScore: thread.urgencyScore,
-        priorityTier: thread.priorityTier,
-        hasOpenLoops: thread.hasOpenLoops,
-        openLoopCount: thread.openLoopCount,
-        suggestedAction: thread.suggestedAction,
-        lastAnalyzedAt: thread.lastAnalyzedAt,
+        threadId: conv.id,
+        briefSummary: conv.briefSummary,
+        intentClassification: conv.intentClassification,
+        urgencyScore: conv.urgencyScore,
+        priorityTier: conv.priorityTier,
+        hasOpenLoops: conv.hasOpenLoops,
+        openLoopCount: conv.openLoopCount,
+        suggestedAction: conv.suggestedAction,
+        lastAnalyzedAt: conv.lastAnalyzedAt,
       };
     }),
 
@@ -699,7 +767,7 @@ export const threadsRouter = router({
       await verifyThreadAccess(input.organizationId, input.threadId);
 
       const conditions = [
-        eq(claim.threadId, input.threadId),
+        eq(claim.conversationId, input.threadId),
         eq(claim.isUserDismissed, false),
       ];
 
@@ -751,7 +819,7 @@ export const threadsRouter = router({
       // Get unanswered questions
       const questions = await db.query.claim.findMany({
         where: and(
-          eq(claim.threadId, input.threadId),
+          eq(claim.conversationId, input.threadId),
           eq(claim.type, "question"),
           eq(claim.isUserDismissed, false)
         ),
@@ -766,7 +834,7 @@ export const threadsRouter = router({
       // Get pending requests (promises that aren't fulfilled)
       const requests = await db.query.claim.findMany({
         where: and(
-          eq(claim.threadId, input.threadId),
+          eq(claim.conversationId, input.threadId),
           or(eq(claim.type, "request"), eq(claim.type, "promise")),
           eq(claim.isUserDismissed, false)
         ),
@@ -931,33 +999,38 @@ export const threadsRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      // Get account IDs
+      // Get source account IDs (email type)
       const accountIds = await db
-        .select({ id: emailAccount.id })
-        .from(emailAccount)
-        .where(eq(emailAccount.organizationId, input.organizationId));
+        .select({ id: sourceAccount.id })
+        .from(sourceAccount)
+        .where(
+          and(
+            eq(sourceAccount.organizationId, input.organizationId),
+            eq(sourceAccount.type, "email")
+          )
+        );
 
       if (accountIds.length === 0) {
         return { threads: [] };
       }
 
-      const threads = await db.query.emailThread.findMany({
+      const threads = await db.query.conversation.findMany({
         where: and(
           inArray(
-            emailThread.accountId,
+            conversation.sourceAccountId,
             accountIds.map((a) => a.id)
           ),
-          eq(emailThread.suggestedAction, input.action),
-          eq(emailThread.isArchived, false)
+          eq(conversation.suggestedAction, input.action),
+          eq(conversation.isArchived, false)
         ),
         limit: input.limit,
         orderBy: [
-          desc(emailThread.urgencyScore),
-          desc(emailThread.lastMessageAt),
+          desc(conversation.urgencyScore),
+          desc(conversation.lastMessageAt),
         ],
         columns: {
           id: true,
-          subject: true,
+          title: true,
           snippet: true,
           briefSummary: true,
           urgencyScore: true,
@@ -967,7 +1040,19 @@ export const threadsRouter = router({
         },
       });
 
-      return { threads };
+      // Map to expected format
+      const mappedThreads = threads.map((t) => ({
+        id: t.id,
+        subject: t.title,
+        snippet: t.snippet,
+        briefSummary: t.briefSummary,
+        urgencyScore: t.urgencyScore,
+        priorityTier: t.priorityTier,
+        hasOpenLoops: t.hasOpenLoops,
+        lastMessageAt: t.lastMessageAt,
+      }));
+
+      return { threads: mappedThreads };
     }),
 
   /**
@@ -984,33 +1069,38 @@ export const threadsRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      // Get account IDs
+      // Get source account IDs (email type)
       const accountIds = await db
-        .select({ id: emailAccount.id })
-        .from(emailAccount)
-        .where(eq(emailAccount.organizationId, input.organizationId));
+        .select({ id: sourceAccount.id })
+        .from(sourceAccount)
+        .where(
+          and(
+            eq(sourceAccount.organizationId, input.organizationId),
+            eq(sourceAccount.type, "email")
+          )
+        );
 
       if (accountIds.length === 0) {
         return { threads: [], totalOpenLoops: 0 };
       }
 
-      const threads = await db.query.emailThread.findMany({
+      const threads = await db.query.conversation.findMany({
         where: and(
           inArray(
-            emailThread.accountId,
+            conversation.sourceAccountId,
             accountIds.map((a) => a.id)
           ),
-          eq(emailThread.hasOpenLoops, true),
-          eq(emailThread.isArchived, false)
+          eq(conversation.hasOpenLoops, true),
+          eq(conversation.isArchived, false)
         ),
         limit: input.limit,
         orderBy: [
-          desc(emailThread.openLoopCount),
-          desc(emailThread.lastMessageAt),
+          desc(conversation.openLoopCount),
+          desc(conversation.lastMessageAt),
         ],
         columns: {
           id: true,
-          subject: true,
+          title: true,
           snippet: true,
           briefSummary: true,
           openLoopCount: true,
@@ -1024,7 +1114,18 @@ export const threadsRouter = router({
         0
       );
 
-      return { threads, totalOpenLoops };
+      // Map to expected format
+      const mappedThreads = threads.map((t) => ({
+        id: t.id,
+        subject: t.title,
+        snippet: t.snippet,
+        briefSummary: t.briefSummary,
+        openLoopCount: t.openLoopCount,
+        urgencyScore: t.urgencyScore,
+        lastMessageAt: t.lastMessageAt,
+      }));
+
+      return { threads: mappedThreads, totalOpenLoops };
     }),
 
   // ==========================================================================
@@ -1037,16 +1138,16 @@ export const threadsRouter = router({
   getById: protectedProcedure
     .input(threadIdSchema)
     .query(async ({ ctx: _ctx, input }) => {
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
-          account: {
+          sourceAccount: {
             columns: { organizationId: true },
           },
         },
       });
 
-      if (!thread) {
+      if (!conv) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -1055,13 +1156,13 @@ export const threadsRouter = router({
 
       return {
         thread: {
-          id: thread.id,
-          subject: thread.subject,
-          brief: thread.briefSummary,
-          isStarred: thread.isStarred,
-          isArchived: thread.isArchived,
-          isRead: thread.isRead,
-          priorityTier: thread.priorityTier,
+          id: conv.id,
+          subject: conv.title,
+          brief: conv.briefSummary,
+          isStarred: conv.isStarred,
+          isArchived: conv.isArchived,
+          isRead: conv.isRead,
+          priorityTier: conv.priorityTier,
         },
       };
     }),
@@ -1072,8 +1173,8 @@ export const threadsRouter = router({
   getMessages: protectedProcedure
     .input(threadIdSchema)
     .query(async ({ ctx: _ctx, input }) => {
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const conv = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
           messages: {
             orderBy: (m, { asc }) => [asc(m.messageIndex)],
@@ -1081,7 +1182,7 @@ export const threadsRouter = router({
         },
       });
 
-      if (!thread) {
+      if (!conv) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -1089,7 +1190,7 @@ export const threadsRouter = router({
       }
 
       return {
-        messages: thread.messages.map((m) => {
+        messages: conv.messages.map((m) => {
           // Extract text from HTML if no plain text body
           const plainBody = m.bodyText ?? "";
           const htmlBody = m.bodyHtml;
@@ -1112,24 +1213,30 @@ export const threadsRouter = router({
               .slice(0, 200);
           }
 
+          // Parse recipients
+          const recipients = (m.recipients as MessageRecipient[]) ?? [];
+          const toRecipients = recipients
+            .filter((r) => r.type === "to")
+            .map((r) => ({ email: r.email ?? "", name: r.name }));
+          const ccRecipients = recipients
+            .filter((r) => r.type === "cc")
+            .map((r) => ({ email: r.email ?? "", name: r.name }));
+
           return {
             id: m.id,
             threadId: input.threadId,
             subject: m.subject,
             from: {
-              email: m.fromEmail,
-              name: m.fromName ?? extractFriendlyName(m.fromEmail),
+              email: m.senderEmail ?? "",
+              name: m.senderName ?? extractFriendlyName(m.senderEmail ?? ""),
             },
-            to:
-              (m.toRecipients as Array<{ email: string; name?: string }>) ?? [],
-            cc: m.ccRecipients as
-              | Array<{ email: string; name?: string }>
-              | undefined,
+            to: toRecipients,
+            cc: ccRecipients.length > 0 ? ccRecipients : undefined,
             date: m.sentAt ?? m.receivedAt ?? new Date(),
             body: plainBody || snippet, // Use extracted text as fallback body
             bodyHtml: htmlBody,
             snippet,
-            isUnread: !thread.isRead,
+            isUnread: !conv.isRead,
             attachments: [],
           };
         }),
@@ -1145,7 +1252,7 @@ export const threadsRouter = router({
       // Get claims for this thread
       const claims = await db.query.claim.findMany({
         where: and(
-          eq(claim.threadId, input.threadId),
+          eq(claim.conversationId, input.threadId),
           eq(claim.isUserDismissed, false)
         ),
         orderBy: [desc(claim.confidence)],
@@ -1261,11 +1368,12 @@ export const threadsRouter = router({
 
       const orgIds = memberships.map((m) => m.organizationId);
 
-      // Get accounts
-      const accounts = await db.query.emailAccount.findMany({
+      // Get source accounts (email type)
+      const accounts = await db.query.sourceAccount.findMany({
         where: and(
-          inArray(emailAccount.organizationId, orgIds),
-          input.accountId ? eq(emailAccount.id, input.accountId) : undefined
+          inArray(sourceAccount.organizationId, orgIds),
+          eq(sourceAccount.type, "email"),
+          input.accountId ? eq(sourceAccount.id, input.accountId) : undefined
         ),
         columns: { id: true },
       });
@@ -1276,15 +1384,15 @@ export const threadsRouter = router({
 
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(emailThread)
+        .from(conversation)
         .where(
           and(
             inArray(
-              emailThread.accountId,
+              conversation.sourceAccountId,
               accounts.map((a) => a.id)
             ),
-            eq(emailThread.isRead, false),
-            eq(emailThread.isArchived, false)
+            eq(conversation.isRead, false),
+            eq(conversation.isArchived, false)
           )
         );
 
@@ -1298,9 +1406,9 @@ export const threadsRouter = router({
     .input(threadIdSchema)
     .mutation(async ({ ctx: _ctx, input }) => {
       await db
-        .update(emailThread)
+        .update(conversation)
         .set({ isArchived: true, updatedAt: new Date() })
-        .where(eq(emailThread.id, input.threadId));
+        .where(eq(conversation.id, input.threadId));
 
       return { success: true };
     }),
@@ -1317,9 +1425,9 @@ export const threadsRouter = router({
     )
     .mutation(async ({ ctx: _ctx, input }) => {
       await db
-        .update(emailThread)
+        .update(conversation)
         .set({ isStarred: input.starred, updatedAt: new Date() })
-        .where(eq(emailThread.id, input.threadId));
+        .where(eq(conversation.id, input.threadId));
 
       return { success: true };
     }),
@@ -1336,9 +1444,9 @@ export const threadsRouter = router({
     )
     .mutation(async ({ ctx: _ctx, input }) => {
       await db
-        .update(emailThread)
+        .update(conversation)
         .set({ isRead: input.read, updatedAt: new Date() })
-        .where(eq(emailThread.id, input.threadId));
+        .where(eq(conversation.id, input.threadId));
 
       return { success: true };
     }),
@@ -1351,12 +1459,13 @@ export const threadsRouter = router({
     .mutation(async ({ ctx: _ctx, input }) => {
       // Soft delete by marking as trashed
       await db
-        .update(emailThread)
+        .update(conversation)
         .set({
+          isTrashed: true,
           isArchived: true,
           updatedAt: new Date(),
         })
-        .where(eq(emailThread.id, input.threadId));
+        .where(eq(conversation.id, input.threadId));
 
       return { success: true };
     }),
@@ -1373,13 +1482,13 @@ export const threadsRouter = router({
     )
     .mutation(async ({ ctx: _ctx, input }) => {
       await db
-        .update(emailThread)
+        .update(conversation)
         .set({
+          snoozedUntil: input.until,
           isArchived: true, // Hide from inbox
           updatedAt: new Date(),
-          // Note: Would need to add snoozeUntil column to schema
         })
-        .where(eq(emailThread.id, input.threadId));
+        .where(eq(conversation.id, input.threadId));
 
       return { success: true };
     }),
@@ -1397,11 +1506,16 @@ export const threadsRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      // Get account IDs for this organization
+      // Get source account IDs for this organization (email type)
       const accountIds = await db
-        .select({ id: emailAccount.id })
-        .from(emailAccount)
-        .where(eq(emailAccount.organizationId, input.organizationId));
+        .select({ id: sourceAccount.id })
+        .from(sourceAccount)
+        .where(
+          and(
+            eq(sourceAccount.organizationId, input.organizationId),
+            eq(sourceAccount.type, "email")
+          )
+        );
 
       if (accountIds.length === 0) {
         return {
@@ -1419,39 +1533,39 @@ export const threadsRouter = router({
         await Promise.all([
           db
             .select({ count: sql<number>`count(*)::int` })
-            .from(emailThread)
+            .from(conversation)
             .where(
               and(
-                inArray(emailThread.accountId, accountIdList),
-                eq(emailThread.isArchived, false)
+                inArray(conversation.sourceAccountId, accountIdList),
+                eq(conversation.isArchived, false)
               )
             ),
           db
             .select({ count: sql<number>`count(*)::int` })
-            .from(emailThread)
+            .from(conversation)
             .where(
               and(
-                inArray(emailThread.accountId, accountIdList),
-                eq(emailThread.isArchived, false),
-                eq(emailThread.isRead, false)
+                inArray(conversation.sourceAccountId, accountIdList),
+                eq(conversation.isArchived, false),
+                eq(conversation.isRead, false)
               )
             ),
           db
             .select({ count: sql<number>`count(*)::int` })
-            .from(emailThread)
+            .from(conversation)
             .where(
               and(
-                inArray(emailThread.accountId, accountIdList),
-                eq(emailThread.isStarred, true)
+                inArray(conversation.sourceAccountId, accountIdList),
+                eq(conversation.isStarred, true)
               )
             ),
           db
             .select({ count: sql<number>`count(*)::int` })
-            .from(emailThread)
+            .from(conversation)
             .where(
               and(
-                inArray(emailThread.accountId, accountIdList),
-                eq(emailThread.isArchived, true)
+                inArray(conversation.sourceAccountId, accountIdList),
+                eq(conversation.isArchived, true)
               )
             ),
         ]);

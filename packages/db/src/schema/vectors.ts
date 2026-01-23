@@ -9,7 +9,6 @@ import {
   timestamp,
   vector,
 } from "drizzle-orm/pg-core";
-import { emailMessage, emailThread } from "./email";
 import { claim } from "./intelligence";
 import { conversation, message } from "./sources";
 
@@ -58,7 +57,7 @@ export const messageEmbedding = pgTable(
       .$defaultFn(() => randomUUID()),
     messageId: text("message_id")
       .notNull()
-      .references(() => emailMessage.id, { onDelete: "cascade" })
+      .references(() => message.id, { onDelete: "cascade" })
       .unique(),
 
     // Vector embedding
@@ -115,9 +114,9 @@ export const threadEmbedding = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    threadId: text("thread_id")
+    conversationId: text("conversation_id")
       .notNull()
-      .references(() => emailThread.id, { onDelete: "cascade" })
+      .references(() => conversation.id, { onDelete: "cascade" })
       .unique(),
 
     // Vector embedding
@@ -153,7 +152,7 @@ export const threadEmbedding = pgTable(
       .notNull(),
   },
   (table) => [
-    index("thread_embedding_thread_idx").on(table.threadId),
+    index("thread_embedding_conversation_idx").on(table.conversationId),
     index("thread_embedding_model_idx").on(table.model),
     index("thread_embedding_status_idx").on(table.status),
   ]
@@ -380,9 +379,9 @@ export const queryEmbeddingCache = pgTable(
 export const messageEmbeddingRelations = relations(
   messageEmbedding,
   ({ one }) => ({
-    message: one(emailMessage, {
+    message: one(message, {
       fields: [messageEmbedding.messageId],
-      references: [emailMessage.id],
+      references: [message.id],
     }),
   })
 );
@@ -390,9 +389,9 @@ export const messageEmbeddingRelations = relations(
 export const threadEmbeddingRelations = relations(
   threadEmbedding,
   ({ one }) => ({
-    thread: one(emailThread, {
-      fields: [threadEmbedding.threadId],
-      references: [emailThread.id],
+    conversation: one(conversation, {
+      fields: [threadEmbedding.conversationId],
+      references: [conversation.id],
     }),
   })
 );

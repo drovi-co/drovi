@@ -7,9 +7,9 @@
 
 import { db } from "@memorystack/db";
 import {
-  emailAccount,
-  emailThread,
+  conversation,
   member,
+  sourceAccount,
   type TriageRuleTrigger,
   triageResult,
   triageRule,
@@ -130,11 +130,12 @@ async function verifyOrgMembership(
 async function verifyAccountAccess(
   organizationId: string,
   accountId: string
-): Promise<typeof emailAccount.$inferSelect> {
-  const account = await db.query.emailAccount.findFirst({
+): Promise<typeof sourceAccount.$inferSelect> {
+  const account = await db.query.sourceAccount.findFirst({
     where: and(
-      eq(emailAccount.id, accountId),
-      eq(emailAccount.organizationId, organizationId)
+      eq(sourceAccount.id, accountId),
+      eq(sourceAccount.organizationId, organizationId),
+      eq(sourceAccount.type, "email")
     ),
   });
 
@@ -150,9 +151,14 @@ async function verifyAccountAccess(
 
 async function getOrgAccountIds(organizationId: string): Promise<string[]> {
   const accounts = await db
-    .select({ id: emailAccount.id })
-    .from(emailAccount)
-    .where(eq(emailAccount.organizationId, organizationId));
+    .select({ id: sourceAccount.id })
+    .from(sourceAccount)
+    .where(
+      and(
+        eq(sourceAccount.organizationId, organizationId),
+        eq(sourceAccount.type, "email")
+      )
+    );
 
   return accounts.map((a) => a.id);
 }
@@ -185,7 +191,7 @@ export const triageRouter = router({
       }
 
       // Build conditions
-      const conditions = [inArray(triageResult.accountId, accountIds)];
+      const conditions = [inArray(triageResult.sourceAccountId, accountIds)];
 
       if (input.action) {
         conditions.push(eq(triageResult.suggestedAction, input.action));
@@ -207,7 +213,7 @@ export const triageRouter = router({
       const suggestions = await db
         .select({
           id: triageResult.id,
-          threadId: triageResult.threadId,
+          threadId: triageResult.conversationId,
           suggestedAction: triageResult.suggestedAction,
           confidence: triageResult.confidence,
           reasoning: triageResult.reasoning,
@@ -218,12 +224,12 @@ export const triageRouter = router({
           userAccepted: triageResult.userAccepted,
           createdAt: triageResult.createdAt,
           // Thread info
-          threadSubject: emailThread.subject,
-          threadSnippet: emailThread.snippet,
-          threadLastMessageAt: emailThread.lastMessageAt,
+          threadSubject: conversation.title,
+          threadSnippet: conversation.snippet,
+          threadLastMessageAt: conversation.lastMessageAt,
         })
         .from(triageResult)
-        .innerJoin(emailThread, eq(triageResult.threadId, emailThread.id))
+        .innerJoin(conversation, eq(triageResult.conversationId, conversation.id))
         .where(and(...conditions))
         .orderBy(desc(triageResult.urgencyScore), desc(triageResult.createdAt))
         .limit(input.limit)
@@ -246,7 +252,7 @@ export const triageRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       const suggestion = await db.query.triageResult.findFirst({
-        where: eq(triageResult.threadId, input.threadId),
+        where: eq(triageResult.conversationId, input.threadId),
       });
 
       if (!suggestion) {
@@ -254,16 +260,16 @@ export const triageRouter = router({
       }
 
       // Verify thread belongs to organization
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const thread = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
-          account: {
+          sourceAccount: {
             columns: { organizationId: true },
           },
         },
       });
 
-      if (!thread || thread.account.organizationId !== input.organizationId) {
+      if (!thread || thread.sourceAccount?.organizationId !== input.organizationId) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -283,16 +289,16 @@ export const triageRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
 
       // Verify thread belongs to organization
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const thread = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
-          account: {
+          sourceAccount: {
             columns: { organizationId: true },
           },
         },
       });
 
-      if (!thread || thread.account.organizationId !== input.organizationId) {
+      if (!thread || thread.sourceAccount?.organizationId !== input.organizationId) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -308,7 +314,7 @@ export const triageRouter = router({
           userActionTaken: input.actionTaken,
           updatedAt: new Date(),
         })
-        .where(eq(triageResult.threadId, input.threadId));
+        .where(eq(triageResult.conversationId, input.threadId));
 
       return { success: true };
     }),
@@ -347,7 +353,7 @@ export const triageRouter = router({
           count: sql<number>`count(*)::int`,
         })
         .from(triageResult)
-        .where(inArray(triageResult.accountId, accountIds))
+        .where(inArray(triageResult.sourceAccountId, accountIds))
         .groupBy(triageResult.suggestedAction);
 
       // Get priority counts
@@ -357,7 +363,7 @@ export const triageRouter = router({
           count: sql<number>`count(*)::int`,
         })
         .from(triageResult)
-        .where(inArray(triageResult.accountId, accountIds))
+        .where(inArray(triageResult.sourceAccountId, accountIds))
         .groupBy(triageResult.priorityTier);
 
       // Get pending review count (not yet accepted/rejected)
@@ -366,7 +372,7 @@ export const triageRouter = router({
         .from(triageResult)
         .where(
           and(
-            inArray(triageResult.accountId, accountIds),
+            inArray(triageResult.sourceAccountId, accountIds),
             sql`${triageResult.userAccepted} IS NULL`
           )
         );
@@ -411,7 +417,7 @@ export const triageRouter = router({
         return { rules: [] };
       }
 
-      const conditions = [inArray(triageRule.accountId, accountIds)];
+      const conditions = [inArray(triageRule.sourceAccountId, accountIds)];
 
       if (input.enabled !== undefined) {
         conditions.push(eq(triageRule.enabled, input.enabled));
@@ -451,7 +457,7 @@ export const triageRouter = router({
       }
 
       // Verify rule belongs to organization
-      await verifyAccountAccess(input.organizationId, rule.accountId);
+      await verifyAccountAccess(input.organizationId, rule.sourceAccountId);
 
       return rule;
     }),
@@ -469,7 +475,7 @@ export const triageRouter = router({
       const [rule] = await db
         .insert(triageRule)
         .values({
-          accountId: input.accountId,
+          sourceAccountId: input.accountId,
           name: input.name,
           description: input.description,
           trigger: input.trigger as TriageRuleTrigger,
@@ -505,7 +511,7 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.accountId);
+      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
 
       // Build updates
       const updates: Partial<typeof triageRule.$inferInsert> = {
@@ -553,7 +559,7 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.accountId);
+      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
 
       await db.delete(triageRule).where(eq(triageRule.id, input.ruleId));
 
@@ -585,7 +591,7 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.accountId);
+      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
 
       const [updatedRule] = await db
         .update(triageRule)
@@ -617,7 +623,7 @@ export const triageRouter = router({
       // Get AI-suggested rules that haven't been created yet
       const suggestedRules = await db.query.triageRule.findMany({
         where: and(
-          eq(triageRule.accountId, input.accountId),
+          eq(triageRule.sourceAccountId, input.accountId),
           eq(triageRule.suggestedByAi, true),
           eq(triageRule.isUserCreated, false)
         ),
@@ -653,7 +659,7 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.accountId);
+      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
 
       const [updatedRule] = await db
         .update(triageRule)

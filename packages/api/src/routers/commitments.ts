@@ -6,8 +6,13 @@
 // Supports CRUD operations, status updates, and digest generation.
 //
 
-import { createCommitmentAgent } from "@memorystack/ai/agents";
 import { db } from "@memorystack/db";
+
+// =============================================================================
+// NOTE: Commitment AI functionality has been moved to Python backend.
+// Digest generation is now simplified local logic.
+// AI-powered procedures return migration errors.
+// =============================================================================
 import { commitment, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
@@ -230,10 +235,10 @@ export const commitmentsRouter = router({
               avatarUrl: true,
             },
           },
-          sourceThread: {
+          sourceConversation: {
             columns: {
               id: true,
-              subject: true,
+              title: true,
               snippet: true,
             },
           },
@@ -261,7 +266,7 @@ export const commitmentsRouter = router({
         with: {
           debtor: true,
           creditor: true,
-          sourceThread: {
+          sourceConversation: {
             with: {
               messages: {
                 orderBy: (m, { asc }) => [asc(m.messageIndex)],
@@ -530,40 +535,57 @@ export const commitmentsRouter = router({
         ),
       });
 
-      // Use the agent to generate the digest
-      const agent = createCommitmentAgent();
-      const digest = agent.generateDailyDigest(
-        userId,
-        input.organizationId,
-        commitments.map((c) => ({
-          id: c.id,
-          title: c.title,
-          status: c.status as
-            | "pending"
-            | "in_progress"
-            | "completed"
-            | "cancelled"
-            | "overdue"
-            | "waiting"
-            | "snoozed",
-          dueDate: c.dueDate,
-          direction: c.direction,
-          debtorEmail: null,
-          creditorEmail: null,
-          sourceThreadId: c.sourceThreadId,
-          lastReminderAt: c.lastReminderAt,
-          reminderCount: c.reminderCount,
-        }))
-      );
+      // Generate digest (simplified local logic - no AI agent)
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+      const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      return digest;
+      interface DigestItem {
+        title: string;
+        dueDate: Date;
+        daysOverdue: number;
+      }
+
+      const owedByMe = { overdue: [] as DigestItem[], dueToday: [] as DigestItem[], upcoming: [] as DigestItem[] };
+      const owedToMe = { overdue: [] as DigestItem[], dueToday: [] as DigestItem[], upcoming: [] as DigestItem[] };
+
+      for (const c of commitments) {
+        if (!c.dueDate) continue;
+        const dueDate = new Date(c.dueDate);
+        const daysOverdue = Math.max(0, Math.floor((startOfToday.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)));
+        const item: DigestItem = { title: c.title, dueDate, daysOverdue };
+        const category = c.direction === "owed_by_me" ? owedByMe : owedToMe;
+
+        if (dueDate < startOfToday) {
+          category.overdue.push(item);
+        } else if (dueDate >= startOfToday && dueDate < endOfToday) {
+          category.dueToday.push(item);
+        } else if (dueDate < endOfWeek) {
+          category.upcoming.push(item);
+        }
+      }
+
+      const totalOpen = owedByMe.overdue.length + owedByMe.dueToday.length + owedByMe.upcoming.length +
+                        owedToMe.overdue.length + owedToMe.dueToday.length + owedToMe.upcoming.length;
+
+      return { owedByMe, owedToMe, totalOpen, generatedAt: now };
     }),
 
   /**
    * Generate follow-up draft for an overdue commitment.
+   * @deprecated Migrated to Python backend
    */
   generateFollowUp: protectedProcedure
     .input(generateFollowUpSchema)
+    .output(
+      z.object({
+        subject: z.string(),
+        body: z.string(),
+        tone: z.string().optional(),
+        urgencyLevel: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
@@ -572,7 +594,7 @@ export const commitmentsRouter = router({
         where: eq(commitment.id, input.commitmentId),
         with: {
           debtor: true,
-          sourceThread: {
+          sourceConversation: {
             with: {
               messages: {
                 orderBy: (m, { desc: d }) => [d(m.sentAt)],
@@ -602,7 +624,7 @@ export const commitmentsRouter = router({
         : 0;
 
       // Build context from recent messages
-      const originalContext = found.sourceThread?.messages
+      const originalContext = found.sourceConversation?.messages
         .map((m) => m.bodyText)
         .filter(Boolean)
         .join("\n\n---\n\n");
@@ -611,27 +633,18 @@ export const commitmentsRouter = router({
       const senderName = ctx.session.user.name ?? undefined;
       const senderEmail = ctx.session.user.email ?? undefined;
 
-      // Generate follow-up
-      const agent = createCommitmentAgent();
-      const followUp = await agent.generateFollowUp(
-        {
-          id: found.id,
-          title: found.title,
-          description: found.description ?? undefined,
-          dueDate: found.dueDate ?? undefined,
-          debtorName: found.debtor?.displayName ?? undefined,
-          debtorEmail: found.debtor?.primaryEmail ?? undefined,
-        },
-        {
-          name: senderName,
-          email: senderEmail,
-        },
-        daysOverdue,
-        found.reminderCount,
-        originalContext
-      );
-
-      return followUp;
+      // NOTE: AI-powered follow-up generation has been migrated to Python backend
+      // Context kept for future Python backend integration
+      void daysOverdue;
+      void originalContext;
+      void senderName;
+      void senderEmail;
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered follow-up generation is being migrated to Python backend. " +
+          "Use the Python drafting endpoint instead.",
+      });
     }),
 
   /**

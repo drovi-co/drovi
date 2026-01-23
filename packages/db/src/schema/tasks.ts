@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   jsonb,
   pgEnum,
@@ -14,6 +15,7 @@ import { user } from "./auth";
 import { commitment, decision } from "./intelligence";
 import { organization } from "./organization";
 import { conversation } from "./sources";
+import { unifiedIntelligenceObject } from "./unified-intelligence";
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -28,6 +30,18 @@ export interface TaskMetadata {
   sourceAccountType?: string; // email, slack, whatsapp, notion, etc.
   sourceAccountId?: string;
   sourceSnippet?: string;
+}
+
+/**
+ * Track which fields the user has manually overridden.
+ * These fields should not be auto-updated by the sync service.
+ */
+export interface TaskUserOverrides {
+  title?: boolean;
+  description?: boolean;
+  dueDate?: boolean;
+  priority?: boolean;
+  status?: boolean;
 }
 
 // =============================================================================
@@ -126,6 +140,17 @@ export const task = pgTable(
       onDelete: "cascade",
     }),
 
+    // Direct UIO link (replaces individual source refs for intelligence-created tasks)
+    sourceUIOId: text("source_uio_id").references(
+      () => unifiedIntelligenceObject.id,
+      { onDelete: "cascade" }
+    ),
+
+    // Sync metadata for bidirectional sync with UIO
+    lastSyncedFromUIO: timestamp("last_synced_from_uio", { withTimezone: true }),
+    syncEnabled: boolean("sync_enabled").default(true),
+    userOverrides: jsonb("user_overrides").$type<TaskUserOverrides>().default({}),
+
     // Audit fields
     createdById: text("created_by_id").references(() => user.id, {
       onDelete: "set null",
@@ -155,11 +180,13 @@ export const task = pgTable(
     index("task_source_conversation_idx").on(table.sourceConversationId),
     index("task_source_commitment_idx").on(table.sourceCommitmentId),
     index("task_source_decision_idx").on(table.sourceDecisionId),
+    index("task_source_uio_idx").on(table.sourceUIOId),
 
     // One task per source item (prevents duplicates)
     unique("task_conversation_unique").on(table.sourceConversationId),
     unique("task_commitment_unique").on(table.sourceCommitmentId),
     unique("task_decision_unique").on(table.sourceDecisionId),
+    unique("task_uio_unique").on(table.sourceUIOId),
   ]
 );
 
@@ -300,6 +327,10 @@ export const taskRelations = relations(task, ({ one, many }) => ({
   sourceDecision: one(decision, {
     fields: [task.sourceDecisionId],
     references: [decision.id],
+  }),
+  sourceUIO: one(unifiedIntelligenceObject, {
+    fields: [task.sourceUIOId],
+    references: [unifiedIntelligenceObject.id],
   }),
   labelJunctions: many(taskLabelJunction),
   activities: many(taskActivity),

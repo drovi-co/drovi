@@ -299,7 +299,7 @@ function DecisionsPage() {
     isSuperseded: !!d.supersededById,
     evidence: d.metadata?.originalText ? [d.metadata.originalText] : undefined,
     owners: d.owners as DecisionCardData["owners"],
-    sourceThread: d.sourceThread,
+    sourceThread: d.sourceConversation,
     alternatives: d.alternatives?.map((a) => ({
       option: a.title,
       reason: a.description ?? undefined,
@@ -374,7 +374,7 @@ function DecisionsPage() {
           ? [detailData.metadata.originalText]
           : undefined,
         owners: detailData.owners as DecisionDetailData["owners"],
-        sourceThread: detailData.sourceThread,
+        sourceThread: detailData.sourceConversation,
         supersededBy: detailData.supersededBy
           ? {
               id: detailData.supersededBy.id,

@@ -1,6 +1,6 @@
 import { inArray, sql } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
-import { emailMessage, emailThread } from "../schema/email";
+import { conversation, message } from "../schema/sources";
 
 /**
  * Create a SQL literal for pgvector embedding.
@@ -23,18 +23,18 @@ export interface SearchResult<T> {
 
 export type MessageSearchResult = SearchResult<{
   id: string;
-  threadId: string;
-  fromEmail: string;
-  fromName: string | null;
+  conversationId: string;
+  senderEmail: string;
+  senderName: string | null;
   subject: string | null;
   snippet: string | null;
   sentAt: Date | null;
   bodyText: string | null;
 }>;
 
-export type ThreadSearchResult = SearchResult<{
+export type ConversationSearchResult = SearchResult<{
   id: string;
-  accountId: string;
+  sourceAccountId: string;
   subject: string | null;
   snippet: string | null;
   briefSummary: string | null;
@@ -46,14 +46,14 @@ export type ClaimSearchResult = SearchResult<{
   id: string;
   type: string;
   text: string;
-  threadId: string | null;
+  conversationId: string | null;
   confidence: number;
 }>;
 
 export interface HybridSearchOptions {
   vectorWeight?: number; // 0-1, default 0.5
   limit?: number;
-  accountIds?: string[];
+  sourceAccountIds?: string[];
   threshold?: number;
 }
 
@@ -75,28 +75,29 @@ export async function searchSimilarMessages(
   options: {
     limit?: number;
     threshold?: number;
-    accountIds?: string[];
-    threadIds?: string[];
+    sourceAccountIds?: string[];
+    conversationIds?: string[];
   } = {}
 ): Promise<MessageSearchResult[]> {
-  const { limit = 10, threshold = 0.5, accountIds, threadIds } = options;
+  const { limit = 10, threshold = 0.5, sourceAccountIds, conversationIds } =
+    options;
   const vec = vectorLiteral(queryEmbedding);
 
   // Build dynamic WHERE conditions
   const conditions: unknown[] = [];
 
-  if (accountIds?.length) {
-    conditions.push(inArray(emailThread.accountId, accountIds));
+  if (sourceAccountIds?.length) {
+    conditions.push(inArray(conversation.sourceAccountId, sourceAccountIds));
   }
-  if (threadIds?.length) {
-    conditions.push(inArray(emailMessage.threadId, threadIds));
+  if (conversationIds?.length) {
+    conditions.push(inArray(message.conversationId, conversationIds));
   }
 
   const results = await db.execute<{
     id: string;
-    thread_id: string;
-    from_email: string;
-    from_name: string | null;
+    conversation_id: string;
+    sender_email: string;
+    sender_name: string | null;
     subject: string | null;
     snippet: string | null;
     sent_at: Date | null;
@@ -106,9 +107,9 @@ export async function searchSimilarMessages(
   }>(sql`
     SELECT
       m.id,
-      m.thread_id,
-      m.from_email,
-      m.from_name,
+      m.conversation_id,
+      m.sender_email,
+      m.sender_name,
       m.subject,
       m.snippet,
       m.sent_at,
@@ -116,11 +117,11 @@ export async function searchSimilarMessages(
       1 - (me.embedding <=> ${vec}) as similarity,
       me.embedding <=> ${vec} as distance
     FROM message_embedding me
-    JOIN email_message m ON m.id = me.message_id
-    JOIN email_thread t ON t.id = m.thread_id
+    JOIN message m ON m.id = me.message_id
+    JOIN conversation c ON c.id = m.conversation_id
     WHERE 1 - (me.embedding <=> ${vec}) > ${threshold}
-    ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
-    ${threadIds?.length ? sql`AND m.thread_id = ANY(${threadIds})` : sql``}
+    ${sourceAccountIds?.length ? sql`AND c.source_account_id = ANY(${sourceAccountIds})` : sql``}
+    ${conversationIds?.length ? sql`AND m.conversation_id = ANY(${conversationIds})` : sql``}
     ORDER BY me.embedding <=> ${vec}
     LIMIT ${limit}
   `);
@@ -128,9 +129,9 @@ export async function searchSimilarMessages(
   return results.rows.map((row) => ({
     item: {
       id: row.id,
-      threadId: row.thread_id,
-      fromEmail: row.from_email,
-      fromName: row.from_name,
+      conversationId: row.conversation_id,
+      senderEmail: row.sender_email,
+      senderName: row.sender_name,
       subject: row.subject,
       snippet: row.snippet,
       sentAt: row.sent_at,
@@ -142,23 +143,23 @@ export async function searchSimilarMessages(
 }
 
 /**
- * Search for similar threads using vector similarity.
+ * Search for similar conversations using vector similarity.
  */
-export async function searchSimilarThreads(
+export async function searchSimilarConversations(
   db: PgDatabase<unknown>,
   queryEmbedding: number[],
   options: {
     limit?: number;
     threshold?: number;
-    accountIds?: string[];
+    sourceAccountIds?: string[];
   } = {}
-): Promise<ThreadSearchResult[]> {
-  const { limit = 10, threshold = 0.5, accountIds } = options;
+): Promise<ConversationSearchResult[]> {
+  const { limit = 10, threshold = 0.5, sourceAccountIds } = options;
   const vec = vectorLiteral(queryEmbedding);
 
   const results = await db.execute<{
     id: string;
-    account_id: string;
+    source_account_id: string;
     subject: string | null;
     snippet: string | null;
     brief_summary: string | null;
@@ -168,19 +169,19 @@ export async function searchSimilarThreads(
     distance: number;
   }>(sql`
     SELECT
-      t.id,
-      t.account_id,
-      t.subject,
-      t.snippet,
-      t.brief_summary,
-      t.last_message_at,
-      t.message_count,
+      c.id,
+      c.source_account_id,
+      c.subject,
+      c.snippet,
+      c.brief_summary,
+      c.last_message_at,
+      c.message_count,
       1 - (te.embedding <=> ${vec}) as similarity,
       te.embedding <=> ${vec} as distance
     FROM thread_embedding te
-    JOIN email_thread t ON t.id = te.thread_id
+    JOIN conversation c ON c.id = te.conversation_id
     WHERE 1 - (te.embedding <=> ${vec}) > ${threshold}
-    ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
+    ${sourceAccountIds?.length ? sql`AND c.source_account_id = ANY(${sourceAccountIds})` : sql``}
     ORDER BY te.embedding <=> ${vec}
     LIMIT ${limit}
   `);
@@ -188,7 +189,7 @@ export async function searchSimilarThreads(
   return results.rows.map((row) => ({
     item: {
       id: row.id,
-      accountId: row.account_id,
+      sourceAccountId: row.source_account_id,
       subject: row.subject,
       snippet: row.snippet,
       briefSummary: row.brief_summary,
@@ -221,7 +222,7 @@ export async function searchSimilarClaims(
     id: string;
     type: string;
     text: string;
-    thread_id: string | null;
+    conversation_id: string | null;
     confidence: number;
     similarity: number;
     distance: number;
@@ -230,7 +231,7 @@ export async function searchSimilarClaims(
       c.id,
       c.type,
       c.text,
-      c.thread_id,
+      c.conversation_id,
       c.confidence,
       1 - (ce.embedding <=> ${vec}) as similarity,
       ce.embedding <=> ${vec} as distance
@@ -248,7 +249,7 @@ export async function searchSimilarClaims(
       id: row.id,
       type: row.type,
       text: row.text,
-      threadId: row.thread_id,
+      conversationId: row.conversation_id,
       confidence: row.confidence,
     },
     similarity: row.similarity,
@@ -278,7 +279,7 @@ export async function hybridSearchMessages(
   const {
     vectorWeight = 0.5,
     limit = 10,
-    accountIds,
+    sourceAccountIds,
     threshold = 0.3,
   } = options;
   const keywordWeight = 1 - vectorWeight;
@@ -289,9 +290,9 @@ export async function hybridSearchMessages(
 
   const results = await db.execute<{
     id: string;
-    thread_id: string;
-    from_email: string;
-    from_name: string | null;
+    conversation_id: string;
+    sender_email: string;
+    sender_name: string | null;
     subject: string | null;
     snippet: string | null;
     sent_at: Date | null;
@@ -305,10 +306,10 @@ export async function hybridSearchMessages(
         ROW_NUMBER() OVER (ORDER BY me.embedding <=> ${vec}) as v_rank,
         1 - (me.embedding <=> ${vec}) as similarity
       FROM message_embedding me
-      JOIN email_message m ON m.id = me.message_id
-      JOIN email_thread t ON t.id = m.thread_id
+      JOIN message m ON m.id = me.message_id
+      JOIN conversation c ON c.id = m.conversation_id
       WHERE 1 - (me.embedding <=> ${vec}) > ${threshold}
-      ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
+      ${sourceAccountIds?.length ? sql`AND c.source_account_id = ANY(${sourceAccountIds})` : sql``}
       LIMIT 100
     ),
     keyword_results AS (
@@ -320,11 +321,11 @@ export async function hybridSearchMessages(
             plainto_tsquery('english', ${query})
           ) DESC
         ) as k_rank
-      FROM email_message m
-      JOIN email_thread t ON t.id = m.thread_id
+      FROM message m
+      JOIN conversation c ON c.id = m.conversation_id
       WHERE to_tsvector('english', COALESCE(m.body_text, '') || ' ' || COALESCE(m.subject, ''))
             @@ plainto_tsquery('english', ${query})
-      ${accountIds?.length ? sql`AND t.account_id = ANY(${accountIds})` : sql``}
+      ${sourceAccountIds?.length ? sql`AND c.source_account_id = ANY(${sourceAccountIds})` : sql``}
       LIMIT 100
     ),
     combined AS (
@@ -338,27 +339,27 @@ export async function hybridSearchMessages(
     )
     SELECT
       m.id,
-      m.thread_id,
-      m.from_email,
-      m.from_name,
+      m.conversation_id,
+      m.sender_email,
+      m.sender_name,
       m.subject,
       m.snippet,
       m.sent_at,
       m.body_text,
-      c.rrf_score,
-      c.vector_similarity
-    FROM combined c
-    JOIN email_message m ON m.id = c.id
-    ORDER BY c.rrf_score DESC
+      cb.rrf_score,
+      cb.vector_similarity
+    FROM combined cb
+    JOIN message m ON m.id = cb.id
+    ORDER BY cb.rrf_score DESC
     LIMIT ${limit}
   `);
 
   return results.rows.map((row) => ({
     item: {
       id: row.id,
-      threadId: row.thread_id,
-      fromEmail: row.from_email,
-      fromName: row.from_name,
+      conversationId: row.conversation_id,
+      senderEmail: row.sender_email,
+      senderName: row.sender_name,
       subject: row.subject,
       snippet: row.snippet,
       sentAt: row.sent_at,
@@ -376,7 +377,7 @@ export async function hybridSearchMessages(
 /**
  * Find K nearest neighbors for a given embedding.
  */
-export async function findKNN<T extends "message" | "thread" | "claim">(
+export async function findKNN<T extends "message" | "conversation" | "claim">(
   db: PgDatabase<unknown>,
   type: T,
   queryEmbedding: number[],
@@ -386,7 +387,7 @@ export async function findKNN<T extends "message" | "thread" | "claim">(
 
   const tableMap = {
     message: { table: "message_embedding", idCol: "message_id" },
-    thread: { table: "thread_embedding", idCol: "thread_id" },
+    conversation: { table: "thread_embedding", idCol: "conversation_id" },
     claim: { table: "claim_embedding", idCol: "claim_id" },
   } as const;
 

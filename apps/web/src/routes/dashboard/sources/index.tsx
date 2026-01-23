@@ -127,10 +127,11 @@ function SourcesPage() {
   });
 
   // Fetch inbox stats
-  const { data: stats } = useQuery({
+  const { data: statsData } = useQuery({
     ...trpc.unifiedInbox.getStats.queryOptions(),
     enabled: !!activeOrg?.id,
   });
+  const statsBySource = (statsData?.bySource ?? {}) as Record<string, { total: number; unread: number }>;
 
   // Email connect mutation (existing)
   const connectEmailMutation = useMutation({
@@ -292,13 +293,13 @@ function SourcesPage() {
       </div>
 
       {/* Stats Overview */}
-      {stats && (
+      {statsData && (
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Conversations</CardDescription>
               <CardTitle className="text-2xl">
-                {stats.total.toLocaleString()}
+                {statsData.total.toLocaleString()}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -306,7 +307,7 @@ function SourcesPage() {
             <CardHeader className="pb-2">
               <CardDescription>Unread</CardDescription>
               <CardTitle className="text-2xl">
-                {stats.unread.toLocaleString()}
+                {statsData.unread.toLocaleString()}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -320,7 +321,7 @@ function SourcesPage() {
             <CardHeader className="pb-2">
               <CardDescription>Source Types</CardDescription>
               <CardTitle className="text-2xl">
-                {Object.keys(stats.bySource).length}
+                {Object.keys(statsBySource).length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -362,7 +363,7 @@ function SourcesPage() {
                     setDisconnectDialogOpen(true);
                   }}
                   source={source as ConnectedSource}
-                  stats={stats?.bySource[source.type]}
+                  stats={statsBySource[source.type]}
                 />
               ))}
             </div>
@@ -382,7 +383,7 @@ function SourcesPage() {
                     setDisconnectDialogOpen(true);
                   }}
                   source={source as ConnectedSource}
-                  stats={stats?.bySource.email}
+                  stats={statsBySource.email}
                 />
               ))}
             </div>
@@ -405,7 +406,7 @@ function SourcesPage() {
                     setDisconnectDialogOpen(true);
                   }}
                   source={source as ConnectedSource}
-                  stats={stats?.bySource.slack}
+                  stats={statsBySource.slack}
                 />
               ))}
             </div>
@@ -428,7 +429,7 @@ function SourcesPage() {
                     setDisconnectDialogOpen(true);
                   }}
                   source={source as ConnectedSource}
-                  stats={stats?.bySource.calendar}
+                  stats={statsBySource.calendar}
                 />
               ))}
             </div>
@@ -451,7 +452,7 @@ function SourcesPage() {
                     setDisconnectDialogOpen(true);
                   }}
                   source={source as ConnectedSource}
-                  stats={stats?.bySource.whatsapp}
+                  stats={statsBySource.whatsapp}
                 />
               ))}
             </div>

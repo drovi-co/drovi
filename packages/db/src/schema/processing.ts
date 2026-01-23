@@ -11,7 +11,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { emailAccount, emailMessage, emailThread } from "./email";
+import { conversation, message, sourceAccount } from "./sources";
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -107,13 +107,14 @@ export const processingJob = pgTable(
     status: processingJobStatusEnum("status").notNull().default("pending"),
 
     // Scope (what is being processed)
-    accountId: text("account_id").references(() => emailAccount.id, {
+    sourceAccountId: text("source_account_id").references(
+      () => sourceAccount.id,
+      { onDelete: "cascade" }
+    ),
+    conversationId: text("conversation_id").references(() => conversation.id, {
       onDelete: "cascade",
     }),
-    threadId: text("thread_id").references(() => emailThread.id, {
-      onDelete: "cascade",
-    }),
-    messageId: text("message_id").references(() => emailMessage.id, {
+    messageId: text("message_id").references(() => message.id, {
       onDelete: "cascade",
     }),
 
@@ -161,8 +162,8 @@ export const processingJob = pgTable(
   (table) => [
     index("processing_job_status_idx").on(table.status),
     index("processing_job_type_idx").on(table.type),
-    index("processing_job_account_idx").on(table.accountId),
-    index("processing_job_thread_idx").on(table.threadId),
+    index("processing_job_source_account_idx").on(table.sourceAccountId),
+    index("processing_job_conversation_idx").on(table.conversationId),
     index("processing_job_priority_idx").on(table.priority),
     index("processing_job_scheduled_idx").on(table.scheduledAt),
     index("processing_job_trigger_run_idx").on(table.triggerRunId),
@@ -305,9 +306,9 @@ export const syncState = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    accountId: text("account_id")
+    sourceAccountId: text("source_account_id")
       .notNull()
-      .references(() => emailAccount.id, { onDelete: "cascade" })
+      .references(() => sourceAccount.id, { onDelete: "cascade" })
       .unique(),
 
     // Sync cursors
@@ -340,7 +341,7 @@ export const syncState = pgTable(
       .notNull(),
   },
   (table) => [
-    index("sync_state_account_idx").on(table.accountId),
+    index("sync_state_source_account_idx").on(table.sourceAccountId),
     index("sync_state_backfill_idx").on(table.backfillComplete),
   ]
 );
@@ -352,17 +353,17 @@ export const syncState = pgTable(
 export const processingJobRelations = relations(
   processingJob,
   ({ one, many }) => ({
-    account: one(emailAccount, {
-      fields: [processingJob.accountId],
-      references: [emailAccount.id],
+    sourceAccount: one(sourceAccount, {
+      fields: [processingJob.sourceAccountId],
+      references: [sourceAccount.id],
     }),
-    thread: one(emailThread, {
-      fields: [processingJob.threadId],
-      references: [emailThread.id],
+    conversation: one(conversation, {
+      fields: [processingJob.conversationId],
+      references: [conversation.id],
     }),
-    message: one(emailMessage, {
+    message: one(message, {
       fields: [processingJob.messageId],
-      references: [emailMessage.id],
+      references: [message.id],
     }),
     audits: many(processingAudit),
   })
@@ -379,9 +380,9 @@ export const processingAuditRelations = relations(
 );
 
 export const syncStateRelations = relations(syncState, ({ one }) => ({
-  account: one(emailAccount, {
-    fields: [syncState.accountId],
-    references: [emailAccount.id],
+  sourceAccount: one(sourceAccount, {
+    fields: [syncState.sourceAccountId],
+    references: [sourceAccount.id],
   }),
 }));
 

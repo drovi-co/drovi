@@ -240,8 +240,6 @@ function UIODetailPage() {
         : null,
       conversationId: source.conversationId,
       messageId: source.messageId,
-      emailThreadId: source.emailThreadId,
-      emailMessageId: source.emailMessageId,
     })
   );
 

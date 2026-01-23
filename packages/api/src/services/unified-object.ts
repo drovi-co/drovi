@@ -6,13 +6,44 @@
 // Handles creation, merging, timeline events, and embedding generation.
 //
 
-import type {
-  DeduplicationResult,
-  ExtractedCommitmentForDedup,
-} from "@memorystack/ai/agents";
-import { createDeduplicationAgent } from "@memorystack/ai/agents";
 import { db, schema } from "@memorystack/db";
 import { and, desc, eq, sql } from "drizzle-orm";
+
+// =============================================================================
+// NOTE: Deduplication AI has been moved to Python backend.
+// This service now creates new UIOs directly without AI deduplication.
+// =============================================================================
+
+// Local type definitions (simplified from AI agents)
+interface ExtractedCommitmentForDedup {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate?: Date | null;
+  dueDateConfidence?: number;
+  debtorContactId?: string;
+  debtorEmail?: string;
+  debtorName?: string;
+  creditorContactId?: string;
+  creditorEmail?: string;
+  creditorName?: string;
+  confidence: number;
+  sourceQuote?: string;
+}
+
+interface DeduplicationResult {
+  action: "create_new" | "merge_into" | "pending_review";
+  targetUioId?: string;
+  confidence: number;
+  explanation?: string;
+  scores?: {
+    semanticSimilarity?: number;
+    partyMatchScore?: number;
+    temporalScore?: number;
+    overallScore?: number;
+  };
+  matchReasons?: string[];
+}
 
 // =============================================================================
 // TYPES
@@ -24,8 +55,6 @@ export interface SourceContext {
   sourceAccountId?: string;
   conversationId?: string;
   messageId?: string;
-  emailThreadId?: string;
-  emailMessageId?: string;
   sourceName?: string;
   messageTimestamp?: Date;
 }
@@ -76,47 +105,16 @@ export interface SourceBreadcrumb {
 export class UnifiedObjectService {
   /**
    * Process a new commitment into the UIO system.
-   * Checks for duplicates and either creates new or merges into existing.
+   * NOTE: Deduplication has been moved to Python backend.
+   * This method now always creates a new UIO.
    */
   async processNewCommitment(
     input: CreateUIOInput
   ): Promise<typeof schema.unifiedIntelligenceObject.$inferSelect> {
-    // biome-ignore lint/suspicious/noExplicitAny: db type is compatible but TypeScript can't infer it
-    const deduplicationAgent = createDeduplicationAgent(db as any);
-
-    const result = await deduplicationAgent.checkForDuplicates({
-      organizationId: input.source.organizationId,
-      newCommitment: input.commitment,
-      sourceType: input.source.sourceType,
-      sourceConversationId: input.source.conversationId || "",
-      sourceMessageId: input.source.messageId,
-      sourceAccountId: input.source.sourceAccountId,
-    });
-
-    switch (result.action) {
-      case "create_new":
-        return this.createNewUIO(input);
-
-      case "merge_into":
-        if (!result.targetUioId) {
-          throw new Error("merge_into action requires targetUioId");
-        }
-        return this.mergeIntoExistingUIO(result.targetUioId, input);
-
-      case "pending_review": {
-        // Create new UIO and deduplication candidate
-        const newUio = await this.createNewUIO(input);
-        if (result.targetUioId) {
-          await this.createDeduplicationCandidate(
-            newUio.id,
-            result.targetUioId,
-            result,
-            input.source.organizationId
-          );
-        }
-        return newUio;
-      }
-    }
+    // NOTE: AI deduplication has been moved to Python backend.
+    // This service now always creates new UIOs directly.
+    // Python handles deduplication during intelligence extraction.
+    return this.createNewUIO(input);
   }
 
   /**
@@ -346,8 +344,6 @@ export class UnifiedObjectService {
       role,
       conversationId: source.conversationId,
       messageId: source.messageId,
-      emailThreadId: source.emailThreadId,
-      emailMessageId: source.emailMessageId,
       originalCommitmentId: input.originalCommitmentId,
       originalDecisionId: input.originalDecisionId,
       originalClaimId: input.originalClaimId,

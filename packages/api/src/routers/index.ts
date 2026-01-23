@@ -13,6 +13,7 @@ import { emailAccountsRouter } from "./email-accounts";
 import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { feedbackRouter } from "./feedback";
+import { graphRouter } from "./graph";
 import { notificationsRouter } from "./notifications";
 import { organizationsRouter } from "./organizations";
 import { riskRouter } from "./risk";
@@ -21,6 +22,7 @@ import { sourcesRouter } from "./sources";
 import { tasksRouter } from "./tasks";
 import { threadsRouter } from "./threads";
 import { triageRouter } from "./triage";
+import { uioRouter } from "./uio";
 import { unifiedInboxRouter } from "./unified-inbox";
 import { unifiedObjectsRouter } from "./unified-objects";
 import { uploadsRouter } from "./uploads";
@@ -72,8 +74,12 @@ export const appRouter = router({
   unifiedInbox: unifiedInboxRouter,
   // Unified Intelligence Objects API (Cross-Source UIOs)
   unifiedObjects: unifiedObjectsRouter,
+  // UIO Router - Single API for all intelligence types (commitments, decisions, etc.)
+  uio: uioRouter,
   // User Feedback API (accuracy tracking)
   feedback: feedbackRouter,
+  // Knowledge Graph API (visualization & queries)
+  graph: graphRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)

@@ -134,6 +134,8 @@ export interface ProcessedThread {
   messages: EmailMessageData[];
   isNew: boolean;
   wasUpdated: boolean;
+  /** Database conversation ID for this thread */
+  conversationId: string;
 }
 
 /**

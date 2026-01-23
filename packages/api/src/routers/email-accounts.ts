@@ -14,9 +14,9 @@ import {
 } from "@memorystack/auth/providers";
 import { db } from "@memorystack/db";
 import {
-  type EmailAccountSettings,
-  emailAccount,
   member,
+  sourceAccount,
+  type SourceAccountSettings,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -79,12 +79,12 @@ interface AccountListItem {
   provider: EmailProvider;
   email: string;
   displayName: string | null;
-  status: "active" | "expired" | "revoked" | "syncing" | "error";
+  status: "pending" | "connected" | "disconnected" | "syncing" | "error" | "expired" | "revoked";
   isPrimary: boolean;
   lastSyncAt: Date | null;
   lastSyncStatus: string | null;
   messageCount: number;
-  settings: EmailAccountSettings;
+  settings: SourceAccountSettings;
   addedByUserId: string;
   createdAt: Date;
 }
@@ -221,36 +221,42 @@ export const emailAccountsRouter = router({
       // Verify user is a member of this organization
       await verifyOrgMembership(userId, organizationId);
 
-      // Get accounts with thread count
+      // Get email source accounts
       const accounts = await db
         .select({
-          id: emailAccount.id,
-          provider: emailAccount.provider,
-          email: emailAccount.email,
-          displayName: emailAccount.displayName,
-          status: emailAccount.status,
-          isPrimary: emailAccount.isPrimary,
-          lastSyncAt: emailAccount.lastSyncAt,
-          lastSyncStatus: emailAccount.lastSyncStatus,
-          settings: emailAccount.settings,
-          addedByUserId: emailAccount.addedByUserId,
-          createdAt: emailAccount.createdAt,
-          tokenExpiresAt: emailAccount.tokenExpiresAt,
+          id: sourceAccount.id,
+          provider: sourceAccount.provider,
+          email: sourceAccount.externalId,
+          displayName: sourceAccount.displayName,
+          status: sourceAccount.status,
+          isPrimary: sourceAccount.isPrimary,
+          lastSyncAt: sourceAccount.lastSyncAt,
+          lastSyncStatus: sourceAccount.lastSyncStatus,
+          settings: sourceAccount.settings,
+          addedByUserId: sourceAccount.addedByUserId,
+          createdAt: sourceAccount.createdAt,
+          tokenExpiresAt: sourceAccount.tokenExpiresAt,
         })
-        .from(emailAccount)
-        .where(eq(emailAccount.organizationId, organizationId))
-        .orderBy(desc(emailAccount.isPrimary), desc(emailAccount.createdAt));
+        .from(sourceAccount)
+        .where(
+          and(
+            eq(sourceAccount.organizationId, organizationId),
+            eq(sourceAccount.type, "email")
+          )
+        )
+        .orderBy(desc(sourceAccount.isPrimary), desc(sourceAccount.createdAt));
 
-      // Get message counts per account
+      // Get message counts per account using unified schema
       const messageCounts = await db.execute(sql`
         SELECT
-          ea.id as account_id,
-          COUNT(em.id)::int as message_count
-        FROM email_account ea
-        LEFT JOIN email_thread et ON et.account_id = ea.id
-        LEFT JOIN email_message em ON em.thread_id = et.id
-        WHERE ea.organization_id = ${organizationId}
-        GROUP BY ea.id
+          sa.id as account_id,
+          COUNT(m.id)::int as message_count
+        FROM source_account sa
+        LEFT JOIN conversation c ON c.source_account_id = sa.id
+        LEFT JOIN message m ON m.conversation_id = c.id
+        WHERE sa.organization_id = ${organizationId}
+          AND sa.type = 'email'
+        GROUP BY sa.id
       `);
 
       const countMap = new Map<string, number>();
@@ -265,7 +271,8 @@ export const emailAccountsRouter = router({
         // Compute effective status based on token expiration
         let effectiveStatus = account.status;
         if (
-          account.status === "active" &&
+          account.status === "connected" &&
+          account.tokenExpiresAt &&
           account.tokenExpiresAt < new Date()
         ) {
           effectiveStatus = "expired";
@@ -284,7 +291,6 @@ export const emailAccountsRouter = router({
           settings: account.settings ?? {
             syncEnabled: true,
             syncFrequencyMinutes: 5,
-            backfillDays: 90,
           },
           addedByUserId: account.addedByUserId,
           createdAt: account.createdAt,
@@ -339,10 +345,11 @@ export const emailAccountsRouter = router({
 
       // Check for existing account with same email in this organization
       if (loginHint) {
-        const existing = await db.query.emailAccount.findFirst({
+        const existing = await db.query.sourceAccount.findFirst({
           where: and(
-            eq(emailAccount.organizationId, organizationId),
-            eq(emailAccount.email, loginHint)
+            eq(sourceAccount.organizationId, organizationId),
+            eq(sourceAccount.type, "email"),
+            eq(sourceAccount.externalId, loginHint)
           ),
         });
 
@@ -397,10 +404,11 @@ export const emailAccountsRouter = router({
       await verifyOrgAdmin(userId, organizationId);
 
       // Verify account belongs to this organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, accountId),
-          eq(emailAccount.organizationId, organizationId)
+          eq(sourceAccount.id, accountId),
+          eq(sourceAccount.organizationId, organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -413,9 +421,9 @@ export const emailAccountsRouter = router({
 
       // Attempt to revoke token at provider
       try {
-        if (account.provider === "gmail") {
+        if (account.provider === "gmail" && account.refreshToken) {
           await revokeGmailToken(account.refreshToken);
-        } else if (account.provider === "outlook") {
+        } else if (account.provider === "outlook" && account.refreshToken) {
           await revokeOutlookToken(account.refreshToken);
         }
       } catch (error) {
@@ -425,7 +433,7 @@ export const emailAccountsRouter = router({
 
       // Mark account as revoked (preserve data for audit)
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           status: "revoked",
           accessToken: "REVOKED",
@@ -433,11 +441,11 @@ export const emailAccountsRouter = router({
           isPrimary: false,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, accountId));
 
       return {
         success: true,
-        message: `${account.email} has been disconnected.`,
+        message: `${account.externalId} has been disconnected.`,
       };
     }),
 
@@ -454,10 +462,11 @@ export const emailAccountsRouter = router({
       await verifyOrgAdmin(userId, organizationId);
 
       // Verify account belongs to this organization
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, accountId),
-          eq(emailAccount.organizationId, organizationId)
+          eq(sourceAccount.id, accountId),
+          eq(sourceAccount.organizationId, organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -479,10 +488,9 @@ export const emailAccountsRouter = router({
       const currentSettings = account.settings ?? {
         syncEnabled: true,
         syncFrequencyMinutes: 5,
-        backfillDays: 90,
       };
 
-      const updatedSettings: EmailAccountSettings = {
+      const updatedSettings: SourceAccountSettings = {
         ...currentSettings,
         ...newSettings,
       };
@@ -501,12 +509,12 @@ export const emailAccountsRouter = router({
 
       // Update settings
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           settings: updatedSettings,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, accountId));
 
       return {
         success: true,
@@ -527,10 +535,11 @@ export const emailAccountsRouter = router({
       await verifyOrgAdmin(userId, organizationId);
 
       // Verify account belongs to this organization and is active
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, accountId),
-          eq(emailAccount.organizationId, organizationId)
+          eq(sourceAccount.id, accountId),
+          eq(sourceAccount.organizationId, organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -541,7 +550,7 @@ export const emailAccountsRouter = router({
         });
       }
 
-      if (account.status !== "active" && account.status !== "syncing") {
+      if (account.status !== "connected" && account.status !== "syncing") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Cannot set a disconnected or expired account as primary.",
@@ -550,27 +559,28 @@ export const emailAccountsRouter = router({
 
       // Atomic update: clear all primary flags and set new primary
       await db.transaction(async (tx) => {
-        // Clear existing primary for this organization
+        // Clear existing primary for email accounts in this organization
         await tx
-          .update(emailAccount)
+          .update(sourceAccount)
           .set({ isPrimary: false, updatedAt: new Date() })
           .where(
             and(
-              eq(emailAccount.organizationId, organizationId),
-              eq(emailAccount.isPrimary, true)
+              eq(sourceAccount.organizationId, organizationId),
+              eq(sourceAccount.type, "email"),
+              eq(sourceAccount.isPrimary, true)
             )
           );
 
         // Set new primary
         await tx
-          .update(emailAccount)
+          .update(sourceAccount)
           .set({ isPrimary: true, updatedAt: new Date() })
-          .where(eq(emailAccount.id, accountId));
+          .where(eq(sourceAccount.id, accountId));
       });
 
       return {
         success: true,
-        message: `${account.email} is now the primary account.`,
+        message: `${account.externalId} is now the primary account.`,
       };
     }),
 
@@ -586,10 +596,11 @@ export const emailAccountsRouter = router({
       // Verify user is a member of this organization
       await verifyOrgMembership(userId, organizationId);
 
-      const account = await db.query.emailAccount.findFirst({
+      const account = await db.query.sourceAccount.findFirst({
         where: and(
-          eq(emailAccount.id, accountId),
-          eq(emailAccount.organizationId, organizationId)
+          eq(sourceAccount.id, accountId),
+          eq(sourceAccount.organizationId, organizationId),
+          eq(sourceAccount.type, "email")
         ),
       });
 
@@ -602,14 +613,18 @@ export const emailAccountsRouter = router({
 
       // Compute effective status
       let effectiveStatus = account.status;
-      if (account.status === "active" && account.tokenExpiresAt < new Date()) {
+      if (
+        account.status === "connected" &&
+        account.tokenExpiresAt &&
+        account.tokenExpiresAt < new Date()
+      ) {
         effectiveStatus = "expired";
       }
 
       return {
         id: account.id,
         provider: account.provider as EmailProvider,
-        email: account.email,
+        email: account.externalId,
         displayName: account.displayName,
         status: effectiveStatus,
         isPrimary: account.isPrimary,
@@ -620,7 +635,6 @@ export const emailAccountsRouter = router({
         settings: account.settings ?? {
           syncEnabled: true,
           syncFrequencyMinutes: 5,
-          backfillDays: 90,
         },
         addedByUserId: account.addedByUserId,
         createdAt: account.createdAt,
@@ -644,12 +658,13 @@ export const emailAccountsRouter = router({
       const userId = ctx.session.user.id;
       const { timeMin, timeMax, maxResults } = input;
 
-      // Get all Gmail accounts for this user (across all orgs if no org specified)
-      const accounts = await db.query.emailAccount.findMany({
+      // Get all Gmail source accounts for this user (across all orgs if no org specified)
+      const accounts = await db.query.sourceAccount.findMany({
         where: and(
-          eq(emailAccount.addedByUserId, userId),
-          eq(emailAccount.provider, "gmail"),
-          eq(emailAccount.status, "active")
+          eq(sourceAccount.addedByUserId, userId),
+          eq(sourceAccount.type, "email"),
+          eq(sourceAccount.provider, "gmail"),
+          eq(sourceAccount.status, "connected")
         ),
       });
 
@@ -683,6 +698,8 @@ export const emailAccountsRouter = router({
       const effectiveTimeMax = timeMax || endOfDay.toISOString();
 
       for (const account of accounts) {
+        if (!account.accessToken) continue;
+
         try {
           const response = await fetch(
             "https://www.googleapis.com/calendar/v3/calendars/primary/events?" +
@@ -702,7 +719,7 @@ export const emailAccountsRouter = router({
 
           if (!response.ok) {
             console.warn(
-              `Failed to fetch calendar for ${account.email}:`,
+              `Failed to fetch calendar for ${account.externalId}:`,
               response.status
             );
             continue;
@@ -743,11 +760,14 @@ export const emailAccountsRouter = router({
               location: event.location,
               attendees: event.attendees?.map((a) => a.email) ?? [],
               isVideoCall,
-              accountEmail: account.email,
+              accountEmail: account.externalId,
             });
           }
         } catch (error) {
-          console.error(`Error fetching calendar for ${account.email}:`, error);
+          console.error(
+            `Error fetching calendar for ${account.externalId}:`,
+            error
+          );
         }
       }
 
@@ -758,6 +778,125 @@ export const emailAccountsRouter = router({
       );
 
       return { events: allEvents };
+    }),
+
+  /**
+   * Get sync status for an email account (for real-time progress)
+   */
+  getSyncStatus: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        accountId: z.string().uuid().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const { organizationId, accountId } = input;
+
+      // Verify user is a member of this organization
+      await verifyOrgMembership(userId, organizationId);
+
+      // Get accounts
+      const whereClause = accountId
+        ? and(
+            eq(sourceAccount.organizationId, organizationId),
+            eq(sourceAccount.type, "email"),
+            eq(sourceAccount.id, accountId)
+          )
+        : and(
+            eq(sourceAccount.organizationId, organizationId),
+            eq(sourceAccount.type, "email")
+          );
+
+      const accounts = await db.query.sourceAccount.findMany({
+        where: whereClause,
+        columns: {
+          id: true,
+          externalId: true,
+          provider: true,
+          status: true,
+          backfillProgress: true,
+          lastSyncAt: true,
+          lastSyncStatus: true,
+          createdAt: true,
+        },
+      });
+
+      // Get conversation/message counts using unified schema
+      const counts = await db.execute(sql`
+        SELECT
+          sa.id as account_id,
+          COUNT(DISTINCT c.id)::int as conversation_count,
+          COUNT(m.id)::int as message_count
+        FROM source_account sa
+        LEFT JOIN conversation c ON c.source_account_id = sa.id
+        LEFT JOIN message m ON m.conversation_id = c.id
+        WHERE sa.organization_id = ${organizationId}
+          AND sa.type = 'email'
+        GROUP BY sa.id
+      `);
+
+      const countMap = new Map<
+        string,
+        { conversationCount: number; messageCount: number }
+      >();
+      for (const row of counts.rows as Array<{
+        account_id: string;
+        conversation_count: number;
+        message_count: number;
+      }>) {
+        countMap.set(row.account_id, {
+          conversationCount: row.conversation_count,
+          messageCount: row.message_count,
+        });
+      }
+
+      return accounts.map((account) => {
+        const stats = countMap.get(account.id) ?? {
+          conversationCount: 0,
+          messageCount: 0,
+        };
+        const progress = account.backfillProgress;
+
+        // Determine if sync is complete
+        const isComplete =
+          progress?.phase === "complete" ||
+          (progress?.phase === "idle" && stats.conversationCount > 0);
+
+        // Determine current phase label
+        let phaseLabel = "Initializing...";
+        if (progress?.phase === "priority") {
+          phaseLabel = "Syncing recent emails (last 90 days)";
+        } else if (progress?.phase === "extended") {
+          phaseLabel = "Syncing older emails (90 days - 1 year)";
+        } else if (progress?.phase === "archive") {
+          phaseLabel = "Syncing archived emails (1+ years)";
+        } else if (isComplete) {
+          phaseLabel = "Sync complete";
+        }
+
+        return {
+          id: account.id,
+          email: account.externalId,
+          provider: account.provider,
+          status: account.status,
+          isComplete,
+          phase: progress?.phase ?? "idle",
+          phaseLabel,
+          totalThreads: progress?.totalItems ?? 0,
+          processedThreads: progress?.processedItems ?? 0,
+          phaseProgress: progress?.phaseProgress ?? 0,
+          overallProgress: progress?.overallProgress ?? 0,
+          totalMessages: 0,
+          errorCount: progress?.errorCount ?? 0,
+          phaseStartedAt: progress?.phaseStartedAt ?? null,
+          threadCount: stats.conversationCount,
+          messageCount: stats.messageCount,
+          lastSyncAt: account.lastSyncAt,
+          createdAt: account.createdAt,
+        };
+      });
     }),
 });
 

@@ -7,7 +7,6 @@ import { db } from "@memorystack/db";
 import {
   commitment,
   conversation,
-  emailAccount,
   member,
   relatedConversation,
   sourceAccount,
@@ -270,12 +269,12 @@ async function getAccountWithAccess(
   refreshToken: string;
   tokenExpiresAt: Date;
 }> {
-  const account = await db.query.emailAccount.findFirst({
-    where: eq(emailAccount.id, accountId),
+  const account = await db.query.sourceAccount.findFirst({
+    where: eq(sourceAccount.id, accountId),
     columns: {
       id: true,
       provider: true,
-      email: true,
+      externalId: true,
       accessToken: true,
       refreshToken: true,
       tokenExpiresAt: true,
@@ -290,13 +289,21 @@ async function getAccountWithAccess(
     });
   }
 
+  // Verify tokens exist
+  if (!account.accessToken || !account.refreshToken) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Account is missing OAuth tokens. Please reconnect your account.",
+    });
+  }
+
   // Verify user has access to this account's organization
   await verifyOrgMembership(userId, account.organizationId);
 
   // Decrypt tokens from database
   let accessToken = safeDecryptToken(account.accessToken);
   const refreshToken = safeDecryptToken(account.refreshToken);
-  let { tokenExpiresAt } = account;
+  let tokenExpiresAt = account.tokenExpiresAt ?? new Date();
   const provider = account.provider as "gmail" | "outlook";
 
   // Check if token is expired or about to expire (within 5 minutes)
@@ -316,13 +323,13 @@ async function getAccountWithAccess(
 
       // Store the refreshed token encrypted
       await db
-        .update(emailAccount)
+        .update(sourceAccount)
         .set({
           accessToken: safeEncryptToken(accessToken),
           tokenExpiresAt,
           updatedAt: new Date(),
         })
-        .where(eq(emailAccount.id, accountId));
+        .where(eq(sourceAccount.id, accountId));
     } catch (error) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -335,7 +342,7 @@ async function getAccountWithAccess(
   return {
     id: account.id,
     provider,
-    email: account.email,
+    email: account.externalId,
     accessToken,
     refreshToken,
     tokenExpiresAt,
@@ -1460,9 +1467,9 @@ export const calendarRouter = router({
 
       if (input.accountId) {
         // Find the corresponding source account
-        const account = await db.query.emailAccount.findFirst({
-          where: eq(emailAccount.id, input.accountId),
-          columns: { email: true, organizationId: true },
+        const account = await db.query.sourceAccount.findFirst({
+          where: eq(sourceAccount.id, input.accountId),
+          columns: { externalId: true, organizationId: true },
         });
 
         if (account) {
@@ -1470,7 +1477,7 @@ export const calendarRouter = router({
             where: and(
               eq(sourceAccount.organizationId, account.organizationId),
               eq(sourceAccount.type, "calendar"),
-              eq(sourceAccount.externalId, account.email)
+              eq(sourceAccount.externalId, account.externalId)
             ),
             columns: { id: true },
           });
@@ -1816,9 +1823,9 @@ export const calendarRouter = router({
     )
     .query(async ({ ctx, input }) => {
       // Get email account to find corresponding calendar source
-      const account = await db.query.emailAccount.findFirst({
-        where: eq(emailAccount.id, input.accountId),
-        columns: { email: true, organizationId: true },
+      const account = await db.query.sourceAccount.findFirst({
+        where: eq(sourceAccount.id, input.accountId),
+        columns: { externalId: true, organizationId: true },
       });
 
       if (!account) {
@@ -1835,7 +1842,7 @@ export const calendarRouter = router({
         where: and(
           eq(sourceAccount.organizationId, account.organizationId),
           eq(sourceAccount.type, "calendar"),
-          eq(sourceAccount.externalId, account.email)
+          eq(sourceAccount.externalId, account.externalId)
         ),
         columns: {
           id: true,

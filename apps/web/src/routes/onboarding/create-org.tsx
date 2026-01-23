@@ -51,21 +51,32 @@ function CreateOrgPage() {
 
       if (result.error) {
         toast.error(result.error.message || "Failed to create organization");
+        setIsCreating(false);
         return;
       }
 
       // Set as active organization
       if (result.data) {
-        await authClient.organization.setActive({
+        const setActiveResult = await authClient.organization.setActive({
           organizationId: result.data.id,
         });
+
+        if (setActiveResult.error) {
+          console.error("Failed to set active org:", setActiveResult.error);
+          // Continue anyway - org was created
+        }
       }
 
       toast.success("Organization created!");
-      navigate({ to: "/onboarding/connect-email" });
-    } catch {
+
+      // Navigate to connect sources (was connect-email)
+      // Use a small delay to ensure state is updated
+      setTimeout(() => {
+        navigate({ to: "/onboarding/connect-sources" });
+      }, 100);
+    } catch (error) {
+      console.error("Organization creation error:", error);
       toast.error("An unexpected error occurred");
-    } finally {
       setIsCreating(false);
     }
   };

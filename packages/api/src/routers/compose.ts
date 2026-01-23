@@ -13,9 +13,9 @@ import {
 import { db } from "@memorystack/db";
 import {
   claim,
-  emailMessage,
-  emailThread,
+  conversation,
   member,
+  message,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -72,13 +72,13 @@ export const composeRouter = router({
       await verifyOrgMembership(ctx.session.user.id, input.organizationId);
 
       // Get the thread with its messages
-      const thread = await db.query.emailThread.findFirst({
-        where: eq(emailThread.id, input.threadId),
+      const thread = await db.query.conversation.findFirst({
+        where: eq(conversation.id, input.threadId),
         with: {
           messages: {
-            orderBy: [desc(emailMessage.sentAt)],
+            orderBy: [desc(message.sentAt)],
           },
-          account: true,
+          sourceAccount: true,
         },
       });
 
@@ -90,12 +90,12 @@ export const composeRouter = router({
       }
 
       const lastMessage = thread.messages[0];
-      const userEmail = thread.account?.email ?? "";
+      const userEmail = thread.sourceAccount?.externalId ?? "";
 
       // Build reply subject
-      const subject = (thread.subject ?? "").startsWith("Re: ")
-        ? thread.subject
-        : `Re: ${thread.subject ?? ""}`;
+      const subject = (thread.title ?? "").startsWith("Re: ")
+        ? thread.title
+        : `Re: ${thread.title ?? ""}`;
 
       // Build reply recipients - reply to sender, excluding self
       const toRecipients: Array<{ email: string; name?: string }> = [];
@@ -103,32 +103,31 @@ export const composeRouter = router({
 
       if (lastMessage) {
         // Add the sender as the primary recipient
-        const sender = lastMessage.fromEmail;
+        const sender = lastMessage.senderEmail;
         if (sender && sender !== userEmail) {
           toRecipients.push({
             email: sender,
-            name: lastMessage.fromName ?? undefined,
+            name: lastMessage.senderName ?? undefined,
           });
         }
 
         // Add other To/CC recipients (for Reply All)
-        const msgToRecipients = (lastMessage.toRecipients ?? []) as Array<{
-          email: string;
+        const allRecipients = (lastMessage.recipients ?? []) as Array<{
+          email?: string;
           name?: string;
+          type: "to" | "cc" | "bcc" | "mention" | "reaction";
         }>;
-        const msgCcRecipients = (lastMessage.ccRecipients ?? []) as Array<{
-          email: string;
-          name?: string;
-        }>;
+        const msgToRecipients = allRecipients.filter((r) => r.type === "to");
+        const msgCcRecipients = allRecipients.filter((r) => r.type === "cc");
 
         for (const recipient of msgToRecipients) {
-          if (recipient.email !== userEmail && recipient.email !== sender) {
+          if (recipient.email && recipient.email !== userEmail && recipient.email !== sender) {
             toRecipients.push({ email: recipient.email, name: recipient.name });
           }
         }
 
         for (const recipient of msgCcRecipients) {
-          if (recipient.email !== userEmail && recipient.email !== sender) {
+          if (recipient.email && recipient.email !== userEmail && recipient.email !== sender) {
             ccRecipients.push({ email: recipient.email, name: recipient.name });
           }
         }
@@ -140,17 +139,17 @@ export const composeRouter = router({
         const date = lastMessage.sentAt
           ? new Date(lastMessage.sentAt).toLocaleString()
           : "Unknown date";
-        const from = lastMessage.fromName ?? lastMessage.fromEmail ?? "Unknown";
+        const from = lastMessage.senderName ?? lastMessage.senderEmail ?? "Unknown";
         const bodyText = lastMessage.bodyText ?? lastMessage.snippet ?? "";
 
         quotedBody = `\n\n---\nOn ${date}, ${from} wrote:\n\n${bodyText
           .split("\n")
-          .map((line) => `> ${line}`)
+          .map((line: string) => `> ${line}`)
           .join("\n")}`;
       }
 
       return {
-        accountId: thread.accountId,
+        accountId: thread.sourceAccountId,
         subject,
         toRecipients,
         ccRecipients,
@@ -215,7 +214,7 @@ export const composeRouter = router({
       // Also include claims from the same thread if replying
       let threadClaims: typeof claims = [];
       if (input.threadId) {
-        threadClaims = claims.filter((c) => c.threadId === input.threadId);
+        threadClaims = claims.filter((c) => c.conversationId === input.threadId);
       }
 
       // Combine and deduplicate
@@ -231,7 +230,7 @@ export const composeRouter = router({
           id: c.id,
           type: c.type === "promise" ? "commitment" : "decision",
           text: c.text,
-          source: c.messageId ?? c.threadId ?? "unknown",
+          source: c.messageId ?? c.conversationId ?? "unknown",
           date: c.extractedAt ?? new Date(),
           confidence: c.confidence ?? 0.8,
           metadata: c.metadata as Record<string, unknown> | undefined,

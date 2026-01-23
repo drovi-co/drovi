@@ -1,0 +1,42 @@
+{
+  "name": "@memorystack/intelligence-sdk",
+  "version": "0.0.1",
+  "description": "TypeScript SDK for the Drovi Intelligence Platform API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "@types/node": "^22.15.29",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "keywords": [
+    "drovi",
+    "intelligence",
+    "sdk",
+    "api",
+    "commitments",
+    "decisions"
+  ],
+  "license": "MIT"
+}

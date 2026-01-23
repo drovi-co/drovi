@@ -525,7 +525,7 @@ export function OpenLoopsDashboard({
         confidence: c.confidence,
         isUserVerified: c.isUserVerified ?? undefined,
         otherParty: c.direction === "owed_by_me" ? c.creditor : c.debtor,
-        sourceThread: c.sourceThread,
+        sourceThread: c.sourceConversation,
       }));
   }, [loopsData]);
 

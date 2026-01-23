@@ -12,8 +12,10 @@ import {
   Calendar,
   CheckCircle2,
   FileText,
+  GitBranch,
   Hash,
   Inbox,
+  List,
   Loader2,
   Mail,
   MessageCircle,
@@ -23,6 +25,7 @@ import {
   RefreshCw,
   Search,
   Star,
+  Target,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -54,6 +57,7 @@ import { useActiveOrganization } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
+import { CommitmentsCommandCenter } from "./-commitments-command-center";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -76,6 +80,7 @@ type SourceFilter =
   | "notion"
   | "google_docs";
 type StatusFilter = "inbox" | "unread" | "starred";
+type InboxViewMode = "threads" | "commitments" | "decisions";
 
 interface UnifiedFeedItem {
   id: string;
@@ -137,6 +142,7 @@ function UnifiedInboxPage() {
   const { data: activeOrg } = useActiveOrganization();
 
   // State
+  const [viewMode, setViewMode] = useState<InboxViewMode>("threads");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -696,12 +702,13 @@ function UnifiedInboxPage() {
 
   // Stats
   const totalUnread = statsData?.unread ?? 0;
-  const emailStats = statsData?.bySource?.email;
-  const slackStats = statsData?.bySource?.slack;
-  const calendarStats = statsData?.bySource?.calendar;
-  const whatsappStats = statsData?.bySource?.whatsapp;
-  const notionStats = statsData?.bySource?.notion;
-  const googleDocsStats = statsData?.bySource?.google_docs;
+  const bySource = (statsData?.bySource ?? {}) as Record<string, { total: number; unread: number }>;
+  const emailStats = bySource.email;
+  const slackStats = bySource.slack;
+  const calendarStats = bySource.calendar;
+  const whatsappStats = bySource.whatsapp;
+  const notionStats = bySource.notion;
+  const googleDocsStats = bySource.google_docs;
 
   return (
     <div className="h-full" data-no-shell-padding>
@@ -969,6 +976,72 @@ function UnifiedInboxPage() {
 
         {/* Main content */}
         <div className="flex flex-1 overflow-hidden">
+          {/* View mode selector sidebar */}
+          <div className="flex w-12 flex-col items-center gap-1 border-r bg-muted/30 py-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === "threads" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setViewMode("threads")}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Threads</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === "commitments" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setViewMode("commitments")}
+                  >
+                    <Target className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Commitments</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === "decisions" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setViewMode("decisions")}
+                  >
+                    <GitBranch className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Decisions</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* View content */}
+          {viewMode === "commitments" ? (
+            <div className="flex-1 overflow-hidden">
+              <CommitmentsCommandCenter />
+            </div>
+          ) : viewMode === "decisions" ? (
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <GitBranch className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">Decisions View</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Coming soon - track all decisions from your conversations
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Item list */}
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* List Header */}
@@ -1102,8 +1175,8 @@ function UnifiedInboxPage() {
             </div>
           </div>
 
-          {/* Inbox Sidebar */}
-          {showSchedule && (
+          {/* Inbox Sidebar (only shown in threads view) */}
+          {viewMode === "threads" && showSchedule && (
             <InboxSidebar
               commitments={sidebarCommitments}
               events={sidebarEvents}
@@ -1116,6 +1189,8 @@ function UnifiedInboxPage() {
               }}
               stats={sidebarStats}
             />
+          )}
+          </>
           )}
         </div>
       </div>
