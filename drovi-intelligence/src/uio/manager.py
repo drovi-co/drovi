@@ -10,9 +10,15 @@ UIOs are the core abstraction for all extracted intelligence:
 - Tasks
 - Claims
 - Risks
+- Briefs
 
 Each UIO follows a complete lifecycle:
 draft → active → in_progress → completed/cancelled → archived
+
+This manager provides:
+- Tri-store synchronization (PostgreSQL + FalkorDB + Graphiti)
+- Type-specific extension table creation
+- Source linkage and evidence tracking
 """
 
 from datetime import datetime
@@ -20,14 +26,34 @@ from typing import Literal
 from uuid import uuid4
 
 import structlog
+from sqlalchemy import text
 
+from src.db import get_db_session
 from src.graph.client import get_graph_client
 from src.memory.graphiti_memory import get_graphiti_memory
 from src.orchestrator.state import UIOStatus
 
+from .schemas import (
+    BriefDetailsCreate,
+    ClaimDetailsCreate,
+    CommitmentDetailsCreate,
+    CreateBriefUIO,
+    CreateClaimUIO,
+    CreateCommitmentUIO,
+    CreateDecisionUIO,
+    CreateRiskUIO,
+    CreateTaskUIO,
+    DecisionDetailsCreate,
+    RiskDetailsCreate,
+    SourceContext,
+    TaskDetailsCreate,
+    UIOCreate,
+    UIOType as UIOTypeEnum,
+)
+
 logger = structlog.get_logger()
 
-UIOType = Literal["commitment", "decision", "task", "claim", "risk"]
+UIOType = Literal["commitment", "decision", "task", "claim", "risk", "brief"]
 
 
 class UIOManager:
@@ -164,6 +190,803 @@ class UIOManager:
             raise
 
         return uio_id
+
+    # =========================================================================
+    # Create UIOs with Extension Details (PostgreSQL + FalkorDB)
+    # =========================================================================
+
+    async def create_commitment_uio(
+        self,
+        request: CreateCommitmentUIO,
+    ) -> str:
+        """
+        Create a commitment UIO with full details.
+
+        Creates records in:
+        1. PostgreSQL: unified_intelligence_object + uio_commitment_details
+        2. FalkorDB: UIO:Commitment node
+        3. Links source context
+
+        Returns:
+            The created UIO ID
+        """
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating commitment UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        # Create in PostgreSQL
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        due_date, due_date_confidence,
+                        owner_contact_id, participant_contact_ids,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'commitment', :status,
+                        :canonical_title, :canonical_description,
+                        :due_date, :due_date_confidence,
+                        :owner_contact_id, :participant_contact_ids,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.base.canonical_description,
+                    "due_date": request.base.due_date,
+                    "due_date_confidence": request.base.due_date_confidence,
+                    "owner_contact_id": request.base.owner_contact_id,
+                    "participant_contact_ids": request.base.participant_contact_ids,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create commitment details
+            import json
+            extraction_context_json = None
+            if request.details.extraction_context:
+                extraction_context_json = json.dumps(request.details.extraction_context.model_dump())
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_commitment_details (
+                        id, uio_id,
+                        direction, debtor_contact_id, creditor_contact_id,
+                        due_date_source, due_date_original_text,
+                        priority, status,
+                        is_conditional, condition,
+                        completed_at, completed_via, snoozed_until,
+                        extraction_context,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :direction, :debtor_contact_id, :creditor_contact_id,
+                        :due_date_source, :due_date_original_text,
+                        :priority, :status,
+                        :is_conditional, :condition,
+                        :completed_at, :completed_via, :snoozed_until,
+                        :extraction_context::jsonb,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "direction": request.details.direction.value,
+                    "debtor_contact_id": request.details.debtor_contact_id,
+                    "creditor_contact_id": request.details.creditor_contact_id,
+                    "due_date_source": request.details.due_date_source,
+                    "due_date_original_text": request.details.due_date_original_text,
+                    "priority": request.details.priority.value,
+                    "status": request.details.status.value,
+                    "is_conditional": request.details.is_conditional,
+                    "condition": request.details.condition,
+                    "completed_at": request.details.completed_at,
+                    "completed_via": request.details.completed_via,
+                    "snoozed_until": request.details.snoozed_until,
+                    "extraction_context": extraction_context_json,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="commitment",
+            data={
+                "title": request.base.canonical_title,
+                "description": request.base.canonical_description,
+                "direction": request.details.direction.value,
+                "priority": request.details.priority.value,
+                "status": request.details.status.value,
+                "dueDate": request.base.due_date.isoformat() if request.base.due_date else None,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Commitment UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def create_decision_uio(
+        self,
+        request: CreateDecisionUIO,
+    ) -> str:
+        """Create a decision UIO with full details."""
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating decision UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        owner_contact_id, participant_contact_ids,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'decision', :status,
+                        :canonical_title, :canonical_description,
+                        :owner_contact_id, :participant_contact_ids,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.base.canonical_description,
+                    "owner_contact_id": request.details.decision_maker_contact_id,
+                    "participant_contact_ids": request.details.stakeholder_contact_ids,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create decision details
+            import json
+            alternatives_json = None
+            if request.details.alternatives:
+                alternatives_json = json.dumps([a.model_dump() for a in request.details.alternatives])
+
+            extraction_context_json = None
+            if request.details.extraction_context:
+                extraction_context_json = json.dumps(request.details.extraction_context.model_dump())
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_decision_details (
+                        id, uio_id,
+                        statement, rationale, alternatives,
+                        decision_maker_contact_id, stakeholder_contact_ids, impact_areas,
+                        status, decided_at,
+                        supersedes_uio_id, superseded_by_uio_id,
+                        extraction_context,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :statement, :rationale, :alternatives::jsonb,
+                        :decision_maker_contact_id, :stakeholder_contact_ids, :impact_areas,
+                        :status, :decided_at,
+                        :supersedes_uio_id, :superseded_by_uio_id,
+                        :extraction_context::jsonb,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "statement": request.details.statement,
+                    "rationale": request.details.rationale,
+                    "alternatives": alternatives_json,
+                    "decision_maker_contact_id": request.details.decision_maker_contact_id,
+                    "stakeholder_contact_ids": request.details.stakeholder_contact_ids,
+                    "impact_areas": request.details.impact_areas,
+                    "status": request.details.status.value,
+                    "decided_at": request.details.decided_at or now,
+                    "supersedes_uio_id": request.details.supersedes_uio_id,
+                    "superseded_by_uio_id": request.details.superseded_by_uio_id,
+                    "extraction_context": extraction_context_json,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="decision",
+            data={
+                "title": request.base.canonical_title,
+                "statement": request.details.statement,
+                "rationale": request.details.rationale,
+                "status": request.details.status.value,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Decision UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def create_claim_uio(
+        self,
+        request: CreateClaimUIO,
+    ) -> str:
+        """Create a claim UIO with full details."""
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating claim UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'claim', :status,
+                        :canonical_title, :canonical_description,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.base.canonical_description,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create claim details
+            import json
+            extraction_context_json = None
+            if request.details.extraction_context:
+                extraction_context_json = json.dumps(request.details.extraction_context.model_dump())
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_claim_details (
+                        id, uio_id,
+                        claim_type, quoted_text, quoted_text_start, quoted_text_end,
+                        normalized_text, importance, source_message_index,
+                        extraction_context,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :claim_type, :quoted_text, :quoted_text_start, :quoted_text_end,
+                        :normalized_text, :importance, :source_message_index,
+                        :extraction_context::jsonb,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "claim_type": request.details.claim_type.value,
+                    "quoted_text": request.details.quoted_text,
+                    "quoted_text_start": request.details.quoted_text_start,
+                    "quoted_text_end": request.details.quoted_text_end,
+                    "normalized_text": request.details.normalized_text,
+                    "importance": request.details.importance.value,
+                    "source_message_index": request.details.source_message_index,
+                    "extraction_context": extraction_context_json,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="claim",
+            data={
+                "title": request.base.canonical_title,
+                "claimType": request.details.claim_type.value,
+                "importance": request.details.importance.value,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Claim UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def create_task_uio(
+        self,
+        request: CreateTaskUIO,
+    ) -> str:
+        """Create a task UIO with full details."""
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating task UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        due_date, owner_contact_id,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'task', :status,
+                        :canonical_title, :canonical_description,
+                        :due_date, :owner_contact_id,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.base.canonical_description,
+                    "due_date": request.base.due_date,
+                    "owner_contact_id": request.details.assignee_contact_id,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create task details
+            import json
+            user_overrides_json = None
+            if request.details.user_overrides:
+                user_overrides_json = json.dumps(request.details.user_overrides.model_dump())
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_task_details (
+                        id, uio_id,
+                        status, priority,
+                        assignee_contact_id, created_by_contact_id,
+                        estimated_effort, completed_at,
+                        depends_on_uio_ids, blocks_uio_ids,
+                        parent_task_uio_id, commitment_uio_id,
+                        project, tags, user_overrides,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :status, :priority,
+                        :assignee_contact_id, :created_by_contact_id,
+                        :estimated_effort, :completed_at,
+                        :depends_on_uio_ids, :blocks_uio_ids,
+                        :parent_task_uio_id, :commitment_uio_id,
+                        :project, :tags, :user_overrides::jsonb,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "status": request.details.status.value,
+                    "priority": request.details.priority.value,
+                    "assignee_contact_id": request.details.assignee_contact_id,
+                    "created_by_contact_id": request.details.created_by_contact_id,
+                    "estimated_effort": request.details.estimated_effort,
+                    "completed_at": request.details.completed_at,
+                    "depends_on_uio_ids": request.details.depends_on_uio_ids,
+                    "blocks_uio_ids": request.details.blocks_uio_ids,
+                    "parent_task_uio_id": request.details.parent_task_uio_id,
+                    "commitment_uio_id": request.details.commitment_uio_id,
+                    "project": request.details.project,
+                    "tags": request.details.tags,
+                    "user_overrides": user_overrides_json,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="task",
+            data={
+                "title": request.base.canonical_title,
+                "description": request.base.canonical_description,
+                "status": request.details.status.value,
+                "priority": request.details.priority.value,
+                "project": request.details.project,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Task UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def create_risk_uio(
+        self,
+        request: CreateRiskUIO,
+    ) -> str:
+        """Create a risk UIO with full details."""
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating risk UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'risk', :status,
+                        :canonical_title, :canonical_description,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.base.canonical_description,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create risk details
+            import json
+            findings_json = None
+            if request.details.findings:
+                findings_json = json.dumps(request.details.findings.model_dump())
+
+            extraction_context_json = None
+            if request.details.extraction_context:
+                extraction_context_json = json.dumps(request.details.extraction_context.model_dump())
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_risk_details (
+                        id, uio_id,
+                        risk_type, severity,
+                        related_commitment_uio_ids, related_decision_uio_ids,
+                        suggested_action, findings, extraction_context,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :risk_type, :severity,
+                        :related_commitment_uio_ids, :related_decision_uio_ids,
+                        :suggested_action, :findings::jsonb, :extraction_context::jsonb,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "risk_type": request.details.risk_type.value,
+                    "severity": request.details.severity.value,
+                    "related_commitment_uio_ids": request.details.related_commitment_uio_ids,
+                    "related_decision_uio_ids": request.details.related_decision_uio_ids,
+                    "suggested_action": request.details.suggested_action,
+                    "findings": findings_json,
+                    "extraction_context": extraction_context_json,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="risk",
+            data={
+                "title": request.base.canonical_title,
+                "riskType": request.details.risk_type.value,
+                "severity": request.details.severity.value,
+                "suggestedAction": request.details.suggested_action,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Risk UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def create_brief_uio(
+        self,
+        request: CreateBriefUIO,
+    ) -> str:
+        """Create a brief UIO with full details."""
+        uio_id = request.base.id
+        now = datetime.utcnow()
+
+        logger.info(
+            "Creating brief UIO",
+            organization_id=request.base.organization_id,
+            uio_id=uio_id,
+        )
+
+        async with get_db_session() as session:
+            # 1. Create base UIO
+            await session.execute(
+                text("""
+                    INSERT INTO unified_intelligence_object (
+                        id, organization_id, type, status,
+                        canonical_title, canonical_description,
+                        overall_confidence, first_seen_at, last_updated_at,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :organization_id, 'brief', :status,
+                        :canonical_title, :canonical_description,
+                        :overall_confidence, :first_seen_at, :last_updated_at,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": uio_id,
+                    "organization_id": request.base.organization_id,
+                    "status": request.base.status.value,
+                    "canonical_title": request.base.canonical_title,
+                    "canonical_description": request.details.summary,
+                    "overall_confidence": request.base.overall_confidence,
+                    "first_seen_at": request.base.first_seen_at,
+                    "last_updated_at": request.base.last_updated_at,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 2. Create brief details
+            import json
+            open_loops_json = None
+            if request.details.open_loops:
+                open_loops_json = json.dumps([ol.model_dump() for ol in request.details.open_loops])
+
+            await session.execute(
+                text("""
+                    INSERT INTO uio_brief_details (
+                        id, uio_id,
+                        summary, suggested_action, action_reasoning,
+                        open_loops, priority_tier,
+                        urgency_score, importance_score, sentiment_score,
+                        intent_classification, conversation_id,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :uio_id,
+                        :summary, :suggested_action, :action_reasoning,
+                        :open_loops::jsonb, :priority_tier,
+                        :urgency_score, :importance_score, :sentiment_score,
+                        :intent_classification, :conversation_id,
+                        :created_at, :updated_at
+                    )
+                """),
+                {
+                    "id": str(uuid4()),
+                    "uio_id": uio_id,
+                    "summary": request.details.summary,
+                    "suggested_action": request.details.suggested_action.value,
+                    "action_reasoning": request.details.action_reasoning,
+                    "open_loops": open_loops_json,
+                    "priority_tier": request.details.priority_tier.value,
+                    "urgency_score": request.details.urgency_score,
+                    "importance_score": request.details.importance_score,
+                    "sentiment_score": request.details.sentiment_score,
+                    "intent_classification": request.details.intent_classification,
+                    "conversation_id": request.details.conversation_id,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            # 3. Create source linkage
+            await self._create_source_linkage(session, uio_id, request.source, now)
+
+        # 4. Sync to FalkorDB
+        await self._sync_to_falkordb(
+            uio_id=uio_id,
+            uio_type="brief",
+            data={
+                "title": request.base.canonical_title,
+                "summary": request.details.summary,
+                "suggestedAction": request.details.suggested_action.value,
+                "priorityTier": request.details.priority_tier.value,
+                "urgencyScore": request.details.urgency_score,
+                "importanceScore": request.details.importance_score,
+                "confidence": request.base.overall_confidence,
+            },
+            source_type=request.source.source_type,
+            confidence=request.source.confidence,
+        )
+
+        logger.info("Brief UIO created", uio_id=uio_id)
+        return uio_id
+
+    async def _create_source_linkage(
+        self,
+        session,
+        uio_id: str,
+        source: SourceContext,
+        now: datetime,
+    ) -> None:
+        """Create a source linkage record for a UIO."""
+        await session.execute(
+            text("""
+                INSERT INTO unified_object_source (
+                    id, unified_object_id,
+                    source_type, source_account_id,
+                    role, conversation_id, message_id,
+                    quoted_text, quoted_text_start, quoted_text_end,
+                    confidence, added_at, source_timestamp,
+                    created_at
+                ) VALUES (
+                    :id, :unified_object_id,
+                    :source_type, :source_account_id,
+                    'origin', :conversation_id, :message_id,
+                    :quoted_text, :quoted_text_start, :quoted_text_end,
+                    :confidence, :added_at, :source_timestamp,
+                    :created_at
+                )
+            """),
+            {
+                "id": str(uuid4()),
+                "unified_object_id": uio_id,
+                "source_type": source.source_type,
+                "source_account_id": source.source_account_id,
+                "conversation_id": source.conversation_id,
+                "message_id": source.message_id,
+                "quoted_text": source.quoted_text,
+                "quoted_text_start": source.quoted_text_start,
+                "quoted_text_end": source.quoted_text_end,
+                "confidence": source.confidence,
+                "added_at": now,
+                "source_timestamp": now,
+                "created_at": now,
+            },
+        )
+
+    async def _sync_to_falkordb(
+        self,
+        uio_id: str,
+        uio_type: str,
+        data: dict,
+        source_type: str,
+        confidence: float,
+    ) -> None:
+        """Sync a UIO to FalkorDB."""
+        try:
+            graph = await self._get_graph()
+
+            node_props = {
+                "id": uio_id,
+                "organizationId": self.organization_id,
+                "status": UIOStatus.ACTIVE.value,
+                "createdAt": datetime.utcnow().isoformat(),
+                "updatedAt": datetime.utcnow().isoformat(),
+                "sourceType": source_type,
+                "confidence": confidence,
+                "needsReview": False,
+                "userCorrected": False,
+                **self._sanitize_properties(data),
+            }
+
+            label_map = {
+                "commitment": "Commitment",
+                "decision": "Decision",
+                "task": "Task",
+                "claim": "Claim",
+                "risk": "Risk",
+                "brief": "Brief",
+            }
+            label = label_map.get(uio_type, "UIO")
+
+            props_clause, props_params = graph.build_create_properties(node_props)
+            await graph.query(
+                f"""
+                CREATE (u:UIO:{label} {{{props_clause}}})
+                """,
+                props_params,
+            )
+
+            logger.debug(
+                "UIO synced to FalkorDB",
+                uio_id=uio_id,
+                uio_type=uio_type,
+            )
+
+        except Exception as e:
+            logger.warning(
+                "Failed to sync UIO to FalkorDB",
+                uio_id=uio_id,
+                error=str(e),
+            )
+            # Don't fail the whole operation - PostgreSQL is primary
 
     # =========================================================================
     # Update UIO Status

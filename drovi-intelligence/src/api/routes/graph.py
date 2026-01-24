@@ -81,10 +81,12 @@ async def get_graph_stats(organization_id: str):
         graph = await get_graph_client()
 
         # Get node counts by type
+        # FalkorDB returns labels as a list, we use list indexing
         query = """
         MATCH (n)
         WHERE n.organizationId = $orgId
-        RETURN labels(n)[0] as nodeType, count(n) as count
+        WITH labels(n)[0] as nodeType, n
+        RETURN nodeType, count(n) as count
         ORDER BY count DESC
         """
         node_counts = await graph.query(query, {"orgId": organization_id})

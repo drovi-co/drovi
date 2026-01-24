@@ -73,6 +73,7 @@ def get_brief_prompt(
     classification: dict,
     commitments_count: int,
     decisions_count: int,
+    commitments: list[dict] | None = None,
     user_email: str | None = None,
 ) -> list[dict]:
     """Build the prompt for brief generation."""
@@ -83,6 +84,40 @@ def get_brief_prompt(
     intent = classification.get("intent", "unknown")
     urgency = classification.get("urgency", 0)
     importance = classification.get("importance", 0)
+
+    # Build commitment context for priority determination
+    commitment_context = ""
+    has_deadline_commitment = False
+    has_owed_by_me = False
+
+    if commitments:
+        commitment_lines = []
+        for c in commitments[:5]:
+            direction = c.get("direction", "unknown")
+            title = c.get("title", "")
+            due_date = c.get("due_date_text", "")
+            priority = c.get("priority", "medium")
+
+            if due_date:
+                has_deadline_commitment = True
+            if direction == "owed_by_me":
+                has_owed_by_me = True
+
+            commitment_lines.append(
+                f"  - [{direction}] {title} (due: {due_date or 'no date'}, priority: {priority})"
+            )
+
+        if commitment_lines:
+            commitment_context = "\n\nExtracted commitments:\n" + "\n".join(commitment_lines)
+
+    # Adjust urgency guidance based on commitments
+    urgency_boost = ""
+    if has_deadline_commitment and has_owed_by_me:
+        urgency_boost = """
+IMPORTANT: There are commitments with deadlines that the user owes. This should INCREASE the priority tier.
+- A commitment "by Wednesday" = at least HIGH priority (not low!)
+- Multiple commitments with deadlines = likely URGENT
+"""
 
     system_prompt = f"""You are an expert at summarizing email threads and conversations for busy professionals.
 
@@ -99,19 +134,22 @@ Context from analysis:
 - Importance score: {importance:.2f}
 - Commitments found: {commitments_count}
 - Decisions found: {decisions_count}
+{commitment_context}
 
 Guidelines:
 - Keep the brief to exactly 3 lines, each line focused on a specific aspect
 - Be specific - mention names, dates, and key details
 - If action is needed, be clear about what and by when
 - Detect any "open loops" - unanswered questions or pending items
-- Consider urgency + importance to determine priority tier
-
+- Consider urgency + importance + commitments to determine priority tier
+{urgency_boost}
 Priority tier guidelines:
-- urgent: Needs immediate attention (today), high stakes
-- high: Important, should handle soon (within 1-2 days)
-- medium: Standard priority, handle in normal workflow
-- low: Informational, can wait or be batched"""
+- urgent: Needs immediate attention (today), high stakes, or multiple imminent deadlines
+- high: Has commitments with deadlines, important decisions, should handle within 1-2 days
+- medium: Standard priority, no immediate deadlines, handle in normal workflow
+- low: Purely informational, no action needed, can wait or be batched
+
+CRITICAL: If the user has commitments they owe with deadlines, the priority should be HIGH or URGENT, not LOW."""
 
     return [
         {"role": "system", "content": system_prompt},
@@ -170,11 +208,23 @@ async def generate_brief_node(state: IntelligenceState) -> dict:
         "sentiment": state.classification.sentiment,
     }
 
+    # Build commitments list for priority determination
+    commitments_for_prompt = [
+        {
+            "title": c.title,
+            "direction": c.direction,
+            "due_date_text": c.due_date_text,
+            "priority": c.priority,
+        }
+        for c in state.extracted.commitments
+    ]
+
     messages = get_brief_prompt(
-        content=content[:8000],  # Limit content length
+        content=content[:24000],  # Increased limit for better context
         classification=classification_dict,
         commitments_count=len(state.extracted.commitments),
         decisions_count=len(state.extracted.decisions),
+        commitments=commitments_for_prompt,
         user_email=state.input.user_email,
     )
 
@@ -183,7 +233,7 @@ async def generate_brief_node(state: IntelligenceState) -> dict:
         output, llm_call = await llm.complete_structured(
             messages=messages,
             output_schema=BriefOutput,
-            model_tier="fast",  # Use fast model for brief generation
+            model_tier="balanced",  # Use balanced model for quality brief generation
             node_name="generate_brief",
         )
 

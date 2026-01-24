@@ -54,7 +54,7 @@ async def classify_node(state: IntelligenceState) -> dict:
         output, llm_call = await llm.complete_structured(
             messages=messages,
             output_schema=ClassificationOutput,
-            model_tier="fast",  # Use fast model for classification
+            model_tier="balanced",  # Use balanced model - classification gates entire pipeline
             node_name="classify",
         )
 

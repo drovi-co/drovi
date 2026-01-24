@@ -7,8 +7,7 @@
 //
 
 import { db } from "@memorystack/db";
-import { unifiedIntelligenceObject } from "@memorystack/db/schema";
-import { member } from "@memorystack/db/schema";
+import { unifiedIntelligenceObject, member } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -18,7 +17,16 @@ import { protectedProcedure, router } from "../index";
 // INPUT SCHEMAS
 // =============================================================================
 
-const uioTypeEnum = z.enum(["commitment", "decision", "topic", "project"]);
+const uioTypeEnum = z.enum([
+  "commitment",
+  "decision",
+  "topic",
+  "project",
+  "claim",
+  "task",
+  "risk",
+  "brief",
+]);
 const uioStatusEnum = z.enum(["active", "merged", "archived", "dismissed"]);
 
 const listUIOsSchema = z.object({
@@ -277,6 +285,373 @@ export const uioRouter = router({
   }),
 
   /**
+   * Get a single UIO with its type-specific extension details.
+   */
+  getWithDetails: protectedProcedure
+    .input(getUIOSchema)
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      // Get base UIO
+      const item = await db.query.unifiedIntelligenceObject.findFirst({
+        where: and(
+          eq(unifiedIntelligenceObject.id, input.id),
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId)
+        ),
+        with: {
+          owner: true,
+          sources: {
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+            limit: 5,
+            with: {
+              conversation: {
+                columns: {
+                  id: true,
+                  title: true,
+                  snippet: true,
+                },
+              },
+            },
+          },
+          timeline: {
+            orderBy: (t, { desc }) => [desc(t.eventAt)],
+            limit: 10,
+          },
+          commitmentDetails: true,
+          decisionDetails: true,
+          claimDetails: true,
+          taskDetails: true,
+          riskDetails: true,
+          briefDetails: true,
+        },
+      });
+
+      if (!item) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Intelligence object not found.",
+        });
+      }
+
+      // Return with type-specific details based on type
+      return item;
+    }),
+
+  /**
+   * List commitment UIOs with extension details.
+   */
+  listCommitments: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        status: z.enum(["pending", "in_progress", "completed", "cancelled", "overdue", "waiting", "snoozed"]).optional(),
+        direction: z.enum(["owed_by_me", "owed_to_me"]).optional(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+        dueBefore: z.date().optional(),
+        dueAfter: z.date().optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      // Build conditions for base UIO
+      const baseConditions = [
+        eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+        eq(unifiedIntelligenceObject.type, "commitment"),
+        eq(unifiedIntelligenceObject.isUserDismissed, false),
+      ];
+
+      if (input.dueBefore) {
+        baseConditions.push(lte(unifiedIntelligenceObject.dueDate, input.dueBefore));
+      }
+      if (input.dueAfter) {
+        baseConditions.push(gte(unifiedIntelligenceObject.dueDate, input.dueAfter));
+      }
+
+      // Get UIOs with commitment details
+      const items = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(...baseConditions),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: [
+          desc(sql`CASE WHEN ${unifiedIntelligenceObject.dueDate} < NOW() THEN 1 ELSE 0 END`),
+          desc(unifiedIntelligenceObject.dueDate),
+          desc(unifiedIntelligenceObject.overallConfidence),
+        ],
+        with: {
+          owner: {
+            columns: {
+              id: true,
+              primaryEmail: true,
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+          commitmentDetails: true,
+          sources: {
+            limit: 1,
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+          },
+        },
+      });
+
+      // Filter by extension details if needed
+      let filteredItems = items;
+      if (input.status || input.direction || input.priority) {
+        filteredItems = items.filter((item) => {
+          const details = item.commitmentDetails;
+          if (!details) return false;
+          if (input.status && details.status !== input.status) return false;
+          if (input.direction && details.direction !== input.direction) return false;
+          if (input.priority && details.priority !== input.priority) return false;
+          return true;
+        });
+      }
+
+      // Count total
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(unifiedIntelligenceObject)
+        .where(and(...baseConditions));
+
+      const total = countResult?.count ?? 0;
+
+      return {
+        items: filteredItems,
+        total,
+        hasMore: input.offset + items.length < total,
+      };
+    }),
+
+  /**
+   * List decision UIOs with extension details.
+   */
+  listDecisions: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        status: z.enum(["made", "pending", "deferred", "reversed"]).optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const items = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "decision"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: [desc(unifiedIntelligenceObject.lastUpdatedAt)],
+        with: {
+          owner: {
+            columns: {
+              id: true,
+              primaryEmail: true,
+              displayName: true,
+            },
+          },
+          decisionDetails: true,
+          sources: {
+            limit: 1,
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+          },
+        },
+      });
+
+      // Filter by status if provided
+      const filteredItems = input.status
+        ? items.filter((item) => item.decisionDetails?.status === input.status)
+        : items;
+
+      return {
+        items: filteredItems,
+        total: filteredItems.length,
+      };
+    }),
+
+  /**
+   * List task UIOs with extension details.
+   */
+  listTasks: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        status: z.enum(["backlog", "todo", "in_progress", "in_review", "done", "cancelled"]).optional(),
+        priority: z.enum(["no_priority", "low", "medium", "high", "urgent"]).optional(),
+        assigneeId: z.string().optional(),
+        project: z.string().optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const items = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "task"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: [desc(unifiedIntelligenceObject.lastUpdatedAt)],
+        with: {
+          owner: {
+            columns: {
+              id: true,
+              primaryEmail: true,
+              displayName: true,
+            },
+          },
+          taskDetails: true,
+          sources: {
+            limit: 1,
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+          },
+        },
+      });
+
+      // Filter by details
+      let filteredItems = items;
+      if (input.status || input.priority || input.project || input.assigneeId) {
+        filteredItems = items.filter((item) => {
+          const details = item.taskDetails;
+          if (!details) return false;
+          if (input.status && details.status !== input.status) return false;
+          if (input.priority && details.priority !== input.priority) return false;
+          if (input.project && details.project !== input.project) return false;
+          if (input.assigneeId && details.assigneeContactId !== input.assigneeId) return false;
+          return true;
+        });
+      }
+
+      return {
+        items: filteredItems,
+        total: filteredItems.length,
+      };
+    }),
+
+  /**
+   * List risk UIOs with extension details.
+   */
+  listRisks: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        severity: z.enum(["low", "medium", "high", "critical"]).optional(),
+        riskType: z.string().optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const items = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "risk"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: [desc(unifiedIntelligenceObject.overallConfidence)],
+        with: {
+          riskDetails: true,
+          sources: {
+            limit: 1,
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+          },
+        },
+      });
+
+      // Filter by details
+      let filteredItems = items;
+      if (input.severity || input.riskType) {
+        filteredItems = items.filter((item) => {
+          const details = item.riskDetails;
+          if (!details) return false;
+          if (input.severity && details.severity !== input.severity) return false;
+          if (input.riskType && details.riskType !== input.riskType) return false;
+          return true;
+        });
+      }
+
+      return {
+        items: filteredItems,
+        total: filteredItems.length,
+      };
+    }),
+
+  /**
+   * List brief UIOs with extension details.
+   */
+  listBriefs: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        priorityTier: z.enum(["urgent", "high", "medium", "low"]).optional(),
+        suggestedAction: z.string().optional(),
+        conversationId: z.string().optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const items = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "brief"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: [desc(unifiedIntelligenceObject.lastUpdatedAt)],
+        with: {
+          briefDetails: true,
+          sources: {
+            limit: 1,
+            orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+          },
+        },
+      });
+
+      // Filter by details
+      let filteredItems = items;
+      if (input.priorityTier || input.suggestedAction || input.conversationId) {
+        filteredItems = items.filter((item) => {
+          const details = item.briefDetails;
+          if (!details) return false;
+          if (input.priorityTier && details.priorityTier !== input.priorityTier) return false;
+          if (input.suggestedAction && details.suggestedAction !== input.suggestedAction) return false;
+          if (input.conversationId && details.conversationId !== input.conversationId) return false;
+          return true;
+        });
+      }
+
+      return {
+        items: filteredItems,
+        total: filteredItems.length,
+      };
+    }),
+
+  /**
    * Update a UIO.
    */
   update: protectedProcedure
@@ -433,6 +808,10 @@ export const uioRouter = router({
       const commitments = allUIOs.filter((u) => u.type === "commitment");
       const decisions = allUIOs.filter((u) => u.type === "decision");
       const topics = allUIOs.filter((u) => u.type === "topic");
+      const claims = allUIOs.filter((u) => u.type === "claim");
+      const tasks = allUIOs.filter((u) => u.type === "task");
+      const risks = allUIOs.filter((u) => u.type === "risk");
+      const briefs = allUIOs.filter((u) => u.type === "brief");
 
       const overdue = commitments.filter(
         (c) => c.dueDate && c.dueDate < now
@@ -442,12 +821,18 @@ export const uioRouter = router({
         return c.dueDate >= now && c.dueDate <= weekFromNow;
       });
 
+      const recentDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
       return {
         total: allUIOs.length,
         byType: {
           commitment: commitments.length,
           decision: decisions.length,
           topic: topics.length,
+          claim: claims.length,
+          task: tasks.length,
+          risk: risks.length,
+          brief: briefs.length,
         },
         commitments: {
           total: commitments.length,
@@ -456,10 +841,21 @@ export const uioRouter = router({
         },
         decisions: {
           total: decisions.length,
-          recentCount: decisions.filter(
-            (d) =>
-              d.createdAt > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          ).length,
+          recentCount: decisions.filter((d) => d.createdAt > recentDate).length,
+        },
+        tasks: {
+          total: tasks.length,
+          recentCount: tasks.filter((t) => t.createdAt > recentDate).length,
+        },
+        risks: {
+          total: risks.length,
+          highSeverityCount: 0, // Would need to join with extension table
+        },
+        claims: {
+          total: claims.length,
+        },
+        briefs: {
+          total: briefs.length,
         },
       };
     }),

@@ -66,6 +66,15 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
         for c in state.extracted.commitments
     ]
 
+    # Prepare decisions context (to avoid creating tasks that restate decisions)
+    decisions_dicts = [
+        {
+            "title": d.title,
+            "statement": d.statement,
+        }
+        for d in state.extracted.decisions
+    ]
+
     # Prepare claims context
     claims_dicts = [
         {
@@ -84,6 +93,7 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
         content=content,
         commitments=commitments_dicts,
         claims=claims_dicts,
+        decisions=decisions_dicts,
         user_email=state.input.user_email,
         user_name=state.input.user_name,
     )

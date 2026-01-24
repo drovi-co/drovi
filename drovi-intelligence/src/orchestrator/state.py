@@ -77,6 +77,10 @@ class AnalysisInput(BaseModel):
     message_ids: list[str] | None = None
     user_email: str | None = None
     user_name: str | None = None
+    metadata: dict | None = Field(
+        default=None,
+        description="Source-specific metadata (e.g., calendar event details, attendees, organizer)"
+    )
 
 
 class ParsedMessage(BaseModel):

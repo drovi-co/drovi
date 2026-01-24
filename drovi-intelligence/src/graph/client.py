@@ -90,7 +90,16 @@ class DroviGraph:
             return []
 
         parsed = []
-        headers = result.header if hasattr(result, "header") else []
+        raw_headers = result.header if hasattr(result, "header") else []
+
+        # Normalize headers - FalkorDB may return tuples/lists for complex expressions
+        headers = []
+        for h in raw_headers:
+            if isinstance(h, (list, tuple)):
+                # Join list/tuple elements or use the last element as the alias
+                headers.append(str(h[-1]) if h else f"col_{len(headers)}")
+            else:
+                headers.append(str(h) if h is not None else f"col_{len(headers)}")
 
         for row in result.result_set if hasattr(result, "result_set") else []:
             row_dict = {}

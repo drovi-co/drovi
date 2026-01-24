@@ -129,8 +129,8 @@ PRIORITY:
 - urgent: Critical, immediate attention needed
 
 DUE DATES:
-- Extract explicit dates when stated
-- Note relative dates (e.g., "by Friday", "next week")
+- Extract explicit dates when stated ("January 15th", "next Tuesday")
+- Convert relative dates: "by EOD" = end of today, "by EoW" = end of week, "next week" = 7 days, "end of quarter" = quarter end
 - Set due_date_is_explicit=true only for specific dates/times
 - Include the original text mentioning the date
 
@@ -142,7 +142,76 @@ GUIDELINES:
 1. Be thorough - capture all commitments, even implicit ones
 2. Include exact quoted text as evidence
 3. Identify parties clearly (debtor = who owes, creditor = who is owed)
-4. Provide reasoning for why this is a commitment"""
+4. Provide reasoning for why this is a commitment
+
+EXAMPLES:
+
+Example 1 - Explicit Promise (owed_by_me):
+Input: "I'll send you the updated proposal by Friday."
+Output: {
+  "title": "Send updated proposal",
+  "description": "Send the updated proposal document",
+  "direction": "owed_by_me",
+  "debtor_name": "Me", "debtor_email": "[user_email]",
+  "creditor_name": "You", "creditor_email": "[recipient_email]",
+  "due_date_text": "by Friday",
+  "due_date_is_explicit": true,
+  "priority": "medium",
+  "confidence": 0.95,
+  "quoted_text": "I'll send you the updated proposal by Friday."
+}
+
+Example 2 - Request (owed_to_me):
+Input: "Can you review the contract and get back to me by EOD?"
+Output: {
+  "title": "Review contract",
+  "description": "Review the contract and provide feedback",
+  "direction": "owed_to_me",
+  "debtor_name": "You", "debtor_email": "[recipient_email]",
+  "creditor_name": "Me", "creditor_email": "[user_email]",
+  "due_date_text": "by EOD",
+  "due_date_is_explicit": true,
+  "priority": "high",
+  "confidence": 0.90,
+  "quoted_text": "Can you review the contract and get back to me by EOD?"
+}
+
+Example 3 - Implicit Promise:
+Input: "Thanks for your patience. I'm working on finalizing the budget numbers."
+Output: {
+  "title": "Finalize budget numbers",
+  "description": "Complete the budget number finalization",
+  "direction": "owed_by_me",
+  "debtor_name": "Me",
+  "creditor_name": "You",
+  "priority": "medium",
+  "confidence": 0.75,
+  "quoted_text": "I'm working on finalizing the budget numbers."
+}
+
+Example 4 - Conditional Commitment:
+Input: "If the board approves, I'll start the hiring process next week."
+Output: {
+  "title": "Start hiring process",
+  "direction": "owed_by_me",
+  "is_conditional": true,
+  "condition": "Board approval",
+  "due_date_text": "next week",
+  "priority": "medium",
+  "confidence": 0.85,
+  "quoted_text": "If the board approves, I'll start the hiring process next week."
+}
+
+Example 5 - Team/Third-party Commitment:
+Input: "John mentioned he'd share the Q3 metrics at the meeting."
+Output: {
+  "title": "Share Q3 metrics",
+  "direction": "owed_to_me",
+  "debtor_name": "John",
+  "priority": "medium",
+  "confidence": 0.80,
+  "quoted_text": "John mentioned he'd share the Q3 metrics at the meeting."
+}"""
 
 
 def get_commitment_extraction_prompt(
@@ -214,7 +283,73 @@ GUIDELINES:
 1. Distinguish decisions from preferences or opinions
 2. Include quoted text as evidence
 3. Note when decisions are tentative or reversible
-4. Identify all stakeholders affected"""
+4. Identify all stakeholders affected
+
+EXAMPLES:
+
+Example 1 - Clear Decision Made:
+Input: "After reviewing all options, we've decided to go with AWS for our cloud infrastructure."
+Output: {
+  "title": "Choose AWS for cloud infrastructure",
+  "statement": "We will use AWS for our cloud infrastructure",
+  "rationale": "After reviewing all options",
+  "status": "made",
+  "decision_maker_name": "We (team)",
+  "stakeholders": ["Engineering", "DevOps", "Finance"],
+  "implications": ["Need to migrate existing services", "Update vendor agreements"],
+  "confidence": 0.95,
+  "quoted_text": "we've decided to go with AWS for our cloud infrastructure"
+}
+
+Example 2 - Pending Decision:
+Input: "We need to decide on the pricing strategy before the product launch. I'm leaning towards the tiered model."
+Output: {
+  "title": "Determine pricing strategy",
+  "statement": "Pricing strategy needs to be finalized before launch",
+  "status": "pending",
+  "dependencies": ["Product launch timeline"],
+  "implications": ["Revenue model", "Marketing messaging"],
+  "confidence": 0.90,
+  "quoted_text": "We need to decide on the pricing strategy before the product launch"
+}
+
+Example 3 - Implicit Decision:
+Input: "Given the timeline constraints, I've scheduled the launch for March 15th instead of April 1st."
+Output: {
+  "title": "Move launch date to March 15th",
+  "statement": "Launch date changed from April 1st to March 15th",
+  "rationale": "Timeline constraints",
+  "status": "made",
+  "decision_maker_name": "Me",
+  "implications": ["Compressed preparation timeline", "Earlier marketing push"],
+  "confidence": 0.85,
+  "quoted_text": "I've scheduled the launch for March 15th instead of April 1st"
+}
+
+Example 4 - Decision Reversal:
+Input: "Actually, we're not going to use React after all. The team prefers Vue.js."
+Output: {
+  "title": "Switch from React to Vue.js",
+  "statement": "Reversing previous decision to use React; will use Vue.js instead",
+  "rationale": "Team preference",
+  "status": "reversed",
+  "decision_maker_name": "Team",
+  "stakeholders": ["Frontend developers", "UX team"],
+  "confidence": 0.90,
+  "quoted_text": "we're not going to use React after all. The team prefers Vue.js"
+}
+
+Example 5 - Deferred Decision:
+Input: "Let's table the office expansion discussion until Q2 when we have better visibility into headcount."
+Output: {
+  "title": "Office expansion",
+  "statement": "Office expansion decision postponed to Q2",
+  "rationale": "Need better visibility into headcount",
+  "status": "deferred",
+  "dependencies": ["Q2 headcount planning"],
+  "confidence": 0.85,
+  "quoted_text": "Let's table the office expansion discussion until Q2"
+}"""
 
 
 def get_decision_extraction_prompt(
@@ -272,7 +407,12 @@ WHAT TO EXTRACT:
 2. Implicit tasks derived from commitments ("I'll send the report" → task: "Send report")
 3. Requests that require action ("Let me know your thoughts" → task: "Provide thoughts")
 4. Follow-up items ("We should discuss this further" → task: "Discuss further")
-5. Action items from decisions ("We decided to launch Friday" → task: "Launch on Friday")
+
+WHAT NOT TO EXTRACT:
+- Do NOT create tasks that just restate decisions. Decisions are tracked separately.
+- "We decided to increase the budget by 15%" is a DECISION, not a task. Do NOT create a task for it.
+- Only create tasks for specific ACTIONS that need to be DONE as follow-up to decisions.
+- If a decision requires implementation steps, those steps are tasks. The decision itself is NOT a task.
 
 TASK STATUS:
 - todo: Not yet started (default for new tasks)
@@ -325,6 +465,7 @@ def get_task_extraction_prompt(
     content: str,
     commitments: list[dict],
     claims: list[dict],
+    decisions: list[dict] | None = None,
     user_email: str | None = None,
     user_name: str | None = None,
 ) -> list[dict]:
@@ -343,6 +484,13 @@ def get_task_extraction_prompt(
             for c in commitments[:10]
         ]
         context_summary += f"\n\nExtracted commitments (create tasks from these):\n" + "\n".join(commitment_list)
+
+    if decisions:
+        decision_list = [
+            f"- {d.get('title', 'Decision')}: {d.get('statement', '')}"
+            for d in decisions[:10]
+        ]
+        context_summary += f"\n\nExtracted decisions (DO NOT create tasks that restate these - they are already tracked):\n" + "\n".join(decision_list)
 
     if claims:
         action_claims = [c for c in claims if c.get("type") in ("action_item", "request", "promise")]

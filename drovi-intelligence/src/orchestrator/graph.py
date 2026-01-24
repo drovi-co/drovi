@@ -127,7 +127,14 @@ def after_claims(
     if state.routing.skip_remaining_nodes:
         return "finalize"
 
-    if state.routing.should_extract_commitments and state.classification.has_commitments:
+    # Check if claims contain promise/request types that indicate commitments
+    has_commitment_claims = any(
+        c.type in ("promise", "request", "deadline", "action_item")
+        for c in state.extracted.claims
+    )
+
+    # Extract commitments if classifier says so OR if claims suggest commitments
+    if state.routing.should_extract_commitments or state.classification.has_commitments or has_commitment_claims:
         return "extract_commitments"
 
     if state.routing.should_analyze_risk:
@@ -143,7 +150,14 @@ def after_commitments(
     if state.routing.skip_remaining_nodes:
         return "finalize"
 
-    if state.routing.should_extract_decisions and state.classification.has_decisions:
+    # Check if claims contain decision types
+    has_decision_claims = any(
+        c.type in ("decision", "opinion", "fact")
+        for c in state.extracted.claims
+    )
+
+    # Extract decisions if classifier says so OR if claims suggest decisions
+    if state.routing.should_extract_decisions or state.classification.has_decisions or has_decision_claims:
         return "extract_decisions"
 
     if state.routing.should_analyze_risk:

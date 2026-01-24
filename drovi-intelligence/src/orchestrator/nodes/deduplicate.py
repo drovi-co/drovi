@@ -8,6 +8,7 @@ import time
 
 import structlog
 
+from src.search.embeddings import generate_embedding, EmbeddingError
 from ..state import (
     IntelligenceState,
     Deduplication,
@@ -55,44 +56,78 @@ async def deduplicate_node(state: IntelligenceState) -> dict:
 
         # Deduplicate commitments
         for commitment in state.extracted.commitments:
-            # Search for similar commitments by title/content
-            similar = await graph.vector_search(
-                label="Commitment",
-                embedding=[],  # Would generate embedding from commitment.title
-                organization_id=state.input.organization_id,
-                k=3,
-            )
+            try:
+                # Generate embedding from commitment title and description
+                embed_text = f"{commitment.title or ''} {commitment.description or ''}".strip()
+                if not embed_text:
+                    logger.debug("Skipping commitment with empty content for dedup")
+                    continue
 
-            for match in similar:
-                if match.get("score", 0) > 0.85:  # High similarity threshold
-                    merge_candidates.append(MergeCandidate(
-                        new_item_id=commitment.id,
-                        existing_uio_id=match.get("id", ""),
-                        similarity=match.get("score", 0),
-                        should_merge=match.get("score", 0) > 0.92,
-                    ))
-                    if match.get("id"):
-                        existing_uio_ids.append(match["id"])
+                embedding = await generate_embedding(embed_text)
+
+                # Search for similar commitments
+                similar = await graph.vector_search(
+                    label="Commitment",
+                    embedding=embedding,
+                    organization_id=state.input.organization_id,
+                    k=3,
+                )
+
+                for match in similar:
+                    if match.get("score", 0) > 0.85:  # High similarity threshold
+                        merge_candidates.append(MergeCandidate(
+                            new_item_id=commitment.id,
+                            existing_uio_id=match.get("id", ""),
+                            similarity=match.get("score", 0),
+                            should_merge=match.get("score", 0) > 0.92,
+                        ))
+                        if match.get("id"):
+                            existing_uio_ids.append(match["id"])
+
+            except EmbeddingError as e:
+                logger.warning(
+                    "Failed to generate embedding for commitment",
+                    commitment_id=commitment.id,
+                    error=str(e),
+                )
+                continue
 
         # Deduplicate decisions
         for decision in state.extracted.decisions:
-            similar = await graph.vector_search(
-                label="Decision",
-                embedding=[],  # Would generate embedding from decision.title
-                organization_id=state.input.organization_id,
-                k=3,
-            )
+            try:
+                # Generate embedding from decision title and statement
+                embed_text = f"{decision.title or ''} {decision.statement or ''}".strip()
+                if not embed_text:
+                    logger.debug("Skipping decision with empty content for dedup")
+                    continue
 
-            for match in similar:
-                if match.get("score", 0) > 0.85:
-                    merge_candidates.append(MergeCandidate(
-                        new_item_id=decision.id,
-                        existing_uio_id=match.get("id", ""),
-                        similarity=match.get("score", 0),
-                        should_merge=match.get("score", 0) > 0.92,
-                    ))
-                    if match.get("id"):
-                        existing_uio_ids.append(match["id"])
+                embedding = await generate_embedding(embed_text)
+
+                similar = await graph.vector_search(
+                    label="Decision",
+                    embedding=embedding,
+                    organization_id=state.input.organization_id,
+                    k=3,
+                )
+
+                for match in similar:
+                    if match.get("score", 0) > 0.85:
+                        merge_candidates.append(MergeCandidate(
+                            new_item_id=decision.id,
+                            existing_uio_id=match.get("id", ""),
+                            similarity=match.get("score", 0),
+                            should_merge=match.get("score", 0) > 0.92,
+                        ))
+                        if match.get("id"):
+                            existing_uio_ids.append(match["id"])
+
+            except EmbeddingError as e:
+                logger.warning(
+                    "Failed to generate embedding for decision",
+                    decision_id=decision.id,
+                    error=str(e),
+                )
+                continue
 
         logger.info(
             "Deduplication complete",

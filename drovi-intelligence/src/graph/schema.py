@@ -90,6 +90,30 @@ class GraphSchema:
                     REQUIRE t.id IS UNIQUE
                 """,
             },
+            # Risk uniqueness by ID
+            {
+                "name": "risk_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (r:Risk)
+                    REQUIRE r.id IS UNIQUE
+                """,
+            },
+            # Brief uniqueness by ID
+            {
+                "name": "brief_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (b:Brief)
+                    REQUIRE b.id IS UNIQUE
+                """,
+            },
+            # Claim uniqueness by ID
+            {
+                "name": "claim_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (c:Claim)
+                    REQUIRE c.id IS UNIQUE
+                """,
+            },
             # Episode uniqueness by ID
             {
                 "name": "episode_id_unique",
@@ -206,6 +230,36 @@ class GraphSchema:
                     )
                 """,
             },
+            # Risk content
+            {
+                "name": "risk_content_ft",
+                "query": """
+                    CALL db.idx.fulltext.createNodeIndex(
+                        'Risk', ['title', 'suggestedAction'],
+                        {language: 'english'}
+                    )
+                """,
+            },
+            # Brief content
+            {
+                "name": "brief_content_ft",
+                "query": """
+                    CALL db.idx.fulltext.createNodeIndex(
+                        'Brief', ['title', 'summary'],
+                        {language: 'english'}
+                    )
+                """,
+            },
+            # Claim content
+            {
+                "name": "claim_content_ft",
+                "query": """
+                    CALL db.idx.fulltext.createNodeIndex(
+                        'Claim', ['title'],
+                        {language: 'english'}
+                    )
+                """,
+            },
             # Episode content for memory search
             {
                 "name": "episode_content_ft",
@@ -304,6 +358,8 @@ class GraphSchema:
             "Contact",
             "Topic",
             "Claim",
+            "Risk",
+            "Brief",
         ]
 
         results = {}
@@ -438,10 +494,14 @@ class GraphSchema:
             ("Task", "organizationId"),
             ("Episode", "organizationId"),
             ("Entity", "organizationId"),
+            ("Risk", "organizationId"),
+            ("Brief", "organizationId"),
+            ("Claim", "organizationId"),
             # Status filtering
             ("Commitment", "status"),
             ("Decision", "status"),
             ("Task", "status"),
+            ("Risk", "severity"),
             # Date sorting
             ("Episode", "referenceTime"),
             ("Commitment", "dueDate"),
@@ -449,9 +509,17 @@ class GraphSchema:
             ("Commitment", "createdAt"),
             ("Decision", "createdAt"),
             ("Task", "createdAt"),
+            ("Risk", "createdAt"),
+            ("Brief", "createdAt"),
+            ("Claim", "createdAt"),
             # Source filtering
             ("Episode", "sourceType"),
             ("Commitment", "sourceType"),
+            # Priority and type filtering
+            ("Risk", "riskType"),
+            ("Brief", "priorityTier"),
+            ("Brief", "suggestedAction"),
+            ("Claim", "claimType"),
         ]
 
         results = {}
