@@ -13,11 +13,13 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
+  Clock,
   ExternalLink,
+  FileText,
   Loader2,
   MessageSquare,
   MoreHorizontal,
@@ -29,7 +31,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  CompactActivityFeed,
   formatDueDate,
   PRIORITY_CONFIG,
   SOURCE_TYPE_CONFIG,
@@ -41,6 +42,7 @@ import {
   type TaskSourceType,
   type TaskStatus,
 } from "@/components/tasks";
+import { useUIO, useUpdateUIO, useArchiveUIO, useUpdateTaskStatusUIO, useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,104 +95,156 @@ function TaskDetailPage() {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch task details
+  // Fetch task details using UIO
   const {
-    data: taskData,
+    data: uioData,
     isLoading,
     refetch,
-  } = useQuery({
-    ...trpc.tasks.getById.queryOptions({
-      organizationId,
-      taskId,
-    }),
+  } = useUIO({
+    organizationId,
+    id: taskId,
     enabled: !!organizationId && !!taskId,
   });
 
-  // Fetch activity
-  const { data: activityData } = useQuery({
-    ...trpc.tasks.getActivity.queryOptions({
-      organizationId,
-      taskId,
-    }),
-    enabled: !!organizationId && !!taskId,
-  });
+  // Transform UIO data to legacy task format
+  const taskData = uioData ? {
+    id: uioData.id,
+    title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
+    description: uioData.canonicalDescription ?? null,
+    status: uioData.taskDetails?.status ?? "todo",
+    priority: uioData.taskDetails?.priority ?? "no_priority",
+    sourceType: "manual" as const, // UIO doesn't track sourceType
+    dueDate: uioData.dueDate ?? null,
+    completedAt: uioData.taskDetails?.completedAt ?? null,
+    assignee: uioData.taskDetails?.assignee ?? null,
+    labels: [] as Array<{ id: string; name: string; color: string }>,
+    metadata: null,
+    createdAt: uioData.createdAt,
+    updatedAt: uioData.updatedAt,
+    // UIO-specific fields
+    sources: uioData.sources ?? [],
+    timeline: uioData.timeline ?? [],
+  } : null;
 
-  // Mutations - use proper tRPC query key pattern [["tasks"]] for invalidation
-  const updateMutation = useMutation({
-    ...trpc.tasks.update.mutationOptions(),
-    onSuccess: () => {
-      refetch();
-      // tRPC uses nested array keys like [["tasks", "list"], { input }]
-      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
+  // UIO update mutation
+  const updateMutationBase = useUpdateUIO();
+  const updateMutation = {
+    ...updateMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; title?: string; description?: string | null; dueDate?: Date | null }) => {
+      updateMutationBase.mutate(
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          title: params.title,
+          description: params.description ?? undefined,
+          dueDate: params.dueDate ?? undefined,
+        },
+        {
+          onSuccess: () => {
+            refetch();
+            queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to update task");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to update task");
-    },
-  });
+  };
 
-  const updateStatusMutation = useMutation({
-    ...trpc.tasks.updateStatus.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Status updated");
-      refetch();
-      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
+  // UIO-based status mutation
+  const updateStatusMutationBase = useUpdateTaskStatusUIO();
+  const updateStatusMutation = {
+    ...updateStatusMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+      updateStatusMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          onSuccess: () => {
+            toast.success("Status updated");
+            refetch();
+            queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to update status");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to update status");
-    },
-  });
+  };
 
-  const updatePriorityMutation = useMutation({
-    ...trpc.tasks.updatePriority.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Priority updated");
-      refetch();
-      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
+  // UIO-based priority mutation
+  const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
+  const updatePriorityMutation = {
+    ...updatePriorityMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; priority: TaskPriority }) => {
+      updatePriorityMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId, priority: params.priority },
+        {
+          onSuccess: () => {
+            toast.success("Priority updated");
+            refetch();
+            queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to update priority");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to update priority");
-    },
-  });
+  };
 
-  const addCommentMutation = useMutation({
-    ...trpc.tasks.addComment.mutationOptions(),
-    onSuccess: () => {
+  // Comment mutation - not supported in UIO yet, stub for now
+  const addCommentMutation = {
+    isPending: false,
+    mutate: (_params: { organizationId: string; taskId: string; comment: string }) => {
+      toast.info("Comments are not yet supported for UIO tasks");
       setNewComment("");
-      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
     },
-    onError: () => {
-      toast.error("Failed to add comment");
-    },
-  });
+  };
 
-  const deleteMutation = useMutation({
-    ...trpc.tasks.delete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Task deleted");
-      queryClientInstance.invalidateQueries({ queryKey: [["tasks"]] });
-      navigate({ to: "/dashboard/tasks" });
+  // Archive mutation for "delete"
+  const archiveMutationBase = useArchiveUIO();
+  const deleteMutation = {
+    ...archiveMutationBase,
+    mutate: (params: { organizationId: string; taskId: string }) => {
+      archiveMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId },
+        {
+          onSuccess: () => {
+            toast.success("Task archived");
+            queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
+            navigate({ to: "/dashboard/tasks" });
+          },
+          onError: () => {
+            toast.error("Failed to archive task");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to delete task");
-    },
-  });
+  };
 
-  // Transform task data
+  // Use transformed taskData directly as task
   const task: TaskData | null = taskData
     ? {
         id: taskData.id,
         title: taskData.title,
-        description: taskData.description,
+        description: taskData.description ?? null,
         status: taskData.status as TaskStatus,
         priority: taskData.priority as TaskPriority,
-        sourceType: taskData.sourceType as TaskSourceType,
+        sourceType: taskData.sourceType,
         dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
         completedAt: taskData.completedAt
           ? new Date(taskData.completedAt)
           : null,
-        assignee: taskData.assignee ?? null,
-        labels: taskData.labels ?? [],
-        metadata: taskData.metadata ?? null,
+        assignee: taskData.assignee ? {
+          id: taskData.assignee.id,
+          name: taskData.assignee.displayName ?? null,
+          email: taskData.assignee.primaryEmail ?? "",
+          image: null,
+        } : null,
+        labels: taskData.labels,
+        metadata: taskData.metadata,
         createdAt: new Date(taskData.createdAt),
         updatedAt: new Date(taskData.updatedAt),
       }
@@ -564,17 +618,98 @@ function TaskDetailPage() {
                 </div>
               )}
 
+              {/* Sources */}
+              {taskData?.sources && taskData.sources.length > 0 && (
+                <div className="border-border border-t pt-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground text-sm">
+                      Sources ({taskData.sources.length})
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {taskData.sources.map((source) => (
+                      <div
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
+                        key={source.id}
+                        onClick={() =>
+                          source.conversationId &&
+                          navigate({
+                            to: "/dashboard/email/thread/$threadId",
+                            params: { threadId: source.conversationId },
+                          })
+                        }
+                      >
+                        <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-foreground text-sm">
+                            {source.conversation?.title ?? "Email thread"}
+                          </p>
+                          {source.quotedText && (
+                            <p className="mt-0.5 truncate text-muted-foreground text-xs">
+                              "{source.quotedText}"
+                            </p>
+                          )}
+                        </div>
+                        {source.sourceTimestamp && (
+                          <span className="shrink-0 text-muted-foreground text-xs">
+                            {format(
+                              new Date(source.sourceTimestamp),
+                              "MMM d, yyyy"
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline / Activity */}
+              {taskData?.timeline && taskData.timeline.length > 0 && (
+                <div className="border-border border-t pt-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground text-sm">
+                      Timeline
+                    </span>
+                  </div>
+                  <div className="relative ml-2">
+                    {/* Timeline line */}
+                    <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
+                    <div className="space-y-4">
+                      {taskData.timeline.map((event) => (
+                        <div className="relative pl-8" key={event.id}>
+                          {/* Timeline dot */}
+                          <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
+                          <div>
+                            <p className="text-foreground text-sm">
+                              {event.eventDescription}
+                            </p>
+                            <p className="mt-0.5 text-muted-foreground text-xs">
+                              {formatDistanceToNow(new Date(event.eventAt), {
+                                addSuffix: true,
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Activity / Comments */}
               <div className="border-border border-t pt-6">
                 <div className="mb-4 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium text-foreground text-sm">
-                    Activity
+                    Comments
                   </span>
                 </div>
 
                 {/* Add Comment */}
-                <div className="mb-6 flex gap-3">
+                <div className="flex gap-3">
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback className="bg-secondary text-white text-xs">
                       ME
@@ -609,12 +744,9 @@ function TaskDetailPage() {
                     </Button>
                   </div>
                 </div>
-
-                {/* Activity Feed */}
-                <CompactActivityFeed
-                  organizationId={organizationId}
-                  taskId={task.id}
-                />
+                <p className="mt-2 text-muted-foreground text-xs">
+                  Comments are not yet supported for tasks
+                </p>
               </div>
 
               {/* Timestamps */}

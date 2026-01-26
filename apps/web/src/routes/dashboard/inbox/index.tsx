@@ -43,6 +43,7 @@ import {
   type SidebarCommitment,
 } from "@/components/inbox/inbox-sidebar";
 import { IntelligenceSheet } from "@/components/inbox/intelligence-sheet";
+import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -231,14 +232,11 @@ function UnifiedInboxPage() {
     enabled: showSchedule,
   });
 
-  // Fetch commitments for schedule panel
-  const { data: commitmentsData } = useQuery({
-    ...trpc.commitments.getByDirection.queryOptions({
-      organizationId: activeOrg?.id ?? "",
-      direction: "owed_by_me",
-      limit: 20,
-    }),
-    staleTime: 60_000,
+  // Fetch commitments for schedule panel using UIO hook
+  const { data: commitmentsData } = useCommitmentUIOs({
+    organizationId: activeOrg?.id ?? "",
+    direction: "owed_by_me",
+    limit: 20,
     enabled: Boolean(activeOrg?.id) && showSchedule,
   });
 
@@ -347,41 +345,28 @@ function UnifiedInboxPage() {
   }));
 
   const sidebarCommitments: SidebarCommitment[] = (
-    commitmentsData?.commitments ?? []
+    commitmentsData?.items ?? []
   ).map((c) => {
-    const commitment = c as {
-      id: string;
-      title: string;
-      dueDate?: string | null;
-      status: string;
-      priority?: string;
-      direction?: string;
-      daysOverdue?: number;
-      creditor?: {
-        name?: string;
-        email?: string;
-        displayName?: string;
-        primaryEmail?: string;
-      } | null;
-    };
+    const details = c.commitmentDetails;
+    const now = new Date();
+    const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+    const daysOverdue = dueDate && dueDate < now
+      ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : undefined;
     return {
-      id: commitment.id,
-      title: commitment.title,
-      dueDate: commitment.dueDate ? new Date(commitment.dueDate) : null,
-      status: commitment.status,
-      priority: commitment.priority ?? "medium",
-      direction: (commitment.direction ?? "owed_by_me") as
+      id: c.id,
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      dueDate,
+      status: details?.status ?? "pending",
+      priority: details?.priority ?? "medium",
+      direction: (details?.direction ?? "owed_by_me") as
         | "owed_by_me"
         | "owed_to_me",
-      daysOverdue: commitment.daysOverdue,
-      creditor: commitment.creditor
+      daysOverdue,
+      creditor: c.owner
         ? {
-            displayName:
-              commitment.creditor.displayName ??
-              commitment.creditor.name ??
-              null,
-            primaryEmail:
-              commitment.creditor.primaryEmail ?? commitment.creditor.email,
+            displayName: c.owner.displayName ?? null,
+            primaryEmail: c.owner.primaryEmail,
           }
         : null,
     };

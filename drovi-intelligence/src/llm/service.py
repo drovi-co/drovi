@@ -1,43 +1,63 @@
 """
-LLM Service with LiteLLM Multi-Provider Routing
+LLM Service with Multi-Provider Routing
 
 Provides a unified interface for LLM calls with:
-- Multi-provider routing (OpenAI, Anthropic, Google)
+- Multi-provider routing (Together.ai, Fireworks, OpenAI)
+- Automatic fallback on provider failures
 - Structured output support via Pydantic
 - Circuit breaker for resilience
 - Token counting and cost tracking
+
+Uses Together.ai v2 SDK as primary provider.
 """
 
 import asyncio
 import json
+import os
 import time
 from typing import Any, TypeVar
 
-import litellm
 import structlog
 from pydantic import BaseModel
 
 from src.config import get_settings
 
+from .providers import (
+    PROVIDER_CONFIGS,
+    ModelTier,
+    Provider,
+    get_available_providers,
+    get_model_for_tier,
+)
+
 logger = structlog.get_logger()
 
 T = TypeVar("T", bound=BaseModel)
 
-# Configure LiteLLM
-litellm.set_verbose = False
+
+# =============================================================================
+# LLM Call Tracing
+# =============================================================================
 
 
 class LLMCall:
     """Record of an LLM API call for tracing."""
 
-    def __init__(self, node: str, model: str):
+    def __init__(self, node: str, model: str, provider: str = "unknown"):
         self.node = node
         self.model = model
+        self.provider = provider
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.duration_ms = 0
         self.success = False
         self.error: str | None = None
+        self.cost_usd: float = 0.0
+
+
+# =============================================================================
+# Circuit Breaker
+# =============================================================================
 
 
 class CircuitBreaker:
@@ -80,63 +100,378 @@ class CircuitBreaker:
             logger.warning("Circuit breaker opened", failures=self.failures)
 
 
+# =============================================================================
+# Rate Limiter
+# =============================================================================
+
+
+class RateLimiter:
+    """Token bucket rate limiter."""
+
+    def __init__(self, requests_per_minute: int):
+        self.rate = requests_per_minute / 60.0  # requests per second
+        self.tokens = float(requests_per_minute)
+        self.max_tokens = float(requests_per_minute)
+        self.last_update = time.time()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> bool:
+        async with self._lock:
+            now = time.time()
+            elapsed = now - self.last_update
+            self.tokens = min(self.max_tokens, self.tokens + elapsed * self.rate)
+            self.last_update = now
+
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return True
+            return False
+
+    async def wait_for_token(self, timeout: float = 30.0) -> bool:
+        start = time.time()
+        while time.time() - start < timeout:
+            if await self.acquire():
+                return True
+            await asyncio.sleep(0.1)
+        return False
+
+
+# =============================================================================
+# Provider Implementations
+# =============================================================================
+
+
+class TogetherProvider:
+    """Together.ai provider using official v2 SDK."""
+
+    def __init__(self, api_key: str | None = None):
+        from together import AsyncTogether, Together
+
+        self.api_key = api_key or os.getenv("TOGETHER_API_KEY")
+        self.client = Together(api_key=self.api_key)
+        self.async_client = AsyncTogether(api_key=self.api_key)
+
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+    ) -> tuple[str, int, int]:
+        """
+        Chat completion using v2 SDK.
+
+        Returns:
+            Tuple of (content, prompt_tokens, completion_tokens)
+        """
+        response = await self.async_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        content = response.choices[0].message.content or ""
+        prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+        completion_tokens = response.usage.completion_tokens if response.usage else 0
+
+        return content, prompt_tokens, completion_tokens
+
+    async def complete_json(
+        self,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+    ) -> tuple[dict[str, Any], int, int]:
+        """
+        Structured JSON output using v2 SDK.
+
+        Returns:
+            Tuple of (parsed_json, prompt_tokens, completion_tokens)
+        """
+        response = await self.async_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content or "{}"
+        prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+        completion_tokens = response.usage.completion_tokens if response.usage else 0
+
+        return json.loads(content), prompt_tokens, completion_tokens
+
+    async def embed(
+        self,
+        texts: list[str],
+        model: str = "togethercomputer/m2-bert-80M-32k-retrieval",
+    ) -> list[list[float]]:
+        """Generate embeddings using v2 SDK."""
+        response = await self.async_client.embeddings.create(
+            model=model,
+            input=texts,
+        )
+        return [data.embedding for data in response.data]
+
+
+class LiteLLMProvider:
+    """Fallback provider using LiteLLM for other providers."""
+
+    def __init__(self, provider: Provider):
+        import litellm
+
+        litellm.set_verbose = False
+        self.provider = provider
+        self.config = PROVIDER_CONFIGS[provider]
+
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+    ) -> tuple[str, int, int]:
+        """Chat completion using LiteLLM."""
+        import litellm
+
+        response = await litellm.acompletion(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        content = response.choices[0].message.content or ""
+        prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+        completion_tokens = response.usage.completion_tokens if response.usage else 0
+
+        return content, prompt_tokens, completion_tokens
+
+    async def complete_json(
+        self,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+    ) -> tuple[dict[str, Any], int, int]:
+        """Structured JSON output using LiteLLM."""
+        import litellm
+
+        response = await litellm.acompletion(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content or "{}"
+        prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+        completion_tokens = response.usage.completion_tokens if response.usage else 0
+
+        return json.loads(content), prompt_tokens, completion_tokens
+
+
+# =============================================================================
+# Provider Router
+# =============================================================================
+
+
+class AllProvidersFailedError(Exception):
+    """Raised when all providers fail to complete a request."""
+
+    pass
+
+
+class ProviderRouter:
+    """Routes LLM requests with automatic fallback."""
+
+    def __init__(self):
+        self.settings = get_settings()
+        self._init_providers()
+        self._init_rate_limiters()
+        self._init_circuit_breakers()
+
+    def _init_providers(self):
+        """Initialize provider instances based on available API keys."""
+        self.providers: dict[Provider, TogetherProvider | LiteLLMProvider] = {}
+
+        # Together.ai - use native v2 SDK
+        if self.settings.together_api_key:
+            self.providers[Provider.TOGETHER] = TogetherProvider(
+                api_key=self.settings.together_api_key
+            )
+            logger.info("Together.ai provider initialized")
+
+        # Other providers - use LiteLLM
+        for provider in [Provider.FIREWORKS, Provider.OPENAI, Provider.ANTHROPIC]:
+            config = PROVIDER_CONFIGS[provider]
+            api_key = os.getenv(config.api_key_env)
+            if api_key:
+                self.providers[provider] = LiteLLMProvider(provider)
+                logger.info("Provider initialized via LiteLLM", provider=provider.value)
+
+    def _init_rate_limiters(self):
+        """Initialize rate limiters for each provider."""
+        self.rate_limiters: dict[Provider, RateLimiter] = {}
+        for provider, config in PROVIDER_CONFIGS.items():
+            if provider in self.providers:
+                self.rate_limiters[provider] = RateLimiter(config.rate_limit_rpm)
+
+    def _init_circuit_breakers(self):
+        """Initialize circuit breakers for each provider."""
+        self.circuit_breakers: dict[Provider, CircuitBreaker] = {}
+        for provider in self.providers:
+            self.circuit_breakers[provider] = CircuitBreaker()
+
+    def _get_provider_order(self) -> list[Provider]:
+        """Get providers ordered by priority."""
+        available = [p for p in self.providers if p in self.providers]
+        return sorted(available, key=lambda p: PROVIDER_CONFIGS[p].priority)
+
+    async def complete_with_fallback(
+        self,
+        messages: list[dict[str, str]],
+        model_tier: str = "balanced",
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+        requires_json: bool = False,
+        node_name: str = "unknown",
+    ) -> tuple[str | dict[str, Any], LLMCall]:
+        """
+        Complete with automatic fallback across providers.
+
+        Args:
+            messages: Chat messages
+            model_tier: "fast", "balanced", or "powerful"
+            temperature: Sampling temperature
+            max_tokens: Max tokens to generate
+            requires_json: Whether to use JSON mode
+            node_name: Name of calling node for tracing
+
+        Returns:
+            Tuple of (response content, LLMCall trace)
+        """
+        tier = ModelTier(model_tier)
+        errors: list[str] = []
+
+        for provider in self._get_provider_order():
+            config = PROVIDER_CONFIGS[provider]
+            model = get_model_for_tier(provider, tier)
+            call = LLMCall(node=node_name, model=model, provider=provider.value)
+            start_time = time.time()
+
+            # Check circuit breaker
+            if not self.circuit_breakers[provider].can_execute():
+                errors.append(f"{provider.value}: circuit breaker open")
+                continue
+
+            # Check rate limit
+            if not await self.rate_limiters[provider].wait_for_token(timeout=5.0):
+                errors.append(f"{provider.value}: rate limited")
+                continue
+
+            try:
+                provider_impl = self.providers[provider]
+
+                if requires_json:
+                    result, prompt_tokens, completion_tokens = (
+                        await provider_impl.complete_json(
+                            messages=messages,
+                            model=model,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                    )
+                else:
+                    result, prompt_tokens, completion_tokens = (
+                        await provider_impl.complete(
+                            messages=messages,
+                            model=model,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                    )
+
+                # Update call trace
+                call.prompt_tokens = prompt_tokens
+                call.completion_tokens = completion_tokens
+                call.duration_ms = int((time.time() - start_time) * 1000)
+                call.success = True
+                call.cost_usd = (
+                    prompt_tokens * config.cost_per_1m_input / 1_000_000
+                    + completion_tokens * config.cost_per_1m_output / 1_000_000
+                )
+
+                self.circuit_breakers[provider].record_success()
+
+                logger.debug(
+                    "LLM call completed",
+                    node=node_name,
+                    provider=provider.value,
+                    model=model,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    duration_ms=call.duration_ms,
+                    cost_usd=call.cost_usd,
+                )
+
+                return result, call
+
+            except Exception as e:
+                call.error = str(e)
+                call.duration_ms = int((time.time() - start_time) * 1000)
+                self.circuit_breakers[provider].record_failure()
+                errors.append(f"{provider.value}: {e}")
+
+                logger.warning(
+                    "Provider failed, trying next",
+                    provider=provider.value,
+                    error=str(e),
+                )
+                continue
+
+        # All providers failed
+        error_msg = f"All providers failed: {'; '.join(errors)}"
+        logger.error("All providers failed", errors=errors)
+        raise AllProvidersFailedError(error_msg)
+
+
+# =============================================================================
+# LLM Service (Main Interface)
+# =============================================================================
+
+
 class LLMService:
     """
     LLM Service with multi-provider routing and structured outputs.
 
-    Uses LiteLLM to route requests to the best available provider.
+    Uses Together.ai v2 SDK as primary provider with automatic fallback.
     """
 
     def __init__(self):
         self.settings = get_settings()
-        self.circuit_breaker = CircuitBreaker()
-        self._setup_providers()
+        self.router = ProviderRouter()
+        self._setup_models()
 
-    def _setup_providers(self):
-        """Configure LiteLLM providers based on available API keys."""
-        # Primary model configuration
+    def _setup_models(self):
+        """Configure default models based on settings."""
         self.models = {
-            "fast": self._get_fast_model(),
-            "balanced": self._get_balanced_model(),
-            "powerful": self._get_powerful_model(),
+            "fast": self.settings.default_model_fast,
+            "balanced": self.settings.default_model_balanced,
+            "powerful": self.settings.default_model_powerful,
         }
 
         logger.info(
-            "LLM providers configured",
+            "LLM service configured",
             fast=self.models["fast"],
             balanced=self.models["balanced"],
             powerful=self.models["powerful"],
+            providers=[p.value for p in self.router.providers],
         )
-
-    def _get_fast_model(self) -> str:
-        """Get the fastest model for quick classifications."""
-        if self.settings.anthropic_api_key:
-            return "claude-3-5-haiku-20241022"
-        if self.settings.openai_api_key:
-            return "gpt-4o-mini"
-        if self.settings.google_api_key:
-            return "gemini-1.5-flash"
-        return "gpt-4o-mini"
-
-    def _get_balanced_model(self) -> str:
-        """Get the balanced model for most extractions."""
-        if self.settings.anthropic_api_key:
-            return "claude-sonnet-4-20250514"
-        if self.settings.openai_api_key:
-            return "gpt-4o"
-        if self.settings.google_api_key:
-            return "gemini-1.5-pro"
-        return "gpt-4o"
-
-    def _get_powerful_model(self) -> str:
-        """Get the most powerful model for complex analysis."""
-        if self.settings.anthropic_api_key:
-            return "claude-sonnet-4-20250514"
-        if self.settings.openai_api_key:
-            return "gpt-4o"
-        if self.settings.google_api_key:
-            return "gemini-1.5-pro"
-        return "gpt-4o"
 
     async def complete(
         self,
@@ -147,7 +482,7 @@ class LLMService:
         node_name: str = "unknown",
     ) -> tuple[str, LLMCall]:
         """
-        Make an LLM completion call.
+        Make an LLM completion call with automatic provider fallback.
 
         Args:
             messages: List of message dicts with role and content
@@ -159,54 +494,15 @@ class LLMService:
         Returns:
             Tuple of (response text, LLMCall trace)
         """
-        model = self.models.get(model_tier, self.models["balanced"])
-        call = LLMCall(node=node_name, model=model)
-        start_time = time.time()
-
-        if not self.circuit_breaker.can_execute():
-            call.error = "Circuit breaker open"
-            raise Exception("LLM circuit breaker is open")
-
-        try:
-            response = await litellm.acompletion(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-
-            # Extract response
-            content = response.choices[0].message.content
-            call.prompt_tokens = response.usage.prompt_tokens
-            call.completion_tokens = response.usage.completion_tokens
-            call.duration_ms = int((time.time() - start_time) * 1000)
-            call.success = True
-
-            self.circuit_breaker.record_success()
-
-            logger.debug(
-                "LLM call completed",
-                node=node_name,
-                model=model,
-                prompt_tokens=call.prompt_tokens,
-                completion_tokens=call.completion_tokens,
-                duration_ms=call.duration_ms,
-            )
-
-            return content, call
-
-        except Exception as e:
-            call.error = str(e)
-            call.duration_ms = int((time.time() - start_time) * 1000)
-            self.circuit_breaker.record_failure()
-
-            logger.error(
-                "LLM call failed",
-                node=node_name,
-                model=model,
-                error=str(e),
-            )
-            raise
+        result, call = await self.router.complete_with_fallback(
+            messages=messages,
+            model_tier=model_tier,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            requires_json=False,
+            node_name=node_name,
+        )
+        return str(result), call
 
     async def complete_structured(
         self,
@@ -260,69 +556,60 @@ Respond ONLY with the JSON object, no additional text."""
                 "content": f"You are an AI assistant that responds with structured JSON.{schema_instruction}",
             })
 
-        model = self.models.get(model_tier, self.models["balanced"])
-        call = LLMCall(node=node_name, model=model)
-        start_time = time.time()
-
-        if not self.circuit_breaker.can_execute():
-            call.error = "Circuit breaker open"
-            raise Exception("LLM circuit breaker is open")
-
         try:
-            response = await litellm.acompletion(
-                model=model,
+            result, call = await self.router.complete_with_fallback(
                 messages=modified_messages,
+                model_tier=model_tier,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                response_format={"type": "json_object"},
+                requires_json=True,
+                node_name=node_name,
             )
 
-            content = response.choices[0].message.content
-            call.prompt_tokens = response.usage.prompt_tokens
-            call.completion_tokens = response.usage.completion_tokens
-            call.duration_ms = int((time.time() - start_time) * 1000)
+            # Validate with Pydantic
+            if isinstance(result, str):
+                parsed = json.loads(result)
+            else:
+                parsed = result
 
-            # Parse and validate JSON
-            try:
-                parsed = json.loads(content)
-                validated = output_schema.model_validate(parsed)
-                call.success = True
-                self.circuit_breaker.record_success()
+            validated = output_schema.model_validate(parsed)
+            return validated, call
 
-                logger.debug(
-                    "Structured LLM call completed",
-                    node=node_name,
-                    model=model,
-                    prompt_tokens=call.prompt_tokens,
-                    completion_tokens=call.completion_tokens,
-                    duration_ms=call.duration_ms,
-                )
+        except json.JSONDecodeError as e:
+            logger.error("LLM returned invalid JSON", error=str(e))
+            raise ValueError(f"LLM returned invalid JSON: {e}")
 
-                return validated, call
+    async def embed(
+        self,
+        texts: list[str],
+        model: str | None = None,
+    ) -> list[list[float]]:
+        """
+        Generate embeddings for texts.
 
-            except json.JSONDecodeError as e:
-                call.error = f"Invalid JSON: {e}"
-                logger.error("LLM returned invalid JSON", content=content[:200])
-                raise ValueError(f"LLM returned invalid JSON: {e}")
+        Args:
+            texts: List of texts to embed
+            model: Optional model override
 
-            except Exception as e:
-                call.error = f"Validation failed: {e}"
-                logger.error("LLM output validation failed", error=str(e))
-                raise
+        Returns:
+            List of embedding vectors
+        """
+        model = model or self.settings.embedding_model
 
-        except Exception as e:
-            if not call.error:
-                call.error = str(e)
-            call.duration_ms = int((time.time() - start_time) * 1000)
-            self.circuit_breaker.record_failure()
+        # Prefer Together.ai for embeddings
+        if Provider.TOGETHER in self.router.providers:
+            provider = self.router.providers[Provider.TOGETHER]
+            if isinstance(provider, TogetherProvider):
+                return await provider.embed(texts, model=model)
 
-            logger.error(
-                "Structured LLM call failed",
-                node=node_name,
-                model=model,
-                error=str(e),
-            )
-            raise
+        # Fallback to OpenAI embeddings via LiteLLM
+        import litellm
+
+        response = await litellm.aembedding(
+            model=model,
+            input=texts,
+        )
+        return [item["embedding"] for item in response.data]
 
 
 # =============================================================================

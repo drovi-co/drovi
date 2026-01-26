@@ -127,9 +127,10 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
   );
 
   const completeCommitmentMutation = useMutation(
-    trpc.commitments.complete.mutationOptions({
+    trpc.uio.markComplete.mutationOptions({
       onSuccess: () => {
         refetchIntelligence();
+        queryClient.invalidateQueries({ queryKey: [["uio"]] });
       },
     })
   );
@@ -186,7 +187,7 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
       if (!organizationId) return;
       await completeCommitmentMutation.mutateAsync({
         organizationId,
-        commitmentId,
+        id: commitmentId,
       });
     },
     [completeCommitmentMutation, organizationId]

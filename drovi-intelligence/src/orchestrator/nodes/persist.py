@@ -444,44 +444,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                     },
                 )
 
-                # Also create in commitment table (for frontend compatibility)
-                commitment_id = str(uuid4())
-                await session.execute(
-                    text("""
-                        INSERT INTO commitment (
-                            id, organization_id, unified_object_id,
-                            direction, title, description,
-                            due_date, due_date_confidence, due_date_original_text,
-                            status, priority, confidence,
-                            source_account_id, source_conversation_id,
-                            created_at, updated_at
-                        ) VALUES (
-                            :id, :org_id, :uio_id,
-                            :direction, :title, :description,
-                            :due_date, :due_date_confidence, :due_date_text,
-                            'pending', :priority, :confidence,
-                            :source_account_id, :conversation_id,
-                            :now, :now
-                        )
-                    """),
-                    {
-                        "id": commitment_id,
-                        "org_id": state.input.organization_id,
-                        "uio_id": uio_id,
-                        "direction": commitment.direction,
-                        "title": commitment.title,
-                        "description": commitment.description or "",
-                        "due_date": to_naive_utc(commitment.due_date),
-                        "due_date_confidence": commitment.confidence if commitment.due_date else None,
-                        "due_date_text": commitment.due_date_text,
-                        "priority": commitment.priority,
-                        "confidence": commitment.confidence,
-                        "source_account_id": state.input.source_account_id,
-                        "conversation_id": state.input.conversation_id,
-                        "now": now,
-                    },
-                )
-
                 # Create UIO extension record (uio_commitment_details)
                 commitment_details_id = str(uuid4())
                 extraction_context = {
@@ -745,38 +707,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "title": decision.title,
                         "description": f"{decision.statement}\n\nRationale: {decision.rationale or 'N/A'}",
                         "confidence": decision.confidence,
-                        "now": now,
-                    },
-                )
-
-                # Also create in decision table (for frontend compatibility)
-                decision_id = str(uuid4())
-                await session.execute(
-                    text("""
-                        INSERT INTO decision (
-                            id, organization_id, unified_object_id,
-                            title, statement, rationale,
-                            decided_at, confidence,
-                            source_account_id, source_conversation_id,
-                            created_at, updated_at
-                        ) VALUES (
-                            :id, :org_id, :uio_id,
-                            :title, :statement, :rationale,
-                            :now, :confidence,
-                            :source_account_id, :conversation_id,
-                            :now, :now
-                        )
-                    """),
-                    {
-                        "id": decision_id,
-                        "org_id": state.input.organization_id,
-                        "uio_id": uio_id,
-                        "title": decision.title,
-                        "statement": decision.statement,
-                        "rationale": decision.rationale or "",
-                        "confidence": decision.confidence,
-                        "source_account_id": state.input.source_account_id,
-                        "conversation_id": state.input.conversation_id,
                         "now": now,
                     },
                 )
@@ -1317,7 +1247,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                task_id = str(uuid4())
                 uio_id = str(uuid4())
                 now = utc_now()
 
@@ -1370,39 +1299,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "urgent": "urgent",
                 }
                 task_priority = priority_map.get(task.priority, "no_priority") if task.priority else "no_priority"
-
-                # Map input source_type to task_source_type enum
-                # Valid values: conversation, commitment, decision, manual
-                task_source_type = "conversation"  # Default for external sources (email, slack, etc.)
-
-                # Create task table record (for frontend compatibility)
-                await session.execute(
-                    text("""
-                        INSERT INTO task (
-                            id, organization_id, title, description,
-                            status, priority,
-                            due_date, source_type, source_uio_id,
-                            created_at, updated_at
-                        ) VALUES (
-                            :id, :org_id, :title, :description,
-                            :status, :priority,
-                            :due_date, :source_type, :source_uio_id,
-                            :now, :now
-                        )
-                    """),
-                    {
-                        "id": task_id,
-                        "org_id": state.input.organization_id,
-                        "title": task.title,
-                        "description": task.description or "",
-                        "status": task_status,
-                        "priority": task_priority,
-                        "due_date": to_naive_utc(task.due_date),
-                        "source_type": task_source_type,
-                        "source_uio_id": uio_id,
-                        "now": now,
-                    },
-                )
 
                 # Create UIO extension record (uio_task_details)
                 task_details_id = str(uuid4())
@@ -1487,7 +1383,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     triggered_by="system",
                 )
 
-                tasks_created.append({"id": task_id, "title": task.title, "uio_id": uio_id})
+                tasks_created.append({"id": uio_id, "title": task.title})
 
             await session.commit()
 
@@ -1596,7 +1492,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                claim_id = str(uuid4())
                 uio_id = str(uuid4())
                 now = utc_now()
 
@@ -1621,30 +1516,6 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "title": claim.content[:200] if claim.content else "Unnamed claim",
                         "description": claim.content or "",
                         "confidence": claim.confidence,
-                        "now": now,
-                    },
-                )
-
-                # Create claim table record (for frontend compatibility)
-                await session.execute(
-                    text("""
-                        INSERT INTO claim (
-                            id, organization_id, type, text,
-                            confidence, conversation_id,
-                            created_at, updated_at
-                        ) VALUES (
-                            :id, :org_id, :type, :text,
-                            :confidence, :conversation_id,
-                            :now, :now
-                        )
-                    """),
-                    {
-                        "id": claim_id,
-                        "org_id": state.input.organization_id,
-                        "type": claim.type,
-                        "text": claim.content,
-                        "confidence": claim.confidence,
-                        "conversation_id": state.input.conversation_id,
                         "now": now,
                     },
                 )
@@ -1732,7 +1603,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     triggered_by="system",
                 )
 
-                claims_created.append({"id": claim_id, "type": claim.type, "uio_id": uio_id})
+                claims_created.append({"id": uio_id, "type": claim.type})
 
             await session.commit()
 

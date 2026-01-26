@@ -9,7 +9,7 @@
 // that needs resolution.
 //
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { addDays, format, isPast, isToday, isTomorrow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -40,6 +40,11 @@ import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
 
 import { ConfidenceBadge } from "@/components/evidence";
+import {
+  useCommitmentUIOs,
+  useMarkCompleteUIO,
+  useSnoozeUIO,
+} from "@/hooks/use-uio";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,7 +64,6 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -431,102 +435,114 @@ export function OpenLoopsDashboard({
   onShowEvidence,
   className,
 }: OpenLoopsDashboardProps) {
-  const trpc = useTRPC();
   const { openCompose } = useCommandBar();
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "others">("all");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["overdue", "today", "this_week"])
   );
-  // Track commitment being followed up for passing to compose
-  const [pendingFollowUpCommitment, setPendingFollowUpCommitment] =
-    useState<OpenLoopItem | null>(null);
 
-  // Fetch open loops (commitments that are not completed)
+  const queryClient = useQueryClient();
+
+  // Fetch open loops using UIO hook
   const {
     data: loopsData,
     isLoading,
     refetch,
-  } = useQuery(
-    trpc.commitments.list.queryOptions({
-      organizationId,
-      limit: 100,
-      includeDismissed: false,
-    })
-  );
-
-  // Mutations
-  const completeMutation = useMutation({
-    ...trpc.commitments.complete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment completed!");
-      refetch();
-    },
+  } = useCommitmentUIOs({
+    organizationId,
+    limit: 100,
+    enabled: !!organizationId,
   });
 
-  const snoozeMutation = useMutation({
-    ...trpc.commitments.snooze.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment snoozed");
-      refetch();
+  // Mutations using UIO hooks
+  const completeMutationBase = useMarkCompleteUIO();
+  const completeMutation = {
+    ...completeMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string }) => {
+      completeMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId },
+        {
+          onSuccess: () => {
+            toast.success("Commitment completed!");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+        }
+      );
     },
-  });
+  };
 
-  const followUpMutation = useMutation({
-    ...trpc.commitments.generateFollowUp.mutationOptions(),
-    onSuccess: (data) => {
-      // Dismiss loading toast
-      toast.dismiss("followup-generating");
+  const snoozeMutationBase = useSnoozeUIO();
+  const snoozeMutation = {
+    ...snoozeMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string; until: Date }) => {
+      snoozeMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId, until: params.until },
+        {
+          onSuccess: () => {
+            toast.success("Commitment snoozed");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+        }
+      );
+    },
+  };
 
-      // Open compose dialog with the generated follow-up
-      if (pendingFollowUpCommitment?.otherParty) {
+  // Follow-up generation - simplified without AI
+  const handleGenerateFollowUp = useCallback(
+    (commitment: OpenLoopItem) => {
+      const subject = `Follow-up: ${commitment.title}`;
+      const body = `Hi${commitment.otherParty?.displayName ? ` ${commitment.otherParty.displayName}` : ""},\n\nI wanted to follow up regarding: ${commitment.title}.\n\nCould you please provide an update on the status?\n\nBest regards`;
+
+      if (commitment.otherParty) {
         openCompose({
-          to: [
-            {
-              email: pendingFollowUpCommitment.otherParty.primaryEmail,
-              name:
-                pendingFollowUpCommitment.otherParty.displayName ?? undefined,
-            },
-          ],
-          subject: data.subject,
-          body: data.body,
+          to: [{ email: commitment.otherParty.primaryEmail, name: commitment.otherParty.displayName ?? undefined }],
+          subject,
+          body,
         });
-        toast.success("Follow-up draft ready to send!");
+        toast.success("Follow-up draft ready");
       } else {
-        // Fallback if no recipient - just show the draft in compose
-        openCompose({
-          subject: data.subject,
-          body: data.body,
-        });
+        openCompose({ subject, body });
         toast.success("Follow-up draft generated - please add recipient");
       }
-      setPendingFollowUpCommitment(null);
     },
-    onError: () => {
-      toast.dismiss("followup-generating");
-      setPendingFollowUpCommitment(null);
-      toast.error("Failed to generate follow-up");
-    },
-  });
+    [openCompose]
+  );
 
-  // Transform and categorize
+  // Transform and categorize UIO data
   const openLoops: OpenLoopItem[] = useMemo(() => {
-    if (!loopsData?.commitments) return [];
-    return loopsData.commitments
-      .filter((c) => c.status !== "completed" && c.status !== "cancelled")
-      .map((c) => ({
-        id: c.id,
-        title: c.title,
-        description: c.description,
-        status: c.status as OpenLoopItem["status"],
-        priority: c.priority as OpenLoopItem["priority"],
-        direction: c.direction as OpenLoopItem["direction"],
-        dueDate: c.dueDate ? new Date(c.dueDate) : null,
-        createdAt: new Date(c.createdAt),
-        confidence: c.confidence,
-        isUserVerified: c.isUserVerified ?? undefined,
-        otherParty: c.direction === "owed_by_me" ? c.creditor : c.debtor,
-        sourceThread: c.sourceConversation,
-      }));
+    if (!loopsData?.items) return [];
+    return loopsData.items
+      .filter((c) => {
+        const status = c.commitmentDetails?.status ?? "pending";
+        return status !== "completed" && status !== "cancelled";
+      })
+      .map((c) => {
+        const details = c.commitmentDetails;
+        const direction = details?.direction ?? "owed_by_me";
+        return {
+          id: c.id,
+          title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+          description: c.canonicalDescription,
+          status: (details?.status ?? "pending") as OpenLoopItem["status"],
+          priority: (details?.priority ?? "medium") as OpenLoopItem["priority"],
+          direction: direction as OpenLoopItem["direction"],
+          dueDate: c.dueDate ? new Date(c.dueDate) : null,
+          createdAt: new Date(c.createdAt),
+          confidence: c.overallConfidence ?? 0.8,
+          isUserVerified: c.isUserVerified ?? undefined,
+          otherParty: c.owner ? {
+            id: c.owner.id,
+            displayName: c.owner.displayName,
+            primaryEmail: c.owner.primaryEmail ?? "",
+          } : null,
+          sourceThread: c.sources?.[0]?.conversation ? {
+            id: c.sources[0].conversation.id,
+            subject: c.sources[0].conversation.title,
+          } : null,
+        };
+      });
   }, [loopsData]);
 
   // Filter by tab
@@ -586,11 +602,11 @@ export function OpenLoopsDashboard({
     const overdue = openLoops.filter(
       (l) => l.dueDate && isPast(l.dueDate) && !isToday(l.dueDate)
     );
-    const completionRate = loopsData?.commitments
+    const completionRate = loopsData?.items
       ? Math.round(
-          (loopsData.commitments.filter((c) => c.status === "completed")
+          (loopsData.items.filter((c) => c.commitmentDetails?.status === "completed")
             .length /
-            loopsData.commitments.length) *
+            loopsData.items.length) *
             100
         )
       : 0;
@@ -622,13 +638,9 @@ export function OpenLoopsDashboard({
 
   const handleFollowUp = useCallback(
     (commitmentId: string, item: OpenLoopItem) => {
-      // Store the commitment for use in the mutation's onSuccess
-      setPendingFollowUpCommitment(item);
-      // Show generating toast immediately
-      toast.loading("Generating follow-up...", { id: "followup-generating" });
-      followUpMutation.mutate({ organizationId, commitmentId });
+      handleGenerateFollowUp(item);
     },
-    [followUpMutation, organizationId]
+    [handleGenerateFollowUp]
   );
 
   const toggleSection = (section: string) => {

@@ -28,18 +28,18 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, GripVertical, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 import {
   formatDueDate,
@@ -127,37 +127,44 @@ export function TaskKanbanBoard({
     })
   );
 
-  // Update status mutation with optimistic updates
-  const updateStatusMutation = useMutation(
-    trpc.tasks.updateStatus.mutationOptions({
-      onMutate: async ({ taskId, status }) => {
-        // Apply optimistic update immediately
-        setOptimisticMoves((prev) => ({
-          ...prev,
-          [taskId]: status,
-        }));
-        return undefined;
-      },
-      onSuccess: (_, { taskId }) => {
-        // Clear optimistic state - the query will have the real data
-        setOptimisticMoves((prev) => {
-          const next = { ...prev };
-          delete next[taskId];
-          return next;
-        });
-        queryClient.invalidateQueries({ queryKey: [["tasks"]] });
-      },
-      onError: (_, { taskId }) => {
-        // Revert optimistic update on error
-        setOptimisticMoves((prev) => {
-          const next = { ...prev };
-          delete next[taskId];
-          return next;
-        });
-        toast.error("Failed to move task");
-      },
-    })
-  );
+  // Update status mutation with optimistic updates using UIO
+  const updateStatusMutationBase = useUpdateTaskStatusUIO();
+
+  // Wrap with optimistic update handlers
+  const updateStatusMutation = {
+    ...updateStatusMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+      // Apply optimistic update immediately
+      setOptimisticMoves((prev) => ({
+        ...prev,
+        [params.taskId]: params.status,
+      }));
+
+      updateStatusMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          onSuccess: () => {
+            // Clear optimistic state - the query will have the real data
+            setOptimisticMoves((prev) => {
+              const next = { ...prev };
+              delete next[params.taskId];
+              return next;
+            });
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            // Revert optimistic update on error
+            setOptimisticMoves((prev) => {
+              const next = { ...prev };
+              delete next[params.taskId];
+              return next;
+            });
+            toast.error("Failed to move task");
+          },
+        }
+      );
+    },
+  };
 
   // Drag handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {

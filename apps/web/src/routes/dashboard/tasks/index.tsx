@@ -7,7 +7,7 @@
 // organize, prioritize, and track progress on everything in one place.
 //
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Archive,
@@ -37,6 +37,12 @@ import {
   type TaskSourceType,
   type TaskStatus,
 } from "@/components/tasks";
+import {
+  useTaskStats,
+  useTaskUIOs,
+  useUpdateTaskPriorityUIO,
+  useUpdateTaskStatusUIO,
+} from "@/hooks/use-uio";
 import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,7 +68,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // FIXED COLUMN WIDTHS (matching inbox-row.tsx)
@@ -114,55 +119,62 @@ function TasksPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Fetch tasks - no limit since we have client-side pagination with "Show more"
+  // Fetch tasks using UIO hook
   const {
     data: tasksData,
     isLoading: isLoadingTasks,
     refetch,
-  } = useQuery({
-    ...trpc.tasks.list.queryOptions({
-      organizationId,
-      status: statusFilter === "all" ? undefined : statusFilter,
-      priority: priorityFilter === "all" ? undefined : priorityFilter,
-      sourceType: sourceTypeFilter === "all" ? undefined : sourceTypeFilter,
-      search: searchQuery || undefined,
-      // Sort by due date (nearest first) so urgent tasks appear at top
-      sortBy: "dueDate",
-      sortOrder: "asc",
-    }),
+  } = useTaskUIOs({
+    organizationId,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    priority: priorityFilter === "all" ? undefined : priorityFilter,
+    limit: 100,
     enabled: !!organizationId,
   });
 
-  // Fetch stats
-  const { data: statsData } = useQuery({
-    ...trpc.tasks.getStats.queryOptions({ organizationId }),
-    enabled: !!organizationId,
-  });
+  // Fetch stats using UIO hook
+  const { data: statsData } = useTaskStats({ organizationId });
 
-  // Mutations - use proper tRPC query key pattern [["tasks"]] for invalidation
-  const updateStatusMutation = useMutation({
-    ...trpc.tasks.updateStatus.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Status updated");
-      refetch();
-      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+  // Mutations using UIO hooks
+  const updateStatusMutationBase = useUpdateTaskStatusUIO();
+  const updateStatusMutation = {
+    ...updateStatusMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+      updateStatusMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          onSuccess: () => {
+            toast.success("Status updated");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to update status");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to update status");
-    },
-  });
+  };
 
-  const updatePriorityMutation = useMutation({
-    ...trpc.tasks.updatePriority.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Priority updated");
-      refetch();
-      queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+  const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
+  const updatePriorityMutation = {
+    ...updatePriorityMutationBase,
+    mutate: (params: { organizationId: string; taskId: string; priority: TaskPriority }) => {
+      updatePriorityMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.taskId, priority: params.priority },
+        {
+          onSuccess: () => {
+            toast.success("Priority updated");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to update priority");
+          },
+        }
+      );
     },
-    onError: () => {
-      toast.error("Failed to update priority");
-    },
-  });
+  };
 
   // Navigate to task detail page
   const handleOpenTask = useCallback(
@@ -184,7 +196,7 @@ function TasksPage() {
 
       // j/k navigation
       if (e.key === "j" || e.key === "k") {
-        const tasksList = tasksData?.tasks ?? [];
+        const tasksList = tasksData?.items ?? [];
         const currentIndex = tasksList.findIndex(
           (t) => t.id === selectedTaskId
         );
@@ -274,7 +286,7 @@ function TasksPage() {
   const handleSelectAll = useCallback(
     (selected: boolean) => {
       if (selected) {
-        setSelectedIds(new Set(tasksData?.tasks?.map((t) => t.id) ?? []));
+        setSelectedIds(new Set(tasksData?.items?.map((t) => t.id) ?? []));
       } else {
         setSelectedIds(new Set());
       }
@@ -282,26 +294,48 @@ function TasksPage() {
     [tasksData]
   );
 
-  // Transform tasks data
-  const tasks: TaskData[] = (tasksData?.tasks ?? []).map((t) => ({
-    id: t.id,
-    title: t.title,
-    description: t.description,
-    status: t.status as TaskStatus,
-    priority: t.priority as TaskPriority,
-    sourceType: t.sourceType as TaskSourceType,
-    dueDate: t.dueDate ? new Date(t.dueDate) : null,
-    completedAt: (t as { completedAt?: string | Date | null }).completedAt
-      ? new Date(
-          (t as { completedAt?: string | Date }).completedAt as string | Date
-        )
-      : null,
-    assignee: t.assignee,
-    labels: t.labels ?? [],
-    metadata: t.metadata,
-    createdAt: new Date(t.createdAt),
-    updatedAt: new Date(t.updatedAt),
-  }));
+  // Transform UIO tasks data
+  // Apply client-side filtering for search (sourceType is not tracked in UIO)
+  const filteredItems = (tasksData?.items ?? []).filter((t) => {
+    // Source type filter - all UIO tasks are treated as "manual" for now
+    if (sourceTypeFilter !== "all" && sourceTypeFilter !== "manual") {
+      return false;
+    }
+    // Filter by search query
+    if (searchQuery) {
+      const title = t.userCorrectedTitle ?? t.canonicalTitle ?? "";
+      const description = t.canonicalDescription ?? "";
+      const query = searchQuery.toLowerCase();
+      if (!title.toLowerCase().includes(query) && !description.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const tasks: TaskData[] = filteredItems.map((t) => {
+    const details = t.taskDetails;
+    return {
+      id: t.id,
+      title: t.userCorrectedTitle ?? t.canonicalTitle ?? "",
+      description: t.canonicalDescription ?? null,
+      status: (details?.status ?? "backlog") as TaskStatus,
+      priority: (details?.priority ?? "no_priority") as TaskPriority,
+      sourceType: "manual" as TaskSourceType, // UIO tasks don't track sourceType
+      dueDate: t.dueDate ? new Date(t.dueDate) : null,
+      completedAt: details?.completedAt ? new Date(details.completedAt) : null,
+      assignee: t.owner ? {
+        id: t.owner.id,
+        name: t.owner.displayName,
+        email: t.owner.primaryEmail ?? "",
+        image: null, // owner contact doesn't have avatar in UIO schema
+      } : null,
+      labels: [], // Labels would need separate query
+      metadata: null, // UIO task details don't have metadata field
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt),
+    };
+  });
 
   // Group tasks by status for list view
   const tasksByStatus = tasks.reduce(

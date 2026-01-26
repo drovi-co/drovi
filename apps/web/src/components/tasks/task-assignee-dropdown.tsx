@@ -86,6 +86,7 @@ export function TaskAssigneeDropdown({
       // Invalidate all tasks-related queries using tRPC's query key structure
       // tRPC uses nested array keys like [["tasks", "list"], { input }]
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
 
       // Call the callback after cache invalidation
       onAssigneeChange?.(

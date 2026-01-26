@@ -7,7 +7,6 @@
 // to provide full context.
 //
 
-import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Check,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useCommitmentUIOs, useDecisionUIOs } from "@/hooks/use-uio";
 import { ConfidenceBadge } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -86,25 +85,30 @@ export function LinkedCommitments({
   className,
 }: LinkedCommitmentsProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const trpc = useTRPC();
 
-  // Fetch commitments from the same source thread
-  const { data, isLoading } = useQuery({
-    ...trpc.commitments.list.queryOptions({
-      organizationId,
-      limit: 10,
-    }),
-    select: (data) => ({
-      ...data,
-      // Filter to commitments from the same thread
-      commitments: data.commitments.filter(
-        (c) => c.sourceConversationId === sourceConversationId
-      ),
-    }),
-    enabled: Boolean(sourceConversationId && organizationId),
+  // Fetch commitments using UIO hook
+  const { data, isLoading } = useCommitmentUIOs({
+    organizationId,
+    limit: 10,
   });
 
-  const commitments = data?.commitments ?? [];
+  // Filter to commitments from the same thread and transform to expected shape
+  const commitments = (data?.items ?? [])
+    .filter((c) => {
+      const sourceId = c.sources?.[0]?.conversationId;
+      return sourceId === sourceConversationId;
+    })
+    .map((c) => ({
+      id: c.id,
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      status: c.commitmentDetails?.status ?? "pending",
+      priority: c.commitmentDetails?.priority ?? "medium",
+      direction: (c.commitmentDetails?.direction ?? "owed_by_me") as "owed_by_me" | "owed_to_me",
+      dueDate: c.dueDate ? new Date(c.dueDate) : null,
+      confidence: c.overallConfidence ?? 0.8,
+      isUserVerified: c.isUserVerified ?? (c.userCorrectedTitle != null),
+      sourceConversationId: c.sources?.[0]?.conversationId ?? null,
+    }));
 
   if (isLoading) {
     return (
@@ -291,25 +295,29 @@ export function LinkedDecisions({
   className,
 }: LinkedDecisionsProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const trpc = useTRPC();
 
-  // Fetch decisions from the same source thread
-  const { data, isLoading } = useQuery({
-    ...trpc.decisions.list.queryOptions({
-      organizationId,
-      limit: 10,
-    }),
-    select: (data) => ({
-      ...data,
-      // Filter to decisions from the same thread
-      decisions: data.decisions.filter(
-        (d) => d.sourceConversationId === sourceConversationId
-      ),
-    }),
-    enabled: Boolean(sourceConversationId && organizationId),
+  // Fetch decisions using UIO hook
+  const { data, isLoading } = useDecisionUIOs({
+    organizationId,
+    limit: 10,
   });
 
-  const decisions = data?.decisions ?? [];
+  // Filter to decisions from the same thread and transform to expected shape
+  const decisions = (data?.items ?? [])
+    .filter((d) => {
+      const sourceId = d.sources?.[0]?.conversationId;
+      return sourceId === sourceConversationId;
+    })
+    .map((d) => ({
+      id: d.id,
+      title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
+      statement: d.canonicalDescription ?? "",
+      decidedAt: new Date(d.firstSeenAt ?? d.createdAt),
+      confidence: d.overallConfidence ?? 0.8,
+      isUserVerified: d.isUserVerified ?? (d.userCorrectedTitle != null),
+      supersededByUioId: d.decisionDetails?.supersededByUioId ?? null,
+      sourceConversationId: d.sources?.[0]?.conversationId ?? null,
+    }));
 
   if (isLoading) {
     return (
@@ -367,7 +375,7 @@ export function LinkedDecisions({
                 decidedAt: new Date(decision.decidedAt),
                 confidence: decision.confidence,
                 isUserVerified: decision.isUserVerified ?? false,
-                isSuperseded: Boolean(decision.supersededById),
+                isSuperseded: Boolean(decision.supersededByUioId),
               }}
               key={decision.id}
               onClick={() => onDecisionClick(decision.id)}

@@ -30,15 +30,35 @@ class Settings(BaseSettings):
     # Redis
     redis_url: RedisDsn = Field(default="redis://localhost:6379/0")
 
-    # LLM Providers
+    # LLM Providers - Open Source (Preferred)
+    together_api_key: str | None = Field(default=None)
+    fireworks_api_key: str | None = Field(default=None)
+    huggingface_api_key: str | None = Field(default=None)
+
+    # LLM Providers - Proprietary (Fallback)
     openai_api_key: str | None = Field(default=None)
     anthropic_api_key: str | None = Field(default=None)
     google_ai_api_key: str | None = Field(default=None)
 
-    # LLM Settings
+    # LLM Settings - Default Models (Open Source)
+    default_model_fast: str = Field(default="meta-llama/Llama-4-Scout-17B-16E-Instruct")
+    default_model_balanced: str = Field(default="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8")
+    default_model_powerful: str = Field(default="Qwen/Qwen3-235B-A22B-fp8-tput")
+
+    # LLM Settings - Legacy (for backwards compatibility)
     default_llm_model: str = Field(default="gpt-4o")
     fallback_llm_model: str = Field(default="claude-3-5-sonnet-20241022")
-    embedding_model: str = Field(default="text-embedding-3-small")
+    embedding_model: str = Field(default="togethercomputer/m2-bert-80M-32k-retrieval")
+
+    # Provider Routing
+    prefer_open_source: bool = Field(default=True)
+    provider_fallback_enabled: bool = Field(default=True)
+
+    # Fine-Tuning Settings
+    finetuning_provider: Literal["together", "fireworks"] = Field(default="together")
+    collect_training_data: bool = Field(default=True)
+    training_data_sample_rate: float = Field(default=0.1)
+    training_data_path: str = Field(default="training_data")
 
     # TypeScript Backend
     ts_backend_url: str = Field(default="http://localhost:3000")

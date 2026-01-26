@@ -7,7 +7,7 @@
 // owe, what others owe you, urgency, and the evidence behind each commitment.
 //
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Calendar, CheckCircle2, List, RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +21,15 @@ import {
 } from "@/components/dashboards";
 import { useCommandBar } from "@/components/email/command-bar";
 import { EvidenceDetailSheet } from "@/components/evidence";
+import {
+  useCommitmentStats,
+  useCommitmentUIOs,
+  useDismissUIO,
+  useMarkCompleteUIO,
+  useSnoozeUIO,
+  useUIO,
+  useVerifyUIO,
+} from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +43,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -80,138 +88,156 @@ function CommitmentsPage() {
     useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Fetch stats
-  const { data: statsData, isLoading: isLoadingStats } = useQuery({
-    ...trpc.commitments.getStats.queryOptions({ organizationId }),
-    enabled: !!organizationId,
+  const queryClient = useQueryClient();
+
+  // Fetch stats using UIO hook
+  const { data: statsData, isLoading: isLoadingStats } = useCommitmentStats({
+    organizationId,
   });
 
-  // Fetch commitments
+  // Fetch commitments using UIO hook
   const {
     data: commitmentsData,
     isLoading: isLoadingCommitments,
     refetch,
-  } = useQuery({
-    ...trpc.commitments.list.queryOptions({
-      organizationId,
-      limit: 50,
-      direction: direction === "all" ? undefined : direction,
-      status:
-        statusFilter === "active"
-          ? undefined
-          : statusFilter === "overdue"
-            ? "overdue"
-            : statusFilter === "completed"
-              ? "completed"
-              : "snoozed",
-      includeDismissed: false,
-    }),
+  } = useCommitmentUIOs({
+    organizationId,
+    direction: direction === "all" ? undefined : direction,
+    status:
+      statusFilter === "active"
+        ? undefined
+        : statusFilter === "overdue"
+          ? "overdue"
+          : statusFilter === "completed"
+            ? "completed"
+            : "snoozed",
+    limit: 50,
     enabled: !!organizationId,
   });
 
-  // Fetch detailed commitment for sheet
-  const { data: detailData } = useQuery({
-    ...trpc.commitments.get.queryOptions({
-      organizationId,
-      commitmentId: selectedCommitment ?? "",
-    }),
+  // Fetch detailed commitment for sheet using UIO hook
+  const { data: detailData } = useUIO({
+    organizationId,
+    id: selectedCommitment ?? "",
     enabled: !!organizationId && !!selectedCommitment && detailSheetOpen,
   });
 
-  // Evidence detail query
-  const { data: evidenceCommitmentData } = useQuery({
-    ...trpc.commitments.get.queryOptions({
-      organizationId,
-      commitmentId: evidenceCommitmentId ?? "",
-    }),
+  // Evidence detail query using UIO hook
+  const { data: evidenceCommitmentData } = useUIO({
+    organizationId,
+    id: evidenceCommitmentId ?? "",
     enabled: !!organizationId && !!evidenceCommitmentId && evidenceSheetOpen,
   });
 
-  // Mutations
-  const completeMutation = useMutation({
-    ...trpc.commitments.complete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment marked complete");
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to complete commitment");
-    },
-  });
-
-  const snoozeMutation = useMutation({
-    ...trpc.commitments.snooze.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment snoozed");
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to snooze commitment");
-    },
-  });
-
-  const dismissMutation = useMutation({
-    ...trpc.commitments.dismiss.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment dismissed");
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to dismiss commitment");
-    },
-  });
-
-  const verifyMutation = useMutation({
-    ...trpc.commitments.verify.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Commitment verified");
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to verify commitment");
-    },
-  });
-
-  const followUpMutation = useMutation({
-    ...trpc.commitments.generateFollowUp.mutationOptions(),
-    onSuccess: (data) => {
-      // Dismiss loading toast
-      toast.dismiss("followup-generating");
-
-      // Look up the commitment to get the debtor's email
-      const commitment = commitmentsData?.commitments?.find(
-        (c) => c.id === pendingFollowUpCommitmentId
+  // Mutations using UIO hooks
+  const completeMutationBase = useMarkCompleteUIO();
+  const completeMutation = {
+    ...completeMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string }) => {
+      completeMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId },
+        {
+          onSuccess: () => {
+            toast.success("Commitment marked complete");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to complete commitment");
+          },
+        }
       );
-      const debtor = commitment?.debtor;
+    },
+  };
+
+  const snoozeMutationBase = useSnoozeUIO();
+  const snoozeMutation = {
+    ...snoozeMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string; until: Date }) => {
+      snoozeMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId, until: params.until },
+        {
+          onSuccess: () => {
+            toast.success("Commitment snoozed");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to snooze commitment");
+          },
+        }
+      );
+    },
+  };
+
+  const dismissMutationBase = useDismissUIO();
+  const dismissMutation = {
+    ...dismissMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string }) => {
+      dismissMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId },
+        {
+          onSuccess: () => {
+            toast.success("Commitment dismissed");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to dismiss commitment");
+          },
+        }
+      );
+    },
+  };
+
+  const verifyMutationBase = useVerifyUIO();
+  const verifyMutation = {
+    ...verifyMutationBase,
+    mutate: (params: { organizationId: string; commitmentId: string }) => {
+      verifyMutationBase.mutate(
+        { organizationId: params.organizationId, id: params.commitmentId },
+        {
+          onSuccess: () => {
+            toast.success("Commitment verified");
+            refetch();
+            queryClient.invalidateQueries({ queryKey: [["uio"]] });
+          },
+          onError: () => {
+            toast.error("Failed to verify commitment");
+          },
+        }
+      );
+    },
+  };
+
+  // Follow-up generation - simplified without AI call for now
+  const handleFollowUpGenerate = useCallback(
+    (commitmentId: string) => {
+      const commitment = commitmentsData?.items?.find((c) => c.id === commitmentId);
+      if (!commitment) {
+        toast.error("Commitment not found");
+        return;
+      }
+
+      // Generate a simple follow-up template
+      const debtor = commitment.owner;
+      const subject = `Follow-up: ${commitment.canonicalTitle || "Commitment"}`;
+      const body = `Hi${debtor?.displayName ? ` ${debtor.displayName}` : ""},\n\nI wanted to follow up regarding: ${commitment.canonicalTitle || "our commitment"}.\n\nCould you please provide an update on the status?\n\nBest regards`;
 
       if (debtor?.primaryEmail) {
         openCompose({
-          to: [
-            {
-              email: debtor.primaryEmail,
-              name: debtor.displayName ?? undefined,
-            },
-          ],
-          subject: data.subject,
-          body: data.body,
+          to: [{ email: debtor.primaryEmail, name: debtor.displayName ?? undefined }],
+          subject,
+          body,
         });
-        toast.success("Follow-up draft ready to send!");
+        toast.success("Follow-up draft ready");
       } else {
-        // Fallback if no recipient - just show the draft in compose
-        openCompose({
-          subject: data.subject,
-          body: data.body,
-        });
+        openCompose({ subject, body });
         toast.success("Follow-up draft generated - please add recipient");
       }
-      setPendingFollowUpCommitmentId(null);
     },
-    onError: () => {
-      toast.dismiss("followup-generating");
-      setPendingFollowUpCommitmentId(null);
-      toast.error("Failed to generate follow-up");
-    },
-  });
+    [commitmentsData, openCompose]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -225,7 +251,7 @@ function CommitmentsPage() {
 
       // vim-style navigation
       if (e.key === "j") {
-        const commitments = commitmentsData?.commitments ?? [];
+        const commitments = commitmentsData?.items ?? [];
         const currentIndex = commitments.findIndex(
           (c) => c.id === selectedCommitment
         );
@@ -234,7 +260,7 @@ function CommitmentsPage() {
         }
       }
       if (e.key === "k") {
-        const commitments = commitmentsData?.commitments ?? [];
+        const commitments = commitmentsData?.items ?? [];
         const currentIndex = commitments.findIndex(
           (c) => c.id === selectedCommitment
         );
@@ -244,10 +270,10 @@ function CommitmentsPage() {
       }
       if (e.key === "Enter" && selectedCommitment) {
         e.preventDefault();
-        setDetailSheetOpen(true);
-      }
-      if (e.key === "Escape" && detailSheetOpen) {
-        setDetailSheetOpen(false);
+        navigate({
+          to: "/dashboard/commitments/$commitmentId",
+          params: { commitmentId: selectedCommitment },
+        });
       }
       if (e.key === "1") setDirection("all");
       if (e.key === "2") setDirection("owed_by_me");
@@ -259,7 +285,7 @@ function CommitmentsPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [commitmentsData, selectedCommitment, detailSheetOpen, refetch]);
+  }, [commitmentsData, selectedCommitment, refetch, navigate]);
 
   // Handlers
   const handleComplete = useCallback(
@@ -294,13 +320,9 @@ function CommitmentsPage() {
 
   const handleGenerateFollowUp = useCallback(
     (commitmentId: string) => {
-      // Store the commitment ID so we can look it up in onSuccess
-      setPendingFollowUpCommitmentId(commitmentId);
-      // Show generating toast immediately
-      toast.loading("Generating follow-up...", { id: "followup-generating" });
-      followUpMutation.mutate({ organizationId, commitmentId });
+      handleFollowUpGenerate(commitmentId);
     },
-    [followUpMutation, organizationId]
+    [handleFollowUpGenerate]
   );
 
   const handleThreadClick = useCallback(
@@ -338,32 +360,50 @@ function CommitmentsPage() {
     });
   }, []);
 
-  // Transform data for components
+  // Transform UIO data for components
   const commitments: CommitmentCardData[] = (
-    commitmentsData?.commitments ?? []
+    commitmentsData?.items ?? []
   ).map((c) => {
     const dueDate = c.dueDate ? new Date(c.dueDate) : null;
     const daysOverdue =
       dueDate && dueDate < new Date()
         ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
         : undefined;
+    const details = c.commitmentDetails;
+    // Get debtor and creditor from commitment details (with nested relations)
+    const debtor = details?.debtor ?? c.owner;
+    const creditor = details?.creditor;
     return {
       id: c.id,
-      title: c.title,
-      description: c.description,
-      status: c.status as CommitmentCardData["status"],
-      priority: c.priority as CommitmentCardData["priority"],
-      direction: c.direction as CommitmentCardData["direction"],
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      description: c.canonicalDescription,
+      status: (details?.status ?? "pending") as CommitmentCardData["status"],
+      priority: (details?.priority ?? "medium") as CommitmentCardData["priority"],
+      direction: (details?.direction ?? "owed_by_me") as CommitmentCardData["direction"],
       dueDate,
-      confidence: c.confidence,
+      confidence: c.overallConfidence ?? 0.8,
       isUserVerified: c.isUserVerified ?? undefined,
-      evidence: c.metadata?.originalText
-        ? [c.metadata.originalText]
+      evidence: details?.extractionContext
+        ? [JSON.stringify(details.extractionContext)]
         : undefined,
-      debtor: c.debtor,
-      creditor: c.creditor,
-      sourceThread: c.sourceThread,
-      sourceType: undefined, // Not available in list response
+      debtor: debtor ? {
+        id: debtor.id,
+        displayName: debtor.displayName,
+        primaryEmail: debtor.primaryEmail,
+        avatarUrl: debtor.avatarUrl,
+      } : undefined,
+      creditor: creditor ? {
+        id: creditor.id,
+        displayName: creditor.displayName,
+        primaryEmail: creditor.primaryEmail,
+        avatarUrl: creditor.avatarUrl,
+      } : undefined,
+      sourceThread: c.sources?.[0]?.conversation ? {
+        id: c.sources[0].conversation.id,
+        title: c.sources[0].conversation.title,
+        snippet: c.sources[0].conversation.snippet,
+      } : undefined,
+      sourceType: undefined,
       daysOverdue,
     };
   });
@@ -398,27 +438,46 @@ function CommitmentsPage() {
     completedThisMonth: 0,
   };
 
-  // Transform detail data for sheet
+  // Transform UIO detail data for sheet
   const detailCommitment: CommitmentDetailData | null = detailData
-    ? {
-        id: detailData.id,
-        title: detailData.title,
-        description: detailData.description,
-        status: detailData.status as CommitmentDetailData["status"],
-        priority: detailData.priority as CommitmentDetailData["priority"],
-        direction: detailData.direction as CommitmentDetailData["direction"],
-        dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
-        createdAt: new Date(detailData.createdAt),
-        confidence: detailData.confidence,
-        isUserVerified: detailData.isUserVerified ?? undefined,
-        evidence: detailData.metadata?.originalText
-          ? [detailData.metadata.originalText]
-          : undefined,
-        debtor: detailData.debtor,
-        creditor: detailData.creditor,
-        sourceThread: detailData.sourceThread,
-        metadata: detailData.metadata,
-      }
+    ? (() => {
+        const details = detailData.commitmentDetails;
+        const debtor = details?.debtor ?? detailData.owner;
+        const creditor = details?.creditor;
+        return {
+          id: detailData.id,
+          title: detailData.userCorrectedTitle ?? detailData.canonicalTitle ?? "",
+          description: detailData.canonicalDescription,
+          status: (details?.status ?? "pending") as CommitmentDetailData["status"],
+          priority: (details?.priority ?? "medium") as CommitmentDetailData["priority"],
+          direction: (details?.direction ?? "owed_by_me") as CommitmentDetailData["direction"],
+          dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
+          createdAt: new Date(detailData.createdAt),
+          confidence: detailData.overallConfidence ?? 0.8,
+          isUserVerified: detailData.isUserVerified ?? undefined,
+          evidence: details?.extractionContext
+            ? [JSON.stringify(details.extractionContext)]
+            : undefined,
+          debtor: debtor ? {
+            id: debtor.id,
+            displayName: debtor.displayName,
+            primaryEmail: debtor.primaryEmail,
+            avatarUrl: debtor.avatarUrl,
+          } : undefined,
+          creditor: creditor ? {
+            id: creditor.id,
+            displayName: creditor.displayName,
+            primaryEmail: creditor.primaryEmail,
+            avatarUrl: creditor.avatarUrl,
+          } : undefined,
+          sourceThread: detailData.sources?.[0]?.conversation ? {
+            id: detailData.sources[0].conversation.id,
+            title: detailData.sources[0].conversation.title,
+            snippet: detailData.sources[0].conversation.snippet,
+          } : undefined,
+          metadata: details?.extractionContext as Record<string, unknown> | undefined,
+        };
+      })()
     : null;
 
   if (orgLoading) {
@@ -640,8 +699,10 @@ function CommitmentsPage() {
                     isSelected={selectedIds.has(commitment.id)}
                     key={commitment.id}
                     onClick={() => {
-                      setSelectedCommitment(commitment.id);
-                      setDetailSheetOpen(true);
+                      navigate({
+                        to: "/dashboard/commitments/$commitmentId",
+                        params: { commitmentId: commitment.id },
+                      });
                     }}
                     onComplete={() => handleComplete(commitment.id)}
                     onDismiss={() => handleDismiss(commitment.id)}
@@ -658,8 +719,10 @@ function CommitmentsPage() {
               <CommitmentTimeline
                 commitments={filteredCommitments}
                 onCommitmentClick={(c) => {
-                  setSelectedCommitment(c.id);
-                  setDetailSheetOpen(true);
+                  navigate({
+                    to: "/dashboard/commitments/$commitmentId",
+                    params: { commitmentId: c.id },
+                  });
                 }}
               />
             </div>
@@ -688,20 +751,21 @@ function CommitmentsPage() {
             ? {
                 id: evidenceCommitmentData.id,
                 type: "commitment",
-                title: evidenceCommitmentData.title,
+                title: evidenceCommitmentData.userCorrectedTitle ?? evidenceCommitmentData.canonicalTitle ?? "",
                 extractedText:
-                  evidenceCommitmentData.description ??
-                  evidenceCommitmentData.title,
-                confidence: evidenceCommitmentData.confidence,
+                  evidenceCommitmentData.canonicalDescription ??
+                  evidenceCommitmentData.canonicalTitle ?? "",
+                confidence: evidenceCommitmentData.overallConfidence ?? 0.8,
                 isUserVerified: evidenceCommitmentData.isUserVerified ?? false,
-                quotedText:
-                  evidenceCommitmentData.metadata?.originalText ?? null,
+                quotedText: evidenceCommitmentData.commitmentDetails?.extractionContext
+                  ? JSON.stringify(evidenceCommitmentData.commitmentDetails.extractionContext)
+                  : null,
                 extractedAt: new Date(evidenceCommitmentData.createdAt),
-                modelVersion: "gpt-4o",
+                modelVersion: "llama-4-maverick",
                 confidenceFactors: [
                   {
                     name: "Text Clarity",
-                    score: evidenceCommitmentData.confidence,
+                    score: evidenceCommitmentData.overallConfidence ?? 0.8,
                     explanation: "How clear the extracted text is",
                     weight: 0.4,
                   },

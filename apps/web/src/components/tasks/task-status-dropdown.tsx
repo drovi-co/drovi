@@ -6,9 +6,10 @@
 // Used in task rows, task cards, inbox rows, commitment/decision cards.
 //
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 import { STATUS_CONFIG, STATUS_ORDER, type TaskStatus } from "./task-types";
 
@@ -59,37 +59,27 @@ export function TaskStatusDropdown({
   const config = STATUS_CONFIG[currentStatus];
   const Icon = config.icon;
 
-  const updateStatusMutation = useMutation({
-    ...trpc.tasks.updateStatus.mutationOptions(),
-    onMutate: async ({ status: newStatus }) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ["tasks"] });
-
-      // Return context for rollback
-      return { previousStatus: currentStatus };
-    },
-    onSuccess: (_, { status: newStatus }) => {
-      toast.success(`Status changed to ${STATUS_CONFIG[newStatus].label}`);
-      onStatusChange?.(newStatus);
-    },
-    onError: (error, _, context) => {
-      toast.error("Failed to update status");
-      // Rollback handled by refetch
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
+  const updateStatusMutationBase = useUpdateTaskStatusUIO();
 
   const handleStatusChange = (newStatus: TaskStatus) => {
     if (newStatus === currentStatus) return;
 
-    updateStatusMutation.mutate({
-      organizationId,
-      taskId,
-      status: newStatus,
-    });
+    updateStatusMutationBase.mutate(
+      { organizationId, id: taskId, status: newStatus },
+      {
+        onSuccess: () => {
+          toast.success(`Status changed to ${STATUS_CONFIG[newStatus].label}`);
+          onStatusChange?.(newStatus);
+          queryClient.invalidateQueries({ queryKey: [["uio"]] });
+        },
+        onError: () => {
+          toast.error("Failed to update status");
+        },
+      }
+    );
   };
+
+  const updateStatusMutation = updateStatusMutationBase;
 
   const defaultTrigger = compact ? (
     <Button

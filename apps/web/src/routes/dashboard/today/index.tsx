@@ -11,6 +11,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
 
+import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -562,17 +563,11 @@ function TodayPage() {
     ...trpc.threads.getUnreadCount.queryOptions({}),
   });
 
-  // Commitment stats
-  const { data: commitmentStats } = useQuery({
-    ...trpc.commitments.getStats.queryOptions({ organizationId }),
-    enabled: !!organizationId,
-  });
+  // Commitment stats (UIO)
+  const { data: commitmentStats } = useCommitmentStats({ organizationId });
 
-  // Decision stats
-  const { data: decisionStats } = useQuery({
-    ...trpc.decisions.getStats.queryOptions({ organizationId }),
-    enabled: !!organizationId,
-  });
+  // Decision stats (UIO)
+  const { data: decisionStats } = useDecisionStats({ organizationId });
 
   // ==========================================================================
   // DERIVED VALUES
@@ -584,8 +579,9 @@ function TodayPage() {
 
   const unreadEmails = unreadData?.count ?? 0;
   const overdueCount = commitmentStats?.overdue ?? 0;
-  const pendingCount = commitmentStats?.byStatus?.pending ?? 0;
-  const totalCommitments = overdueCount + pendingCount;
+  // Total commitments minus overdue gives us non-overdue pending count
+  const pendingCount = (commitmentStats?.total ?? 0) - overdueCount;
+  const totalCommitments = commitmentStats?.total ?? 0;
   const decisionsThisWeek = decisionStats?.thisWeek ?? 0;
 
   // ==========================================================================

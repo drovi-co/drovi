@@ -7,7 +7,6 @@
 // who was involved. Essential for understanding institutional history.
 //
 
-import { useQuery } from "@tanstack/react-query";
 import {
   format,
   isThisMonth,
@@ -31,6 +30,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { useDecisionUIOs } from "@/hooks/use-uio";
 import { ConfidenceBadge } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -64,7 +63,7 @@ export interface TimelineDecision {
   confidence: number;
   isUserVerified?: boolean;
   isSuperseded?: boolean;
-  supersededById?: string | null;
+  supersededByUioId?: string | null;
   owners?: Array<{
     id: string;
     displayName?: string | null;
@@ -153,26 +152,45 @@ export function DecisionTimeline({
   );
   const [filterTopic, setFilterTopic] = useState<string | undefined>(topicId);
 
-  const trpc = useTRPC();
+  // Fetch decisions using UIO hook
+  const { data, isLoading } = useDecisionUIOs({
+    organizationId,
+    limit: 100,
+  });
 
-  // Fetch decisions
-  const { data, isLoading } = useQuery(
-    trpc.decisions.list.queryOptions({
-      organizationId,
-      limit: 100,
-      includeSuperseded,
-      topicId: filterTopic,
-    })
-  );
-
-  // Transform decisions
+  // Transform decisions from UIO format
   const allDecisions = useMemo(() => {
-    if (!data?.decisions) return [];
-    return data.decisions.map((d) => ({
-      ...d,
-      decidedAt: new Date(d.decidedAt),
-    }));
-  }, [data]);
+    if (!data?.items) return [];
+    return data.items
+      .filter((d) => {
+        // Filter superseded if not including them
+        if (!includeSuperseded && d.decisionDetails?.supersededByUioId) return false;
+        // Filter by topic if set
+        // Note: topics may need to be tracked differently in UIO
+        return true;
+      })
+      .map((d) => ({
+        id: d.id,
+        title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
+        statement: d.canonicalDescription ?? "",
+        rationale: d.decisionDetails?.rationale ?? null,
+        decidedAt: new Date(d.firstSeenAt ?? d.createdAt),
+        confidence: d.overallConfidence ?? 0.8,
+        isUserVerified: d.isUserVerified ?? (d.userCorrectedTitle != null),
+        isSuperseded: Boolean(d.decisionDetails?.supersededByUioId),
+        supersededByUioId: d.decisionDetails?.supersededByUioId ?? null,
+        owners: d.owner ? [{
+          id: d.owner.id,
+          displayName: d.owner.displayName ?? null,
+          primaryEmail: d.owner.primaryEmail ?? "",
+        }] : [],
+        sourceThread: d.sources?.[0]?.conversationId ? {
+          id: d.sources[0].conversationId,
+          subject: null,
+        } : null,
+        topics: [],
+      }));
+  }, [data, includeSuperseded]);
 
   const groupedDecisions = useMemo(
     () => groupDecisionsByMonth(allDecisions as TimelineDecision[]),
@@ -353,7 +371,7 @@ function TimelineDecisionCard({
       <div
         className={cn(
           "absolute top-3 left-[-1.125rem] z-10 h-3 w-3 rounded-full border-2",
-          decision.supersededById
+          decision.supersededByUioId
             ? "border-muted-foreground/30 bg-background"
             : "border-purple-500 bg-purple-500"
         )}
@@ -364,7 +382,7 @@ function TimelineDecisionCard({
         className={cn(
           "ml-4 w-full rounded-lg border p-4 text-left transition-all",
           "hover:border-purple-500/50 hover:bg-accent/50",
-          decision.supersededById && "opacity-60"
+          decision.supersededByUioId && "opacity-60"
         )}
         onClick={onClick}
         type="button"
@@ -379,7 +397,7 @@ function TimelineDecisionCard({
               {decision.isUserVerified && (
                 <ThumbsUp className="h-3 w-3 shrink-0 text-green-500" />
               )}
-              {decision.supersededById && (
+              {decision.supersededByUioId && (
                 <Badge className="shrink-0 text-[10px]" variant="outline">
                   <GitBranch className="mr-1 h-2.5 w-2.5" />
                   Superseded
@@ -400,7 +418,7 @@ function TimelineDecisionCard({
             <h4
               className={cn(
                 "font-medium text-sm",
-                decision.supersededById && "line-through"
+                decision.supersededByUioId && "line-through"
               )}
             >
               {decision.title}

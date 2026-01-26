@@ -4,6 +4,8 @@ export * from "./auth";
 // Contact relationships (social graph)
 export * from "./contact-relationship";
 export * from "./credits";
+// Derivation rules and calibration (knowledge evolution)
+export * from "./derivation-rules";
 // Google Docs integration
 export * from "./google-docs";
 // Intelligence entities (contacts, claims, commitments, decisions)

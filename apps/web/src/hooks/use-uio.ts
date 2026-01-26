@@ -8,7 +8,7 @@
  */
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useTRPC } from "~/trpc/react";
+import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // Types
@@ -56,7 +56,7 @@ export function useUIOs(params: {
         offset: params.offset ?? 0,
         search: params.search,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -77,7 +77,7 @@ export function useUIO(params: {
         organizationId: params.organizationId,
         id: params.id,
       },
-      { enabled: params.enabled !== false && !!params.id }
+      { enabled: params.enabled !== false && !!params.id && !!params.organizationId }
     )
   );
 }
@@ -85,13 +85,16 @@ export function useUIO(params: {
 /**
  * Get UIO statistics for dashboard.
  */
-export function useUIOStats(params: { organizationId: string }) {
+export function useUIOStats(params: { organizationId: string; enabled?: boolean }) {
   const trpc = useTRPC();
 
   return useQuery(
-    trpc.uio.getStats.queryOptions({
-      organizationId: params.organizationId,
-    })
+    trpc.uio.getStats.queryOptions(
+      {
+        organizationId: params.organizationId,
+      },
+      { enabled: params.enabled !== false && !!params.organizationId }
+    )
   );
 }
 
@@ -127,7 +130,7 @@ export function useCommitmentUIOs(params: {
         limit: params.limit ?? 50,
         offset: params.offset ?? 0,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -152,7 +155,7 @@ export function useDecisionUIOs(params: {
         limit: params.limit ?? 50,
         offset: params.offset ?? 0,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -183,7 +186,7 @@ export function useTaskUIOs(params: {
         limit: params.limit ?? 50,
         offset: params.offset ?? 0,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -210,7 +213,7 @@ export function useRiskUIOs(params: {
         limit: params.limit ?? 50,
         offset: params.offset ?? 0,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -239,7 +242,7 @@ export function useBriefUIOs(params: {
         limit: params.limit ?? 50,
         offset: params.offset ?? 0,
       },
-      { enabled: params.enabled !== false }
+      { enabled: params.enabled !== false && !!params.organizationId }
     )
   );
 }
@@ -250,14 +253,18 @@ export function useBriefUIOs(params: {
 export function useOverdueCommitments(params: {
   organizationId: string;
   limit?: number;
+  enabled?: boolean;
 }) {
   const trpc = useTRPC();
 
   return useQuery(
-    trpc.uio.getOverdue.queryOptions({
-      organizationId: params.organizationId,
-      limit: params.limit ?? 20,
-    })
+    trpc.uio.getOverdue.queryOptions(
+      {
+        organizationId: params.organizationId,
+        limit: params.limit ?? 20,
+      },
+      { enabled: params.enabled !== false && !!params.organizationId }
+    )
   );
 }
 
@@ -299,4 +306,92 @@ export function useArchiveUIO() {
   const trpc = useTRPC();
 
   return useMutation(trpc.uio.archive.mutationOptions());
+}
+
+/**
+ * Mark a commitment as complete.
+ */
+export function useMarkCompleteUIO() {
+  const trpc = useTRPC();
+
+  return useMutation(trpc.uio.markComplete.mutationOptions());
+}
+
+/**
+ * Snooze a commitment until a specified date.
+ */
+export function useSnoozeUIO() {
+  const trpc = useTRPC();
+
+  return useMutation(trpc.uio.snooze.mutationOptions());
+}
+
+/**
+ * Update task status.
+ */
+export function useUpdateTaskStatusUIO() {
+  const trpc = useTRPC();
+
+  return useMutation(trpc.uio.updateTaskStatus.mutationOptions());
+}
+
+/**
+ * Update task priority.
+ */
+export function useUpdateTaskPriorityUIO() {
+  const trpc = useTRPC();
+
+  return useMutation(trpc.uio.updateTaskPriority.mutationOptions());
+}
+
+// =============================================================================
+// Stats Hooks
+// =============================================================================
+
+/**
+ * Get commitment statistics.
+ */
+export function useCommitmentStats(params: { organizationId: string; enabled?: boolean }) {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.uio.getCommitmentStats.queryOptions(
+      {
+        organizationId: params.organizationId,
+      },
+      { enabled: params.enabled !== false && !!params.organizationId }
+    )
+  );
+}
+
+/**
+ * Get decision statistics.
+ */
+export function useDecisionStats(params: { organizationId: string; enabled?: boolean }) {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.uio.getDecisionStats.queryOptions(
+      {
+        organizationId: params.organizationId,
+      },
+      { enabled: params.enabled !== false && !!params.organizationId }
+    )
+  );
+}
+
+/**
+ * Get task statistics.
+ */
+export function useTaskStats(params: { organizationId: string; enabled?: boolean }) {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.uio.getTaskStats.queryOptions(
+      {
+        organizationId: params.organizationId,
+      },
+      { enabled: params.enabled !== false && !!params.organizationId }
+    )
+  );
 }

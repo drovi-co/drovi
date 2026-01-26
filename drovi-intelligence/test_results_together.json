@@ -1,0 +1,3042 @@
+{
+  "timestamp": "2026-01-24T12:42:03.468852",
+  "together_results": [
+    {
+      "test_name": "Complex Email - Multiple Commitments & Decisions",
+      "source_type": "email",
+      "success": true,
+      "duration_ms": 102410,
+      "claims_count": 20,
+      "commitments_count": 6,
+      "decisions_count": 11,
+      "risks_count": 5,
+      "confidence": 0.8953636363636364,
+      "raw_response": {
+        "analysis_id": "60508f9d-4994-4c4b-b43e-c4c41d8f008b",
+        "success": true,
+        "claims": [
+          {
+            "id": "db79c928-1d77-4e73-96ba-1ae23aa2dc2d",
+            "type": "contact_info",
+            "content": "sarah.chen@techcorp.com",
+            "quoted_text": "sarah.chen@techcorp.com",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "0d79d567-aa68-4859-b7a1-4a5f6ac0c984",
+            "type": "decision",
+            "content": "The beta launch date is March 15th",
+            "quoted_text": "We will launch the beta on March 15th instead of March 1st to allow more testing time.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "9f790d77-dfc7-41bf-8548-bf31aac94dd4",
+            "type": "decision",
+            "content": "The premium tier will be priced at $49/month",
+            "quoted_text": "The premium tier will be priced at $49/month (not $59 as originally proposed).",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "a1cfcdfd-2ba6-4f7d-91d7-95520eae2119",
+            "type": "decision",
+            "content": "AWS will be used for hosting",
+            "quoted_text": "We're going with AWS for hosting instead of GCP due to better enterprise support.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "2ba9999b-4c29-47fa-908b-8c302164398d",
+            "type": "request",
+            "content": "Mike needs to provide final UI mockups by January 24th",
+            "quoted_text": "@Mike: I need the final UI mockups by this Friday (Jan 24th). Can you confirm?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "c0aa1955-ddf5-4dc8-b53f-f2aefb895949",
+            "type": "deadline",
+            "content": "January 24th is the deadline for final UI mockups",
+            "quoted_text": "@Mike: I need the final UI mockups by this Friday (Jan 24th).",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "49b2008f-3b65-4904-8c46-28b0fc065651",
+            "type": "request",
+            "content": "Jennifer needs to have marketing copy ready by January 31st",
+            "quoted_text": "@Jennifer: Please have the marketing copy ready by January 31st.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "98080278-6c5b-41c6-b7a6-64170d7cc3c0",
+            "type": "deadline",
+            "content": "January 31st is the deadline for marketing copy",
+            "quoted_text": "@Jennifer: Please have the marketing copy ready by January 31st.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "51c31a86-5a99-40bd-816e-ad576f243f68",
+            "type": "promise",
+            "content": "Sarah will review all security audit findings by next Wednesday",
+            "quoted_text": "I'll personally review all security audit findings by next Wednesday.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "4f34f8fc-b5d0-4367-b46e-99c4a7738480",
+            "type": "deadline",
+            "content": "Next Wednesday is the deadline for reviewing security audit findings",
+            "quoted_text": "I'll personally review all security audit findings by next Wednesday.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "7266a7ed-62f8-415c-b6e3-39ad0d66977b",
+            "type": "promise",
+            "content": "The engineering team will complete API v2 migration by February 10th",
+            "quoted_text": "The engineering team has committed to completing the API v2 migration by February 10th.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "5f9f1eaf-f997-41c3-ad21-c1385d9b57d3",
+            "type": "deadline",
+            "content": "February 10th is the deadline for API v2 migration",
+            "quoted_text": "The engineering team has committed to completing the API v2 migration by February 10th.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "9909c42c-912c-43c9-9b87-a9a6a54dcbef",
+            "type": "question",
+            "content": "Who will handle customer migration communication?",
+            "quoted_text": "Who will handle the customer migration communication?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "f2db4b4c-e6d0-4aa5-b57b-31bf3199d1d7",
+            "type": "question",
+            "content": "Is legal review needed for new terms of service?",
+            "quoted_text": "Do we need legal review for the new terms of service?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "313c1f17-5529-4ced-a5cf-bd5b226b36d5",
+            "type": "question",
+            "content": "What is the rollback plan if the launch fails?",
+            "quoted_text": "What's our rollback plan if the launch fails?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "90c95fc4-1989-42a2-9257-0a45570c31ff",
+            "type": "request",
+            "content": "David needs to send revised budget projections by Monday EOD",
+            "quoted_text": "@David - I noticed you mentioned budget concerns in the last meeting. Can you send me the revised budget projections by EOD Monday?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "ae27ffd5-242c-4e95-9ea7-34f11ac8eb41",
+            "type": "deadline",
+            "content": "Monday EOD is the deadline for revised budget projections",
+            "quoted_text": "@David - Can you send me the revised budget projections by EOD Monday?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "f724b6b8-46f4-422f-ac64-94108a1b6a2b",
+            "type": "fact",
+            "content": "Mike's UI mockups are 80% done",
+            "quoted_text": "The mockups are 80% done.",
+            "confidence": 1.0,
+            "source_message_id": "msg_1",
+            "importance": "low"
+          },
+          {
+            "id": "e3a3360e-ad32-4e6a-be99-c566111d4444",
+            "type": "promise",
+            "content": "Mike will try to deliver UI mockups by Friday",
+            "quoted_text": "I might need an extra day or two but will do my best to hit Friday.",
+            "confidence": 1.0,
+            "source_message_id": "msg_1",
+            "importance": "medium"
+          },
+          {
+            "id": "48e9788a-efa7-4033-9bdf-013101e132bb",
+            "type": "fact",
+            "content": "Mike is helping the design team with mobile app wireframes",
+            "quoted_text": "Also, I committed to helping the design team with the mobile app wireframes, so I'm a bit stretched thin.",
+            "confidence": 1.0,
+            "source_message_id": "msg_1",
+            "importance": "low"
+          }
+        ],
+        "commitments": [
+          {
+            "id": "667c2162-29a1-442d-88c2-27a74df43773",
+            "title": "Provide final UI mockups",
+            "description": "Mike needs to provide final UI mockups",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Mike",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-01-24T00:00:00",
+            "due_date_text": "by this Friday (Jan 24th)",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@Mike: I need the final UI mockups by this Friday (Jan 24th).",
+            "confidence": 0.95,
+            "reasoning": "Direct request made to Mike with a specific deadline",
+            "claim_id": null
+          },
+          {
+            "id": "178ccdf6-3cca-4e96-b8b9-c720b6f56a65",
+            "title": "Prepare marketing copy",
+            "description": "Jennifer needs to have marketing copy ready",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Jennifer",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-01-31T00:00:00",
+            "due_date_text": "by January 31st",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@Jennifer: Please have the marketing copy ready by January 31st.",
+            "confidence": 0.95,
+            "reasoning": "Direct request made to Jennifer with a specific deadline",
+            "claim_id": null
+          },
+          {
+            "id": "0aa9b9e3-9d80-4af0-ae15-09676b19d290",
+            "title": "Review security audit findings",
+            "description": "Sarah will review all security audit findings",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-01-28T00:00:00",
+            "due_date_text": "by next Wednesday",
+            "due_date_confidence": 0.8,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "I'll personally review all security audit findings by next Wednesday.",
+            "confidence": 0.9,
+            "reasoning": "Personal commitment made by Sarah with a specific timeline",
+            "claim_id": null
+          },
+          {
+            "id": "7a45904e-5f97-4765-8730-56841e7a60e9",
+            "title": "Complete API v2 migration",
+            "description": "The engineering team will complete the API v2 migration",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Engineering Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-02-10T00:00:00",
+            "due_date_text": "by February 10th",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "The engineering team has committed to completing the API v2 migration by February 10th.",
+            "confidence": 0.85,
+            "reasoning": "Commitment made by the engineering team as reported by Sarah",
+            "claim_id": null
+          },
+          {
+            "id": "e632d6c1-55c6-4090-8155-74e3bd2db015",
+            "title": "Send revised budget projections",
+            "description": "David needs to send revised budget projections",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "David",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-01-26T00:00:00",
+            "due_date_text": "by EOD Monday",
+            "due_date_confidence": 0.8,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@David - I noticed you mentioned budget concerns in the last meeting. Can you send me the revised budget projections by EOD Monday?",
+            "confidence": 0.9,
+            "reasoning": "Direct request made to David with a specific deadline",
+            "claim_id": null
+          },
+          {
+            "id": "44d41355-ad72-4765-95f7-4a2103c6f839",
+            "title": "Help with mobile app wireframes",
+            "description": "Mike committed to helping the design team with mobile app wireframes",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "Mike",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Design Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "I committed to helping the design team with the mobile app wireframes",
+            "confidence": 0.8,
+            "reasoning": "Commitment made by Mike as mentioned in his previous message",
+            "claim_id": null
+          }
+        ],
+        "decisions": [
+          {
+            "id": "0b8f46a2-4709-49db-960e-2caa74875c82",
+            "title": "Beta Launch Date",
+            "statement": "The beta will be launched on March 15th instead of March 1st",
+            "rationale": "To allow more testing time",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Product Team",
+              "Engineering Team",
+              "Marketing Team"
+            ],
+            "dependencies": [
+              "Testing completion"
+            ],
+            "implications": [
+              "Compressed development timeline",
+              "Later marketing push"
+            ],
+            "quoted_text": "We will launch the beta on March 15th instead of March 1st to allow more testing time.",
+            "confidence": 0.95,
+            "reasoning": "Explicit decision statement with rationale",
+            "claim_id": null
+          },
+          {
+            "id": "6285cee8-677e-4b5a-8d9a-d321ec946e76",
+            "title": "Premium Tier Pricing",
+            "statement": "The premium tier will be priced at $49/month",
+            "rationale": "Not explicitly stated, but implies a change from original $59 proposal",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Product Team",
+              "Marketing Team",
+              "Sales Team"
+            ],
+            "dependencies": [
+              "Market analysis"
+            ],
+            "implications": [
+              "Revenue projections",
+              "Customer perception"
+            ],
+            "quoted_text": "The premium tier will be priced at $49/month (not $59 as originally proposed).",
+            "confidence": 0.9,
+            "reasoning": "Clear decision with comparison to previous proposal",
+            "claim_id": null
+          },
+          {
+            "id": "81255b28-9196-43e1-b3be-3063489d0150",
+            "title": "Hosting Provider",
+            "statement": "AWS will be used for hosting instead of GCP",
+            "rationale": "Due to better enterprise support",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Engineering Team",
+              "DevOps Team"
+            ],
+            "dependencies": [
+              "AWS setup and configuration"
+            ],
+            "implications": [
+              "Infrastructure changes",
+              "Potential cost differences"
+            ],
+            "quoted_text": "We're going with AWS for hosting instead of GCP due to better enterprise support.",
+            "confidence": 0.95,
+            "reasoning": "Explicit decision with rationale",
+            "claim_id": null
+          },
+          {
+            "id": "c71b1bde-8a55-4c4e-be6d-226ef19f7496",
+            "title": "UI Mockups Deadline",
+            "statement": "Final UI mockups are due by January 24th",
+            "rationale": "Needed for product launch preparation",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Mike Torres",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Design completion"
+            ],
+            "implications": [
+              "Product development timeline"
+            ],
+            "quoted_text": "@Mike: I need the final UI mockups by this Friday (Jan 24th).",
+            "confidence": 0.85,
+            "reasoning": "Clear commitment assigned to team member",
+            "claim_id": null
+          },
+          {
+            "id": "0b6d4f3e-baaf-40be-807a-a8ceece670cd",
+            "title": "Marketing Copy Deadline",
+            "statement": "Marketing copy is due by January 31st",
+            "rationale": "Needed for product launch preparation",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Jennifer",
+              "Marketing Team"
+            ],
+            "dependencies": [
+              "Content creation"
+            ],
+            "implications": [
+              "Marketing readiness"
+            ],
+            "quoted_text": "@Jennifer: Please have the marketing copy ready by January 31st.",
+            "confidence": 0.85,
+            "reasoning": "Clear commitment assigned to team member",
+            "claim_id": null
+          },
+          {
+            "id": "eafbf6cc-416e-41ad-9dad-3d56db27b113",
+            "title": "Security Audit Review",
+            "statement": "Security audit findings will be reviewed by next Wednesday",
+            "rationale": "Needed for product launch preparation",
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Sarah Chen",
+              "Security Team"
+            ],
+            "dependencies": [
+              "Security audit completion"
+            ],
+            "implications": [
+              "Security readiness"
+            ],
+            "quoted_text": "I'll personally review all security audit findings by next Wednesday.",
+            "confidence": 0.85,
+            "reasoning": "Clear commitment made by decision maker",
+            "claim_id": null
+          },
+          {
+            "id": "0ae8c6c5-76bd-468e-a254-4916af15b700",
+            "title": "API v2 Migration Deadline",
+            "statement": "API v2 migration will be completed by February 10th",
+            "rationale": "Needed for product launch",
+            "decision_maker_name": "Engineering Team",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Engineering Team",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Development resources"
+            ],
+            "implications": [
+              "Technical readiness for launch"
+            ],
+            "quoted_text": "The engineering team has committed to completing the API v2 migration by February 10th.",
+            "confidence": 0.8,
+            "reasoning": "Commitment made by team",
+            "claim_id": null
+          },
+          {
+            "id": "6ea41aa9-4977-4613-aa10-210a67f0a276",
+            "title": "Customer Migration Communication",
+            "statement": "Decision on who will handle customer migration communication is pending",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Customer Success Team",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Resource allocation"
+            ],
+            "implications": [
+              "Customer experience during launch"
+            ],
+            "quoted_text": "Who will handle the customer migration communication?",
+            "confidence": 0.9,
+            "reasoning": "Listed as open question",
+            "claim_id": null
+          },
+          {
+            "id": "f659a067-823a-4a5f-9b5e-8db8a15734de",
+            "title": "Legal Review for Terms of Service",
+            "statement": "Decision on whether legal review is needed for new terms of service is pending",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Legal Team",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Legal assessment"
+            ],
+            "implications": [
+              "Compliance and risk management"
+            ],
+            "quoted_text": "Do we need legal review for the new terms of service?",
+            "confidence": 0.9,
+            "reasoning": "Listed as open question",
+            "claim_id": null
+          },
+          {
+            "id": "5bc40b11-da98-4cd1-8b71-e3e82832f9ce",
+            "title": "Rollback Plan",
+            "statement": "Decision on rollback plan in case of launch failure is pending",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Engineering Team",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Risk assessment"
+            ],
+            "implications": [
+              "Mitigating launch risks"
+            ],
+            "quoted_text": "What's our rollback plan if the launch fails?",
+            "confidence": 0.9,
+            "reasoning": "Listed as open question",
+            "claim_id": null
+          },
+          {
+            "id": "8c690ebd-37e6-4b55-8591-21856aba9922",
+            "title": "Revised Budget Projections",
+            "statement": "Revised budget projections are needed by EOD Monday",
+            "rationale": "To address budget concerns",
+            "decision_maker_name": "David",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "David",
+              "Finance Team",
+              "Product Team"
+            ],
+            "dependencies": [
+              "Financial analysis"
+            ],
+            "implications": [
+              "Financial planning and resource allocation"
+            ],
+            "quoted_text": "@David - I noticed you mentioned budget concerns in the last meeting. Can you send me the revised budget projections by EOD Monday?",
+            "confidence": 0.85,
+            "reasoning": "Clear request made to team member",
+            "claim_id": null
+          }
+        ],
+        "risks": [
+          {
+            "id": "e1354e7e-9060-4c1e-bdc9-89a0d78e08c2",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for UI Mockups",
+            "description": "Mike needs to provide final UI mockups by January 24th, which is a tight deadline given that they are only 80% done.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "667c2162-29a1-442d-88c2-27a74df43773"
+              },
+              {
+                "type": "decision",
+                "reference": "c71b1bde-8a55-4c4e-be6d-226ef19f7496"
+              }
+            ],
+            "suggested_action": "Review the UI mockups requirement and consider if an extra day or two can be granted to Mike.",
+            "quoted_text": "Mike needs to provide final UI mockups (due: by this Friday (Jan 24th))",
+            "confidence": 0.8,
+            "reasoning": "Mike has indicated that the mockups are only 80% done and might need an extra day or two."
+          },
+          {
+            "id": "97b83a3d-03f4-4637-9a55-0e40d279c3cb",
+            "type": "unclear_ownership",
+            "title": "Unclear Owner for Customer Migration Communication",
+            "description": "It is unclear who will handle the customer migration communication.",
+            "severity": "medium",
+            "related_to": [],
+            "suggested_action": "Assign a clear owner for handling customer migration communication.",
+            "quoted_text": "Who will handle the customer migration communication?",
+            "confidence": 0.9,
+            "reasoning": "The email explicitly mentions this as an open question."
+          },
+          {
+            "id": "8294c706-725d-48da-a2b2-5ffa240811a9",
+            "type": "missing_information",
+            "title": "Rollback Plan Missing",
+            "description": "The rollback plan in case the launch fails is not defined.",
+            "severity": "high",
+            "related_to": [],
+            "suggested_action": "Develop a rollback plan for the launch.",
+            "quoted_text": "What's our rollback plan if the launch fails?",
+            "confidence": 0.9,
+            "reasoning": "The email lists this as an open question, indicating it's currently unaddressed."
+          },
+          {
+            "id": "a854842b-e8a7-45c4-bdeb-9e1868938ac6",
+            "type": "missing_information",
+            "title": "Legal Review for New Terms of Service",
+            "description": "It is unclear if legal review is needed for the new terms of service.",
+            "severity": "medium",
+            "related_to": [],
+            "suggested_action": "Determine if legal review is required for the new terms of service and assign someone to follow up.",
+            "quoted_text": "Do we need legal review for the new terms of service?",
+            "confidence": 0.8,
+            "reasoning": "The email mentions this as an open question."
+          },
+          {
+            "id": "4db9dc48-0a30-4275-9704-47e7aafa92c1",
+            "type": "deadline_risk",
+            "title": "API v2 Migration Deadline",
+            "description": "The engineering team has to complete the API v2 migration by February 10th.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "7a45904e-5f97-4765-8730-56841e7a60e9"
+              }
+            ],
+            "suggested_action": "Monitor the progress of the API v2 migration to ensure it is on track.",
+            "quoted_text": "The engineering team will complete the API v2 migration (due: by February 10th)",
+            "confidence": 0.7,
+            "reasoning": "While there is a deadline, there's no indication that it's tight or at risk currently."
+          }
+        ],
+        "confidence": 0.8953636363636364,
+        "needs_review": true,
+        "processing_time_ms": 102404
+      }
+    },
+    {
+      "test_name": "Calendar Event - Meeting with Implicit Commitments",
+      "source_type": "calendar",
+      "success": true,
+      "duration_ms": 113849,
+      "claims_count": 21,
+      "commitments_count": 8,
+      "decisions_count": 8,
+      "risks_count": 5,
+      "confidence": 0.8887499999999999,
+      "raw_response": {
+        "analysis_id": "aaf85916-b9e3-42dc-bcfd-ebc4ec6d59e5",
+        "success": true,
+        "claims": [
+          {
+            "id": "b30fc78c-9933-40a9-94ce-0a7473a86384",
+            "type": "fact",
+            "content": "The Q4 Budget Review meeting is scheduled for February 5, 2026",
+            "quoted_text": "Time: February 5, 2026 10:00 AM - 12:00 PM",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "72456147-3c71-4caf-8dbd-4fb47ea2de15",
+            "type": "fact",
+            "content": "The meeting will be held in Conference Room A",
+            "quoted_text": "Location: Conference Room A / Zoom Link: https://zoom",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "a78e8d59-5dea-4dc6-ba7a-6046fc03b5ea",
+            "type": "fact",
+            "content": "The meeting will be available via Zoom",
+            "quoted_text": "Location: Conference Room A / Zoom Link: https://zoom",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "b732dec5-f376-4384-aa42-98d2f153c5f4",
+            "type": "contact_info",
+            "content": "The Zoom link for the meeting is https://zoom",
+            "quoted_text": "Zoom Link: https://zoom",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "59db7028-652a-46cf-8106-86a116750512",
+            "type": "contact_info",
+            "content": "Sarah Chen is an attendee",
+            "quoted_text": "Attendees:\n  \u25cb - Michael Rodriguez\n  \u25cb - Sarah Chen\n  \u25cb - James Wilson\n  \u25cb - Lisa Park\n  \u25cb - Tom Anderson",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "36ec7883-ee05-44f6-8eec-12375ddd47f7",
+            "type": "contact_info",
+            "content": "Michael Rodriguez is an attendee",
+            "quoted_text": "Attendees:\n  \u25cb - Michael Rodriguez\n  \u25cb - Sarah Chen\n  \u25cb - James Wilson\n  \u25cb - Lisa Park\n  \u25cb - Tom Anderson",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "1dcb0d1e-1695-496a-9788-c1eeeb3559e7",
+            "type": "contact_info",
+            "content": "James Wilson is an attendee",
+            "quoted_text": "Attendees:\n  \u25cb - Michael Rodriguez\n  \u25cb - Sarah Chen\n  \u25cb - James Wilson\n  \u25cb - Lisa Park\n  \u25cb - Tom Anderson",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "036d5bea-c2d5-42ef-8850-18db452f4ef4",
+            "type": "contact_info",
+            "content": "Lisa Park is an attendee",
+            "quoted_text": "Attendees:\n  \u25cb - Michael Rodriguez\n  \u25cb - Sarah Chen\n  \u25cb - James Wilson\n  \u25cb - Lisa Park\n  \u25cb - Tom Anderson",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "40d8c3bc-bedb-4f50-b4f4-de232d2d3764",
+            "type": "contact_info",
+            "content": "Tom Anderson is an attendee",
+            "quoted_text": "Attendees:\n  \u25cb - Michael Rodriguez\n  \u25cb - Sarah Chen\n  \u25cb - James Wilson\n  \u25cb - Lisa Park\n  \u25cb - Tom Anderson",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "20b87ab2-132c-4911-a17e-2b4b10aaebe9",
+            "type": "action_item",
+            "content": "Tom needs to present Q3 Actuals Review",
+            "quoted_text": "1. Q3 Actuals Review (Tom to present - 20 min)",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "2522d107-4450-4059-a9a6-d37f2d4c3c6c",
+            "type": "deadline",
+            "content": "Tom needs to finalize Q3 close by February 4th",
+            "quoted_text": "- Tom needs to finalize Q3 close by February 4th",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "080c609d-fd1c-434c-ba19-b464f2f098d9",
+            "type": "action_item",
+            "content": "Each VP needs to present their department's Q4 forecast numbers",
+            "quoted_text": "2. Q4 Forecast Discussion (Each VP to present their department's numbers - 15 min each)",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "4b2bc86a-d5bc-4e78-b4e5-116ef843031b",
+            "type": "action_item",
+            "content": "Michael needs to present cost reduction initiatives",
+            "quoted_text": "3. Cost Reduction Initiatives (Michael to present proposals)",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "df940002-a3d1-499d-b3de-bb720117e3f4",
+            "type": "action_item",
+            "content": "All VPs must submit their Q4 budget requests by February 3rd",
+            "quoted_text": "- All VPs must submit their Q4 budget requests by February 3rd",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "38a281e0-b197-4115-85c6-c4f1d5da1cb6",
+            "type": "action_item",
+            "content": "Sarah needs to bring revised product roadmap with cost estimates",
+            "quoted_text": "- Sarah to bring revised product roadmap with cost estimates",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "af7a90cc-c650-43ed-beea-a6eea25710fd",
+            "type": "decision",
+            "content": "Approval of Q4 discretionary spending will be decided",
+            "quoted_text": "- Approval of Q4 discretionary spending",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "2d942cc3-62ca-418a-b46f-0fc24e53cd45",
+            "type": "decision",
+            "content": "Headcount freeze extension decision will be made",
+            "quoted_text": "- Headcount freeze extension decision",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "d9fd55d1-dd82-42bd-ae61-c8ec0b2f7611",
+            "type": "decision",
+            "content": "Marketing budget reallocation will be decided",
+            "quoted_text": "- Marketing budget reallocation",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "ad806e27-d57d-410c-af03-826d78ee9026",
+            "type": "fact",
+            "content": "The meeting was rescheduled from January 29th",
+            "quoted_text": "Note: This meeting has been rescheduled from January 29th due to conflicts.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "266c90e1-999d-4226-8217-da5555b2ee1e",
+            "type": "deadline",
+            "content": "Attendance needs to be confirmed by January 30th",
+            "quoted_text": "Please confirm attendance by January 30th.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "1d295b09-fe5e-413a-ba4d-1551568ec4c0",
+            "type": "fact",
+            "content": "The meeting is mandatory",
+            "quoted_text": "CALENDAR EVENT: Q4 Budget Review - MANDATORY",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          }
+        ],
+        "commitments": [
+          {
+            "id": "2d5531de-9431-40ba-a208-e0fbac5e4f92",
+            "title": "Submit Q4 budget request",
+            "description": "Submit Q4 budget requests",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-02-03T00:00:00",
+            "due_date_text": "by February 3rd",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "All VPs must submit their Q4 budget requests by February 3rd",
+            "confidence": 0.95,
+            "reasoning": "The text explicitly states that all VPs must submit their Q4 budget requests by February 3rd, and Sarah Chen is listed as an attendee and likely a VP.",
+            "claim_id": null
+          },
+          {
+            "id": "4c6c89fa-389e-41d3-b2af-b5d8cb578fc8",
+            "title": "Bring revised product roadmap",
+            "description": "Bring revised product roadmap with cost estimates to the meeting",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-02-05T10:00:00",
+            "due_date_text": "February 5, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Sarah to bring revised product roadmap with cost estimates",
+            "confidence": 0.9,
+            "reasoning": "The text explicitly states that Sarah Chen is to bring the revised product roadmap with cost estimates to the meeting.",
+            "claim_id": null
+          },
+          {
+            "id": "977519a8-458f-439c-a3a5-2e92bd3ce472",
+            "title": "Attend Q4 Budget Review meeting",
+            "description": "Attend the Q4 Budget Review meeting",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-02-05T10:00:00",
+            "due_date_text": "February 5, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Sarah Chen is an attendee",
+            "confidence": 0.85,
+            "reasoning": "The meeting is marked as MANDATORY and Sarah Chen is listed as an attendee.",
+            "claim_id": null
+          },
+          {
+            "id": "fa3f1e76-60ba-436e-a2e5-faf2e627a68c",
+            "title": "Confirm attendance",
+            "description": "Confirm attendance by January 30th",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-01-30T00:00:00",
+            "due_date_text": "by January 30th",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Please confirm attendance by January 30th.",
+            "confidence": 0.8,
+            "reasoning": "The meeting description explicitly requests confirmation of attendance by January 30th.",
+            "claim_id": null
+          },
+          {
+            "id": "36a410fc-bc4d-4d2c-9cdb-1056a07dffa2",
+            "title": "Finalize Q3 close",
+            "description": "Finalize Q3 close",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Tom Anderson",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-02-04T00:00:00",
+            "due_date_text": "by February 4th",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Tom needs to finalize Q3 close by February 4th",
+            "confidence": 0.9,
+            "reasoning": "The text explicitly states that Tom needs to finalize Q3 close by February 4th.",
+            "claim_id": null
+          },
+          {
+            "id": "d353917e-baeb-471e-a2ee-0bbf9fee9f9c",
+            "title": "Present Q3 Actuals Review",
+            "description": "Present Q3 Actuals Review",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Tom Anderson",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-02-05T10:00:00",
+            "due_date_text": "February 5, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Tom to present - 20 min",
+            "confidence": 0.95,
+            "reasoning": "The agenda explicitly states that Tom is to present the Q3 Actuals Review.",
+            "claim_id": null
+          },
+          {
+            "id": "16f838fe-0525-4925-ba36-4d0695bfd5ff",
+            "title": "Present Q4 Forecast",
+            "description": "Present Q4 Forecast for department",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": true,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": "2026-02-05T10:00:00",
+            "due_date_text": "February 5, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Each VP to present their department's numbers - 15 min each",
+            "confidence": 0.8,
+            "reasoning": "The agenda states that each VP is to present their department's numbers, and Sarah Chen is likely a VP as she is an attendee and has other VP-level tasks.",
+            "claim_id": null
+          },
+          {
+            "id": "46a8ff92-7675-46d3-b680-130ee1f327fa",
+            "title": "Present Cost Reduction Initiatives",
+            "description": "Present cost reduction initiatives proposals",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Michael Rodriguez",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah Chen",
+            "creditor_email": "sarah.chen@techcorp.com",
+            "creditor_is_user": true,
+            "due_date": "2026-02-05T10:00:00",
+            "due_date_text": "February 5, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Michael to present proposals",
+            "confidence": 0.9,
+            "reasoning": "The agenda explicitly states that Michael is to present cost reduction initiatives proposals.",
+            "claim_id": null
+          }
+        ],
+        "decisions": [
+          {
+            "id": "49ffd02e-4c92-4d32-9283-ef4cfb2b52cf",
+            "title": "Approval of Q4 discretionary spending",
+            "statement": "Q4 discretionary spending needs to be approved",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Finance",
+              "Department Heads"
+            ],
+            "dependencies": [
+              "Q4 budget requests from VPs"
+            ],
+            "implications": [
+              "Financial planning for Q4"
+            ],
+            "quoted_text": "DECISIONS TO BE MADE:\n- Approval of Q4 discretionary spending",
+            "confidence": 0.95,
+            "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
+            "claim_id": null
+          },
+          {
+            "id": "99fe55da-b8cb-4b77-bad4-68142805ed2a",
+            "title": "Headcount freeze extension decision",
+            "statement": "Decision on extending headcount freeze needs to be made",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "HR",
+              "Finance",
+              "Department Heads"
+            ],
+            "dependencies": [
+              "Current headcount status",
+              "Financial projections"
+            ],
+            "implications": [
+              "Hiring plans",
+              "Budget allocation"
+            ],
+            "quoted_text": "DECISIONS TO BE MADE:\n- Headcount freeze extension decision",
+            "confidence": 0.95,
+            "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
+            "claim_id": null
+          },
+          {
+            "id": "c20fd5fb-9820-42d9-b348-e046bf03865a",
+            "title": "Marketing budget reallocation",
+            "statement": "Marketing budget needs to be reallocated",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Marketing",
+              "Finance"
+            ],
+            "dependencies": [
+              "Current marketing budget status",
+              "Q4 marketing plans"
+            ],
+            "implications": [
+              "Marketing strategy",
+              "Budget allocation"
+            ],
+            "quoted_text": "DECISIONS TO BE MADE:\n- Marketing budget reallocation",
+            "confidence": 0.95,
+            "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
+            "claim_id": null
+          },
+          {
+            "id": "3da5b761-f5a5-4b56-9af7-69a5a3848165",
+            "title": "Reschedule Q4 Budget Review meeting",
+            "statement": "Q4 Budget Review meeting rescheduled from January 29th to February 5th",
+            "rationale": "Due to conflicts",
+            "decision_maker_name": "Unknown",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "All attendees"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Updated meeting schedule"
+            ],
+            "quoted_text": "Note: This meeting has been rescheduled from January 29th due to conflicts.",
+            "confidence": 0.9,
+            "reasoning": "Meeting reschedule notice in the event description",
+            "claim_id": null
+          },
+          {
+            "id": "7f8d4262-ce63-448b-8e40-2a9619a37cdd",
+            "title": "Confirm attendance for Q4 Budget Review",
+            "statement": "Attendees need to confirm their attendance by January 30th",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "All attendees"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Meeting preparation"
+            ],
+            "quoted_text": "Please confirm attendance by January 30th.",
+            "confidence": 0.85,
+            "reasoning": "Explicit request in the event description",
+            "claim_id": null
+          },
+          {
+            "id": "04ea0451-fc19-448f-a4c6-1521ce2a9402",
+            "title": "Submit Q4 budget requests",
+            "statement": "All VPs must submit their Q4 budget requests by February 3rd",
+            "rationale": null,
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "All VPs"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Q4 budget planning"
+            ],
+            "quoted_text": "PREP REQUIRED:\n- All VPs must submit their Q4 budget requests by February 3rd",
+            "confidence": 0.9,
+            "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
+            "claim_id": null
+          },
+          {
+            "id": "727298b6-2c9b-4ea8-958a-f03134019a8e",
+            "title": "Finalize Q3 close",
+            "statement": "Tom needs to finalize Q3 close by February 4th",
+            "rationale": null,
+            "decision_maker_name": "Tom",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Finance"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Q3 financial reporting"
+            ],
+            "quoted_text": "PREP REQUIRED:\n- Tom needs to finalize Q3 close by February 4th",
+            "confidence": 0.9,
+            "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
+            "claim_id": null
+          },
+          {
+            "id": "704fbc25-6f84-4527-9626-775fe4045e3e",
+            "title": "Prepare revised product roadmap",
+            "statement": "Sarah to bring revised product roadmap with cost estimates",
+            "rationale": null,
+            "decision_maker_name": "Sarah Chen",
+            "decision_maker_email": "sarah.chen@techcorp.com",
+            "decision_maker_is_user": true,
+            "status": "pending",
+            "stakeholders": [
+              "Product team"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Product planning"
+            ],
+            "quoted_text": "PREP REQUIRED:\n- Sarah to bring revised product roadmap with cost estimates",
+            "confidence": 0.9,
+            "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
+            "claim_id": null
+          }
+        ],
+        "risks": [
+          {
+            "id": "548133c3-905a-40f7-a7be-666976bb7a92",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for Q4 Budget Request",
+            "description": "The deadline for submitting Q4 budget requests is February 3rd, which is close to the Q4 Budget Review meeting on February 5th.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "2d5531de-9431-40ba-a208-e0fbac5e4f92"
+              },
+              {
+                "type": "decision",
+                "reference": "49ffd02e-4c92-4d32-9283-ef4cfb2b52cf"
+              }
+            ],
+            "suggested_action": "Review and prioritize Q4 budget requests to ensure timely submission.",
+            "quoted_text": "All VPs must submit their Q4 budget requests by February 3rd",
+            "confidence": 0.8,
+            "reasoning": "The deadline is just two days before the meeting, which may cause last-minute rush or delays."
+          },
+          {
+            "id": "d32fe874-6704-46d3-a42e-0ce5fb57c25f",
+            "type": "commitment_conflict",
+            "title": "Potential Conflict with Q3 Close Deadline",
+            "description": "The deadline for finalizing Q3 close is February 4th, which is just one day before the Q4 Budget Review meeting.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "36a410fc-bc4d-4d2c-9cdb-1056a07dffa2"
+              }
+            ],
+            "suggested_action": "Ensure that Q3 close is finalized on time to avoid last-minute issues.",
+            "quoted_text": "Tom needs to finalize Q3 close by February 4th",
+            "confidence": 0.7,
+            "reasoning": "The close deadline is very close to the meeting date, potentially causing undue stress or delays."
+          },
+          {
+            "id": "c9e0e0ed-4ac3-4bb3-94c0-563f83774fba",
+            "type": "unclear_ownership",
+            "title": "Unclear Organizer for Q4 Budget Review Meeting",
+            "description": "The organizer of the Q4 Budget Review meeting is listed as 'Unknown'.",
+            "severity": "low",
+            "related_to": [],
+            "suggested_action": "Identify and confirm the meeting organizer.",
+            "quoted_text": "Organizer: Unknown",
+            "confidence": 0.6,
+            "reasoning": "Not knowing the organizer could lead to confusion or miscommunication about meeting details."
+          },
+          {
+            "id": "74cb4e0e-a83b-4ccd-a3e5-479706bffcfc",
+            "type": "missing_information",
+            "title": "Missing Details on Cost Reduction Initiatives",
+            "description": "The agenda mentions that Michael will present cost reduction initiatives, but no further details are provided.",
+            "severity": "low",
+            "related_to": [],
+            "suggested_action": "Request more information about the cost reduction initiatives to be presented.",
+            "quoted_text": "Cost Reduction Initiatives (Michael to present proposals)",
+            "confidence": 0.5,
+            "reasoning": "Lack of details might make it difficult for attendees to prepare adequately."
+          },
+          {
+            "id": "1c71b612-7b3f-41d8-b44c-70898f199d36",
+            "type": "escalation_needed",
+            "title": "Pending Decisions Require Higher Authority",
+            "description": "Several important decisions (Q4 discretionary spending, headcount freeze extension, marketing budget reallocation) are pending and need to be made during the meeting.",
+            "severity": "high",
+            "related_to": [
+              {
+                "type": "decision",
+                "reference": "49ffd02e-4c92-4d32-9283-ef4cfb2b52cf"
+              },
+              {
+                "type": "decision",
+                "reference": "99fe55da-b8cb-4b77-bad4-68142805ed2a"
+              },
+              {
+                "type": "decision",
+                "reference": "c20fd5fb-9820-42d9-b348-e046bf03865a"
+              }
+            ],
+            "suggested_action": "Ensure that all necessary stakeholders are present and prepared to make these decisions.",
+            "quoted_text": "DECISIONS TO BE MADE:\n- Approval of Q4 discretionary spending\n- Headcount freeze extension decision\n- Marketing budget reallocation",
+            "confidence": 0.9,
+            "reasoning": "These decisions are critical and require timely resolution, potentially needing escalation or preparation."
+          }
+        ],
+        "confidence": 0.8887499999999999,
+        "needs_review": true,
+        "processing_time_ms": 113844
+      }
+    },
+    {
+      "test_name": "Slack Thread - Urgent Production Issue",
+      "source_type": "slack",
+      "success": true,
+      "duration_ms": 110251,
+      "claims_count": 26,
+      "commitments_count": 4,
+      "decisions_count": 5,
+      "risks_count": 5,
+      "confidence": 0.8636666666666667,
+      "raw_response": {
+        "analysis_id": "13e0a59e-c653-4dcf-8b5e-677540a5a73a",
+        "success": true,
+        "claims": [
+          {
+            "id": "95f20a32-ecca-4e45-a336-026cfd024220",
+            "type": "fact",
+            "content": "Production API latency spiked to 5s",
+            "quoted_text": "\ud83d\udea8 ALERT: Production API latency spiked to 5s.",
+            "confidence": 1.0,
+            "source_message_id": "msg_0",
+            "importance": "high"
+          },
+          {
+            "id": "5a38519e-3dbc-487a-aa9b-f3c7deb31574",
+            "type": "fact",
+            "content": "Dashboard showing 50% error rate",
+            "quoted_text": "Dashboard showing 50% error rate.",
+            "confidence": 1.0,
+            "source_message_id": "msg_0",
+            "importance": "high"
+          },
+          {
+            "id": "a61cc850-2c58-439e-a339-e828f247e97c",
+            "type": "fact",
+            "content": "Database connection pool exhaustion",
+            "quoted_text": "Seeing database connection pool exhaustion.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "3bde2773-404a-49a2-899a-ec74c94f8024",
+            "type": "request",
+            "content": "Check the recent deploys",
+            "quoted_text": "@david.smith Can you check the recent deploys?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "4680deba-6f4c-47b9-85e7-3f23a1fb6c99",
+            "type": "fact",
+            "content": "v2.3.4 was pushed at 9:45 AM",
+            "quoted_text": "We pushed v2.3.4 at 9:45 AM.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "2691ff0e-4fa1-469f-aa21-92bfa27de7b2",
+            "type": "fact",
+            "content": "The deploy looks fine",
+            "quoted_text": "The deploy looks fine",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "24529d43-8de8-420d-b01d-d81a64a223ce",
+            "type": "fact",
+            "content": "Batch size for the sync job was increased from 100 to 1000",
+            "quoted_text": "I see we increased the batch size for the sync job from 100 to 1000.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "a4d0867c-e3e8-47ae-86a5-26c55a7fc4c9",
+            "type": "opinion",
+            "content": "The large batches are holding connections too long",
+            "quoted_text": "The large batches are holding connections too long.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "4156f12b-07d4-4fb1-aaca-4dc8e034928b",
+            "type": "request",
+            "content": "Rollback to v2.3.3 immediately",
+            "quoted_text": "We need to rollback.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "e6ab9de3-52a8-4f3b-922d-9280087c2f79",
+            "type": "decision",
+            "content": "Rollback to v2.3.3 immediately",
+            "quoted_text": "Decision: Let's rollback to v2.3.3 immediately.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "f9cfd56f-f5c5-4dc6-84f9-4dc4107b1539",
+            "type": "request",
+            "content": "@david.smith to rollback to v2.3.3",
+            "quoted_text": "@david.smith can you do it?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "65202109-a627-4eac-b58f-50eb6eeb824b",
+            "type": "promise",
+            "content": "Rollback will be done in 5 minutes",
+            "quoted_text": "ETA 5 minutes.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "1157f9d3-042a-435c-b33d-87ed506455fe",
+            "type": "action_item",
+            "content": "Prepare a postmortem doc",
+            "quoted_text": "I'll prepare a postmortem doc.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "8d2185ea-6086-4adb-b1ad-b201a5b8ea6f",
+            "type": "action_item",
+            "content": "Add connection pool monitoring before next release",
+            "quoted_text": "We should also add connection pool monitoring before next release.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "e50825a3-0b14-4596-b200-bd6085d64343",
+            "type": "request",
+            "content": "@jennifer.wong to own the postmortem",
+            "quoted_text": "@jennifer.wong can you own the postmortem?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "b5f8808d-936e-4754-be91-910fe3d11eff",
+            "type": "deadline",
+            "content": "Postmortem due by EOD tomorrow",
+            "quoted_text": "Due by EOD tomorrow.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "2adf4a6b-b24e-4c8c-9e0c-51a7c818c4aa",
+            "type": "promise",
+            "content": "@jennifer.wong will handle the postmortem",
+            "quoted_text": "Yes, I'll handle it.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "80fbbc76-ff0b-4fa5-8904-536acb6466fc",
+            "type": "fact",
+            "content": "Rollback complete",
+            "quoted_text": "Rollback complete.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "e010e2e0-202f-4b13-b7ca-29433e79e5f1",
+            "type": "fact",
+            "content": "Latency back to normal (200ms)",
+            "quoted_text": "Latency back to normal (200ms).",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "896737fc-4dd4-498d-b478-f20bf8d84b06",
+            "type": "fact",
+            "content": "Error rate dropping",
+            "quoted_text": "Error rate dropping.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "573dea06-d4d0-4823-8c66-6ef781096ea5",
+            "type": "action_item",
+            "content": "Book the room for a quick sync at 2 PM",
+            "quoted_text": "I'll book the room.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "289cbd1a-d254-4721-b4db-69bcb8b4b715",
+            "type": "request",
+            "content": "Notify the customer success team about the 10-minute outage",
+            "quoted_text": "Please make sure the customer success team is notified about the 10-minute outage.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "d04360f4-8cbe-4003-9583-8b4728f956a3",
+            "type": "request",
+            "content": "@jennifer.wong to send a brief incident summary to customer-success@company.com",
+            "quoted_text": "@jennifer.wong can you also send a brief incident summary to customer-success@company.com?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "6c890cdf-c5e1-4639-adf0-8a225d2297de",
+            "type": "promise",
+            "content": "@jennifer.wong will send a brief incident summary to customer-success@company.com",
+            "quoted_text": "Will do, sending now.",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "a0b26ed7-57ad-4167-a13f-e84319d5484f",
+            "type": "contact_info",
+            "content": "alex.kumar@company.com",
+            "quoted_text": "The user's email is: alex.kumar@company.com",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "b8f477d9-ebd6-4a39-b4f0-c6e9bd628eb0",
+            "type": "contact_info",
+            "content": "customer-success@company.com",
+            "quoted_text": "customer-success@company.com",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          }
+        ],
+        "commitments": [
+          {
+            "id": "30509036-3f18-4c3b-9e8d-ea22f7e60697",
+            "title": "Rollback to v2.3.3",
+            "description": "Perform rollback of the production API to version v2.3.3",
+            "direction": "owed_to_me",
+            "priority": "urgent",
+            "debtor_name": "David Smith",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Alex Kumar",
+            "creditor_email": "alex.kumar@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "immediately",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@david.smith can you do it?",
+            "confidence": 0.95,
+            "reasoning": "Explicit request made by Alex Kumar to David Smith to rollback to v2.3.3 immediately after deciding to do so.",
+            "claim_id": null
+          },
+          {
+            "id": "bbd8d8b7-8f67-4a4d-b8e9-8232cfab86b4",
+            "title": "Prepare postmortem document",
+            "description": "Create a postmortem document for the incident",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Jennifer Wong",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Alex Kumar",
+            "creditor_email": "alex.kumar@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by EOD tomorrow",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@jennifer.wong can you own the postmortem? Due by EOD tomorrow.",
+            "confidence": 0.9,
+            "reasoning": "Alex Kumar assigned the task of preparing the postmortem document to Jennifer Wong with a due date by EOD tomorrow.",
+            "claim_id": null
+          },
+          {
+            "id": "98c9924f-3b46-4741-be15-0e6e03a0157a",
+            "title": "Send incident summary to customer success team",
+            "description": "Send a brief summary of the incident to the customer success team",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Jennifer Wong",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Alex Kumar",
+            "creditor_email": "alex.kumar@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "@jennifer.wong can you also send a brief incident summary to customer-success@company.com?",
+            "confidence": 0.85,
+            "reasoning": "Alex Kumar requested Jennifer Wong to send a brief incident summary to the customer success team.",
+            "claim_id": null
+          },
+          {
+            "id": "692c1ffb-32a9-4375-80e5-312c9facf893",
+            "title": "Book meeting room for 2 PM sync",
+            "description": "Book a meeting room for the 2 PM sync discussion",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Alex Kumar",
+            "debtor_email": "alex.kumar@company.com",
+            "debtor_is_user": false,
+            "creditor_name": null,
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "2 PM",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "I'll book the room.",
+            "confidence": 0.8,
+            "reasoning": "Alex Kumar stated they would book the room for the 2 PM sync.",
+            "claim_id": null
+          }
+        ],
+        "decisions": [
+          {
+            "id": "29dd43d5-e5b6-4a76-8100-eef2b6ed2684",
+            "title": "Rollback to v2.3.3",
+            "statement": "Rollback production to version 2.3.3 immediately",
+            "rationale": "Production API latency spiked to 5s and dashboard showing 50% error rate due to database connection pool exhaustion caused by increased batch size in v2.3.4",
+            "decision_maker_name": "Alex Kumar",
+            "decision_maker_email": "alex.kumar@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Engineering",
+              "DevOps",
+              "Customer Success"
+            ],
+            "dependencies": [
+              "v2.3.3 availability",
+              "Rollback capability"
+            ],
+            "implications": [
+              "Service restoration",
+              "Postmortem required",
+              "Monitoring changes needed"
+            ],
+            "quoted_text": "Decision: Let's rollback to v2.3.3 immediately.",
+            "confidence": 0.95,
+            "reasoning": "Explicit decision statement made during incident response",
+            "claim_id": null
+          },
+          {
+            "id": "283c0e7b-2165-4f4e-a4fc-aa33dd7a0eab",
+            "title": "Prepare postmortem document",
+            "statement": "Prepare a postmortem document for the incident",
+            "rationale": "Standard procedure after incident resolution",
+            "decision_maker_name": "Alex Kumar",
+            "decision_maker_email": "alex.kumar@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Engineering"
+            ],
+            "dependencies": [
+              "Incident details"
+            ],
+            "implications": [
+              "Identify root cause",
+              "Document lessons learned"
+            ],
+            "quoted_text": "I'll prepare a postmortem doc.",
+            "confidence": 0.9,
+            "reasoning": "Task assigned during incident response",
+            "claim_id": null
+          },
+          {
+            "id": "eb8e6213-1d85-4ab0-97e0-a6ac368645fc",
+            "title": "Add connection pool monitoring",
+            "statement": "Add connection pool monitoring before next release",
+            "rationale": "Prevent similar incidents in the future",
+            "decision_maker_name": "Alex Kumar/Jennifer Wong",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Engineering",
+              "DevOps"
+            ],
+            "dependencies": [
+              "Monitoring implementation"
+            ],
+            "implications": [
+              "Improved incident detection",
+              "Better performance visibility"
+            ],
+            "quoted_text": "We should also add connection pool monitoring before next release.",
+            "confidence": 0.85,
+            "reasoning": "Decision made during discussion of incident response",
+            "claim_id": null
+          },
+          {
+            "id": "a54a06eb-2c5a-49ed-932e-7fa4e6bfd574",
+            "title": "Sync meeting at 2 PM",
+            "statement": "Hold a sync meeting at 2 PM to discuss next steps",
+            "rationale": "Coordinate team's next actions",
+            "decision_maker_name": "Alex Kumar",
+            "decision_maker_email": "alex.kumar@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Engineering",
+              "DevOps"
+            ],
+            "dependencies": [
+              "Availability of team members"
+            ],
+            "implications": [
+              "Discussion of incident summary",
+              "Planning follow-up actions"
+            ],
+            "quoted_text": "Let's do a quick sync at 2 PM to discuss next steps.",
+            "confidence": 0.9,
+            "reasoning": "Explicit decision to hold a meeting",
+            "claim_id": null
+          },
+          {
+            "id": "ab467e91-4ee3-4421-92ad-6324f1fe0703",
+            "title": "Notify customer success team",
+            "statement": "Notify customer success team about the 10-minute outage",
+            "rationale": "Keep customer-facing teams informed",
+            "decision_maker_name": "Alex Kumar",
+            "decision_maker_email": "alex.kumar@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Customer Success",
+              "Customers"
+            ],
+            "dependencies": [
+              "Incident summary"
+            ],
+            "implications": [
+              "Customer communication",
+              "Transparency"
+            ],
+            "quoted_text": "Please make sure the customer success team is notified about the 10-minute outage.",
+            "confidence": 0.9,
+            "reasoning": "Task assigned during incident response",
+            "claim_id": null
+          }
+        ],
+        "risks": [
+          {
+            "id": "1318b62e-17e2-47a1-8562-fea6a98f89c1",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for Rollback",
+            "description": "The rollback to v2.3.3 is due immediately, which may be challenging to achieve.",
+            "severity": "high",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "30509036-3f18-4c3b-9e8d-ea22f7e60697"
+              },
+              {
+                "type": "decision",
+                "reference": "29dd43d5-e5b6-4a76-8100-eef2b6ed2684"
+              }
+            ],
+            "suggested_action": "Monitor the rollback process closely and be prepared to escalate if necessary.",
+            "quoted_text": "@alex.kumar: Decision: Let's rollback to v2.3.3 immediately. @david.smith can you do it?",
+            "confidence": 0.8,
+            "reasoning": "The immediate rollback deadline may put pressure on the team, and any delays could exacerbate the issue."
+          },
+          {
+            "id": "95c7724d-b6f1-4c05-8692-7c2e13cfd29e",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for Postmortem Document",
+            "description": "The postmortem document is due by EOD tomorrow, which is a tight deadline.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "bbd8d8b7-8f67-4a4d-b8e9-8232cfab86b4"
+              },
+              {
+                "type": "decision",
+                "reference": "283c0e7b-2165-4f4e-a4fc-aa33dd7a0eab"
+              }
+            ],
+            "suggested_action": "Ensure @jennifer.wong has the necessary resources and support to complete the postmortem document on time.",
+            "quoted_text": "@alex.kumar: Agreed. @jennifer.wong can you own the postmortem? Due by EOD tomorrow.",
+            "confidence": 0.7,
+            "reasoning": "The deadline is tight, but it's still within a day, and @jennifer.wong has agreed to own it."
+          },
+          {
+            "id": "2a5e59be-4f78-44df-b6fc-e7b1f6fd88c5",
+            "type": "unclear_ownership",
+            "title": "Unclear Ownership for Sending Incident Summary",
+            "description": "It's not entirely clear who is responsible for sending the incident summary to the customer success team.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "98c9924f-3b46-4741-be15-0e6e03a0157a"
+              },
+              {
+                "type": "decision",
+                "reference": "ab467e91-4ee3-4421-92ad-6324f1fe0703"
+              }
+            ],
+            "suggested_action": "Confirm that @jennifer.wong has sent the incident summary as requested.",
+            "quoted_text": "@alex.kumar: @jennifer.wong can you also send a brief incident summary to customer-success@company.com?",
+            "confidence": 0.6,
+            "reasoning": "Although @jennifer.wong agreed to send the summary, it's not explicitly stated that she has done so."
+          },
+          {
+            "id": "b8c38ad6-5b99-45fe-a90e-bc0073bf5cae",
+            "type": "missing_information",
+            "title": "Lack of Details in Incident Summary",
+            "description": "The content of the incident summary to be sent to the customer success team is not specified.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "98c9924f-3b46-4741-be15-0e6e03a0157a"
+              },
+              {
+                "type": "decision",
+                "reference": "ab467e91-4ee3-4421-92ad-6324f1fe0703"
+              }
+            ],
+            "suggested_action": "Clarify what details should be included in the incident summary.",
+            "quoted_text": "@sarah.chen: Please make sure the customer success team is notified about the 10-minute outage.",
+            "confidence": 0.5,
+            "reasoning": "The conversation doesn't specify what information should be included in the summary."
+          },
+          {
+            "id": "afa12805-b541-4b2b-b83a-3c91ec3da17b",
+            "type": "commitment_conflict",
+            "title": "Potential Conflict with Meeting Room Booking",
+            "description": "Booking a meeting room for 2 PM is due at 2 PM, which might be too late.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "692c1ffb-32a9-4375-80e5-312c9facf893"
+              },
+              {
+                "type": "decision",
+                "reference": "a54a06eb-2c5a-49ed-932e-7fa4e6bfd574"
+              }
+            ],
+            "suggested_action": "Book the meeting room as early as possible to avoid conflicts.",
+            "quoted_text": "@alex.kumar: I'll book the room.",
+            "confidence": 0.7,
+            "reasoning": "The commitment to book the room is due at the same time as the meeting, which could lead to last-minute issues."
+          }
+        ],
+        "confidence": 0.8636666666666667,
+        "needs_review": true,
+        "processing_time_ms": 110246
+      }
+    },
+    {
+      "test_name": "Contract Negotiation Email - Complex Conditions",
+      "source_type": "email",
+      "success": true,
+      "duration_ms": 118855,
+      "claims_count": 0,
+      "commitments_count": 10,
+      "decisions_count": 7,
+      "risks_count": 5,
+      "confidence": 0.8700595238095239,
+      "raw_response": {
+        "analysis_id": "b30cc573-3992-4e99-868a-f175a37796c2",
+        "success": true,
+        "claims": [],
+        "commitments": [
+          {
+            "id": "7e615727-b85f-4d1b-b6e2-dd578a0b8dc2",
+            "title": "Accept $850,000 annual license fee",
+            "description": "Accept the counter-proposed annual license fee of $850,000",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "Acme Procurement Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "TechCorp Legal Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": true,
+            "condition": "3-year minimum commitment, payment within NET 30 terms, and annual volume of at least 10,000 API calls per day",
+            "quoted_text": "We agree to the $850,000 annual license fee (reduced from our initial $1M proposal)",
+            "confidence": 0.95,
+            "reasoning": "This is a commitment from Acme Procurement Team to accept the license fee as part of the agreement terms.",
+            "claim_id": null
+          },
+          {
+            "id": "68b489e9-9230-4e39-a047-a1443142043a",
+            "title": "Maintain 99.9% uptime",
+            "description": "Commit to 99.9% uptime excluding scheduled maintenance windows",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "TechCorp Legal Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Acme Procurement Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "We commit to 99.9% uptime (excluding scheduled maintenance windows)",
+            "confidence": 0.95,
+            "reasoning": "This is a commitment from TechCorp to maintain a certain level of service uptime.",
+            "claim_id": null
+          },
+          {
+            "id": "3f89869e-5782-4c5e-b6eb-5d3b9f382552",
+            "title": "Provide 72 hours notice for emergency maintenance",
+            "description": "Provide 72 hours notice for any emergency maintenance",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "TechCorp Legal Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Acme Procurement Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "We will provide 72 hours notice for any emergency maintenance",
+            "confidence": 0.95,
+            "reasoning": "This is a commitment from TechCorp regarding their maintenance notification policy.",
+            "claim_id": null
+          },
+          {
+            "id": "467b585c-82ca-44ea-be40-83f3ff170203",
+            "title": "Credit 10% of monthly fee if uptime falls below 99.9%",
+            "description": "Credit 10% of that month's fee if uptime falls below 99.9%",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "TechCorp Legal Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Acme Procurement Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": true,
+            "condition": "Uptime falls below 99.9% in any month",
+            "quoted_text": "IF uptime falls below 99.9% in any month, we will credit 10% of that month's fee",
+            "confidence": 0.95,
+            "reasoning": "This is a conditional commitment from TechCorp to provide a credit under certain conditions.",
+            "claim_id": null
+          },
+          {
+            "id": "2b1a90ae-7bfd-46f0-90b8-022b5e2c4c42",
+            "title": "Assign dedicated account manager",
+            "description": "Assign a dedicated account manager by February 15th",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "TechCorp Legal Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Acme Procurement Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by February 15th",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Dedicated account manager (to be assigned by February 15th)",
+            "confidence": 0.95,
+            "reasoning": "This is a commitment from TechCorp to assign an account manager by a specific date.",
+            "claim_id": null
+          },
+          {
+            "id": "71986573-56d5-4be8-be8d-47b78b194b36",
+            "title": "Complete SOC2 Type II certification",
+            "description": "Complete SOC2 Type II certification by June 30th, 2026",
+            "direction": "owed_to_me",
+            "priority": "medium",
+            "debtor_name": "TechCorp Legal Team",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Acme Procurement Team",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by June 30th, 2026",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "We will complete SOC2 Type II certification by June 30th, 2026",
+            "confidence": 0.95,
+            "reasoning": "This is a commitment from TechCorp to complete a specific certification by a certain date.",
+            "claim_id": null
+          },
+          {
+            "id": "1725d8f5-12fb-48c6-b817-754cb7dc834e",
+            "title": "Confirm legal entity name",
+            "description": "Confirm legal entity name for the contract",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": false,
+            "creditor_name": "TechCorp Legal Team",
+            "creditor_email": "contracts@techcorp.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Please confirm your legal entity name for the contract",
+            "confidence": 0.9,
+            "reasoning": "This is a request directed to the procurement team, which includes Sarah Chen, to confirm their legal entity name.",
+            "claim_id": null
+          },
+          {
+            "id": "b31882d8-aa85-4f3b-be16-48f258572b9e",
+            "title": "Provide certificate of insurance",
+            "description": "Provide certificate of insurance by February 1st",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": false,
+            "creditor_name": "TechCorp Legal Team",
+            "creditor_email": "contracts@techcorp.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by February 1st",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "We need your certificate of insurance by February 1st",
+            "confidence": 0.9,
+            "reasoning": "This is a request directed to the procurement team, which includes Sarah Chen, to provide a certificate of insurance by a specific date.",
+            "claim_id": null
+          },
+          {
+            "id": "317cea3b-03e6-4288-b09f-2d958dd39669",
+            "title": "Identify primary technical contact",
+            "description": "Identify who should be listed as the primary technical contact",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": false,
+            "creditor_name": "TechCorp Legal Team",
+            "creditor_email": "contracts@techcorp.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "Who should be listed as the primary technical contact?",
+            "confidence": 0.85,
+            "reasoning": "This is a request directed to the procurement team, which includes Sarah Chen, to identify their primary technical contact.",
+            "claim_id": null
+          },
+          {
+            "id": "c5659947-756a-497f-bf1f-304edcee9bff",
+            "title": "Finalize agreement",
+            "description": "Finalize the Enterprise Agreement by January 31st",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah Chen",
+            "debtor_email": "sarah.chen@techcorp.com",
+            "debtor_is_user": false,
+            "creditor_name": "TechCorp Legal Team",
+            "creditor_email": "contracts@techcorp.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by January 31st",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": true,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "We would like to finalize this agreement by January 31st.",
+            "confidence": 0.9,
+            "reasoning": "This is a request to finalize the agreement by a specific date, implying a commitment from Sarah Chen and the procurement team to complete their tasks by then.",
+            "claim_id": null
+          }
+        ],
+        "decisions": [
+          {
+            "id": "3861d041-a7e1-402f-9a09-c32740df4c7e",
+            "title": "Accept Enterprise Agreement Terms",
+            "statement": "Accepting counter-proposal terms for Enterprise Agreement with Acme Inc",
+            "rationale": "After careful review of counter-proposal",
+            "decision_maker_name": "TechCorp Legal Team",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "TechCorp",
+              "Acme Inc"
+            ],
+            "dependencies": [
+              "Acme Inc confirmation of terms"
+            ],
+            "implications": [
+              "Finalization of contract by January 31st"
+            ],
+            "quoted_text": "After careful review of your counter-proposal, we are prepared to accept the following terms",
+            "confidence": 0.95,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "75b79dad-50d2-4a75-b8d4-24c0964d7a28",
+            "title": "Pricing Terms",
+            "statement": "Agree to $850,000 annual license fee with conditions",
+            "rationale": "As part of counter-proposal acceptance",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "TechCorp Finance",
+              "Acme Inc Procurement"
+            ],
+            "dependencies": [
+              "3-year commitment",
+              "NET 30 payment terms",
+              "API call volume"
+            ],
+            "implications": [
+              "Renegotiation possible if API volume drops below 5,000/day"
+            ],
+            "quoted_text": "We agree to the $850,000 annual license fee (reduced from our initial $1M proposal)",
+            "confidence": 0.9,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "008674b3-fc2b-4a82-86c5-2a9693d785a8",
+            "title": "SLA Commitments",
+            "statement": "Commit to 99.9% uptime and specific maintenance terms",
+            "rationale": "Part of negotiated agreement",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "TechCorp Operations",
+              "Acme Inc Technical Team"
+            ],
+            "dependencies": [
+              "Infrastructure capacity"
+            ],
+            "implications": [
+              "Service credits for non-compliance"
+            ],
+            "quoted_text": "We commit to 99.9% uptime (excluding scheduled maintenance windows)",
+            "confidence": 0.85,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "89f7e31a-5e1e-4c82-80b6-eb813f040d06",
+            "title": "Support Terms",
+            "statement": "Agree to enterprise support and dedicated account manager",
+            "rationale": "Part of negotiated agreement",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "TechCorp Support",
+              "Acme Inc Technical Team"
+            ],
+            "dependencies": [
+              "Resource allocation for support"
+            ],
+            "implications": [
+              "Improved support response times"
+            ],
+            "quoted_text": "Enterprise support with 4-hour response time for P1 issues",
+            "confidence": 0.85,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "e72a550a-fe50-4ece-893a-242e88e5225b",
+            "title": "Data Handling Terms",
+            "statement": "Agree to data storage and retention terms",
+            "rationale": "Part of negotiated agreement",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "TechCorp Security",
+              "Acme Inc Compliance"
+            ],
+            "dependencies": [
+              "SOC2 Type II certification process"
+            ],
+            "implications": [
+              "Data management and compliance requirements"
+            ],
+            "quoted_text": "All data will be stored in US-East region unless otherwise requested",
+            "confidence": 0.85,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "d5e8ca83-a84a-44b0-a718-cb00b9b1c0de",
+            "title": "Request for Outstanding Information",
+            "statement": "Requesting legal entity name, certificate of insurance, and primary technical contact from Acme Inc",
+            "rationale": "Needed for finalizing agreement",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "Acme Inc Legal",
+              "Acme Inc Procurement"
+            ],
+            "dependencies": [
+              "Timely response from Acme Inc"
+            ],
+            "implications": [
+              "Delay in agreement finalization if not received"
+            ],
+            "quoted_text": "OUTSTANDING ITEMS REQUIRING YOUR INPUT",
+            "confidence": 0.9,
+            "reasoning": null,
+            "claim_id": null
+          },
+          {
+            "id": "d41341b5-8a5b-4d5b-9553-1887f30bce15",
+            "title": "Agreement Finalization Deadline",
+            "statement": "Finalize agreement by January 31st",
+            "rationale": "Project timeline",
+            "decision_maker_name": null,
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "pending",
+            "stakeholders": [
+              "TechCorp Legal",
+              "Acme Inc Procurement"
+            ],
+            "dependencies": [
+              "Receipt of outstanding information"
+            ],
+            "implications": [
+              "Potential delay if not met"
+            ],
+            "quoted_text": "We would like to finalize this agreement by January 31st",
+            "confidence": 0.85,
+            "reasoning": null,
+            "claim_id": null
+          }
+        ],
+        "risks": [
+          {
+            "id": "e8b060db-a7be-451c-b3c3-02c858db1385",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for Finalizing Agreement",
+            "description": "The agreement needs to be finalized by January 31st, which is a tight deadline given the outstanding items requiring input from Acme Inc.",
+            "severity": "medium",
+            "related_to": [],
+            "suggested_action": "Send a reminder to Acme Inc. about the deadline and request timely feedback on outstanding items.",
+            "quoted_text": "We would like to finalize this agreement by January 31st.",
+            "confidence": 0.8,
+            "reasoning": "The deadline for finalizing the agreement is close, and there are still outstanding items that require input from Acme Inc."
+          },
+          {
+            "id": "06e431c1-1f99-4988-bee5-f713548d93bf",
+            "type": "missing_information",
+            "title": "Missing Information from Acme Inc.",
+            "description": "Acme Inc. needs to provide their legal entity name, certificate of insurance, and primary technical contact.",
+            "severity": "medium",
+            "related_to": [],
+            "suggested_action": "Follow up with Acme Inc. to request the missing information.",
+            "quoted_text": "OUTSTANDING ITEMS REQUIRING YOUR INPUT:\n- Please confirm your legal entity name for the contract\n- We need your certificate of insurance by February 1st\n- Who should be listed as the primary technical contact?",
+            "confidence": 0.9,
+            "reasoning": "The email explicitly lists the information required from Acme Inc."
+          },
+          {
+            "id": "f9eda4fb-1345-485c-8495-e2ce49637045",
+            "type": "financial_risk",
+            "title": "Pricing Contingent on API Call Volume",
+            "description": "The $850,000 annual license fee is contingent on an annual volume of at least 10,000 API calls per day. If the volume drops below 5,000 for 3 consecutive months, TechCorp reserves the right to renegotiate pricing.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "7e615727-b85f-4d1b-b6e2-dd578a0b8dc2"
+              },
+              {
+                "type": "decision",
+                "reference": "75b79dad-50d2-4a75-b8d4-24c0964d7a28"
+              }
+            ],
+            "suggested_action": "Monitor API call volume closely and be prepared to renegotiate if it drops below the threshold.",
+            "quoted_text": "this price is contingent on:\n     a) A 3-year minimum commitment (non-cancellable)\n     b) Payment within NET 30 terms\n     c) Annual volume of at least 10,000 API calls per day\n   - If daily API volume drops below 5,000 for 3 consecutive months, we reserve the right to renegotiate pricing",
+            "confidence": 0.85,
+            "reasoning": "The pricing agreement is contingent on specific conditions, including API call volume, which could impact revenue if not met."
+          },
+          {
+            "id": "d95ad3b3-2d14-43e1-aa7f-41dd4691c64a",
+            "type": "deadline_risk",
+            "title": "Dedicated Account Manager Assignment Deadline",
+            "description": "A dedicated account manager needs to be assigned by February 15th.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "2b1a90ae-7bfd-46f0-90b8-022b5e2c4c42"
+              },
+              {
+                "type": "decision",
+                "reference": "89f7e31a-5e1e-4c82-80b6-eb813f040d06"
+              }
+            ],
+            "suggested_action": "Ensure the assignment is made before the deadline.",
+            "quoted_text": "Dedicated account manager (to be assigned by February 15th)",
+            "confidence": 0.7,
+            "reasoning": "The commitment to assign a dedicated account manager has a specific deadline."
+          },
+          {
+            "id": "3dc85230-eeb2-4ac2-8bc5-35a5dd8689a2",
+            "type": "financial_risk",
+            "title": "Potential Credit for Uptime Below 99.9%",
+            "description": "TechCorp will credit 10% of the monthly fee if uptime falls below 99.9%.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "467b585c-82ca-44ea-be40-83f3ff170203"
+              },
+              {
+                "type": "decision",
+                "reference": "008674b3-fc2b-4a82-86c5-2a9693d785a8"
+              }
+            ],
+            "suggested_action": "Monitor uptime closely to minimize potential credits.",
+            "quoted_text": "IF uptime falls below 99.9% in any month, we will credit 10% of that month's fee",
+            "confidence": 0.8,
+            "reasoning": "The SLA commitment includes a credit for failing to meet the uptime target, which could impact revenue."
+          }
+        ],
+        "confidence": 0.8700595238095239,
+        "needs_review": true,
+        "processing_time_ms": 118850
+      }
+    },
+    {
+      "test_name": "WhatsApp - Informal Project Update",
+      "source_type": "whatsapp",
+      "success": true,
+      "duration_ms": 96556,
+      "claims_count": 20,
+      "commitments_count": 7,
+      "decisions_count": 6,
+      "risks_count": 4,
+      "confidence": 0.8665714285714285,
+      "raw_response": {
+        "analysis_id": "dc3b8e73-7a6f-4acc-867c-e7195265981b",
+        "success": true,
+        "claims": [
+          {
+            "id": "4d18b651-30d8-42f9-8824-33bb2584af0d",
+            "type": "fact",
+            "content": "The client demo is confirmed for Thursday at 2pm",
+            "quoted_text": "the client demo is confirmed for thursday 2pm",
+            "confidence": 1.0,
+            "source_message_id": "msg_0",
+            "importance": "high"
+          },
+          {
+            "id": "d7f33b9d-297c-491d-a892-b98f4c7e4408",
+            "type": "question",
+            "content": "Is the demo environment ready?",
+            "quoted_text": "is the demo environment ready?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "7c4bfdb0-b6ba-4524-ae8c-1dd19602b020",
+            "type": "promise",
+            "content": "The demo environment will be ready by tomorrow night",
+            "quoted_text": "should be done by tomorrow night",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "83f0234a-c28f-457f-b99f-f5ff30cd932e",
+            "type": "request",
+            "content": "Can you make sure the test data is loaded?",
+            "quoted_text": "@james can u make sure the test data is loaded?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "cef1ea57-7e9b-4dd5-8868-5b1b41df0b69",
+            "type": "promise",
+            "content": "The test data will be loaded first thing tomorrow morning",
+            "quoted_text": "yep will do it first thing tomorrow morning",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "4dc9c437-c065-47a8-9d78-adc9f5a64a2c",
+            "type": "fact",
+            "content": "The investor presentation is on Friday morning",
+            "quoted_text": "reminder that the investor presentation is friday morning",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "463a7c77-8b78-4ad9-a71a-bc41eceb4765",
+            "type": "deadline",
+            "content": "Everyone needs to submit their slides by Wednesday EOD",
+            "quoted_text": "i need everyones slides by wednesday EOD",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "high"
+          },
+          {
+            "id": "082d354b-f624-43f8-add8-405b6a742baf",
+            "type": "fact",
+            "content": "Mike's slides are 90% done",
+            "quoted_text": "mine are 90% done",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "c62df1ec-f39f-440c-85cb-8486c4fc8320",
+            "type": "promise",
+            "content": "Mike will send his slides tonight",
+            "quoted_text": "ill send tonight",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "b8d776d5-a650-4b1d-b0e4-15842e1387d7",
+            "type": "promise",
+            "content": "James will get his slides done on Wednesday",
+            "quoted_text": "ill get it done wednesday",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "1ffb6e8a-d623-4802-b6c3-3695066f4e81",
+            "type": "request",
+            "content": "Can James aim to finish his slides by Wednesday morning?",
+            "quoted_text": "can u aim for wednesday morning so i have time to review?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "af0ddd92-fba2-4933-94da-67321cf02e76",
+            "type": "promise",
+            "content": "James will try to finish his slides by Wednesday morning",
+            "quoted_text": "ok ill try but no promises",
+            "confidence": 0.8,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "b4a37796-5d66-4a34-83f3-7b558c7b1161",
+            "type": "fact",
+            "content": "Mike found a bug in the payment flow",
+            "quoted_text": "i found a bug in the payment flow",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "552f1293-6282-464c-9e4f-113ad7d3358a",
+            "type": "fact",
+            "content": "The bug found by Mike is not critical",
+            "quoted_text": "not critical",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "7e113892-97c8-4c1a-a36d-7b3da55c90ac",
+            "type": "request",
+            "content": "Can Mike fix the bug today?",
+            "quoted_text": "can u fix it today?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "68172cc5-11b7-491c-bf9a-ad7cb32b0542",
+            "type": "promise",
+            "content": "Mike will fix the bug by lunch",
+            "quoted_text": "will be done by lunch",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "medium"
+          },
+          {
+            "id": "e14116ee-f9c1-4873-96c1-87ccd713f555",
+            "type": "question",
+            "content": "Is the bug reported by Mike the same as the one reported by James last week?",
+            "quoted_text": "@mike which bug? the one i reported last week?",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "4e00e062-3652-460a-92f4-253397649de5",
+            "type": "fact",
+            "content": "The bug reported by Mike is different from the one reported by James",
+            "quoted_text": "different one",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "67339943-918a-41c8-b127-2610549b7207",
+            "type": "action_item",
+            "content": "Mike will add the bug to Jira and link to James' bug",
+            "quoted_text": "ill add it to jira and link to yours though",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          },
+          {
+            "id": "b97bc4d5-a97a-4cb0-8bed-92f46c454ca5",
+            "type": "contact_info",
+            "content": "The user's email is sarah@company.com",
+            "quoted_text": "The user's email is: sarah@company.com",
+            "confidence": 1.0,
+            "source_message_id": null,
+            "importance": "low"
+          }
+        ],
+        "commitments": [
+          {
+            "id": "e5d396f3-4f0a-435c-b556-a8b7e8c76762",
+            "title": "Fix payment flow bug",
+            "description": "Fix the bug found in the payment flow before the demo",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Mike",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah",
+            "creditor_email": "sarah@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by lunch",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "yeah ill prioritize it. will be done by lunch",
+            "confidence": 0.9,
+            "reasoning": "Mike agreed to fix the bug by lunch after Sarah asked him to",
+            "claim_id": null
+          },
+          {
+            "id": "ef17668b-1dfc-481c-a521-71ec13fcc6e7",
+            "title": "Prepare demo environment",
+            "description": "Get the demo environment ready",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Mike",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah",
+            "creditor_email": "sarah@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by tomorrow night",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "working on it now. should be done by tomorrow night.",
+            "confidence": 0.9,
+            "reasoning": "Mike promised to have the demo environment ready by tomorrow night",
+            "claim_id": null
+          },
+          {
+            "id": "2c95b8ba-13c3-4464-8b49-03087f718a45",
+            "title": "Load test data",
+            "description": "Load the test data for the demo",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "James",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah",
+            "creditor_email": "sarah@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "first thing tomorrow morning",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "yep will do it first thing tomorrow morning",
+            "confidence": 0.9,
+            "reasoning": "James agreed to load the test data first thing tomorrow morning",
+            "claim_id": null
+          },
+          {
+            "id": "2b10683e-b24a-46c3-96b5-e816871bcc4c",
+            "title": "Submit slides for investor presentation",
+            "description": "Send slides for the investor presentation",
+            "direction": "owed_by_me",
+            "priority": "high",
+            "debtor_name": "Sarah",
+            "debtor_email": "sarah@company.com",
+            "debtor_is_user": false,
+            "creditor_name": "Unknown",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "by Wednesday EOD",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "i need everyones slides by wednesday EOD",
+            "confidence": 0.85,
+            "reasoning": "Sarah reminded everyone that she needs their slides by Wednesday EOD",
+            "claim_id": null
+          },
+          {
+            "id": "67394ec5-613e-4dec-b16e-42e7a1d7b79d",
+            "title": "Send slides",
+            "description": "Send slides for the investor presentation",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "Mike",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah",
+            "creditor_email": "sarah@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "tonight",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "mine are 90% done. ill send tonight",
+            "confidence": 0.9,
+            "reasoning": "Mike promised to send his slides tonight",
+            "claim_id": null
+          },
+          {
+            "id": "c067339a-8809-414d-91e1-8e52f1928ceb",
+            "title": "Complete slides",
+            "description": "Complete slides for the investor presentation",
+            "direction": "owed_to_me",
+            "priority": "high",
+            "debtor_name": "James",
+            "debtor_email": null,
+            "debtor_is_user": false,
+            "creditor_name": "Sarah",
+            "creditor_email": "sarah@company.com",
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": "Wednesday",
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "havent started yet tbh. but ill get it done wednesday",
+            "confidence": 0.8,
+            "reasoning": "James promised to get his slides done on Wednesday",
+            "claim_id": null
+          },
+          {
+            "id": "933ab206-3869-4e9b-a5b9-17f999068092",
+            "title": "Review James' slides",
+            "description": "Review James' slides before the investor presentation",
+            "direction": "owed_by_me",
+            "priority": "medium",
+            "debtor_name": "Sarah",
+            "debtor_email": "sarah@company.com",
+            "debtor_is_user": false,
+            "creditor_name": "Unknown",
+            "creditor_email": null,
+            "creditor_is_user": false,
+            "due_date": null,
+            "due_date_text": null,
+            "due_date_confidence": 0.0,
+            "due_date_is_explicit": false,
+            "is_conditional": false,
+            "condition": null,
+            "quoted_text": "can u aim for wednesday morning so i have time to review?",
+            "confidence": 0.75,
+            "reasoning": "Sarah requested James to send his slides by Wednesday morning so she has time to review",
+            "claim_id": null
+          }
+        ],
+        "decisions": [
+          {
+            "id": "f7b50c6c-ef62-4fb9-ba1d-4542f8760bce",
+            "title": "Confirm client demo for Thursday 2pm",
+            "statement": "The client demo is confirmed for Thursday at 2pm",
+            "rationale": null,
+            "decision_maker_name": "Mike",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Client",
+              "Project Alpha Group"
+            ],
+            "dependencies": [
+              "Demo environment readiness"
+            ],
+            "implications": [
+              "Client expectations",
+              "Demo preparation"
+            ],
+            "quoted_text": "the client demo is confirmed for thursday 2pm",
+            "confidence": 0.9,
+            "reasoning": "Explicit confirmation of demo time",
+            "claim_id": null
+          },
+          {
+            "id": "9e0c6d17-82ce-4e2d-9ca2-849b4bd2d437",
+            "title": "Prepare demo environment",
+            "statement": "The demo environment will be ready by tomorrow night",
+            "rationale": null,
+            "decision_maker_name": "Mike",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Project Alpha Group",
+              "Client"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Successful demo"
+            ],
+            "quoted_text": "should be done by tomorrow night",
+            "confidence": 0.85,
+            "reasoning": "Commitment to have environment ready",
+            "claim_id": null
+          },
+          {
+            "id": "6419c750-cbe4-471b-85d6-b32910176e9c",
+            "title": "Load test data for demo",
+            "statement": "Test data will be loaded for the demo",
+            "rationale": null,
+            "decision_maker_name": "James",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Project Alpha Group"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Demo readiness"
+            ],
+            "quoted_text": "yep will do it first thing tomorrow morning",
+            "confidence": 0.9,
+            "reasoning": "Explicit agreement to load test data",
+            "claim_id": null
+          },
+          {
+            "id": "90075a22-9286-4b4c-b8ba-7828604371e8",
+            "title": "Investor presentation preparation",
+            "statement": "Everyone needs to submit their slides for the investor presentation by Wednesday EOD",
+            "rationale": null,
+            "decision_maker_name": "Sarah",
+            "decision_maker_email": "sarah@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "Project Alpha Group",
+              "Sarah"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Investor presentation readiness"
+            ],
+            "quoted_text": "i need everyones slides by wednesday EOD",
+            "confidence": 0.95,
+            "reasoning": "Clear instruction given by team lead",
+            "claim_id": null
+          },
+          {
+            "id": "b98b54b2-34e1-4584-8070-3098f8f4fc1f",
+            "title": "Early submission of slides",
+            "statement": "James should aim to submit slides by Wednesday morning",
+            "rationale": "To allow time for review",
+            "decision_maker_name": "Sarah",
+            "decision_maker_email": "sarah@company.com",
+            "decision_maker_is_user": true,
+            "status": "made",
+            "stakeholders": [
+              "James",
+              "Sarah"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Timely review of slides"
+            ],
+            "quoted_text": "can u aim for wednesday morning so i have time to review",
+            "confidence": 0.9,
+            "reasoning": "Request made to facilitate review process",
+            "claim_id": null
+          },
+          {
+            "id": "581db77f-710e-419b-9058-900860765c74",
+            "title": "Fix payment flow bug",
+            "statement": "The newly found bug in the payment flow will be fixed today",
+            "rationale": "To ensure demo quality",
+            "decision_maker_name": "Mike",
+            "decision_maker_email": null,
+            "decision_maker_is_user": false,
+            "status": "made",
+            "stakeholders": [
+              "Project Alpha Group",
+              "Client"
+            ],
+            "dependencies": [],
+            "implications": [
+              "Improved demo quality"
+            ],
+            "quoted_text": "yeah ill prioritize it. will be done by lunch",
+            "confidence": 0.9,
+            "reasoning": "Commitment to fix the bug",
+            "claim_id": null
+          }
+        ],
+        "risks": [
+          {
+            "id": "87f547fe-5a21-4ecb-86ec-07467582ff23",
+            "type": "deadline_risk",
+            "title": "Tight Deadline for Fixing Payment Flow Bug",
+            "description": "The bug in the payment flow needs to be fixed by lunch, which is a tight deadline.",
+            "severity": "medium",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "e5d396f3-4f0a-435c-b556-a8b7e8c76762"
+              }
+            ],
+            "suggested_action": "Monitor progress and consider allocating additional resources if necessary.",
+            "quoted_text": "Mike: yeah ill prioritize it. will be done by lunch",
+            "confidence": 0.8,
+            "reasoning": "The deadline is tight, and there's limited buffer for unexpected issues."
+          },
+          {
+            "id": "6891c130-4111-4e51-9fcd-a3b31fc5376f",
+            "type": "commitment_conflict",
+            "title": "Conflicting Slide Submission Deadlines",
+            "description": "There are two commitments for submitting slides with different deadlines (tonight and Wednesday EOD).",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "2b10683e-b24a-46c3-96b5-e816871bcc4c"
+              },
+              {
+                "type": "commitment",
+                "reference": "67394ec5-613e-4dec-b16e-42e7a1d7b79d"
+              },
+              {
+                "type": "decision",
+                "reference": "b98b54b2-34e1-4584-8070-3098f8f4fc1f"
+              }
+            ],
+            "suggested_action": "Clarify the deadline for slide submission with all stakeholders.",
+            "quoted_text": "Mike: mine are 90% done. ill send tonight; Sarah: reminder that the investor presentation is friday morning. i need everyones slides by wednesday EOD",
+            "confidence": 0.7,
+            "reasoning": "The two commitments are related to the same task but have different deadlines."
+          },
+          {
+            "id": "bea0628f-ee41-458b-828e-cc0219181a7f",
+            "type": "unclear_ownership",
+            "title": "Unclear Ownership for Investor Presentation Slides",
+            "description": "While Sarah is overseeing the investor presentation, it's unclear if she is responsible for compiling or just collecting the slides.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "2b10683e-b24a-46c3-96b5-e816871bcc4c"
+              },
+              {
+                "type": "decision",
+                "reference": "90075a22-9286-4b4c-b8ba-7828604371e8"
+              },
+              {
+                "type": "decision",
+                "reference": "b98b54b2-34e1-4584-8070-3098f8f4fc1f"
+              }
+            ],
+            "suggested_action": "Clarify the responsibilities for the investor presentation slides.",
+            "quoted_text": "Sarah: i need everyones slides by wednesday EOD",
+            "confidence": 0.6,
+            "reasoning": "The text implies Sarah is collecting slides, but it's not clear if she's responsible for compiling them."
+          },
+          {
+            "id": "37f999d0-e26b-46f6-8ba0-d700e1e37cd8",
+            "type": "missing_information",
+            "title": "Lack of Details on Payment Flow Bug",
+            "description": "The details of the payment flow bug are not clearly communicated.",
+            "severity": "low",
+            "related_to": [
+              {
+                "type": "commitment",
+                "reference": "e5d396f3-4f0a-435c-b556-a8b7e8c76762"
+              }
+            ],
+            "suggested_action": "Ensure that the details of the bug are documented and shared with relevant team members.",
+            "quoted_text": "Mike: fyi i found a bug in the payment flow; James: @mike which bug? the one i reported last week?",
+            "confidence": 0.7,
+            "reasoning": "The conversation indicates a bug was found, but details are not provided."
+          }
+        ],
+        "confidence": 0.8665714285714285,
+        "needs_review": true,
+        "processing_time_ms": 96546
+      }
+    }
+  ]
+}

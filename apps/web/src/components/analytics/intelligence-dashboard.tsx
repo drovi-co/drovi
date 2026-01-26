@@ -41,6 +41,15 @@ import {
   YAxis,
 } from "recharts";
 
+import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
+import {
+  useBlindspots,
+  useCalibrationMetrics,
+  useSignalNoiseStats,
+} from "@/hooks/use-intelligence";
+import { BlindspotPanel } from "./blindspot-panel";
+import { CalibrationDisplay } from "./calibration-display";
+import { SignalNoiseChart } from "./signal-noise-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -319,18 +328,18 @@ export function IntelligenceDashboard({
 }: IntelligenceDashboardProps) {
   const trpc = useTRPC();
 
-  // Fetch data
+  // Fetch data using UIO hooks
   const {
     data: decisionStats,
     isLoading: loadingDecisions,
     refetch: refetchDecisions,
-  } = useQuery(trpc.decisions.getStats.queryOptions({ organizationId }));
+  } = useDecisionStats({ organizationId });
 
   const {
     data: commitmentStats,
     isLoading: loadingCommitments,
     refetch: refetchCommitments,
-  } = useQuery(trpc.commitments.getStats.queryOptions({ organizationId }));
+  } = useCommitmentStats({ organizationId });
 
   const { data: contactStats } = useQuery(
     trpc.contacts.getStats.queryOptions({ organizationId })
@@ -845,6 +854,29 @@ export function IntelligenceDashboard({
           </CardContent>
         </Card>
       )}
+
+      {/* Advanced Analytics Section */}
+      <div className="space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-xl">
+          <Brain className="h-5 w-5 text-purple-500" />
+          Advanced Intelligence Analytics
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Signal quality, AI calibration, and organizational blindspot detection
+        </p>
+      </div>
+
+      {/* Signal Quality & Calibration Row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SignalNoiseChart
+          days={30}
+          organizationId={organizationId}
+        />
+        <CalibrationDisplay organizationId={organizationId} />
+      </div>
+
+      {/* Blindspot Detection */}
+      <BlindspotPanel organizationId={organizationId} />
     </div>
   );
 }

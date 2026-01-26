@@ -41,5 +41,8 @@ export * from "./intelligence-extraction.js";
 export * from "./task-sync.js";
 export * from "./unified-object-processing.js";
 
+// User context refresh (RAM layer from Supermemory research)
+export * from "./user-context-refresh.js";
+
 // Email sending
 export * from "./send-email.js";

@@ -9,7 +9,6 @@
 // - Commitments "Owed To Me" (owed_to_me)
 //
 
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow, isToday, isTomorrow, isPast } from "date-fns";
 import {
@@ -27,6 +26,7 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,6 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActiveOrganization } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -88,58 +87,72 @@ export function CommitmentsCommandCenter() {
   const { data: activeOrg } = useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
-  // Fetch commitments I owe
-  const { data: owedByMeData, isLoading: isLoadingOwedByMe } = useQuery({
-    ...trpc.commitments.getByDirection.queryOptions({
-      organizationId,
-      direction: "owed_by_me",
-      limit: 50,
-    }),
+  // Fetch commitments I owe using UIO hook
+  const { data: owedByMeData, isLoading: isLoadingOwedByMe } = useCommitmentUIOs({
+    organizationId,
+    direction: "owed_by_me",
+    limit: 50,
     enabled: Boolean(organizationId),
   });
 
-  // Fetch commitments owed to me
-  const { data: owedToMeData, isLoading: isLoadingOwedToMe } = useQuery({
-    ...trpc.commitments.getByDirection.queryOptions({
-      organizationId,
-      direction: "owed_to_me",
-      limit: 50,
-    }),
+  // Fetch commitments owed to me using UIO hook
+  const { data: owedToMeData, isLoading: isLoadingOwedToMe } = useCommitmentUIOs({
+    organizationId,
+    direction: "owed_to_me",
+    limit: 50,
     enabled: Boolean(organizationId),
   });
 
   // Helper to check if commitment is overdue
-  const isCommitmentOverdue = (dueDate: string | null | undefined): boolean => {
+  const isCommitmentOverdue = (dueDate: Date | null | undefined): boolean => {
     if (!dueDate) return false;
-    return isPast(new Date(dueDate)) && !isToday(new Date(dueDate));
+    return isPast(dueDate) && !isToday(dueDate);
   };
 
-  // Transform data
-  const owedByMe: Commitment[] = (owedByMeData?.commitments ?? []).map((c) => ({
-    id: c.id,
-    title: c.title,
-    status: c.status,
-    priority: c.priority ?? "medium",
-    direction: "owed_by_me" as const,
-    dueDate: c.dueDate,
-    confidence: c.confidence,
-    isOverdue: isCommitmentOverdue(c.dueDate),
-    creditor: c.creditor,
-    sourceConversationId: c.sourceConversationId,
-  }));
+  // Transform UIO data
+  const owedByMe: Commitment[] = (owedByMeData?.items ?? []).map((c) => {
+    const details = c.commitmentDetails;
+    const dueDateParsed = c.dueDate ? new Date(c.dueDate) : null;
+    return {
+      id: c.id,
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      status: details?.status ?? "pending",
+      priority: details?.priority ?? "medium",
+      direction: "owed_by_me" as const,
+      dueDate: c.dueDate ?? null,
+      confidence: c.overallConfidence ?? 0.8,
+      isOverdue: isCommitmentOverdue(dueDateParsed),
+      creditor: c.owner ? {
+        id: c.owner.id,
+        displayName: c.owner.displayName,
+        primaryEmail: c.owner.primaryEmail,
+        avatarUrl: c.owner.avatarUrl,
+      } : undefined,
+      sourceConversationId: c.sources?.[0]?.conversationId ?? null,
+    };
+  });
 
-  const owedToMe: Commitment[] = (owedToMeData?.commitments ?? []).map((c) => ({
-    id: c.id,
-    title: c.title,
-    status: c.status,
-    priority: c.priority ?? "medium",
-    direction: "owed_to_me" as const,
-    dueDate: c.dueDate,
-    confidence: c.confidence,
-    isOverdue: isCommitmentOverdue(c.dueDate),
-    debtor: c.debtor,
-    sourceConversationId: c.sourceConversationId,
-  }));
+  const owedToMe: Commitment[] = (owedToMeData?.items ?? []).map((c) => {
+    const details = c.commitmentDetails;
+    const dueDateParsed = c.dueDate ? new Date(c.dueDate) : null;
+    return {
+      id: c.id,
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      status: details?.status ?? "pending",
+      priority: details?.priority ?? "medium",
+      direction: "owed_to_me" as const,
+      dueDate: c.dueDate ?? null,
+      confidence: c.overallConfidence ?? 0.8,
+      isOverdue: isCommitmentOverdue(dueDateParsed),
+      debtor: c.owner ? {
+        id: c.owner.id,
+        displayName: c.owner.displayName,
+        primaryEmail: c.owner.primaryEmail,
+        avatarUrl: c.owner.avatarUrl,
+      } : undefined,
+      sourceConversationId: c.sources?.[0]?.conversationId ?? null,
+    };
+  });
 
   // Filter for urgent/at-risk
   const urgentCommitments = [

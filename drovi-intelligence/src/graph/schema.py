@@ -130,6 +130,39 @@ class GraphSchema:
                     REQUIRE e.id IS UNIQUE
                 """,
             },
+            # Memory System constraints (NEW)
+            # UserProfile uniqueness by ID
+            {
+                "name": "userprofile_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (u:UserProfile)
+                    REQUIRE u.id IS UNIQUE
+                """,
+            },
+            # UserProfile uniqueness by user within organization
+            {
+                "name": "userprofile_user_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (u:UserProfile)
+                    REQUIRE (u.organizationId, u.userId) IS UNIQUE
+                """,
+            },
+            # OrganizationBaseline uniqueness (one per org)
+            {
+                "name": "orgbaseline_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (o:OrganizationBaseline)
+                    REQUIRE o.id IS UNIQUE
+                """,
+            },
+            # Pattern uniqueness by ID
+            {
+                "name": "pattern_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (p:Pattern)
+                    REQUIRE p.id IS UNIQUE
+                """,
+            },
         ]
 
         results = {}
@@ -290,6 +323,17 @@ class GraphSchema:
                     )
                 """,
             },
+            # Memory System full-text indexes (NEW)
+            # Pattern name and description for search
+            {
+                "name": "pattern_content_ft",
+                "query": """
+                    CALL db.idx.fulltext.createNodeIndex(
+                        'Pattern', ['name', 'description'],
+                        {language: 'english'}
+                    )
+                """,
+            },
         ]
 
         results = {}
@@ -360,6 +404,9 @@ class GraphSchema:
             "Claim",
             "Risk",
             "Brief",
+            # Memory System nodes (NEW)
+            "Pattern",  # trigger_embedding for semantic pattern matching
+            "UserProfile",  # static_embedding and dynamic_embedding
         ]
 
         results = {}
@@ -401,6 +448,70 @@ class GraphSchema:
                         index=index_name,
                         error=str(e),
                     )
+
+        # Special handling for UserProfile which has multiple embeddings
+        userprofile_embeddings = [
+            ("static_embedding", "userprofile_static_embedding_vec"),
+            ("dynamic_embedding", "userprofile_dynamic_embedding_vec"),
+        ]
+        for field, index_name in userprofile_embeddings:
+            try:
+                query = f"""
+                    CREATE VECTOR INDEX IF NOT EXISTS {index_name}
+                    FOR (n:UserProfile)
+                    ON n.{field}
+                    OPTIONS {{
+                        indexType: 'HNSW',
+                        dimension: {dimension},
+                        similarityFunction: 'cosine',
+                        m: {m},
+                        efConstruction: {ef_construction}
+                    }}
+                """
+                await graph.query(query)
+                results[index_name] = True
+                logger.info(
+                    "UserProfile vector index created",
+                    index=index_name,
+                    field=field,
+                )
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    results[index_name] = True
+                else:
+                    results[index_name] = False
+                    logger.warning(
+                        "Failed to create UserProfile vector index",
+                        index=index_name,
+                        error=str(e),
+                    )
+
+        # Pattern trigger_embedding index
+        try:
+            query = f"""
+                CREATE VECTOR INDEX IF NOT EXISTS pattern_trigger_embedding_vec
+                FOR (n:Pattern)
+                ON n.triggerEmbedding
+                OPTIONS {{
+                    indexType: 'HNSW',
+                    dimension: {dimension},
+                    similarityFunction: 'cosine',
+                    m: {m},
+                    efConstruction: {ef_construction}
+                }}
+            """
+            await graph.query(query)
+            results["pattern_trigger_embedding_vec"] = True
+            logger.info("Pattern trigger_embedding vector index created")
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                results["pattern_trigger_embedding_vec"] = True
+            else:
+                results["pattern_trigger_embedding_vec"] = False
+                logger.warning(
+                    "Failed to create Pattern trigger_embedding vector index",
+                    error=str(e),
+                )
 
         return results
 
@@ -520,6 +631,23 @@ class GraphSchema:
             ("Brief", "priorityTier"),
             ("Brief", "suggestedAction"),
             ("Claim", "claimType"),
+            # Memory System indexes (NEW - from Supermemory research)
+            # Entity knowledge evolution
+            ("Entity", "validTo"),  # Find currently valid entities (validTo IS NULL)
+            ("Entity", "supersededById"),  # Find superseded entities
+            ("Entity", "relevanceScore"),  # Find high-relevance entities
+            ("Entity", "lastAccessedAt"),  # Find recently accessed entities
+            # UserProfile
+            ("UserProfile", "organizationId"),
+            ("UserProfile", "userId"),
+            ("UserProfile", "dynamicRefreshNeeded"),  # Find profiles needing refresh
+            # OrganizationBaseline
+            ("OrganizationBaseline", "organizationId"),
+            # Pattern
+            ("Pattern", "organizationId"),
+            ("Pattern", "domain"),  # Filter by domain
+            ("Pattern", "isActive"),  # Find active patterns only
+            ("Pattern", "accuracyRate"),  # Find high-accuracy patterns
         ]
 
         results = {}

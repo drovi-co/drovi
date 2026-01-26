@@ -199,6 +199,28 @@ export const uioBriefPriorityEnum = pgEnum("uio_brief_priority", [
   "low",
 ]);
 
+/**
+ * Signal classification from Wheeler's Statistical Process Control.
+ * Distinguishes special cause (signal) from common cause (noise).
+ */
+export const signalClassificationEnum = pgEnum("signal_classification", [
+  "signal", // Special cause - deviation > 2σ from baseline
+  "noise", // Common cause - within normal variation
+  "uncertain", // Insufficient data to determine
+]);
+
+/**
+ * Control chart zones for Wheeler's SPC.
+ * Zone A: > 2σ (definite signal)
+ * Zone B: 1-2σ (potential signal, needs pattern)
+ * Zone C: < 1σ (noise)
+ */
+export const controlChartZoneEnum = pgEnum("control_chart_zone", [
+  "A", // > 2 standard deviations
+  "B", // 1-2 standard deviations
+  "C", // < 1 standard deviation
+]);
+
 // =============================================================================
 // UNIFIED INTELLIGENCE OBJECT TABLE
 // =============================================================================
@@ -254,6 +276,17 @@ export const unifiedIntelligenceObject = pgTable(
     isUserDismissed: boolean("is_user_dismissed").default(false),
     userCorrectedTitle: text("user_corrected_title"),
 
+    // Signal detection (Wheeler's Statistical Process Control)
+    signalClassification: signalClassificationEnum("signal_classification"),
+    deviationScore: real("deviation_score"), // Standard deviations from baseline
+    actionabilityScore: real("actionability_score"), // 0-1, how actionable is this
+    controlChartZone: controlChartZoneEnum("control_chart_zone"),
+
+    // Graph-based signal indicators
+    contradictsExisting: boolean("contradicts_existing").default(false),
+    newClusterDetected: boolean("new_cluster_detected").default(false),
+    highCentralityInvolved: boolean("high_centrality_involved").default(false),
+
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -274,6 +307,10 @@ export const unifiedIntelligenceObject = pgTable(
       table.type,
       table.status
     ),
+    // Signal detection indexes
+    index("uio_signal_classification_idx").on(table.signalClassification),
+    index("uio_actionability_idx").on(table.actionabilityScore),
+    index("uio_contradicts_idx").on(table.contradictsExisting),
   ]
 );
 

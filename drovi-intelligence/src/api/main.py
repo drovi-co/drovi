@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from src.config import get_settings
-from src.api.routes import analyze, graph, health, memory, search, uios
+from src.api.routes import analyze, analytics, customer, graph, health, memory, search, uios
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
 
@@ -113,6 +113,8 @@ app.mount("/metrics", metrics_app)
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
+app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+app.include_router(customer.router, prefix="/api/v1", tags=["Customer Context"])
 app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory"])
 app.include_router(search.router, prefix="/api/v1", tags=["Search"])

@@ -318,10 +318,59 @@ export const uioRouter = router({
             orderBy: (t, { desc }) => [desc(t.eventAt)],
             limit: 10,
           },
-          commitmentDetails: true,
-          decisionDetails: true,
+          commitmentDetails: {
+            with: {
+              debtor: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+              creditor: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+          decisionDetails: {
+            with: {
+              decisionMaker: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
           claimDetails: true,
-          taskDetails: true,
+          taskDetails: {
+            with: {
+              assignee: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+              createdBy: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
           riskDetails: true,
           briefDetails: true,
         },
@@ -391,10 +440,38 @@ export const uioRouter = router({
               avatarUrl: true,
             },
           },
-          commitmentDetails: true,
+          commitmentDetails: {
+            with: {
+              debtor: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+              creditor: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
           sources: {
             limit: 1,
             orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+            with: {
+              conversation: {
+                columns: {
+                  id: true,
+                  title: true,
+                  snippet: true,
+                },
+              },
+            },
           },
         },
       });
@@ -458,12 +535,33 @@ export const uioRouter = router({
               id: true,
               primaryEmail: true,
               displayName: true,
+              avatarUrl: true,
             },
           },
-          decisionDetails: true,
+          decisionDetails: {
+            with: {
+              decisionMaker: {
+                columns: {
+                  id: true,
+                  primaryEmail: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
           sources: {
             limit: 1,
             orderBy: (s, { desc }) => [desc(s.sourceTimestamp)],
+            with: {
+              conversation: {
+                columns: {
+                  id: true,
+                  title: true,
+                  snippet: true,
+                },
+              },
+            },
           },
         },
       });
@@ -911,6 +1009,312 @@ export const uioRouter = router({
       return {
         items: withDaysOverdue,
         total: withDaysOverdue.length,
+      };
+    }),
+
+  /**
+   * Mark a commitment as complete.
+   */
+  markComplete: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        id: z.string().uuid(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+
+      // Update base UIO
+      await db
+        .update(unifiedIntelligenceObject)
+        .set({
+          status: "archived",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(unifiedIntelligenceObject.id, input.id),
+            eq(unifiedIntelligenceObject.organizationId, input.organizationId)
+          )
+        );
+
+      // Update commitment details status
+      await db.execute(
+        sql`UPDATE uio_commitment_details SET status = 'completed', updated_at = ${now} WHERE uio_id = ${input.id}`
+      );
+
+      return { success: true };
+    }),
+
+  /**
+   * Snooze a commitment until a specified date.
+   */
+  snooze: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        id: z.string().uuid(),
+        until: z.date(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+
+      // Update commitment details with snooze status
+      await db.execute(
+        sql`UPDATE uio_commitment_details SET status = 'snoozed', snoozed_until = ${input.until}, updated_at = ${now} WHERE uio_id = ${input.id}`
+      );
+
+      // Update base UIO timestamp
+      await db
+        .update(unifiedIntelligenceObject)
+        .set({ updatedAt: now })
+        .where(eq(unifiedIntelligenceObject.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
+   * Update task status.
+   */
+  updateTaskStatus: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        id: z.string().uuid(),
+        status: z.enum(["backlog", "todo", "in_progress", "in_review", "done", "cancelled"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+
+      // Update task details status
+      await db.execute(
+        sql`UPDATE uio_task_details SET status = ${input.status}, updated_at = ${now} WHERE uio_id = ${input.id}`
+      );
+
+      // If done or cancelled, archive the UIO
+      if (input.status === "done" || input.status === "cancelled") {
+        await db
+          .update(unifiedIntelligenceObject)
+          .set({ status: "archived", updatedAt: now })
+          .where(
+            and(
+              eq(unifiedIntelligenceObject.id, input.id),
+              eq(unifiedIntelligenceObject.organizationId, input.organizationId)
+            )
+          );
+      } else {
+        await db
+          .update(unifiedIntelligenceObject)
+          .set({ updatedAt: now })
+          .where(eq(unifiedIntelligenceObject.id, input.id));
+      }
+
+      return { success: true };
+    }),
+
+  /**
+   * Update task priority.
+   */
+  updateTaskPriority: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        id: z.string().uuid(),
+        priority: z.enum(["no_priority", "low", "medium", "high", "urgent"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+
+      // Update task details priority
+      await db.execute(
+        sql`UPDATE uio_task_details SET priority = ${input.priority}, updated_at = ${now} WHERE uio_id = ${input.id}`
+      );
+
+      // Update base UIO timestamp
+      await db
+        .update(unifiedIntelligenceObject)
+        .set({ updatedAt: now })
+        .where(eq(unifiedIntelligenceObject.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
+   * Get commitment statistics.
+   */
+  getCommitmentStats: protectedProcedure
+    .input(z.object({ organizationId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+      const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Get all commitment UIOs with their details
+      const commitments = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "commitment"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        with: {
+          commitmentDetails: true,
+        },
+      });
+
+      const active = commitments.filter((c) => c.status === "active");
+      const overdue = active.filter((c) => c.dueDate && c.dueDate < now);
+      const dueThisWeek = active.filter((c) => c.dueDate && c.dueDate >= now && c.dueDate <= weekFromNow);
+
+      // Count by direction
+      const owedByMe = active.filter((c) => c.commitmentDetails?.direction === "owed_by_me").length;
+      const owedToMe = active.filter((c) => c.commitmentDetails?.direction === "owed_to_me").length;
+
+      // Count completed this month
+      const completedThisMonth = commitments.filter((c) =>
+        c.commitmentDetails?.status === "completed" &&
+        c.updatedAt >= monthStart
+      ).length;
+
+      return {
+        total: active.length,
+        overdue: overdue.length,
+        dueThisWeek: dueThisWeek.length,
+        owedByMe,
+        owedToMe,
+        completedThisMonth,
+      };
+    }),
+
+  /**
+   * Get decision statistics.
+   */
+  getDecisionStats: protectedProcedure
+    .input(z.object({ organizationId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Get all decision UIOs
+      const decisions = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "decision"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        with: {
+          decisionDetails: true,
+        },
+      });
+
+      const thisWeek = decisions.filter((d) => d.createdAt >= weekAgo);
+      const thisMonth = decisions.filter((d) => d.createdAt >= monthStart);
+      const superseded = decisions.filter((d) => d.decisionDetails?.supersededByUioId);
+      const verified = decisions.filter((d) => d.isUserVerified);
+
+      // Calculate average confidence
+      const avgConfidence = decisions.length > 0
+        ? decisions.reduce((sum, d) => sum + (d.overallConfidence ?? 0), 0) / decisions.length
+        : 0;
+
+      return {
+        total: decisions.length,
+        thisWeek: thisWeek.length,
+        thisMonth: thisMonth.length,
+        superseded: superseded.length,
+        avgConfidence,
+        verifiedCount: verified.length,
+        topTopics: [] as Array<{ id: string; name: string; count: number }>, // Would need separate query for topics
+      };
+    }),
+
+  /**
+   * Get task statistics.
+   */
+  getTaskStats: protectedProcedure
+    .input(z.object({ organizationId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const now = new Date();
+      const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      // Get all task UIOs with their details
+      const tasks = await db.query.unifiedIntelligenceObject.findMany({
+        where: and(
+          eq(unifiedIntelligenceObject.organizationId, input.organizationId),
+          eq(unifiedIntelligenceObject.type, "task"),
+          eq(unifiedIntelligenceObject.isUserDismissed, false)
+        ),
+        with: {
+          taskDetails: true,
+        },
+      });
+
+      // Count by status
+      const byStatus: Record<string, number> = {
+        backlog: 0,
+        todo: 0,
+        in_progress: 0,
+        in_review: 0,
+        done: 0,
+        cancelled: 0,
+      };
+      for (const task of tasks) {
+        const status = task.taskDetails?.status ?? "backlog";
+        byStatus[status] = (byStatus[status] ?? 0) + 1;
+      }
+
+      // Count by priority
+      const byPriority: Record<string, number> = {
+        no_priority: 0,
+        low: 0,
+        medium: 0,
+        high: 0,
+        urgent: 0,
+      };
+      for (const task of tasks) {
+        const priority = task.taskDetails?.priority ?? "no_priority";
+        byPriority[priority] = (byPriority[priority] ?? 0) + 1;
+      }
+
+      // Count overdue and due this week (for tasks that are not done or cancelled)
+      const activeTasks = tasks.filter((t) => {
+        const status = t.taskDetails?.status;
+        return status !== "done" && status !== "cancelled";
+      });
+      const overdueCount = activeTasks.filter((t) => t.dueDate && t.dueDate < now).length;
+      const dueThisWeek = activeTasks.filter((t) => t.dueDate && t.dueDate >= now && t.dueDate <= weekFromNow).length;
+
+      return {
+        total: tasks.length,
+        byStatus,
+        byPriority,
+        overdueCount,
+        dueThisWeek,
       };
     }),
 });

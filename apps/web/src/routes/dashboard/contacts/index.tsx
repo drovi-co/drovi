@@ -13,16 +13,11 @@ import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ContactCard, type ContactCardData } from "@/components/dashboards";
+import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
@@ -106,15 +101,6 @@ function ContactsPage() {
       limit: 20,
     }),
     enabled: !!organizationId && searchQuery.length > 2,
-  });
-
-  // Contact profile query
-  const { data: profileData, isLoading: isLoadingProfile } = useQuery({
-    ...trpc.contacts.get.queryOptions({
-      organizationId,
-      contactId: profileContactId ?? "",
-    }),
-    enabled: !!organizationId && !!profileContactId,
   });
 
   // Mutations
@@ -434,93 +420,15 @@ function ContactsPage() {
         </div>
       </div>
 
-      {/* Contact Profile Sheet */}
+      {/* Contact Profile Sheet - Now with rich Customer Context */}
       <Sheet onOpenChange={setShowProfileSheet} open={showProfileSheet}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle>Contact Profile</SheetTitle>
-            <SheetDescription>
-              Detailed relationship intelligence
-            </SheetDescription>
-          </SheetHeader>
-          <div className="py-6">
-            {isLoadingProfile ? (
-              <div className="space-y-4">
-                <Skeleton className="h-20 w-20 rounded-full" />
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-32" />
-              </div>
-            ) : profileData?.contact ? (
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 font-bold text-2xl text-primary">
-                    {profileData.contact.displayName?.[0] ??
-                      profileData.contact.primaryEmail[0]?.toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {profileData.contact.displayName ??
-                        profileData.contact.primaryEmail}
-                    </h3>
-                    {profileData.contact.title && (
-                      <p className="text-muted-foreground text-sm">
-                        {profileData.contact.title}
-                        {profileData.contact.company &&
-                          ` at ${profileData.contact.company}`}
-                      </p>
-                    )}
-                    <p className="text-primary text-sm">
-                      {profileData.contact.primaryEmail}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="font-bold text-2xl">
-                      {profileData.contact.totalThreads ?? 0}
-                    </p>
-                    <p className="text-muted-foreground text-xs">Threads</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="font-bold text-2xl">
-                      {profileData.contact.totalMessages ?? 0}
-                    </p>
-                    <p className="text-muted-foreground text-xs">Messages</p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="space-y-2">
-                  <Button
-                    className="w-full"
-                    disabled={meetingBriefMutation.isPending}
-                    onClick={() =>
-                      handleGenerateMeetingBrief(profileData.contact.id)
-                    }
-                  >
-                    Generate Meeting Brief
-                  </Button>
-                  <Button
-                    className="w-full"
-                    onClick={() =>
-                      handleEmailClick(profileData.contact.primaryEmail)
-                    }
-                    variant="outline"
-                  >
-                    Send Email
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">
-                Contact not found
-              </p>
-            )}
-          </div>
+        <SheetContent className="w-[540px] overflow-y-auto">
+          {profileContactId && (
+            <CustomerContextPanel
+              contactId={profileContactId}
+              organizationId={organizationId}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>

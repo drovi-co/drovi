@@ -6,7 +6,6 @@
 // overdue items, and relationship insights. Your weekly accountability brief.
 //
 
-import { useQuery } from "@tanstack/react-query";
 import {
   differenceInDays,
   endOfWeek,
@@ -33,6 +32,11 @@ import {
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import {
+  useCommitmentStats,
+  useCommitmentUIOs,
+  useDecisionUIOs,
+} from "@/hooks/use-uio";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,7 +54,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -207,7 +210,6 @@ export function WeeklyDigest({
   onContactClick,
   className,
 }: WeeklyDigestProps) {
-  const trpc = useTRPC();
   const [weekOffset, setWeekOffset] = useState(initialWeekOffset);
 
   // Calculate week dates
@@ -222,40 +224,59 @@ export function WeeklyDigest({
     };
   }, [weekOffset]);
 
-  // Fetch decisions (we'll filter by date client-side to avoid transformer issues)
-  const { data: decisionsData, isLoading: loadingDecisions } = useQuery(
-    trpc.decisions.list.queryOptions({
-      organizationId,
-      limit: 100,
-    })
-  );
+  // Fetch decisions using UIO hook
+  const { data: decisionsData, isLoading: loadingDecisions } = useDecisionUIOs({
+    organizationId,
+    limit: 100,
+    enabled: !!organizationId,
+  });
 
-  // Fetch commitments
-  const { data: commitmentsData, isLoading: loadingCommitments } = useQuery(
-    trpc.commitments.list.queryOptions({
-      organizationId,
-      limit: 100,
-      includeDismissed: false,
-    })
-  );
+  // Fetch commitments using UIO hook
+  const { data: commitmentsData, isLoading: loadingCommitments } = useCommitmentUIOs({
+    organizationId,
+    limit: 100,
+    enabled: !!organizationId,
+  });
 
-  // Fetch stats
-  const { data: commitmentStats } = useQuery(
-    trpc.commitments.getStats.queryOptions({ organizationId })
-  );
+  // Fetch stats using UIO hook
+  const { data: commitmentStats } = useCommitmentStats({ organizationId });
 
   const isLoading = loadingDecisions || loadingCommitments;
 
-  // Process data
+  // Process UIO data
   const digest = useMemo(() => {
-    const allDecisions = decisionsData?.decisions ?? [];
-    const commitments = commitmentsData?.commitments ?? [];
+    const allDecisions = decisionsData?.items ?? [];
+    const allCommitments = commitmentsData?.items ?? [];
 
-    // Filter decisions to this week client-side
-    const decisions = allDecisions.filter((d) => {
-      const decidedAt = new Date(d.decidedAt ?? d.createdAt);
-      return decidedAt >= weekDates.start && decidedAt <= weekDates.end;
-    });
+    // Transform UIO decisions
+    const decisions = allDecisions
+      .map((d) => ({
+        id: d.id,
+        title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
+        statement: d.decisionDetails?.statement ?? d.canonicalDescription ?? "",
+        decidedAt: d.decisionDetails?.decidedAt ?? d.createdAt,
+        createdAt: d.createdAt,
+        confidence: d.overallConfidence ?? 0.8,
+      }))
+      .filter((d) => {
+        const decidedAt = new Date(d.decidedAt);
+        return decidedAt >= weekDates.start && decidedAt <= weekDates.end;
+      });
+
+    // Transform UIO commitments
+    const commitments = allCommitments.map((c) => ({
+      id: c.id,
+      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+      status: c.commitmentDetails?.status ?? "pending",
+      priority: c.commitmentDetails?.priority ?? "medium",
+      direction: c.commitmentDetails?.direction ?? "owed_by_me",
+      dueDate: c.dueDate,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      owner: c.owner,
+      debtor: c.commitmentDetails?.debtor ?? null,
+      creditor: c.commitmentDetails?.creditor ?? null,
+    }));
 
     // New commitments this week
     const newCommitments = commitments.filter((c) =>

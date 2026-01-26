@@ -153,6 +153,7 @@ export function TaskLabelPicker({
       // Invalidate labels list to show new label
       queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
       setNewLabelName("");
       setShowCreateInput(false);
       toast.success("Label created");
@@ -175,6 +176,7 @@ export function TaskLabelPicker({
     ...trpc.tasks.addLabel.mutationOptions(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
     },
     onError: () => {
       toast.error("Failed to add label");
@@ -186,6 +188,7 @@ export function TaskLabelPicker({
     ...trpc.tasks.removeLabel.mutationOptions(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
     },
     onError: () => {
       toast.error("Failed to remove label");
@@ -404,6 +407,7 @@ function LabelManageDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
       setNewLabelName("");
       toast.success("Label created");
     },
@@ -418,6 +422,7 @@ function LabelManageDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
       setEditingLabel(null);
       toast.success("Label updated");
     },
@@ -432,6 +437,7 @@ function LabelManageDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["tasks", "listLabels"]] });
       queryClient.invalidateQueries({ queryKey: [["tasks"]] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
       toast.success("Label deleted");
     },
     onError: () => {

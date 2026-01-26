@@ -24,7 +24,7 @@
     "@memorystack/email": "workspace:*",
     "@memorystack/env": "workspace:*",
     "@react-email/render": "^1.0.0",
-    "@trigger.dev/sdk": "4.3.2",
+    "@trigger.dev/sdk": "4.3.3",
     "@trpc/server": "catalog:",
     "ai": "catalog:",
     "better-auth": "catalog:",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@memorystack/config": "workspace:*",
-    "@trigger.dev/build": "^4.3.2",
+    "@trigger.dev/build": "4.3.3",
     "@types/bun": "catalog:",
     "@types/ioredis": "^5.0.0",
     "tsdown": "^0.16.5",

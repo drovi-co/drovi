@@ -3,6 +3,7 @@ import { adminRouter } from "./admin";
 import { apiKeysRouter } from "./api-keys";
 import { auditRouter } from "./audit";
 import { calendarRouter } from "./calendar";
+// Legacy routers - kept temporarily for frontend compatibility during UIO migration
 import { commitmentsRouter } from "./commitments";
 import { composeRouter } from "./compose";
 import { contactsRouter } from "./contacts";
@@ -14,6 +15,7 @@ import { emailSyncRouter } from "./email-sync";
 import { featureFlagsRouter } from "./feature-flags";
 import { feedbackRouter } from "./feedback";
 import { graphRouter } from "./graph";
+import { intelligenceRouter } from "./intelligence";
 import { notificationsRouter } from "./notifications";
 import { organizationsRouter } from "./organizations";
 import { riskRouter } from "./risk";
@@ -50,9 +52,9 @@ export const appRouter = router({
   emailSync: emailSyncRouter,
   // Thread intelligence API (MEMORYSTACK PRD-03)
   threads: threadsRouter,
-  // Commitments API (MEMORYSTACK PRD-04)
+  // Legacy: Commitments API - prefer uio.listCommitments (kept for frontend compatibility)
   commitments: commitmentsRouter,
-  // Decisions API (MEMORYSTACK PRD-04)
+  // Legacy: Decisions API - prefer uio.listDecisions (kept for frontend compatibility)
   decisions: decisionsRouter,
   // Contacts API (MEMORYSTACK PRD-05)
   contacts: contactsRouter,
@@ -60,7 +62,7 @@ export const appRouter = router({
   search: searchRouter,
   // Multi-Source Intelligence API (MEMORYSTACK PRD-12)
   sources: sourcesRouter,
-  // Task Management API (Linear-style tasks)
+  // Legacy: Tasks API - prefer uio.listTasks (kept for frontend compatibility)
   tasks: tasksRouter,
   // Triage & Routing API (MEMORYSTACK PRD-07)
   triage: triageRouter,
@@ -80,6 +82,8 @@ export const appRouter = router({
   feedback: feedbackRouter,
   // Knowledge Graph API (visualization & queries)
   graph: graphRouter,
+  // Intelligence Analytics & Customer Context (Python backend bridge)
+  intelligence: intelligenceRouter,
   // Credits management
   credits: creditsRouter,
   // User operations (profile, data export)

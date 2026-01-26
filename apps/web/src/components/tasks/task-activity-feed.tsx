@@ -66,6 +66,7 @@ export function TaskActivityFeed({
     ...trpc.tasks.addComment.mutationOptions(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", "activity"] });
+      queryClient.invalidateQueries({ queryKey: [["uio"]] });
       setComment("");
       toast.success("Comment added");
     },

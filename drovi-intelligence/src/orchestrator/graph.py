@@ -34,6 +34,13 @@ async def classify(state: IntelligenceState) -> dict:
     return await classify_node(state)
 
 
+async def pattern_match(state: IntelligenceState) -> dict:
+    """Match content against learned patterns (Klein's RPD)."""
+    from .nodes.pattern_match import pattern_match_node
+
+    return await pattern_match_node(state)
+
+
 async def extract_claims(state: IntelligenceState) -> dict:
     """Extract claims from content."""
     from .nodes.extract_claims import extract_claims_node
@@ -90,11 +97,25 @@ async def deduplicate(state: IntelligenceState) -> dict:
     return await deduplicate_node(state)
 
 
+async def signal_filter(state: IntelligenceState) -> dict:
+    """Filter signal from noise using Wheeler's Statistical Process Control."""
+    from .nodes.signal_filter import signal_filter_node
+
+    return await signal_filter_node(state)
+
+
 async def persist(state: IntelligenceState) -> dict:
     """Persist extracted intelligence to databases."""
     from .nodes.persist import persist_node
 
     return await persist_node(state)
+
+
+async def evolve_memory(state: IntelligenceState) -> dict:
+    """Evolve memory by detecting updates, deriving knowledge, and managing forgetting."""
+    from .nodes.evolve_memory import evolve_memory_node
+
+    return await evolve_memory_node(state)
 
 
 async def finalize(state: IntelligenceState) -> dict:
@@ -109,7 +130,7 @@ async def finalize(state: IntelligenceState) -> dict:
 # =============================================================================
 
 
-def should_extract(state: IntelligenceState) -> Literal["extract_claims", "finalize"]:
+def should_extract(state: IntelligenceState) -> Literal["pattern_match", "finalize"]:
     """Determine if we should proceed with extraction."""
     if state.routing.skip_remaining_nodes:
         return "finalize"
@@ -117,6 +138,11 @@ def should_extract(state: IntelligenceState) -> Literal["extract_claims", "final
     if not state.classification.has_intelligence:
         return "finalize"
 
+    return "pattern_match"
+
+
+def after_pattern_match(state: IntelligenceState) -> Literal["extract_claims"]:
+    """Route after pattern matching to extraction."""
     return "extract_claims"
 
 
@@ -219,13 +245,23 @@ def after_generate_brief(state: IntelligenceState) -> Literal["deduplicate", "pe
     return "persist"
 
 
-def after_deduplicate(state: IntelligenceState) -> Literal["persist"]:
-    """Route after deduplication."""
+def after_deduplicate(state: IntelligenceState) -> Literal["signal_filter"]:
+    """Route after deduplication to signal filtering."""
+    return "signal_filter"
+
+
+def after_signal_filter(state: IntelligenceState) -> Literal["persist"]:
+    """Route after signal filtering."""
     return "persist"
 
 
-def after_persist(state: IntelligenceState) -> Literal["finalize"]:
-    """Route after persistence."""
+def after_persist(state: IntelligenceState) -> Literal["evolve_memory"]:
+    """Route after persistence to evolve memory."""
+    return "evolve_memory"
+
+
+def after_evolve_memory(state: IntelligenceState) -> Literal["finalize"]:
+    """Route after memory evolution."""
     return "finalize"
 
 
@@ -241,16 +277,19 @@ def create_intelligence_graph() -> StateGraph:
     The graph follows this general flow:
     1. parse_messages - Parse raw content into structured messages
     2. classify - Classify content to determine what to extract
-    3. extract_claims - Extract claims (facts, promises, questions, etc.)
-    4. extract_commitments - Extract commitments (if applicable)
-    5. extract_decisions - Extract decisions (if applicable)
-    6. extract_tasks - Extract tasks from commitments
-    7. detect_risks - Detect risks in extracted content
-    8. entity_resolution - Resolve and merge entities across sources
-    9. generate_brief - Generate 3-line summary and suggested actions
-    10. deduplicate - Deduplicate against existing UIOs
-    11. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
-    12. finalize - Prepare final output
+    3. pattern_match - Match against learned patterns (Klein's RPD)
+    4. extract_claims - Extract claims (facts, promises, questions, etc.)
+    5. extract_commitments - Extract commitments (if applicable)
+    6. extract_decisions - Extract decisions (if applicable)
+    7. extract_tasks - Extract tasks from commitments
+    8. detect_risks - Detect risks in extracted content
+    9. entity_resolution - Resolve and merge entities across sources
+    10. generate_brief - Generate 3-line summary and suggested actions
+    11. deduplicate - Deduplicate against existing UIOs
+    12. signal_filter - Classify signal vs noise (Wheeler's SPC)
+    13. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
+    14. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
+    15. finalize - Prepare final output
 
     Routing is conditional based on classification results.
     """
@@ -260,6 +299,7 @@ def create_intelligence_graph() -> StateGraph:
     # Add all nodes
     workflow.add_node("parse_messages", parse_messages)
     workflow.add_node("classify", classify)
+    workflow.add_node("pattern_match", pattern_match)
     workflow.add_node("extract_claims", extract_claims)
     workflow.add_node("extract_commitments", extract_commitments)
     workflow.add_node("extract_decisions", extract_decisions)
@@ -268,7 +308,9 @@ def create_intelligence_graph() -> StateGraph:
     workflow.add_node("entity_resolution", entity_resolution)
     workflow.add_node("generate_brief", generate_brief)
     workflow.add_node("deduplicate", deduplicate)
+    workflow.add_node("signal_filter", signal_filter)
     workflow.add_node("persist", persist)
+    workflow.add_node("evolve_memory", evolve_memory)
     workflow.add_node("finalize", finalize)
 
     # Set entry point
@@ -278,15 +320,18 @@ def create_intelligence_graph() -> StateGraph:
     # parse_messages -> classify (always)
     workflow.add_edge("parse_messages", "classify")
 
-    # classify -> extract_claims OR finalize (conditional)
+    # classify -> pattern_match OR finalize (conditional)
     workflow.add_conditional_edges(
         "classify",
         should_extract,
         {
-            "extract_claims": "extract_claims",
+            "pattern_match": "pattern_match",
             "finalize": "finalize",
         },
     )
+
+    # pattern_match -> extract_claims (always)
+    workflow.add_edge("pattern_match", "extract_claims")
 
     # extract_claims -> extract_commitments OR detect_risks OR finalize
     workflow.add_conditional_edges(
@@ -364,11 +409,17 @@ def create_intelligence_graph() -> StateGraph:
         },
     )
 
-    # deduplicate -> persist (always)
-    workflow.add_edge("deduplicate", "persist")
+    # deduplicate -> signal_filter (always)
+    workflow.add_edge("deduplicate", "signal_filter")
 
-    # persist -> finalize (always)
-    workflow.add_edge("persist", "finalize")
+    # signal_filter -> persist (always)
+    workflow.add_edge("signal_filter", "persist")
+
+    # persist -> evolve_memory (always)
+    workflow.add_edge("persist", "evolve_memory")
+
+    # evolve_memory -> finalize (always)
+    workflow.add_edge("evolve_memory", "finalize")
 
     # finalize -> END
     workflow.add_edge("finalize", END)

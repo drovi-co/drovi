@@ -7,7 +7,6 @@
 //
 
 import { env } from "@memorystack/env/web";
-import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   CheckCircle2,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,7 +36,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // TYPES
@@ -180,7 +179,6 @@ export function ComplianceExport({
   organizationId,
   className,
 }: ComplianceExportProps) {
-  const trpc = useTRPC();
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [options, setOptions] = useState<ExportOptions>({
@@ -193,13 +191,9 @@ export function ComplianceExport({
     includeUserCorrections: true,
   });
 
-  // Fetch counts
-  const { data: decisionsData } = useQuery(
-    trpc.decisions.getStats.queryOptions({ organizationId })
-  );
-  const { data: commitmentsData } = useQuery(
-    trpc.commitments.getStats.queryOptions({ organizationId })
-  );
+  // Fetch counts using UIO hooks
+  const { data: decisionsData } = useDecisionStats({ organizationId });
+  const { data: commitmentsData } = useCommitmentStats({ organizationId });
 
   // State for paginated data collection
   const [allDecisions, setAllDecisions] = useState<unknown[]>([]);
@@ -221,30 +215,44 @@ export function ComplianceExport({
       setDataReady(false);
 
       try {
-        // Fetch all decisions if needed
+        // Fetch all decisions if needed (using UIO endpoint)
         if (options.type === "decisions" || options.type === "both") {
           const decisions: unknown[] = [];
-          let offset = 0;
+          let cursor: string | undefined = undefined;
           const limit = 100;
           let hasMore = true;
 
           while (hasMore) {
-            const response = await fetch(
-              `${env.VITE_SERVER_URL}/trpc/decisions.list?input=${encodeURIComponent(
+            const response: Response = await fetch(
+              `${env.VITE_SERVER_URL}/trpc/uio.listDecisions?input=${encodeURIComponent(
                 JSON.stringify({
                   organizationId,
                   limit,
-                  offset,
-                  includeSuperseded: options.includeSuperseded,
+                  cursor,
                 })
               )}`,
               { credentials: "include" }
             );
-            const data = await response.json();
-            if (data.result?.data?.decisions) {
-              decisions.push(...data.result.data.decisions);
-              hasMore = data.result.data.hasMore;
-              offset += limit;
+            const data: { result?: { data?: { items?: unknown[]; hasMore?: boolean; cursor?: string } } } = await response.json();
+            if (data.result?.data?.items) {
+              // Transform UIO format to expected format
+              const transformed = (data.result.data.items as Array<Record<string, unknown>>).map((item) => ({
+                id: item.id,
+                title: item.userCorrectedTitle ?? item.canonicalTitle ?? "",
+                statement: item.canonicalDescription ?? "",
+                rationale: (item.decisionDetails as Record<string, unknown> | null)?.rationale ?? null,
+                decidedAt: item.firstSeenAt ?? item.createdAt,
+                confidence: item.overallConfidence ?? 0.8,
+                isUserVerified: item.isUserVerified === true || item.userCorrectedTitle != null,
+                supersededByUioId: (item.decisionDetails as Record<string, unknown> | null)?.supersededByUioId ?? null,
+                metadata: null,
+                sourceThread: (item.sources as Array<{ conversationId?: string }> | null)?.[0]?.conversationId
+                  ? { id: (item.sources as Array<{ conversationId: string }>)[0].conversationId, subject: null }
+                  : null,
+              }));
+              decisions.push(...transformed);
+              hasMore = data.result.data.hasMore ?? false;
+              cursor = data.result.data.cursor;
             } else {
               hasMore = false;
             }
@@ -252,30 +260,49 @@ export function ComplianceExport({
           setAllDecisions(decisions);
         }
 
-        // Fetch all commitments if needed
+        // Fetch all commitments if needed (using UIO endpoint)
         if (options.type === "commitments" || options.type === "both") {
           const commitments: unknown[] = [];
-          let offset = 0;
+          let cursor: string | undefined = undefined;
           const limit = 100;
           let hasMore = true;
 
           while (hasMore) {
-            const response = await fetch(
-              `${env.VITE_SERVER_URL}/trpc/commitments.list?input=${encodeURIComponent(
+            const response: Response = await fetch(
+              `${env.VITE_SERVER_URL}/trpc/uio.listCommitments?input=${encodeURIComponent(
                 JSON.stringify({
                   organizationId,
                   limit,
-                  offset,
-                  includeDismissed: false,
+                  cursor,
                 })
               )}`,
               { credentials: "include" }
             );
-            const data = await response.json();
-            if (data.result?.data?.commitments) {
-              commitments.push(...data.result.data.commitments);
-              hasMore = data.result.data.hasMore;
-              offset += limit;
+            const data: { result?: { data?: { items?: unknown[]; hasMore?: boolean; cursor?: string } } } = await response.json();
+            if (data.result?.data?.items) {
+              // Transform UIO format to expected format
+              const transformed = (data.result.data.items as Array<Record<string, unknown>>).map((item) => {
+                const details = item.commitmentDetails as Record<string, unknown> | null;
+                return {
+                  id: item.id,
+                  title: item.userCorrectedTitle ?? item.canonicalTitle ?? "",
+                  description: item.canonicalDescription ?? null,
+                  status: details?.status ?? "pending",
+                  priority: details?.priority ?? "medium",
+                  direction: details?.direction ?? "owed_by_me",
+                  dueDate: item.dueDate ?? null,
+                  createdAt: item.createdAt,
+                  confidence: item.overallConfidence ?? 0.8,
+                  isUserVerified: item.isUserVerified === true || item.userCorrectedTitle != null,
+                  metadata: null,
+                  sourceThread: (item.sources as Array<{ conversationId?: string }> | null)?.[0]?.conversationId
+                    ? { id: (item.sources as Array<{ conversationId: string }>)[0].conversationId, subject: null }
+                    : null,
+                };
+              });
+              commitments.push(...transformed);
+              hasMore = data.result.data.hasMore ?? false;
+              cursor = data.result.data.cursor;
             } else {
               hasMore = false;
             }
@@ -313,7 +340,7 @@ export function ComplianceExport({
         decidedAt: string;
         confidence: number;
         isUserVerified?: boolean;
-        supersededById?: string | null;
+        supersededByUioId?: string | null;
         metadata?: unknown;
         sourceThread?: { id: string; subject?: string | null } | null;
       }>;
@@ -355,7 +382,7 @@ export function ComplianceExport({
             decidedAt: d.decidedAt,
             confidence: d.confidence,
             isUserVerified: d.isUserVerified,
-            isSuperseded: !!d.supersededById,
+            isSuperseded: !!d.supersededByUioId,
             ...(options.includeMetadata && { metadata: d.metadata }),
             ...(options.includeEvidence && {
               sourceThreadId: d.sourceThread?.id,
@@ -421,7 +448,7 @@ export function ComplianceExport({
               decidedAt: d.decidedAt,
               confidence: d.confidence,
               isUserVerified: d.isUserVerified ?? false,
-              isSuperseded: !!d.supersededById,
+              isSuperseded: !!d.supersededByUioId,
               ...(options.includeEvidence && {
                 sourceThreadId: d.sourceThread?.id ?? "",
                 sourceThreadSubject: d.sourceThread?.subject ?? "",
@@ -493,7 +520,7 @@ export function ComplianceExport({
                 "Decided At": new Date(d.decidedAt),
                 Confidence: `${Math.round(d.confidence * 100)}%`,
                 "User Verified": d.isUserVerified ? "Yes" : "No",
-                Superseded: d.supersededById ? "Yes" : "No",
+                Superseded: d.supersededByUioId ? "Yes" : "No",
                 ...(options.includeEvidence &&
                   d.sourceThread && {
                     "Source Thread": d.sourceThread.subject ?? "Thread",

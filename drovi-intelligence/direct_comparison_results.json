@@ -1,0 +1,192 @@
+{
+  "timestamp": "2026-01-24T12:43:45.763510",
+  "test_content": "Complex Email - Multiple Commitments & Decisions",
+  "together": {
+    "model": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+    "success": true,
+    "duration_ms": 5019,
+    "claims": [
+      {
+        "title": "Beta launch date is March 15th",
+        "type": "fact",
+        "confidence": 0.9
+      },
+      {
+        "title": "Premium tier price is $49/month",
+        "type": "fact",
+        "confidence": 0.9
+      },
+      {
+        "title": "AWS is chosen for hosting",
+        "type": "fact",
+        "confidence": 0.9
+      },
+      {
+        "title": "Original proposed premium tier price was $59",
+        "type": "fact",
+        "confidence": 0.8
+      },
+      {
+        "title": "Original beta launch date was March 1st",
+        "type": "fact",
+        "confidence": 0.8
+      },
+      {
+        "title": "GCP was considered for hosting",
+        "type": "fact",
+        "confidence": 0.8
+      }
+    ],
+    "commitments": [
+      {
+        "title": "Mike to provide final UI mockups",
+        "direction": "owed_to_me",
+        "due_date_text": "this Friday (Jan 24th)",
+        "confidence": 0.8
+      },
+      {
+        "title": "Jennifer to have marketing copy ready",
+        "direction": "owed_to_me",
+        "due_date_text": "January 31st",
+        "confidence": 0.8
+      },
+      {
+        "title": "Sarah to review security audit findings",
+        "direction": "owed_by_me",
+        "due_date_text": "next Wednesday",
+        "confidence": 0.9
+      },
+      {
+        "title": "Engineering team to complete API v2 migration",
+        "direction": "owed_to_me",
+        "due_date_text": "February 10th",
+        "confidence": 0.8
+      },
+      {
+        "title": "David to send revised budget projections",
+        "direction": "owed_to_me",
+        "due_date_text": "EOD Monday",
+        "confidence": 0.8
+      }
+    ],
+    "decisions": [
+      {
+        "title": "Beta launch date changed to March 15th",
+        "status": "made",
+        "confidence": 0.9
+      },
+      {
+        "title": "Premium tier priced at $49/month",
+        "status": "made",
+        "confidence": 0.9
+      },
+      {
+        "title": "AWS chosen for hosting",
+        "status": "made",
+        "confidence": 0.9
+      }
+    ],
+    "risks": [
+      {
+        "title": "Unclear who handles customer migration communication",
+        "severity": "medium",
+        "confidence": 0.8
+      },
+      {
+        "title": "Unclear if new terms of service need legal review",
+        "severity": "medium",
+        "confidence": 0.8
+      },
+      {
+        "title": "Lack of rollback plan for launch failure",
+        "severity": "high",
+        "confidence": 0.8
+      },
+      {
+        "title": "Budget concerns",
+        "severity": "medium",
+        "confidence": 0.7
+      }
+    ],
+    "error": null
+  },
+  "openai": {
+    "model": "gpt-4o",
+    "success": true,
+    "duration_ms": 5919,
+    "claims": [
+      {
+        "title": "The beta launch is scheduled for March 15th.",
+        "type": "schedule",
+        "confidence": 1
+      },
+      {
+        "title": "The premium tier will be priced at $49/month.",
+        "type": "pricing",
+        "confidence": 1
+      },
+      {
+        "title": "AWS will be used for hosting.",
+        "type": "infrastructure",
+        "confidence": 1
+      }
+    ],
+    "commitments": [
+      {
+        "title": "Final UI mockups due by January 24th.",
+        "direction": "owed_to_me",
+        "due_date_text": "January 24th",
+        "confidence": 1
+      },
+      {
+        "title": "Marketing copy due by January 31st.",
+        "direction": "owed_to_me",
+        "due_date_text": "January 31st",
+        "confidence": 1
+      },
+      {
+        "title": "Review all security audit findings by next Wednesday.",
+        "direction": "owed_by_me",
+        "due_date_text": "next Wednesday",
+        "confidence": 1
+      },
+      {
+        "title": "API v2 migration completion by February 10th.",
+        "direction": "owed_to_me",
+        "due_date_text": "February 10th",
+        "confidence": 1
+      },
+      {
+        "title": "Revised budget projections due by EOD Monday.",
+        "direction": "owed_to_me",
+        "due_date_text": "EOD Monday",
+        "confidence": 1
+      }
+    ],
+    "decisions": [
+      {
+        "title": "Launch the beta on March 15th.",
+        "status": "made",
+        "confidence": 1
+      },
+      {
+        "title": "Price the premium tier at $49/month.",
+        "status": "made",
+        "confidence": 1
+      },
+      {
+        "title": "Use AWS for hosting.",
+        "status": "made",
+        "confidence": 1
+      }
+    ],
+    "risks": [
+      {
+        "title": "Potential failure of the launch.",
+        "severity": "high",
+        "confidence": 0.8
+      }
+    ],
+    "error": null
+  }
+}

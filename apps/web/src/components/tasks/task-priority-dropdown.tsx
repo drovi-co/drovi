@@ -6,9 +6,10 @@
 // Used in task rows, task cards, inbox rows, commitment/decision cards.
 //
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 import {
   PRIORITY_CONFIG,
@@ -79,38 +79,29 @@ export function TaskPriorityDropdown({
   const queryClient = useQueryClient();
   const config = PRIORITY_CONFIG[currentPriority];
 
-  const updatePriorityMutation = useMutation({
-    ...trpc.tasks.updatePriority.mutationOptions(),
-    onMutate: async ({ priority: newPriority }) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ["tasks"] });
-
-      // Return context for rollback
-      return { previousPriority: currentPriority };
-    },
-    onSuccess: (_, { priority: newPriority }) => {
-      toast.success(
-        `Priority changed to ${PRIORITY_CONFIG[newPriority].label}`
-      );
-      onPriorityChange?.(newPriority);
-    },
-    onError: () => {
-      toast.error("Failed to update priority");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
+  const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
 
   const handlePriorityChange = (newPriority: TaskPriority) => {
     if (newPriority === currentPriority) return;
 
-    updatePriorityMutation.mutate({
-      organizationId,
-      taskId,
-      priority: newPriority,
-    });
+    updatePriorityMutationBase.mutate(
+      { organizationId, id: taskId, priority: newPriority },
+      {
+        onSuccess: () => {
+          toast.success(
+            `Priority changed to ${PRIORITY_CONFIG[newPriority].label}`
+          );
+          onPriorityChange?.(newPriority);
+          queryClient.invalidateQueries({ queryKey: [["uio"]] });
+        },
+        onError: () => {
+          toast.error("Failed to update priority");
+        },
+      }
+    );
   };
+
+  const updatePriorityMutation = updatePriorityMutationBase;
 
   const iconPriority = mapTaskPriorityToIconPriority(currentPriority);
 
