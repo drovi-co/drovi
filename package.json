@@ -29,6 +29,7 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
+    "dev:landing": "turbo -F landing dev",
     "db:push": "turbo -F @memorystack/db db:push",
     "db:studio": "turbo -F @memorystack/db db:studio",
     "db:generate": "turbo -F @memorystack/db db:generate",

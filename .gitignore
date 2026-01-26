@@ -9,6 +9,8 @@ __pycache__
 # Build outputs
 dist
 build
+.next
+out
 *.tsbuildinfo
 
 # Environment variables
