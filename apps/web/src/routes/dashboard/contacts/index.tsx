@@ -9,10 +9,24 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Filter,
+  Kanban,
+  LayoutList,
+  RefreshCw,
+  Search,
+  Star,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ContactCard, type ContactCardData } from "@/components/dashboards";
+import {
+  ContactFilterPanel,
+  type ContactFilters,
+} from "@/components/contacts/contact-filter-panel";
+import { ContactKanbanBoard } from "@/components/contacts/contact-kanban-board";
 import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +34,14 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 
 // =============================================================================
@@ -36,6 +57,7 @@ export const Route = createFileRoute("/dashboard/contacts/")({
 // =============================================================================
 
 type ViewFilter = "all" | "vip" | "at_risk";
+type ViewMode = "list" | "kanban";
 
 // =============================================================================
 // MAIN COMPONENT
@@ -49,6 +71,9 @@ function ContactsPage() {
 
   // State
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filters, setFilters] = useState<ContactFilters>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [showProfileSheet, setShowProfileSheet] = useState(false);
@@ -332,6 +357,66 @@ function ContactsPage() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {/* View Mode Toggle */}
+              <div className="flex h-8 items-center rounded-md border bg-muted/50 p-0.5">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        className={cn(
+                          "h-7 w-7",
+                          viewMode === "list" && "bg-background shadow-sm"
+                        )}
+                        onClick={() => setViewMode("list")}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <LayoutList className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>List view</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        className={cn(
+                          "h-7 w-7",
+                          viewMode === "kanban" && "bg-background shadow-sm"
+                        )}
+                        onClick={() => setViewMode("kanban")}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Kanban className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Kanban view</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
+              {/* Filter Toggle */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      className={cn(
+                        "h-8 w-8",
+                        showFilterPanel && "bg-accent"
+                      )}
+                      onClick={() => setShowFilterPanel(!showFilterPanel)}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Filters</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               {/* Search */}
               <div className="relative">
                 <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -367,56 +452,72 @@ function ContactsPage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          {isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
-            <div>
-              {[...Array(10)].map((_, i) => (
-                <div
-                  className="flex items-center gap-4 border-border/40 border-b px-4 py-3"
-                  key={i}
-                >
-                  <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
-                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-                  <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-                  <div className="h-4 flex-1 animate-pulse rounded bg-muted" />
-                  <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                </div>
-              ))}
-            </div>
-          ) : contacts.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <Users className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-lg">
-                {searchQuery.length > 2
-                  ? "No contacts match your search"
-                  : viewFilter === "vip"
-                    ? "No VIP contacts yet"
-                    : viewFilter === "at_risk"
-                      ? "No at-risk relationships"
-                      : "No contacts found"}
-              </h3>
-              <p className="mt-1 text-muted-foreground text-sm">
-                Contacts are automatically extracted from your emails
-              </p>
-            </div>
-          ) : (
-            <div>
-              {contacts.map((contact) => (
-                <ContactCard
-                  contact={contact}
-                  isSelected={selectedContact === contact.id}
-                  key={contact.id}
-                  onEmailClick={handleEmailClick}
-                  onGenerateMeetingBrief={handleGenerateMeetingBrief}
-                  onSelect={() => setSelectedContact(contact.id)}
-                  onToggleVip={handleToggleVip}
-                  onViewProfile={handleViewProfile}
-                />
-              ))}
-            </div>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Filter Panel */}
+          {showFilterPanel && viewMode === "list" && (
+            <ContactFilterPanel
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
           )}
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-auto">
+            {viewMode === "kanban" ? (
+              <ContactKanbanBoard
+                onViewProfile={handleViewProfile}
+                organizationId={organizationId}
+              />
+            ) : isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
+              <div>
+                {[...Array(10)].map((_, i) => (
+                  <div
+                    className="flex items-center gap-4 border-border/40 border-b px-4 py-3"
+                    key={`skeleton-${i}`}
+                  >
+                    <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+                    <div className="h-4 flex-1 animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : contacts.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <Users className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="font-medium text-lg">
+                  {searchQuery.length > 2
+                    ? "No contacts match your search"
+                    : viewFilter === "vip"
+                      ? "No VIP contacts yet"
+                      : viewFilter === "at_risk"
+                        ? "No at-risk relationships"
+                        : "No contacts found"}
+                </h3>
+                <p className="mt-1 text-muted-foreground text-sm">
+                  Contacts are automatically extracted from your emails
+                </p>
+              </div>
+            ) : (
+              <div>
+                {contacts.map((contact) => (
+                  <ContactCard
+                    contact={contact}
+                    isSelected={selectedContact === contact.id}
+                    key={contact.id}
+                    onEmailClick={handleEmailClick}
+                    onGenerateMeetingBrief={handleGenerateMeetingBrief}
+                    onSelect={() => setSelectedContact(contact.id)}
+                    onToggleVip={handleToggleVip}
+                    onViewProfile={handleViewProfile}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

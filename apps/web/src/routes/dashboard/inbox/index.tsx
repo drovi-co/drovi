@@ -1,5 +1,5 @@
 // =============================================================================
-// UNIFIED INBOX PAGE - Multi-Source Smart Inbox
+// UNIFIED INBOX PAGE - Multi-Source Smart Inbox with 3-Column Layout
 // =============================================================================
 
 "use client";
@@ -7,25 +7,20 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { addDays, endOfDay, startOfDay } from "date-fns";
 import {
   Calendar,
   CheckCircle2,
   FileText,
-  GitBranch,
   Hash,
   Inbox,
-  List,
   Loader2,
   Mail,
   MessageCircle,
-  PanelRightClose,
-  PanelRightOpen,
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Star,
-  Target,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -35,17 +30,15 @@ import {
   InboxListHeader,
   InboxRow,
 } from "@/components/inbox/inbox-row";
-import {
-  InboxSidebar,
-  type InboxStats,
-  type Insight,
-  type CalendarEvent as SidebarCalendarEvent,
-  type SidebarCommitment,
-} from "@/components/inbox/inbox-sidebar";
+import { EmailPreviewPane } from "@/components/inbox/email-preview-pane";
 import { IntelligenceSheet } from "@/components/inbox/intelligence-sheet";
-import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -58,7 +51,6 @@ import { useActiveOrganization } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
-import { CommitmentsCommandCenter } from "./-commitments-command-center";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -80,8 +72,8 @@ type SourceFilter =
   | "whatsapp"
   | "notion"
   | "google_docs";
-type StatusFilter = "inbox" | "unread" | "starred";
-type InboxViewMode = "threads" | "commitments" | "decisions";
+type StatusFilter = "all" | "focused" | "others";
+type ViewTab = "all" | "focused" | "others";
 
 interface UnifiedFeedItem {
   id: string;
@@ -143,11 +135,10 @@ function UnifiedInboxPage() {
   const { data: activeOrg } = useActiveOrganization();
 
   // State
-  const [viewMode, setViewMode] = useState<InboxViewMode>("threads");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
+  const [viewTab, setViewTab] = useState<ViewTab>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showSchedule, setShowSchedule] = useState(true);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Intelligence sheet state
@@ -159,17 +150,14 @@ function UnifiedInboxPage() {
     string | undefined
   >(undefined);
 
-  // Date range for schedule panel
-  const today = startOfDay(new Date());
-  const weekFromNow = endOfDay(addDays(today, 7));
-
-  // Build filter for API
+  // Build filter for API based on view tab
   const getStatusArray = ():
     | ("read" | "unread" | "starred" | "archived")[]
     | undefined => {
-    if (statusFilter === "unread") return ["unread"];
-    if (statusFilter === "starred") return ["starred"];
-    return undefined; // inbox = all non-archived
+    // For now, focused = unread + high priority (handled in filtering)
+    // Others = read + low priority
+    // All = no filter
+    return undefined;
   };
 
   const getSourceTypesArray = () => {
@@ -212,32 +200,13 @@ function UnifiedInboxPage() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentLimit(PAGE_SIZE);
-  }, [sourceFilter, statusFilter]);
+  }, [sourceFilter, viewTab]);
 
   // Fetch stats - long cache, rarely changes
   const { data: statsData } = useQuery({
     ...trpc.unifiedInbox.getStats.queryOptions(),
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000, // Keep stats in cache for 10 minutes
-  });
-
-  // Fetch calendar events for schedule panel
-  const { data: calendarData } = useQuery({
-    ...trpc.emailAccounts.getCalendarEvents.queryOptions({
-      timeMin: today.toISOString(),
-      timeMax: weekFromNow.toISOString(),
-      maxResults: 50,
-    }),
-    staleTime: 60_000,
-    enabled: showSchedule,
-  });
-
-  // Fetch commitments for schedule panel using UIO hook
-  const { data: commitmentsData } = useCommitmentUIOs({
-    organizationId: activeOrg?.id ?? "",
-    direction: "owed_by_me",
-    limit: 20,
-    enabled: Boolean(activeOrg?.id) && showSchedule,
   });
 
   // Get current query key for optimistic updates
@@ -324,110 +293,44 @@ function UnifiedInboxPage() {
   );
 
   // Transform data
-  const items: UnifiedFeedItem[] = (inboxData?.items ?? []).map((item) => ({
+  const allItems: UnifiedFeedItem[] = (inboxData?.items ?? []).map((item) => ({
     ...item,
     lastMessageAt: item.lastMessageAt ? new Date(item.lastMessageAt) : null,
   }));
 
-  // Transform schedule data for the sidebar
-  const sidebarEvents: SidebarCalendarEvent[] = (
-    calendarData?.events ?? []
-  ).map((event) => ({
-    id: event.id,
-    title: event.title,
-    startTime: new Date(event.startTime),
-    endTime: new Date(event.endTime),
-    type: "meeting" as const,
-    attendees: event.attendees,
-    location: event.location,
-    isVideoCall: event.isVideoCall,
-    conferenceUrl: (event as { conferenceUrl?: string }).conferenceUrl,
-  }));
+  // Filter items based on viewTab (Focused/Others)
+  // Focused: High priority, unread, has open loops, or has commitments
+  // Others: Everything else (low priority, newsletters, automated)
+  const items = allItems.filter((item) => {
+    if (viewTab === "all") return true;
 
-  const sidebarCommitments: SidebarCommitment[] = (
-    commitmentsData?.items ?? []
-  ).map((c) => {
-    const details = c.commitmentDetails;
-    const now = new Date();
-    const dueDate = c.dueDate ? new Date(c.dueDate) : null;
-    const daysOverdue = dueDate && dueDate < now
-      ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-      : undefined;
-    return {
-      id: c.id,
-      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
-      dueDate,
-      status: details?.status ?? "pending",
-      priority: details?.priority ?? "medium",
-      direction: (details?.direction ?? "owed_by_me") as
-        | "owed_by_me"
-        | "owed_to_me",
-      daysOverdue,
-      creditor: c.owner
-        ? {
-            displayName: c.owner.displayName ?? null,
-            primaryEmail: c.owner.primaryEmail,
-          }
-        : null,
-    };
+    const isFocused =
+      item.priorityTier === "urgent" ||
+      item.priorityTier === "high" ||
+      !item.isRead ||
+      item.hasOpenLoops ||
+      item.hasCommitments ||
+      (item.urgencyScore ?? 0) > 60 ||
+      (item.importanceScore ?? 0) > 60;
+
+    if (viewTab === "focused") return isFocused;
+    if (viewTab === "others") return !isFocused;
+
+    return true;
   });
 
-  // Build sidebar stats from inbox stats
-  const sidebarStats: InboxStats = {
-    unread: statsData?.unread ?? 0,
-    starred: statsData?.starred ?? 0,
-    urgent: items.filter(
-      (i) => i.priorityTier === "urgent" || (i.urgencyScore ?? 0) > 80
-    ).length,
-    avgResponseTimeHours: 2.3, // Could come from analytics
-    responseTrend: "stable" as const,
-  };
-
-  // Generate insights from data
-  const sidebarInsights: Insight[] = [];
-
-  // Open loops insight
-  const openLoopCount = items.filter((i) => i.hasOpenLoops).length;
-  if (openLoopCount > 0) {
-    sidebarInsights.push({
-      id: "open-loops",
-      type: "open_loops",
-      title: `${openLoopCount} open loops need follow-up`,
-      count: openLoopCount,
-      link: "/dashboard/inbox?filter=open-loops",
-      color: "amber",
-    });
-  }
-
-  // Decisions insight
-  const decisionsCount = items.filter((i) => i.hasDecisions).length;
-  if (decisionsCount > 0) {
-    sidebarInsights.push({
-      id: "decisions",
-      type: "decisions",
-      title: `${decisionsCount} decisions recorded`,
-      count: decisionsCount,
-      link: "/dashboard/decisions",
-      color: "purple",
-    });
-  }
-
-  // Stale threads insight
-  const staleCount = items.filter(
-    (i) =>
-      !i.isRead &&
-      i.lastMessageAt &&
-      Date.now() - new Date(i.lastMessageAt).getTime() > 3 * 24 * 60 * 60 * 1000
+  // Calculate focused/others counts for tabs
+  const focusedCount = allItems.filter(
+    (item) =>
+      item.priorityTier === "urgent" ||
+      item.priorityTier === "high" ||
+      !item.isRead ||
+      item.hasOpenLoops ||
+      item.hasCommitments ||
+      (item.urgencyScore ?? 0) > 60 ||
+      (item.importanceScore ?? 0) > 60
   ).length;
-  if (staleCount > 0) {
-    sidebarInsights.push({
-      id: "stale",
-      type: "stale_threads",
-      title: `${staleCount} threads waiting 3+ days`,
-      count: staleCount,
-      color: "red",
-    });
-  }
+  const othersCount = allItems.length - focusedCount;
 
   // Virtualizer for performant rendering
   const virtualizer = useVirtualizer({
@@ -467,13 +370,12 @@ function UnifiedInboxPage() {
       // Mark as read
       markReadMutation.mutate({ conversationId: item.id, read: true });
 
-      // Navigate based on source type
+      // For email, select in preview pane; for other sources, handle externally
       switch (item.sourceType) {
         case "email":
-          navigate({
-            to: "/dashboard/email/thread/$threadId",
-            params: { threadId: item.id },
-          });
+          // Select in preview pane instead of navigating
+          setSelectedThreadId(item.id);
+          setSelectedIndex(items.findIndex((i) => i.id === item.id));
           break;
 
         case "slack": {
@@ -623,10 +525,10 @@ function UnifiedInboxPage() {
         return;
       }
 
-      // Toggle schedule panel
-      if (e.key === "\\" && (e.metaKey || e.ctrlKey)) {
+      // Escape to close preview pane
+      if (e.key === "Escape" && selectedThreadId) {
         e.preventDefault();
-        setShowSchedule((s) => !s);
+        setSelectedThreadId(null);
         return;
       }
 
@@ -669,7 +571,12 @@ function UnifiedInboxPage() {
         if (item) {
           if (e.key === "Enter" || e.key === "o") {
             e.preventDefault();
-            handleItemClick(item);
+            // Select in preview pane for email, otherwise handle externally
+            if (item.sourceType === "email") {
+              setSelectedThreadId(item.id);
+            } else {
+              handleItemClick(item);
+            }
           } else if (e.key === "e") {
             e.preventDefault();
             handleArchive(item.id);
@@ -698,485 +605,261 @@ function UnifiedInboxPage() {
   return (
     <div className="h-full" data-no-shell-padding>
       <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
-        {/* Header */}
-        <div className="border-b bg-background">
-          <div className="flex items-center justify-between px-4 py-2">
-            {/* Source filter tabs */}
+        {/* Compact Header */}
+        <div className="shrink-0 border-b bg-background">
+          <div className="flex items-center justify-between px-3 py-1.5">
+            {/* Left: View tabs (All/Focused/Others) */}
             <Tabs
-              onValueChange={(v) => setSourceFilter(v as SourceFilter)}
-              value={sourceFilter}
+              onValueChange={(v) => setViewTab(v as ViewTab)}
+              value={viewTab}
             >
-              <TabsList className="h-8 gap-1 bg-transparent">
+              <TabsList className="h-7 gap-0.5 bg-muted/50 p-0.5">
                 <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
+                  className="h-6 gap-1.5 px-2.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
                   value="all"
                 >
-                  <Inbox className="h-4 w-4" />
                   All
-                  {totalCount > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="secondary"
-                    >
-                      {totalCount}
+                  <Badge className="h-4 px-1 text-[10px]" variant="secondary">
+                    {allItems.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="h-6 gap-1.5 px-2.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  value="focused"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Focused
+                  {focusedCount > 0 && (
+                    <Badge className="h-4 px-1 text-[10px]" variant="destructive">
+                      {focusedCount}
                     </Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="email"
+                  className="h-6 gap-1.5 px-2.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  value="others"
                 >
-                  <Mail
-                    className="h-4 w-4"
-                    style={{
-                      color: sourceFilter === "email" ? "#EA4335" : undefined,
-                    }}
-                  />
-                  Email
-                  {emailStats && emailStats.unread > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="destructive"
-                    >
-                      {emailStats.unread}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="slack"
-                >
-                  <Hash
-                    className="h-4 w-4"
-                    style={{
-                      color: sourceFilter === "slack" ? "#4A154B" : undefined,
-                    }}
-                  />
-                  Slack
-                  {slackStats && slackStats.unread > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="destructive"
-                    >
-                      {slackStats.unread}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="calendar"
-                >
-                  <Calendar
-                    className="h-4 w-4"
-                    style={{
-                      color:
-                        sourceFilter === "calendar" ? "#4285F4" : undefined,
-                    }}
-                  />
-                  Calendar
-                  {calendarStats && calendarStats.total > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="secondary"
-                    >
-                      {calendarStats.total}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="whatsapp"
-                >
-                  <MessageCircle
-                    className="h-4 w-4"
-                    style={{
-                      color:
-                        sourceFilter === "whatsapp" ? "#25D366" : undefined,
-                    }}
-                  />
-                  WhatsApp
-                  {whatsappStats && whatsappStats.unread > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="destructive"
-                    >
-                      {whatsappStats.unread}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="notion"
-                >
-                  <FileText
-                    className="h-4 w-4"
-                    style={{
-                      color: sourceFilter === "notion" ? "#000000" : undefined,
-                    }}
-                  />
-                  Notion
-                  {notionStats && notionStats.total > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="secondary"
-                    >
-                      {notionStats.total}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="google_docs"
-                >
-                  <FileText
-                    className="h-4 w-4"
-                    style={{
-                      color:
-                        sourceFilter === "google_docs" ? "#4285F4" : undefined,
-                    }}
-                  />
-                  Docs
-                  {googleDocsStats && googleDocsStats.total > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="secondary"
-                    >
-                      {googleDocsStats.total}
+                  Others
+                  {othersCount > 0 && (
+                    <Badge className="h-4 px-1 text-[10px]" variant="secondary">
+                      {othersCount}
                     </Badge>
                   )}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {/* Status filter + actions */}
-            <div className="flex items-center gap-2">
-              {/* Status pills */}
-              <div className="mr-2 flex items-center gap-1">
-                <Button
-                  className="h-7 text-xs"
-                  onClick={() => setStatusFilter("inbox")}
-                  size="sm"
-                  variant={statusFilter === "inbox" ? "secondary" : "ghost"}
-                >
-                  All
-                </Button>
-                <Button
-                  className="h-7 text-xs"
-                  onClick={() => setStatusFilter("unread")}
-                  size="sm"
-                  variant={statusFilter === "unread" ? "secondary" : "ghost"}
-                >
-                  Unread
-                  {totalUnread > 0 && (
-                    <Badge
-                      className="ml-1 px-1 py-0 text-[10px]"
-                      variant="destructive"
-                    >
-                      {totalUnread}
-                    </Badge>
-                  )}
-                </Button>
-                <Button
-                  className="h-7 text-xs"
-                  onClick={() => setStatusFilter("starred")}
-                  size="sm"
-                  variant={statusFilter === "starred" ? "secondary" : "ghost"}
-                >
-                  <Star className="mr-1 h-3 w-3" />
-                  Starred
-                </Button>
-              </div>
-
-              <Button
-                className="h-8 px-3 text-muted-foreground"
-                onClick={() => setCommandBarOpen(true)}
-                size="sm"
-                variant="ghost"
+            {/* Center: Source filters */}
+            <div className="flex items-center gap-1">
+              <Tabs
+                onValueChange={(v) => setSourceFilter(v as SourceFilter)}
+                value={sourceFilter}
               >
-                <Search className="mr-2 h-4 w-4" />
-                Search
-                <kbd className="pointer-events-none ml-2 inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-[10px]">
-                  <span className="text-xs">⌘</span>K
-                </kbd>
-              </Button>
+                <TabsList className="h-7 gap-0.5 bg-transparent p-0">
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="all"
+                  >
+                    <Inbox className="h-3.5 w-3.5" />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="email"
+                  >
+                    <Mail className="h-3.5 w-3.5" style={{ color: sourceFilter === "email" ? "#EA4335" : undefined }} />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="slack"
+                  >
+                    <Hash className="h-3.5 w-3.5" style={{ color: sourceFilter === "slack" ? "#4A154B" : undefined }} />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="calendar"
+                  >
+                    <Calendar className="h-3.5 w-3.5" style={{ color: sourceFilter === "calendar" ? "#4285F4" : undefined }} />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="whatsapp"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" style={{ color: sourceFilter === "whatsapp" ? "#25D366" : undefined }} />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-6 px-2 text-xs data-[state=active]:bg-muted"
+                    value="notion"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      className="h-8 w-8"
+                      className="h-7 w-7"
                       disabled={isFetchingInbox}
                       onClick={() => refetchInbox()}
                       size="icon"
                       variant="ghost"
                     >
-                      <RefreshCw
-                        className={cn(
-                          "h-4 w-4",
-                          isFetchingInbox && "animate-spin"
-                        )}
-                      />
+                      <RefreshCw className={cn("h-3.5 w-3.5", isFetchingInbox && "animate-spin")} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {isFetchingInbox ? "Refreshing..." : "Refresh"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      className="h-8 w-8"
-                      onClick={() => setShowSchedule((s) => !s)}
-                      size="icon"
-                      variant={showSchedule ? "secondary" : "ghost"}
-                    >
-                      {showSchedule ? (
-                        <PanelRightClose className="h-4 w-4" />
-                      ) : (
-                        <PanelRightOpen className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {showSchedule ? "Hide schedule" : "Show schedule"} (⌘\)
-                  </TooltipContent>
+                  <TooltipContent>Refresh</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
               <Button
-                className="h-8 gap-2"
+                className="h-7 gap-1.5 text-xs"
                 onClick={() => openCompose()}
                 size="sm"
-                variant="default"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 Compose
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* View mode selector sidebar */}
-          <div className="flex w-12 flex-col items-center gap-1 border-r bg-muted/30 py-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={viewMode === "threads" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={() => setViewMode("threads")}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Threads</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={viewMode === "commitments" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={() => setViewMode("commitments")}
-                  >
-                    <Target className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Commitments</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={viewMode === "decisions" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={() => setViewMode("decisions")}
-                  >
-                    <GitBranch className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Decisions</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+        {/* 3-Column Layout */}
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup direction="horizontal">
+            {/* Email List Panel */}
+            <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+              <div className="flex h-full flex-col overflow-hidden border-r">
+                {/* List Header */}
+                {items.length > 0 && (
+                  <InboxListHeader
+                    allSelected={selectedIds.size === items.length && items.length > 0}
+                    onSelectAll={handleSelectAll}
+                    someSelected={selectedIds.size > 0 && selectedIds.size < items.length}
+                  />
+                )}
 
-          {/* View content */}
-          {viewMode === "commitments" ? (
-            <div className="flex-1 overflow-hidden">
-              <CommitmentsCommandCenter />
-            </div>
-          ) : viewMode === "decisions" ? (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="text-center">
-                <GitBranch className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">Decisions View</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Coming soon - track all decisions from your conversations
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-          {/* Item list */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {/* List Header */}
-            {items.length > 0 && (
-              <InboxListHeader
-                allSelected={
-                  selectedIds.size === items.length && items.length > 0
-                }
-                onSelectAll={handleSelectAll}
-                someSelected={
-                  selectedIds.size > 0 && selectedIds.size < items.length
-                }
-              />
-            )}
-
-            {/* Scrollable list */}
-            <div className="flex-1 overflow-auto" ref={listRef}>
-              {isLoadingInbox ? (
-                <div>
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <InboxRowSkeleton key={`skeleton-${i}`} />
-                  ))}
-                </div>
-              ) : items.length === 0 ? (
-                <EmptyState
-                  sourceFilter={sourceFilter}
-                  statusFilter={statusFilter}
-                />
-              ) : (
-                <>
-                  <div
-                    style={{
-                      height: `${virtualizer.getTotalSize()}px`,
-                      width: "100%",
-                      position: "relative",
-                    }}
-                  >
-                    {virtualizer.getVirtualItems().map((virtualRow) => {
-                      const item = items[virtualRow.index];
-                      if (!item) return null;
-
-                      const inboxItem: InboxItem = {
-                        ...item,
-                        hasCommitments: item.hasCommitments,
-                        hasDecisions: item.hasDecisions,
-                        // Include task data from API - enables task dropdowns
-                        task: item.task
-                          ? {
-                              id: item.task.id,
-                              status: item.task.status,
-                              priority: item.task.priority,
-                              assignee: item.task.assignee,
-                            }
-                          : undefined,
-                      };
-                      return (
-                        <div
-                          key={item.id}
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: `${virtualRow.size}px`,
-                            transform: `translateY(${virtualRow.start}px)`,
-                          }}
-                        >
-                          <InboxRow
-                            isActive={virtualRow.index === selectedIndex}
-                            isSelected={selectedIds.has(item.id)}
-                            item={inboxItem}
-                            onArchive={() => handleArchive(item.id)}
-                            onAssigneeClick={(e) => {
-                              // Fallback for items without task data - prompt to create task
-                              toast.info("Create a task to assign");
-                            }}
-                            onClick={() => handleItemClick(item)}
-                            onDotsClick={(e) => {
-                              // Open intelligence panel sheet with thread data
-                              setIntelligenceThreadId(item.id);
-                              setIntelligenceThreadTitle(item.title);
-                              setIntelligenceSheetOpen(true);
-                            }}
-                            onPriorityClick={(e) => {
-                              // Fallback for items without task data - prompt to create task
-                              toast.info("Create a task to set priority");
-                            }}
-                            onSelect={handleSelectItem}
-                            onStar={(starred) => handleStar(item.id, starred)}
-                            onStatusClick={(e) => {
-                              // Fallback for items without task data - prompt to create task
-                              toast.info("Create a task to set status");
-                            }}
-                            organizationId={activeOrg?.id}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Load More Button */}
-                  {hasNextPage && (
-                    <div className="flex items-center justify-center border-t py-4">
-                      <Button
-                        className="gap-2"
-                        disabled={isFetchingInbox}
-                        onClick={loadMore}
-                        size="sm"
-                        variant="outline"
-                      >
-                        {isFetchingInbox ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading more...
-                          </>
-                        ) : (
-                          <>
-                            Load More
-                            {totalCount > items.length && (
-                              <span className="text-muted-foreground">
-                                ({items.length} of {totalCount})
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </Button>
+                {/* Scrollable list */}
+                <div className="flex-1 overflow-auto" ref={listRef}>
+                  {isLoadingInbox ? (
+                    <div>
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <InboxRowSkeleton key={`skeleton-${i}`} />
+                      ))}
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+                  ) : items.length === 0 ? (
+                    <EmptyState sourceFilter={sourceFilter} viewTab={viewTab} />
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          height: `${virtualizer.getTotalSize()}px`,
+                          width: "100%",
+                          position: "relative",
+                        }}
+                      >
+                        {virtualizer.getVirtualItems().map((virtualRow) => {
+                          const item = items[virtualRow.index];
+                          if (!item) return null;
 
-          {/* Inbox Sidebar (only shown in threads view) */}
-          {viewMode === "threads" && showSchedule && (
-            <InboxSidebar
-              commitments={sidebarCommitments}
-              events={sidebarEvents}
-              insights={sidebarInsights}
-              onCommitmentClick={(id) => {
-                navigate({ to: "/dashboard/commitments" });
-              }}
-              onEventClick={(eventId) => {
-                navigate({ to: "/dashboard/calendar" });
-              }}
-              stats={sidebarStats}
-            />
-          )}
-          </>
-          )}
+                          const inboxItem: InboxItem = {
+                            ...item,
+                            hasCommitments: item.hasCommitments,
+                            hasDecisions: item.hasDecisions,
+                            task: item.task
+                              ? {
+                                  id: item.task.id,
+                                  status: item.task.status,
+                                  priority: item.task.priority,
+                                  assignee: item.task.assignee,
+                                }
+                              : undefined,
+                          };
+
+                          const isSelected = item.id === selectedThreadId;
+
+                          return (
+                            <div
+                              key={item.id}
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                            >
+                              <InboxRow
+                                isActive={virtualRow.index === selectedIndex || isSelected}
+                                isSelected={selectedIds.has(item.id)}
+                                item={inboxItem}
+                                onArchive={() => handleArchive(item.id)}
+                                onAssigneeClick={() => toast.info("Create a task to assign")}
+                                onClick={() => handleItemClick(item)}
+                                onDotsClick={() => {
+                                  setIntelligenceThreadId(item.id);
+                                  setIntelligenceThreadTitle(item.title);
+                                  setIntelligenceSheetOpen(true);
+                                }}
+                                onPriorityClick={() => toast.info("Create a task to set priority")}
+                                onSelect={handleSelectItem}
+                                onStar={(starred) => handleStar(item.id, starred)}
+                                onStatusClick={() => toast.info("Create a task to set status")}
+                                organizationId={activeOrg?.id}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Load More Button */}
+                      {hasNextPage && (
+                        <div className="flex items-center justify-center border-t py-3">
+                          <Button
+                            className="gap-2"
+                            disabled={isFetchingInbox}
+                            onClick={loadMore}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {isFetchingInbox ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>Load More ({items.length}/{totalCount})</>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            {/* Preview Pane Panel */}
+            <ResizablePanel defaultSize={65}>
+              <EmailPreviewPane
+                className="h-full"
+                onClose={() => setSelectedThreadId(null)}
+                onExpand={(threadId) => {
+                  navigate({
+                    to: "/dashboard/email/thread/$threadId",
+                    params: { threadId },
+                  });
+                }}
+                threadId={selectedThreadId}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </div>
       </div>
 
@@ -1245,24 +928,25 @@ function InboxRowSkeleton() {
 
 function EmptyState({
   sourceFilter,
-  statusFilter,
+  viewTab,
 }: {
   sourceFilter: SourceFilter;
-  statusFilter: StatusFilter;
+  viewTab: ViewTab;
 }) {
   const getConfig = () => {
-    if (statusFilter === "unread") {
+    // View tab specific messages
+    if (viewTab === "focused") {
       return {
         icon: CheckCircle2,
         title: "All caught up!",
-        description: "You have no unread messages",
+        description: "No high-priority items need your attention",
       };
     }
-    if (statusFilter === "starred") {
+    if (viewTab === "others") {
       return {
-        icon: Star,
-        title: "No starred items",
-        description: "Star important conversations to find them quickly",
+        icon: Inbox,
+        title: "Nothing in Others",
+        description: "Low-priority items will appear here",
       };
     }
 

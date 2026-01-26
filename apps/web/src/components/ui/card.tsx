@@ -3,21 +3,24 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Linear-style Card component
+ * Premium Card component - Light mode first design
  *
  * Features:
- * - Subtle border (#393A4B in dark mode)
- * - Card background (#252631 in dark mode)
- * - 4px border radius
- * - Subtle shadow
+ * - Subtle border with 50% opacity for softness
+ * - Pure white card background
+ * - 8px border radius for modern look
+ * - Soft shadow that elevates without being heavy
+ * - Smooth hover transition for interactive cards
  */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-[6px] border border-border",
+        "flex flex-col rounded-lg",
+        "border border-border/50",
         "bg-card text-card-foreground",
         "shadow-card",
+        "transition-shadow duration-200",
         className
       )}
       data-slot="card"

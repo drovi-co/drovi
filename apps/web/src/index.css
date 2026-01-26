@@ -4,154 +4,200 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =============================================================================
-   DROVI DESIGN SYSTEM
+   DROVI DESIGN SYSTEM v2.0
    =============================================================================
-   Lavender-first design language inspired by the Drovi logo.
-   Font: Inter
-   Colors: Grey scale + Lavender primary + Semantic colors
+   Light-mode-first premium design inspired by Linear, Firma, and CloseCRM.
+   Font: Inter with optimized font features
+   Theme: Warm professional with indigo primary
 */
 
-/* Light mode - All colors derived from Drovi lavender #eae9fe */
+/* Light mode (PRIMARY) - Warm professional aesthetic */
 :root {
-  /* Background colors - Pure white so lavender stands out */
-  --background: #ffffff;
-  --foreground: #1a1a2e;
+  /* Background colors - Warm off-whites */
+  --background: #fafafa;
+  --background-secondary: #f5f5f4;
+  --foreground: #171717;
 
-  /* Card/Surface colors */
+  /* Card/Surface colors - Pure white with depth */
   --card: #ffffff;
-  --card-foreground: #1a1a2e;
+  --card-foreground: #171717;
 
   /* Popover/Dropdown colors */
   --popover: #ffffff;
-  --popover-foreground: #1a1a2e;
+  --popover-foreground: #171717;
 
-  /* Primary - The exact Drovi lavender #eae9fe */
-  --primary: #eae9fe;
-  --primary-hover: #dddcfc;
-  --primary-foreground: #1a1a2e;
+  /* Primary - Deep indigo (professional, trustworthy) */
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-foreground: #ffffff;
 
-  /* Secondary - Deeper lavender for contrast */
-  --secondary: #6c70d6;
-  --secondary-hover: #5b5fc5;
-  --secondary-foreground: #ffffff;
+  /* Secondary - Warm stone */
+  --secondary: #f5f5f4;
+  --secondary-hover: #e7e5e4;
+  --secondary-foreground: #44403c;
 
-  /* Muted - Subtle lavender backgrounds */
-  --muted: #f4f4f8;
-  --muted-foreground: #64648c;
+  /* Muted - Subtle grays */
+  --muted: #f5f5f4;
+  --muted-foreground: #737373;
 
-  /* Accent - The Drovi lavender */
-  --accent: #eae9fe;
-  --accent-foreground: #1a1a2e;
+  /* Accent - Soft highlight */
+  --accent: #f0f9ff;
+  --accent-foreground: #0369a1;
 
   /* Destructive - Red */
-  --destructive: #ef4444;
-  --destructive-hover: #dc2626;
+  --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
   --destructive-foreground: #ffffff;
 
-  /* Border & Input */
-  --border: #e5e5f0;
-  --border-hover: #d5d5e5;
+  /* Semantic colors */
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+
+  /* Border & Input - Subtle definition */
+  --border: #e5e5e5;
+  --border-hover: #d4d4d4;
   --input: #ffffff;
-  --input-border: #e5e5f0;
+  --input-border: #e5e5e5;
 
-  /* Ring (focus) - Deeper lavender for visibility */
-  --ring: #6c70d6;
+  /* Ring (focus) - Primary for consistency */
+  --ring: #4f46e5;
 
-  /* Sidebar */
-  --sidebar: #fafafc;
-  --sidebar-foreground: #1a1a2e;
-  --sidebar-primary: #eae9fe;
-  --sidebar-primary-foreground: #1a1a2e;
-  --sidebar-accent: #eae9fe;
-  --sidebar-accent-foreground: #1a1a2e;
-  --sidebar-border: #e5e5f0;
-  --sidebar-ring: #6c70d6;
+  /* Sidebar - Slightly off-white */
+  --sidebar: #fafaf9;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f4;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #4f46e5;
 
-  /* Chart colors - Lavender-based palette */
-  --chart-1: #6c70d6;
-  --chart-2: #8b8fe8;
-  --chart-3: #a5a8f0;
-  --chart-4: #5b5fc5;
-  --chart-5: #4a4eb4;
+  /* Chart colors - Professional palette */
+  --chart-1: #4f46e5;
+  --chart-2: #0284c7;
+  --chart-3: #059669;
+  --chart-4: #d97706;
+  --chart-5: #dc2626;
 
-  /* Border radius */
-  --radius: 0.5rem;
+  /* Intelligence indicator colors */
+  --confidence-high: #059669;
+  --confidence-medium: #d97706;
+  --confidence-low: #dc2626;
 
-  /* Shadows */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.08);
-  --shadow-card: 0px 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-dropdown: 0px 4px 12px rgba(0, 0, 0, 0.12);
+  /* Border radius - Clean, modern */
+  --radius: 0.375rem;
+
+  /* Shadows - Subtle and sophisticated */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.04), 0 4px 6px rgba(0, 0, 0, 0.02);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.05), 0 8px 10px rgba(0, 0, 0, 0.02);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-dropdown: 0 10px 38px rgba(0, 0, 0, 0.08), 0 10px 20px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 25px 50px rgba(0, 0, 0, 0.12);
+
+  /* Colored shadows for premium effects */
+  --shadow-primary: 0 1px 2px rgba(79, 70, 229, 0.1);
+  --shadow-primary-hover: 0 4px 12px rgba(79, 70, 229, 0.15);
 }
 
-/* Dark mode - All colors derived from Drovi lavender #eae9fe */
+/* Dark mode (SUPPORTING) - Clean, modern dark theme */
 .dark {
-  /* Background colors - Deep with strong lavender undertone */
-  --background: #0e0e1a;
-  --foreground: #e8e8f8;
+  /* Background colors - Near black */
+  --background: #0a0a0a;
+  --background-secondary: #171717;
+  --foreground: #fafafa;
 
-  /* Card/Surface colors - Lavender-tinted surfaces */
-  --card: #16162a;
-  --card-foreground: #e8e8f8;
+  /* Card/Surface colors */
+  --card: #171717;
+  --card-foreground: #fafafa;
 
   /* Popover/Dropdown colors */
-  --popover: #1a1a30;
-  --popover-foreground: #e8e8f8;
+  --popover: #1c1c1c;
+  --popover-foreground: #fafafa;
 
-  /* Primary - Visible lavender (more saturated than #eae9fe for dark mode) */
-  --primary: #c8c6f7;
-  --primary-hover: #b5b3f0;
-  --primary-foreground: #0e0e1a;
+  /* Primary - Indigo for dark mode (lighter variant) */
+  --primary: #818cf8;
+  --primary-hover: #6366f1;
+  --primary-foreground: #0a0a0a;
 
-  /* Secondary - Deeper lavender */
-  --secondary: #7b7fd4;
-  --secondary-hover: #6c70c5;
-  --secondary-foreground: #ffffff;
+  /* Secondary - Dark surfaces */
+  --secondary: #262626;
+  --secondary-hover: #404040;
+  --secondary-foreground: #fafafa;
 
-  /* Muted - Dark lavender surfaces */
-  --muted: #1e1e38;
-  --muted-foreground: #9090b8;
+  /* Muted - Subtle dark surfaces */
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
 
-  /* Accent - Lavender accent */
-  --accent: #252545;
-  --accent-foreground: #e8e8f8;
+  /* Accent - Indigo tint */
+  --accent: #1e1b4b;
+  --accent-foreground: #c7d2fe;
 
   /* Destructive - Red */
   --destructive: #ef4444;
-  --destructive-hover: #f45555;
+  --destructive-hover: #f87171;
   --destructive-foreground: #ffffff;
 
-  /* Border & Input - Lavender-tinted */
-  --border: #2a2a4a;
-  --border-hover: #3a3a5a;
-  --input: #1a1a30;
-  --input-border: #2a2a4a;
+  /* Semantic colors for dark mode */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #000000;
+  --info: #38bdf8;
+  --info-foreground: #000000;
 
-  /* Ring (focus) - Bright lavender */
-  --ring: #9090e0;
+  /* Border & Input */
+  --border: #262626;
+  --border-hover: #404040;
+  --input: #171717;
+  --input-border: #262626;
 
-  /* Sidebar - Deep lavender */
-  --sidebar: #0a0a15;
-  --sidebar-foreground: #e8e8f8;
-  --sidebar-primary: #c8c6f7;
-  --sidebar-primary-foreground: #0e0e1a;
-  --sidebar-accent: #1e1e38;
-  --sidebar-accent-foreground: #e8e8f8;
-  --sidebar-border: #2a2a4a;
-  --sidebar-ring: #9090e0;
+  /* Ring (focus) */
+  --ring: #818cf8;
 
-  /* Chart colors - Lavender-based palette for dark mode */
-  --chart-1: #c8c6f7;
-  --chart-2: #9090e0;
-  --chart-3: #7b7fd4;
-  --chart-4: #6060b0;
-  --chart-5: #5050a0;
+  /* Sidebar */
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #262626;
+  --sidebar-ring: #818cf8;
 
-  /* Shadows - Deeper for dark mode */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.35);
-  --shadow-card: 0px 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-dropdown: 0px 8px 24px rgba(0, 0, 0, 0.6);
+  /* Chart colors for dark mode */
+  --chart-1: #818cf8;
+  --chart-2: #38bdf8;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #f87171;
+
+  /* Intelligence indicator colors */
+  --confidence-high: #10b981;
+  --confidence-medium: #f59e0b;
+  --confidence-low: #f87171;
+
+  /* Shadows - Subtle for dark mode */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.35), 0 8px 10px rgba(0, 0, 0, 0.2);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-dropdown: 0 10px 38px rgba(0, 0, 0, 0.5), 0 10px 20px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 25px 50px rgba(0, 0, 0, 0.5);
+
+  /* Colored shadows for dark mode */
+  --shadow-primary: 0 1px 2px rgba(129, 140, 248, 0.15);
+  --shadow-primary-hover: 0 4px 12px rgba(129, 140, 248, 0.2);
 }
 
 /* =============================================================================
@@ -159,8 +205,9 @@
    ============================================================================= */
 
 @theme inline {
-  /* Colors */
+  /* Core colors */
   --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -179,11 +226,28 @@
   --color-destructive: var(--destructive);
   --color-destructive-hover: var(--destructive-hover);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  /* Semantic colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Intelligence confidence indicators */
+  --color-confidence-high: var(--confidence-high);
+  --color-confidence-medium: var(--confidence-medium);
+  --color-confidence-low: var(--confidence-low);
+
+  /* Border & Input */
   --color-border: var(--border);
   --color-border-hover: var(--border-hover);
   --color-input: var(--input);
   --color-input-border: var(--input-border);
   --color-ring: var(--ring);
+
+  /* Chart colors */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -200,18 +264,21 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Border radius - Linear uses tighter corners */
-  --radius-sm: calc(var(--radius) - 2px);
+  /* Border radius - Clean, modern */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
 
-  /* Typography - Inter font stack */
+  /* Typography - Inter with optimized features */
   --font-sans:
     "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  /* Linear-style spacing scale */
+  /* Spacing scale */
   --spacing-px: 1px;
   --spacing-0: 0;
   --spacing-0-5: 0.125rem;
@@ -228,12 +295,28 @@
   --spacing-8: 2rem;
   --spacing-9: 2.25rem;
   --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-14: 3.5rem;
+  --spacing-16: 4rem;
 
-  /* Custom shadows for Linear design */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.09);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.15);
-  --shadow-card: 0px 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-dropdown: 0px 8px 24px rgba(0, 0, 0, 0.4);
+  /* Shadow scale - Maps to CSS variables */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-button: var(--shadow-button);
+  --shadow-card: var(--shadow-card);
+  --shadow-dropdown: var(--shadow-dropdown);
+  --shadow-modal: var(--shadow-modal);
+  --shadow-primary: var(--shadow-primary);
+  --shadow-primary-hover: var(--shadow-primary-hover);
+
+  /* Layout dimensions */
+  --icon-rail-width: 48px;
+  --nav-panel-width: 220px;
+  --header-height: 56px;
+  --mobile-tab-bar-height: 56px;
 }
 
 /* =============================================================================
@@ -247,9 +330,10 @@
 
   html {
     font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -258,7 +342,7 @@
     line-height: 1.5;
   }
 
-  /* Typography scale matching Linear */
+  /* Typography scale - Clean, professional */
   h1 {
     @apply text-2xl font-semibold tracking-tight;
     line-height: 1.2;
@@ -278,13 +362,18 @@
     @apply text-base font-medium;
   }
 
-  /* Selection color - Drovi lavender #eae9fe */
+  /* Selection color - Primary indigo */
   ::selection {
-    background-color: #eae9fe;
-    color: #1a1a2e;
+    background-color: #c7d2fe;
+    color: #1e1b4b;
   }
 
-  /* Scrollbar styling for dark mode */
+  .dark ::selection {
+    background-color: #4338ca;
+    color: #ffffff;
+  }
+
+  /* Scrollbar styling - Subtle for light mode */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -304,11 +393,17 @@
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: #2a2a4a;
+    background: #404040;
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a5a;
+    background: #525252;
+  }
+
+  /* Focus visible for better accessibility */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
@@ -316,13 +411,13 @@
    COMPONENT UTILITIES
    ============================================================================= */
 
-/* Custom shadow utilities for Linear design */
-@utility shadow-button {
-  box-shadow: var(--shadow-button);
+/* Shadow utilities */
+@utility shadow-xs {
+  box-shadow: var(--shadow-xs);
 }
 
-@utility shadow-button-2 {
-  box-shadow: var(--shadow-button-2);
+@utility shadow-button {
+  box-shadow: var(--shadow-button);
 }
 
 @utility shadow-card {
@@ -331,6 +426,18 @@
 
 @utility shadow-dropdown {
   box-shadow: var(--shadow-dropdown);
+}
+
+@utility shadow-modal {
+  box-shadow: var(--shadow-modal);
+}
+
+@utility shadow-primary {
+  box-shadow: var(--shadow-primary);
+}
+
+@utility shadow-primary-hover {
+  box-shadow: var(--shadow-primary-hover);
 }
 
 /* Custom text size utilities */

@@ -5,17 +5,18 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Linear-style Button component
+ * Premium Button component - Light mode first design
  *
  * Variants:
- * - default (primary): Purple background, white text
- * - secondary: Dark grey background with border
+ * - default (primary): Indigo filled button with subtle shadow
+ * - secondary: Stone background with border
  * - tertiary: Border only, no background
  * - destructive: Red for dangerous actions
- * - ghost: No background, subtle hover
+ * - success: Green for positive actions
+ * - ghost: No border, subtle hover
  * - link: Text link style
  *
- * Sizes match Linear's button scale:
+ * Sizes:
  * - xs: Extra small (24px height)
  * - sm: Small (28px height)
  * - default: Medium (32px height)
@@ -25,62 +26,71 @@ const buttonVariants = cva(
   [
     // Base styles
     "inline-flex items-center justify-center gap-2 whitespace-nowrap",
-    "rounded-[4px] font-medium text-[13px] leading-none",
-    "outline-none transition-colors duration-150",
-    // Focus state - Linear uses ring
-    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+    "rounded-md font-medium text-[13px] leading-none",
+    "outline-none transition-all duration-200",
+    // Focus state
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     // Disabled state
-    "disabled:pointer-events-none disabled:opacity-60",
+    "disabled:pointer-events-none disabled:opacity-50",
     // Icon sizing
     "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   ].join(" "),
   {
     variants: {
       variant: {
-        // Primary - Purple filled button
+        // Primary - Indigo filled button with subtle glow
         default: [
           "bg-primary text-primary-foreground",
-          "border border-primary",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "shadow-sm hover:shadow-md",
           "hover:bg-primary-hover",
+          "active:scale-[0.98]",
         ].join(" "),
 
-        // Secondary - Dark grey with border
+        // Secondary - Stone background with border
         secondary: [
           "bg-secondary text-secondary-foreground",
           "border border-border",
-          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
-          "hover:border-border-hover hover:bg-secondary-hover",
+          "shadow-xs",
+          "hover:bg-secondary-hover hover:border-border-hover",
+          "active:scale-[0.98]",
         ].join(" "),
 
-        // Tertiary - Border only
+        // Tertiary - Border only, transparent background
         tertiary: [
           "bg-transparent text-muted-foreground",
           "border border-border",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
-          "hover:border-border-hover hover:text-foreground",
+          "hover:border-border-hover hover:text-foreground hover:bg-muted/50",
         ].join(" "),
 
         // Destructive - Red for dangerous actions
         destructive: [
           "bg-destructive text-destructive-foreground",
-          "border border-destructive",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
-          "hover:bg-destructive-hover",
+          "shadow-sm",
+          "hover:bg-destructive-hover hover:shadow-md",
           "focus-visible:ring-destructive/50",
+          "active:scale-[0.98]",
         ].join(" "),
 
-        // Outline - Similar to tertiary but different hover
+        // Success - Green for positive actions
+        success: [
+          "bg-success text-success-foreground",
+          "shadow-sm",
+          "hover:opacity-90 hover:shadow-md",
+          "focus-visible:ring-success/50",
+          "active:scale-[0.98]",
+        ].join(" "),
+
+        // Outline - Border with transparent background
         outline: [
           "bg-transparent text-foreground",
           "border border-border",
-          "hover:bg-accent hover:text-accent-foreground",
+          "hover:bg-accent hover:text-accent-foreground hover:border-border-hover",
         ].join(" "),
 
         // Ghost - No border, subtle hover
         ghost: [
           "bg-transparent text-muted-foreground",
-          "hover:bg-accent hover:text-accent-foreground",
+          "hover:bg-muted hover:text-foreground",
         ].join(" "),
 
         // Link - Text link style
@@ -89,28 +99,21 @@ const buttonVariants = cva(
           "underline-offset-4 hover:underline",
           "h-auto p-0",
         ].join(" "),
-
-        // Banner - Special style for promotional buttons
-        banner: [
-          "bg-transparent text-primary",
-          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
-          "hover:text-primary-hover",
-        ].join(" "),
       },
       size: {
         // Extra small - 24px height
-        xs: "h-6 px-3 py-1 font-medium text-[12px]",
+        xs: "h-6 px-2.5 py-1 text-[11px]",
 
         // Small - 28px height
-        sm: "h-7 px-3.5 py-1.5 font-medium text-[12px]",
+        sm: "h-7 px-3 py-1.5 text-[12px]",
 
         // Default/Medium - 32px height
-        default: "h-8 px-3.5 py-2 text-[13px]",
+        default: "h-8 px-4 py-2 text-[13px]",
 
         // Large - 40px height
-        lg: "h-10 px-4 py-3 text-[15px]",
+        lg: "h-10 px-5 py-3 text-[14px]",
 
-        // Icon buttons
+        // Icon buttons - Square
         icon: "size-8 p-0",
         "icon-xs": "size-6 p-0",
         "icon-sm": "size-7 p-0",
