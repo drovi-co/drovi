@@ -11,20 +11,15 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow, isPast, isToday } from "date-fns";
 import {
   AlertTriangle,
-  ArrowRight,
-  Calendar,
   CheckCircle2,
   Clock,
   GitBranch,
-  Loader2,
   Mail,
   MessageSquare,
   Star,
   TrendingUp,
-  User,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +73,7 @@ export function RelationshipSidebar({
       <div className="flex w-80 flex-col border-l bg-background">
         <SidebarHeader onClose={onClose} />
         <div className="flex flex-1 items-center justify-center p-4">
-          <p className="text-sm text-muted-foreground">Contact not found</p>
+          <p className="text-muted-foreground text-sm">Contact not found</p>
         </div>
       </div>
     );
@@ -134,14 +129,9 @@ function SidebarHeader({ onClose }: { onClose: () => void }) {
     <div className="flex items-center justify-between border-b px-4 py-3">
       <div className="flex items-center gap-2">
         <Users className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Relationship Intel</span>
+        <span className="font-medium text-sm">Relationship Intel</span>
       </div>
-      <Button
-        className="h-7 w-7"
-        onClick={onClose}
-        size="icon"
-        variant="ghost"
-      >
+      <Button className="h-7 w-7" onClick={onClose} size="icon" variant="ghost">
         <X className="h-4 w-4" />
       </Button>
     </div>
@@ -190,16 +180,16 @@ function ContactHeader({
           )}
         </div>
         {contact.title && (
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-muted-foreground text-xs">
             {contact.title}
           </p>
         )}
         {contact.company && (
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-muted-foreground text-xs">
             {contact.company}
           </p>
         )}
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-muted-foreground text-xs">
           {contact.primaryEmail}
         </p>
       </div>
@@ -231,7 +221,7 @@ function RelationshipHealthMeter({
   return (
     <div className="rounded-lg border bg-muted/30 p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="font-medium text-muted-foreground text-xs">
           Relationship Health
         </span>
         <Badge
@@ -254,9 +244,9 @@ function RelationshipHealthMeter({
           indicatorClassName={getHealthColor(score)}
           value={percentage}
         />
-        <span className="text-xs font-medium">{percentage}%</span>
+        <span className="font-medium text-xs">{percentage}%</span>
       </div>
-      <p className="text-xs text-muted-foreground">{healthInsight}</p>
+      <p className="text-muted-foreground text-xs">{healthInsight}</p>
     </div>
   );
 }
@@ -278,7 +268,7 @@ function CommunicationPattern({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
         <MessageSquare className="h-3.5 w-3.5" />
         Communication Pattern
       </h4>
@@ -332,7 +322,7 @@ function MetricCard({
         {icon}
         <span className="text-[10px]">{label}</span>
       </div>
-      <p className="mt-0.5 text-sm font-medium">{value}</p>
+      <p className="mt-0.5 font-medium text-sm">{value}</p>
     </div>
   );
 }
@@ -352,21 +342,23 @@ function CommitmentsSection({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
         <CheckCircle2 className="h-3.5 w-3.5" />
         Open Commitments ({commitments.length})
       </h4>
       <div className="space-y-1">
         {commitments.map((c) => {
           const isOverdue =
-            c.dueDate && isPast(new Date(c.dueDate)) && !isToday(new Date(c.dueDate));
+            c.dueDate &&
+            isPast(new Date(c.dueDate)) &&
+            !isToday(new Date(c.dueDate));
           return (
             <div
-              key={c.id}
               className={cn(
                 "rounded-md border p-2 text-xs",
                 isOverdue ? "border-red-200 bg-red-50/50" : "bg-background"
               )}
+              key={c.id}
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="flex-1 truncate font-medium">{c.title}</p>
@@ -378,7 +370,9 @@ function CommitmentsSection({
                 </Badge>
               </div>
               <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-                <span className={c.isDebtor ? "text-amber-600" : "text-blue-600"}>
+                <span
+                  className={c.isDebtor ? "text-amber-600" : "text-blue-600"}
+                >
                   {c.isDebtor ? "They owe" : "You owe"}
                 </span>
                 {c.dueDate && (
@@ -412,13 +406,16 @@ function DecisionsSection({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
         <GitBranch className="h-3.5 w-3.5" />
         Recent Decisions ({decisions.length})
       </h4>
       <div className="space-y-1">
         {decisions.map((d) => (
-          <div key={d.id} className="rounded-md border bg-background p-2 text-xs">
+          <div
+            className="rounded-md border bg-background p-2 text-xs"
+            key={d.id}
+          >
             <p className="truncate font-medium">{d.title}</p>
             {d.decisionDate && (
               <p className="mt-0.5 text-muted-foreground">
@@ -449,7 +446,7 @@ function MutualConnectionsSection({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
         <Users className="h-3.5 w-3.5" />
         Also Knows ({contacts.length})
       </h4>
@@ -480,9 +477,9 @@ function MutualConnectionsSection({
                     {c.displayName ?? c.primaryEmail}
                   </p>
                   {c.company && (
-                    <p className="text-xs text-muted-foreground">{c.company}</p>
+                    <p className="text-muted-foreground text-xs">{c.company}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {c.relationshipType.replace("_", " ")}
                   </p>
                 </TooltipContent>

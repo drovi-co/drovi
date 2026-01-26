@@ -12,7 +12,9 @@ import {
   createFileRoute,
   useNavigate,
   useParams,
+  useSearch,
 } from "@tanstack/react-router";
+import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
@@ -63,8 +65,13 @@ import { cn } from "@/lib/utils";
 // ROUTE DEFINITION
 // =============================================================================
 
+const searchSchema = z.object({
+  from: z.string().optional(), // Return URL for smart back navigation
+});
+
 export const Route = createFileRoute("/dashboard/commitments/$commitmentId")({
   component: CommitmentDetailPage,
+  validateSearch: searchSchema,
 });
 
 // =============================================================================
@@ -180,6 +187,8 @@ function CommitmentDetailPage() {
   const { commitmentId } = useParams({
     from: "/dashboard/commitments/$commitmentId",
   });
+  const search = Route.useSearch();
+  const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const queryClient = useQueryClient();
@@ -265,8 +274,13 @@ function CommitmentDetailPage() {
 
   // Handlers
   const handleBack = useCallback(() => {
-    navigate({ to: "/dashboard/commitments" });
-  }, [navigate]);
+    // Use return URL if provided, otherwise go to commitments list
+    if (returnUrl) {
+      navigate({ to: returnUrl });
+    } else {
+      navigate({ to: "/dashboard/commitments" });
+    }
+  }, [navigate, returnUrl]);
 
   const handleComplete = useCallback(() => {
     if (!commitment) return;

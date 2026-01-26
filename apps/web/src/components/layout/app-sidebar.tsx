@@ -13,7 +13,6 @@ import {
   Search,
   Settings,
   Shield,
-  Sparkles,
   Users,
 } from "lucide-react";
 
@@ -31,11 +30,6 @@ import { TeamSwitcher } from "./team-switcher";
 
 // Intelligence navigation items (Drovi - Multi-Source)
 const intelligenceNavItems: NavItem[] = [
-  {
-    title: "Today",
-    url: "/dashboard/today",
-    icon: Sparkles,
-  },
   {
     title: "Smart Inbox",
     url: "/dashboard/inbox",
@@ -173,7 +167,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="h-14 justify-center">
         <div className="flex items-center justify-between gap-2">
           <TeamSwitcher />
           <NotificationCenter />

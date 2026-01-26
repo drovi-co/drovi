@@ -230,9 +230,10 @@ function Sidebar({
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
           // Adjust the padding for floating and inset variants.
+          // Note: Removed border-r/border-l for seamless Octolane-style shell flow
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
           className
         )}
         data-slot="sidebar-container"
@@ -306,7 +307,14 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       className={cn(
         "relative flex w-full flex-1 flex-col bg-background",
-        "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        // Rounded upper-left corner for content card effect (Octolane/Linear style)
+        "rounded-tl-2xl",
+        // Subtle shadow for depth separation from shell
+        "shadow-[0_0_15px_rgba(0,0,0,0.04)]",
+        // Dark mode shadow adjustment
+        "dark:shadow-[0_0_20px_rgba(0,0,0,0.3)]",
+        // Overflow handling
+        "overflow-hidden",
         className
       )}
       data-slot="sidebar-inset"

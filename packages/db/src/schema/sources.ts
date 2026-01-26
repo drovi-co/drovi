@@ -387,6 +387,7 @@ export const conversation = pgTable(
     isMuted: boolean("is_muted").notNull().default(false),
     isTrashed: boolean("is_trashed").notNull().default(false),
     isPinned: boolean("is_pinned").notNull().default(false),
+    isDone: boolean("is_done").notNull().default(false), // Marks conversation as treated/completed
 
     // Snooze support
     snoozedUntil: timestamp("snoozed_until"),
@@ -442,6 +443,7 @@ export const conversation = pgTable(
     index("conversation_open_loops_idx").on(table.hasOpenLoops),
     index("conversation_is_read_idx").on(table.isRead),
     index("conversation_is_archived_idx").on(table.isArchived),
+    index("conversation_is_done_idx").on(table.isDone),
     index("conversation_type_idx").on(table.conversationType),
     // External ID must be unique per source account
     unique("conversation_source_external_unique").on(

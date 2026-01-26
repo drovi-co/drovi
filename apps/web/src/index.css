@@ -57,14 +57,20 @@
   /* Ring (focus) - Deeper lavender for visibility */
   --ring: #6c70d6;
 
-  /* Sidebar */
-  --sidebar: #fafafc;
-  --sidebar-foreground: #1a1a2e;
-  --sidebar-primary: #eae9fe;
+  /* Shell - Unified sidebar + header area (Octolane-style flowing design) */
+  --shell: #f5f4ff;
+  --shell-foreground: #1a1a2e;
+  --shell-border: #e8e7f5;
+  --content-radius: 1rem;
+
+  /* Sidebar - Inherits shell colors for unified look */
+  --sidebar: var(--shell);
+  --sidebar-foreground: var(--shell-foreground);
+  --sidebar-primary: #e8e7f8;
   --sidebar-primary-foreground: #1a1a2e;
-  --sidebar-accent: #eae9fe;
+  --sidebar-accent: #ededfc;
   --sidebar-accent-foreground: #1a1a2e;
-  --sidebar-border: #e5e5f0;
+  --sidebar-border: var(--shell-border);
   --sidebar-ring: #6c70d6;
 
   /* Chart colors - Lavender-based palette */
@@ -130,14 +136,19 @@
   /* Ring (focus) - Bright lavender */
   --ring: #9090e0;
 
-  /* Sidebar - Deep lavender */
-  --sidebar: #0a0a15;
-  --sidebar-foreground: #e8e8f8;
+  /* Shell - Unified sidebar + header area (pure black) */
+  --shell: #000000;
+  --shell-foreground: #ffffff;
+  --shell-border: #1a1a1a;
+
+  /* Sidebar - Inherits shell colors for unified look */
+  --sidebar: var(--shell);
+  --sidebar-foreground: var(--shell-foreground);
   --sidebar-primary: #c8c6f7;
-  --sidebar-primary-foreground: #0e0e1a;
-  --sidebar-accent: #1e1e38;
-  --sidebar-accent-foreground: #e8e8f8;
-  --sidebar-border: #2a2a4a;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--shell-border);
   --sidebar-ring: #9090e0;
 
   /* Chart colors - Lavender-based palette for dark mode */
@@ -199,6 +210,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Shell - Unified sidebar + header */
+  --color-shell: var(--shell);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-border: var(--shell-border);
 
   /* Border radius - Linear uses tighter corners */
   --radius-sm: calc(var(--radius) - 2px);

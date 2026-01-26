@@ -108,6 +108,7 @@ export interface UnifiedFeedItem {
   isRead: boolean;
   isStarred: boolean;
   isArchived: boolean;
+  isDone: boolean;
   // Intelligence metadata
   priorityTier: string | null;
   urgencyScore: number | null;
@@ -168,7 +169,7 @@ const listInboxSchema = z.object({
   // Priority filters
   priority: z.array(z.enum(["urgent", "high", "medium", "low"])).optional(),
   // Status filters
-  status: z.array(z.enum(["unread", "starred", "archived", "read"])).optional(),
+  status: z.array(z.enum(["unread", "starred", "archived", "read", "done"])).optional(),
   // Intelligence filters
   hasCommitments: z.boolean().optional(),
   hasDecisions: z.boolean().optional(),
@@ -388,12 +389,16 @@ export const unifiedInboxRouter = router({
         if (input.status.includes("archived")) {
           statusConditions.push(eq(conversation.isArchived, true));
         }
+        if (input.status.includes("done")) {
+          statusConditions.push(eq(conversation.isDone, true));
+        }
         if (statusConditions.length > 0) {
           conditions.push(or(...statusConditions));
         }
       } else {
-        // Default: exclude archived
+        // Default: exclude archived and done
         conditions.push(eq(conversation.isArchived, false));
+        conditions.push(eq(conversation.isDone, false));
       }
 
       // Priority filters
@@ -454,6 +459,7 @@ export const unifiedInboxRouter = router({
           isRead: conversation.isRead,
           isStarred: conversation.isStarred,
           isArchived: conversation.isArchived,
+          isDone: conversation.isDone,
           priorityTier: conversation.priorityTier,
           urgencyScore: conversation.urgencyScore,
           importanceScore: conversation.importanceScore,
@@ -662,6 +668,7 @@ export const unifiedInboxRouter = router({
           isRead: c.isRead ?? false,
           isStarred: c.isStarred ?? false,
           isArchived: c.isArchived ?? false,
+          isDone: c.isDone ?? false,
           priorityTier: c.priorityTier,
           urgencyScore: c.urgencyScore,
           importanceScore: c.importanceScore,
@@ -893,29 +900,246 @@ export const unifiedInboxRouter = router({
         });
       }
 
+      // Fetch linked UIOs for this conversation
+      const linkedUIOs = await db
+        .select({
+          uioId: unifiedIntelligenceObject.id,
+          type: unifiedIntelligenceObject.type,
+          title: unifiedIntelligenceObject.canonicalTitle,
+          status: unifiedIntelligenceObject.status,
+          dueDate: unifiedIntelligenceObject.dueDate,
+          conversationId: unifiedObjectSource.conversationId,
+        })
+        .from(unifiedObjectSource)
+        .innerJoin(
+          unifiedIntelligenceObject,
+          eq(unifiedObjectSource.unifiedObjectId, unifiedIntelligenceObject.id)
+        )
+        .where(
+          and(
+            eq(unifiedObjectSource.conversationId, input.conversationId),
+            eq(unifiedIntelligenceObject.organizationId, orgId)
+          )
+        );
+
+      // Get UIO IDs for source breadcrumb lookup
+      const uioIds = [...new Set(linkedUIOs.map((u) => u.uioId))];
+      const uioSources =
+        uioIds.length > 0
+          ? await db
+              .select({
+                unifiedObjectId: unifiedObjectSource.unifiedObjectId,
+                sourceType: unifiedObjectSource.sourceType,
+              })
+              .from(unifiedObjectSource)
+              .where(inArray(unifiedObjectSource.unifiedObjectId, uioIds))
+          : [];
+
+      // Build UIO source breadcrumb map
+      const uioSourceMap = new Map<string, Map<string, number>>();
+      for (const source of uioSources) {
+        if (!uioSourceMap.has(source.unifiedObjectId)) {
+          uioSourceMap.set(source.unifiedObjectId, new Map());
+        }
+        const sourceTypeMap = uioSourceMap.get(source.unifiedObjectId)!;
+        sourceTypeMap.set(
+          source.sourceType,
+          (sourceTypeMap.get(source.sourceType) ?? 0) + 1
+        );
+      }
+
+      // Build unified objects array
+      const unifiedObjects: LinkedUIO[] = linkedUIOs.map((uio) => {
+        const sourceTypeMap = uioSourceMap.get(uio.uioId);
+        const sourceBreadcrumbs: SourceBreadcrumb[] = sourceTypeMap
+          ? Array.from(sourceTypeMap.entries()).map(([sourceType, count]) => ({
+              sourceType,
+              count,
+              sourceName: getSourceDisplayName(sourceType),
+            }))
+          : [];
+
+        return {
+          id: uio.uioId,
+          type: uio.type as "commitment" | "decision" | "topic",
+          title: uio.title ?? "Untitled",
+          dueDate: uio.dueDate,
+          status: uio.status,
+          sourceBreadcrumbs,
+        };
+      });
+
+      // Extract participant names from metadata
+      const participants = extractParticipants(
+        conv.participantIds ?? [],
+        conv.metadata as Record<string, unknown> | undefined,
+        conv.sourceAccount.type as SourceType
+      );
+
       return {
         id: conv.id,
         sourceType: conv.sourceAccount.type as SourceType,
         sourceAccountId: conv.sourceAccountId,
+        sourceAccountName:
+          conv.sourceAccount.displayName ??
+          getSourceDisplayName(conv.sourceAccount.type),
         externalId: conv.externalId,
         conversationType: conv.conversationType,
         title: conv.title ?? "No subject",
         snippet: conv.snippet ?? "",
         brief: conv.briefSummary,
+        participants,
         participantIds: conv.participantIds ?? [],
         messageCount: conv.messageCount ?? 0,
         lastMessageAt: conv.lastMessageAt,
         isRead: conv.isRead ?? false,
         isStarred: conv.isStarred ?? false,
         isArchived: conv.isArchived ?? false,
+        isDone: conv.isDone ?? false,
         priorityTier: conv.priorityTier,
         urgencyScore: conv.urgencyScore,
         importanceScore: conv.importanceScore,
         hasOpenLoops: conv.hasOpenLoops,
         openLoopCount: conv.openLoopCount,
         suggestedAction: conv.suggestedAction,
+        unifiedObjects,
         isLegacy: false,
       };
+    }),
+
+  /**
+   * Get related conversations that share UIOs with the given conversation.
+   * Only considers meaningful UIO types (commitment, decision, task) - not briefs or topics
+   * which are often 1:1 with conversations or too generic.
+   */
+  getRelatedConversations: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        limit: z.number().int().min(1).max(20).default(5),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const orgId = await getActiveOrgId(ctx);
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, orgId);
+
+      // Only consider meaningful UIO types that create real relationships
+      // Excludes: brief (1:1 with conversation), topic (too generic), claim (too granular)
+      const meaningfulTypes = ["commitment", "decision", "task", "risk", "project"];
+
+      // First, get meaningful UIOs linked to this conversation
+      const linkedUIOs = await db
+        .select({
+          uioId: unifiedObjectSource.unifiedObjectId,
+          uioType: unifiedIntelligenceObject.type,
+          uioTitle: unifiedIntelligenceObject.canonicalTitle,
+        })
+        .from(unifiedObjectSource)
+        .innerJoin(
+          unifiedIntelligenceObject,
+          eq(unifiedObjectSource.unifiedObjectId, unifiedIntelligenceObject.id)
+        )
+        .where(
+          and(
+            eq(unifiedObjectSource.conversationId, input.conversationId),
+            eq(unifiedIntelligenceObject.organizationId, orgId),
+            eq(unifiedIntelligenceObject.status, "active"),
+            inArray(unifiedIntelligenceObject.type, meaningfulTypes)
+          )
+        );
+
+      if (linkedUIOs.length === 0) {
+        return { conversations: [] };
+      }
+
+      const uioIds = linkedUIOs.map((u) => u.uioId);
+
+      // Find other conversations that share these specific UIOs
+      const relatedSources = await db
+        .select({
+          conversationId: unifiedObjectSource.conversationId,
+          uioId: unifiedObjectSource.unifiedObjectId,
+          uioType: unifiedIntelligenceObject.type,
+        })
+        .from(unifiedObjectSource)
+        .innerJoin(
+          unifiedIntelligenceObject,
+          eq(unifiedObjectSource.unifiedObjectId, unifiedIntelligenceObject.id)
+        )
+        .where(
+          and(
+            inArray(unifiedObjectSource.unifiedObjectId, uioIds),
+            sql`${unifiedObjectSource.conversationId} != ${input.conversationId}`,
+            sql`${unifiedObjectSource.conversationId} IS NOT NULL`,
+            inArray(unifiedIntelligenceObject.type, meaningfulTypes)
+          )
+        );
+
+      if (relatedSources.length === 0) {
+        return { conversations: [] };
+      }
+
+      // Group by conversation to count shared UIOs
+      const conversationUIOCounts = new Map<
+        string,
+        Map<string, number>
+      >();
+      for (const source of relatedSources) {
+        if (!source.conversationId) continue;
+        if (!conversationUIOCounts.has(source.conversationId)) {
+          conversationUIOCounts.set(source.conversationId, new Map());
+        }
+        const typeCounts = conversationUIOCounts.get(source.conversationId)!;
+        typeCounts.set(source.uioType, (typeCounts.get(source.uioType) ?? 0) + 1);
+      }
+
+      // Get unique conversation IDs
+      const relatedConvIds = [...conversationUIOCounts.keys()];
+
+      // Fetch conversation details
+      const relatedConversations = await db
+        .select({
+          id: conversation.id,
+          title: conversation.title,
+          lastMessageAt: conversation.lastMessageAt,
+          sourceType: sourceAccount.type,
+          sourceDisplayName: sourceAccount.displayName,
+        })
+        .from(conversation)
+        .innerJoin(sourceAccount, eq(conversation.sourceAccountId, sourceAccount.id))
+        .where(
+          and(
+            inArray(conversation.id, relatedConvIds),
+            eq(sourceAccount.organizationId, orgId)
+          )
+        )
+        .orderBy(desc(conversation.lastMessageAt))
+        .limit(input.limit);
+
+      // Build response with shared UIO counts
+      const result = relatedConversations.map((conv) => {
+        const typeCounts = conversationUIOCounts.get(conv.id);
+        const sharedUIOs: Array<{ type: string; count: number }> = [];
+        if (typeCounts) {
+          for (const [type, count] of typeCounts.entries()) {
+            sharedUIOs.push({ type, count });
+          }
+        }
+
+        return {
+          conversation: {
+            id: conv.id,
+            title: conv.title ?? "No subject",
+            sourceType: conv.sourceType,
+            sourceDisplayName: conv.sourceDisplayName ?? getSourceDisplayName(conv.sourceType),
+            lastMessageAt: conv.lastMessageAt,
+          },
+          sharedUIOs,
+        };
+      });
+
+      return { conversations: result };
     }),
 
   /**
@@ -1027,6 +1251,25 @@ export const unifiedInboxRouter = router({
       await db
         .update(conversation)
         .set({ isArchived: true, updatedAt: new Date() })
+        .where(eq(conversation.id, input.conversationId));
+
+      return { success: true };
+    }),
+
+  /**
+   * Mark conversation as done/not done (treated).
+   */
+  markDone: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        done: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx: _ctx, input }) => {
+      await db
+        .update(conversation)
+        .set({ isDone: input.done, updatedAt: new Date() })
         .where(eq(conversation.id, input.conversationId));
 
       return { success: true };

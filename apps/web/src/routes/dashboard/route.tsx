@@ -4,9 +4,28 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useNavigate,
+  useSearch,
 } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import {
+  Calendar,
+  CheckCircle2,
+  Filter,
+  Inbox,
+  Mail,
+  MessageSquare,
+  Plus,
+  Star,
+} from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+
 import { UpgradeModal } from "@/components/billing/upgrade-modal";
+import { useCommandBar } from "@/components/email/command-bar";
+import type {
+  ActionButton,
+  FilterConfig,
+  HeaderTab,
+} from "@/components/layout/interactive-header";
 import { AppShell } from "@/components/layout/app-shell";
 import { authClient, useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/utils/trpc";
@@ -209,16 +228,117 @@ interface CustomerState {
   }>;
 }
 
+// =============================================================================
+// HEADER CONFIGURATION BY ROUTE
+// =============================================================================
+// This configures the interactive header based on the current route, creating
+// an Octolane-style header with tabs, filters, and actions.
+
+interface RouteHeaderConfig {
+  tabs?: HeaderTab[];
+  filters?: FilterConfig[];
+  actions?: ActionButton[];
+  primaryAction?: ActionButton;
+}
+
+function getHeaderConfig(
+  pathname: string,
+  handlers: {
+    onCompose?: () => void;
+    onTabChange?: (tabId: string) => void;
+    onSourceFilter?: (value: string) => void;
+  }
+): RouteHeaderConfig {
+  // Smart Inbox page - Conversation-centric tabs
+  if (pathname === "/dashboard/inbox") {
+    return {
+      tabs: [
+        { id: "all", label: "All", icon: Inbox },
+        { id: "unread", label: "Unread", icon: Mail },
+        { id: "starred", label: "Starred", icon: Star },
+        { id: "done", label: "Done", icon: CheckCircle2 },
+      ],
+      filters: [
+        {
+          id: "source",
+          label: "Source",
+          icon: Filter,
+          options: [
+            { value: "all", label: "All sources" },
+            { value: "email", label: "Email", icon: Mail },
+            { value: "slack", label: "Slack", icon: MessageSquare },
+            { value: "calendar", label: "Calendar", icon: Calendar },
+          ],
+          onSelect: handlers.onSourceFilter,
+        },
+      ],
+      primaryAction: {
+        id: "compose",
+        label: "Compose",
+        icon: Plus,
+        onClick: handlers.onCompose,
+      },
+    };
+  }
+
+  // Default - no special header configuration
+  return {};
+}
+
 function DashboardLayout() {
   const { isAdmin, customerState } = Route.useRouteContext() as {
     isAdmin: boolean;
     customerState: CustomerState | null;
   };
   const location = useLocation();
+  const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs(location.pathname);
   const trpc = useTRPC();
   const { data: session } = useSession();
   const inviteCodeProcessed = useRef(false);
+  const { openCompose } = useCommandBar();
+
+  // Read tab from URL search params (for inbox page)
+  const searchParams = new URLSearchParams(location.search);
+  const tabFromUrl = searchParams.get("tab") ?? "all";
+
+  // Handle source filter changes
+  const handleSourceFilter = useCallback((value: string) => {
+    if (location.pathname === "/dashboard/inbox") {
+      navigate({
+        to: "/dashboard/inbox",
+        search: (prev) => {
+          if (value === "all") {
+            // Remove sources from search params
+            const { sources, ...rest } = prev as Record<string, unknown>;
+            return rest;
+          }
+          return { ...prev, sources: value };
+        },
+      });
+    }
+  }, [location.pathname, navigate]);
+
+  // Get header configuration based on current route
+  const headerConfig = getHeaderConfig(location.pathname, {
+    onCompose: openCompose,
+    onSourceFilter: handleSourceFilter,
+  });
+
+  // Handle tab changes - update URL search params
+  const handleTabChange = useCallback((tabId: string) => {
+    // Only update URL if we're on the inbox page
+    if (location.pathname === "/dashboard/inbox") {
+      const validTabs = ["all", "unread", "starred", "done"] as const;
+      const tab = validTabs.includes(tabId as typeof validTabs[number])
+        ? (tabId as typeof validTabs[number])
+        : "all";
+      navigate({
+        to: "/dashboard/inbox",
+        search: tab === "all" ? {} : { tab },
+      });
+    }
+  }, [location.pathname, navigate]);
 
   // Mutation to mark invite code as used
   const useInviteCodeMutation = useMutation(
@@ -271,7 +391,16 @@ function DashboardLayout() {
 
   return (
     <>
-      <AppShell breadcrumbs={breadcrumbs} showAdmin={isAdmin}>
+      <AppShell
+        activeTab={tabFromUrl}
+        actions={headerConfig.actions}
+        breadcrumbs={breadcrumbs}
+        filters={headerConfig.filters}
+        onTabChange={handleTabChange}
+        primaryAction={headerConfig.primaryAction}
+        showAdmin={isAdmin}
+        tabs={headerConfig.tabs}
+      >
         <Outlet />
       </AppShell>
 

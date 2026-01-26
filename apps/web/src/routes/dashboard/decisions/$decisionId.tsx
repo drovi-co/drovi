@@ -13,6 +13,7 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
+import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -60,8 +61,13 @@ import { cn } from "@/lib/utils";
 // ROUTE DEFINITION
 // =============================================================================
 
+const searchSchema = z.object({
+  from: z.string().optional(), // Return URL for smart back navigation
+});
+
 export const Route = createFileRoute("/dashboard/decisions/$decisionId")({
   component: DecisionDetailPage,
+  validateSearch: searchSchema,
 });
 
 // =============================================================================
@@ -110,6 +116,8 @@ function DecisionDetailPage() {
   const { decisionId } = useParams({
     from: "/dashboard/decisions/$decisionId",
   });
+  const search = Route.useSearch();
+  const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const queryClient = useQueryClient();
@@ -196,8 +204,13 @@ function DecisionDetailPage() {
 
   // Handlers
   const handleBack = useCallback(() => {
-    navigate({ to: "/dashboard/decisions" });
-  }, [navigate]);
+    // Use return URL if provided, otherwise go to decisions list
+    if (returnUrl) {
+      navigate({ to: returnUrl });
+    } else {
+      navigate({ to: "/dashboard/decisions" });
+    }
+  }, [navigate, returnUrl]);
 
   const handleDismiss = useCallback(() => {
     if (!decision) return;

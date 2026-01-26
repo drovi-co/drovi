@@ -13,6 +13,7 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
+import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -71,8 +72,13 @@ import { trpc } from "@/utils/trpc";
 // ROUTE DEFINITION
 // =============================================================================
 
+const searchSchema = z.object({
+  from: z.string().optional(), // Return URL for smart back navigation
+});
+
 export const Route = createFileRoute("/dashboard/tasks/$taskId")({
   component: TaskDetailPage,
+  validateSearch: searchSchema,
 });
 
 // =============================================================================
@@ -82,6 +88,8 @@ export const Route = createFileRoute("/dashboard/tasks/$taskId")({
 function TaskDetailPage() {
   const navigate = useNavigate();
   const { taskId } = useParams({ from: "/dashboard/tasks/$taskId" });
+  const search = Route.useSearch();
+  const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const queryClientInstance = useQueryClient();
@@ -275,8 +283,12 @@ function TaskDetailPage() {
 
   // Handlers
   const handleBack = useCallback(() => {
-    navigate({ to: "/dashboard/tasks" });
-  }, [navigate]);
+    if (returnUrl) {
+      navigate({ to: returnUrl });
+    } else {
+      navigate({ to: "/dashboard/tasks" });
+    }
+  }, [navigate, returnUrl]);
 
   const handleSaveTitle = useCallback(() => {
     if (task && title !== task.title && title.trim()) {

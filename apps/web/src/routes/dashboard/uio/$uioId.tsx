@@ -12,6 +12,7 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
+import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -62,8 +63,13 @@ import { trpc } from "@/utils/trpc";
 // ROUTE DEFINITION
 // =============================================================================
 
+const searchSchema = z.object({
+  from: z.string().optional(), // Return URL for smart back navigation
+});
+
 export const Route = createFileRoute("/dashboard/uio/$uioId")({
   component: UIODetailPage,
+  validateSearch: searchSchema,
 });
 
 // =============================================================================
@@ -128,9 +134,20 @@ const STATUS_CONFIG = {
 function UIODetailPage() {
   const navigate = useNavigate();
   const { uioId } = useParams({ from: "/dashboard/uio/$uioId" });
+  const search = Route.useSearch();
+  const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const queryClient = useQueryClient();
+
+  // Smart back navigation
+  const handleBack = () => {
+    if (returnUrl) {
+      navigate({ to: returnUrl });
+    } else {
+      navigate({ to: "/dashboard" });
+    }
+  };
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -208,7 +225,7 @@ function UIODetailPage() {
           This unified object doesn't exist or you don't have access to it.
         </p>
         <Button
-          onClick={() => navigate({ to: "/dashboard" })}
+          onClick={handleBack}
           variant="outline"
         >
           <ArrowLeft className="mr-2 size-4" />
@@ -266,7 +283,7 @@ function UIODetailPage() {
         <div className="border-border border-b px-6 py-4">
           <div className="mb-4 flex items-center gap-4">
             <Button
-              onClick={() => navigate({ to: "/dashboard" })}
+              onClick={handleBack}
               size="sm"
               variant="ghost"
             >
