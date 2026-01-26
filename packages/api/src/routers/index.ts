@@ -6,6 +6,7 @@ import { calendarRouter } from "./calendar";
 // Legacy routers - kept temporarily for frontend compatibility during UIO migration
 import { commitmentsRouter } from "./commitments";
 import { composeRouter } from "./compose";
+import { contactIntelligenceRouter } from "./contact-intelligence";
 import { contactsRouter } from "./contacts";
 import { creditsRouter } from "./credits";
 import { decisionsRouter } from "./decisions";
@@ -58,6 +59,8 @@ export const appRouter = router({
   decisions: decisionsRouter,
   // Contacts API (MEMORYSTACK PRD-05)
   contacts: contactsRouter,
+  // Contact Intelligence API (Deep contact analysis pipeline)
+  contactIntelligence: contactIntelligenceRouter,
   // Search & Knowledge API (MEMORYSTACK PRD-06)
   search: searchRouter,
   // Multi-Source Intelligence API (MEMORYSTACK PRD-12)

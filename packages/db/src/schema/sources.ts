@@ -41,6 +41,15 @@ export interface SourceAccountSettings {
   // Notion-specific
   workspaceIds?: string[];
   databaseIds?: string[];
+  // CRM-specific
+  crmSettings?: {
+    pushEnabled?: boolean; // Enable pushing intelligence back to CRM
+    syncDirection?: "pull" | "push" | "bidirectional";
+    instanceUrl?: string; // Salesforce instance URL
+    fieldMapping?: Record<string, string>; // Drovi field -> CRM field mapping
+    objectTypes?: string[]; // Which CRM objects to sync (Contact, Lead, Account)
+    lastFullSyncAt?: string;
+  };
   // Generic
   customSettings?: Record<string, unknown>;
 }
@@ -177,6 +186,11 @@ export const sourceTypeEnum = pgEnum("source_type", [
   "discord",
   "linear",
   "github",
+  // CRM integrations
+  "crm_salesforce",
+  "crm_hubspot",
+  "crm_pipedrive",
+  "crm_zoho",
 ]);
 
 /**

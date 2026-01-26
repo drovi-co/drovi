@@ -22,6 +22,33 @@ class SourceType(str, Enum):
     API = "api"
     WEBHOOK = "webhook"
     MANUAL = "manual"
+    # CRM sources
+    CRM_SALESFORCE = "crm_salesforce"
+    CRM_HUBSPOT = "crm_hubspot"
+    CRM_PIPEDRIVE = "crm_pipedrive"
+    CRM_ZOHO = "crm_zoho"
+
+
+class IdentityType(str, Enum):
+    """Types of identities that can be linked to a contact."""
+
+    EMAIL = "email"
+    EMAIL_ALIAS = "email_alias"
+    SLACK_ID = "slack_id"
+    SLACK_HANDLE = "slack_handle"
+    PHONE = "phone"
+    WHATSAPP_ID = "whatsapp_id"
+    CRM_SALESFORCE = "crm_salesforce"
+    CRM_HUBSPOT = "crm_hubspot"
+    CRM_PIPEDRIVE = "crm_pipedrive"
+    CRM_ZOHO = "crm_zoho"
+    LINKEDIN_URL = "linkedin_url"
+    TWITTER_HANDLE = "twitter_handle"
+    GITHUB_USERNAME = "github_username"
+    NOTION_USER_ID = "notion_user_id"
+    GOOGLE_ID = "google_id"
+    CALENDAR_ATTENDEE_ID = "calendar_attendee_id"
+    EXTERNAL_ID = "external_id"
 
 
 class GraphNodeType(str, Enum):
@@ -53,10 +80,13 @@ class GraphNodeType(str, Enum):
     WHATSAPP_GROUP = "WhatsAppGroup"
     CALENDAR_EVENT = "CalendarEvent"
 
-    # Memory System (NEW - from Supermemory/Context Graph research)
+    # Memory System (from Supermemory/Context Graph research)
     USER_PROFILE = "UserProfile"  # User's memory profile (RAM layer)
     ORGANIZATION_BASELINE = "OrganizationBaseline"  # Statistical baseline for signal detection
     PATTERN = "Pattern"  # Recognition pattern for Klein's RPD
+
+    # Identity Resolution (Contact-First Intelligence)
+    IDENTITY = "Identity"  # Cross-source identity linking for contacts
 
 
 class GraphRelationshipType(str, Enum):
@@ -101,11 +131,16 @@ class GraphRelationshipType(str, Enum):
     FOCUSED_ON = "FOCUSED_ON"  # UserProfile -> Project/Topic
     INTERESTED_IN = "INTERESTED_IN"  # UserProfile -> Topic (weighted by recency)
 
-    # Pattern relationships (NEW)
+    # Pattern relationships
     LEARNED_FROM = "LEARNED_FROM"  # Pattern -> UIO (source of learning)
     MATCHED = "MATCHED"  # Pattern -> Episode (pattern matched)
     CONFIRMED_BY = "CONFIRMED_BY"  # Pattern -> Contact (user confirmed)
     REJECTED_BY = "REJECTED_BY"  # Pattern -> Contact (user rejected)
+
+    # Identity Resolution relationships (Contact-First Intelligence)
+    HAS_IDENTITY = "HAS_IDENTITY"  # Contact -> Identity (contact owns this identity)
+    POTENTIAL_MERGE = "POTENTIAL_MERGE"  # Contact -> Contact (suggested merge candidates)
+    MERGED_FROM = "MERGED_FROM"  # Contact -> Contact (after merge, source contacts)
 
 
 # ============================================================================
@@ -214,25 +249,89 @@ class EntityNode(BaseNode):
 
 
 class ContactNode(BaseNode):
-    """Contact/person node."""
+    """Contact/person node with intelligence fields."""
 
     email: str | None = None
     name: str | None = None
     company: str | None = None
     title: str | None = None
 
-    # Metrics
+    # Graph Analytics Metrics
     importance_score: float = 0.0
-    pagerank_score: float = 0.0
-    betweenness_score: float = 0.0
+    pagerank_score: float = 0.0  # PageRank-derived influence
+    betweenness_score: float = 0.0  # Betweenness centrality (bridging)
     community_id: str | None = None
+    community_ids: list[str] = Field(default_factory=list)  # Multiple communities
 
     # Relationship stats
     interaction_count: int = 0
     last_interaction: datetime | None = None
 
+    # Contact Intelligence (from Contact Intelligence Pipeline)
+    lifecycle_stage: Literal[
+        "unknown", "lead", "prospect", "opportunity",
+        "customer", "churned", "partner", "vendor", "colleague"
+    ] = "unknown"
+    lifecycle_stage_confidence: float = 0.0
+
+    role_type: Literal[
+        "unknown", "decision_maker", "influencer", "gatekeeper",
+        "champion", "end_user", "evaluator", "blocker"
+    ] = "unknown"
+    role_type_confidence: float = 0.0
+
+    seniority_level: Literal[
+        "unknown", "intern", "ic", "manager", "senior_manager",
+        "director", "vp", "c_level", "founder"
+    ] = "unknown"
+    seniority_confidence: float = 0.0
+
+    # Communication Profile
+    communication_formality: Literal["formal", "casual", "professional"] | None = None
+    preferred_channel: Literal["email", "slack", "calendar", "whatsapp", "phone"] | None = None
+    timezone_inferred: str | None = None
+
+    # Health and risk
+    health_score: float = 0.0
+    engagement_score: float = 0.0
+    sentiment_score: float = 0.0
+    is_vip: bool = False
+    is_at_risk: bool = False
+
+    # Intelligence tracking
+    last_intelligence_at: datetime | None = None
+    intelligence_version: str | None = None
+
     # Embedding
     embedding: list[float] | None = None
+
+
+class IdentityNode(BaseNode):
+    """
+    Identity node for cross-source contact resolution.
+
+    Links various identifiers (email, Slack ID, phone, CRM ID) to contacts.
+    Enables the Unified Identity Graph for contact resolution.
+    """
+
+    contact_id: str  # The contact this identity belongs to
+    identity_type: str  # IdentityType enum value
+    identity_value: str  # The actual identifier (email address, Slack ID, etc.)
+
+    # Confidence and verification
+    confidence: float = 1.0
+    is_verified: bool = False
+    verified_at: datetime | None = None
+
+    # Provenance
+    source: Literal[
+        "email_header", "slack_profile", "crm_sync", "calendar_invite",
+        "manual", "ai_inference", "oauth_profile", "api_enrichment"
+    ] | None = None
+    source_account_id: str | None = None
+
+    # Activity tracking
+    last_seen_at: datetime | None = None
 
 
 class CommitmentNode(BaseNode):

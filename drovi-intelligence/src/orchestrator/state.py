@@ -465,6 +465,64 @@ def merge_lists(left: list, right: list) -> list:
     return left + right
 
 
+class ContactContextData(BaseModel):
+    """
+    Pre-resolved contact context for intelligence extraction.
+
+    This provides relationship context that enriches commitment/decision extraction.
+    For example, prompts can include "This is from your VIP contact John (CEO of Acme)".
+    """
+
+    # Mapping of identifier (email, slack_id, etc.) to resolved contact info
+    resolved_contacts: dict[str, dict] = Field(default_factory=dict)
+
+    # Relationship strengths (contact_id -> strength score)
+    relationship_strengths: dict[str, float] = Field(default_factory=dict)
+
+    # Topic history (contact_id -> list of recent topics)
+    topic_history: dict[str, list[str]] = Field(default_factory=dict)
+
+    # Special contact lists
+    vip_contacts: list[str] = Field(default_factory=list)  # VIP contact IDs
+    at_risk_contacts: list[str] = Field(default_factory=list)  # At-risk contact IDs
+
+    # Whether pre-resolution was performed
+    resolved: bool = False
+
+    def get_context_for_prompt(self, email: str) -> str | None:
+        """
+        Get a context string for an email to include in extraction prompts.
+
+        Returns something like: "John Doe (CEO at Acme Inc, VIP contact)"
+        """
+        contact = self.resolved_contacts.get(email.lower())
+        if not contact:
+            return None
+
+        parts = []
+        if contact.get("display_name"):
+            parts.append(contact["display_name"])
+        if contact.get("title") and contact.get("company"):
+            parts.append(f"({contact['title']} at {contact['company']})")
+        elif contact.get("company"):
+            parts.append(f"(at {contact['company']})")
+
+        flags = []
+        if contact.get("is_vip"):
+            flags.append("VIP")
+        if contact.get("is_at_risk"):
+            flags.append("at-risk")
+        if contact.get("lifecycle_stage") and contact["lifecycle_stage"] != "unknown":
+            flags.append(contact["lifecycle_stage"])
+        if contact.get("role_type") and contact["role_type"] != "unknown":
+            flags.append(contact["role_type"].replace("_", " "))
+
+        if flags:
+            parts.append(f"[{', '.join(flags)}]")
+
+        return " ".join(parts) if parts else None
+
+
 class IntelligenceState(BaseModel):
     """
     Main state object that flows through the LangGraph orchestrator.
@@ -480,6 +538,9 @@ class IntelligenceState(BaseModel):
 
     # Parsed messages
     messages: list[ParsedMessage] = Field(default_factory=list)
+
+    # Pre-resolved contact context (populated by resolve_contacts_early node)
+    contact_context: ContactContextData = Field(default_factory=ContactContextData)
 
     # Classification
     classification: Classification = Field(default_factory=Classification)

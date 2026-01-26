@@ -1,8 +1,16 @@
 // Existing exports
 export * from "./audit";
 export * from "./auth";
+// Contact identity linking (cross-source resolution)
+export * from "./contact-identity";
 // Contact relationships (social graph)
 export * from "./contact-relationship";
+// Contact source links (CRM sync, etc.)
+export * from "./contact-source-link";
+// Contact alerts (proactive monitoring)
+export * from "./contact-alert";
+// Contact intelligence snapshots (historical trend data)
+export * from "./contact-intelligence-snapshot";
 export * from "./credits";
 // Derivation rules and calibration (knowledge evolution)
 export * from "./derivation-rules";

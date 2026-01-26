@@ -1,6 +1,7 @@
 """LangGraph agent nodes for intelligence extraction."""
 
 from .parse import parse_messages_node
+from .resolve_contacts_early import resolve_contacts_early_node
 from .classify import classify_node
 from .extract_claims import extract_claims_node
 from .extract_commitments import extract_commitments_node
@@ -14,6 +15,7 @@ from .finalize import finalize_node
 
 __all__ = [
     "parse_messages_node",
+    "resolve_contacts_early_node",
     "classify_node",
     "extract_claims_node",
     "extract_commitments_node",

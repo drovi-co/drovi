@@ -27,6 +27,13 @@ async def parse_messages(state: IntelligenceState) -> dict:
     return await parse_messages_node(state)
 
 
+async def resolve_contacts_early(state: IntelligenceState) -> dict:
+    """Pre-resolve contacts before extraction for rich relationship context."""
+    from .nodes.resolve_contacts_early import resolve_contacts_early_node
+
+    return await resolve_contacts_early_node(state)
+
+
 async def classify(state: IntelligenceState) -> dict:
     """Classify content to determine extraction paths."""
     from .nodes.classify import classify_node
@@ -276,20 +283,21 @@ def create_intelligence_graph() -> StateGraph:
 
     The graph follows this general flow:
     1. parse_messages - Parse raw content into structured messages
-    2. classify - Classify content to determine what to extract
-    3. pattern_match - Match against learned patterns (Klein's RPD)
-    4. extract_claims - Extract claims (facts, promises, questions, etc.)
-    5. extract_commitments - Extract commitments (if applicable)
-    6. extract_decisions - Extract decisions (if applicable)
-    7. extract_tasks - Extract tasks from commitments
-    8. detect_risks - Detect risks in extracted content
-    9. entity_resolution - Resolve and merge entities across sources
-    10. generate_brief - Generate 3-line summary and suggested actions
-    11. deduplicate - Deduplicate against existing UIOs
-    12. signal_filter - Classify signal vs noise (Wheeler's SPC)
-    13. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
-    14. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
-    15. finalize - Prepare final output
+    2. resolve_contacts_early - Pre-resolve contacts for relationship context (NEW)
+    3. classify - Classify content to determine what to extract
+    4. pattern_match - Match against learned patterns (Klein's RPD)
+    5. extract_claims - Extract claims (facts, promises, questions, etc.)
+    6. extract_commitments - Extract commitments (if applicable)
+    7. extract_decisions - Extract decisions (if applicable)
+    8. extract_tasks - Extract tasks from commitments
+    9. detect_risks - Detect risks in extracted content
+    10. entity_resolution - Resolve and merge entities across sources
+    11. generate_brief - Generate 3-line summary and suggested actions
+    12. deduplicate - Deduplicate against existing UIOs
+    13. signal_filter - Classify signal vs noise (Wheeler's SPC)
+    14. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
+    15. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
+    16. finalize - Prepare final output
 
     Routing is conditional based on classification results.
     """
@@ -298,6 +306,7 @@ def create_intelligence_graph() -> StateGraph:
 
     # Add all nodes
     workflow.add_node("parse_messages", parse_messages)
+    workflow.add_node("resolve_contacts_early", resolve_contacts_early)
     workflow.add_node("classify", classify)
     workflow.add_node("pattern_match", pattern_match)
     workflow.add_node("extract_claims", extract_claims)
@@ -317,8 +326,9 @@ def create_intelligence_graph() -> StateGraph:
     workflow.set_entry_point("parse_messages")
 
     # Define edges
-    # parse_messages -> classify (always)
-    workflow.add_edge("parse_messages", "classify")
+    # parse_messages -> resolve_contacts_early -> classify (always)
+    workflow.add_edge("parse_messages", "resolve_contacts_early")
+    workflow.add_edge("resolve_contacts_early", "classify")
 
     # classify -> pattern_match OR finalize (conditional)
     workflow.add_conditional_edges(

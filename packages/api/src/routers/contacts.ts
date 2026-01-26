@@ -14,6 +14,7 @@ import { db } from "@memorystack/db";
 // =============================================================================
 import {
   contact,
+  contactIdentity,
   conversation,
   conversationTopic,
   member,
@@ -91,6 +92,12 @@ const searchContactsSchema = z.object({
   organizationId: z.string().min(1),
   query: z.string().min(1),
   limit: z.number().int().min(1).max(20).default(10),
+});
+
+const getMergeSuggestionsSchema = z.object({
+  organizationId: z.string().min(1),
+  minConfidence: z.number().min(0).max(1).default(0.5),
+  limit: z.number().int().min(1).max(100).default(50),
 });
 
 // =============================================================================
@@ -635,6 +642,226 @@ export const contactsRouter = router({
       return {
         contacts: results,
         total: results.length,
+      };
+    }),
+
+  /**
+   * Get organization-wide merge suggestions.
+   * Scans all contacts to find likely duplicates using:
+   * 1. Shared identities (exact matches via contact_identity table)
+   * 2. Probabilistic matching (similar names + same email domain)
+   */
+  getMergeSuggestions: protectedProcedure
+    .input(getMergeSuggestionsSchema)
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      await verifyOrgMembership(userId, input.organizationId);
+
+      const suggestions: {
+        contactA: typeof contact.$inferSelect;
+        contactB: typeof contact.$inferSelect;
+        confidence: number;
+        reasons: string[];
+        sharedIdentities: {
+          type: string;
+          value: string;
+        }[];
+      }[] = [];
+
+      // Step 1: Find contacts with shared identities
+      // Group identities by (type, value) and find those linked to multiple contacts
+      const allIdentities = await db.query.contactIdentity.findMany({
+        where: eq(contactIdentity.organizationId, input.organizationId),
+        with: {
+          contact: true,
+        },
+      });
+
+      // Group by identity type + value
+      const identityGroups = new Map<string, typeof allIdentities>();
+      for (const identity of allIdentities) {
+        const key = `${identity.identityType}:${identity.identityValue.toLowerCase()}`;
+        const existing = identityGroups.get(key) ?? [];
+        existing.push(identity);
+        identityGroups.set(key, existing);
+      }
+
+      // Find groups with multiple contacts (potential duplicates)
+      const seenPairs = new Set<string>();
+      for (const [_identityKey, identities] of identityGroups) {
+        if (identities.length > 1) {
+          // Multiple contacts share this identity - they might be the same person
+          const uniqueContactIds = [...new Set(identities.map((i) => i.contactId))];
+          if (uniqueContactIds.length > 1) {
+            // Get all pairs
+            for (let i = 0; i < uniqueContactIds.length; i++) {
+              for (let j = i + 1; j < uniqueContactIds.length; j++) {
+                const contactAId = uniqueContactIds[i];
+                const contactBId = uniqueContactIds[j];
+                const pairKey = [contactAId, contactBId].sort().join(":");
+
+                if (!seenPairs.has(pairKey)) {
+                  seenPairs.add(pairKey);
+
+                  const contactA = identities.find((i) => i.contactId === contactAId)?.contact;
+                  const contactB = identities.find((i) => i.contactId === contactBId)?.contact;
+
+                  if (contactA && contactB) {
+                    // Find all shared identities for this pair
+                    const sharedIdentities: { type: string; value: string }[] = [];
+                    for (const [k, ids] of identityGroups) {
+                      const hasA = ids.some((i) => i.contactId === contactAId);
+                      const hasB = ids.some((i) => i.contactId === contactBId);
+                      if (hasA && hasB) {
+                        const [type, value] = k.split(":");
+                        sharedIdentities.push({ type: type ?? "unknown", value: value ?? "" });
+                      }
+                    }
+
+                    // High confidence for shared identities
+                    const confidence = Math.min(0.95, 0.7 + sharedIdentities.length * 0.1);
+
+                    if (confidence >= input.minConfidence) {
+                      suggestions.push({
+                        contactA,
+                        contactB,
+                        confidence,
+                        reasons: [`Share ${sharedIdentities.length} identifier(s)`],
+                        sharedIdentities,
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Step 2: Probabilistic matching for contacts without shared identities
+      // Get all contacts
+      const allContacts = await db.query.contact.findMany({
+        where: eq(contact.organizationId, input.organizationId),
+      });
+
+      // Group by email domain
+      const domainGroups = new Map<string, typeof allContacts>();
+      for (const c of allContacts) {
+        const domain = c.primaryEmail.split("@")[1]?.toLowerCase();
+        if (domain) {
+          const existing = domainGroups.get(domain) ?? [];
+          existing.push(c);
+          domainGroups.set(domain, existing);
+        }
+      }
+
+      // Check for similar names within same domain
+      for (const [domain, contacts] of domainGroups) {
+        if (contacts.length > 1) {
+          for (let i = 0; i < contacts.length; i++) {
+            for (let j = i + 1; j < contacts.length; j++) {
+              const a = contacts[i];
+              const b = contacts[j];
+
+              if (!a || !b) continue;
+
+              const pairKey = [a.id, b.id].sort().join(":");
+              if (seenPairs.has(pairKey)) continue;
+
+              // Calculate name similarity
+              const nameA = (a.displayName ?? "").toLowerCase().trim();
+              const nameB = (b.displayName ?? "").toLowerCase().trim();
+
+              if (!nameA || !nameB || nameA.length < 2 || nameB.length < 2) continue;
+
+              // Simple similarity: check for substring match or similar parts
+              let nameSimilarity = 0;
+              if (nameA === nameB) {
+                nameSimilarity = 1.0;
+              } else if (nameA.includes(nameB) || nameB.includes(nameA)) {
+                nameSimilarity = 0.7;
+              } else {
+                // Check for shared name parts (first/last name overlap)
+                const partsA = nameA.split(/\s+/);
+                const partsB = nameB.split(/\s+/);
+                const sharedParts = partsA.filter((p) =>
+                  partsB.some((pb) => pb.includes(p) || p.includes(pb))
+                );
+                if (sharedParts.length > 0) {
+                  nameSimilarity = 0.3 + (sharedParts.length / Math.max(partsA.length, partsB.length)) * 0.4;
+                }
+              }
+
+              if (nameSimilarity > 0.3) {
+                // Calculate overall confidence
+                // Same domain: +0.2, Name similarity: up to +0.5, Same company: +0.2
+                let confidence = 0.2 + nameSimilarity * 0.5;
+
+                const reasons: string[] = [`Same email domain (@${domain})`];
+
+                if (nameSimilarity >= 0.7) {
+                  reasons.push("Very similar names");
+                } else if (nameSimilarity > 0.3) {
+                  reasons.push("Similar name parts");
+                }
+
+                // Company match bonus
+                if (a.company && b.company &&
+                    a.company.toLowerCase() === b.company.toLowerCase()) {
+                  confidence += 0.2;
+                  reasons.push("Same company");
+                }
+
+                confidence = Math.min(confidence, 0.85); // Cap probabilistic matches
+
+                if (confidence >= input.minConfidence) {
+                  seenPairs.add(pairKey);
+                  suggestions.push({
+                    contactA: a,
+                    contactB: b,
+                    confidence,
+                    reasons,
+                    sharedIdentities: [],
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by confidence descending
+      suggestions.sort((a, b) => b.confidence - a.confidence);
+
+      // Apply limit
+      const limited = suggestions.slice(0, input.limit);
+
+      return {
+        suggestions: limited.map((s) => ({
+          contactA: {
+            id: s.contactA.id,
+            displayName: s.contactA.displayName,
+            primaryEmail: s.contactA.primaryEmail,
+            company: s.contactA.company,
+            title: s.contactA.title,
+            avatarUrl: s.contactA.avatarUrl,
+            isVip: s.contactA.isVip,
+          },
+          contactB: {
+            id: s.contactB.id,
+            displayName: s.contactB.displayName,
+            primaryEmail: s.contactB.primaryEmail,
+            company: s.contactB.company,
+            title: s.contactB.title,
+            avatarUrl: s.contactB.avatarUrl,
+            isVip: s.contactB.isVip,
+          },
+          confidence: Math.round(s.confidence * 100) / 100,
+          reasons: s.reasons,
+          sharedIdentities: s.sharedIdentities,
+        })),
+        total: suggestions.length,
+        hasMore: suggestions.length > input.limit,
       };
     }),
 

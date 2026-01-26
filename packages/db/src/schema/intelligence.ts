@@ -160,6 +160,30 @@ export interface ContactMetadata {
   googleId?: string;
 }
 
+/**
+ * Communication profile for deep contact understanding.
+ * Populated by Contact Intelligence Pipeline.
+ */
+export interface CommunicationProfile {
+  // Communication style
+  formalityLevel?: "formal" | "casual" | "professional";
+  preferredChannel?: "email" | "slack" | "calendar" | "whatsapp" | "phone";
+  // Temporal patterns
+  activeHours?: number[]; // Hours (0-23) when typically active
+  activeDays?: number[]; // Days (0-6, Sun-Sat) when typically active
+  timezoneInferred?: string;
+  // Response behavior
+  avgResponseDelayMinutes?: number;
+  responseTimeVariance?: number;
+  // Topic preferences
+  frequentTopics?: string[];
+  avoidedTopics?: string[];
+  // Conversation patterns
+  avgMessageLength?: number;
+  typicalInitiator?: boolean; // Do they usually start conversations?
+  prefersBulletPoints?: boolean;
+}
+
 // =============================================================================
 // ENUMS
 // =============================================================================
@@ -198,6 +222,52 @@ export const commitmentPriorityEnum = pgEnum("commitment_priority", [
 export const commitmentDirectionEnum = pgEnum("commitment_direction", [
   "owed_by_me", // User made the commitment
   "owed_to_me", // Someone else committed to user
+]);
+
+/**
+ * Contact lifecycle stage for CRM-grade tracking.
+ * Inferred by Contact Intelligence Pipeline.
+ */
+export const lifecycleStageEnum = pgEnum("lifecycle_stage", [
+  "unknown", // Not enough data to determine
+  "lead", // New contact, potential interest
+  "prospect", // Engaged, exploring options
+  "opportunity", // Active deal/opportunity
+  "customer", // Active customer
+  "churned", // Former customer
+  "partner", // Business partner
+  "vendor", // Supplier/vendor
+  "colleague", // Internal or close colleague
+]);
+
+/**
+ * Contact role type for understanding influence.
+ * Detected by AI from communication patterns.
+ */
+export const roleTypeEnum = pgEnum("role_type", [
+  "unknown", // Not determined
+  "decision_maker", // Has authority to make decisions
+  "influencer", // Influences decisions but doesn't make them
+  "gatekeeper", // Controls access to decision-makers
+  "champion", // Advocates for you internally
+  "end_user", // Will use the product/service
+  "evaluator", // Evaluates options technically
+  "blocker", // Actively blocking progress
+]);
+
+/**
+ * Seniority estimate for contacts.
+ */
+export const seniorityLevelEnum = pgEnum("seniority_level", [
+  "unknown",
+  "intern",
+  "ic", // Individual contributor
+  "manager",
+  "senior_manager",
+  "director",
+  "vp",
+  "c_level",
+  "founder",
 ]);
 
 // =============================================================================
@@ -274,6 +344,30 @@ export const contact = pgTable(
     lastEnrichedAt: timestamp("last_enriched_at"),
     enrichmentSource: text("enrichment_source"),
 
+    // ==========================================================================
+    // CONTACT INTELLIGENCE (populated by Contact Intelligence Pipeline)
+    // ==========================================================================
+
+    // Lifecycle and role detection
+    lifecycleStage: lifecycleStageEnum("lifecycle_stage").default("unknown"),
+    lifecycleStageConfidence: real("lifecycle_stage_confidence"),
+    roleType: roleTypeEnum("role_type").default("unknown"),
+    roleTypeConfidence: real("role_type_confidence"),
+    seniorityLevel: seniorityLevelEnum("seniority_level").default("unknown"),
+    seniorityConfidence: real("seniority_confidence"),
+
+    // Graph analytics scores
+    influenceScore: real("influence_score"), // PageRank-derived
+    bridgingScore: real("bridging_score"), // Betweenness centrality
+    communityIds: text("community_ids").array().default([]), // Community detection
+
+    // Deep communication profile
+    communicationProfile: jsonb("communication_profile").$type<CommunicationProfile>(),
+
+    // Intelligence processing tracking
+    lastIntelligenceAt: timestamp("last_intelligence_at"),
+    intelligenceVersion: text("intelligence_version"), // Version of pipeline that processed
+
     // Metadata
     metadata: jsonb("metadata").$type<ContactMetadata>(),
 
@@ -292,6 +386,12 @@ export const contact = pgTable(
     index("contact_vip_idx").on(table.isVip),
     index("contact_at_risk_idx").on(table.isAtRisk),
     index("contact_last_interaction_idx").on(table.lastInteractionAt),
+    // New intelligence indexes
+    index("contact_lifecycle_stage_idx").on(table.lifecycleStage),
+    index("contact_role_type_idx").on(table.roleType),
+    index("contact_influence_score_idx").on(table.influenceScore),
+    index("contact_bridging_score_idx").on(table.bridgingScore),
+    index("contact_last_intelligence_idx").on(table.lastIntelligenceAt),
     unique("contact_org_email_unique").on(
       table.organizationId,
       table.primaryEmail

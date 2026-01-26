@@ -33,9 +33,15 @@ export * from "./notion-sync.js";
 export * from "./slack-sync.js";
 export * from "./whatsapp-sync.js";
 
+// CRM sync (Salesforce, HubSpot, Pipedrive)
+export * from "./crm-sync.js";
+
 // Graph and intelligence (bridge to Python backend)
 export * from "./graph-backfill.js";
 export * from "./intelligence-extraction.js";
+
+// Contact intelligence (proactive monitoring)
+export * from "./contact-intelligence.js";
 
 // Task and UIO management
 export * from "./task-sync.js";

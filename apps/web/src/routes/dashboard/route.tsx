@@ -160,6 +160,13 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
+  // Contact detail page
+  if (pathname.startsWith("/dashboard/contacts/")) {
+    breadcrumbs.push({ label: "Contacts", href: "/dashboard/contacts" });
+    breadcrumbs.push({ label: "Profile" });
+    return breadcrumbs;
+  }
+
   // Sources section
   if (pathname === "/dashboard/sources") {
     breadcrumbs.push({ label: "Connected Sources" });

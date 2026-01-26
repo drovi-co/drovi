@@ -53,6 +53,7 @@ import { Route as DashboardTeamMembersRouteImport } from './routes/dashboard/tea
 import { Route as DashboardTeamInvitationsRouteImport } from './routes/dashboard/team/invitations'
 import { Route as DashboardTasksTaskIdRouteImport } from './routes/dashboard/tasks/$taskId'
 import { Route as DashboardDecisionsDecisionIdRouteImport } from './routes/dashboard/decisions/$decisionId'
+import { Route as DashboardContactsContactIdRouteImport } from './routes/dashboard/contacts/$contactId'
 import { Route as DashboardCommitmentsCommitmentIdRouteImport } from './routes/dashboard/commitments/$commitmentId'
 import { Route as DashboardEmailThreadThreadIdRouteImport } from './routes/dashboard/email/thread.$threadId'
 
@@ -280,6 +281,12 @@ const DashboardDecisionsDecisionIdRoute =
     path: '/decisions/$decisionId',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardContactsContactIdRoute =
+  DashboardContactsContactIdRouteImport.update({
+    id: '/contacts/$contactId',
+    path: '/contacts/$contactId',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 const DashboardCommitmentsCommitmentIdRoute =
   DashboardCommitmentsCommitmentIdRouteImport.update({
     id: '/commitments/$commitmentId',
@@ -322,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
+  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
@@ -368,6 +376,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
+  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
+  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
@@ -467,6 +477,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/onboarding'
     | '/dashboard/commitments/$commitmentId'
+    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/onboarding'
     | '/dashboard/commitments/$commitmentId'
+    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
@@ -561,6 +573,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/onboarding/'
     | '/dashboard/commitments/$commitmentId'
+    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
@@ -908,6 +921,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardDecisionsDecisionIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/contacts/$contactId': {
+      id: '/dashboard/contacts/$contactId'
+      path: '/contacts/$contactId'
+      fullPath: '/dashboard/contacts/$contactId'
+      preLoaderRoute: typeof DashboardContactsContactIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/commitments/$commitmentId': {
       id: '/dashboard/commitments/$commitmentId'
       path: '/commitments/$commitmentId'
@@ -955,6 +975,7 @@ interface DashboardRouteRouteChildren {
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardCommitmentsCommitmentIdRoute: typeof DashboardCommitmentsCommitmentIdRoute
+  DashboardContactsContactIdRoute: typeof DashboardContactsContactIdRoute
   DashboardDecisionsDecisionIdRoute: typeof DashboardDecisionsDecisionIdRoute
   DashboardTasksTaskIdRoute: typeof DashboardTasksTaskIdRoute
   DashboardTeamInvitationsRoute: typeof DashboardTeamInvitationsRoute
@@ -985,6 +1006,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardCommitmentsCommitmentIdRoute: DashboardCommitmentsCommitmentIdRoute,
+  DashboardContactsContactIdRoute: DashboardContactsContactIdRoute,
   DashboardDecisionsDecisionIdRoute: DashboardDecisionsDecisionIdRoute,
   DashboardTasksTaskIdRoute: DashboardTasksTaskIdRoute,
   DashboardTeamInvitationsRoute: DashboardTeamInvitationsRoute,

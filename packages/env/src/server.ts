@@ -105,6 +105,24 @@ export const env = createEnv({
     // Set to true to enable Google Docs integration
     GOOGLE_DOCS_ENABLED: z.coerce.boolean().optional().default(false),
 
+    // ==========================================================================
+    // CRM Integrations
+    // ==========================================================================
+
+    // Salesforce OAuth (for CRM sync)
+    // Create Connected App at: https://developer.salesforce.com/
+    SALESFORCE_CLIENT_ID: z.string().optional(),
+    SALESFORCE_CLIENT_SECRET: z.string().optional(),
+
+    // HubSpot OAuth (for CRM sync)
+    // Create app at: https://developers.hubspot.com/
+    HUBSPOT_CLIENT_ID: z.string().optional(),
+    HUBSPOT_CLIENT_SECRET: z.string().optional(),
+
+    // Pipedrive API (for CRM sync)
+    // Uses API token authentication instead of OAuth
+    PIPEDRIVE_API_TOKEN: z.string().optional(),
+
     // Email (Resend)
     RESEND_API_KEY: z.string().optional(),
     // Accepts both "email@domain.com" and "Display Name <email@domain.com>" formats
