@@ -22,8 +22,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useBlindspots, useDismissBlindspot } from "@/hooks/use-intelligence";
-import type { BlindspotIndicator, BlindspotType, BlindspotSeverity } from "@/hooks/use-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +47,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type {
+  BlindspotIndicator,
+  BlindspotSeverity,
+} from "@/hooks/use-intelligence";
+import { useBlindspots, useDismissBlindspot } from "@/hooks/use-intelligence";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -64,8 +67,16 @@ interface BlindspotPanelProps {
 // BLINDSPOT TYPE CONFIGURATION
 // =============================================================================
 
+const DEFAULT_BLINDSPOT_CONFIG = {
+  icon: HelpCircle,
+  label: "Unknown",
+  description: "Unknown blindspot type",
+  color: "text-gray-500",
+  bgColor: "bg-gray-100",
+};
+
 const BLINDSPOT_CONFIG: Record<
-  BlindspotType,
+  string,
   {
     icon: React.ElementType;
     label: string;
@@ -142,11 +153,16 @@ interface BlindspotCardProps {
   isDismissing: boolean;
 }
 
-function BlindspotCard({ blindspot, onDismiss, isDismissing }: BlindspotCardProps) {
+function BlindspotCard({
+  blindspot,
+  onDismiss,
+  isDismissing,
+}: BlindspotCardProps) {
   const [showDismissDialog, setShowDismissDialog] = useState(false);
   const [dismissReason, setDismissReason] = useState("");
 
-  const config = BLINDSPOT_CONFIG[blindspot.blindspot_type];
+  const config =
+    BLINDSPOT_CONFIG[blindspot.blindspot_type] ?? DEFAULT_BLINDSPOT_CONFIG;
   const severityConfig = SEVERITY_CONFIG[blindspot.severity];
   const Icon = config.icon;
 
@@ -260,7 +276,10 @@ function BlindspotCard({ blindspot, onDismiss, isDismissing }: BlindspotCardProp
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowDismissDialog(false)} variant="outline">
+            <Button
+              onClick={() => setShowDismissDialog(false)}
+              variant="outline"
+            >
               Cancel
             </Button>
             <Button disabled={isDismissing} onClick={handleDismiss}>
@@ -284,7 +303,10 @@ function BlindspotCard({ blindspot, onDismiss, isDismissing }: BlindspotCardProp
 // MAIN COMPONENT
 // =============================================================================
 
-export function BlindspotPanel({ organizationId, className }: BlindspotPanelProps) {
+export function BlindspotPanel({
+  organizationId,
+  className,
+}: BlindspotPanelProps) {
   const { data, isLoading, refetch } = useBlindspots({ organizationId });
   const dismissMutation = useDismissBlindspot();
 

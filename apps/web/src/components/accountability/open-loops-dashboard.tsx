@@ -40,11 +40,6 @@ import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
 
 import { ConfidenceBadge } from "@/components/evidence";
-import {
-  useCommitmentUIOs,
-  useMarkCompleteUIO,
-  useSnoozeUIO,
-} from "@/hooks/use-uio";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,6 +58,11 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useCommitmentUIOs,
+  useMarkCompleteUIO,
+  useSnoozeUIO,
+} from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -475,9 +475,17 @@ export function OpenLoopsDashboard({
   const snoozeMutationBase = useSnoozeUIO();
   const snoozeMutation = {
     ...snoozeMutationBase,
-    mutate: (params: { organizationId: string; commitmentId: string; until: Date }) => {
+    mutate: (params: {
+      organizationId: string;
+      commitmentId: string;
+      until: Date;
+    }) => {
       snoozeMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.commitmentId, until: params.until },
+        {
+          organizationId: params.organizationId,
+          id: params.commitmentId,
+          until: params.until,
+        },
         {
           onSuccess: () => {
             toast.success("Commitment snoozed");
@@ -497,7 +505,12 @@ export function OpenLoopsDashboard({
 
       if (commitment.otherParty) {
         openCompose({
-          to: [{ email: commitment.otherParty.primaryEmail, name: commitment.otherParty.displayName ?? undefined }],
+          to: [
+            {
+              email: commitment.otherParty.primaryEmail,
+              name: commitment.otherParty.displayName ?? undefined,
+            },
+          ],
           subject,
           body,
         });
@@ -512,7 +525,9 @@ export function OpenLoopsDashboard({
 
   // Transform and categorize UIO data
   const openLoops: OpenLoopItem[] = useMemo(() => {
-    if (!loopsData?.items) return [];
+    if (!loopsData?.items) {
+      return [];
+    }
     return loopsData.items
       .filter((c) => {
         const status = c.commitmentDetails?.status ?? "pending";
@@ -532,15 +547,19 @@ export function OpenLoopsDashboard({
           createdAt: new Date(c.createdAt),
           confidence: c.overallConfidence ?? 0.8,
           isUserVerified: c.isUserVerified ?? undefined,
-          otherParty: c.owner ? {
-            id: c.owner.id,
-            displayName: c.owner.displayName,
-            primaryEmail: c.owner.primaryEmail ?? "",
-          } : null,
-          sourceThread: c.sources?.[0]?.conversation ? {
-            id: c.sources[0].conversation.id,
-            subject: c.sources[0].conversation.title,
-          } : null,
+          otherParty: c.owner
+            ? {
+                id: c.owner.id,
+                displayName: c.owner.displayName,
+                primaryEmail: c.owner.primaryEmail ?? "",
+              }
+            : null,
+          sourceThread: c.sources?.[0]?.conversation
+            ? {
+                id: c.sources[0].conversation.id,
+                subject: c.sources[0].conversation.title,
+              }
+            : null,
         };
       });
   }, [loopsData]);
@@ -581,8 +600,12 @@ export function OpenLoopsDashboard({
 
     // Sort each category by due date
     const sortByDue = (a: OpenLoopItem, b: OpenLoopItem) => {
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
+      if (!a.dueDate) {
+        return 1;
+      }
+      if (!b.dueDate) {
+        return -1;
+      }
       return a.dueDate.getTime() - b.dueDate.getTime();
     };
 
@@ -604,8 +627,9 @@ export function OpenLoopsDashboard({
     );
     const completionRate = loopsData?.items
       ? Math.round(
-          (loopsData.items.filter((c) => c.commitmentDetails?.status === "completed")
-            .length /
+          (loopsData.items.filter(
+            (c) => c.commitmentDetails?.status === "completed"
+          ).length /
             loopsData.items.length) *
             100
         )
@@ -637,7 +661,7 @@ export function OpenLoopsDashboard({
   );
 
   const handleFollowUp = useCallback(
-    (commitmentId: string, item: OpenLoopItem) => {
+    (_commitmentId: string, item: OpenLoopItem) => {
       handleGenerateFollowUp(item);
     },
     [handleGenerateFollowUp]
@@ -663,7 +687,9 @@ export function OpenLoopsDashboard({
     icon: React.ElementType,
     color: string
   ) => {
-    if (items.length === 0) return null;
+    if (items.length === 0) {
+      return null;
+    }
     const Icon = icon;
     const isExpanded = expandedSections.has(key);
 

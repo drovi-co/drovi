@@ -70,9 +70,15 @@ function getLoopTypeLabel(type: OpenLoop["type"]) {
 }
 
 function getStalenessClass(age?: number | null) {
-  if (!age) return "text-muted-foreground";
-  if (age > 7) return "text-red-500";
-  if (age > 3) return "text-amber-500";
+  if (!age) {
+    return "text-muted-foreground";
+  }
+  if (age > 7) {
+    return "text-red-500";
+  }
+  if (age > 3) {
+    return "text-amber-500";
+  }
   return "text-muted-foreground";
 }
 

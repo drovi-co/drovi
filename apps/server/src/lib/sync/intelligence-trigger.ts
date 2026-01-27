@@ -6,8 +6,8 @@
 // Uses fire-and-forget pattern for speed - extractions run asynchronously.
 //
 
-import { log } from "../logger";
 import { orchestratorExtractTask } from "../../trigger/intelligence-extraction";
+import { log } from "../logger";
 import type { ProcessedThread } from "./types";
 
 // =============================================================================
@@ -136,8 +136,13 @@ export async function triggerIntelligenceExtraction(
 
         return { success: true, conversationId: conv.conversationId };
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        return { success: false, conversationId: conv.conversationId, error: errorMsg };
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        return {
+          success: false,
+          conversationId: conv.conversationId,
+          error: errorMsg,
+        };
       }
     });
 
@@ -157,7 +162,9 @@ export async function triggerIntelligenceExtraction(
 
     // Small delay between batches to avoid overwhelming Trigger.dev
     if (i + MAX_CONCURRENT_TRIGGERS < conversations.length) {
-      await new Promise((resolve) => setTimeout(resolve, TRIGGER_BATCH_DELAY_MS));
+      await new Promise((resolve) =>
+        setTimeout(resolve, TRIGGER_BATCH_DELAY_MS)
+      );
     }
   }
 

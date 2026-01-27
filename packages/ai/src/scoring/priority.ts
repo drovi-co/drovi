@@ -323,7 +323,7 @@ export function assessImportance(thread: ThreadForPriority): {
         factors.financialAmount = 1_000_000;
         score += weights.financial * 0.5; // Extra boost for large amounts
       } else if (amountStr.includes("k")) {
-        factors.financialAmount = Number.parseInt(amountStr) * 1000;
+        factors.financialAmount = Number.parseInt(amountStr, 10) * 1000;
       }
     }
   }

@@ -7,7 +7,12 @@
 
 import { useCallback, useEffect } from "react";
 import { useIntelligenceStream } from "@/hooks/use-intelligence-stream";
-import type { GraphNode, GraphEdge, GraphNodeData, GraphEdgeType } from "../-types";
+import type {
+  GraphEdge,
+  GraphEdgeType,
+  GraphNode,
+  GraphNodeData,
+} from "../-types";
 
 // =============================================================================
 // TYPES
@@ -30,7 +35,11 @@ export function useGraphRealtime(setNodes: SetNodes, setEdges: SetEdges) {
 
   // Handle UIO created event
   const handleUIOCreated = useCallback(
-    (event: { uioId: string; uioType: string; data?: Record<string, unknown> }) => {
+    (event: {
+      uioId: string;
+      uioType: string;
+      data?: Record<string, unknown>;
+    }) => {
       const newNode: GraphNode = {
         id: event.uioId,
         type: event.uioType === "commitment" ? "commitment" : "decision",
@@ -47,10 +56,13 @@ export function useGraphRealtime(setNodes: SetNodes, setEdges: SetEdges) {
           ...(event.uioType === "commitment"
             ? {
                 priority: (event.data?.priority as string) ?? "medium",
-                direction: (event.data?.direction as "owed_by_me" | "owed_to_me") ?? "owed_by_me",
+                direction:
+                  (event.data?.direction as "owed_by_me" | "owed_to_me") ??
+                  "owed_by_me",
               }
             : {
-                decidedAt: (event.data?.decidedAt as string) ?? new Date().toISOString(),
+                decidedAt:
+                  (event.data?.decidedAt as string) ?? new Date().toISOString(),
               }),
         } as GraphNodeData,
       };
@@ -76,7 +88,9 @@ export function useGraphRealtime(setNodes: SetNodes, setEdges: SetEdges) {
       setEdges((prev) => {
         // Check if edge already exists
         const exists = prev.some((e) => e.id === newEdge.id);
-        if (exists) return prev;
+        if (exists) {
+          return prev;
+        }
         return [...prev, newEdge];
       });
     },
@@ -85,7 +99,11 @@ export function useGraphRealtime(setNodes: SetNodes, setEdges: SetEdges) {
 
   // Handle task created event
   const handleTaskCreated = useCallback(
-    (event: { taskId: string; uioId?: string; data?: Record<string, unknown> }) => {
+    (event: {
+      taskId: string;
+      uioId?: string;
+      data?: Record<string, unknown>;
+    }) => {
       const newNode: GraphNode = {
         id: event.taskId,
         type: "task",
@@ -124,23 +142,33 @@ export function useGraphRealtime(setNodes: SetNodes, setEdges: SetEdges) {
 
   // Process incoming events
   useEffect(() => {
-    if (!events.length) return;
+    if (!events.length) {
+      return;
+    }
 
     // Get the latest event
-    const latestEvent = events[events.length - 1];
-    if (!latestEvent) return;
+    const latestEvent = events.at(-1);
+    if (!latestEvent) {
+      return;
+    }
 
     switch (latestEvent.type) {
       case "UIO_CREATED":
-        handleUIOCreated(latestEvent as unknown as Parameters<typeof handleUIOCreated>[0]);
+        handleUIOCreated(
+          latestEvent as unknown as Parameters<typeof handleUIOCreated>[0]
+        );
         break;
       case "RELATIONSHIP_CREATED":
         handleRelationshipCreated(
-          latestEvent as unknown as Parameters<typeof handleRelationshipCreated>[0]
+          latestEvent as unknown as Parameters<
+            typeof handleRelationshipCreated
+          >[0]
         );
         break;
       case "TASK_CREATED":
-        handleTaskCreated(latestEvent as unknown as Parameters<typeof handleTaskCreated>[0]);
+        handleTaskCreated(
+          latestEvent as unknown as Parameters<typeof handleTaskCreated>[0]
+        );
         break;
       default:
         // Handle other event types as needed

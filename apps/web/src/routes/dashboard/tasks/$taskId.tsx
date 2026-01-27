@@ -7,13 +7,12 @@
 // - Right: Properties sidebar (status, priority, assignee, labels, due date)
 //
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -22,7 +21,6 @@ import {
   ChevronUp,
   Clock,
   ExternalLink,
-  FileText,
   MessageSquare,
   MoreHorizontal,
   Plus,
@@ -31,6 +29,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import {
   formatDueDate,
   PRIORITY_CONFIG,
@@ -40,10 +40,8 @@ import {
   type TaskData,
   TaskLabelPicker,
   type TaskPriority,
-  type TaskSourceType,
   type TaskStatus,
 } from "@/components/tasks";
-import { useUIO, useUpdateUIO, useArchiveUIO, useUpdateTaskStatusUIO, useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,11 +62,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { useTrackViewing } from "@/hooks/use-presence";
+import {
+  useArchiveUIO,
+  useUIO,
+  useUpdateTaskPriorityUIO,
+  useUpdateTaskStatusUIO,
+  useUpdateUIO,
+} from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -129,30 +132,38 @@ function TaskDetailPage() {
   });
 
   // Transform UIO data to legacy task format
-  const taskData = uioData ? {
-    id: uioData.id,
-    title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
-    description: uioData.canonicalDescription ?? null,
-    status: uioData.taskDetails?.status ?? "todo",
-    priority: uioData.taskDetails?.priority ?? "no_priority",
-    sourceType: "manual" as const, // UIO doesn't track sourceType
-    dueDate: uioData.dueDate ?? null,
-    completedAt: uioData.taskDetails?.completedAt ?? null,
-    assignee: uioData.taskDetails?.assignee ?? null,
-    labels: [] as Array<{ id: string; name: string; color: string }>,
-    metadata: null,
-    createdAt: uioData.createdAt,
-    updatedAt: uioData.updatedAt,
-    // UIO-specific fields
-    sources: uioData.sources ?? [],
-    timeline: uioData.timeline ?? [],
-  } : null;
+  const taskData = uioData
+    ? {
+        id: uioData.id,
+        title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
+        description: uioData.canonicalDescription ?? null,
+        status: uioData.taskDetails?.status ?? "todo",
+        priority: uioData.taskDetails?.priority ?? "no_priority",
+        sourceType: "manual" as const, // UIO doesn't track sourceType
+        dueDate: uioData.dueDate ?? null,
+        completedAt: uioData.taskDetails?.completedAt ?? null,
+        assignee: uioData.taskDetails?.assignee ?? null,
+        labels: [] as Array<{ id: string; name: string; color: string }>,
+        metadata: null,
+        createdAt: uioData.createdAt,
+        updatedAt: uioData.updatedAt,
+        // UIO-specific fields
+        sources: uioData.sources ?? [],
+        timeline: uioData.timeline ?? [],
+      }
+    : null;
 
   // UIO update mutation
   const updateMutationBase = useUpdateUIO();
   const updateMutation = {
     ...updateMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; title?: string; description?: string | null; dueDate?: Date | null }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      title?: string;
+      description?: string | null;
+      dueDate?: Date | null;
+    }) => {
       updateMutationBase.mutate(
         {
           organizationId: params.organizationId,
@@ -178,9 +189,17 @@ function TaskDetailPage() {
   const updateStatusMutationBase = useUpdateTaskStatusUIO();
   const updateStatusMutation = {
     ...updateStatusMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      status: TaskStatus;
+    }) => {
       updateStatusMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          status: params.status,
+        },
         {
           onSuccess: () => {
             toast.success("Status updated");
@@ -199,9 +218,17 @@ function TaskDetailPage() {
   const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
   const updatePriorityMutation = {
     ...updatePriorityMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; priority: TaskPriority }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      priority: TaskPriority;
+    }) => {
       updatePriorityMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.taskId, priority: params.priority },
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          priority: params.priority,
+        },
         {
           onSuccess: () => {
             toast.success("Priority updated");
@@ -250,12 +277,14 @@ function TaskDetailPage() {
         completedAt: taskData.completedAt
           ? new Date(taskData.completedAt)
           : null,
-        assignee: taskData.assignee ? {
-          id: taskData.assignee.id,
-          name: taskData.assignee.displayName ?? null,
-          email: taskData.assignee.primaryEmail ?? "",
-          image: null,
-        } : null,
+        assignee: taskData.assignee
+          ? {
+              id: taskData.assignee.id,
+              name: taskData.assignee.displayName ?? null,
+              email: taskData.assignee.primaryEmail ?? "",
+              image: null,
+            }
+          : null,
         labels: taskData.labels,
         metadata: taskData.metadata,
         createdAt: new Date(taskData.createdAt),
@@ -319,7 +348,9 @@ function TaskDetailPage() {
 
   const handleStatusChange = useCallback(
     (newStatus: TaskStatus) => {
-      if (!task) return;
+      if (!task) {
+        return;
+      }
       updateStatusMutation.mutate({
         organizationId,
         taskId: task.id,
@@ -331,7 +362,9 @@ function TaskDetailPage() {
 
   const handlePriorityChange = useCallback(
     (newPriority: TaskPriority) => {
-      if (!task) return;
+      if (!task) {
+        return;
+      }
       updatePriorityMutation.mutate({
         organizationId,
         taskId: task.id,
@@ -343,7 +376,9 @@ function TaskDetailPage() {
 
   const handleDueDateChange = useCallback(
     (date: Date | undefined) => {
-      if (!task) return;
+      if (!task) {
+        return;
+      }
       updateMutation.mutate({
         organizationId,
         taskId: task.id,
@@ -354,7 +389,9 @@ function TaskDetailPage() {
   );
 
   const handleDelete = useCallback(() => {
-    if (!task) return;
+    if (!task) {
+      return;
+    }
     if (window.confirm("Are you sure you want to delete this task?")) {
       deleteMutation.mutate({
         organizationId,
@@ -494,10 +531,10 @@ function TaskDetailPage() {
 
             {/* Who is viewing */}
             <WhoIsViewing
-              organizationId={organizationId}
-              resourceType="task"
-              resourceId={taskId}
               compact
+              organizationId={organizationId}
+              resourceId={taskId}
+              resourceType="task"
             />
 
             {/* Actions */}
@@ -718,9 +755,9 @@ function TaskDetailPage() {
               {/* Team Discussion */}
               <div className="border-border border-t pt-6">
                 <button
-                  type="button"
                   className="flex w-full items-center justify-between"
                   onClick={() => setShowComments(!showComments)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -738,10 +775,10 @@ function TaskDetailPage() {
                 {showComments && organizationId && currentUserId && (
                   <div className="mt-4">
                     <CommentThread
-                      organizationId={organizationId}
-                      targetType="task"
-                      targetId={taskId}
                       currentUserId={currentUserId}
+                      organizationId={organizationId}
+                      targetId={taskId}
+                      targetType="task"
                     />
                   </div>
                 )}

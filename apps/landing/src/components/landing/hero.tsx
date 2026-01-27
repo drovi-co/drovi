@@ -35,8 +35,8 @@ export function Hero({ onRequestAccess, onWatchDemo }: HeroProps) {
           <div className="flex w-full flex-col items-center gap-[20px] text-center">
             {/* Headline */}
             <h1 className="w-full font-normal text-[44px] text-white leading-none tracking-[-2.5px] md:text-[60px] md:tracking-[-3.5px] lg:text-[80px] lg:tracking-[-4.8px]">
-              <span className="block">The Memory Layer</span>
-              <span className="block">for Work</span>
+              <span className="block">The memory</span>
+              <span className="block">infrastructure for work</span>
             </h1>
 
             {/* Subheadline */}

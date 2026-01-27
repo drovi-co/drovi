@@ -250,7 +250,9 @@ export function ContradictionAlert({
   ]);
 
   const contradictions = useMemo((): Contradiction[] => {
-    if (!analysisData?.contradictions) return [];
+    if (!analysisData?.contradictions) {
+      return [];
+    }
     return analysisData.contradictions.filter(
       (c: Contradiction) => !acknowledged.has(c.id)
     );

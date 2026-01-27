@@ -17,11 +17,11 @@ import { organization } from "./organization";
 // Constants
 // ============================================================================
 
-/** Monthly credit allocation per plan */
+/** Monthly credit allocation per plan (Pro and Enterprise only) */
 export const PLAN_CREDITS = {
-  free: 100,
-  pro: 5000,
-  enterprise: 50_000,
+  trial: 500, // Trial credits (7-day trial)
+  pro: 5000, // Per-user credits for Pro plan
+  enterprise: 50_000, // Per-org credits for Enterprise plan
 } as const;
 
 /** Trial configuration */

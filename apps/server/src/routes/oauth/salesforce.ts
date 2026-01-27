@@ -67,7 +67,10 @@ salesforceOAuth.get("/authorize", async (c) => {
       prompt: "consent",
     });
 
-    log.info("Initiating Salesforce OAuth flow", { organizationId, useSandbox });
+    log.info("Initiating Salesforce OAuth flow", {
+      organizationId,
+      useSandbox,
+    });
 
     return c.redirect(authorizationUrl);
   } catch (error) {
@@ -91,7 +94,10 @@ salesforceOAuth.get("/authorize", async (c) => {
     }
 
     return c.json(
-      { error: "Failed to initiate Salesforce authorization", message: errorMsg },
+      {
+        error: "Failed to initiate Salesforce authorization",
+        message: errorMsg,
+      },
       500
     );
   }
@@ -150,7 +156,8 @@ salesforceOAuth.get("/callback", async (c) => {
     );
   }
 
-  const { organizationId, userId, provider, redirectTo, useSandbox } = parsedState;
+  const { organizationId, userId, provider, redirectTo, useSandbox } =
+    parsedState;
 
   // Use custom redirect or default
   let redirectPath = redirectTo || "/dashboard/sources";
@@ -275,9 +282,12 @@ salesforceOAuth.get("/callback", async (c) => {
         settings: {
           syncEnabled: true,
           syncFrequencyMinutes: 60,
-          pushEnabled: false, // Disabled by default, user can enable
-          customSettings: {
+          crmSettings: {
+            pushEnabled: false, // Disabled by default, user can enable
+            syncDirection: "pull",
             instanceUrl: tokens.instance_url,
+          },
+          customSettings: {
             userId: userInfo.userId,
             username: userInfo.username,
             useSandbox,

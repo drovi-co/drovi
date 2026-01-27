@@ -7,16 +7,16 @@
 //
 
 import {
-  forceSimulation,
-  forceLink,
-  forceManyBody,
   forceCenter,
   forceCollide,
-  type SimulationNodeDatum,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
   type SimulationLinkDatum,
+  type SimulationNodeDatum,
 } from "d3-force";
-import { useEffect, useState, useCallback, useRef } from "react";
-import type { GraphNode, GraphEdge } from "../-types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { GraphEdge, GraphNode } from "../-types";
 
 // =============================================================================
 // TYPES
@@ -39,7 +39,9 @@ interface D3Link extends SimulationLinkDatum<D3Node> {
 
 export function useGraphLayout(nodes: GraphNode[], edges: GraphEdge[]) {
   const [layoutedNodes, setLayoutedNodes] = useState<GraphNode[]>([]);
-  const simulationRef = useRef<ReturnType<typeof forceSimulation<D3Node>> | null>(null);
+  const simulationRef = useRef<ReturnType<
+    typeof forceSimulation<D3Node>
+  > | null>(null);
 
   // Run layout simulation
   const runLayout = useCallback(() => {
@@ -55,7 +57,7 @@ export function useGraphLayout(nodes: GraphNode[], edges: GraphEdge[]) {
 
     // Create D3 nodes from React Flow nodes
     // Use random positions if nodes are at origin (0,0) to help D3 spread them out
-    const d3Nodes: D3Node[] = nodes.map((node, index) => {
+    const d3Nodes: D3Node[] = nodes.map((node, _index) => {
       const hasPosition = node.position?.x !== 0 || node.position?.y !== 0;
       return {
         id: node.id,

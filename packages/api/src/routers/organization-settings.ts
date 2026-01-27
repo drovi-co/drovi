@@ -29,11 +29,7 @@ import { protectedProcedure, router } from "../index";
 // INPUT SCHEMAS
 // =============================================================================
 
-const privacyPolicySchema = z.enum([
-  "private",
-  "team_visible",
-  "org_visible",
-]);
+const privacyPolicySchema = z.enum(["private", "team_visible", "org_visible"]);
 
 const ssoProviderSchema = z.enum([
   "okta",
@@ -153,7 +149,7 @@ export const organizationSettingsRouter = router({
         // Security settings
         ssoRequired: z.boolean().optional(),
         mfaRequired: z.boolean().optional(),
-        sessionTimeoutMinutes: z.number().int().min(5).max(10080).optional(),
+        sessionTimeoutMinutes: z.number().int().min(5).max(10_080).optional(),
         allowedEmailDomains: z.array(z.string()).optional(),
         ipAllowlist: z.array(z.string()).optional(),
         // Data settings

@@ -4,12 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AccountDeletion } from "@/components/settings/account-deletion";
 import { AISettings } from "@/components/settings/ai-settings";
-import { ApiKeys } from "@/components/settings/api-keys";
 import { DataExport } from "@/components/settings/data-export";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { SessionManagement } from "@/components/settings/session-management";
 import { TwoFactorSettings } from "@/components/settings/two-factor-settings";
-import { Webhooks } from "@/components/settings/webhooks";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
+
+// NOTE: API Keys and Webhooks sections are hidden for launch
+// They can be re-enabled when needed by importing:
+// - ApiKeys from "@/components/settings/api-keys"
+// - Webhooks from "@/components/settings/webhooks"
 
 export const Route = createFileRoute("/dashboard/settings")({
   component: SettingsPage,
@@ -162,16 +165,6 @@ function SettingsPage() {
 
         {/* Session Management */}
         <SessionManagement />
-
-        <Separator />
-
-        {/* API Keys */}
-        <ApiKeys />
-
-        <Separator />
-
-        {/* Webhooks */}
-        <Webhooks />
 
         <Separator />
 

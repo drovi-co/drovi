@@ -1013,13 +1013,24 @@ export const riskRouter = router({
         updatedAt: new Date(),
       };
 
-      if (input.name !== undefined) updates.name = input.name;
-      if (input.description !== undefined)
+      if (input.name !== undefined) {
+        updates.name = input.name;
+      }
+      if (input.description !== undefined) {
         updates.description = input.description;
-      if (input.conditions !== undefined) updates.conditions = input.conditions;
-      if (input.actions !== undefined) updates.actions = input.actions;
-      if (input.severity !== undefined) updates.severity = input.severity;
-      if (input.enabled !== undefined) updates.enabled = input.enabled;
+      }
+      if (input.conditions !== undefined) {
+        updates.conditions = input.conditions;
+      }
+      if (input.actions !== undefined) {
+        updates.actions = input.actions;
+      }
+      if (input.severity !== undefined) {
+        updates.severity = input.severity;
+      }
+      if (input.enabled !== undefined) {
+        updates.enabled = input.enabled;
+      }
 
       const [updatedPolicy] = await db
         .update(policyRule)

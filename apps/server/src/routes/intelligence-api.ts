@@ -7,16 +7,16 @@
 //
 
 import { db } from "@memorystack/db";
-import { unifiedIntelligenceObject, task } from "@memorystack/db/schema";
-import { type SQL, and, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
-import {
-  callPythonIntelligence,
-  streamPythonIntelligence,
-  checkIntelligenceBackendHealth,
-} from "../lib/intelligence-backend";
+import { task, unifiedIntelligenceObject } from "@memorystack/db/schema";
+import { and, desc, eq, gte, ilike, or, type SQL, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
+import {
+  callPythonIntelligence,
+  checkIntelligenceBackendHealth,
+  streamPythonIntelligence,
+} from "../lib/intelligence-backend";
 import {
   type ApiKeyContext,
   apiKeyAuth,
@@ -61,9 +61,7 @@ const AnalyzeRequestSchema = z.object({
 
 const UIOFiltersSchema = z.object({
   type: z.enum(["commitment", "decision", "topic", "project"]).optional(),
-  status: z
-    .enum(["active", "merged", "archived", "dismissed"])
-    .optional(),
+  status: z.enum(["active", "merged", "archived", "dismissed"]).optional(),
   ownerContactId: z.string().optional(),
   since: z.string().datetime().optional(),
   until: z.string().datetime().optional(),
@@ -84,7 +82,6 @@ const WebhookRegisterSchema = z.object({
   secret: z.string().optional(),
   description: z.string().optional(),
 });
-
 
 // =============================================================================
 // API ROUTES
@@ -190,7 +187,7 @@ intelligenceApi.post(
         durationMs: result.duration_ms,
         _links: {
           self: `/api/v1/intelligence/analyze/${result.analysis_id}`,
-          stream: `/api/v1/intelligence/analyze/stream`,
+          stream: "/api/v1/intelligence/analyze/stream",
         },
       };
 
@@ -200,7 +197,10 @@ intelligenceApi.post(
       return c.json(
         {
           error: "ANALYSIS_ERROR",
-          message: error instanceof Error ? error.message : "Failed to analyze content",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to analyze content",
         },
         500
       );
@@ -246,9 +246,13 @@ intelligenceApi.post(
             source_id: sourceId,
           },
           async (event) => {
-            const data = typeof event.data === "object" && event.data !== null
-              ? { ...(event.data as Record<string, unknown>), organizationId: apiKey.organizationId }
-              : { data: event.data, organizationId: apiKey.organizationId };
+            const data =
+              typeof event.data === "object" && event.data !== null
+                ? {
+                    ...(event.data as Record<string, unknown>),
+                    organizationId: apiKey.organizationId,
+                  }
+                : { data: event.data, organizationId: apiKey.organizationId };
             await stream.writeSSE({
               event: event.type,
               data: JSON.stringify(data),
@@ -373,7 +377,7 @@ intelligenceApi.get("/uios", requireScopes("read:intelligence"), async (c) => {
     // Determine pagination
     const hasMore = uios.length > limit;
     const items = hasMore ? uios.slice(0, -1) : uios;
-    const lastItem = items[items.length - 1];
+    const lastItem = items.at(-1);
     const nextCursor = hasMore && lastItem ? lastItem.id : null;
 
     return c.json({
@@ -401,7 +405,7 @@ intelligenceApi.get("/uios", requireScopes("read:intelligence"), async (c) => {
         nextCursor,
       },
       _links: {
-        self: `/api/v1/intelligence/uios`,
+        self: "/api/v1/intelligence/uios",
         next: nextCursor
           ? `/api/v1/intelligence/uios?cursor=${nextCursor}&limit=${limit}`
           : null,
@@ -527,7 +531,7 @@ intelligenceApi.get(
         _links: {
           self: `/api/v1/intelligence/uios/${uio.id}`,
           tasks: `/api/v1/intelligence/uios/${uio.id}/tasks`,
-          graph: `/api/v1/intelligence/graph/query`,
+          graph: "/api/v1/intelligence/graph/query",
         },
       });
     } catch (error) {
@@ -552,56 +556,55 @@ intelligenceApi.get(
  * POST /api/v1/intelligence/graph/query
  * Requires: read:graph scope
  */
-intelligenceApi.post(
-  "/graph/query",
-  requireScopes("read:graph"),
-  async (c) => {
-    const apiKey = c.get("apiKey");
-    const body = await c.req.json();
+intelligenceApi.post("/graph/query", requireScopes("read:graph"), async (c) => {
+  const apiKey = c.get("apiKey");
+  const body = await c.req.json();
 
-    // Validate request
-    const parseResult = GraphQuerySchema.safeParse(body);
-    if (!parseResult.success) {
+  // Validate request
+  const parseResult = GraphQuerySchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      {
+        error: "VALIDATION_ERROR",
+        message: "Invalid request body",
+        details: parseResult.error.issues,
+      },
+      400
+    );
+  }
+
+  const { cypher, params } = parseResult.data;
+
+  // Security: Validate query doesn't contain dangerous operations
+  const dangerousPatterns = [
+    /\bDELETE\b/i,
+    /\bDETACH\b/i,
+    /\bDROP\b/i,
+    /\bREMOVE\b/i,
+    /\bSET\b/i,
+    /\bCREATE\b/i,
+    /\bMERGE\b/i,
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(cypher)) {
       return c.json(
         {
-          error: "VALIDATION_ERROR",
-          message: "Invalid request body",
-          details: parseResult.error.issues,
+          error: "FORBIDDEN",
+          message:
+            "Write operations are not allowed through the query endpoint",
         },
-        400
+        403
       );
     }
+  }
 
-    const { cypher, params } = parseResult.data;
-
-    // Security: Validate query doesn't contain dangerous operations
-    const dangerousPatterns = [
-      /\bDELETE\b/i,
-      /\bDETACH\b/i,
-      /\bDROP\b/i,
-      /\bREMOVE\b/i,
-      /\bSET\b/i,
-      /\bCREATE\b/i,
-      /\bMERGE\b/i,
-    ];
-
-    for (const pattern of dangerousPatterns) {
-      if (pattern.test(cypher)) {
-        return c.json(
-          {
-            error: "FORBIDDEN",
-            message:
-              "Write operations are not allowed through the query endpoint",
-          },
-          403
-        );
-      }
-    }
-
-    try {
-      // Proxy to Python backend
-      const startTime = Date.now();
-      const response = await fetch(`${INTELLIGENCE_BACKEND_URL}/api/v1/graph/query`, {
+  try {
+    // Proxy to Python backend
+    const startTime = Date.now();
+    const response = await fetch(
+      `${INTELLIGENCE_BACKEND_URL}/api/v1/graph/query`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -611,52 +614,56 @@ intelligenceApi.post(
             organization_id: apiKey.organizationId,
           },
         }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 503) {
-          return c.json(
-            {
-              error: "SERVICE_UNAVAILABLE",
-              message: "Graph service is not available. Ensure Python backend is running.",
-            },
-            503
-          );
-        }
-        throw new Error(`Graph query failed: ${response.status}`);
       }
+    );
 
-      const result = await response.json();
-      const executionTimeMs = Date.now() - startTime;
-
-      return c.json({
-        data: result,
-        query: {
-          cypher,
-          params: {
-            ...params,
-            organizationId: apiKey.organizationId,
+    if (!response.ok) {
+      if (response.status === 503) {
+        return c.json(
+          {
+            error: "SERVICE_UNAVAILABLE",
+            message:
+              "Graph service is not available. Ensure Python backend is running.",
           },
-        },
-        metadata: {
-          executionTimeMs,
-        },
-        _links: {
-          self: "/api/v1/intelligence/graph/query",
-        },
-      });
-    } catch (error) {
-      console.error("[Intelligence API] Graph query error:", error);
-      return c.json(
-        {
-          error: "GRAPH_ERROR",
-          message: error instanceof Error ? error.message : "Failed to execute graph query",
-        },
-        500
-      );
+          503
+        );
+      }
+      throw new Error(`Graph query failed: ${response.status}`);
     }
+
+    const result = await response.json();
+    const executionTimeMs = Date.now() - startTime;
+
+    return c.json({
+      data: result,
+      query: {
+        cypher,
+        params: {
+          ...params,
+          organizationId: apiKey.organizationId,
+        },
+      },
+      metadata: {
+        executionTimeMs,
+      },
+      _links: {
+        self: "/api/v1/intelligence/graph/query",
+      },
+    });
+  } catch (error) {
+    console.error("[Intelligence API] Graph query error:", error);
+    return c.json(
+      {
+        error: "GRAPH_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to execute graph query",
+      },
+      500
+    );
   }
-);
+});
 
 // =============================================================================
 // EVENT STREAM ENDPOINT
@@ -700,7 +707,7 @@ intelligenceApi.get(
         } catch {
           clearInterval(heartbeatInterval);
         }
-      }, 30000);
+      }, 30_000);
 
       // Clean up on disconnect
       c.req.raw.signal.addEventListener("abort", () => {
@@ -939,20 +946,24 @@ intelligenceApi.post(
     const body = await c.req.json();
 
     try {
-      const response = await fetch(`${INTELLIGENCE_BACKEND_URL}/api/v1/memory/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...body,
-          organization_id: apiKey.organizationId,
-        }),
-      });
+      const response = await fetch(
+        `${INTELLIGENCE_BACKEND_URL}/api/v1/memory/search`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            organization_id: apiKey.organizationId,
+          }),
+        }
+      );
 
       if (!response.ok) {
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Memory service is not available. Ensure Python backend is running.",
+            message:
+              "Memory service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -965,7 +976,8 @@ intelligenceApi.post(
       return c.json(
         {
           error: "MEMORY_ERROR",
-          message: "Memory service is not available. Ensure Python backend is running.",
+          message:
+            "Memory service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/memory/search`,
         },
         503
@@ -990,7 +1002,9 @@ intelligenceApi.get(
       const url = new URL(`${INTELLIGENCE_BACKEND_URL}/api/v1/memory/timeline`);
       url.searchParams.set("organization_id", apiKey.organizationId ?? "");
       for (const [key, value] of Object.entries(queryParams)) {
-        if (value) url.searchParams.set(key, value);
+        if (value) {
+          url.searchParams.set(key, value);
+        }
       }
 
       const response = await fetch(url.toString());
@@ -999,7 +1013,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Memory service is not available. Ensure Python backend is running.",
+            message:
+              "Memory service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1012,7 +1027,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "MEMORY_ERROR",
-          message: "Memory service is not available. Ensure Python backend is running.",
+          message:
+            "Memory service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/memory/timeline`,
         },
         503
@@ -1044,7 +1060,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Memory service is not available. Ensure Python backend is running.",
+            message:
+              "Memory service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1057,7 +1074,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "MEMORY_ERROR",
-          message: "Memory service is not available. Ensure Python backend is running.",
+          message:
+            "Memory service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/memory/recent`,
         },
         503
@@ -1092,7 +1110,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Network analysis service is not available. Ensure Python backend is running.",
+            message:
+              "Network analysis service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1105,7 +1124,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "GRAPH_ERROR",
-          message: "Network analysis service is not available. Ensure Python backend is running.",
+          message:
+            "Network analysis service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/network/metrics`,
         },
         503
@@ -1127,7 +1147,9 @@ intelligenceApi.get(
     const limit = c.req.query("limit") ?? "20";
 
     try {
-      const url = new URL(`${INTELLIGENCE_BACKEND_URL}/api/v1/network/contacts`);
+      const url = new URL(
+        `${INTELLIGENCE_BACKEND_URL}/api/v1/network/contacts`
+      );
       url.searchParams.set("organization_id", apiKey.organizationId ?? "");
       url.searchParams.set("limit", limit);
 
@@ -1137,7 +1159,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Network analysis service is not available. Ensure Python backend is running.",
+            message:
+              "Network analysis service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1150,7 +1173,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "GRAPH_ERROR",
-          message: "Network analysis service is not available. Ensure Python backend is running.",
+          message:
+            "Network analysis service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/network/contacts`,
         },
         503
@@ -1182,7 +1206,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Network analysis service is not available. Ensure Python backend is running.",
+            message:
+              "Network analysis service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1195,7 +1220,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "GRAPH_ERROR",
-          message: "Network analysis service is not available. Ensure Python backend is running.",
+          message:
+            "Network analysis service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/network/bridges`,
         },
         503
@@ -1218,7 +1244,9 @@ intelligenceApi.get(
     const limit = c.req.query("limit") ?? "50";
 
     try {
-      const url = new URL(`${INTELLIGENCE_BACKEND_URL}/api/v1/network/communities`);
+      const url = new URL(
+        `${INTELLIGENCE_BACKEND_URL}/api/v1/network/communities`
+      );
       url.searchParams.set("organization_id", apiKey.organizationId ?? "");
       url.searchParams.set("min_size", minSize);
       url.searchParams.set("limit", limit);
@@ -1229,7 +1257,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Network analysis service is not available. Ensure Python backend is running.",
+            message:
+              "Network analysis service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1242,7 +1271,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "GRAPH_ERROR",
-          message: "Network analysis service is not available. Ensure Python backend is running.",
+          message:
+            "Network analysis service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/network/communities`,
         },
         503
@@ -1264,7 +1294,7 @@ intelligenceApi.get(
     const toId = c.req.query("to");
     const maxDepth = c.req.query("maxDepth") ?? "6";
 
-    if (!fromId || !toId) {
+    if (!(fromId && toId)) {
       return c.json(
         {
           error: "VALIDATION_ERROR",
@@ -1286,7 +1316,8 @@ intelligenceApi.get(
         return c.json(
           {
             error: "SERVICE_UNAVAILABLE",
-            message: "Network analysis service is not available. Ensure Python backend is running.",
+            message:
+              "Network analysis service is not available. Ensure Python backend is running.",
           },
           503
         );
@@ -1299,7 +1330,8 @@ intelligenceApi.get(
       return c.json(
         {
           error: "GRAPH_ERROR",
-          message: "Network analysis service is not available. Ensure Python backend is running.",
+          message:
+            "Network analysis service is not available. Ensure Python backend is running.",
           pythonBackendUrl: `${INTELLIGENCE_BACKEND_URL}/api/v1/network/path`,
         },
         503

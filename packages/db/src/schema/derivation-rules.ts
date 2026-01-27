@@ -63,13 +63,11 @@ export const derivationRule = pgTable(
 
     // Output configuration
     outputEntityType: derivationOutputTypeEnum("output_entity_type").notNull(),
-    outputTemplate: jsonb("output_template")
-      .notNull()
-      .$type<{
-        nameTemplate: string; // Template with placeholders like "{e1.name} works on {e2.name}"
-        summaryTemplate?: string;
-        properties?: Record<string, string>; // Additional properties to set
-      }>(),
+    outputTemplate: jsonb("output_template").notNull().$type<{
+      nameTemplate: string; // Template with placeholders like "{e1.name} works on {e2.name}"
+      summaryTemplate?: string;
+      properties?: Record<string, string>; // Additional properties to set
+    }>(),
 
     // Confidence adjustment for derived facts
     confidenceMultiplier: real("confidence_multiplier").default(0.8),

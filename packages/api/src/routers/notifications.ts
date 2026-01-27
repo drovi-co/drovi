@@ -60,12 +60,12 @@ const DEFAULT_PREFERENCES = {
 // HELPER FUNCTIONS
 // =============================================================================
 
-type QuietHoursPrefs = {
+interface QuietHoursPrefs {
   quietHoursEnabled?: boolean;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
   quietHoursTimezone?: string | null;
-};
+}
 
 function isInQuietHours(prefs: QuietHoursPrefs): boolean {
   if (
@@ -110,7 +110,7 @@ function isInQuietHours(prefs: QuietHoursPrefs): boolean {
   }
 }
 
-type NotificationPrefs = {
+interface NotificationPrefs {
   inAppEnabled?: boolean;
   commitmentsNewEnabled?: boolean;
   commitmentsDueEnabled?: boolean;
@@ -121,30 +121,40 @@ type NotificationPrefs = {
   emailUrgentEnabled?: boolean;
   emailImportantEnabled?: boolean;
   syncStatusEnabled?: boolean;
-};
+}
 
 function isCategoryEnabled(
   category: NotificationCategory,
   prefs: NotificationPrefs | null,
   subcategory?: string
 ): boolean {
-  if (!prefs?.inAppEnabled) return false;
+  if (!prefs?.inAppEnabled) {
+    return false;
+  }
 
   switch (category) {
     case "commitment":
-      if (subcategory === "new") return prefs.commitmentsNewEnabled ?? false;
-      if (subcategory === "due") return prefs.commitmentsDueEnabled ?? false;
-      if (subcategory === "overdue")
+      if (subcategory === "new") {
+        return prefs.commitmentsNewEnabled ?? false;
+      }
+      if (subcategory === "due") {
+        return prefs.commitmentsDueEnabled ?? false;
+      }
+      if (subcategory === "overdue") {
         return prefs.commitmentsOverdueEnabled ?? false;
+      }
       return (
         (prefs.commitmentsNewEnabled ?? false) ||
         (prefs.commitmentsDueEnabled ?? false) ||
         (prefs.commitmentsOverdueEnabled ?? false)
       );
     case "decision":
-      if (subcategory === "new") return prefs.decisionsNewEnabled ?? false;
-      if (subcategory === "superseded")
+      if (subcategory === "new") {
+        return prefs.decisionsNewEnabled ?? false;
+      }
+      if (subcategory === "superseded") {
         return prefs.decisionsSupersededEnabled ?? false;
+      }
       return (
         (prefs.decisionsNewEnabled ?? false) ||
         (prefs.decisionsSupersededEnabled ?? false)
@@ -152,9 +162,12 @@ function isCategoryEnabled(
     case "calendar":
       return prefs.calendarRemindersEnabled ?? false;
     case "email":
-      if (subcategory === "urgent") return prefs.emailUrgentEnabled ?? false;
-      if (subcategory === "important")
+      if (subcategory === "urgent") {
+        return prefs.emailUrgentEnabled ?? false;
+      }
+      if (subcategory === "important") {
         return prefs.emailImportantEnabled ?? false;
+      }
       return (
         (prefs.emailUrgentEnabled ?? false) ||
         (prefs.emailImportantEnabled ?? false)

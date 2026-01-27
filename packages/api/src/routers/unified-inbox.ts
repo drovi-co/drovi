@@ -169,7 +169,9 @@ const listInboxSchema = z.object({
   // Priority filters
   priority: z.array(z.enum(["urgent", "high", "medium", "low"])).optional(),
   // Status filters
-  status: z.array(z.enum(["unread", "starred", "archived", "read", "done"])).optional(),
+  status: z
+    .array(z.enum(["unread", "starred", "archived", "read", "done"]))
+    .optional(),
   // Intelligence filters
   hasCommitments: z.boolean().optional(),
   hasDecisions: z.boolean().optional(),
@@ -612,7 +614,9 @@ export const unifiedInboxRouter = router({
       // Build UIO map by conversation ID
       const uioMap = new Map<string, LinkedUIO[]>();
       for (const uio of linkedUIOs) {
-        if (!uio.conversationId) continue;
+        if (!uio.conversationId) {
+          continue;
+        }
         if (!uioMap.has(uio.conversationId)) {
           uioMap.set(uio.conversationId, []);
         }
@@ -1026,7 +1030,13 @@ export const unifiedInboxRouter = router({
 
       // Only consider meaningful UIO types that create real relationships
       // Excludes: brief (1:1 with conversation), topic (too generic), claim (too granular)
-      const meaningfulTypes = ["commitment", "decision", "task", "risk", "project"];
+      const meaningfulTypes = [
+        "commitment",
+        "decision",
+        "task",
+        "risk",
+        "project",
+      ] as const;
 
       // First, get meaningful UIOs linked to this conversation
       const linkedUIOs = await db
@@ -1081,17 +1091,19 @@ export const unifiedInboxRouter = router({
       }
 
       // Group by conversation to count shared UIOs
-      const conversationUIOCounts = new Map<
-        string,
-        Map<string, number>
-      >();
+      const conversationUIOCounts = new Map<string, Map<string, number>>();
       for (const source of relatedSources) {
-        if (!source.conversationId) continue;
+        if (!source.conversationId) {
+          continue;
+        }
         if (!conversationUIOCounts.has(source.conversationId)) {
           conversationUIOCounts.set(source.conversationId, new Map());
         }
         const typeCounts = conversationUIOCounts.get(source.conversationId)!;
-        typeCounts.set(source.uioType, (typeCounts.get(source.uioType) ?? 0) + 1);
+        typeCounts.set(
+          source.uioType,
+          (typeCounts.get(source.uioType) ?? 0) + 1
+        );
       }
 
       // Get unique conversation IDs
@@ -1107,7 +1119,10 @@ export const unifiedInboxRouter = router({
           sourceDisplayName: sourceAccount.displayName,
         })
         .from(conversation)
-        .innerJoin(sourceAccount, eq(conversation.sourceAccountId, sourceAccount.id))
+        .innerJoin(
+          sourceAccount,
+          eq(conversation.sourceAccountId, sourceAccount.id)
+        )
         .where(
           and(
             inArray(conversation.id, relatedConvIds),
@@ -1132,7 +1147,8 @@ export const unifiedInboxRouter = router({
             id: conv.id,
             title: conv.title ?? "No subject",
             sourceType: conv.sourceType,
-            sourceDisplayName: conv.sourceDisplayName ?? getSourceDisplayName(conv.sourceType),
+            sourceDisplayName:
+              conv.sourceDisplayName ?? getSourceDisplayName(conv.sourceType),
             lastMessageAt: conv.lastMessageAt,
           },
           sharedUIOs,

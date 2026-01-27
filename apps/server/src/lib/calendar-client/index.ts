@@ -108,7 +108,7 @@ export function createCalendarClient(
   }
 
   // Validate tokens exist
-  if (!account.accessToken || !account.refreshToken) {
+  if (!(account.accessToken && account.refreshToken)) {
     throw new CalendarProviderError(
       "Account is missing OAuth tokens",
       account.provider as CalendarProvider,

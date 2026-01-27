@@ -19,8 +19,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useState } from "react";
-
-import { useCommitmentUIOs, useDecisionUIOs } from "@/hooks/use-uio";
 import { ConfidenceBadge } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +27,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useCommitmentUIOs, useDecisionUIOs } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -103,10 +102,12 @@ export function LinkedCommitments({
       title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
       status: c.commitmentDetails?.status ?? "pending",
       priority: c.commitmentDetails?.priority ?? "medium",
-      direction: (c.commitmentDetails?.direction ?? "owed_by_me") as "owed_by_me" | "owed_to_me",
+      direction: (c.commitmentDetails?.direction ?? "owed_by_me") as
+        | "owed_by_me"
+        | "owed_to_me",
       dueDate: c.dueDate ? new Date(c.dueDate) : null,
       confidence: c.overallConfidence ?? 0.8,
-      isUserVerified: c.isUserVerified ?? (c.userCorrectedTitle != null),
+      isUserVerified: c.isUserVerified ?? c.userCorrectedTitle != null,
       sourceConversationId: c.sources?.[0]?.conversationId ?? null,
     }));
 
@@ -314,7 +315,7 @@ export function LinkedDecisions({
       statement: d.canonicalDescription ?? "",
       decidedAt: new Date(d.firstSeenAt ?? d.createdAt),
       confidence: d.overallConfidence ?? 0.8,
-      isUserVerified: d.isUserVerified ?? (d.userCorrectedTitle != null),
+      isUserVerified: d.isUserVerified ?? d.userCorrectedTitle != null,
       supersededByUioId: d.decisionDetails?.supersededByUioId ?? null,
       sourceConversationId: d.sources?.[0]?.conversationId ?? null,
     }));

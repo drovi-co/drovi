@@ -99,7 +99,7 @@ function HeaderTabButton({ tab, active, onClick }: HeaderTabButtonProps) {
   return (
     <button
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-normal transition-all",
+        "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-normal text-[13px] transition-all",
         active
           ? "bg-background text-foreground shadow-sm"
           : "text-shell-foreground hover:bg-background/40"
@@ -142,9 +142,9 @@ function FilterButton({ filter }: FilterButtonProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-normal",
+              "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
               "text-shell-foreground hover:bg-background/40",
-              "transition-colors outline-none"
+              "outline-none transition-colors"
             )}
             type="button"
           >
@@ -177,7 +177,7 @@ function FilterButton({ filter }: FilterButtonProps) {
   return (
     <button
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-normal",
+        "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
         "text-shell-foreground hover:bg-background/40",
         "transition-colors"
       )}
@@ -229,7 +229,7 @@ export function InteractiveHeader({
                     <BreadcrumbItem>
                       {index < breadcrumbs.length - 1 ? (
                         <BreadcrumbLink
-                          className="flex items-center gap-1.5 text-[13px] font-normal text-shell-foreground hover:opacity-70"
+                          className="flex items-center gap-1.5 font-normal text-[13px] text-shell-foreground hover:opacity-70"
                           href={item.href ?? "#"}
                         >
                           {Icon && (
@@ -238,7 +238,7 @@ export function InteractiveHeader({
                           {item.label}
                         </BreadcrumbLink>
                       ) : (
-                        <BreadcrumbPage className="flex items-center gap-1.5 text-[13px] font-normal text-shell-foreground">
+                        <BreadcrumbPage className="flex items-center gap-1.5 font-normal text-[13px] text-shell-foreground">
                           {Icon && (
                             <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                           )}
@@ -294,7 +294,7 @@ export function InteractiveHeader({
           return (
             <button
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-normal",
+                "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
                 "text-shell-foreground hover:bg-background/40",
                 "transition-colors"
               )}
@@ -310,9 +310,9 @@ export function InteractiveHeader({
         {primaryAction && (
           <button
             className={cn(
-              "ml-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-normal",
+              "ml-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 font-normal text-[13px]",
               "bg-foreground text-background",
-              "hover:bg-foreground/90 transition-colors"
+              "transition-colors hover:bg-foreground/90"
             )}
             onClick={primaryAction.onClick}
             type="button"

@@ -236,7 +236,7 @@ function AppIcon({
                 stroke="#E5E5E5"
                 strokeWidth="0.5"
               />
-              {[...Array(12)].map((_, i) => {
+              {[...new Array(12)].map((_, i) => {
                 const angle = (i * 30 - 90) * (Math.PI / 180);
                 const x1 = 20 + 12 * Math.cos(angle);
                 const y1 = 20 + 12 * Math.sin(angle);

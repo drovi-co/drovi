@@ -152,10 +152,10 @@ export interface RiskSummary {
  * Combined risk analyzer that runs all detectors.
  */
 export class CombinedRiskAnalyzer {
-  private contradictionDetector: ContradictionDetector;
-  private sensitiveDataDetector: SensitiveDataDetector;
-  private fraudDetector: FraudDetector;
-  private policyDetector: PolicyDetector;
+  private readonly contradictionDetector: ContradictionDetector;
+  private readonly sensitiveDataDetector: SensitiveDataDetector;
+  private readonly fraudDetector: FraudDetector;
+  private readonly policyDetector: PolicyDetector;
 
   constructor(options?: { customPolicyRules?: PolicyRule[] }) {
     this.contradictionDetector = new ContradictionDetector();
@@ -310,10 +310,15 @@ export class CombinedRiskAnalyzer {
 
     // Count contradiction issues
     for (const conflict of contradiction.conflicts) {
-      if (conflict.severity === "critical") critical++;
-      else if (conflict.severity === "high") high++;
-      else if (conflict.severity === "medium") medium++;
-      else low++;
+      if (conflict.severity === "critical") {
+        critical++;
+      } else if (conflict.severity === "high") {
+        high++;
+      } else if (conflict.severity === "medium") {
+        medium++;
+      } else {
+        low++;
+      }
       if (!categories.includes("contradiction")) {
         categories.push("contradiction");
       }
@@ -327,10 +332,15 @@ export class CombinedRiskAnalyzer {
       if (!categories.includes("sensitive_data")) {
         categories.push("sensitive_data");
       }
-      if (sensitiveData.severity === "critical") critical++;
-      else if (sensitiveData.severity === "high") high++;
-      else if (sensitiveData.severity === "medium") medium++;
-      else if (sensitiveData.severity === "low") low++;
+      if (sensitiveData.severity === "critical") {
+        critical++;
+      } else if (sensitiveData.severity === "high") {
+        high++;
+      } else if (sensitiveData.severity === "medium") {
+        medium++;
+      } else if (sensitiveData.severity === "low") {
+        low++;
+      }
     }
 
     // Count fraud issues
@@ -340,10 +350,15 @@ export class CombinedRiskAnalyzer {
       ...fraud.phishingSignals,
     ];
     for (const signal of fraudSignals) {
-      if (signal.severity === "critical") critical++;
-      else if (signal.severity === "high") high++;
-      else if (signal.severity === "medium") medium++;
-      else low++;
+      if (signal.severity === "critical") {
+        critical++;
+      } else if (signal.severity === "high") {
+        high++;
+      } else if (signal.severity === "medium") {
+        medium++;
+      } else {
+        low++;
+      }
     }
     if (fraudSignals.length > 0 && !categories.includes("fraud")) {
       categories.push("fraud");
@@ -351,10 +366,15 @@ export class CombinedRiskAnalyzer {
 
     // Count policy issues
     for (const violation of policy.violations) {
-      if (violation.severity === "critical") critical++;
-      else if (violation.severity === "violation") high++;
-      else if (violation.severity === "warning") medium++;
-      else low++;
+      if (violation.severity === "critical") {
+        critical++;
+      } else if (violation.severity === "violation") {
+        high++;
+      } else if (violation.severity === "warning") {
+        medium++;
+      } else {
+        low++;
+      }
       if (!categories.includes("policy")) {
         categories.push("policy");
       }

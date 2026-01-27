@@ -15,8 +15,8 @@ import {
 import { db } from "@memorystack/db";
 import {
   member,
-  sourceAccount,
   type SourceAccountSettings,
+  sourceAccount,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -79,7 +79,14 @@ interface AccountListItem {
   provider: EmailProvider;
   email: string;
   displayName: string | null;
-  status: "pending" | "connected" | "disconnected" | "syncing" | "error" | "expired" | "revoked";
+  status:
+    | "pending"
+    | "connected"
+    | "disconnected"
+    | "syncing"
+    | "error"
+    | "expired"
+    | "revoked";
   isPrimary: boolean;
   lastSyncAt: Date | null;
   lastSyncStatus: string | null;
@@ -698,7 +705,9 @@ export const emailAccountsRouter = router({
       const effectiveTimeMax = timeMax || endOfDay.toISOString();
 
       for (const account of accounts) {
-        if (!account.accessToken) continue;
+        if (!account.accessToken) {
+          continue;
+        }
 
         try {
           const response = await fetch(

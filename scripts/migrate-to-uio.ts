@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 /**
  * UIO Data Migration Script
  *
@@ -15,9 +16,9 @@
  * 5. Creates timeline events for migration
  */
 
+import { randomUUID } from "node:crypto";
 import { db } from "@memorystack/db";
-import { sql, eq, isNull, and } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { sql } from "drizzle-orm";
 
 // Types for legacy data
 interface LegacyCommitment {
@@ -201,7 +202,9 @@ async function migrateCommitments(): Promise<void> {
     }
   }
 
-  console.log(`Commitments migration complete: ${stats.commitments.migrated} migrated, ${stats.commitments.errors} errors`);
+  console.log(
+    `Commitments migration complete: ${stats.commitments.migrated} migrated, ${stats.commitments.errors} errors`
+  );
 }
 
 async function migrateDecisions(): Promise<void> {
@@ -306,7 +309,9 @@ async function migrateDecisions(): Promise<void> {
     }
   }
 
-  console.log(`Decisions migration complete: ${stats.decisions.migrated} migrated, ${stats.decisions.errors} errors`);
+  console.log(
+    `Decisions migration complete: ${stats.decisions.migrated} migrated, ${stats.decisions.errors} errors`
+  );
 }
 
 async function migrateClaims(): Promise<void> {
@@ -354,7 +359,7 @@ async function migrateClaims(): Promise<void> {
           importance,
           created_at, updated_at
         ) VALUES (
-          ${detailsId}, ${uioId}, ${legacy.type || 'fact'},
+          ${detailsId}, ${uioId}, ${legacy.type || "fact"},
           ${legacy.text}, ${legacy.text},
           'medium',
           ${legacy.createdAt}, ${now}
@@ -405,7 +410,9 @@ async function migrateClaims(): Promise<void> {
     }
   }
 
-  console.log(`Claims migration complete: ${stats.claims.migrated} migrated, ${stats.claims.errors} errors`);
+  console.log(
+    `Claims migration complete: ${stats.claims.migrated} migrated, ${stats.claims.errors} errors`
+  );
 }
 
 async function migrateTasks(): Promise<void> {
@@ -516,7 +523,9 @@ async function migrateTasks(): Promise<void> {
     }
   }
 
-  console.log(`Tasks migration complete: ${stats.tasks.migrated} migrated, ${stats.tasks.errors} errors`);
+  console.log(
+    `Tasks migration complete: ${stats.tasks.migrated} migrated, ${stats.tasks.errors} errors`
+  );
 }
 
 async function main(): Promise<void> {
@@ -533,31 +542,50 @@ async function main(): Promise<void> {
     await migrateTasks();
 
     // Print summary
-    console.log("\n" + "=".repeat(60));
+    console.log(`\n${"=".repeat(60)}`);
     console.log("MIGRATION SUMMARY");
     console.log("=".repeat(60));
-    console.log(`Commitments: ${stats.commitments.migrated}/${stats.commitments.total} (${stats.commitments.errors} errors)`);
-    console.log(`Decisions: ${stats.decisions.migrated}/${stats.decisions.total} (${stats.decisions.errors} errors)`);
-    console.log(`Claims: ${stats.claims.migrated}/${stats.claims.total} (${stats.claims.errors} errors)`);
-    console.log(`Tasks: ${stats.tasks.migrated}/${stats.tasks.total} (${stats.tasks.errors} errors)`);
+    console.log(
+      `Commitments: ${stats.commitments.migrated}/${stats.commitments.total} (${stats.commitments.errors} errors)`
+    );
+    console.log(
+      `Decisions: ${stats.decisions.migrated}/${stats.decisions.total} (${stats.decisions.errors} errors)`
+    );
+    console.log(
+      `Claims: ${stats.claims.migrated}/${stats.claims.total} (${stats.claims.errors} errors)`
+    );
+    console.log(
+      `Tasks: ${stats.tasks.migrated}/${stats.tasks.total} (${stats.tasks.errors} errors)`
+    );
 
-    const totalMigrated = stats.commitments.migrated + stats.decisions.migrated + stats.claims.migrated + stats.tasks.migrated;
-    const totalErrors = stats.commitments.errors + stats.decisions.errors + stats.claims.errors + stats.tasks.errors;
+    const totalMigrated =
+      stats.commitments.migrated +
+      stats.decisions.migrated +
+      stats.claims.migrated +
+      stats.tasks.migrated;
+    const totalErrors =
+      stats.commitments.errors +
+      stats.decisions.errors +
+      stats.claims.errors +
+      stats.tasks.errors;
 
     console.log(`\nTotal: ${totalMigrated} migrated, ${totalErrors} errors`);
     console.log(`Completed at: ${new Date().toISOString()}`);
 
     // Verification queries
-    console.log("\n" + "=".repeat(60));
+    console.log(`\n${"=".repeat(60)}`);
     console.log("VERIFICATION");
     console.log("=".repeat(60));
 
-    const uioCount = await db.execute(sql`SELECT COUNT(*) as count FROM unified_intelligence_object`);
+    const uioCount = await db.execute(
+      sql`SELECT COUNT(*) as count FROM unified_intelligence_object`
+    );
     console.log(`Total UIOs in database: ${uioCount.rows[0]?.count ?? 0}`);
 
-    const unmigrated = await db.execute(sql`SELECT COUNT(*) as count FROM commitment WHERE unified_object_id IS NULL`);
+    const unmigrated = await db.execute(
+      sql`SELECT COUNT(*) as count FROM commitment WHERE unified_object_id IS NULL`
+    );
     console.log(`Unmigrated commitments: ${unmigrated.rows[0]?.count ?? 0}`);
-
   } catch (error) {
     console.error("Migration failed:", error);
     process.exit(1);

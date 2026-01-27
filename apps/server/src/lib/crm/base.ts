@@ -41,7 +41,7 @@ export interface CRMSourceAccount {
   credentials: CRMCredentials | null;
   settings: CRMSettings | null;
   lastSyncAt: Date | null;
-  lastSyncCursor: string | null;
+  syncCursor: string | null;
 }
 
 /**
@@ -59,7 +59,9 @@ export abstract class CRMSyncProvider {
     this.provider = this.getProviderFromType(sourceAccount.type);
 
     if (!sourceAccount.credentials) {
-      throw new Error(`No credentials found for source account ${sourceAccount.id}`);
+      throw new Error(
+        `No credentials found for source account ${sourceAccount.id}`
+      );
     }
     this.credentials = sourceAccount.credentials;
 
@@ -74,9 +76,15 @@ export abstract class CRMSyncProvider {
    * Get provider type from source account type.
    */
   private getProviderFromType(type: string): CRMProvider {
-    if (type === "crm_salesforce") return "salesforce";
-    if (type === "crm_hubspot") return "hubspot";
-    if (type === "crm_pipedrive") return "pipedrive";
+    if (type === "crm_salesforce") {
+      return "salesforce";
+    }
+    if (type === "crm_hubspot") {
+      return "hubspot";
+    }
+    if (type === "crm_pipedrive") {
+      return "pipedrive";
+    }
     throw new Error(`Unknown CRM type: ${type}`);
   }
 
@@ -95,9 +103,10 @@ export abstract class CRMSyncProvider {
   /**
    * Push contact updates to the CRM.
    */
-  protected abstract pushContactUpdates(
-    updates: CRMContactUpdate[]
-  ): Promise<{ success: string[]; failed: Array<{ id: string; error: string }> }>;
+  protected abstract pushContactUpdates(updates: CRMContactUpdate[]): Promise<{
+    success: string[];
+    failed: Array<{ id: string; error: string }>;
+  }>;
 
   /**
    * Refresh OAuth access token if expired.
@@ -113,7 +122,9 @@ export abstract class CRMSyncProvider {
    * Map CRM contact to Drovi contact format.
    * Override if provider needs special handling.
    */
-  protected mapContactToInternal(crmContact: CRMContactData): Partial<typeof contact.$inferInsert> {
+  protected mapContactToInternal(
+    crmContact: CRMContactData
+  ): Partial<typeof contact.$inferInsert> {
     return {
       displayName: crmContact.displayName ?? crmContact.primaryEmail,
       primaryEmail: crmContact.primaryEmail,
@@ -136,22 +147,35 @@ export abstract class CRMSyncProvider {
 
     // Map intelligence fields if configured
     if (mapping.healthScore && internalContact.healthScore !== null) {
-      fields[mapping.healthScore] = Math.round(internalContact.healthScore * 100);
+      fields[mapping.healthScore] = Math.round(
+        internalContact.healthScore * 100
+      );
     }
     if (mapping.importanceScore && internalContact.importanceScore !== null) {
-      fields[mapping.importanceScore] = Math.round(internalContact.importanceScore * 100);
+      fields[mapping.importanceScore] = Math.round(
+        internalContact.importanceScore * 100
+      );
     }
     if (mapping.engagementScore && internalContact.engagementScore !== null) {
-      fields[mapping.engagementScore] = Math.round(internalContact.engagementScore * 100);
+      fields[mapping.engagementScore] = Math.round(
+        internalContact.engagementScore * 100
+      );
     }
     if (mapping.sentimentScore && internalContact.sentimentScore !== null) {
-      fields[mapping.sentimentScore] = Math.round(internalContact.sentimentScore * 100);
+      fields[mapping.sentimentScore] = Math.round(
+        internalContact.sentimentScore * 100
+      );
     }
     if (mapping.lastInteractionAt && internalContact.lastInteractionAt) {
-      fields[mapping.lastInteractionAt] = internalContact.lastInteractionAt.toISOString();
+      fields[mapping.lastInteractionAt] =
+        internalContact.lastInteractionAt.toISOString();
     }
-    if (mapping.daysSinceLastContact && internalContact.daysSinceLastContact !== null) {
-      fields[mapping.daysSinceLastContact] = internalContact.daysSinceLastContact;
+    if (
+      mapping.daysSinceLastContact &&
+      internalContact.daysSinceLastContact !== null
+    ) {
+      fields[mapping.daysSinceLastContact] =
+        internalContact.daysSinceLastContact;
     }
     if (mapping.isVip !== undefined) {
       fields[mapping.isVip] = internalContact.isVip;
@@ -201,12 +225,13 @@ export abstract class CRMSyncProvider {
       // Determine starting point
       const syncOptions: CRMSyncOptions = {
         ...options,
-        cursor: options.cursor ?? this.sourceAccount.lastSyncCursor ?? undefined,
+        cursor: options.cursor ?? this.sourceAccount.syncCursor ?? undefined,
         since: options.since ?? this.sourceAccount.lastSyncAt ?? undefined,
       };
 
       // Fetch contacts from CRM
-      const { contacts: crmContacts, nextCursor } = await this.fetchContacts(syncOptions);
+      const { contacts: crmContacts, nextCursor } =
+        await this.fetchContacts(syncOptions);
       newCursor = nextCursor;
 
       log.info("Fetched contacts from CRM", {
@@ -232,7 +257,8 @@ export abstract class CRMSyncProvider {
             contactsSkipped++;
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
           log.error("Failed to process CRM contact", error, {
             externalId: crmContact.externalId,
             provider: this.provider,
@@ -251,7 +277,7 @@ export abstract class CRMSyncProvider {
         await db
           .update(sourceAccount)
           .set({
-            lastSyncCursor: newCursor,
+            syncCursor: newCursor,
             lastSyncAt: new Date(),
           })
           .where(eq(sourceAccount.id, this.sourceAccount.id));
@@ -284,7 +310,8 @@ export abstract class CRMSyncProvider {
         newCursor,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       log.error("CRM sync failed", error, {
         provider: this.provider,
         sourceAccountId: this.sourceAccount.id,
@@ -424,7 +451,8 @@ export abstract class CRMSyncProvider {
         duration: Date.now() - startTime,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       log.error("CRM push failed", error, {
         provider: this.provider,
         sourceAccountId: this.sourceAccount.id,
@@ -470,10 +498,13 @@ export abstract class CRMSyncProvider {
       const newCredentials = await this.refreshToken();
       this.credentials = newCredentials;
 
-      // Save new credentials
+      // Save new credentials (stored in separate columns)
       await db
         .update(sourceAccount)
-        .set({ credentials: newCredentials })
+        .set({
+          accessToken: newCredentials.accessToken,
+          refreshToken: newCredentials.refreshToken ?? null,
+        })
         .where(eq(sourceAccount.id, this.sourceAccount.id));
     }
   }
@@ -481,9 +512,7 @@ export abstract class CRMSyncProvider {
   /**
    * Process a single CRM contact - find/create/update in Drovi.
    */
-  private async processContact(
-    crmContact: CRMContactData
-  ): Promise<{
+  private async processContact(crmContact: CRMContactData): Promise<{
     action: "created" | "updated" | "merged" | "skipped";
     contactId: string;
   }> {
@@ -545,6 +574,9 @@ export abstract class CRMSyncProvider {
     }
 
     // Create new contact
+    if (!crmContact.primaryEmail) {
+      throw new Error("Cannot create contact without primary email");
+    }
     const contactData = this.mapContactToInternal(crmContact);
     const [newContact] = await db
       .insert(contact)
@@ -552,7 +584,6 @@ export abstract class CRMSyncProvider {
         ...contactData,
         organizationId,
         primaryEmail: crmContact.primaryEmail,
-        sourceType: this.provider,
       })
       .returning({ id: contact.id });
 
@@ -585,7 +616,11 @@ export abstract class CRMSyncProvider {
     });
 
     // Create identity for CRM ID
-    const identityType = `crm_${this.provider}`;
+    const identityType = `crm_${this.provider}` as
+      | "crm_salesforce"
+      | "crm_hubspot"
+      | "crm_pipedrive"
+      | "crm_zoho";
     await db
       .insert(contactIdentity)
       .values({
@@ -595,7 +630,7 @@ export abstract class CRMSyncProvider {
         identityValue: crmContact.externalId,
         confidence: 1.0,
         isVerified: true,
-        source: `${this.provider}_sync`,
+        source: "crm_sync",
       })
       .onConflictDoNothing();
   }
@@ -605,11 +640,13 @@ export abstract class CRMSyncProvider {
    */
   private async getLinkedContacts(
     contactIds?: string[]
-  ): Promise<Array<{ contact: typeof contact.$inferSelect; externalId: string }>> {
+  ): Promise<
+    Array<{ contact: typeof contact.$inferSelect; externalId: string }>
+  > {
     const links = await db.query.contactSourceLink.findMany({
       where: contactIds
         ? and(
-            eq(contactSourceLink.sourceAccountId, this.sourceAccount.id),
+            eq(contactSourceLink.sourceAccountId, this.sourceAccount.id)
             // Filter by specific contact IDs if provided
             // Note: This would need proper SQL IN clause handling
           )
@@ -642,19 +679,37 @@ export async function createCRMProvider(
     throw new Error(`Source account not found: ${sourceAccountId}`);
   }
 
+  // Convert database account to CRMSourceAccount format
+  const crmAccount: CRMSourceAccount = {
+    id: account.id,
+    organizationId: account.organizationId,
+    type: account.type,
+    externalId: account.externalId ?? "",
+    status: account.status,
+    credentials: account.accessToken
+      ? {
+          accessToken: account.accessToken,
+          refreshToken: account.refreshToken ?? undefined,
+        }
+      : null,
+    settings: account.settings as CRMSettings | null,
+    lastSyncAt: account.lastSyncAt,
+    syncCursor: account.syncCursor,
+  };
+
   // Dynamic import to avoid circular dependencies
   switch (account.type) {
     case "crm_salesforce": {
       const { SalesforceSyncProvider } = await import("./salesforce.js");
-      return new SalesforceSyncProvider(account as CRMSourceAccount);
+      return new SalesforceSyncProvider(crmAccount);
     }
     case "crm_hubspot": {
       const { HubSpotSyncProvider } = await import("./hubspot.js");
-      return new HubSpotSyncProvider(account as CRMSourceAccount);
+      return new HubSpotSyncProvider(crmAccount);
     }
     case "crm_pipedrive": {
       const { PipedriveSyncProvider } = await import("./pipedrive.js");
-      return new PipedriveSyncProvider(account as CRMSourceAccount);
+      return new PipedriveSyncProvider(crmAccount);
     }
     default:
       throw new Error(`Unsupported CRM type: ${account.type}`);

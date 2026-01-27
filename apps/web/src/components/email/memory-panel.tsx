@@ -580,7 +580,7 @@ function Timeline({
       <div className="absolute top-2 bottom-2 left-[11px] w-px bg-border" />
 
       <div className="space-y-3">
-        {events.map((event, index) => (
+        {events.map((event, _index) => (
           <button
             className="-ml-1 flex w-full items-start gap-3 rounded p-1 text-left transition-colors hover:bg-accent/50"
             key={event.id}

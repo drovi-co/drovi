@@ -11,10 +11,9 @@
 // - Customer Context (MCP-style aggregation)
 //
 
+import { env } from "@memorystack/env/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-
-import { env } from "@memorystack/env/server";
 
 import { protectedProcedure, router } from "../index";
 
@@ -54,7 +53,9 @@ async function fetchIntelligence<T>(
 
     return response.json() as Promise<T>;
   } catch (error) {
-    if (error instanceof TRPCError) throw error;
+    if (error instanceof TRPCError) {
+      throw error;
+    }
 
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -332,8 +333,12 @@ export const intelligenceRouter = router({
     .input(patternsSchema)
     .query(async ({ input }) => {
       const params = new URLSearchParams();
-      if (input.domain) params.set("domain", input.domain);
-      if (!input.activeOnly) params.set("active_only", "false");
+      if (input.domain) {
+        params.set("domain", input.domain);
+      }
+      if (!input.activeOnly) {
+        params.set("active_only", "false");
+      }
 
       const queryString = params.toString();
       const path = `/api/v1/analytics/patterns/${input.organizationId}${queryString ? `?${queryString}` : ""}`;

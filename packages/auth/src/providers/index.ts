@@ -5,14 +5,14 @@
 // Email providers
 export * from "./gmail";
 export * from "./google-docs";
+export * from "./hubspot";
 // Document/Knowledge providers
 export * from "./notion";
 export * from "./outlook";
-// Messaging providers
-export * from "./slack";
 // CRM providers
 export * from "./salesforce";
-export * from "./hubspot";
+// Messaging providers
+export * from "./slack";
 
 // Re-export common types
 export type EmailProvider = "gmail" | "outlook";
@@ -30,8 +30,8 @@ export type SourceProvider =
  */
 export { isGmailConfigured } from "./gmail";
 export { isGoogleDocsConfigured } from "./google-docs";
+export { isHubSpotConfigured } from "./hubspot";
 export { isNotionConfigured } from "./notion";
 export { isOutlookConfigured } from "./outlook";
-export { isSlackConfigured } from "./slack";
 export { isSalesforceConfigured } from "./salesforce";
-export { isHubSpotConfigured } from "./hubspot";
+export { isSlackConfigured } from "./slack";

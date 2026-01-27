@@ -8,8 +8,8 @@ export { ConversationDetailPanel } from "./conversation-detail-panel";
 export { ConversationHeader } from "./conversation-header";
 export { ConversationListItem } from "./conversation-list-item";
 export {
-  ConversationListPanel,
   type ConversationFilters,
+  ConversationListPanel,
   type ConversationTab,
 } from "./conversation-list-panel";
 export { LinkedUIOCard, type LinkedUIOCardData } from "./linked-uio-card";

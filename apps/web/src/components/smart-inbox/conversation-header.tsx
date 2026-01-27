@@ -10,13 +10,7 @@
 
 "use client";
 
-import {
-  Archive,
-  MailCheck,
-  MailOpen,
-  Star,
-  X,
-} from "lucide-react";
+import { Archive, MailCheck, MailOpen, Star, X } from "lucide-react";
 
 import { AvatarStack } from "@/components/ui/avatar-stack";
 import { Button } from "@/components/ui/button";
@@ -25,13 +19,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import {
   getSourceColor,
   getSourceIcon,
   getSourceLabel,
   type SourceType,
 } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -108,7 +102,7 @@ export function ConversationHeader({
               style={{ color: sourceColor }}
             />
           </div>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground text-xs">
             {sourceAccountName ?? sourceLabel}
           </span>
         </div>
@@ -197,12 +191,8 @@ export function ConversationHeader({
 
       {/* Participants */}
       <div className="flex items-center gap-2">
-        <AvatarStack
-          maxVisible={4}
-          participants={participants}
-          size="sm"
-        />
-        <span className="text-xs text-muted-foreground">
+        <AvatarStack maxVisible={4} participants={participants} size="sm" />
+        <span className="text-muted-foreground text-xs">
           {participantNames}
           {overflowCount > 0 && ` and ${overflowCount} more`}
         </span>

@@ -97,10 +97,14 @@ export function SourceSelector({
 
   const handleSourceChange = useCallback(
     (source: SourceType) => {
-      if (disabled) return;
+      if (disabled) {
+        return;
+      }
 
       const config = SOURCE_CONFIGS.find((c) => c.type === source);
-      if (!config?.available) return;
+      if (!config?.available) {
+        return;
+      }
 
       actions.setSourceType(source);
       onChange?.(source);
@@ -233,7 +237,9 @@ export function SourceIndicator({
   className,
 }: SourceIndicatorProps) {
   const config = SOURCE_CONFIGS.find((c) => c.type === source);
-  if (!config) return null;
+  if (!config) {
+    return null;
+  }
 
   const Icon = config.icon;
 

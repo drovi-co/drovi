@@ -15,7 +15,11 @@ import { sourceAccount } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
 import { and, eq, inArray } from "drizzle-orm";
 import { createCRMProvider } from "../lib/crm";
-import type { CRMProvider, CRMPushResult, CRMSyncResult } from "../lib/crm/types";
+import type {
+  CRMProvider,
+  CRMPushResult,
+  CRMSyncResult,
+} from "../lib/crm/types";
 import { log } from "../lib/logger";
 
 // =============================================================================
@@ -82,7 +86,8 @@ export const syncCRMTask = task({
 
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       log.error("CRM sync failed", error, { sourceAccountId });
 
       return {
@@ -128,7 +133,10 @@ export const pushCRMTask = task({
   run: async (payload: CRMPushPayload): Promise<CRMPushResult> => {
     const { sourceAccountId, contactIds } = payload;
 
-    log.info("Starting CRM push", { sourceAccountId, contactIds: contactIds?.length });
+    log.info("Starting CRM push", {
+      sourceAccountId,
+      contactIds: contactIds?.length,
+    });
 
     try {
       const provider = await createCRMProvider(sourceAccountId);
@@ -145,7 +153,8 @@ export const pushCRMTask = task({
 
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       log.error("CRM push failed", error, { sourceAccountId });
 
       return {
@@ -205,7 +214,9 @@ export const batchSyncCRMTask = task({
           "crm_pipedrive",
         ]),
         eq(sourceAccount.status, "connected"),
-        organizationId ? eq(sourceAccount.organizationId, organizationId) : undefined
+        organizationId
+          ? eq(sourceAccount.organizationId, organizationId)
+          : undefined
       ),
     });
 
@@ -238,12 +249,15 @@ export const batchSyncCRMTask = task({
           synced++;
           totalContactsProcessed += result.output.contactsProcessed;
         } else if (result.ok) {
-          errors.push(`${account.id}: ${result.output.errors.map((e) => e.message).join(", ")}`);
+          errors.push(
+            `${account.id}: ${result.output.errors.map((e) => e.message).join(", ")}`
+          );
         } else {
           errors.push(`${account.id}: Task failed`);
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
         errors.push(`${account.id}: ${errorMsg}`);
       }
     }
@@ -297,13 +311,16 @@ export const batchPushCRMTask = task({
           "crm_pipedrive",
         ]),
         eq(sourceAccount.status, "connected"),
-        organizationId ? eq(sourceAccount.organizationId, organizationId) : undefined
+        organizationId
+          ? eq(sourceAccount.organizationId, organizationId)
+          : undefined
       ),
     });
 
     // Filter to accounts with push enabled
     const pushEnabledAccounts = crmAccounts.filter(
-      (account) => (account.settings as { pushEnabled?: boolean } | null)?.pushEnabled
+      (account) =>
+        (account.settings as { pushEnabled?: boolean } | null)?.pushEnabled
     );
 
     if (pushEnabledAccounts.length === 0) {
@@ -335,12 +352,15 @@ export const batchPushCRMTask = task({
           synced++;
           totalContactsPushed += result.output.contactsPushed;
         } else if (result.ok) {
-          errors.push(`${account.id}: ${result.output.errors.map((e) => e.message).join(", ")}`);
+          errors.push(
+            `${account.id}: ${result.output.errors.map((e) => e.message).join(", ")}`
+          );
         } else {
           errors.push(`${account.id}: Task failed`);
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
         errors.push(`${account.id}: ${errorMsg}`);
       }
     }

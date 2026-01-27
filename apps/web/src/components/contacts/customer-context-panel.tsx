@@ -26,11 +26,6 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import {
-  useCustomerContext,
-  useCustomerTimeline,
-  useRelationshipHealth,
-} from "@/hooks/use-intelligence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,13 +34,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
 import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useCustomerContext,
+  useCustomerTimeline,
+  useRelationshipHealth,
+} from "@/hooks/use-intelligence";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -80,9 +79,15 @@ interface HealthGaugeProps {
 function HealthGauge({ score, label }: HealthGaugeProps) {
   const percentage = Math.round(score * 100);
   const getColor = (s: number) => {
-    if (s >= 0.8) return "text-green-500";
-    if (s >= 0.6) return "text-amber-500";
-    if (s >= 0.4) return "text-orange-500";
+    if (s >= 0.8) {
+      return "text-green-500";
+    }
+    if (s >= 0.6) {
+      return "text-amber-500";
+    }
+    if (s >= 0.4) {
+      return "text-orange-500";
+    }
     return "text-red-500";
   };
 
@@ -331,11 +336,7 @@ export function CustomerContextPanel({
           {health?.risk_indicators && health.risk_indicators.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1">
               {health.risk_indicators.map((risk) => (
-                <Badge
-                  className="text-xs"
-                  key={risk}
-                  variant="destructive"
-                >
+                <Badge className="text-xs" key={risk} variant="destructive">
                   {risk}
                 </Badge>
               ))}
@@ -346,7 +347,9 @@ export function CustomerContextPanel({
         {/* Relationship Summary */}
         {context.relationship_summary && (
           <div className="rounded-xl bg-muted/50 p-4">
-            <p className="text-sm italic">&ldquo;{context.relationship_summary}&rdquo;</p>
+            <p className="text-sm italic">
+              &ldquo;{context.relationship_summary}&rdquo;
+            </p>
           </div>
         )}
 
@@ -367,10 +370,7 @@ export function CustomerContextPanel({
         {/* Commitments */}
         <Collapsible onOpenChange={setShowCommitments} open={showCommitments}>
           <CollapsibleTrigger asChild>
-            <Button
-              className="w-full justify-between"
-              variant="ghost"
-            >
+            <Button className="w-full justify-between" variant="ghost">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-blue-500" />
                 <span>Open Commitments</span>
@@ -410,7 +410,7 @@ export function CustomerContextPanel({
                       className={cn(
                         "text-xs",
                         commitment.status === "overdue" &&
-                          "bg-red-500/10 text-red-600 border-red-500/30"
+                          "border-red-500/30 bg-red-500/10 text-red-600"
                       )}
                       variant="outline"
                     >
@@ -426,10 +426,7 @@ export function CustomerContextPanel({
         {/* Decisions */}
         <Collapsible onOpenChange={setShowDecisions} open={showDecisions}>
           <CollapsibleTrigger asChild>
-            <Button
-              className="w-full justify-between"
-              variant="ghost"
-            >
+            <Button className="w-full justify-between" variant="ghost">
               <div className="flex items-center gap-2">
                 <GitBranch className="h-4 w-4 text-purple-500" />
                 <span>Related Decisions</span>
@@ -452,10 +449,7 @@ export function CustomerContextPanel({
             ) : (
               <div className="space-y-2 py-2">
                 {context.related_decisions.map((decision) => (
-                  <div
-                    className="rounded-lg border p-3"
-                    key={decision.id}
-                  >
+                  <div className="rounded-lg border p-3" key={decision.id}>
                     <p className="text-sm">{decision.title}</p>
                     <p className="text-muted-foreground text-xs">
                       Decided{" "}
@@ -471,10 +465,7 @@ export function CustomerContextPanel({
         {/* Timeline */}
         <Collapsible onOpenChange={setShowTimeline} open={showTimeline}>
           <CollapsibleTrigger asChild>
-            <Button
-              className="w-full justify-between"
-              variant="ghost"
-            >
+            <Button className="w-full justify-between" variant="ghost">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-500" />
                 <span>Interaction Timeline</span>

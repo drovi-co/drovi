@@ -11,8 +11,8 @@
 
 import { db } from "@memorystack/db";
 import {
-  activity,
   type ActivityMetadata,
+  activity,
   activityReadStatus,
   comment,
   delegation,
@@ -79,7 +79,6 @@ const activityTypeSchema = z.enum([
   "member_left",
   "settings_changed",
 ]);
-
 
 // =============================================================================
 // HELPERS
@@ -784,7 +783,9 @@ export const collaborationRouter = router({
           where: eq(activity.id, input.cursor),
         });
         if (cursorActivity) {
-          conditions.push(sql`${activity.createdAt} < ${cursorActivity.createdAt}`);
+          conditions.push(
+            sql`${activity.createdAt} < ${cursorActivity.createdAt}`
+          );
         }
       }
 
@@ -805,9 +806,12 @@ export const collaborationRouter = router({
       });
 
       const hasMore = activities.length > input.limit;
-      if (hasMore) activities.pop();
+      if (hasMore) {
+        activities.pop();
+      }
 
-      const nextCursor = activities.length > 0 ? activities[activities.length - 1]?.id : undefined;
+      const nextCursor =
+        activities.length > 0 ? activities.at(-1)?.id : undefined;
 
       return {
         activities,
@@ -880,7 +884,10 @@ export const collaborationRouter = router({
           unreadCount: 0,
         })
         .onConflictDoUpdate({
-          target: [activityReadStatus.userId, activityReadStatus.organizationId],
+          target: [
+            activityReadStatus.userId,
+            activityReadStatus.organizationId,
+          ],
           set: {
             lastSeenActivityId: input.lastSeenActivityId,
             lastViewedAt: new Date(),

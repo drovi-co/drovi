@@ -47,9 +47,15 @@ function getInitials(name?: string | null, email?: string): string {
 }
 
 function getHealthClass(score?: number | null): string {
-  if (!score) return "bg-muted";
-  if (score >= 0.7) return "bg-green-500";
-  if (score >= 0.4) return "bg-amber-500";
+  if (!score) {
+    return "bg-muted";
+  }
+  if (score >= 0.7) {
+    return "bg-green-500";
+  }
+  if (score >= 0.4) {
+    return "bg-amber-500";
+  }
   return "bg-red-500";
 }
 

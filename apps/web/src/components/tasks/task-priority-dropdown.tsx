@@ -8,8 +8,6 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-import { useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
+import { useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 import {
@@ -82,7 +81,9 @@ export function TaskPriorityDropdown({
   const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
 
   const handlePriorityChange = (newPriority: TaskPriority) => {
-    if (newPriority === currentPriority) return;
+    if (newPriority === currentPriority) {
+      return;
+    }
 
     updatePriorityMutationBase.mutate(
       { organizationId, id: taskId, priority: newPriority },

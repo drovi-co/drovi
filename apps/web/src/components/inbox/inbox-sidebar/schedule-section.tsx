@@ -46,10 +46,14 @@ function formatEventTime(start: Date): string {
 
 function formatDuration(start: Date, end: Date): string {
   const mins = differenceInMinutes(end, start);
-  if (mins < 60) return `${mins}m`;
+  if (mins < 60) {
+    return `${mins}m`;
+  }
   const hours = Math.floor(mins / 60);
   const remainingMins = mins % 60;
-  if (remainingMins === 0) return `${hours}h`;
+  if (remainingMins === 0) {
+    return `${hours}h`;
+  }
   return `${hours}h ${remainingMins}m`;
 }
 

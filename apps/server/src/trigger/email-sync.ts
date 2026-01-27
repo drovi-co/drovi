@@ -111,7 +111,9 @@ export const syncEmailsTask = task({
 
       // Skip if recently synced (unless forced)
       if (!payload.force && account.lastSyncAt) {
-        const settings = account.settings as { syncFrequencyMinutes?: number } | null;
+        const settings = account.settings as {
+          syncFrequencyMinutes?: number;
+        } | null;
         const syncInterval = settings?.syncFrequencyMinutes ?? 5;
         const minSyncInterval = syncInterval * 60 * 1000; // Convert to ms
         const timeSinceLastSync = Date.now() - account.lastSyncAt.getTime();
@@ -136,10 +138,13 @@ export const syncEmailsTask = task({
 
           // Trigger intelligence extraction for new conversations
           if (syncResult.newThreads > 0) {
-            log.info("Triggering intelligence extraction for new conversations", {
-              sourceAccountId: account.id,
-              newConversations: syncResult.newThreads,
-            });
+            log.info(
+              "Triggering intelligence extraction for new conversations",
+              {
+                sourceAccountId: account.id,
+                newConversations: syncResult.newThreads,
+              }
+            );
 
             // Get recent conversations for this account
             const recentConversations = await db.query.conversation.findMany({
@@ -232,7 +237,9 @@ export const syncEmailsOnDemandTask = task({
     factor: 2,
   },
   run: async (payload: { sourceAccountId: string }): Promise<SyncResult> => {
-    log.info("On-demand sync starting", { sourceAccountId: payload.sourceAccountId });
+    log.info("On-demand sync starting", {
+      sourceAccountId: payload.sourceAccountId,
+    });
 
     const result = await performIncrementalSync(payload.sourceAccountId);
 

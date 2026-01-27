@@ -21,15 +21,6 @@ import {
 } from "@/components/dashboards";
 import { useCommandBar } from "@/components/email/command-bar";
 import { EvidenceDetailSheet } from "@/components/evidence";
-import {
-  useCommitmentStats,
-  useCommitmentUIOs,
-  useDismissUIO,
-  useMarkCompleteUIO,
-  useSnoozeUIO,
-  useUIO,
-  useVerifyUIO,
-} from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +33,15 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useCommitmentStats,
+  useCommitmentUIOs,
+  useDismissUIO,
+  useMarkCompleteUIO,
+  useSnoozeUIO,
+  useUIO,
+  useVerifyUIO,
+} from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 
 // =============================================================================
@@ -153,9 +153,17 @@ function CommitmentsPage() {
   const snoozeMutationBase = useSnoozeUIO();
   const snoozeMutation = {
     ...snoozeMutationBase,
-    mutate: (params: { organizationId: string; commitmentId: string; until: Date }) => {
+    mutate: (params: {
+      organizationId: string;
+      commitmentId: string;
+      until: Date;
+    }) => {
       snoozeMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.commitmentId, until: params.until },
+        {
+          organizationId: params.organizationId,
+          id: params.commitmentId,
+          until: params.until,
+        },
         {
           onSuccess: () => {
             toast.success("Commitment snoozed");
@@ -213,7 +221,9 @@ function CommitmentsPage() {
   // Follow-up generation - simplified without AI call for now
   const handleFollowUpGenerate = useCallback(
     (commitmentId: string) => {
-      const commitment = commitmentsData?.items?.find((c) => c.id === commitmentId);
+      const commitment = commitmentsData?.items?.find(
+        (c) => c.id === commitmentId
+      );
       if (!commitment) {
         toast.error("Commitment not found");
         return;
@@ -226,7 +236,12 @@ function CommitmentsPage() {
 
       if (debtor?.primaryEmail) {
         openCompose({
-          to: [{ email: debtor.primaryEmail, name: debtor.displayName ?? undefined }],
+          to: [
+            {
+              email: debtor.primaryEmail,
+              name: debtor.displayName ?? undefined,
+            },
+          ],
           subject,
           body,
         });
@@ -275,12 +290,21 @@ function CommitmentsPage() {
           params: { commitmentId: selectedCommitment },
         });
       }
-      if (e.key === "1") setDirection("all");
-      if (e.key === "2") setDirection("owed_by_me");
-      if (e.key === "3") setDirection("owed_to_me");
-      if (e.key === "r") refetch();
-      if (e.key === "v")
+      if (e.key === "1") {
+        setDirection("all");
+      }
+      if (e.key === "2") {
+        setDirection("owed_by_me");
+      }
+      if (e.key === "3") {
+        setDirection("owed_to_me");
+      }
+      if (e.key === "r") {
+        refetch();
+      }
+      if (e.key === "v") {
         setViewMode((v) => (v === "list" ? "timeline" : "list"));
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -361,52 +385,60 @@ function CommitmentsPage() {
   }, []);
 
   // Transform UIO data for components
-  const commitments: CommitmentCardData[] = (
-    commitmentsData?.items ?? []
-  ).map((c) => {
-    const dueDate = c.dueDate ? new Date(c.dueDate) : null;
-    const daysOverdue =
-      dueDate && dueDate < new Date()
-        ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-        : undefined;
-    const details = c.commitmentDetails;
-    // Get debtor and creditor from commitment details (with nested relations)
-    const debtor = details?.debtor ?? c.owner;
-    const creditor = details?.creditor;
-    return {
-      id: c.id,
-      title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
-      description: c.canonicalDescription,
-      status: (details?.status ?? "pending") as CommitmentCardData["status"],
-      priority: (details?.priority ?? "medium") as CommitmentCardData["priority"],
-      direction: (details?.direction ?? "owed_by_me") as CommitmentCardData["direction"],
-      dueDate,
-      confidence: c.overallConfidence ?? 0.8,
-      isUserVerified: c.isUserVerified ?? undefined,
-      evidence: details?.extractionContext
-        ? [JSON.stringify(details.extractionContext)]
-        : undefined,
-      debtor: debtor ? {
-        id: debtor.id,
-        displayName: debtor.displayName,
-        primaryEmail: debtor.primaryEmail,
-        avatarUrl: debtor.avatarUrl,
-      } : undefined,
-      creditor: creditor ? {
-        id: creditor.id,
-        displayName: creditor.displayName,
-        primaryEmail: creditor.primaryEmail,
-        avatarUrl: creditor.avatarUrl,
-      } : undefined,
-      sourceThread: c.sources?.[0]?.conversation ? {
-        id: c.sources[0].conversation.id,
-        title: c.sources[0].conversation.title,
-        snippet: c.sources[0].conversation.snippet,
-      } : undefined,
-      sourceType: undefined,
-      daysOverdue,
-    };
-  });
+  const commitments: CommitmentCardData[] = (commitmentsData?.items ?? []).map(
+    (c) => {
+      const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+      const daysOverdue =
+        dueDate && dueDate < new Date()
+          ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+          : undefined;
+      const details = c.commitmentDetails;
+      // Get debtor and creditor from commitment details (with nested relations)
+      const debtor = details?.debtor ?? c.owner;
+      const creditor = details?.creditor;
+      return {
+        id: c.id,
+        title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
+        description: c.canonicalDescription,
+        status: (details?.status ?? "pending") as CommitmentCardData["status"],
+        priority: (details?.priority ??
+          "medium") as CommitmentCardData["priority"],
+        direction: (details?.direction ??
+          "owed_by_me") as CommitmentCardData["direction"],
+        dueDate,
+        confidence: c.overallConfidence ?? 0.8,
+        isUserVerified: c.isUserVerified ?? undefined,
+        evidence: details?.extractionContext
+          ? [JSON.stringify(details.extractionContext)]
+          : undefined,
+        debtor: debtor
+          ? {
+              id: debtor.id,
+              displayName: debtor.displayName,
+              primaryEmail: debtor.primaryEmail,
+              avatarUrl: debtor.avatarUrl,
+            }
+          : undefined,
+        creditor: creditor
+          ? {
+              id: creditor.id,
+              displayName: creditor.displayName,
+              primaryEmail: creditor.primaryEmail,
+              avatarUrl: creditor.avatarUrl,
+            }
+          : undefined,
+        sourceThread: c.sources?.[0]?.conversation
+          ? {
+              id: c.sources[0].conversation.id,
+              title: c.sources[0].conversation.title,
+              snippet: c.sources[0].conversation.snippet,
+            }
+          : undefined,
+        sourceType: undefined,
+        daysOverdue,
+      };
+    }
+  );
 
   // Filter by search
   const filteredCommitments = searchQuery
@@ -446,11 +478,15 @@ function CommitmentsPage() {
         const creditor = details?.creditor;
         return {
           id: detailData.id,
-          title: detailData.userCorrectedTitle ?? detailData.canonicalTitle ?? "",
+          title:
+            detailData.userCorrectedTitle ?? detailData.canonicalTitle ?? "",
           description: detailData.canonicalDescription,
-          status: (details?.status ?? "pending") as CommitmentDetailData["status"],
-          priority: (details?.priority ?? "medium") as CommitmentDetailData["priority"],
-          direction: (details?.direction ?? "owed_by_me") as CommitmentDetailData["direction"],
+          status: (details?.status ??
+            "pending") as CommitmentDetailData["status"],
+          priority: (details?.priority ??
+            "medium") as CommitmentDetailData["priority"],
+          direction: (details?.direction ??
+            "owed_by_me") as CommitmentDetailData["direction"],
           dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
           createdAt: new Date(detailData.createdAt),
           confidence: detailData.overallConfidence ?? 0.8,
@@ -458,24 +494,32 @@ function CommitmentsPage() {
           evidence: details?.extractionContext
             ? [JSON.stringify(details.extractionContext)]
             : undefined,
-          debtor: debtor ? {
-            id: debtor.id,
-            displayName: debtor.displayName,
-            primaryEmail: debtor.primaryEmail,
-            avatarUrl: debtor.avatarUrl,
-          } : undefined,
-          creditor: creditor ? {
-            id: creditor.id,
-            displayName: creditor.displayName,
-            primaryEmail: creditor.primaryEmail,
-            avatarUrl: creditor.avatarUrl,
-          } : undefined,
-          sourceThread: detailData.sources?.[0]?.conversation ? {
-            id: detailData.sources[0].conversation.id,
-            title: detailData.sources[0].conversation.title,
-            snippet: detailData.sources[0].conversation.snippet,
-          } : undefined,
-          metadata: details?.extractionContext as Record<string, unknown> | undefined,
+          debtor: debtor
+            ? {
+                id: debtor.id,
+                displayName: debtor.displayName,
+                primaryEmail: debtor.primaryEmail,
+                avatarUrl: debtor.avatarUrl,
+              }
+            : undefined,
+          creditor: creditor
+            ? {
+                id: creditor.id,
+                displayName: creditor.displayName,
+                primaryEmail: creditor.primaryEmail,
+                avatarUrl: creditor.avatarUrl,
+              }
+            : undefined,
+          sourceThread: detailData.sources?.[0]?.conversation
+            ? {
+                id: detailData.sources[0].conversation.id,
+                title: detailData.sources[0].conversation.title,
+                snippet: detailData.sources[0].conversation.snippet,
+              }
+            : undefined,
+          metadata: details?.extractionContext as
+            | Record<string, unknown>
+            | undefined,
         };
       })()
     : null;
@@ -623,7 +667,7 @@ function CommitmentsPage() {
           {isLoadingCommitments ? (
             <div>
               {/* Row skeletons - matching inbox style */}
-              {[...Array(10)].map((_, i) => (
+              {[...new Array(10)].map((_, i) => (
                 <div
                   className="flex h-10 items-center border-border border-b px-3"
                   key={i}
@@ -678,7 +722,7 @@ function CommitmentsPage() {
                   }
                 />
                 {/* Commitment Rows */}
-                {filteredCommitments.map((commitment, index) => (
+                {filteredCommitments.map((commitment, _index) => (
                   <CommitmentRow
                     commitment={{
                       id: commitment.id,
@@ -751,14 +795,21 @@ function CommitmentsPage() {
             ? {
                 id: evidenceCommitmentData.id,
                 type: "commitment",
-                title: evidenceCommitmentData.userCorrectedTitle ?? evidenceCommitmentData.canonicalTitle ?? "",
+                title:
+                  evidenceCommitmentData.userCorrectedTitle ??
+                  evidenceCommitmentData.canonicalTitle ??
+                  "",
                 extractedText:
                   evidenceCommitmentData.canonicalDescription ??
-                  evidenceCommitmentData.canonicalTitle ?? "",
+                  evidenceCommitmentData.canonicalTitle ??
+                  "",
                 confidence: evidenceCommitmentData.overallConfidence ?? 0.8,
                 isUserVerified: evidenceCommitmentData.isUserVerified ?? false,
-                quotedText: evidenceCommitmentData.commitmentDetails?.extractionContext
-                  ? JSON.stringify(evidenceCommitmentData.commitmentDetails.extractionContext)
+                quotedText: evidenceCommitmentData.commitmentDetails
+                  ?.extractionContext
+                  ? JSON.stringify(
+                      evidenceCommitmentData.commitmentDetails.extractionContext
+                    )
                   : null,
                 extractedAt: new Date(evidenceCommitmentData.createdAt),
                 modelVersion: "llama-4-maverick",

@@ -91,9 +91,15 @@ interface ContactCardProps {
 // =============================================================================
 
 function getHealthColor(score: number | null | undefined): string {
-  if (score === null || score === undefined) return "text-muted-foreground";
-  if (score >= 0.7) return "text-green-600 dark:text-green-400";
-  if (score >= 0.4) return "text-amber-600 dark:text-amber-400";
+  if (score === null || score === undefined) {
+    return "text-muted-foreground";
+  }
+  if (score >= 0.7) {
+    return "text-green-600 dark:text-green-400";
+  }
+  if (score >= 0.4) {
+    return "text-amber-600 dark:text-amber-400";
+  }
   return "text-red-600 dark:text-red-400";
 }
 

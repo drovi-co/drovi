@@ -131,7 +131,10 @@ function SourcesPage() {
     ...trpc.unifiedInbox.getStats.queryOptions(),
     enabled: !!activeOrg?.id,
   });
-  const statsBySource = (statsData?.bySource ?? {}) as Record<string, { total: number; unread: number }>;
+  const statsBySource = (statsData?.bySource ?? {}) as Record<
+    string,
+    { total: number; unread: number }
+  >;
 
   // Email connect mutation (existing)
   const connectEmailMutation = useMutation({
@@ -159,7 +162,9 @@ function SourcesPage() {
   });
 
   const handleConnectEmail = (provider: "gmail" | "outlook") => {
-    if (!activeOrg?.id) return;
+    if (!activeOrg?.id) {
+      return;
+    }
     connectEmailMutation.mutate({
       organizationId: activeOrg.id,
       provider,
@@ -221,7 +226,9 @@ function SourcesPage() {
 
   const handleConnectCalendar = () => {
     // Calendar uses Gmail OAuth - connect via email first
-    if (!activeOrg?.id) return;
+    if (!activeOrg?.id) {
+      return;
+    }
     connectEmailMutation.mutate({
       organizationId: activeOrg.id,
       provider: "gmail",
@@ -229,7 +236,9 @@ function SourcesPage() {
   };
 
   const handleDisconnect = () => {
-    if (!(activeOrg?.id && selectedSource)) return;
+    if (!(activeOrg?.id && selectedSource)) {
+      return;
+    }
     disconnectMutation.mutate({
       organizationId: activeOrg.id,
       sourceAccountId: selectedSource.id,

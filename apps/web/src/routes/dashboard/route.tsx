@@ -5,7 +5,6 @@ import {
   redirect,
   useLocation,
   useNavigate,
-  useSearch,
 } from "@tanstack/react-router";
 import {
   Bell,
@@ -21,28 +20,43 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { UpgradeModal } from "@/components/billing/upgrade-modal";
-import { PresenceProvider, ActivitySidebar } from "@/components/collaboration";
+import { ActivitySidebar, PresenceProvider } from "@/components/collaboration";
 import { useCommandBar } from "@/components/email/command-bar";
+import { AppShell } from "@/components/layout/app-shell";
 import type {
   ActionButton,
   FilterConfig,
   HeaderTab,
 } from "@/components/layout/interactive-header";
-import { AppShell } from "@/components/layout/app-shell";
-import { authClient, useSession, useActiveOrganization } from "@/lib/auth-client";
+import {
+  authClient,
+  useActiveOrganization,
+  useSession,
+} from "@/lib/auth-client";
 import { useTRPC } from "@/utils/trpc";
 
-// Invite code storage helpers (imported from login page)
-const INVITE_CODE_KEY = "drovi_invite_code";
+// Invite code storage helpers (cookie-based to survive OAuth redirect)
+const INVITE_CODE_COOKIE = "drovi_invite_code";
 
 function getStoredInviteCode(): string | null {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(INVITE_CODE_KEY);
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const cookies = document.cookie.split(";");
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split("=");
+    if (name === INVITE_CODE_COOKIE && value) {
+      return decodeURIComponent(value);
+    }
+  }
+  return null;
 }
 
 function clearStoredInviteCode() {
-  if (typeof window === "undefined") return;
-  sessionStorage.removeItem(INVITE_CODE_KEY);
+  if (typeof window === "undefined") {
+    return;
+  }
+  document.cookie = `${INVITE_CODE_COOKIE}=; path=/; max-age=0`;
 }
 
 export const Route = createFileRoute("/dashboard")({
@@ -324,21 +338,24 @@ function DashboardLayout() {
   const tabFromUrl = searchParams.get("tab") ?? "all";
 
   // Handle source filter changes
-  const handleSourceFilter = useCallback((value: string) => {
-    if (location.pathname === "/dashboard/inbox") {
-      navigate({
-        to: "/dashboard/inbox",
-        search: (prev) => {
-          if (value === "all") {
-            // Remove sources from search params
-            const { sources, ...rest } = prev as Record<string, unknown>;
-            return rest;
-          }
-          return { ...prev, sources: value };
-        },
-      });
-    }
-  }, [location.pathname, navigate]);
+  const handleSourceFilter = useCallback(
+    (value: string) => {
+      if (location.pathname === "/dashboard/inbox") {
+        navigate({
+          to: "/dashboard/inbox",
+          search: (prev) => {
+            if (value === "all") {
+              // Remove sources from search params
+              const { sources, ...rest } = prev as Record<string, unknown>;
+              return rest;
+            }
+            return { ...prev, sources: value };
+          },
+        });
+      }
+    },
+    [location.pathname, navigate]
+  );
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
@@ -348,46 +365,72 @@ function DashboardLayout() {
   });
 
   // Handle tab changes - update URL search params
-  const handleTabChange = useCallback((tabId: string) => {
-    // Only update URL if we're on the inbox page
-    if (location.pathname === "/dashboard/inbox") {
-      const validTabs = ["all", "unread", "starred", "done"] as const;
-      const tab = validTabs.includes(tabId as typeof validTabs[number])
-        ? (tabId as typeof validTabs[number])
-        : "all";
-      navigate({
-        to: "/dashboard/inbox",
-        search: tab === "all" ? {} : { tab },
-      });
-    }
-  }, [location.pathname, navigate]);
+  const handleTabChange = useCallback(
+    (tabId: string) => {
+      // Only update URL if we're on the inbox page
+      if (location.pathname === "/dashboard/inbox") {
+        const validTabs = ["all", "unread", "starred", "done"] as const;
+        const tab = validTabs.includes(tabId as (typeof validTabs)[number])
+          ? (tabId as (typeof validTabs)[number])
+          : "all";
+        navigate({
+          to: "/dashboard/inbox",
+          search: tab === "all" ? {} : { tab },
+        });
+      }
+    },
+    [location.pathname, navigate]
+  );
 
-  // Mutation to mark invite code as used
-  const useInviteCodeMutation = useMutation(
-    trpc.waitlist.useCode.mutationOptions({
+  // Check if user needs to finalize signup
+  const { data: signupStatus, isLoading: isCheckingSignup } = useQuery({
+    ...trpc.waitlist.checkSignupStatus.queryOptions(),
+    enabled: Boolean(session?.user?.id),
+  });
+
+  // Mutation to finalize signup (validates invite code, creates subscription)
+  const finalizeSignupMutation = useMutation(
+    trpc.waitlist.finalizeSignup.mutationOptions({
       onSuccess: () => {
         clearStoredInviteCode();
       },
-      onError: () => {
-        // Silently clear the code even on error (code might already be used)
+      onError: (err) => {
         clearStoredInviteCode();
+        // If finalization fails and user needs a code, redirect to login
+        if (err.data?.code === "FORBIDDEN") {
+          navigate({ to: "/login" });
+        }
       },
     })
   );
 
-  // Check and use invite code after signup
+  // Finalize signup if needed
   useEffect(() => {
-    if (inviteCodeProcessed.current) return;
-
-    const storedCode = getStoredInviteCode();
-    if (storedCode && session?.user?.id) {
-      inviteCodeProcessed.current = true;
-      useInviteCodeMutation.mutate({
-        code: storedCode,
-        userId: session.user.id,
-      });
+    if (inviteCodeProcessed.current) {
+      return;
     }
-  }, [session?.user?.id, useInviteCodeMutation]);
+    if (isCheckingSignup) {
+      return;
+    }
+    if (!signupStatus) {
+      return;
+    }
+
+    // If signup is already finalized, nothing to do
+    if (!signupStatus.needsFinalization) {
+      inviteCodeProcessed.current = true;
+      clearStoredInviteCode(); // Clean up any leftover code
+      return;
+    }
+
+    // User needs to finalize - get stored invite code and call API
+    inviteCodeProcessed.current = true;
+    const storedCode = getStoredInviteCode();
+
+    finalizeSignupMutation.mutate({
+      inviteCode: storedCode ?? undefined,
+    });
+  }, [signupStatus, isCheckingSignup, finalizeSignupMutation, navigate]);
 
   // Query trial/credit status
   const { data: creditStatus } = useQuery(
@@ -413,12 +456,12 @@ function DashboardLayout() {
 
   return (
     <PresenceProvider
-      organizationId={organizationId}
       enabled={Boolean(organizationId)}
+      organizationId={organizationId}
     >
       <AppShell
-        activeTab={tabFromUrl}
         actions={headerConfig.actions}
+        activeTab={tabFromUrl}
         breadcrumbs={breadcrumbs}
         filters={headerConfig.filters}
         onTabChange={handleTabChange}
@@ -434,9 +477,9 @@ function DashboardLayout() {
 
       {/* Activity sidebar - togglable via header action */}
       <ActivitySidebar
-        organizationId={organizationId}
         isOpen={activitySidebarOpen}
         onClose={() => setActivitySidebarOpen(false)}
+        organizationId={organizationId}
       />
     </PresenceProvider>
   );

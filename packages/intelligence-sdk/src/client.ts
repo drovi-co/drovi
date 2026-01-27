@@ -5,7 +5,11 @@
 // Main client class for interacting with the Drovi Intelligence Platform API.
 //
 
-import { EventStream, type AnalysisStreamOptions, createAnalysisStream } from "./stream";
+import {
+  type AnalysisStreamOptions,
+  createAnalysisStream,
+  EventStream,
+} from "./stream";
 import type {
   AnalysisResult,
   AnalyzeInput,
@@ -29,7 +33,7 @@ import type {
 // =============================================================================
 
 const DEFAULT_BASE_URL = "https://api.drovi.io";
-const DEFAULT_TIMEOUT = 30000;
+const DEFAULT_TIMEOUT = 30_000;
 
 // =============================================================================
 // ERROR CLASSES
@@ -84,7 +88,10 @@ export class ValidationError extends IntelligenceError {
  * Error thrown when rate limited.
  */
 export class RateLimitError extends IntelligenceError {
-  constructor(message: string, public readonly retryAfter?: number) {
+  constructor(
+    message: string,
+    public readonly retryAfter?: number
+  ) {
     super(message, "RATE_LIMITED", 429);
     this.name = "RateLimitError";
   }
@@ -231,7 +238,9 @@ export class IntelligenceClient {
    * @param filters - Optional filters
    * @yields UIOs one at a time
    */
-  async *iterateUIOs(filters?: Omit<UIOFilters, "cursor">): AsyncGenerator<UIOListItem> {
+  async *iterateUIOs(
+    filters?: Omit<UIOFilters, "cursor">
+  ): AsyncGenerator<UIOListItem> {
     let cursor: string | undefined;
 
     do {

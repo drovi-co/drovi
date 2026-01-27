@@ -10,7 +10,7 @@
 //
 
 import { useNavigate } from "@tanstack/react-router";
-import { formatDistanceToNow, isToday, isTomorrow, isPast } from "date-fns";
+import { formatDistanceToNow, isPast, isToday, isTomorrow } from "date-fns";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -18,15 +18,13 @@ import {
   Calendar,
   Check,
   ChevronRight,
-  Clock,
   Eye,
   MessageSquare,
   MoreHorizontal,
   TimerOff,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
-import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +45,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { useActiveOrganization } from "@/lib/auth-client";
 
 // =============================================================================
@@ -88,24 +87,28 @@ export function CommitmentsCommandCenter() {
   const organizationId = activeOrg?.id ?? "";
 
   // Fetch commitments I owe using UIO hook
-  const { data: owedByMeData, isLoading: isLoadingOwedByMe } = useCommitmentUIOs({
-    organizationId,
-    direction: "owed_by_me",
-    limit: 50,
-    enabled: Boolean(organizationId),
-  });
+  const { data: owedByMeData, isLoading: isLoadingOwedByMe } =
+    useCommitmentUIOs({
+      organizationId,
+      direction: "owed_by_me",
+      limit: 50,
+      enabled: Boolean(organizationId),
+    });
 
   // Fetch commitments owed to me using UIO hook
-  const { data: owedToMeData, isLoading: isLoadingOwedToMe } = useCommitmentUIOs({
-    organizationId,
-    direction: "owed_to_me",
-    limit: 50,
-    enabled: Boolean(organizationId),
-  });
+  const { data: owedToMeData, isLoading: isLoadingOwedToMe } =
+    useCommitmentUIOs({
+      organizationId,
+      direction: "owed_to_me",
+      limit: 50,
+      enabled: Boolean(organizationId),
+    });
 
   // Helper to check if commitment is overdue
   const isCommitmentOverdue = (dueDate: Date | null | undefined): boolean => {
-    if (!dueDate) return false;
+    if (!dueDate) {
+      return false;
+    }
     return isPast(dueDate) && !isToday(dueDate);
   };
 
@@ -122,12 +125,14 @@ export function CommitmentsCommandCenter() {
       dueDate: c.dueDate ?? null,
       confidence: c.overallConfidence ?? 0.8,
       isOverdue: isCommitmentOverdue(dueDateParsed),
-      creditor: c.owner ? {
-        id: c.owner.id,
-        displayName: c.owner.displayName,
-        primaryEmail: c.owner.primaryEmail,
-        avatarUrl: c.owner.avatarUrl,
-      } : undefined,
+      creditor: c.owner
+        ? {
+            id: c.owner.id,
+            displayName: c.owner.displayName,
+            primaryEmail: c.owner.primaryEmail,
+            avatarUrl: c.owner.avatarUrl,
+          }
+        : undefined,
       sourceConversationId: c.sources?.[0]?.conversationId ?? null,
     };
   });
@@ -144,12 +149,14 @@ export function CommitmentsCommandCenter() {
       dueDate: c.dueDate ?? null,
       confidence: c.overallConfidence ?? 0.8,
       isOverdue: isCommitmentOverdue(dueDateParsed),
-      debtor: c.owner ? {
-        id: c.owner.id,
-        displayName: c.owner.displayName,
-        primaryEmail: c.owner.primaryEmail,
-        avatarUrl: c.owner.avatarUrl,
-      } : undefined,
+      debtor: c.owner
+        ? {
+            id: c.owner.id,
+            displayName: c.owner.displayName,
+            primaryEmail: c.owner.primaryEmail,
+            avatarUrl: c.owner.avatarUrl,
+          }
+        : undefined,
       sourceConversationId: c.sources?.[0]?.conversationId ?? null,
     };
   });
@@ -160,8 +167,12 @@ export function CommitmentsCommandCenter() {
     ...owedToMe.filter((c) => c.isOverdue || c.priority === "urgent"),
   ].sort((a, b) => {
     // Sort by overdue first, then by due date
-    if (a.isOverdue && !b.isOverdue) return -1;
-    if (!a.isOverdue && b.isOverdue) return 1;
+    if (a.isOverdue && !b.isOverdue) {
+      return -1;
+    }
+    if (!a.isOverdue && b.isOverdue) {
+      return 1;
+    }
     if (a.dueDate && b.dueDate) {
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     }
@@ -171,7 +182,9 @@ export function CommitmentsCommandCenter() {
   // Stats
   const totalOwedByMe = owedByMe.length;
   const totalOwedToMe = owedToMe.length;
-  const overdueCount = [...owedByMe, ...owedToMe].filter((c) => c.isOverdue).length;
+  const overdueCount = [...owedByMe, ...owedToMe].filter(
+    (c) => c.isOverdue
+  ).length;
   const completedThisWeek = [...owedByMe, ...owedToMe].filter(
     (c) => c.status === "completed"
   ).length;
@@ -193,12 +206,12 @@ export function CommitmentsCommandCenter() {
     [navigate]
   );
 
-  const handleMarkComplete = useCallback((id: string) => {
+  const handleMarkComplete = useCallback((_id: string) => {
     toast.success("Marked as complete");
     // TODO: Call mutation to mark commitment as complete
   }, []);
 
-  const handleSnooze = useCallback((id: string) => {
+  const handleSnooze = useCallback((_id: string) => {
     toast.info("Snoozed for 1 day");
     // TODO: Call mutation to snooze commitment
   }, []);
@@ -215,24 +228,32 @@ export function CommitmentsCommandCenter() {
       <div className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Commitments Command Center</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="font-semibold text-lg">
+              Commitments Command Center
+            </h2>
+            <p className="text-muted-foreground text-sm">
               Track what you owe and what's owed to you
             </p>
           </div>
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{totalOwedByMe}</div>
-              <div className="text-xs text-muted-foreground">I Owe</div>
+              <div className="font-bold text-2xl text-blue-600">
+                {totalOwedByMe}
+              </div>
+              <div className="text-muted-foreground text-xs">I Owe</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{totalOwedToMe}</div>
-              <div className="text-xs text-muted-foreground">Owed to Me</div>
+              <div className="font-bold text-2xl text-green-600">
+                {totalOwedToMe}
+              </div>
+              <div className="text-muted-foreground text-xs">Owed to Me</div>
             </div>
             {overdueCount > 0 && (
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{overdueCount}</div>
-                <div className="text-xs text-muted-foreground">Overdue</div>
+                <div className="font-bold text-2xl text-red-600">
+                  {overdueCount}
+                </div>
+                <div className="text-muted-foreground text-xs">Overdue</div>
               </div>
             )}
           </div>
@@ -257,15 +278,15 @@ export function CommitmentsCommandCenter() {
               {urgentCommitments.length === 0 ? (
                 <div className="py-8 text-center">
                   <Check className="mx-auto h-8 w-8 text-green-500" />
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-muted-foreground text-sm">
                     All caught up! No urgent items.
                   </p>
                 </div>
               ) : (
                 urgentCommitments.map((commitment) => (
                   <CommitmentCard
-                    key={commitment.id}
                     commitment={commitment}
+                    key={commitment.id}
                     onClick={() => handleCommitmentClick(commitment)}
                     onMarkComplete={() => handleMarkComplete(commitment.id)}
                     onSnooze={() => handleSnooze(commitment.id)}
@@ -280,8 +301,7 @@ export function CommitmentsCommandCenter() {
           <Card className="border-blue-200 bg-blue-50/50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-blue-700">
-                <ArrowUpRight className="h-5 w-5" />
-                I Owe
+                <ArrowUpRight className="h-5 w-5" />I Owe
               </CardTitle>
               <CardDescription className="text-blue-600/80">
                 Commitments you've made to others
@@ -291,7 +311,7 @@ export function CommitmentsCommandCenter() {
               {owedByMe.filter((c) => !c.isOverdue).length === 0 ? (
                 <div className="py-8 text-center">
                   <Check className="mx-auto h-8 w-8 text-green-500" />
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-muted-foreground text-sm">
                     No pending commitments!
                   </p>
                 </div>
@@ -301,8 +321,8 @@ export function CommitmentsCommandCenter() {
                   .slice(0, 10)
                   .map((commitment) => (
                     <CommitmentCard
-                      key={commitment.id}
                       commitment={commitment}
+                      key={commitment.id}
                       onClick={() => handleCommitmentClick(commitment)}
                       onMarkComplete={() => handleMarkComplete(commitment.id)}
                       onSnooze={() => handleSnooze(commitment.id)}
@@ -310,8 +330,9 @@ export function CommitmentsCommandCenter() {
                   ))
               )}
               {owedByMe.filter((c) => !c.isOverdue).length > 10 && (
-                <Button variant="ghost" className="w-full text-blue-600">
-                  View all {owedByMe.filter((c) => !c.isOverdue).length} commitments
+                <Button className="w-full text-blue-600" variant="ghost">
+                  View all {owedByMe.filter((c) => !c.isOverdue).length}{" "}
+                  commitments
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               )}
@@ -333,7 +354,7 @@ export function CommitmentsCommandCenter() {
               {owedToMe.filter((c) => !c.isOverdue).length === 0 ? (
                 <div className="py-8 text-center">
                   <Check className="mx-auto h-8 w-8 text-green-500" />
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-muted-foreground text-sm">
                     No pending commitments!
                   </p>
                 </div>
@@ -343,8 +364,8 @@ export function CommitmentsCommandCenter() {
                   .slice(0, 10)
                   .map((commitment) => (
                     <CommitmentCard
-                      key={commitment.id}
                       commitment={commitment}
+                      key={commitment.id}
                       onClick={() => handleCommitmentClick(commitment)}
                       onMarkComplete={() => handleMarkComplete(commitment.id)}
                       onSnooze={() => handleSnooze(commitment.id)}
@@ -352,8 +373,9 @@ export function CommitmentsCommandCenter() {
                   ))
               )}
               {owedToMe.filter((c) => !c.isOverdue).length > 10 && (
-                <Button variant="ghost" className="w-full text-green-600">
-                  View all {owedToMe.filter((c) => !c.isOverdue).length} commitments
+                <Button className="w-full text-green-600" variant="ghost">
+                  View all {owedToMe.filter((c) => !c.isOverdue).length}{" "}
+                  commitments
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               )}
@@ -385,20 +407,29 @@ function CommitmentCard({
   variant = "default",
 }: CommitmentCardProps) {
   const person =
-    commitment.direction === "owed_by_me" ? commitment.creditor : commitment.debtor;
-  const personInitials = person?.displayName
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "?";
+    commitment.direction === "owed_by_me"
+      ? commitment.creditor
+      : commitment.debtor;
+  const personInitials =
+    person?.displayName
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ?? "?";
 
   // Format due date
   const formatDueDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
+    if (!dateStr) {
+      return null;
+    }
     const date = new Date(dateStr);
-    if (isToday(date)) return "Today";
-    if (isTomorrow(date)) return "Tomorrow";
+    if (isToday(date)) {
+      return "Today";
+    }
+    if (isTomorrow(date)) {
+      return "Tomorrow";
+    }
     if (isPast(date)) {
       return `${formatDistanceToNow(date)} overdue`;
     }
@@ -409,10 +440,7 @@ function CommitmentCard({
 
   return (
     <div
-      className={`
-        group flex items-start gap-3 rounded-lg border bg-background p-3 shadow-sm transition-all
-        hover:shadow-md cursor-pointer
-        ${variant === "urgent" ? "border-red-200" : "border-border"}
+      className={`group flex cursor-pointer items-start gap-3 rounded-lg border bg-background p-3 shadow-sm transition-all hover:shadow-md ${variant === "urgent" ? "border-red-200" : "border-border"}
         ${commitment.isOverdue ? "animate-pulse border-red-300" : ""}
       `}
       onClick={onClick}
@@ -424,19 +452,19 @@ function CommitmentCard({
       </Avatar>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-medium">{commitment.title}</p>
-        <div className="mt-1 flex items-center gap-2 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-sm">{commitment.title}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
           {person?.displayName && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               {commitment.direction === "owed_by_me" ? "To" : "From"}{" "}
               {person.displayName}
             </span>
           )}
           {dueDateLabel && (
             <Badge
+              className="px-1.5 py-0 text-[10px]"
               variant={commitment.isOverdue ? "destructive" : "secondary"}
-              className="text-[10px] px-1.5 py-0"
             >
               <Calendar className="mr-1 h-3 w-3" />
               {dueDateLabel}
@@ -446,7 +474,10 @@ function CommitmentCard({
         {/* Confidence indicator */}
         {commitment.confidence < 0.7 && (
           <div className="mt-2 flex items-center gap-2">
-            <Progress value={commitment.confidence * 100} className="h-1 flex-1" />
+            <Progress
+              className="h-1 flex-1"
+              value={commitment.confidence * 100}
+            />
             <span className="text-[10px] text-orange-600">
               {Math.round(commitment.confidence * 100)}% confident
             </span>
@@ -458,9 +489,9 @@ function CommitmentCard({
       <DropdownMenu>
         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
           <Button
-            variant="ghost"
+            className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
             size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+            variant="ghost"
           >
             <MoreHorizontal className="h-4 w-4" />
           </Button>
@@ -546,7 +577,10 @@ function CommitmentsCommandCenterSkeleton() {
             </CardHeader>
             <CardContent className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-start gap-3 rounded-lg border p-3">
+                <div
+                  className="flex items-start gap-3 rounded-lg border p-3"
+                  key={i}
+                >
                   <Skeleton className="h-8 w-8 rounded-full" />
                   <div className="flex-1">
                     <Skeleton className="h-4 w-full" />

@@ -128,13 +128,21 @@ function getUrgencyLevel(
   ) {
     return status === "overdue" ? "overdue" : "normal";
   }
-  if (!dueDate) return "normal";
-  if (isPast(dueDate)) return "overdue";
-  if (isToday(dueDate) || isTomorrow(dueDate)) return "urgent";
+  if (!dueDate) {
+    return "normal";
+  }
+  if (isPast(dueDate)) {
+    return "overdue";
+  }
+  if (isToday(dueDate) || isTomorrow(dueDate)) {
+    return "urgent";
+  }
   const daysUntil = Math.ceil(
     (dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  if (daysUntil <= 7) return "soon";
+  if (daysUntil <= 7) {
+    return "soon";
+  }
   return "normal";
 }
 
@@ -201,7 +209,9 @@ export function CommitmentDetailSheet({
   onContactClick,
   onGenerateFollowUp,
 }: CommitmentDetailSheetProps) {
-  if (!commitment) return null;
+  if (!commitment) {
+    return null;
+  }
 
   const urgency = getUrgencyLevel(commitment.dueDate, commitment.status);
   const statusConfig = getStatusConfig(commitment.status);

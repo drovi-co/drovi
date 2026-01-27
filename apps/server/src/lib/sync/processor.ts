@@ -13,11 +13,11 @@
 import { db } from "@memorystack/db";
 import {
   attachment,
-  conversation,
   type ConversationMetadata,
-  message,
+  conversation,
   type MessageMetadata,
   type MessageRecipient,
+  message,
   sourceAccount,
 } from "@memorystack/db/schema";
 import { and, eq, sql } from "drizzle-orm";
@@ -121,7 +121,9 @@ export async function processThread(
   let processedCount = 0;
   for (let idx = 0; idx < (threadData.messages?.length ?? 0); idx++) {
     const msg = threadData.messages[idx];
-    if (!msg) continue;
+    if (!msg) {
+      continue;
+    }
 
     try {
       // Add message index for ordering within conversation
@@ -199,16 +201,16 @@ async function upsertConversation(
     updatedAt: new Date(),
   };
 
-  if (!isNew) {
-    await db
-      .update(conversation)
-      .set(record)
-      .where(eq(conversation.id, conversationId));
-  } else {
+  if (isNew) {
     await db.insert(conversation).values({
       ...record,
       createdAt: new Date(),
     });
+  } else {
+    await db
+      .update(conversation)
+      .set(record)
+      .where(eq(conversation.id, conversationId));
   }
 }
 
@@ -313,13 +315,13 @@ async function upsertMessage(
     updatedAt: new Date(),
   };
 
-  if (!isNew) {
-    await db.update(message).set(record).where(eq(message.id, messageId));
-  } else {
+  if (isNew) {
     await db.insert(message).values({
       ...record,
       createdAt: new Date(),
     });
+  } else {
+    await db.update(message).set(record).where(eq(message.id, messageId));
   }
 }
 
@@ -607,5 +609,9 @@ export async function getOrCreateSourceAccount(
     })
     .returning();
 
-  return newAccount!.id;
+  if (!newAccount) {
+    throw new Error("Failed to create source account");
+  }
+
+  return newAccount.id;
 }

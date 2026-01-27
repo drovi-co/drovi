@@ -58,7 +58,11 @@ function generateDailyDigest(
   }>
 ): Digest {
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
   const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -66,7 +70,9 @@ function generateDailyDigest(
   const owedToMe: DigestCategory = { overdue: [], dueToday: [], upcoming: [] };
 
   for (const c of commitments) {
-    if (!c.dueDate) continue;
+    if (!c.dueDate) {
+      continue;
+    }
 
     const dueDate = new Date(c.dueDate);
     const daysOverdue = Math.floor(

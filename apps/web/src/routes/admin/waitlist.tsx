@@ -527,7 +527,9 @@ function ApplicationDetailDialog({
     enabled: !!applicationId,
   });
 
-  if (!applicationId) return null;
+  if (!applicationId) {
+    return null;
+  }
 
   return (
     <Dialog onOpenChange={() => onClose()} open={!!applicationId}>

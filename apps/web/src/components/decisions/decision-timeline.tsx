@@ -29,8 +29,6 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-
-import { useDecisionUIOs } from "@/hooks/use-uio";
 import { ConfidenceBadge } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDecisionUIOs } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -111,11 +110,21 @@ function getInitials(name: string | null | undefined, email: string): string {
 }
 
 function formatTimelineDate(date: Date): string {
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return format(date, "EEEE");
-  if (isThisMonth(date)) return format(date, "MMMM d");
-  if (isThisYear(date)) return format(date, "MMMM d");
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+  if (isThisWeek(date)) {
+    return format(date, "EEEE");
+  }
+  if (isThisMonth(date)) {
+    return format(date, "MMMM d");
+  }
+  if (isThisYear(date)) {
+    return format(date, "MMMM d");
+  }
   return format(date, "MMMM d, yyyy");
 }
 
@@ -160,11 +169,15 @@ export function DecisionTimeline({
 
   // Transform decisions from UIO format
   const allDecisions = useMemo(() => {
-    if (!data?.items) return [];
+    if (!data?.items) {
+      return [];
+    }
     return data.items
       .filter((d) => {
         // Filter superseded if not including them
-        if (!includeSuperseded && d.decisionDetails?.supersededByUioId) return false;
+        if (!includeSuperseded && d.decisionDetails?.supersededByUioId) {
+          return false;
+        }
         // Filter by topic if set
         // Note: topics may need to be tracked differently in UIO
         return true;
@@ -176,18 +189,24 @@ export function DecisionTimeline({
         rationale: d.decisionDetails?.rationale ?? null,
         decidedAt: new Date(d.firstSeenAt ?? d.createdAt),
         confidence: d.overallConfidence ?? 0.8,
-        isUserVerified: d.isUserVerified ?? (d.userCorrectedTitle != null),
+        isUserVerified: d.isUserVerified ?? d.userCorrectedTitle != null,
         isSuperseded: Boolean(d.decisionDetails?.supersededByUioId),
         supersededByUioId: d.decisionDetails?.supersededByUioId ?? null,
-        owners: d.owner ? [{
-          id: d.owner.id,
-          displayName: d.owner.displayName ?? null,
-          primaryEmail: d.owner.primaryEmail ?? "",
-        }] : [],
-        sourceThread: d.sources?.[0]?.conversationId ? {
-          id: d.sources[0].conversationId,
-          subject: null,
-        } : null,
+        owners: d.owner
+          ? [
+              {
+                id: d.owner.id,
+                displayName: d.owner.displayName ?? null,
+                primaryEmail: d.owner.primaryEmail ?? "",
+              },
+            ]
+          : [],
+        sourceThread: d.sources?.[0]?.conversationId
+          ? {
+              id: d.sources[0].conversationId,
+              subject: null,
+            }
+          : null,
         topics: [],
       }));
   }, [data, includeSuperseded]);
@@ -276,7 +295,7 @@ export function DecisionTimeline({
             {monthKeys.map((monthKey) => {
               const decisions = groupedDecisions.get(monthKey) ?? [];
               const isExpanded = expandedMonths.has(monthKey);
-              const monthDate = new Date(monthKey + "-01");
+              const monthDate = new Date(`${monthKey}-01`);
 
               return (
                 <Collapsible

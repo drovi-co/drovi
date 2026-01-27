@@ -32,10 +32,12 @@ interface TimelineViewProps {
 }
 
 function getUrgencyClass(dueDate: Date | null, status: string): string {
-  if (status === "completed")
+  if (status === "completed") {
     return "bg-green-500/20 border-green-500/50 text-green-700 dark:text-green-400";
-  if (!dueDate)
+  }
+  if (!dueDate) {
     return "bg-muted border-muted-foreground/30 text-muted-foreground";
+  }
 
   if (isPast(dueDate)) {
     return "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-400 shadow-red-500/20 shadow-lg";
@@ -53,9 +55,15 @@ function getUrgencyClass(dueDate: Date | null, status: string): string {
 }
 
 function getUrgencyIcon(dueDate: Date | null, status: string) {
-  if (status === "completed") return <CheckCircle2 className="h-3 w-3" />;
-  if (!dueDate) return <Clock className="h-3 w-3" />;
-  if (isPast(dueDate)) return <AlertCircle className="h-3 w-3" />;
+  if (status === "completed") {
+    return <CheckCircle2 className="h-3 w-3" />;
+  }
+  if (!dueDate) {
+    return <Clock className="h-3 w-3" />;
+  }
+  if (isPast(dueDate)) {
+    return <AlertCircle className="h-3 w-3" />;
+  }
   return <Clock className="h-3 w-3" />;
 }
 
@@ -65,14 +73,20 @@ export function TimelineView({
 }: TimelineViewProps) {
   // Filter to today's commitments only
   const todayCommitments = commitments.filter((c) => {
-    if (!c.dueDate) return false;
+    if (!c.dueDate) {
+      return false;
+    }
     return isToday(c.dueDate) || isPast(c.dueDate);
   });
 
   // Sort by due time
   const sortedCommitments = [...todayCommitments].sort((a, b) => {
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
+    if (!a.dueDate) {
+      return 1;
+    }
+    if (!b.dueDate) {
+      return -1;
+    }
     return a.dueDate.getTime() - b.dueDate.getTime();
   });
 

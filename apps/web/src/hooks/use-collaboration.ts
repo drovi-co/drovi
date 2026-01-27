@@ -79,7 +79,7 @@ export function useUnreadMentions(params: {
   return useQuery(
     trpc.collaboration.getUnreadMentions.queryOptions(
       { organizationId: params.organizationId },
-      { enabled: params.enabled ?? true, refetchInterval: 30000 }
+      { enabled: params.enabled ?? true, refetchInterval: 30_000 }
     )
   );
 }
@@ -110,7 +110,7 @@ export function useMentionsForResource(params: {
 /**
  * Create a new mention.
  */
-export function useCreateMention(params: { organizationId: string }) {
+export function useCreateMention(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -131,7 +131,7 @@ export function useCreateMention(params: { organizationId: string }) {
 /**
  * Mark mentions as read.
  */
-export function useMarkMentionsRead(params: { organizationId: string }) {
+export function useMarkMentionsRead(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -178,7 +178,7 @@ export function useComments(params: {
 /**
  * Create a new comment.
  */
-export function useCreateComment(params: { organizationId: string }) {
+export function useCreateComment(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -199,7 +199,7 @@ export function useCreateComment(params: { organizationId: string }) {
 /**
  * Update a comment.
  */
-export function useUpdateComment(params: { organizationId: string }) {
+export function useUpdateComment(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -217,7 +217,7 @@ export function useUpdateComment(params: { organizationId: string }) {
 /**
  * Delete a comment.
  */
-export function useDeleteComment(params: { organizationId: string }) {
+export function useDeleteComment(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -235,7 +235,7 @@ export function useDeleteComment(params: { organizationId: string }) {
 /**
  * Add reaction to a comment.
  */
-export function useAddReaction(params: { organizationId: string }) {
+export function useAddReaction(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -253,7 +253,7 @@ export function useAddReaction(params: { organizationId: string }) {
 /**
  * Remove reaction from a comment.
  */
-export function useRemoveReaction(params: { organizationId: string }) {
+export function useRemoveReaction(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -271,7 +271,7 @@ export function useRemoveReaction(params: { organizationId: string }) {
 /**
  * Resolve a comment thread.
  */
-export function useResolveThread(params: { organizationId: string }) {
+export function useResolveThread(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -317,7 +317,7 @@ export function useActivityFeed(params: {
         limit: params.limit,
         cursor: params.cursor,
       },
-      { enabled: params.enabled ?? true, refetchInterval: 30000 }
+      { enabled: params.enabled ?? true, refetchInterval: 30_000 }
     )
   );
 }
@@ -350,7 +350,7 @@ export function useResourceActivity(params: {
 /**
  * Mark activity as seen.
  */
-export function useMarkActivitySeen(params: { organizationId: string }) {
+export function useMarkActivitySeen(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -377,7 +377,7 @@ export function useUnreadActivityCount(params: {
   return useQuery(
     trpc.collaboration.getUnreadActivityCount.queryOptions(
       { organizationId: params.organizationId },
-      { enabled: params.enabled ?? true, refetchInterval: 30000 }
+      { enabled: params.enabled ?? true, refetchInterval: 30_000 }
     )
   );
 }
@@ -389,7 +389,7 @@ export function useUnreadActivityCount(params: {
 /**
  * Create a delegation.
  */
-export function useCreateDelegation(params: { organizationId: string }) {
+export function useCreateDelegation(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -407,7 +407,7 @@ export function useCreateDelegation(params: { organizationId: string }) {
 /**
  * Revoke a delegation.
  */
-export function useRevokeDelegation(params: { organizationId: string }) {
+export function useRevokeDelegation(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

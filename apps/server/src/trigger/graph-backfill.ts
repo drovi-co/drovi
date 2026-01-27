@@ -8,14 +8,14 @@
 
 import { db } from "@memorystack/db";
 import {
-  unifiedIntelligenceObject,
   contact,
   task as taskTable,
+  unifiedIntelligenceObject,
 } from "@memorystack/db/schema";
-import { task, schedules } from "@trigger.dev/sdk";
-import { eq, desc } from "drizzle-orm";
-import { log } from "../lib/logger";
+import { schedules, task } from "@trigger.dev/sdk";
+import { desc, eq } from "drizzle-orm";
 import { checkIntelligenceBackendHealth } from "../lib/intelligence-backend";
+import { log } from "../lib/logger";
 
 // =============================================================================
 // PYTHON BACKEND URL
@@ -79,7 +79,10 @@ async function callGraphBackfill(
     const data = await response.json();
     return { success: true, data };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -103,9 +106,15 @@ export const graphBackfillUIOsTask = task({
     maxTimeoutInMs: 30_000,
   },
   run: async (payload: GraphBackfillPayload) => {
-    const { organizationId, batchSize = DEFAULT_BATCH_SIZE, offset = 0 } = payload;
+    const {
+      organizationId,
+      batchSize = DEFAULT_BATCH_SIZE,
+      offset = 0,
+    } = payload;
 
-    log.info(`[GraphBackfill] Starting UIO backfill for org ${organizationId}, offset ${offset}`);
+    log.info(
+      `[GraphBackfill] Starting UIO backfill for org ${organizationId}, offset ${offset}`
+    );
 
     // Fetch batch of UIOs
     const uios = await db.query.unifiedIntelligenceObject.findMany({
@@ -122,14 +131,16 @@ export const graphBackfillUIOsTask = task({
     });
 
     if (uios.length === 0) {
-      log.info(`[GraphBackfill] UIO backfill complete for org ${organizationId}`);
+      log.info(
+        `[GraphBackfill] UIO backfill complete for org ${organizationId}`
+      );
       return { completed: true, totalProcessed: offset };
     }
 
     // Call Python backend to backfill UIOs
     const result = await callGraphBackfill("/api/v1/graph/backfill/uios", {
       organization_id: organizationId,
-      uios: uios.map(uio => ({
+      uios: uios.map((uio) => ({
         id: uio.id,
         type: uio.type,
         title: uio.canonicalTitle,
@@ -138,7 +149,7 @@ export const graphBackfillUIOsTask = task({
         confidence: uio.overallConfidence,
         due_date: uio.dueDate?.toISOString(),
         owner_contact_id: uio.ownerContactId,
-        sources: (uio.sources ?? []).map(s => ({
+        sources: (uio.sources ?? []).map((s) => ({
           conversation_id: s.conversationId,
           role: s.role,
           confidence: s.confidence,
@@ -151,7 +162,7 @@ export const graphBackfillUIOsTask = task({
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphBackfill] UIO batch complete via Python backend`);
+    log.info("[GraphBackfill] UIO batch complete via Python backend");
 
     // If we got a full batch, there might be more
     if (uios.length === batchSize) {
@@ -190,9 +201,15 @@ export const graphBackfillContactsTask = task({
     maxTimeoutInMs: 30_000,
   },
   run: async (payload: GraphBackfillPayload) => {
-    const { organizationId, batchSize = DEFAULT_BATCH_SIZE, offset = 0 } = payload;
+    const {
+      organizationId,
+      batchSize = DEFAULT_BATCH_SIZE,
+      offset = 0,
+    } = payload;
 
-    log.info(`[GraphBackfill] Starting contact backfill for org ${organizationId}, offset ${offset}`);
+    log.info(
+      `[GraphBackfill] Starting contact backfill for org ${organizationId}, offset ${offset}`
+    );
 
     // Fetch batch of contacts
     const contacts = await db.query.contact.findMany({
@@ -203,18 +220,20 @@ export const graphBackfillContactsTask = task({
 
     // Filter by organization
     const orgContacts = contacts
-      .filter(c => c.organizationId === organizationId)
+      .filter((c) => c.organizationId === organizationId)
       .slice(0, batchSize);
 
     if (orgContacts.length === 0) {
-      log.info(`[GraphBackfill] Contact backfill complete for org ${organizationId}`);
+      log.info(
+        `[GraphBackfill] Contact backfill complete for org ${organizationId}`
+      );
       return { completed: true, totalProcessed: offset };
     }
 
     // Call Python backend to backfill contacts
     const result = await callGraphBackfill("/api/v1/graph/backfill/contacts", {
       organization_id: organizationId,
-      contacts: orgContacts.map(c => ({
+      contacts: orgContacts.map((c) => ({
         id: c.id,
         display_name: c.displayName,
         emails: c.emails,
@@ -230,7 +249,7 @@ export const graphBackfillContactsTask = task({
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphBackfill] Contact batch complete via Python backend`);
+    log.info("[GraphBackfill] Contact batch complete via Python backend");
 
     if (orgContacts.length === batchSize) {
       await graphBackfillContactsTask.trigger({
@@ -268,9 +287,15 @@ export const graphBackfillTasksToGraphTask = task({
     maxTimeoutInMs: 30_000,
   },
   run: async (payload: GraphBackfillPayload) => {
-    const { organizationId, batchSize = DEFAULT_BATCH_SIZE, offset = 0 } = payload;
+    const {
+      organizationId,
+      batchSize = DEFAULT_BATCH_SIZE,
+      offset = 0,
+    } = payload;
 
-    log.info(`[GraphBackfill] Starting task backfill for org ${organizationId}, offset ${offset}`);
+    log.info(
+      `[GraphBackfill] Starting task backfill for org ${organizationId}, offset ${offset}`
+    );
 
     // Fetch batch of tasks
     const tasks = await db.query.task.findMany({
@@ -281,14 +306,16 @@ export const graphBackfillTasksToGraphTask = task({
     });
 
     if (tasks.length === 0) {
-      log.info(`[GraphBackfill] Task backfill complete for org ${organizationId}`);
+      log.info(
+        `[GraphBackfill] Task backfill complete for org ${organizationId}`
+      );
       return { completed: true, totalProcessed: offset };
     }
 
     // Call Python backend to backfill tasks
     const result = await callGraphBackfill("/api/v1/graph/backfill/tasks", {
       organization_id: organizationId,
-      tasks: tasks.map(t => ({
+      tasks: tasks.map((t) => ({
         id: t.id,
         title: t.title,
         description: t.description,
@@ -306,7 +333,7 @@ export const graphBackfillTasksToGraphTask = task({
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphBackfill] Task batch complete via Python backend`);
+    log.info("[GraphBackfill] Task batch complete via Python backend");
 
     if (tasks.length === batchSize) {
       await graphBackfillTasksToGraphTask.trigger({
@@ -347,7 +374,9 @@ export const graphBackfillOrganizationTask = task({
   run: async (payload: OrganizationBackfillPayload) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphBackfill] Starting full backfill for organization ${organizationId}`);
+    log.info(
+      `[GraphBackfill] Starting full backfill for organization ${organizationId}`
+    );
 
     // Trigger all entity backfill tasks in parallel
     const [contactsHandle, uiosHandle, tasksHandle] = await Promise.all([
@@ -387,7 +416,9 @@ export const graphBackfillAllOrganizationsTask = task({
   run: async (payload: FullBackfillPayload) => {
     const { batchSize = 10 } = payload;
 
-    log.info("[GraphBackfill] Starting full graph backfill for all organizations");
+    log.info(
+      "[GraphBackfill] Starting full graph backfill for all organizations"
+    );
 
     // Get all organizations
     const organizations = await db.query.organization.findMany({
@@ -432,17 +463,24 @@ export const graphCalculateContactImportanceTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Calculating contact importance for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Calculating contact importance for org ${organizationId}`
+    );
 
-    const result = await callGraphBackfill("/api/v1/graph/algorithms/contact-importance", {
-      organization_id: organizationId,
-    });
+    const result = await callGraphBackfill(
+      "/api/v1/graph/algorithms/contact-importance",
+      {
+        organization_id: organizationId,
+      }
+    );
 
     if (!result.success) {
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphAlgorithms] Contact importance calculation complete via Python`);
+    log.info(
+      "[GraphAlgorithms] Contact importance calculation complete via Python"
+    );
 
     return {
       success: true,
@@ -471,17 +509,22 @@ export const graphDetectCommunitiesTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Detecting communities for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Detecting communities for org ${organizationId}`
+    );
 
-    const result = await callGraphBackfill("/api/v1/graph/algorithms/communities", {
-      organization_id: organizationId,
-    });
+    const result = await callGraphBackfill(
+      "/api/v1/graph/algorithms/communities",
+      {
+        organization_id: organizationId,
+      }
+    );
 
     if (!result.success) {
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphAlgorithms] Community detection complete via Python`);
+    log.info("[GraphAlgorithms] Community detection complete via Python");
 
     return {
       success: true,
@@ -510,7 +553,9 @@ export const graphFindBridgeContactsTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Finding bridge contacts for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Finding bridge contacts for org ${organizationId}`
+    );
 
     const result = await callGraphBackfill("/api/v1/graph/algorithms/bridges", {
       organization_id: organizationId,
@@ -520,7 +565,7 @@ export const graphFindBridgeContactsTask = task({
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphAlgorithms] Bridge contact detection complete via Python`);
+    log.info("[GraphAlgorithms] Bridge contact detection complete via Python");
 
     return {
       success: true,
@@ -548,17 +593,24 @@ export const graphUpdateRelationshipStrengthsTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Updating relationship strengths for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Updating relationship strengths for org ${organizationId}`
+    );
 
-    const result = await callGraphBackfill("/api/v1/graph/algorithms/relationship-strengths", {
-      organization_id: organizationId,
-    });
+    const result = await callGraphBackfill(
+      "/api/v1/graph/algorithms/relationship-strengths",
+      {
+        organization_id: organizationId,
+      }
+    );
 
     if (!result.success) {
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphAlgorithms] Relationship strengths update complete via Python`);
+    log.info(
+      "[GraphAlgorithms] Relationship strengths update complete via Python"
+    );
 
     return {
       success: true,
@@ -586,17 +638,24 @@ export const graphCalculateNetworkMetricsTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Calculating network metrics for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Calculating network metrics for org ${organizationId}`
+    );
 
-    const result = await callGraphBackfill("/api/v1/graph/algorithms/network-metrics", {
-      organization_id: organizationId,
-    });
+    const result = await callGraphBackfill(
+      "/api/v1/graph/algorithms/network-metrics",
+      {
+        organization_id: organizationId,
+      }
+    );
 
     if (!result.success) {
       return { skipped: true, reason: result.error };
     }
 
-    log.info(`[GraphAlgorithms] Network metrics calculation complete via Python`);
+    log.info(
+      "[GraphAlgorithms] Network metrics calculation complete via Python"
+    );
 
     return {
       success: true,
@@ -622,14 +681,26 @@ export const graphRunAllAlgorithmsTask = task({
   run: async (payload: { organizationId: string }) => {
     const { organizationId } = payload;
 
-    log.info(`[GraphAlgorithms] Running all algorithms for org ${organizationId}`);
+    log.info(
+      `[GraphAlgorithms] Running all algorithms for org ${organizationId}`
+    );
 
     // Run algorithms in sequence (some depend on others)
-    const importanceHandle = await graphCalculateContactImportanceTask.trigger({ organizationId });
-    const strengthsHandle = await graphUpdateRelationshipStrengthsTask.trigger({ organizationId });
-    const communitiesHandle = await graphDetectCommunitiesTask.trigger({ organizationId });
-    const bridgesHandle = await graphFindBridgeContactsTask.trigger({ organizationId });
-    const metricsHandle = await graphCalculateNetworkMetricsTask.trigger({ organizationId });
+    const importanceHandle = await graphCalculateContactImportanceTask.trigger({
+      organizationId,
+    });
+    const strengthsHandle = await graphUpdateRelationshipStrengthsTask.trigger({
+      organizationId,
+    });
+    const communitiesHandle = await graphDetectCommunitiesTask.trigger({
+      organizationId,
+    });
+    const bridgesHandle = await graphFindBridgeContactsTask.trigger({
+      organizationId,
+    });
+    const metricsHandle = await graphCalculateNetworkMetricsTask.trigger({
+      organizationId,
+    });
 
     return {
       organizationId,
@@ -669,7 +740,9 @@ export const nightlyGraphAlgorithmsSchedule = schedules.task({
       handles.push({ organizationId: org.id, handleId: handle.id });
     }
 
-    log.info(`[GraphAlgorithms] Triggered algorithms for ${handles.length} organizations`);
+    log.info(
+      `[GraphAlgorithms] Triggered algorithms for ${handles.length} organizations`
+    );
 
     return {
       organizationsTriggered: handles.length,

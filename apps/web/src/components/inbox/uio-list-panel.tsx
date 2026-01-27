@@ -60,7 +60,11 @@ export interface UIOListPanelProps {
 // TYPE FILTER CONFIG (used by header tabs)
 // =============================================================================
 
-export const TYPE_OPTIONS: { value: UIOType; label: string; icon: typeof Target }[] = [
+export const TYPE_OPTIONS: {
+  value: UIOType;
+  label: string;
+  icon: typeof Target;
+}[] = [
   { value: "commitment", label: "Commitments", icon: Target },
   { value: "decision", label: "Decisions", icon: GitBranch },
   { value: "task", label: "Tasks", icon: CheckCircle2 },
@@ -100,20 +104,22 @@ export function UIOListPanel({
 
   // Note: Type-specific details (commitmentDetails, etc.) are not included in list response
   // They would need to be fetched separately or added to the API with: clause
-  const items = (data?.items ?? []).map((item): UIOListItemData => ({
-    id: item.id,
-    type: item.type,
-    status: item.status,
-    canonicalTitle: item.canonicalTitle,
-    userCorrectedTitle: item.userCorrectedTitle,
-    canonicalDescription: item.canonicalDescription,
-    overallConfidence: item.overallConfidence,
-    isUserVerified: item.isUserVerified ?? undefined,
-    owner: item.owner,
-    createdAt: new Date(item.createdAt),
-    dueDate: item.dueDate ? new Date(item.dueDate) : null,
-    lastUpdatedAt: item.lastUpdatedAt ? new Date(item.lastUpdatedAt) : null,
-  }));
+  const items = (data?.items ?? []).map(
+    (item): UIOListItemData => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      canonicalTitle: item.canonicalTitle,
+      userCorrectedTitle: item.userCorrectedTitle,
+      canonicalDescription: item.canonicalDescription,
+      overallConfidence: item.overallConfidence,
+      isUserVerified: item.isUserVerified ?? undefined,
+      owner: item.owner,
+      createdAt: new Date(item.createdAt),
+      dueDate: item.dueDate ? new Date(item.dueDate) : null,
+      lastUpdatedAt: item.lastUpdatedAt ? new Date(item.lastUpdatedAt) : null,
+    })
+  );
 
   // Virtualizer for performance
   const virtualizer = useVirtualizer({

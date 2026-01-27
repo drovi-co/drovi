@@ -179,7 +179,9 @@ async function getEffectivePermissions(
 
   // Merge in custom role permissions (OR logic)
   for (const assignment of assignments) {
-    if (!assignment.customRole?.permissions) continue;
+    if (!assignment.customRole?.permissions) {
+      continue;
+    }
     const rolePerms = assignment.customRole.permissions;
 
     // Merge each category
@@ -220,7 +222,9 @@ async function hasPermission(
     string,
   ];
 
-  return (permissions[category] as Record<string, boolean>)?.[permission] ?? false;
+  return (
+    (permissions[category] as Record<string, boolean>)?.[permission] ?? false
+  );
 }
 
 // =============================================================================
@@ -423,11 +427,21 @@ export const customRolesRouter = router({
         }
       }
 
-      if (input.description !== undefined) updates.description = input.description;
-      if (input.permissions !== undefined) updates.permissions = input.permissions;
-      if (input.color !== undefined) updates.color = input.color;
-      if (input.icon !== undefined) updates.icon = input.icon;
-      if (input.priority !== undefined) updates.priority = input.priority;
+      if (input.description !== undefined) {
+        updates.description = input.description;
+      }
+      if (input.permissions !== undefined) {
+        updates.permissions = input.permissions;
+      }
+      if (input.color !== undefined) {
+        updates.color = input.color;
+      }
+      if (input.icon !== undefined) {
+        updates.icon = input.icon;
+      }
+      if (input.priority !== undefined) {
+        updates.priority = input.priority;
+      }
 
       // Handle isDefault change
       if (input.isDefault !== undefined) {
@@ -514,7 +528,10 @@ export const customRolesRouter = router({
         where: eq(member.id, input.memberId),
       });
 
-      if (!memberRecord || memberRecord.organizationId !== input.organizationId) {
+      if (
+        !memberRecord ||
+        memberRecord.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Member not found.",
@@ -643,7 +660,10 @@ export const customRolesRouter = router({
         where: eq(member.id, input.memberId),
       });
 
-      if (!memberRecord || memberRecord.organizationId !== input.organizationId) {
+      if (
+        !memberRecord ||
+        memberRecord.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Member not found.",
@@ -776,7 +796,10 @@ export const customRolesRouter = router({
         where: eq(member.id, input.memberId),
       });
 
-      if (!memberRecord || memberRecord.organizationId !== input.organizationId) {
+      if (
+        !memberRecord ||
+        memberRecord.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Member not found.",

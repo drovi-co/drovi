@@ -321,7 +321,9 @@ function NotificationGroup({
   onNotificationClick,
   onDelete,
 }: NotificationGroupProps) {
-  if (notifications.length === 0) return null;
+  if (notifications.length === 0) {
+    return null;
+  }
 
   return (
     <div>

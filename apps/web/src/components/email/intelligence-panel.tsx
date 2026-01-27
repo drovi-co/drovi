@@ -753,7 +753,7 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-0.5">
-            {[0.33, 0.66, 1].map((threshold, i) => (
+            {[0.33, 0.66, 1].map((threshold, _i) => (
               <div
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
@@ -784,7 +784,9 @@ function PriorityBadge({
     urgent: { color: "text-red-500", label: "Urgent" },
   };
 
-  if (priority === "low" || priority === "medium") return null;
+  if (priority === "low" || priority === "medium") {
+    return null;
+  }
 
   return (
     <span className={cn("font-medium text-[10px]", config[priority].color)}>

@@ -58,7 +58,9 @@ export function CommitmentTimeline({
     const grouped = new Map<string, CommitmentCardData[]>();
 
     for (const c of commitments) {
-      if (!c.dueDate) continue;
+      if (!c.dueDate) {
+        continue;
+      }
       const dayKey = format(c.dueDate, "yyyy-MM-dd");
       const existing = grouped.get(dayKey) ?? [];
       existing.push(c);

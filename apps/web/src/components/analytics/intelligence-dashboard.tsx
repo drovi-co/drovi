@@ -40,16 +40,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
-import {
-  useBlindspots,
-  useCalibrationMetrics,
-  useSignalNoiseStats,
-} from "@/hooks/use-intelligence";
-import { BlindspotPanel } from "./blindspot-panel";
-import { CalibrationDisplay } from "./calibration-display";
-import { SignalNoiseChart } from "./signal-noise-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,8 +55,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
+import { BlindspotPanel } from "./blindspot-panel";
+import { CalibrationDisplay } from "./calibration-display";
+import { SignalNoiseChart } from "./signal-noise-chart";
 
 // =============================================================================
 // TYPES
@@ -89,11 +83,15 @@ interface HealthScoreProps {
 
 function HealthScore({ score, label, sublabel }: HealthScoreProps) {
   const getColor = (s: number) => {
-    if (s >= 80)
+    if (s >= 80) {
       return { stroke: "#22c55e", fill: "#22c55e20", label: "Excellent" };
-    if (s >= 60) return { stroke: "#f59e0b", fill: "#f59e0b20", label: "Good" };
-    if (s >= 40)
+    }
+    if (s >= 60) {
+      return { stroke: "#f59e0b", fill: "#f59e0b20", label: "Good" };
+    }
+    if (s >= 40) {
       return { stroke: "#f97316", fill: "#f97316", label: "Needs Work" };
+    }
     return { stroke: "#ef4444", fill: "#ef444420", label: "Critical" };
   };
 
@@ -227,11 +225,19 @@ function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
 
   const getColor = (count: number) => {
-    if (count === 0) return "bg-muted/40";
+    if (count === 0) {
+      return "bg-muted/40";
+    }
     const intensity = count / maxCount;
-    if (intensity >= 0.75) return "bg-emerald-500";
-    if (intensity >= 0.5) return "bg-emerald-400";
-    if (intensity >= 0.25) return "bg-emerald-300";
+    if (intensity >= 0.75) {
+      return "bg-emerald-500";
+    }
+    if (intensity >= 0.5) {
+      return "bg-emerald-400";
+    }
+    if (intensity >= 0.25) {
+      return "bg-emerald-300";
+    }
     return "bg-emerald-200";
   };
 
@@ -629,7 +635,9 @@ export function IntelligenceDashboard({
                   </Pie>
                   <Tooltip
                     content={({ active, payload }) => {
-                      if (!(active && payload?.length)) return null;
+                      if (!(active && payload?.length)) {
+                        return null;
+                      }
                       const data = payload[0];
                       return (
                         <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
@@ -868,10 +876,7 @@ export function IntelligenceDashboard({
 
       {/* Signal Quality & Calibration Row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SignalNoiseChart
-          days={30}
-          organizationId={organizationId}
-        />
+        <SignalNoiseChart days={30} organizationId={organizationId} />
         <CalibrationDisplay organizationId={organizationId} />
       </div>
 

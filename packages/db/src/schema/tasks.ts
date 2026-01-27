@@ -147,9 +147,13 @@ export const task = pgTable(
     ),
 
     // Sync metadata for bidirectional sync with UIO
-    lastSyncedFromUIO: timestamp("last_synced_from_uio", { withTimezone: true }),
+    lastSyncedFromUIO: timestamp("last_synced_from_uio", {
+      withTimezone: true,
+    }),
     syncEnabled: boolean("sync_enabled").default(true),
-    userOverrides: jsonb("user_overrides").$type<TaskUserOverrides>().default({}),
+    userOverrides: jsonb("user_overrides")
+      .$type<TaskUserOverrides>()
+      .default({}),
 
     // Audit fields
     createdById: text("created_by_id").references(() => user.id, {

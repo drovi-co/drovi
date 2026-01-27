@@ -264,7 +264,9 @@ export class FraudDetector {
   private detectLookalikeDomain(
     domain: string
   ): { legitimate: string; confidence: number } | null {
-    if (!domain) return null;
+    if (!domain) {
+      return null;
+    }
 
     // Common typosquatting patterns
     const typoPatterns = [
@@ -326,11 +328,15 @@ export class FraudDetector {
   }
 
   private hasCharacterSwap(str1: string, str2: string): boolean {
-    if (str1.length !== str2.length) return false;
+    if (str1.length !== str2.length) {
+      return false;
+    }
 
     let differences = 0;
     for (let i = 0; i < str1.length; i++) {
-      if (str1[i] !== str2[i]) differences++;
+      if (str1[i] !== str2[i]) {
+        differences++;
+      }
     }
 
     return (
@@ -340,7 +346,9 @@ export class FraudDetector {
   }
 
   private differsByOneChar(longer: string, shorter: string): boolean {
-    if (longer.length !== shorter.length + 1) return false;
+    if (longer.length !== shorter.length + 1) {
+      return false;
+    }
 
     let j = 0;
     for (let i = 0; i < longer.length && j < shorter.length; i++) {
@@ -403,24 +411,28 @@ export class FraudDetector {
     const n = str2.length;
 
     const dp: number[][] = Array.from({ length: m + 1 }, () =>
-      Array<number>(n + 1).fill(0)
+      new Array(n + 1).fill(0)
     );
 
-    for (let i = 0; i <= m; i++) dp[i]![0] = i;
-    for (let j = 0; j <= n; j++) dp[0]![j] = j;
+    for (let i = 0; i <= m; i++) {
+      dp[i]![0] = i;
+    }
+    for (let j = 0; j <= n; j++) {
+      dp[0]![j] = j;
+    }
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         if (str1[i - 1] === str2[j - 1]) {
-          dp[i]![j] = dp[i - 1]![j - 1]!;
+          dp[i]![j] = dp[i - 1]?.[j - 1]!;
         } else {
           dp[i]![j] =
-            Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!) + 1;
+            Math.min(dp[i - 1]?.[j]!, dp[i]?.[j - 1]!, dp[i - 1]?.[j - 1]!) + 1;
         }
       }
     }
 
-    return dp[m]![n]!;
+    return dp[m]?.[n]!;
   }
 
   private detectExecutiveImpersonation(
@@ -437,7 +449,9 @@ export class FraudDetector {
         nameLower.includes(title) || content.toLowerCase().includes(title)
     );
 
-    if (!hasExecTitle) return null;
+    if (!hasExecTitle) {
+      return null;
+    }
 
     // Check for red flags
     const redFlags: string[] = [];
@@ -752,7 +766,9 @@ export class FraudDetector {
   private calculateScore(
     signals: Array<{ severity: string; confidence: number }>
   ): number {
-    if (signals.length === 0) return 0;
+    if (signals.length === 0) {
+      return 0;
+    }
 
     const severityScores: Record<string, number> = {
       low: 15,
@@ -773,10 +789,18 @@ export class FraudDetector {
   private getSeverity(
     score: number
   ): "none" | "low" | "medium" | "high" | "critical" {
-    if (score === 0) return "none";
-    if (score < 25) return "low";
-    if (score < 50) return "medium";
-    if (score < 75) return "high";
+    if (score === 0) {
+      return "none";
+    }
+    if (score < 25) {
+      return "low";
+    }
+    if (score < 50) {
+      return "medium";
+    }
+    if (score < 75) {
+      return "high";
+    }
     return "critical";
   }
 

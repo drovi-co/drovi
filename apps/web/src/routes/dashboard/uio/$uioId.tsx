@@ -12,7 +12,6 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -30,7 +29,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
+import { z } from "zod";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +55,6 @@ import {
   Timeline,
   type TimelineEvent,
 } from "@/components/unified-object/timeline";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -236,10 +235,7 @@ function UIODetailPage() {
         <p className="mb-4 text-muted-foreground">
           This unified object doesn't exist or you don't have access to it.
         </p>
-        <Button
-          onClick={handleBack}
-          variant="outline"
-        >
+        <Button onClick={handleBack} variant="outline">
           <ArrowLeft className="mr-2 size-4" />
           Go Back
         </Button>
@@ -294,11 +290,7 @@ function UIODetailPage() {
         {/* Header */}
         <div className="border-border border-b px-6 py-4">
           <div className="mb-4 flex items-center gap-4">
-            <Button
-              onClick={handleBack}
-              size="sm"
-              variant="ghost"
-            >
+            <Button onClick={handleBack} size="sm" variant="ghost">
               <ArrowLeft className="mr-2 size-4" />
               Back
             </Button>
@@ -337,10 +329,10 @@ function UIODetailPage() {
             {/* Real-time viewers indicator */}
             {organizationId && uioId && (
               <WhoIsViewing
-                organizationId={organizationId}
-                resourceType="uio"
-                resourceId={uioId}
                 compact
+                organizationId={organizationId}
+                resourceId={uioId}
+                resourceType="uio"
               />
             )}
 
@@ -389,8 +381,12 @@ function UIODetailPage() {
                   className="font-semibold text-xl"
                   onChange={(e) => setCorrectedTitle(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveTitle();
-                    if (e.key === "Escape") setEditingTitle(false);
+                    if (e.key === "Enter") {
+                      handleSaveTitle();
+                    }
+                    if (e.key === "Escape") {
+                      setEditingTitle(false);
+                    }
                   }}
                   value={correctedTitle}
                 />
@@ -558,10 +554,10 @@ function UIODetailPage() {
               <div>
                 <h3 className="mb-3 font-medium text-sm">Discussion</h3>
                 <CommentThread
-                  organizationId={organizationId}
-                  targetType="uio"
-                  targetId={uioId}
                   currentUserId={currentUserId}
+                  organizationId={organizationId}
+                  targetId={uioId}
+                  targetType="uio"
                 />
               </div>
             )}

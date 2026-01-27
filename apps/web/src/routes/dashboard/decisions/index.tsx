@@ -23,11 +23,6 @@ import {
   type DecisionRowData,
 } from "@/components/decisions";
 import { EvidenceDetailSheet } from "@/components/evidence";
-import {
-  useDecisionStats,
-  useDecisionUIOs,
-  useUIO,
-} from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDecisionStats, useDecisionUIOs, useUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -119,15 +115,22 @@ function DecisionsPage() {
   });
 
   // Semantic search - simplified to client-side filtering for now
-  const searchResults = isSearching && searchQuery.length > 2
-    ? {
-        answer: null,
-        relevantDecisions: decisionsData?.items?.filter((d) =>
-          (d.canonicalTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           d.canonicalDescription?.toLowerCase().includes(searchQuery.toLowerCase()))
-        ) ?? [],
-      }
-    : null;
+  const searchResults =
+    isSearching && searchQuery.length > 2
+      ? {
+          answer: null,
+          relevantDecisions:
+            decisionsData?.items?.filter(
+              (d) =>
+                d.canonicalTitle
+                  ?.toLowerCase()
+                  .includes(searchQuery.toLowerCase()) ||
+                d.canonicalDescription
+                  ?.toLowerCase()
+                  .includes(searchQuery.toLowerCase())
+            ) ?? [],
+        }
+      : null;
   const isLoadingSearch = false;
 
   // Fetch detailed decision for sheet using UIO hook
@@ -139,16 +142,18 @@ function DecisionsPage() {
 
   // Supersession chain - simplified for now (not available in UIO)
   // Type the chain properly to avoid 'never' type errors
-  const supersessionData = supersessionDecisionId ? {
-    chain: [] as Array<{
-      id: string;
-      title: string;
-      statement: string;
-      decidedAt: string;
-      isCurrent: boolean;
-      supersededAt?: string | null;
-    }>
-  } : null;
+  const supersessionData = supersessionDecisionId
+    ? {
+        chain: [] as Array<{
+          id: string;
+          title: string;
+          statement: string;
+          decidedAt: string;
+          isCurrent: boolean;
+          supersededAt?: string | null;
+        }>,
+      }
+    : null;
   const isLoadingSupersession = false;
 
   // Evidence detail query using UIO hook
@@ -198,7 +203,9 @@ function DecisionsPage() {
         e.preventDefault();
         document.getElementById("decision-search")?.focus();
       }
-      if (e.key === "r") refetch();
+      if (e.key === "r") {
+        refetch();
+      }
       if (e.key === "Escape") {
         setIsSearching(false);
         setSearchQuery("");
@@ -251,7 +258,8 @@ function DecisionsPage() {
     const markdown = uioDecisions
       .map((d) => {
         const title = d.userCorrectedTitle ?? d.canonicalTitle ?? "";
-        const statement = d.decisionDetails?.statement ?? d.canonicalDescription ?? "";
+        const statement =
+          d.decisionDetails?.statement ?? d.canonicalDescription ?? "";
         const decidedAt = d.decisionDetails?.decidedAt ?? d.createdAt;
         const rationale = d.decisionDetails?.rationale ?? null;
         return `## ${title}\n\n**Statement:** ${statement}\n\n**Date:** ${format(new Date(decidedAt), "MMMM d, yyyy")}\n\n${rationale ? `**Rationale:** ${rationale}\n\n` : ""}---\n`;
@@ -269,65 +277,77 @@ function DecisionsPage() {
   }, [decisionsData]);
 
   // Transform UIO data for DecisionRow
-  const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map(
-    (d) => {
-      const details = d.decisionDetails;
-      // Use decision maker from details if available, otherwise fall back to owner
-      const decisionMaker = details?.decisionMaker ?? d.owner;
-      return {
-        id: d.id,
-        title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
-        statement: details?.statement ?? d.canonicalDescription ?? "",
-        rationale: details?.rationale ?? null,
-        decidedAt: details?.decidedAt ? new Date(details.decidedAt) : new Date(d.createdAt),
-        confidence: d.overallConfidence ?? 0.8,
-        isUserVerified: d.isUserVerified ?? undefined,
-        isSuperseded: !!details?.supersededByUioId,
-        supersededBy: null,
-        owners: decisionMaker ? [{
-          id: decisionMaker.id,
-          displayName: decisionMaker.displayName,
-          primaryEmail: decisionMaker.primaryEmail,
-          avatarUrl: decisionMaker.avatarUrl,
-        }] : [],
-        topics: undefined,
-        sourceType: undefined,
-      };
-    }
-  );
-
-  // Legacy format for detail sheet and search results
-  const decisionsLegacy: DecisionCardData[] = (
-    decisionsData?.items ?? []
-  ).map((d) => {
+  const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map((d) => {
     const details = d.decisionDetails;
+    // Use decision maker from details if available, otherwise fall back to owner
     const decisionMaker = details?.decisionMaker ?? d.owner;
     return {
       id: d.id,
       title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
       statement: details?.statement ?? d.canonicalDescription ?? "",
       rationale: details?.rationale ?? null,
-      decidedAt: details?.decidedAt ? new Date(details.decidedAt) : new Date(d.createdAt),
+      decidedAt: details?.decidedAt
+        ? new Date(details.decidedAt)
+        : new Date(d.createdAt),
       confidence: d.overallConfidence ?? 0.8,
       isUserVerified: d.isUserVerified ?? undefined,
       isSuperseded: !!details?.supersededByUioId,
-      evidence: details?.extractionContext
-        ? [JSON.stringify(details.extractionContext)]
-        : undefined,
-      owners: decisionMaker ? [{
-        id: decisionMaker.id,
-        displayName: decisionMaker.displayName,
-        primaryEmail: decisionMaker.primaryEmail,
-        avatarUrl: decisionMaker.avatarUrl,
-      }] : [],
-      sourceThread: d.sources?.[0]?.conversation ? {
-        id: d.sources[0].conversation.id,
-        title: d.sources[0].conversation.title,
-        snippet: d.sources[0].conversation.snippet,
-      } : undefined,
-      alternatives: undefined,
+      supersededBy: null,
+      owners: decisionMaker
+        ? [
+            {
+              id: decisionMaker.id,
+              displayName: decisionMaker.displayName,
+              primaryEmail: decisionMaker.primaryEmail,
+              avatarUrl: decisionMaker.avatarUrl,
+            },
+          ]
+        : [],
+      topics: undefined,
+      sourceType: undefined,
     };
   });
+
+  // Legacy format for detail sheet and search results
+  const decisionsLegacy: DecisionCardData[] = (decisionsData?.items ?? []).map(
+    (d) => {
+      const details = d.decisionDetails;
+      const decisionMaker = details?.decisionMaker ?? d.owner;
+      return {
+        id: d.id,
+        title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
+        statement: details?.statement ?? d.canonicalDescription ?? "",
+        rationale: details?.rationale ?? null,
+        decidedAt: details?.decidedAt
+          ? new Date(details.decidedAt)
+          : new Date(d.createdAt),
+        confidence: d.overallConfidence ?? 0.8,
+        isUserVerified: d.isUserVerified ?? undefined,
+        isSuperseded: !!details?.supersededByUioId,
+        evidence: details?.extractionContext
+          ? [JSON.stringify(details.extractionContext)]
+          : undefined,
+        owners: decisionMaker
+          ? [
+              {
+                id: decisionMaker.id,
+                displayName: decisionMaker.displayName,
+                primaryEmail: decisionMaker.primaryEmail,
+                avatarUrl: decisionMaker.avatarUrl,
+              },
+            ]
+          : [],
+        sourceThread: d.sources?.[0]?.conversation
+          ? {
+              id: d.sources[0].conversation.id,
+              title: d.sources[0].conversation.title,
+              snippet: d.sources[0].conversation.snippet,
+            }
+          : undefined,
+        alternatives: undefined,
+      };
+    }
+  );
 
   // Display search results or regular list
   const displayDecisions: DecisionRowData[] =
@@ -339,7 +359,8 @@ function DecisionsPage() {
             ({
               id: d.id,
               title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
-              statement: d.decisionDetails?.statement ?? d.canonicalDescription ?? "",
+              statement:
+                d.decisionDetails?.statement ?? d.canonicalDescription ?? "",
               rationale: d.decisionDetails?.rationale ?? null,
               decidedAt: d.decisionDetails?.decidedAt
                 ? new Date(d.decisionDetails.decidedAt)
@@ -391,8 +412,10 @@ function DecisionsPage() {
         const decisionMaker = details?.decisionMaker ?? detailData.owner;
         return {
           id: detailData.id,
-          title: detailData.userCorrectedTitle ?? detailData.canonicalTitle ?? "",
-          statement: details?.statement ?? detailData.canonicalDescription ?? "",
+          title:
+            detailData.userCorrectedTitle ?? detailData.canonicalTitle ?? "",
+          statement:
+            details?.statement ?? detailData.canonicalDescription ?? "",
           rationale: details?.rationale ?? null,
           decidedAt: details?.decidedAt
             ? new Date(details.decidedAt)
@@ -403,22 +426,30 @@ function DecisionsPage() {
           evidence: details?.extractionContext
             ? [JSON.stringify(details.extractionContext)]
             : undefined,
-          owners: decisionMaker ? [{
-            id: decisionMaker.id,
-            displayName: decisionMaker.displayName,
-            primaryEmail: decisionMaker.primaryEmail,
-            avatarUrl: decisionMaker.avatarUrl,
-          }] : [],
-          sourceThread: detailData.sources?.[0]?.conversation ? {
-            id: detailData.sources[0].conversation.id,
-            title: detailData.sources[0].conversation.title,
-            snippet: detailData.sources[0].conversation.snippet,
-          } : undefined,
+          owners: decisionMaker
+            ? [
+                {
+                  id: decisionMaker.id,
+                  displayName: decisionMaker.displayName,
+                  primaryEmail: decisionMaker.primaryEmail,
+                  avatarUrl: decisionMaker.avatarUrl,
+                },
+              ]
+            : [],
+          sourceThread: detailData.sources?.[0]?.conversation
+            ? {
+                id: detailData.sources[0].conversation.id,
+                title: detailData.sources[0].conversation.title,
+                snippet: detailData.sources[0].conversation.snippet,
+              }
+            : undefined,
           supersededBy: null,
           supersedes: null,
           alternatives: undefined,
           topics: undefined,
-          metadata: details?.extractionContext as Record<string, unknown> | undefined,
+          metadata: details?.extractionContext as
+            | Record<string, unknown>
+            | undefined,
         };
       })()
     : null;
@@ -572,7 +603,7 @@ function DecisionsPage() {
           {isLoadingDecisions || (isSearching && isLoadingSearch) ? (
             <div>
               {/* Row skeletons - matching inbox style */}
-              {[...Array(15)].map((_, i) => (
+              {[...new Array(15)].map((_, i) => (
                 <div
                   className="flex h-10 items-center border-border border-b px-3"
                   key={i}
@@ -670,7 +701,7 @@ function DecisionsPage() {
           <div className="py-4">
             {isLoadingSupersession ? (
               <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
+                {[...new Array(3)].map((_, i) => (
                   <Skeleton className="h-20" key={i} />
                 ))}
               </div>
@@ -776,12 +807,21 @@ function DecisionsPage() {
             ? {
                 id: evidenceDecisionData.id,
                 type: "decision",
-                title: evidenceDecisionData.userCorrectedTitle ?? evidenceDecisionData.canonicalTitle ?? "",
-                extractedText: evidenceDecisionData.decisionDetails?.statement ?? evidenceDecisionData.canonicalDescription ?? "",
+                title:
+                  evidenceDecisionData.userCorrectedTitle ??
+                  evidenceDecisionData.canonicalTitle ??
+                  "",
+                extractedText:
+                  evidenceDecisionData.decisionDetails?.statement ??
+                  evidenceDecisionData.canonicalDescription ??
+                  "",
                 confidence: evidenceDecisionData.overallConfidence ?? 0.8,
                 isUserVerified: evidenceDecisionData.isUserVerified ?? false,
-                quotedText: evidenceDecisionData.decisionDetails?.extractionContext
-                  ? JSON.stringify(evidenceDecisionData.decisionDetails.extractionContext)
+                quotedText: evidenceDecisionData.decisionDetails
+                  ?.extractionContext
+                  ? JSON.stringify(
+                      evidenceDecisionData.decisionDetails.extractionContext
+                    )
                   : null,
                 extractedAt: evidenceDecisionData.decisionDetails?.decidedAt
                   ? new Date(evidenceDecisionData.decisionDetails.decidedAt)

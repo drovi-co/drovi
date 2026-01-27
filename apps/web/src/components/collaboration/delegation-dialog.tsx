@@ -11,8 +11,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { Check, Loader2, Search, User, UserPlus, Users, X } from "lucide-react";
+import { Check, Loader2, Search, User, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,24 +28,20 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PresenceIndicator, type PresenceStatus } from "./presence-indicator";
 import { useOnlineUsers } from "@/hooks/use-presence";
-import { useTRPC } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
+import { useTRPC } from "@/utils/trpc";
+import { PresenceIndicator, type PresenceStatus } from "./presence-indicator";
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export type DelegationType = "inbox_triage" | "commitment_management" | "full_access";
+export type DelegationType =
+  | "inbox_triage"
+  | "commitment_management"
+  | "full_access";
 
 interface DelegationDialogProps {
   open: boolean;
@@ -61,7 +56,7 @@ interface DelegationDialogProps {
 }
 
 // Member type inferred from API response
-type TeamMember = {
+interface TeamMember {
   id: string;
   userId: string;
   role: string;
@@ -72,7 +67,7 @@ type TeamMember = {
     email: string;
     image: string | null;
   } | null;
-};
+}
 
 // =============================================================================
 // Component
@@ -92,7 +87,8 @@ export function DelegationDialog({
   const queryClient = useQueryClient();
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [delegationType, setDelegationType] = useState<DelegationType>("inbox_triage");
+  const [delegationType, setDelegationType] =
+    useState<DelegationType>("inbox_triage");
   const [note, setNote] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -143,7 +139,9 @@ export function DelegationDialog({
 
   // Filter members based on search
   const filteredMembers = (membersData?.members ?? []).filter((member) => {
-    if (!searchQuery) return true;
+    if (!searchQuery) {
+      return true;
+    }
     const query = searchQuery.toLowerCase();
     return (
       member.user?.name?.toLowerCase().includes(query) ||
@@ -152,7 +150,9 @@ export function DelegationDialog({
   });
 
   const handleAssign = useCallback(() => {
-    if (!selectedUserId || !sharedInboxId || !assignmentId) return;
+    if (!(selectedUserId && sharedInboxId && assignmentId)) {
+      return;
+    }
 
     assignMutation.mutate({
       organizationId,
@@ -161,14 +161,21 @@ export function DelegationDialog({
       assignToUserId: selectedUserId,
       note: note || undefined,
     });
-  }, [selectedUserId, sharedInboxId, assignmentId, organizationId, note, assignMutation]);
+  }, [
+    selectedUserId,
+    sharedInboxId,
+    assignmentId,
+    organizationId,
+    note,
+    assignMutation,
+  ]);
 
   const selectedMember = filteredMembers.find(
     (m) => m.user?.id === selectedUserId
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -187,12 +194,12 @@ export function DelegationDialog({
         <div className="space-y-4 py-4">
           {/* Search input */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              className="pl-9"
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search team members..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
             />
           </div>
 
@@ -203,8 +210,10 @@ export function DelegationDialog({
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : filteredMembers.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                {searchQuery ? "No members match your search" : "No team members found"}
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                {searchQuery
+                  ? "No members match your search"
+                  : "No team members found"}
               </div>
             ) : (
               filteredMembers
@@ -214,19 +223,16 @@ export function DelegationDialog({
                   const isSelected = selectedUserId === user.id;
                   const isCurrentAssignee = currentAssigneeId === user.id;
                   const presenceStatus = presenceMap.get(user.id) ?? "offline";
-                  const initials = user.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) ?? "?";
+                  const initials =
+                    user.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2) ?? "?";
 
                   return (
                     <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => setSelectedUserId(user.id)}
-                      disabled={isCurrentAssignee}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors",
                         isSelected
@@ -234,19 +240,26 @@ export function DelegationDialog({
                           : "hover:bg-muted",
                         isCurrentAssignee && "cursor-not-allowed opacity-50"
                       )}
+                      disabled={isCurrentAssignee}
+                      key={member.id}
+                      onClick={() => setSelectedUserId(user.id)}
+                      type="button"
                     >
                       <div className="relative">
                         <Avatar className="h-8 w-8">
                           <AvatarImage
-                            src={user.image ?? undefined}
                             alt={user.name ?? undefined}
+                            src={user.image ?? undefined}
                           />
                           <AvatarFallback className="text-xs">
                             {initials}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                          <PresenceIndicator status={presenceStatus} size="sm" />
+                        <span className="absolute -right-0.5 -bottom-0.5">
+                          <PresenceIndicator
+                            size="sm"
+                            status={presenceStatus}
+                          />
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -255,16 +268,18 @@ export function DelegationDialog({
                             {user.name ?? "Unknown"}
                           </span>
                           {presenceStatus === "online" && (
-                            <span className="text-[10px] text-green-600">Online</span>
+                            <span className="text-[10px] text-green-600">
+                              Online
+                            </span>
                           )}
                         </div>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="truncate text-muted-foreground text-xs">
                           {user.email}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         {isCurrentAssignee && (
-                          <Badge variant="secondary" className="text-[10px]">
+                          <Badge className="text-[10px]" variant="secondary">
                             Current
                           </Badge>
                         )}
@@ -284,22 +299,25 @@ export function DelegationDialog({
               <Label htmlFor="delegation-note">Add a note (optional)</Label>
               <Textarea
                 id="delegation-note"
-                placeholder="Any context or instructions for the assignee..."
-                value={note}
                 onChange={(e) => setNote(e.target.value)}
+                placeholder="Any context or instructions for the assignee..."
                 rows={2}
+                value={note}
               />
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
             Cancel
           </Button>
           <Button
+            disabled={
+              !(selectedUserId && sharedInboxId && assignmentId) ||
+              assignMutation.isPending
+            }
             onClick={handleAssign}
-            disabled={!selectedUserId || !sharedInboxId || !assignmentId || assignMutation.isPending}
           >
             {assignMutation.isPending ? (
               <>
@@ -309,7 +327,8 @@ export function DelegationDialog({
             ) : (
               <>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Assign to {selectedMember?.user?.name?.split(" ")[0] ?? "member"}
+                Assign to{" "}
+                {selectedMember?.user?.name?.split(" ")[0] ?? "member"}
               </>
             )}
           </Button>
@@ -353,15 +372,15 @@ export function QuickAssignButton({
   return (
     <>
       <Button
-        variant={variant}
-        size={size}
         className={cn("gap-2", className)}
         onClick={() => setDialogOpen(true)}
+        size={size}
+        variant={variant}
       >
         {currentAssigneeId ? (
           <>
             <User className="h-4 w-4" />
-            <span className="truncate max-w-[100px]">
+            <span className="max-w-[100px] truncate">
               {currentAssigneeName ?? "Assigned"}
             </span>
           </>
@@ -374,14 +393,14 @@ export function QuickAssignButton({
       </Button>
 
       <DelegationDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        organizationId={organizationId}
-        sharedInboxId={sharedInboxId}
         assignmentId={assignmentId}
         conversationTitle={conversationTitle}
         currentAssigneeId={currentAssigneeId}
+        onOpenChange={setDialogOpen}
         onSuccess={onAssigned}
+        open={dialogOpen}
+        organizationId={organizationId}
+        sharedInboxId={sharedInboxId}
       />
     </>
   );

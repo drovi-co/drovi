@@ -87,7 +87,6 @@ export const organizationsRouter = router({
         columns: {
           id: true,
           name: true,
-          description: true,
           createdAt: true,
         },
       });
@@ -96,7 +95,6 @@ export const organizationsRouter = router({
         teams: teams.map((t) => ({
           id: t.id,
           name: t.name,
-          description: t.description,
           createdAt: t.createdAt,
         })),
       };

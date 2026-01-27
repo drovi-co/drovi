@@ -188,7 +188,9 @@ outlookOAuth.get("/callback", async (c) => {
       await tasks.trigger("email-backfill-orchestrator", {
         sourceAccountId: accountId,
       });
-      log.info("Triggered email backfill orchestrator", { sourceAccountId: accountId });
+      log.info("Triggered email backfill orchestrator", {
+        sourceAccountId: accountId,
+      });
     } catch (triggerError) {
       // Don't fail the OAuth flow if trigger fails
       log.error("Failed to trigger email backfill orchestrator", triggerError, {

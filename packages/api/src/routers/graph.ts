@@ -16,7 +16,7 @@ import {
   task,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, eq, desc, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -27,7 +27,16 @@ import { protectedProcedure, router } from "../index";
 const getSubgraphSchema = z.object({
   organizationId: z.string().min(1),
   nodeTypes: z
-    .array(z.enum(["contact", "commitment", "decision", "task", "conversation", "topic"]))
+    .array(
+      z.enum([
+        "contact",
+        "commitment",
+        "decision",
+        "task",
+        "conversation",
+        "topic",
+      ])
+    )
     .default(["contact", "commitment", "decision", "task"]),
   limit: z.number().int().min(1).max(500).default(200),
   focalNodeId: z.string().optional(), // Center the graph around this node
@@ -110,7 +119,9 @@ function commitmentToNode(c: typeof commitment.$inferSelect) {
       direction: c.direction,
       dueDate: c.dueDate?.toISOString(),
       confidence: c.confidence,
-      isOverdue: c.status === "overdue" || (c.dueDate && new Date(c.dueDate) < new Date()),
+      isOverdue:
+        c.status === "overdue" ||
+        (c.dueDate && new Date(c.dueDate) < new Date()),
     },
   };
 }
@@ -164,7 +175,12 @@ export const graphRouter = router({
     .query(async ({ ctx, input }) => {
       await verifyOrgMembership(ctx.session.user.id, input.organizationId);
 
-      const nodes: Array<ReturnType<typeof contactToNode | typeof commitmentToNode | typeof decisionToNode | typeof taskToNode>> = [];
+      const nodes: ReturnType<
+        | typeof contactToNode
+        | typeof commitmentToNode
+        | typeof decisionToNode
+        | typeof taskToNode
+      >[] = [];
       const edges: Array<{
         id: string;
         source: string;
@@ -424,7 +440,12 @@ export const graphRouter = router({
       }> = [];
       const query = `%${input.query}%`;
 
-      const types = input.nodeTypes ?? ["contact", "commitment", "decision", "task"];
+      const types = input.nodeTypes ?? [
+        "contact",
+        "commitment",
+        "decision",
+        "task",
+      ];
 
       // Search contacts
       if (types.includes("contact")) {

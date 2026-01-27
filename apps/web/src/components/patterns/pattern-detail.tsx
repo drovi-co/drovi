@@ -10,7 +10,6 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import {
   Brain,
-  Calendar,
   Check,
   ChevronDown,
   ChevronRight,
@@ -26,7 +25,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
-import type { Pattern } from "./pattern-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +32,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -43,6 +40,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import type { Pattern } from "./pattern-card";
 
 // =============================================================================
 // TYPES
@@ -146,10 +144,10 @@ function MatchCard({ match, onConfirm, onReject }: MatchCardProps) {
           className={cn(
             "text-xs",
             match.confidence >= 0.8
-              ? "bg-green-500/10 text-green-600 border-green-500/30"
+              ? "border-green-500/30 bg-green-500/10 text-green-600"
               : match.confidence >= 0.6
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                : "border-gray-500/30 bg-gray-500/10 text-gray-600"
           )}
           variant="outline"
         >
@@ -437,7 +435,9 @@ export function PatternDetail({
                 <Badge variant="secondary">{pattern.domain}</Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Confidence Threshold</span>
+                <span className="text-muted-foreground">
+                  Confidence Threshold
+                </span>
                 <span className="font-mono">
                   {Math.round(pattern.confidenceThreshold * 100)}%
                 </span>

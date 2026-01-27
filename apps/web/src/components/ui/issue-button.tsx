@@ -200,9 +200,9 @@ function LabelButton({
   const hasValue = Boolean(value && value.length > 0);
   const firstLabel = value?.[0];
   const label = hasValue
-    ? value!.length === 1
-      ? firstLabel!.name
-      : `${value!.length} labels`
+    ? value?.length === 1
+      ? firstLabel?.name
+      : `${value?.length} labels`
     : "Label";
 
   return (
@@ -243,11 +243,18 @@ function formatDate(date: Date | string): string {
   const diff = d.getTime() - now.getTime();
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
-  if (days > 0 && days <= 7)
+  if (days === 0) {
+    return "Today";
+  }
+  if (days === 1) {
+    return "Tomorrow";
+  }
+  if (days === -1) {
+    return "Yesterday";
+  }
+  if (days > 0 && days <= 7) {
     return d.toLocaleDateString("en-US", { weekday: "short" });
+  }
 
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

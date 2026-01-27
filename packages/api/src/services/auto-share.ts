@@ -46,11 +46,15 @@ async function isAutoShareEnabled(organizationId: string): Promise<boolean> {
     where: eq(organizationSettings.organizationId, organizationId),
   });
 
-  if (!settings) return false;
+  if (!settings) {
+    return false;
+  }
 
   // Check feature flags
   const featureFlags = settings.featureFlags as Record<string, boolean> | null;
-  if (!featureFlags?.intelligenceSharingEnabled) return false;
+  if (!featureFlags?.intelligenceSharingEnabled) {
+    return false;
+  }
 
   // Check auto-share setting
   return settings.autoShareOnMention ?? false;
@@ -68,7 +72,9 @@ export async function findLinkedTeammates(
   organizationId: string,
   contactIds: string[]
 ): Promise<Map<string, string>> {
-  if (contactIds.length === 0) return new Map();
+  if (contactIds.length === 0) {
+    return new Map();
+  }
 
   const links = await db.query.teammateContactLink.findMany({
     where: and(
@@ -190,7 +196,10 @@ export async function autoShareWithTeammates(
   }
 
   // Create shares for participants
-  if (context.participantContactIds && context.participantContactIds.length > 0) {
+  if (
+    context.participantContactIds &&
+    context.participantContactIds.length > 0
+  ) {
     const participantUserIds: string[] = [];
     for (const contactId of context.participantContactIds) {
       const userId = teammateMap.get(contactId);
@@ -322,7 +331,8 @@ export async function processNewUIOAutoShare(
   uioId: string,
   createdByUserId: string
 ): Promise<AutoShareResult[]> {
-  const { ownerContactId, participantContactIds } = await getInvolvedContactIds(uioId);
+  const { ownerContactId, participantContactIds } =
+    await getInvolvedContactIds(uioId);
 
   return autoShareWithTeammates({
     organizationId,
@@ -361,7 +371,7 @@ export async function processMentionAutoShare(
 export async function getRecentAutoShares(
   userId: string,
   organizationId: string,
-  limit: number = 20
+  limit = 20
 ): Promise<
   Array<{
     shareId: string;

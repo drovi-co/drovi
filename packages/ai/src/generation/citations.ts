@@ -279,7 +279,9 @@ function findCitationPosition(text: string, quotedText: string): number {
  * Merge overlapping citations.
  */
 export function mergeCitations(citations: Citation[]): Citation[] {
-  if (citations.length <= 1) return citations;
+  if (citations.length <= 1) {
+    return citations;
+  }
 
   const sorted = [...citations].sort((a, b) => Number(a.id) - Number(b.id));
   const merged: Citation[] = [];

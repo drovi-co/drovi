@@ -58,13 +58,38 @@ export const Route = createFileRoute("/dashboard/settings/notifications")({
 // MAIN COMPONENT
 // =============================================================================
 
+// Type for notification preferences
+interface NotificationPreferences {
+  inAppEnabled?: boolean;
+  emailDigestEnabled?: boolean;
+  emailDigestFrequency?: "daily" | "weekly" | "realtime" | "never";
+  commitmentsNewEnabled?: boolean;
+  commitmentsDueEnabled?: boolean;
+  commitmentsOverdueEnabled?: boolean;
+  decisionsNewEnabled?: boolean;
+  decisionsSupersededEnabled?: boolean;
+  calendarRemindersEnabled?: boolean;
+  mentionsEnabled?: boolean;
+  commentsEnabled?: boolean;
+  assignmentsEnabled?: boolean;
+  sharesEnabled?: boolean;
+  teamActivityEnabled?: boolean;
+  emailUrgentEnabled?: boolean;
+  emailImportantEnabled?: boolean;
+  syncStatusEnabled?: boolean;
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  quietHoursTimezone?: string | null;
+}
+
 function NotificationPreferencesPage() {
   const queryClient = useQueryClient();
 
   // Fetch preferences
   const { data: preferences, isLoading } = useQuery(
     trpc.notifications.getPreferences.queryOptions()
-  );
+  ) as { data: NotificationPreferences | undefined; isLoading: boolean };
 
   // Update preferences mutation
   const updateMutation = useMutation(
@@ -100,7 +125,7 @@ function NotificationPreferencesPage() {
         </div>
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
+            <Card className="animate-pulse" key={i}>
               <CardHeader>
                 <div className="h-5 w-48 rounded bg-muted" />
                 <div className="h-4 w-64 rounded bg-muted" />
@@ -118,7 +143,7 @@ function NotificationPreferencesPage() {
     );
   }
 
-  const prefs = preferences ?? {};
+  const prefs: NotificationPreferences = preferences ?? {};
 
   return (
     <div className="space-y-6">
@@ -191,10 +216,10 @@ function NotificationPreferencesPage() {
               <div className="space-y-2">
                 <Label>Digest frequency</Label>
                 <Select
-                  value={prefs.emailDigestFrequency ?? "daily"}
                   onValueChange={(value) =>
                     handleSelect("emailDigestFrequency", value)
                   }
+                  value={prefs.emailDigestFrequency ?? "daily"}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -233,7 +258,7 @@ function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 New commitments
-                <Badge variant="outline" className="text-xs">
+                <Badge className="text-xs" variant="outline">
                   New
                 </Badge>
               </Label>
@@ -255,7 +280,7 @@ function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 Due today
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="text-xs" variant="secondary">
                   Important
                 </Badge>
               </Label>
@@ -277,7 +302,7 @@ function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 Overdue
-                <Badge variant="destructive" className="text-xs">
+                <Badge className="text-xs" variant="destructive">
                   Urgent
                 </Badge>
               </Label>
@@ -386,7 +411,7 @@ function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 @Mentions
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="text-xs" variant="secondary">
                   Important
                 </Badge>
               </Label>
@@ -488,7 +513,7 @@ function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
                 Urgent emails
-                <Badge variant="destructive" className="text-xs">
+                <Badge className="text-xs" variant="destructive">
                   High
                 </Badge>
               </Label>
@@ -560,11 +585,11 @@ function NotificationPreferencesPage() {
                     Start time
                   </Label>
                   <Input
-                    type="time"
-                    value={prefs.quietHoursStart ?? "22:00"}
                     onChange={(e) =>
                       handleSelect("quietHoursStart", e.target.value)
                     }
+                    type="time"
+                    value={prefs.quietHoursStart ?? "22:00"}
                   />
                 </div>
                 <div className="space-y-2">
@@ -573,11 +598,11 @@ function NotificationPreferencesPage() {
                     End time
                   </Label>
                   <Input
-                    type="time"
-                    value={prefs.quietHoursEnd ?? "08:00"}
                     onChange={(e) =>
                       handleSelect("quietHoursEnd", e.target.value)
                     }
+                    type="time"
+                    value={prefs.quietHoursEnd ?? "08:00"}
                   />
                 </div>
               </div>
@@ -585,12 +610,12 @@ function NotificationPreferencesPage() {
               <div className="space-y-2">
                 <Label>Timezone</Label>
                 <Select
+                  onValueChange={(value) =>
+                    handleSelect("quietHoursTimezone", value)
+                  }
                   value={
                     prefs.quietHoursTimezone ??
                     Intl.DateTimeFormat().resolvedOptions().timeZone
-                  }
-                  onValueChange={(value) =>
-                    handleSelect("quietHoursTimezone", value)
                   }
                 >
                   <SelectTrigger>
@@ -671,7 +696,6 @@ function NotificationPreferencesPage() {
               </p>
             </div>
             <Button
-              variant="outline"
               onClick={() => {
                 updateMutation.mutate({
                   inAppEnabled: true,
@@ -691,6 +715,7 @@ function NotificationPreferencesPage() {
                   quietHoursEnd: "08:00",
                 });
               }}
+              variant="outline"
             >
               Reset
             </Button>

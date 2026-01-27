@@ -7,7 +7,7 @@
 //
 
 import { db } from "@memorystack/db";
-import { unifiedIntelligenceObject, member } from "@memorystack/db/schema";
+import { member, unifiedIntelligenceObject } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -130,9 +130,7 @@ export const uioRouter = router({
         );
       } else if (!input.includeDismissed) {
         // By default, exclude dismissed
-        conditions.push(
-          eq(unifiedIntelligenceObject.isUserDismissed, false)
-        );
+        conditions.push(eq(unifiedIntelligenceObject.isUserDismissed, false));
       }
 
       // Confidence filter
@@ -162,26 +160,34 @@ export const uioRouter = router({
 
       // Due date filters
       if (input.dueDateAfter) {
-        conditions.push(gte(unifiedIntelligenceObject.dueDate, input.dueDateAfter));
+        conditions.push(
+          gte(unifiedIntelligenceObject.dueDate, input.dueDateAfter)
+        );
       }
       if (input.dueDateBefore) {
-        conditions.push(lte(unifiedIntelligenceObject.dueDate, input.dueDateBefore));
+        conditions.push(
+          lte(unifiedIntelligenceObject.dueDate, input.dueDateBefore)
+        );
       }
 
       // Created date filters
       if (input.createdAfter) {
-        conditions.push(gte(unifiedIntelligenceObject.createdAt, input.createdAfter));
+        conditions.push(
+          gte(unifiedIntelligenceObject.createdAt, input.createdAfter)
+        );
       }
       if (input.createdBefore) {
-        conditions.push(lte(unifiedIntelligenceObject.createdAt, input.createdBefore));
+        conditions.push(
+          lte(unifiedIntelligenceObject.createdAt, input.createdBefore)
+        );
       }
 
       // Search
       if (input.search) {
         conditions.push(
           sql`(
-            ${unifiedIntelligenceObject.canonicalTitle} ILIKE ${'%' + input.search + '%'}
-            OR ${unifiedIntelligenceObject.canonicalDescription} ILIKE ${'%' + input.search + '%'}
+            ${unifiedIntelligenceObject.canonicalTitle} ILIKE ${`%${input.search}%`}
+            OR ${unifiedIntelligenceObject.canonicalDescription} ILIKE ${`%${input.search}%`}
           )`
         );
       }
@@ -394,7 +400,17 @@ export const uioRouter = router({
     .input(
       z.object({
         organizationId: z.string().min(1),
-        status: z.enum(["pending", "in_progress", "completed", "cancelled", "overdue", "waiting", "snoozed"]).optional(),
+        status: z
+          .enum([
+            "pending",
+            "in_progress",
+            "completed",
+            "cancelled",
+            "overdue",
+            "waiting",
+            "snoozed",
+          ])
+          .optional(),
         direction: z.enum(["owed_by_me", "owed_to_me"]).optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
         dueBefore: z.date().optional(),
@@ -415,10 +431,14 @@ export const uioRouter = router({
       ];
 
       if (input.dueBefore) {
-        baseConditions.push(lte(unifiedIntelligenceObject.dueDate, input.dueBefore));
+        baseConditions.push(
+          lte(unifiedIntelligenceObject.dueDate, input.dueBefore)
+        );
       }
       if (input.dueAfter) {
-        baseConditions.push(gte(unifiedIntelligenceObject.dueDate, input.dueAfter));
+        baseConditions.push(
+          gte(unifiedIntelligenceObject.dueDate, input.dueAfter)
+        );
       }
 
       // Get UIOs with commitment details
@@ -427,7 +447,9 @@ export const uioRouter = router({
         limit: input.limit,
         offset: input.offset,
         orderBy: [
-          desc(sql`CASE WHEN ${unifiedIntelligenceObject.dueDate} < NOW() THEN 1 ELSE 0 END`),
+          desc(
+            sql`CASE WHEN ${unifiedIntelligenceObject.dueDate} < NOW() THEN 1 ELSE 0 END`
+          ),
           desc(unifiedIntelligenceObject.dueDate),
           desc(unifiedIntelligenceObject.overallConfidence),
         ],
@@ -481,10 +503,18 @@ export const uioRouter = router({
       if (input.status || input.direction || input.priority) {
         filteredItems = items.filter((item) => {
           const details = item.commitmentDetails;
-          if (!details) return false;
-          if (input.status && details.status !== input.status) return false;
-          if (input.direction && details.direction !== input.direction) return false;
-          if (input.priority && details.priority !== input.priority) return false;
+          if (!details) {
+            return false;
+          }
+          if (input.status && details.status !== input.status) {
+            return false;
+          }
+          if (input.direction && details.direction !== input.direction) {
+            return false;
+          }
+          if (input.priority && details.priority !== input.priority) {
+            return false;
+          }
           return true;
         });
       }
@@ -584,8 +614,19 @@ export const uioRouter = router({
     .input(
       z.object({
         organizationId: z.string().min(1),
-        status: z.enum(["backlog", "todo", "in_progress", "in_review", "done", "cancelled"]).optional(),
-        priority: z.enum(["no_priority", "low", "medium", "high", "urgent"]).optional(),
+        status: z
+          .enum([
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "cancelled",
+          ])
+          .optional(),
+        priority: z
+          .enum(["no_priority", "low", "medium", "high", "urgent"])
+          .optional(),
         assigneeId: z.string().optional(),
         project: z.string().optional(),
         limit: z.number().int().min(1).max(100).default(50),
@@ -626,11 +667,24 @@ export const uioRouter = router({
       if (input.status || input.priority || input.project || input.assigneeId) {
         filteredItems = items.filter((item) => {
           const details = item.taskDetails;
-          if (!details) return false;
-          if (input.status && details.status !== input.status) return false;
-          if (input.priority && details.priority !== input.priority) return false;
-          if (input.project && details.project !== input.project) return false;
-          if (input.assigneeId && details.assigneeContactId !== input.assigneeId) return false;
+          if (!details) {
+            return false;
+          }
+          if (input.status && details.status !== input.status) {
+            return false;
+          }
+          if (input.priority && details.priority !== input.priority) {
+            return false;
+          }
+          if (input.project && details.project !== input.project) {
+            return false;
+          }
+          if (
+            input.assigneeId &&
+            details.assigneeContactId !== input.assigneeId
+          ) {
+            return false;
+          }
           return true;
         });
       }
@@ -681,9 +735,15 @@ export const uioRouter = router({
       if (input.severity || input.riskType) {
         filteredItems = items.filter((item) => {
           const details = item.riskDetails;
-          if (!details) return false;
-          if (input.severity && details.severity !== input.severity) return false;
-          if (input.riskType && details.riskType !== input.riskType) return false;
+          if (!details) {
+            return false;
+          }
+          if (input.severity && details.severity !== input.severity) {
+            return false;
+          }
+          if (input.riskType && details.riskType !== input.riskType) {
+            return false;
+          }
           return true;
         });
       }
@@ -735,10 +795,27 @@ export const uioRouter = router({
       if (input.priorityTier || input.suggestedAction || input.conversationId) {
         filteredItems = items.filter((item) => {
           const details = item.briefDetails;
-          if (!details) return false;
-          if (input.priorityTier && details.priorityTier !== input.priorityTier) return false;
-          if (input.suggestedAction && details.suggestedAction !== input.suggestedAction) return false;
-          if (input.conversationId && details.conversationId !== input.conversationId) return false;
+          if (!details) {
+            return false;
+          }
+          if (
+            input.priorityTier &&
+            details.priorityTier !== input.priorityTier
+          ) {
+            return false;
+          }
+          if (
+            input.suggestedAction &&
+            details.suggestedAction !== input.suggestedAction
+          ) {
+            return false;
+          }
+          if (
+            input.conversationId &&
+            details.conversationId !== input.conversationId
+          ) {
+            return false;
+          }
           return true;
         });
       }
@@ -911,11 +988,11 @@ export const uioRouter = router({
       const risks = allUIOs.filter((u) => u.type === "risk");
       const briefs = allUIOs.filter((u) => u.type === "brief");
 
-      const overdue = commitments.filter(
-        (c) => c.dueDate && c.dueDate < now
-      );
+      const overdue = commitments.filter((c) => c.dueDate && c.dueDate < now);
       const dueThisWeek = commitments.filter((c) => {
-        if (!c.dueDate) return false;
+        if (!c.dueDate) {
+          return false;
+        }
         return c.dueDate >= now && c.dueDate <= weekFromNow;
       });
 
@@ -1089,7 +1166,14 @@ export const uioRouter = router({
       z.object({
         organizationId: z.string().min(1),
         id: z.string().uuid(),
-        status: z.enum(["backlog", "todo", "in_progress", "in_review", "done", "cancelled"]),
+        status: z.enum([
+          "backlog",
+          "todo",
+          "in_progress",
+          "in_review",
+          "done",
+          "cancelled",
+        ]),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1182,16 +1266,23 @@ export const uioRouter = router({
 
       const active = commitments.filter((c) => c.status === "active");
       const overdue = active.filter((c) => c.dueDate && c.dueDate < now);
-      const dueThisWeek = active.filter((c) => c.dueDate && c.dueDate >= now && c.dueDate <= weekFromNow);
+      const dueThisWeek = active.filter(
+        (c) => c.dueDate && c.dueDate >= now && c.dueDate <= weekFromNow
+      );
 
       // Count by direction
-      const owedByMe = active.filter((c) => c.commitmentDetails?.direction === "owed_by_me").length;
-      const owedToMe = active.filter((c) => c.commitmentDetails?.direction === "owed_to_me").length;
+      const owedByMe = active.filter(
+        (c) => c.commitmentDetails?.direction === "owed_by_me"
+      ).length;
+      const owedToMe = active.filter(
+        (c) => c.commitmentDetails?.direction === "owed_to_me"
+      ).length;
 
       // Count completed this month
-      const completedThisMonth = commitments.filter((c) =>
-        c.commitmentDetails?.status === "completed" &&
-        c.updatedAt >= monthStart
+      const completedThisMonth = commitments.filter(
+        (c) =>
+          c.commitmentDetails?.status === "completed" &&
+          c.updatedAt >= monthStart
       ).length;
 
       return {
@@ -1231,13 +1322,17 @@ export const uioRouter = router({
 
       const thisWeek = decisions.filter((d) => d.createdAt >= weekAgo);
       const thisMonth = decisions.filter((d) => d.createdAt >= monthStart);
-      const superseded = decisions.filter((d) => d.decisionDetails?.supersededByUioId);
+      const superseded = decisions.filter(
+        (d) => d.decisionDetails?.supersededByUioId
+      );
       const verified = decisions.filter((d) => d.isUserVerified);
 
       // Calculate average confidence
-      const avgConfidence = decisions.length > 0
-        ? decisions.reduce((sum, d) => sum + (d.overallConfidence ?? 0), 0) / decisions.length
-        : 0;
+      const avgConfidence =
+        decisions.length > 0
+          ? decisions.reduce((sum, d) => sum + (d.overallConfidence ?? 0), 0) /
+            decisions.length
+          : 0;
 
       return {
         total: decisions.length,
@@ -1306,8 +1401,12 @@ export const uioRouter = router({
         const status = t.taskDetails?.status;
         return status !== "done" && status !== "cancelled";
       });
-      const overdueCount = activeTasks.filter((t) => t.dueDate && t.dueDate < now).length;
-      const dueThisWeek = activeTasks.filter((t) => t.dueDate && t.dueDate >= now && t.dueDate <= weekFromNow).length;
+      const overdueCount = activeTasks.filter(
+        (t) => t.dueDate && t.dueDate < now
+      ).length;
+      const dueThisWeek = activeTasks.filter(
+        (t) => t.dueDate && t.dueDate >= now && t.dueDate <= weekFromNow
+      ).length;
 
       return {
         total: tasks.length,

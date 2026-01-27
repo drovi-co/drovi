@@ -2,7 +2,7 @@
 // GRAPH TYPES
 // =============================================================================
 
-import type { Node, Edge } from "@xyflow/react";
+import type { Edge, Node } from "@xyflow/react";
 
 // =============================================================================
 // NODE DATA TYPES

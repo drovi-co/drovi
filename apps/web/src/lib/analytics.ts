@@ -152,7 +152,9 @@ let isInitialized = false;
  */
 export function initAnalytics(): void {
   // Skip if already initialized
-  if (isInitialized) return;
+  if (isInitialized) {
+    return;
+  }
 
   // Skip if disabled or not configured
   if (!(env.VITE_ANALYTICS_ENABLED && env.VITE_POSTHOG_KEY)) {
@@ -210,7 +212,9 @@ export function track(
   event: AnalyticsEvent,
   properties?: AnalyticsEventProperties
 ): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.capture(event, {
@@ -232,7 +236,9 @@ export function trackPageView(
   path: string,
   properties?: Record<string, unknown>
 ): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.capture("$pageview", {
@@ -252,7 +258,9 @@ export function trackPageView(
  * Call after successful authentication.
  */
 export function identifyUser(properties: UserProperties): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.identify(properties.id, {
@@ -273,7 +281,9 @@ export function identifyUser(properties: UserProperties): void {
  * Reset user identity (on logout).
  */
 export function resetUser(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.reset();
@@ -289,7 +299,9 @@ export function resetUser(): void {
  * Set user properties (for super properties).
  */
 export function setUserProperties(properties: Record<string, unknown>): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.people.set(properties);
@@ -309,7 +321,9 @@ export function setUserProperties(properties: Record<string, unknown>): void {
  * Check if a feature flag is enabled.
  */
 export function isFeatureEnabled(flagKey: string): boolean {
-  if (!isInitialized) return false;
+  if (!isInitialized) {
+    return false;
+  }
 
   try {
     return posthog.isFeatureEnabled(flagKey) ?? false;
@@ -326,7 +340,9 @@ export function isFeatureEnabled(flagKey: string): boolean {
  * Get feature flag payload.
  */
 export function getFeatureFlagPayload<T>(flagKey: string): T | null {
-  if (!isInitialized) return null;
+  if (!isInitialized) {
+    return null;
+  }
 
   try {
     return posthog.getFeatureFlagPayload(flagKey) as T | null;
@@ -343,7 +359,9 @@ export function getFeatureFlagPayload<T>(flagKey: string): T | null {
  * Reload feature flags.
  */
 export function reloadFeatureFlags(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.reloadFeatureFlags();
@@ -370,7 +388,9 @@ export function isAnalyticsEnabled(): boolean {
  * Opt out of tracking.
  */
 export function optOut(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
   posthog.opt_out_capturing();
 }
 
@@ -378,7 +398,9 @@ export function optOut(): void {
  * Opt in to tracking.
  */
 export function optIn(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
   posthog.opt_in_capturing();
 }
 
@@ -386,7 +408,9 @@ export function optIn(): void {
  * Check if user has opted out.
  */
 export function hasOptedOut(): boolean {
-  if (!isInitialized) return true;
+  if (!isInitialized) {
+    return true;
+  }
   return posthog.has_opted_out_capturing();
 }
 
@@ -394,7 +418,9 @@ export function hasOptedOut(): boolean {
  * Get the distinct ID (anonymous user ID).
  */
 export function getDistinctId(): string | undefined {
-  if (!isInitialized) return undefined;
+  if (!isInitialized) {
+    return undefined;
+  }
   return posthog.get_distinct_id();
 }
 
@@ -406,7 +432,9 @@ export function getDistinctId(): string | undefined {
  * Start session recording.
  */
 export function startSessionRecording(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
   posthog.startSessionRecording();
 }
 
@@ -414,7 +442,9 @@ export function startSessionRecording(): void {
  * Stop session recording.
  */
 export function stopSessionRecording(): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
   posthog.stopSessionRecording();
 }
 
@@ -422,7 +452,9 @@ export function stopSessionRecording(): void {
  * Check if session recording is active.
  */
 export function isSessionRecordingActive(): boolean {
-  if (!isInitialized) return false;
+  if (!isInitialized) {
+    return false;
+  }
   return posthog.sessionRecordingStarted();
 }
 
@@ -438,7 +470,9 @@ export function setOrganization(
   organizationId: string,
   properties?: Record<string, unknown>
 ): void {
-  if (!isInitialized) return;
+  if (!isInitialized) {
+    return;
+  }
 
   try {
     posthog.group("organization", organizationId, properties);

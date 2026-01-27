@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useCommitmentStats, useDecisionStats } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -78,7 +78,9 @@ function generateCSV(
     headers
       .map((header) => {
         const value = item[header];
-        if (value === null || value === undefined) return "";
+        if (value === null || value === undefined) {
+          return "";
+        }
         if (typeof value === "string") {
           // Escape quotes and wrap in quotes if contains comma
           const escaped = value.replace(/"/g, '""');
@@ -86,7 +88,9 @@ function generateCSV(
             ? `"${escaped}"`
             : escaped;
         }
-        if (value instanceof Date) return format(value, "yyyy-MM-dd HH:mm:ss");
+        if (value instanceof Date) {
+          return format(value, "yyyy-MM-dd HH:mm:ss");
+        }
         return String(value);
       })
       .join(",")
@@ -218,7 +222,7 @@ export function ComplianceExport({
         // Fetch all decisions if needed (using UIO endpoint)
         if (options.type === "decisions" || options.type === "both") {
           const decisions: unknown[] = [];
-          let cursor: string | undefined = undefined;
+          let cursor: string | undefined;
           const limit = 100;
           let hasMore = true;
 
@@ -233,21 +237,43 @@ export function ComplianceExport({
               )}`,
               { credentials: "include" }
             );
-            const data: { result?: { data?: { items?: unknown[]; hasMore?: boolean; cursor?: string } } } = await response.json();
+            const data: {
+              result?: {
+                data?: {
+                  items?: unknown[];
+                  hasMore?: boolean;
+                  cursor?: string;
+                };
+              };
+            } = await response.json();
             if (data.result?.data?.items) {
               // Transform UIO format to expected format
-              const transformed = (data.result.data.items as Array<Record<string, unknown>>).map((item) => ({
+              const transformed = (
+                data.result.data.items as Record<string, unknown>[]
+              ).map((item) => ({
                 id: item.id,
                 title: item.userCorrectedTitle ?? item.canonicalTitle ?? "",
                 statement: item.canonicalDescription ?? "",
-                rationale: (item.decisionDetails as Record<string, unknown> | null)?.rationale ?? null,
+                rationale:
+                  (item.decisionDetails as Record<string, unknown> | null)
+                    ?.rationale ?? null,
                 decidedAt: item.firstSeenAt ?? item.createdAt,
                 confidence: item.overallConfidence ?? 0.8,
-                isUserVerified: item.isUserVerified === true || item.userCorrectedTitle != null,
-                supersededByUioId: (item.decisionDetails as Record<string, unknown> | null)?.supersededByUioId ?? null,
+                isUserVerified:
+                  item.isUserVerified === true ||
+                  item.userCorrectedTitle != null,
+                supersededByUioId:
+                  (item.decisionDetails as Record<string, unknown> | null)
+                    ?.supersededByUioId ?? null,
                 metadata: null,
-                sourceThread: (item.sources as Array<{ conversationId?: string }> | null)?.[0]?.conversationId
-                  ? { id: (item.sources as Array<{ conversationId: string }>)[0].conversationId, subject: null }
+                sourceThread: (
+                  item.sources as Array<{ conversationId?: string }> | null
+                )?.[0]?.conversationId
+                  ? {
+                      id: (item.sources as Array<{ conversationId: string }>)[0]
+                        .conversationId,
+                      subject: null,
+                    }
                   : null,
               }));
               decisions.push(...transformed);
@@ -263,7 +289,7 @@ export function ComplianceExport({
         // Fetch all commitments if needed (using UIO endpoint)
         if (options.type === "commitments" || options.type === "both") {
           const commitments: unknown[] = [];
-          let cursor: string | undefined = undefined;
+          let cursor: string | undefined;
           const limit = 100;
           let hasMore = true;
 
@@ -278,11 +304,24 @@ export function ComplianceExport({
               )}`,
               { credentials: "include" }
             );
-            const data: { result?: { data?: { items?: unknown[]; hasMore?: boolean; cursor?: string } } } = await response.json();
+            const data: {
+              result?: {
+                data?: {
+                  items?: unknown[];
+                  hasMore?: boolean;
+                  cursor?: string;
+                };
+              };
+            } = await response.json();
             if (data.result?.data?.items) {
               // Transform UIO format to expected format
-              const transformed = (data.result.data.items as Array<Record<string, unknown>>).map((item) => {
-                const details = item.commitmentDetails as Record<string, unknown> | null;
+              const transformed = (
+                data.result.data.items as Record<string, unknown>[]
+              ).map((item) => {
+                const details = item.commitmentDetails as Record<
+                  string,
+                  unknown
+                > | null;
                 return {
                   id: item.id,
                   title: item.userCorrectedTitle ?? item.canonicalTitle ?? "",
@@ -293,10 +332,19 @@ export function ComplianceExport({
                   dueDate: item.dueDate ?? null,
                   createdAt: item.createdAt,
                   confidence: item.overallConfidence ?? 0.8,
-                  isUserVerified: item.isUserVerified === true || item.userCorrectedTitle != null,
+                  isUserVerified:
+                    item.isUserVerified === true ||
+                    item.userCorrectedTitle != null,
                   metadata: null,
-                  sourceThread: (item.sources as Array<{ conversationId?: string }> | null)?.[0]?.conversationId
-                    ? { id: (item.sources as Array<{ conversationId: string }>)[0].conversationId, subject: null }
+                  sourceThread: (
+                    item.sources as Array<{ conversationId?: string }> | null
+                  )?.[0]?.conversationId
+                    ? {
+                        id: (
+                          item.sources as Array<{ conversationId: string }>
+                        )[0].conversationId,
+                        subject: null,
+                      }
                     : null,
                 };
               });
@@ -435,7 +483,9 @@ export function ComplianceExport({
           }
 
           for (const h of decisionHeaders) {
-            if (!headers.includes(h)) headers.push(h);
+            if (!headers.includes(h)) {
+              headers.push(h);
+            }
           }
 
           for (const d of decisionsToExport) {
@@ -476,7 +526,9 @@ export function ComplianceExport({
           }
 
           for (const h of commitmentHeaders) {
-            if (!headers.includes(h)) headers.push(h);
+            if (!headers.includes(h)) {
+              headers.push(h);
+            }
           }
 
           for (const c of commitmentsToExport) {

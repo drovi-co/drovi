@@ -12,9 +12,7 @@ import {
   createFileRoute,
   useNavigate,
   useParams,
-  useSearch,
 } from "@tanstack/react-router";
-import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
@@ -30,18 +28,10 @@ import {
   MoreHorizontal,
   Trash2,
   User,
-  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  useDismissUIO,
-  useMarkCompleteUIO,
-  useSnoozeUIO,
-  useUIO,
-  useVerifyUIO,
-} from "@/hooks/use-uio";
-import { useTrackViewing } from "@/hooks/use-presence";
+import { z } from "zod";
 import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +52,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTrackViewing } from "@/hooks/use-presence";
+import {
+  useDismissUIO,
+  useMarkCompleteUIO,
+  useSnoozeUIO,
+  useUIO,
+  useVerifyUIO,
+} from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -298,7 +296,9 @@ function CommitmentDetailPage() {
   }, [navigate, returnUrl]);
 
   const handleComplete = useCallback(() => {
-    if (!commitment) return;
+    if (!commitment) {
+      return;
+    }
     completeMutation.mutate(
       { organizationId, id: commitment.id },
       {
@@ -316,7 +316,9 @@ function CommitmentDetailPage() {
 
   const handleSnooze = useCallback(
     (days: number) => {
-      if (!commitment) return;
+      if (!commitment) {
+        return;
+      }
       const until = new Date();
       until.setDate(until.getDate() + days);
       snoozeMutation.mutate(
@@ -337,7 +339,9 @@ function CommitmentDetailPage() {
   );
 
   const handleDismiss = useCallback(() => {
-    if (!commitment) return;
+    if (!commitment) {
+      return;
+    }
     dismissMutation.mutate(
       { organizationId, id: commitment.id },
       {
@@ -353,7 +357,9 @@ function CommitmentDetailPage() {
   }, [commitment, dismissMutation, organizationId, navigate]);
 
   const handleVerify = useCallback(() => {
-    if (!commitment) return;
+    if (!commitment) {
+      return;
+    }
     verifyMutation.mutate(
       { organizationId, id: commitment.id },
       {
@@ -497,10 +503,10 @@ function CommitmentDetailPage() {
             {/* Who's viewing indicator */}
             {organizationId && commitmentId && (
               <WhoIsViewing
-                organizationId={organizationId}
-                resourceType="commitment"
-                resourceId={commitmentId}
                 compact
+                organizationId={organizationId}
+                resourceId={commitmentId}
+                resourceType="commitment"
               />
             )}
 
@@ -684,7 +690,9 @@ function CommitmentDetailPage() {
                     )}
                     {commitment.extractionContext.modelUsed && (
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <span>Model: {commitment.extractionContext.modelUsed}</span>
+                        <span>
+                          Model: {commitment.extractionContext.modelUsed}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -770,19 +778,21 @@ function CommitmentDetailPage() {
               {/* Timestamps */}
               <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
                 <div>
-                  Created: {format(commitment.createdAt, "MMM d, yyyy 'at' h:mm a")}
+                  Created:{" "}
+                  {format(commitment.createdAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
                 <div>
-                  Updated: {format(commitment.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  Updated:{" "}
+                  {format(commitment.updatedAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
               </div>
 
               {/* Team Discussion / Comments Section */}
               <div className="border-border border-t pt-6">
                 <button
-                  type="button"
                   className="mb-4 flex w-full items-center justify-between gap-2"
                   onClick={() => setShowComments(!showComments)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -797,14 +807,17 @@ function CommitmentDetailPage() {
                   )}
                 </button>
 
-                {showComments && organizationId && commitmentId && currentUserId && (
-                  <CommentThread
-                    organizationId={organizationId}
-                    targetType="commitment"
-                    targetId={commitmentId}
-                    currentUserId={currentUserId}
-                  />
-                )}
+                {showComments &&
+                  organizationId &&
+                  commitmentId &&
+                  currentUserId && (
+                    <CommentThread
+                      currentUserId={currentUserId}
+                      organizationId={organizationId}
+                      targetId={commitmentId}
+                      targetType="commitment"
+                    />
+                  )}
               </div>
             </div>
           </div>
@@ -833,7 +846,10 @@ function CommitmentDetailPage() {
               <PropertyRow label="Priority">
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   <div
-                    className={cn("h-2 w-2 rounded-full", priorityConfig.dotColor)}
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      priorityConfig.dotColor
+                    )}
                   />
                   <span className={cn("text-sm", priorityConfig.color)}>
                     {priorityConfig.label}
@@ -872,20 +888,28 @@ function CommitmentDetailPage() {
                     <span
                       className={cn(
                         "text-sm",
-                        isOverdue ? "font-medium text-red-600" : "text-foreground"
+                        isOverdue
+                          ? "font-medium text-red-600"
+                          : "text-foreground"
                       )}
                     >
                       {format(commitment.dueDate, "MMM d, yyyy")}
                       {isOverdue && " (Overdue)"}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground text-sm">No due date</span>
+                    <span className="text-muted-foreground text-sm">
+                      No due date
+                    </span>
                   )}
                 </div>
               </PropertyRow>
 
               {/* Person Involved */}
-              <PropertyRow label={commitment.direction === "owed_by_me" ? "Owed To" : "Owed By"}>
+              <PropertyRow
+                label={
+                  commitment.direction === "owed_by_me" ? "Owed To" : "Owed By"
+                }
+              >
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   {otherPerson ? (
                     <>
@@ -907,11 +931,12 @@ function CommitmentDetailPage() {
                         <p className="truncate text-foreground text-sm">
                           {otherPerson.displayName ?? otherPerson.primaryEmail}
                         </p>
-                        {otherPerson.displayName && otherPerson.primaryEmail && (
-                          <p className="truncate text-muted-foreground text-xs">
-                            {otherPerson.primaryEmail}
-                          </p>
-                        )}
+                        {otherPerson.displayName &&
+                          otherPerson.primaryEmail && (
+                            <p className="truncate text-muted-foreground text-xs">
+                              {otherPerson.primaryEmail}
+                            </p>
+                          )}
                       </div>
                     </>
                   ) : (

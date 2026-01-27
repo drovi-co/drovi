@@ -27,8 +27,12 @@ interface GroupedEvents {
 // =============================================================================
 
 function formatDayHeader(date: Date): string {
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isTomorrow(date)) {
+    return "Tomorrow";
+  }
   return format(date, "EEEE, MMMM d");
 }
 

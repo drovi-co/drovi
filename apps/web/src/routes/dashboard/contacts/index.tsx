@@ -12,8 +12,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ContactCard, type ContactCardData } from "@/components/dashboards";
 import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
+import { ContactCard, type ContactCardData } from "@/components/dashboards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,7 @@ function ContactsPage() {
 
   const meetingBriefMutation = useMutation({
     ...trpc.contacts.generateMeetingBrief.mutationOptions(),
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       toast.success("Meeting brief generated", {
         description: "Check your downloads",
       });
@@ -159,10 +159,18 @@ function ContactsPage() {
         e.preventDefault();
         document.getElementById("contact-search")?.focus();
       }
-      if (e.key === "r") refetch();
-      if (e.key === "1") setViewFilter("all");
-      if (e.key === "2") setViewFilter("vip");
-      if (e.key === "3") setViewFilter("at_risk");
+      if (e.key === "r") {
+        refetch();
+      }
+      if (e.key === "1") {
+        setViewFilter("all");
+      }
+      if (e.key === "2") {
+        setViewFilter("vip");
+      }
+      if (e.key === "3") {
+        setViewFilter("at_risk");
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -370,7 +378,7 @@ function ContactsPage() {
         <div className="flex-1 overflow-auto">
           {isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
             <div>
-              {[...Array(10)].map((_, i) => (
+              {[...new Array(10)].map((_, i) => (
                 <div
                   className="flex items-center gap-4 border-border/40 border-b px-4 py-3"
                   key={i}

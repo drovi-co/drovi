@@ -2,26 +2,26 @@
 // TASK NODE COMPONENT
 // =============================================================================
 
-import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import {
+  Calendar,
   Check,
   Circle,
   Clock,
+  FileText,
   ListTodo,
-  Calendar,
   Mail,
   MessageSquare,
-  FileText,
 } from "lucide-react";
 import { memo } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import type { TaskNodeData } from "../../-types";
 
 // =============================================================================
@@ -29,7 +29,9 @@ import type { TaskNodeData } from "../../-types";
 // =============================================================================
 
 function formatDate(dateStr?: string): string {
-  if (!dateStr) return "";
+  if (!dateStr) {
+    return "";
+  }
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -55,7 +57,10 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as TaskNodeData;
 
   // Status configuration
-  const statusConfig: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  const statusConfig: Record<
+    string,
+    { bg: string; text: string; icon: React.ReactNode }
+  > = {
     backlog: {
       bg: "bg-slate-500/10",
       text: "text-slate-600",
@@ -99,42 +104,36 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <div
-            className={`
-              group relative cursor-pointer transition-all duration-200
-              ${selected ? "scale-105" : "hover:scale-[1.02]"}
+            className={`group relative cursor-pointer transition-all duration-200 ${selected ? "scale-105" : "hover:scale-[1.02]"}
               ${isDone ? "opacity-70" : ""}
             `}
           >
             {/* Main card */}
             <div
-              className={`
-                relative flex min-w-[160px] max-w-[200px] flex-col gap-2 rounded-lg border-2 bg-card p-2.5 shadow-md transition-all
-                ${isDone ? "border-emerald-400/30" : "border-emerald-500/30"}
-                ${selected ? "ring-4 ring-emerald-500/20 border-emerald-500" : ""}
-                group-hover:shadow-lg group-hover:border-emerald-400
-              `}
+              className={`relative flex min-w-[160px] max-w-[200px] flex-col gap-2 rounded-lg border-2 bg-card p-2.5 shadow-md transition-all ${isDone ? "border-emerald-400/30" : "border-emerald-500/30"}
+                ${selected ? "border-emerald-500 ring-4 ring-emerald-500/20" : ""}group-hover:shadow-lg group-hover:border-emerald-400`}
             >
               {/* Priority stripe */}
               <div
-                className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${priorityColors[nodeData.priority] ?? priorityColors.medium}`}
+                className={`absolute top-2 bottom-2 left-0 w-1 rounded-r-full ${priorityColors[nodeData.priority] ?? priorityColors.medium}`}
               />
 
               {/* Input handle */}
               <Handle
-                type="target"
-                position={Position.Left}
                 className="!-left-1.5 !h-3 !w-3 !rounded-full !border-2 !border-emerald-500 !bg-card opacity-0 transition-opacity group-hover:opacity-100"
+                position={Position.Left}
+                type="target"
               />
 
               {/* Header row */}
               <div className="flex items-start gap-2 pl-2">
                 {/* Checkbox-style status indicator */}
                 <div
-                  className={`
-                    flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors
-                    ${isDone
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                    isDone
                       ? "border-emerald-500 bg-emerald-500 text-white"
-                      : "border-muted-foreground/30 bg-background"}
+                      : "border-muted-foreground/30 bg-background"
+                  }
                   `}
                 >
                   {isDone && <Check className="h-3 w-3" />}
@@ -142,9 +141,7 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
 
                 {/* Title */}
                 <p
-                  className={`
-                    flex-1 text-xs font-medium leading-tight line-clamp-2
-                    ${isDone ? "text-muted-foreground line-through" : "text-foreground"}
+                  className={`line-clamp-2 flex-1 font-medium text-xs leading-tight ${isDone ? "text-muted-foreground line-through" : "text-foreground"}
                   `}
                 >
                   {nodeData.label}
@@ -155,11 +152,13 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
               <div className="flex items-center justify-between gap-2 pl-2">
                 {/* Status badge */}
                 <Badge
+                  className={`${config.bg} ${config.text} border-0 font-medium text-[10px]`}
                   variant="secondary"
-                  className={`${config.bg} ${config.text} border-0 text-[10px] font-medium`}
                 >
                   {config.icon}
-                  <span className="ml-1">{nodeData.status.replace("_", " ")}</span>
+                  <span className="ml-1">
+                    {nodeData.status.replace("_", " ")}
+                  </span>
                 </Badge>
 
                 {/* Due date or source */}
@@ -177,31 +176,29 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
 
               {/* Output handle */}
               <Handle
-                type="source"
-                position={Position.Right}
                 className="!-right-1.5 !h-3 !w-3 !rounded-full !border-2 !border-emerald-500 !bg-card opacity-0 transition-opacity group-hover:opacity-100"
+                position={Position.Right}
+                type="source"
               />
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
+        <TooltipContent className="max-w-xs" side="top">
           <div className="space-y-2">
             <p className="font-semibold">{nodeData.label}</p>
             <div className="flex flex-wrap gap-2 text-xs">
-              <Badge variant="outline" className={config.text}>
+              <Badge className={config.text} variant="outline">
                 {nodeData.status.replace("_", " ")}
               </Badge>
-              <Badge variant="outline">
-                {nodeData.priority} priority
-              </Badge>
+              <Badge variant="outline">{nodeData.priority} priority</Badge>
             </div>
             {nodeData.dueDate && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Due: {new Date(nodeData.dueDate).toLocaleDateString()}
               </p>
             )}
             {nodeData.sourceType && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Source: {nodeData.sourceType}
               </p>
             )}

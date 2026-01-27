@@ -9,7 +9,6 @@
 import { motion } from "framer-motion";
 import {
   Brain,
-  Check,
   CircleDot,
   Eye,
   MoreHorizontal,
@@ -114,14 +113,22 @@ const DOMAIN_CONFIG: Record<
 // =============================================================================
 
 function getAccuracyColor(accuracy: number): string {
-  if (accuracy >= 0.8) return "text-green-600";
-  if (accuracy >= 0.6) return "text-amber-600";
+  if (accuracy >= 0.8) {
+    return "text-green-600";
+  }
+  if (accuracy >= 0.6) {
+    return "text-amber-600";
+  }
   return "text-red-600";
 }
 
 function getAccuracyBgColor(accuracy: number): string {
-  if (accuracy >= 0.8) return "bg-green-500/10 border-green-500/30";
-  if (accuracy >= 0.6) return "bg-amber-500/10 border-amber-500/30";
+  if (accuracy >= 0.8) {
+    return "bg-green-500/10 border-green-500/30";
+  }
+  if (accuracy >= 0.6) {
+    return "bg-amber-500/10 border-amber-500/30";
+  }
   return "bg-red-500/10 border-red-500/30";
 }
 
@@ -230,7 +237,10 @@ export function PatternCard({
       {/* Stats */}
       <div className="mt-4 flex items-center gap-4 border-t pt-4">
         {/* Domain */}
-        <Badge className={cn("text-xs", domainConfig.bgColor)} variant="outline">
+        <Badge
+          className={cn("text-xs", domainConfig.bgColor)}
+          variant="outline"
+        >
           {domainConfig.label}
         </Badge>
 
@@ -270,11 +280,7 @@ export function PatternCard({
       {pattern.salientFeatures.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1">
           {pattern.salientFeatures.slice(0, 3).map((feature) => (
-            <Badge
-              className="text-xs"
-              key={feature}
-              variant="secondary"
-            >
+            <Badge className="text-xs" key={feature} variant="secondary">
               {feature}
             </Badge>
           ))}

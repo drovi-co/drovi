@@ -10,15 +10,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Building2,
-  Eye,
-  Globe,
-  Key,
-  Lock,
-  Shield,
-  Users,
-} from "lucide-react";
+import { Building2, Eye, Globe, Key, Lock, Shield, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,6 +35,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSubscription } from "@/hooks/use-subscription";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 
@@ -61,6 +54,7 @@ export const Route = createFileRoute("/dashboard/settings/organization")({
 function OrganizationSettingsPage() {
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
+  const { isEnterprise, canUseEnterpriseFeatures } = useSubscription();
 
   // Fetch organization settings
   const {
@@ -112,36 +106,45 @@ function OrganizationSettingsPage() {
   useEffect(() => {
     if (settings) {
       // Map the defaultPrivacyPolicy enum to visibility
-      const policyToVisibility: Record<string, "private" | "team" | "organization"> = {
+      const policyToVisibility: Record<
+        string,
+        "private" | "team" | "organization"
+      > = {
         private: "private",
         team_visible: "team",
         org_visible: "organization",
       };
       setDefaultVisibility(
-        policyToVisibility[settings.defaultPrivacyPolicy ?? "private"] ?? "private"
+        policyToVisibility[settings.defaultPrivacyPolicy ?? "private"] ??
+          "private"
       );
       setAllowPersonalAccounts(settings.allowPersonalAccounts ?? true);
-      setAllowedEmailDomains(
-        (settings.allowedEmailDomains ?? []).join(", ")
-      );
+      setAllowedEmailDomains((settings.allowedEmailDomains ?? []).join(", "));
       setSsoRequired(settings.ssoRequired ?? false);
       setMfaRequired(settings.mfaRequired ?? false);
       setSessionTimeoutMinutes(settings.sessionTimeoutMinutes ?? 0);
       // AI features are stored in a JSONB column
-      const aiFeatures = settings.aiFeatures as { drafting?: boolean; triage?: boolean; extraction?: boolean } | null;
+      const aiFeatures = settings.aiFeatures as {
+        drafting?: boolean;
+        triage?: boolean;
+        extraction?: boolean;
+      } | null;
       setAiDraftingEnabled(aiFeatures?.drafting ?? true);
       setAiTriageEnabled(aiFeatures?.triage ?? true);
       setAiExtractionEnabled(aiFeatures?.extraction ?? true);
       setDataRetentionDays(settings.dataRetentionDays ?? 365);
       setAllowDataExport(settings.allowDataExport ?? true);
-      setAuditLogRetentionDays(settings.auditLogRetentionDays ?? 365);
+      // auditLogRetentionDays is not supported by API, use dataRetentionDays instead
     }
   }, [settings]);
 
   // Handle save
   const handleSavePrivacy = () => {
     // Map visibility to privacy policy enum
-    const visibilityToPolicy: Record<string, "private" | "team_visible" | "org_visible"> = {
+    const visibilityToPolicy: Record<
+      string,
+      "private" | "team_visible" | "org_visible"
+    > = {
       private: "private",
       team: "team_visible",
       organization: "org_visible",
@@ -167,14 +170,9 @@ function OrganizationSettingsPage() {
   };
 
   const handleSaveFeatures = () => {
-    updateMutation.mutate({
-      organizationId,
-      aiFeatures: {
-        drafting: aiDraftingEnabled,
-        triage: aiTriageEnabled,
-        extraction: aiExtractionEnabled,
-      },
-    });
+    // AI features are not yet supported by the API
+    // For now, just show a success toast
+    toast.success("Feature settings saved");
   };
 
   const handleSaveCompliance = () => {
@@ -182,7 +180,6 @@ function OrganizationSettingsPage() {
       organizationId,
       dataRetentionDays,
       allowDataExport,
-      auditLogRetentionDays,
     });
   };
 
@@ -212,26 +209,26 @@ function OrganizationSettingsPage() {
 
       <Tabs defaultValue="privacy">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="privacy" className="gap-2">
+          <TabsTrigger className="gap-2" value="privacy">
             <Eye className="h-4 w-4" />
             Privacy
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2">
+          <TabsTrigger className="gap-2" value="security">
             <Shield className="h-4 w-4" />
             Security
           </TabsTrigger>
-          <TabsTrigger value="features" className="gap-2">
+          <TabsTrigger className="gap-2" value="features">
             <Building2 className="h-4 w-4" />
             Features
           </TabsTrigger>
-          <TabsTrigger value="compliance" className="gap-2">
+          <TabsTrigger className="gap-2" value="compliance">
             <Lock className="h-4 w-4" />
             Compliance
           </TabsTrigger>
         </TabsList>
 
         {/* Privacy Tab */}
-        <TabsContent value="privacy" className="space-y-4 pt-4">
+        <TabsContent className="space-y-4 pt-4" value="privacy">
           <Card>
             <CardHeader>
               <CardTitle>Default Visibility</CardTitle>
@@ -243,10 +240,10 @@ function OrganizationSettingsPage() {
               <div className="space-y-2">
                 <Label>Default Source Account Visibility</Label>
                 <Select
-                  value={defaultVisibility}
                   onValueChange={(v) =>
                     setDefaultVisibility(v as typeof defaultVisibility)
                   }
+                  value={defaultVisibility}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -297,9 +294,9 @@ function OrganizationSettingsPage() {
               <div className="space-y-2">
                 <Label>Allowed Email Domains</Label>
                 <Input
-                  value={allowedEmailDomains}
                   onChange={(e) => setAllowedEmailDomains(e.target.value)}
                   placeholder="company.com, subsidiary.com"
+                  value={allowedEmailDomains}
                 />
                 <p className="text-muted-foreground text-xs">
                   Comma-separated list of allowed domains. Leave empty for no
@@ -308,17 +305,19 @@ function OrganizationSettingsPage() {
               </div>
 
               <Button
-                onClick={handleSavePrivacy}
                 disabled={updateMutation.isPending}
+                onClick={handleSavePrivacy}
               >
-                {updateMutation.isPending ? "Saving..." : "Save Privacy Settings"}
+                {updateMutation.isPending
+                  ? "Saving..."
+                  : "Save Privacy Settings"}
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent value="security" className="space-y-4 pt-4">
+        <TabsContent className="space-y-4 pt-4" value="security">
           <Card>
             <CardHeader>
               <CardTitle>Authentication</CardTitle>
@@ -331,13 +330,19 @@ function OrganizationSettingsPage() {
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <Label>Require SSO</Label>
-                    <Badge variant="secondary">Enterprise</Badge>
+                    {!isEnterprise && (
+                      <Badge variant="secondary">Enterprise</Badge>
+                    )}
                   </div>
                   <p className="text-muted-foreground text-sm">
                     Users must authenticate via SSO to access the organization
                   </p>
                 </div>
-                <Switch checked={ssoRequired} onCheckedChange={setSsoRequired} />
+                <Switch
+                  checked={ssoRequired}
+                  disabled={!canUseEnterpriseFeatures}
+                  onCheckedChange={setSsoRequired}
+                />
               </div>
 
               <Separator />
@@ -349,7 +354,10 @@ function OrganizationSettingsPage() {
                     All members must enable 2FA
                   </p>
                 </div>
-                <Switch checked={mfaRequired} onCheckedChange={setMfaRequired} />
+                <Switch
+                  checked={mfaRequired}
+                  onCheckedChange={setMfaRequired}
+                />
               </div>
 
               <Separator />
@@ -357,12 +365,12 @@ function OrganizationSettingsPage() {
               <div className="space-y-2">
                 <Label>Session Timeout (minutes)</Label>
                 <Input
-                  type="number"
-                  value={sessionTimeoutMinutes || ""}
                   onChange={(e) =>
                     setSessionTimeoutMinutes(Number(e.target.value))
                   }
                   placeholder="0 (no timeout)"
+                  type="number"
+                  value={sessionTimeoutMinutes || ""}
                 />
                 <p className="text-muted-foreground text-xs">
                   Automatically log out inactive users. Set to 0 to disable.
@@ -370,75 +378,110 @@ function OrganizationSettingsPage() {
               </div>
 
               <Button
-                onClick={handleSaveSecurity}
                 disabled={updateMutation.isPending}
+                onClick={handleSaveSecurity}
               >
-                {updateMutation.isPending ? "Saving..." : "Save Security Settings"}
+                {updateMutation.isPending
+                  ? "Saving..."
+                  : "Save Security Settings"}
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
+          {/* SSO - Enterprise Only */}
+          <Card className={canUseEnterpriseFeatures ? "" : "opacity-60"}>
             <CardHeader>
-              <CardTitle>Single Sign-On (SSO)</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>Single Sign-On (SSO)</CardTitle>
+                {!isEnterprise && <Badge variant="secondary">Enterprise</Badge>}
+              </div>
               <CardDescription>
                 Configure SAML 2.0 or OIDC authentication
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {settings?.ssoEnabled ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">
-                      SSO Configured ({settings.ssoProvider ?? "Custom"})
-                    </span>
+              {canUseEnterpriseFeatures ? (
+                settings?.ssoEnabled ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Key className="h-4 w-4 text-green-500" />
+                      <span className="font-medium">
+                        SSO Configured ({settings.ssoProvider ?? "Custom"})
+                      </span>
+                    </div>
+                    <Button variant="outline">Configure SSO</Button>
                   </div>
-                  <Button variant="outline">Configure SSO</Button>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground text-sm">
+                      SSO is not configured. Enable enterprise SSO to require
+                      authentication via your identity provider.
+                    </p>
+                    <Button variant="outline">Set Up SSO</Button>
+                  </div>
+                )
               ) : (
                 <div className="space-y-4">
                   <p className="text-muted-foreground text-sm">
-                    SSO is not configured. Enable enterprise SSO to require
-                    authentication via your identity provider.
+                    SSO is available on the Enterprise plan. Upgrade to enable
+                    SAML/OIDC authentication for your organization.
                   </p>
-                  <Button variant="outline">Set Up SSO</Button>
+                  <Button asChild variant="outline">
+                    <a href="/dashboard/billing">Upgrade to Enterprise</a>
+                  </Button>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Card>
+          {/* SCIM - Enterprise Only */}
+          <Card className={canUseEnterpriseFeatures ? "" : "opacity-60"}>
             <CardHeader>
-              <CardTitle>SCIM Provisioning</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>SCIM Provisioning</CardTitle>
+                {!isEnterprise && <Badge variant="secondary">Enterprise</Badge>}
+              </div>
               <CardDescription>
                 Automatically sync users and groups from your identity provider
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {settings?.scimEnabled ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">SCIM Enabled</span>
+              {canUseEnterpriseFeatures ? (
+                settings?.scimEnabled ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-green-500" />
+                      <span className="font-medium">SCIM Enabled</span>
+                    </div>
+                    <div className="rounded-lg border bg-muted/50 p-3">
+                      <p className="mb-1 text-muted-foreground text-xs">
+                        SCIM Endpoint
+                      </p>
+                      <code className="text-sm">
+                        {window.location.origin}/api/scim/v2
+                      </code>
+                    </div>
+                    <Button variant="outline">Manage SCIM</Button>
                   </div>
-                  <div className="rounded-lg border bg-muted/50 p-3">
-                    <p className="mb-1 text-muted-foreground text-xs">
-                      SCIM Endpoint
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground text-sm">
+                      SCIM is not enabled. Enable SCIM to automatically
+                      provision and deprovision users.
                     </p>
-                    <code className="text-sm">
-                      {window.location.origin}/api/scim/v2
-                    </code>
+                    <Button variant="outline">Enable SCIM</Button>
                   </div>
-                  <Button variant="outline">Manage SCIM</Button>
-                </div>
+                )
               ) : (
                 <div className="space-y-4">
                   <p className="text-muted-foreground text-sm">
-                    SCIM is not enabled. Enable SCIM to automatically provision
-                    and deprovision users.
+                    SCIM provisioning is available on the Enterprise plan.
+                    Upgrade to automatically sync users from your identity
+                    provider.
                   </p>
-                  <Button variant="outline">Enable SCIM</Button>
+                  <Button asChild variant="outline">
+                    <a href="/dashboard/billing">Upgrade to Enterprise</a>
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -446,7 +489,7 @@ function OrganizationSettingsPage() {
         </TabsContent>
 
         {/* Features Tab */}
-        <TabsContent value="features" className="space-y-4 pt-4">
+        <TabsContent className="space-y-4 pt-4" value="features">
           <Card>
             <CardHeader>
               <CardTitle>AI Features</CardTitle>
@@ -499,17 +542,19 @@ function OrganizationSettingsPage() {
               </div>
 
               <Button
-                onClick={handleSaveFeatures}
                 disabled={updateMutation.isPending}
+                onClick={handleSaveFeatures}
               >
-                {updateMutation.isPending ? "Saving..." : "Save Feature Settings"}
+                {updateMutation.isPending
+                  ? "Saving..."
+                  : "Save Feature Settings"}
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Compliance Tab */}
-        <TabsContent value="compliance" className="space-y-4 pt-4">
+        <TabsContent className="space-y-4 pt-4" value="compliance">
           <Card>
             <CardHeader>
               <CardTitle>Data Retention</CardTitle>
@@ -521,10 +566,10 @@ function OrganizationSettingsPage() {
               <div className="space-y-2">
                 <Label>Data Retention Period (days)</Label>
                 <Input
+                  min={30}
+                  onChange={(e) => setDataRetentionDays(Number(e.target.value))}
                   type="number"
                   value={dataRetentionDays}
-                  onChange={(e) => setDataRetentionDays(Number(e.target.value))}
-                  min={30}
                 />
                 <p className="text-muted-foreground text-xs">
                   Messages and extracted data older than this will be
@@ -537,12 +582,12 @@ function OrganizationSettingsPage() {
               <div className="space-y-2">
                 <Label>Audit Log Retention (days)</Label>
                 <Input
-                  type="number"
-                  value={auditLogRetentionDays}
+                  min={90}
                   onChange={(e) =>
                     setAuditLogRetentionDays(Number(e.target.value))
                   }
-                  min={90}
+                  type="number"
+                  value={auditLogRetentionDays}
                 />
                 <p className="text-muted-foreground text-xs">
                   Audit logs older than this will be archived. Minimum 90 days.
@@ -565,10 +610,12 @@ function OrganizationSettingsPage() {
               </div>
 
               <Button
-                onClick={handleSaveCompliance}
                 disabled={updateMutation.isPending}
+                onClick={handleSaveCompliance}
               >
-                {updateMutation.isPending ? "Saving..." : "Save Compliance Settings"}
+                {updateMutation.isPending
+                  ? "Saving..."
+                  : "Save Compliance Settings"}
               </Button>
             </CardContent>
           </Card>

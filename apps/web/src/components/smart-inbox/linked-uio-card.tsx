@@ -14,6 +14,7 @@
 
 "use client";
 
+import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow, isPast } from "date-fns";
 import {
   AlertTriangle,
@@ -27,7 +28,6 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -144,7 +144,10 @@ const TYPE_CONFIG: Record<
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" }
+  {
+    label: string;
+    variant: "default" | "secondary" | "success" | "warning" | "destructive";
+  }
 > = {
   pending: { label: "Pending", variant: "secondary" },
   not_started: { label: "Not Started", variant: "secondary" },
@@ -164,11 +167,18 @@ const STATUS_CONFIG: Record<
 // =============================================================================
 
 function getStatusConfig(status: string) {
-  return STATUS_CONFIG[status.toLowerCase()] ?? { label: status, variant: "secondary" as const };
+  return (
+    STATUS_CONFIG[status.toLowerCase()] ?? {
+      label: status,
+      variant: "secondary" as const,
+    }
+  );
 }
 
 function formatDueDate(date: Date | null | undefined): string | null {
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
   const d = new Date(date);
   return formatDistanceToNow(d, { addSuffix: true });
 }
@@ -212,10 +222,15 @@ export function LinkedUIOCard({ uio, className }: LinkedUIOCardProps) {
       <div className="min-w-0 flex-1">
         {/* Type label + Status */}
         <div className="mb-1 flex items-center gap-2">
-          <span className={cn("text-[10px] font-medium uppercase", config.color)}>
+          <span
+            className={cn("font-medium text-[10px] uppercase", config.color)}
+          >
             {config.label}
           </span>
-          <Badge className="h-4 px-1.5 text-[9px]" variant={statusConfig.variant}>
+          <Badge
+            className="h-4 px-1.5 text-[9px]"
+            variant={statusConfig.variant}
+          >
             {statusConfig.label}
           </Badge>
         </div>

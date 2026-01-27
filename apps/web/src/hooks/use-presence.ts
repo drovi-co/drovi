@@ -66,7 +66,9 @@ export function usePresenceHeartbeat(params: {
 
   const sendHeartbeat = useCallback(
     (viewingType?: ViewingType, viewingId?: string) => {
-      if (!params.enabled) return;
+      if (!params.enabled) {
+        return;
+      }
 
       heartbeatMutation.mutate({
         organizationId: params.organizationId,
@@ -79,7 +81,9 @@ export function usePresenceHeartbeat(params: {
 
   // Set up periodic heartbeat
   useEffect(() => {
-    if (!params.enabled) return;
+    if (!params.enabled) {
+      return;
+    }
 
     // Initial heartbeat
     sendHeartbeat();
@@ -87,7 +91,7 @@ export function usePresenceHeartbeat(params: {
     // Periodic heartbeat every 30 seconds
     heartbeatIntervalRef.current = setInterval(() => {
       sendHeartbeat();
-    }, 30000);
+    }, 30_000);
 
     return () => {
       if (heartbeatIntervalRef.current) {
@@ -115,7 +119,7 @@ export function useOnlineUsers(params: {
   return useQuery(
     trpc.presence.getOnlineUsers.queryOptions(
       { organizationId: params.organizationId },
-      { enabled: params.enabled ?? true, refetchInterval: 10000 }
+      { enabled: params.enabled ?? true, refetchInterval: 10_000 }
     )
   );
 }
@@ -203,7 +207,7 @@ export function useSetViewing(params: { organizationId: string }) {
 /**
  * Set user's presence status.
  */
-export function useSetStatus(params: { organizationId: string }) {
+export function useSetStatus(_params: { organizationId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -257,7 +261,10 @@ export function useTypingIndicator(params: {
     const { organizationId, resourceType, resourceId } = paramsRef.current;
 
     // Debounce: don't call if same state or called too recently (within 1 second)
-    if (isTyping === isCurrentlyTypingRef.current && now - lastTypingCallRef.current < 1000) {
+    if (
+      isTyping === isCurrentlyTypingRef.current &&
+      now - lastTypingCallRef.current < 1000
+    ) {
       return;
     }
 
@@ -366,7 +373,9 @@ export { PresenceContext };
 export function usePresenceConnection(): PresenceContextValue {
   const context = useContext(PresenceContext);
   if (!context) {
-    throw new Error("usePresenceConnection must be used within a PresenceProvider");
+    throw new Error(
+      "usePresenceConnection must be used within a PresenceProvider"
+    );
   }
   return context;
 }
@@ -401,7 +410,9 @@ export function usePresenceWebSocket(params: UsePresenceWebSocketParams) {
 
   // Connection management
   const connect = useCallback(() => {
-    if (!enabled || !organizationId) return;
+    if (!(enabled && organizationId)) {
+      return;
+    }
 
     // Close existing connection
     if (wsRef.current) {
@@ -469,7 +480,7 @@ export function usePresenceWebSocket(params: UsePresenceWebSocketParams) {
           // Start heartbeat
           heartbeatIntervalRef.current = setInterval(() => {
             send({ type: "heartbeat" });
-          }, 30000);
+          }, 30_000);
           break;
 
         case "heartbeat_ack":
@@ -635,21 +646,28 @@ export function useTrackViewing(params: {
   mutationRef.current = setViewingMutation;
 
   useEffect(() => {
-    const { enabled, organizationId, resourceType, resourceId } = paramsRef.current;
+    const { enabled, organizationId, resourceType, resourceId } =
+      paramsRef.current;
 
-    if (!enabled || !organizationId || !resourceId) {
+    if (!(enabled && organizationId && resourceId)) {
       return;
     }
 
     const resourceKey = `${resourceType}:${resourceId}`;
 
     // Skip if we're already viewing this exact resource
-    if (currentResourceRef.current === resourceKey && hasCalledStartRef.current) {
+    if (
+      currentResourceRef.current === resourceKey &&
+      hasCalledStartRef.current
+    ) {
       return;
     }
 
     // If switching resources, stop viewing the old one first
-    if (currentResourceRef.current && currentResourceRef.current !== resourceKey) {
+    if (
+      currentResourceRef.current &&
+      currentResourceRef.current !== resourceKey
+    ) {
       if (presenceContext?.isConnected) {
         presenceContext.stopViewing();
       }

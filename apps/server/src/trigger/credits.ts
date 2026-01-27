@@ -157,7 +157,7 @@ export const handleSubscriptionChangeTask = task({
   id: "handle-subscription-change",
   run: async (payload: {
     organizationId: string;
-    plan: "free" | "pro" | "enterprise";
+    plan: "trial" | "pro" | "enterprise";
     polarSubscriptionId?: string;
   }) => {
     const { updateOrgPlan } = await import("@memorystack/api/lib/credits");

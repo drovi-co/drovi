@@ -748,7 +748,9 @@ async function linkRelatedEmailThreads(
  * Filters out common stop words and short words.
  */
 function extractSearchKeywords(text: string): string[] {
-  if (!text) return [];
+  if (!text) {
+    return [];
+  }
 
   // Common stop words to filter out
   const stopWords = new Set([
@@ -900,10 +902,18 @@ function calculateEventUrgency(event: CalendarEventData): number {
     (event.start.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   // Events happening soon are more urgent
-  if (hoursUntilEvent < 1) return 1.0;
-  if (hoursUntilEvent < 4) return 0.9;
-  if (hoursUntilEvent < 24) return 0.7;
-  if (hoursUntilEvent < 72) return 0.5;
+  if (hoursUntilEvent < 1) {
+    return 1.0;
+  }
+  if (hoursUntilEvent < 4) {
+    return 0.9;
+  }
+  if (hoursUntilEvent < 24) {
+    return 0.7;
+  }
+  if (hoursUntilEvent < 72) {
+    return 0.5;
+  }
   return 0.3;
 }
 
@@ -914,18 +924,28 @@ function calculateEventImportance(event: CalendarEventData): number {
   let score = 0.5;
 
   // More attendees = more important
-  if (event.attendees.length > 10) score += 0.2;
-  else if (event.attendees.length > 5) score += 0.15;
-  else if (event.attendees.length > 2) score += 0.1;
+  if (event.attendees.length > 10) {
+    score += 0.2;
+  } else if (event.attendees.length > 5) {
+    score += 0.15;
+  } else if (event.attendees.length > 2) {
+    score += 0.1;
+  }
 
   // Events with video conference are often more formal
-  if (event.conferenceData) score += 0.1;
+  if (event.conferenceData) {
+    score += 0.1;
+  }
 
   // All-day events are often important
-  if (event.isAllDay) score += 0.05;
+  if (event.isAllDay) {
+    score += 0.05;
+  }
 
   // Recurring events indicate regular importance
-  if (event.recurringEventId) score += 0.05;
+  if (event.recurringEventId) {
+    score += 0.05;
+  }
 
   return Math.min(score, 1.0);
 }
@@ -943,9 +963,15 @@ function determineEventPriority(event: CalendarEventData): PriorityTier {
   const importance = calculateEventImportance(event);
   const combined = (urgency + importance) / 2;
 
-  if (combined >= 0.8) return "urgent";
-  if (combined >= 0.6) return "high";
-  if (combined >= 0.4) return "medium";
+  if (combined >= 0.8) {
+    return "urgent";
+  }
+  if (combined >= 0.6) {
+    return "high";
+  }
+  if (combined >= 0.4) {
+    return "medium";
+  }
   return "low";
 }
 
@@ -969,7 +995,6 @@ function mapEventCommitmentStatus(
       return "pending"; // Confirmed attendance but event hasn't happened yet
     case "cancelled":
       return "cancelled";
-    case "pending":
     default:
       return "waiting"; // Awaiting responses
   }

@@ -9,18 +9,15 @@
 // - Contact intelligence refresh
 //
 
-import { createNotification } from "@memorystack/api/routers/notifications";
 import { db } from "@memorystack/db";
 import {
   commitment,
   contact,
   contactAlert,
   contactIntelligenceSnapshot,
-  organization,
-  sourceAccount,
 } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
-import { and, count, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { log } from "../lib/logger";
 
 // =============================================================================
@@ -467,10 +464,16 @@ export const commitmentBreachPatternTask = task({
       }
 
       // Group by conversation to find patterns
-      const conversationCommitments = new Map<string, typeof overdueCommitments>();
+      const conversationCommitments = new Map<
+        string,
+        typeof overdueCommitments
+      >();
       for (const c of overdueCommitments) {
-        if (!c.sourceConversationId) continue;
-        const existing = conversationCommitments.get(c.sourceConversationId) ?? [];
+        if (!c.sourceConversationId) {
+          continue;
+        }
+        const existing =
+          conversationCommitments.get(c.sourceConversationId) ?? [];
         existing.push(c);
         conversationCommitments.set(c.sourceConversationId, existing);
       }
@@ -652,9 +655,7 @@ export const contactIntelligenceRefreshTask = task({
         });
       } else {
         // Get all contacts that need refresh (no refresh in last 24 hours)
-        const refreshThreshold = new Date(
-          Date.now() - 24 * 60 * 60 * 1000
-        );
+        const refreshThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
         contactsToRefresh = await db.query.contact.findMany({
           where: and(
@@ -709,7 +710,9 @@ export const contactIntelligenceRefreshTask = task({
               where: eq(contact.id, c.id),
             });
 
-            if (!currentContact) continue;
+            if (!currentContact) {
+              continue;
+            }
 
             // Create snapshot
             await db.insert(contactIntelligenceSnapshot).values({
@@ -723,7 +726,7 @@ export const contactIntelligenceRefreshTask = task({
               influenceScore: currentContact.influenceScore,
               bridgingScore: currentContact.bridgingScore,
               churnRiskScore: null, // Computed by pipeline
-              interactionCount: currentContact.interactionCount,
+              interactionCount: null, // Will be computed by pipeline
               responseRate: currentContact.responseRate,
               relationshipMetrics: null,
               communicationProfile: null,
@@ -743,8 +746,9 @@ export const contactIntelligenceRefreshTask = task({
 
             contactsRefreshed++;
           } catch (err) {
-            log.warn("Failed to refresh contact intelligence", err, {
+            log.warn("Failed to refresh contact intelligence", {
               contactId: c.id,
+              error: String(err),
             });
           }
         }
@@ -1049,7 +1053,9 @@ export const vipSilenceSchedule = schedules.task({
   run: async () => {
     log.info("Running scheduled VIP silence check");
 
-    const result = await batchVIPSilenceAlertTask.triggerAndWait({});
+    const result = await batchVIPSilenceAlertTask.triggerAndWait(
+      undefined as unknown as undefined
+    );
 
     log.info("Scheduled VIP silence check completed", result);
 
@@ -1066,7 +1072,9 @@ export const relationshipDegradationSchedule = schedules.task({
   run: async () => {
     log.info("Running scheduled relationship degradation check");
 
-    const result = await batchRelationshipDegradationTask.triggerAndWait({});
+    const result = await batchRelationshipDegradationTask.triggerAndWait(
+      undefined as unknown as undefined
+    );
 
     log.info("Scheduled relationship degradation check completed", result);
 
@@ -1083,7 +1091,9 @@ export const commitmentBreachSchedule = schedules.task({
   run: async () => {
     log.info("Running scheduled commitment breach pattern check");
 
-    const result = await batchCommitmentBreachTask.triggerAndWait({});
+    const result = await batchCommitmentBreachTask.triggerAndWait(
+      undefined as unknown as undefined
+    );
 
     log.info("Scheduled commitment breach pattern check completed", result);
 
@@ -1100,7 +1110,9 @@ export const intelligenceRefreshSchedule = schedules.task({
   run: async () => {
     log.info("Running scheduled contact intelligence refresh");
 
-    const result = await batchIntelligenceRefreshTask.triggerAndWait({});
+    const result = await batchIntelligenceRefreshTask.triggerAndWait(
+      undefined as unknown as undefined
+    );
 
     log.info("Scheduled contact intelligence refresh completed", result);
 

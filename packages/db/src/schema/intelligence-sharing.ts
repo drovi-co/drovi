@@ -261,7 +261,10 @@ export const teammateContactLink = pgTable(
     index("teammate_link_verified_idx").on(table.isVerified),
     index("teammate_link_active_idx").on(table.isActive),
     // A user can only be linked to a contact once per org
-    unique("teammate_link_user_contact_unique").on(table.userId, table.contactId),
+    unique("teammate_link_user_contact_unique").on(
+      table.userId,
+      table.contactId
+    ),
   ]
 );
 

@@ -424,7 +424,9 @@ export function ThreadList({
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const thread = threads[virtualRow.index];
-              if (!thread) return null;
+              if (!thread) {
+                return null;
+              }
               return (
                 <div
                   className="overflow-hidden px-3 py-2"

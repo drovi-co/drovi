@@ -122,12 +122,22 @@ function getUrgencyLevel(
   dueDate: Date | null | undefined,
   status: string
 ): "overdue" | "urgent" | "soon" | "normal" {
-  if (status === "overdue") return "overdue";
-  if (!dueDate) return "normal";
+  if (status === "overdue") {
+    return "overdue";
+  }
+  if (!dueDate) {
+    return "normal";
+  }
 
-  if (isPast(dueDate)) return "overdue";
-  if (isToday(dueDate) || isTomorrow(dueDate)) return "urgent";
-  if (isThisWeek(dueDate)) return "soon";
+  if (isPast(dueDate)) {
+    return "overdue";
+  }
+  if (isToday(dueDate) || isTomorrow(dueDate)) {
+    return "urgent";
+  }
+  if (isThisWeek(dueDate)) {
+    return "soon";
+  }
   return "normal";
 }
 

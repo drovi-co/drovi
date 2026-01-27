@@ -2,6 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  PresenceIndicator,
+  type PresenceStatus,
+} from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +22,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PresenceIndicator, type PresenceStatus } from "@/components/collaboration";
 import { useOnlineUsers } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 
@@ -193,7 +196,8 @@ function MembersPage() {
                   .slice(0, 2);
 
                 // Get presence status for this member
-                const presenceStatus = presenceMap.get(member.user?.id) ?? "offline";
+                const presenceStatus =
+                  presenceMap.get(member.user?.id) ?? "offline";
 
                 return (
                   <div
@@ -210,15 +214,20 @@ function MembersPage() {
                           <AvatarFallback>{initials ?? "U"}</AvatarFallback>
                         </Avatar>
                         {/* Presence indicator positioned at bottom-right of avatar */}
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                          <PresenceIndicator status={presenceStatus} size="sm" />
+                        <span className="absolute -right-0.5 -bottom-0.5">
+                          <PresenceIndicator
+                            size="sm"
+                            status={presenceStatus}
+                          />
                         </span>
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{member.user?.name}</p>
                           {presenceStatus === "online" && (
-                            <span className="text-[10px] text-green-600">Online</span>
+                            <span className="text-[10px] text-green-600">
+                              Online
+                            </span>
                           )}
                         </div>
                         <p className="text-muted-foreground text-sm">

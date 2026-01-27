@@ -347,7 +347,6 @@ export const tasksRouter = router({
             return input.sortOrder === "asc"
               ? [asc(task.updatedAt)]
               : [desc(task.updatedAt)];
-          case "createdAt":
           default:
             return input.sortOrder === "asc"
               ? [asc(task.createdAt)]

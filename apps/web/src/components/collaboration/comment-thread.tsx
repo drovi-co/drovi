@@ -10,20 +10,19 @@
  * - Edit/delete capabilities
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { formatDistanceToNow } from "date-fns";
 import {
-  useComments,
-  useCreateComment,
-  useAddReaction,
-  useRemoveReaction,
-  useResolveThread,
-  useDeleteComment,
-  type CommentTargetType,
-} from "@/hooks/use-collaboration";
-import { useTypingIndicator, useResourceViewers } from "@/hooks/use-presence";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+  CheckCircle,
+  Edit2,
+  MessageSquare,
+  MoreHorizontal,
+  Reply,
+  SmilePlus,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,17 +30,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  MessageSquare,
-  MoreHorizontal,
-  CheckCircle,
-  Trash2,
-  Edit2,
-  Reply,
-  SmilePlus,
-} from "lucide-react";
-import { MentionInput, type MentionData } from "./mention-input";
+  type CommentTargetType,
+  useAddReaction,
+  useComments,
+  useCreateComment,
+  useDeleteComment,
+  useRemoveReaction,
+  useResolveThread,
+} from "@/hooks/use-collaboration";
+import { useTypingIndicator } from "@/hooks/use-presence";
+import { cn } from "@/lib/utils";
+import { MentionInput } from "./mention-input";
 import { TypingIndicator } from "./who-is-viewing";
-import { formatDistanceToNow } from "date-fns";
 
 // =============================================================================
 // Types
@@ -133,7 +133,12 @@ export function CommentThread({
   const deleteComment = useDeleteComment({ organizationId });
 
   // Typing indicator for comment thread
-  const resourceType = targetType === "conversation" ? "conversation" : targetType === "uio" ? "uio" : "other";
+  const resourceType =
+    targetType === "conversation"
+      ? "conversation"
+      : targetType === "uio"
+        ? "uio"
+        : "other";
   const { setTyping } = useTypingIndicator({
     organizationId,
     resourceType: resourceType as "conversation" | "uio" | "other",
@@ -185,7 +190,9 @@ export function CommentThread({
 
   // Handle new comment submission
   const handleSubmitComment = useCallback(async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      return;
+    }
 
     await createComment.mutateAsync({
       organizationId,
@@ -196,12 +203,21 @@ export function CommentThread({
 
     setNewComment("");
     refetch();
-  }, [newComment, organizationId, targetType, targetId, createComment, refetch]);
+  }, [
+    newComment,
+    organizationId,
+    targetType,
+    targetId,
+    createComment,
+    refetch,
+  ]);
 
   // Handle reply submission
   const handleSubmitReply = useCallback(
     async (parentId: string) => {
-      if (!replyContent.trim()) return;
+      if (!replyContent.trim()) {
+        return;
+      }
 
       await createComment.mutateAsync({
         organizationId,
@@ -264,20 +280,22 @@ export function CommentThread({
         ) : (
           rootComments.map((comment) => (
             <CommentItem
-              key={comment.id}
               comment={comment}
-              replies={replyMap.get(comment.id) ?? []}
-              replyMap={replyMap}
               currentUserId={currentUserId}
-              organizationId={organizationId}
-              replyingTo={replyingTo}
-              replyContent={replyContent}
-              onReplyClick={(id) => setReplyingTo(id === replyingTo ? null : id)}
-              onReplyChange={setReplyContent}
-              onReplySubmit={handleSubmitReply}
-              onResolve={handleResolve}
+              key={comment.id}
               onDelete={handleDelete}
               onRefetch={refetch}
+              onReplyChange={setReplyContent}
+              onReplyClick={(id) =>
+                setReplyingTo(id === replyingTo ? null : id)
+              }
+              onReplySubmit={handleSubmitReply}
+              onResolve={handleResolve}
+              organizationId={organizationId}
+              replies={replyMap.get(comment.id) ?? []}
+              replyContent={replyContent}
+              replyingTo={replyingTo}
+              replyMap={replyMap}
             />
           ))
         )}
@@ -288,22 +306,22 @@ export function CommentThread({
         {/* Typing indicator */}
         <TypingIndicator
           organizationId={organizationId}
-          resourceType={resourceType as "conversation" | "uio" | "other"}
           resourceId={targetId}
+          resourceType={resourceType as "conversation" | "uio" | "other"}
         />
         <MentionInput
-          organizationId={organizationId}
-          value={newComment}
-          onChange={setNewComment}
-          placeholder="Write a comment... Use @ to mention someone"
-          minRows={2}
           maxRows={6}
+          minRows={2}
+          onChange={setNewComment}
+          organizationId={organizationId}
+          placeholder="Write a comment... Use @ to mention someone"
+          value={newComment}
         />
         <div className="flex justify-end">
           <Button
-            size="sm"
-            onClick={handleSubmitComment}
             disabled={!newComment.trim() || createComment.isPending}
+            onClick={handleSubmitComment}
+            size="sm"
           >
             {createComment.isPending ? "Posting..." : "Post Comment"}
           </Button>
@@ -395,10 +413,10 @@ function CommentItem({
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium">
+            <p className="font-medium text-sm">
               {comment.user?.name ?? "Unknown"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {formatDistanceToNow(new Date(comment.createdAt), {
                 addSuffix: true,
               })}
@@ -410,7 +428,7 @@ function CommentItem({
         {/* Actions dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button className="h-8 w-8" size="icon" variant="ghost">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -419,7 +437,7 @@ function CommentItem({
               <Reply className="mr-2 h-4 w-4" />
               Reply
             </DropdownMenuItem>
-            {!comment.parentCommentId && !comment.isResolved && (
+            {!(comment.parentCommentId || comment.isResolved) && (
               <DropdownMenuItem onClick={() => onResolve(comment.id)}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Resolve Thread
@@ -432,8 +450,8 @@ function CommentItem({
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onDelete(comment.id)}
                   className="text-destructive"
+                  onClick={() => onDelete(comment.id)}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
@@ -446,7 +464,7 @@ function CommentItem({
 
       {/* Resolved badge */}
       {comment.isResolved && (
-        <div className="mt-2 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+        <div className="mt-2 flex items-center gap-1 text-green-600 text-xs dark:text-green-400">
           <CheckCircle className="h-3 w-3" />
           Resolved by {comment.resolvedByUser?.name ?? "someone"}
         </div>
@@ -455,9 +473,9 @@ function CommentItem({
       {/* Content */}
       <div className="mt-3 text-sm">
         {comment.isDeleted ? (
-          <span className="italic text-muted-foreground">[deleted]</span>
+          <span className="text-muted-foreground italic">[deleted]</span>
         ) : (
-          comment.contentPlainText ?? comment.content
+          (comment.contentPlainText ?? comment.content)
         )}
       </div>
 
@@ -466,13 +484,13 @@ function CommentItem({
         <div className="mt-3 flex flex-wrap gap-1">
           {comment.reactions.map((reaction) => (
             <button
-              key={reaction.emoji}
-              onClick={() => handleReaction(reaction.emoji)}
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-accent",
                 reaction.userIds.includes(currentUserId) &&
                   "border-primary bg-primary/10"
               )}
+              key={reaction.emoji}
+              onClick={() => handleReaction(reaction.emoji)}
             >
               <span>{reaction.emoji}</span>
               <span>{reaction.count}</span>
@@ -485,7 +503,7 @@ function CommentItem({
       <div className="mt-2 flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 px-2">
+            <Button className="h-6 px-2" size="sm" variant="ghost">
               <SmilePlus className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -493,9 +511,9 @@ function CommentItem({
             <div className="grid grid-cols-4 gap-1 p-2">
               {COMMON_REACTIONS.map((emoji) => (
                 <button
+                  className="rounded p-1 text-lg hover:bg-accent"
                   key={emoji}
                   onClick={() => handleReaction(emoji)}
-                  className="rounded p-1 text-lg hover:bg-accent"
                 >
                   {emoji}
                 </button>
@@ -505,10 +523,10 @@ function CommentItem({
         </DropdownMenu>
 
         <Button
-          variant="ghost"
-          size="sm"
           className="h-6 px-2"
           onClick={() => onReplyClick(comment.id)}
+          size="sm"
+          variant="ghost"
         >
           <Reply className="mr-1 h-3.5 w-3.5" />
           Reply
@@ -519,25 +537,25 @@ function CommentItem({
       {replyingTo === comment.id && (
         <div className="mt-3 space-y-2 border-t pt-3">
           <MentionInput
-            organizationId={organizationId}
-            value={replyContent}
-            onChange={onReplyChange}
-            placeholder="Write a reply..."
-            minRows={1}
             maxRows={4}
+            minRows={1}
+            onChange={onReplyChange}
+            organizationId={organizationId}
+            placeholder="Write a reply..."
+            value={replyContent}
           />
           <div className="flex justify-end gap-2">
             <Button
-              variant="ghost"
-              size="sm"
               onClick={() => onReplyClick(comment.id)}
+              size="sm"
+              variant="ghost"
             >
               Cancel
             </Button>
             <Button
-              size="sm"
-              onClick={() => onReplySubmit(comment.id)}
               disabled={!replyContent.trim()}
+              onClick={() => onReplySubmit(comment.id)}
+              size="sm"
             >
               Reply
             </Button>
@@ -547,23 +565,23 @@ function CommentItem({
 
       {/* Nested replies */}
       {replies.length > 0 && (
-        <div className="ml-6 mt-4 space-y-3 border-l-2 pl-4">
+        <div className="mt-4 ml-6 space-y-3 border-l-2 pl-4">
           {replies.map((reply) => (
             <CommentItem
-              key={reply.id}
               comment={reply}
-              replies={replyMap.get(reply.id) ?? []}
-              replyMap={replyMap}
               currentUserId={currentUserId}
-              organizationId={organizationId}
-              replyingTo={replyingTo}
-              replyContent={replyContent}
-              onReplyClick={onReplyClick}
-              onReplyChange={onReplyChange}
-              onReplySubmit={onReplySubmit}
-              onResolve={onResolve}
+              key={reply.id}
               onDelete={onDelete}
               onRefetch={onRefetch}
+              onReplyChange={onReplyChange}
+              onReplyClick={onReplyClick}
+              onReplySubmit={onReplySubmit}
+              onResolve={onResolve}
+              organizationId={organizationId}
+              replies={replyMap.get(reply.id) ?? []}
+              replyContent={replyContent}
+              replyingTo={replyingTo}
+              replyMap={replyMap}
             />
           ))}
         </div>

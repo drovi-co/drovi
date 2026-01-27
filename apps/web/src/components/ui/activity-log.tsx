@@ -359,7 +359,7 @@ function SubscriberButton({
     >
       {subscribers.length > 0 && (
         <div className="flex -space-x-1">
-          {subscribers.slice(0, 3).map((user, idx) => (
+          {subscribers.slice(0, 3).map((user, _idx) => (
             <AssigneeIcon
               className="ring-1 ring-background"
               imageUrl={user.imageUrl}

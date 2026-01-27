@@ -375,7 +375,9 @@ export const emailSyncRouter = router({
       const newSettings: SourceAccountSettings = {
         ...existingSettings,
         syncEnabled: input.settings.syncEnabled ?? existingSettings.syncEnabled,
-        syncFrequencyMinutes: input.settings.syncFrequencyMinutes ?? existingSettings.syncFrequencyMinutes,
+        syncFrequencyMinutes:
+          input.settings.syncFrequencyMinutes ??
+          existingSettings.syncFrequencyMinutes,
       };
 
       await db

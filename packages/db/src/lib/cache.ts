@@ -51,7 +51,9 @@ export class Cache {
    */
   async get<T>(key: string): Promise<T | null> {
     const redis = getRedisOrNull();
-    if (!redis) return null;
+    if (!redis) {
+      return null;
+    }
 
     try {
       const fullKey = this.buildKey(key);
@@ -80,7 +82,9 @@ export class Cache {
     options?: Partial<CacheOptions>
   ): Promise<void> {
     const redis = getRedisOrNull();
-    if (!redis) return;
+    if (!redis) {
+      return;
+    }
 
     try {
       const fullKey = this.buildKey(key);
@@ -98,7 +102,9 @@ export class Cache {
    */
   async delete(key: string): Promise<boolean> {
     const redis = getRedisOrNull();
-    if (!redis) return false;
+    if (!redis) {
+      return false;
+    }
 
     try {
       const fullKey = this.buildKey(key);
@@ -116,7 +122,9 @@ export class Cache {
    */
   async invalidate(pattern: string): Promise<number> {
     const redis = getRedisOrNull();
-    if (!redis) return 0;
+    if (!redis) {
+      return 0;
+    }
 
     try {
       const fullPattern = this.buildKey(pattern);
@@ -170,7 +178,9 @@ export class Cache {
    */
   async exists(key: string): Promise<boolean> {
     const redis = getRedisOrNull();
-    if (!redis) return false;
+    if (!redis) {
+      return false;
+    }
 
     try {
       const fullKey = this.buildKey(key);
@@ -187,7 +197,9 @@ export class Cache {
    */
   async ttl(key: string): Promise<number> {
     const redis = getRedisOrNull();
-    if (!redis) return -2;
+    if (!redis) {
+      return -2;
+    }
 
     try {
       const fullKey = this.buildKey(key);
@@ -264,8 +276,12 @@ export function buildInboxKey(
     params.accountId ?? "all",
     params.filter ?? "inbox",
   ];
-  if (params.cursor) parts.push(params.cursor);
-  if (params.limit) parts.push(String(params.limit));
+  if (params.cursor) {
+    parts.push(params.cursor);
+  }
+  if (params.limit) {
+    parts.push(String(params.limit));
+  }
   return parts.join(":");
 }
 
@@ -281,9 +297,15 @@ export function buildContactsKey(
   }
 ): string {
   const parts = [organizationId];
-  if (params?.search) parts.push(`s:${params.search}`);
-  if (params?.limit) parts.push(`l:${params.limit}`);
-  if (params?.offset) parts.push(`o:${params.offset}`);
+  if (params?.search) {
+    parts.push(`s:${params.search}`);
+  }
+  if (params?.limit) {
+    parts.push(`l:${params.limit}`);
+  }
+  if (params?.offset) {
+    parts.push(`o:${params.offset}`);
+  }
   return parts.join(":");
 }
 
@@ -300,9 +322,15 @@ export function buildSearchKey(
   }
 ): string {
   const parts = [organizationId, query];
-  if (params?.limit) parts.push(`l:${params.limit}`);
-  if (params?.offset) parts.push(`o:${params.offset}`);
-  if (params?.filters) parts.push(`f:${JSON.stringify(params.filters)}`);
+  if (params?.limit) {
+    parts.push(`l:${params.limit}`);
+  }
+  if (params?.offset) {
+    parts.push(`o:${params.offset}`);
+  }
+  if (params?.filters) {
+    parts.push(`f:${JSON.stringify(params.filters)}`);
+  }
   return parts.join(":");
 }
 

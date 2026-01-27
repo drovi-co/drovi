@@ -11,11 +11,8 @@ import { useCallback } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
+import { getSourceColor, type SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
-import {
-  getSourceColor,
-  type SourceType,
-} from "@/lib/source-config";
 
 // =============================================================================
 // TYPES
@@ -62,7 +59,9 @@ export interface ConversationListItemProps {
 // =============================================================================
 
 function formatRelativeDate(date: Date | null): string {
-  if (!date) return "";
+  if (!date) {
+    return "";
+  }
   return format(new Date(date), "MMM d");
 }
 
@@ -85,7 +84,9 @@ function getParticipantName(p: ConversationParticipant): string {
 }
 
 function truncateName(name: string, maxLength: number): string {
-  if (name.length <= maxLength) return name;
+  if (name.length <= maxLength) {
+    return name;
+  }
   return `${name.slice(0, maxLength - 1)}…`;
 }
 
@@ -93,13 +94,20 @@ function truncateName(name: string, maxLength: number): string {
 // SOURCE BADGE COMPONENT
 // =============================================================================
 
-function SourceBadge({ sourceType, name }: { sourceType: SourceType; name?: string }) {
+function SourceBadge({
+  sourceType,
+  name,
+}: {
+  sourceType: SourceType;
+  name?: string;
+}) {
   const color = getSourceColor(sourceType);
-  const displayName = name ?? sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
+  const displayName =
+    name ?? sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
 
   return (
     <div
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-[11px]"
       style={{ backgroundColor: `${color}15`, color }}
     >
       <span
@@ -132,54 +140,50 @@ export function ConversationListItem({
     ? truncateName(getParticipantName(firstParticipant), 20)
     : null;
 
-  const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleDone?.(conversation.id);
-  }, [conversation.id, onToggleDone]);
+  const handleCheckboxClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleDone?.(conversation.id);
+    },
+    [conversation.id, onToggleDone]
+  );
 
-  const handleStarClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleStar?.(conversation.id);
-  }, [conversation.id, onToggleStar]);
+  const handleStarClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleStar?.(conversation.id);
+    },
+    [conversation.id, onToggleStar]
+  );
 
   return (
     <div
       className={cn(
         "group relative cursor-pointer",
-        "border-b border-border/40",
+        "border-border/40 border-b",
         "transition-colors duration-75",
-        selected && "bg-muted/60 border-l-2 border-l-primary",
+        selected && "border-l-2 border-l-primary bg-muted/60",
         !selected && "hover:bg-muted/30",
         isDone && "opacity-60",
         className
       )}
       onClick={onClick}
     >
-      <div
-        className={cn(
-          "px-3 py-3",
-          selected && "pl-[calc(0.75rem-2px)]"
-        )}
-      >
+      <div className={cn("px-3 py-3", selected && "pl-[calc(0.75rem-2px)]")}>
         {/* Row 1: Checkbox + Subject + Date */}
         <div className="mb-1 flex items-center gap-2">
           {/* Checkbox - inline with subject */}
-          <div
-            className="shrink-0"
-            onClick={handleCheckboxClick}
-          >
-            <IssueCheckbox
-              checked={isDone}
-              size="sm"
-            />
+          <div className="shrink-0" onClick={handleCheckboxClick}>
+            <IssueCheckbox checked={isDone} size="sm" />
           </div>
 
           {/* Subject/Title - truncated */}
           <span
             className={cn(
               "min-w-0 flex-1 truncate text-[13px] leading-tight",
-              isDone && "line-through text-muted-foreground",
-              !isDone && !conversation.isRead && "font-semibold text-foreground",
+              isDone && "text-muted-foreground line-through",
+              !(isDone || conversation.isRead) &&
+                "font-semibold text-foreground",
               !isDone && conversation.isRead && "font-medium text-foreground"
             )}
             title={conversation.title || "No subject"}
@@ -206,8 +210,8 @@ export function ConversationListItem({
         {/* Row 3: Source + Person + Indicators */}
         <div className="flex items-center gap-2">
           <SourceBadge
-            sourceType={conversation.sourceType}
             name={conversation.sourceAccountName?.split("@")[0]}
+            sourceType={conversation.sourceType}
           />
 
           {firstParticipant && (
@@ -219,7 +223,7 @@ export function ConversationListItem({
                     src={firstParticipant.avatarUrl}
                   />
                 )}
-                <AvatarFallback className="bg-emerald-500 text-white text-[8px] font-medium">
+                <AvatarFallback className="bg-emerald-500 font-medium text-[8px] text-white">
                   {getInitials(firstParticipant.name, firstParticipant.email)}
                 </AvatarFallback>
               </Avatar>
@@ -235,21 +239,27 @@ export function ConversationListItem({
           <div className="flex-1" />
 
           {/* Unread indicator */}
-          {!conversation.isRead && !isDone && (
+          {!(conversation.isRead || isDone) && (
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
           )}
 
           {/* Star */}
           <button
             className={cn(
-              "shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity",
-              conversation.isStarred && "opacity-100 text-yellow-500",
-              !conversation.isStarred && "text-muted-foreground hover:text-foreground"
+              "shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100",
+              conversation.isStarred && "text-yellow-500 opacity-100",
+              !conversation.isStarred &&
+                "text-muted-foreground hover:text-foreground"
             )}
             onClick={handleStarClick}
             type="button"
           >
-            <Star className={cn("h-3.5 w-3.5", conversation.isStarred && "fill-current")} />
+            <Star
+              className={cn(
+                "h-3.5 w-3.5",
+                conversation.isStarred && "fill-current"
+              )}
+            />
           </button>
         </div>
       </div>

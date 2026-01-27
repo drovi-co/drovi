@@ -35,12 +35,16 @@ function TrendIndicator({
   current?: number;
   previous?: number;
 }) {
-  if (!(current && previous)) return null;
+  if (!(current && previous)) {
+    return null;
+  }
 
   const diff = ((previous - current) / previous) * 100;
   const isImproving = diff > 0;
 
-  if (Math.abs(diff) < 5) return null;
+  if (Math.abs(diff) < 5) {
+    return null;
+  }
 
   return (
     <span

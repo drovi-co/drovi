@@ -102,26 +102,46 @@ function getPriority(
   // First check if there's a priorityTier from analysis
   if (priorityTier) {
     const tier = priorityTier.toLowerCase();
-    if (tier === "urgent") return "urgent";
-    if (tier === "high") return "high";
-    if (tier === "medium") return "medium";
-    if (tier === "low") return "low";
+    if (tier === "urgent") {
+      return "urgent";
+    }
+    if (tier === "high") {
+      return "high";
+    }
+    if (tier === "medium") {
+      return "medium";
+    }
+    if (tier === "low") {
+      return "low";
+    }
   }
 
   // Fall back to urgencyScore if available
   if (urgencyScore !== null) {
-    if (urgencyScore >= 0.8) return "urgent";
-    if (urgencyScore >= 0.6) return "high";
-    if (urgencyScore >= 0.4) return "medium";
-    if (urgencyScore >= 0.2) return "low";
+    if (urgencyScore >= 0.8) {
+      return "urgent";
+    }
+    if (urgencyScore >= 0.6) {
+      return "high";
+    }
+    if (urgencyScore >= 0.4) {
+      return "medium";
+    }
+    if (urgencyScore >= 0.2) {
+      return "low";
+    }
   }
 
   return "none";
 }
 
 function getStatus(isRead: boolean, isArchived: boolean): Status {
-  if (isArchived) return "done";
-  if (isRead) return "in_progress";
+  if (isArchived) {
+    return "done";
+  }
+  if (isRead) {
+    return "in_progress";
+  }
   return "todo";
 }
 
@@ -150,14 +170,18 @@ function getSenderName(
   const sender = participants.find((p) => p.id !== currentUserId);
   if (!sender) {
     const first = participants[0];
-    if (!first) return "Unknown";
+    if (!first) {
+      return "Unknown";
+    }
     return first.name || first.email?.split("@")[0] || "Unknown";
   }
   return sender.name || sender.email?.split("@")[0] || "Unknown";
 }
 
 function formatDate(date: Date | null): string {
-  if (!date) return "";
+  if (!date) {
+    return "";
+  }
   return formatDistanceToNow(date, { addSuffix: false });
 }
 
@@ -234,12 +258,18 @@ function InboxRow({
   // For document sources (Notion, Google Docs), prefer snippet since title is shown in "From"
   const getBriefText = () => {
     // AI-generated brief always takes priority
-    if (item.brief) return item.brief;
-    if (item.suggestedAction) return item.suggestedAction;
+    if (item.brief) {
+      return item.brief;
+    }
+    if (item.suggestedAction) {
+      return item.suggestedAction;
+    }
 
     // For document sources, show snippet (page content preview)
     if (item.sourceType === "notion" || item.sourceType === "google_docs") {
-      if (item.snippet && item.snippet.trim()) return item.snippet;
+      if (item.snippet?.trim()) {
+        return item.snippet;
+      }
       // If no snippet, fall back to something descriptive
       return item.conversationType === "notion_database"
         ? "Database entry"

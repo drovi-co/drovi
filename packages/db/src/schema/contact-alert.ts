@@ -16,9 +16,9 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { user } from "./auth";
 import { contact } from "./intelligence";
 import { organization } from "./organization";
-import { user } from "./auth";
 
 // =============================================================================
 // ENUMS

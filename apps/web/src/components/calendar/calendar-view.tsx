@@ -126,7 +126,9 @@ export function CalendarView({ accountId, className }: CalendarViewProps) {
 
   // Parse dates from API response
   const events: CalendarEvent[] = useMemo(() => {
-    if (!eventsData?.items) return [];
+    if (!eventsData?.items) {
+      return [];
+    }
 
     return eventsData.items.map((e: Record<string, unknown>) => ({
       ...e,

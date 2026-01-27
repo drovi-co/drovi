@@ -537,9 +537,15 @@ export const commitmentsRouter = router({
 
       // Generate digest (simplified local logic - no AI agent)
       const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
       const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-      const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const endOfWeek = new Date(
+        startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000
+      );
 
       interface DigestItem {
         title: string;
@@ -547,13 +553,28 @@ export const commitmentsRouter = router({
         daysOverdue: number;
       }
 
-      const owedByMe = { overdue: [] as DigestItem[], dueToday: [] as DigestItem[], upcoming: [] as DigestItem[] };
-      const owedToMe = { overdue: [] as DigestItem[], dueToday: [] as DigestItem[], upcoming: [] as DigestItem[] };
+      const owedByMe = {
+        overdue: [] as DigestItem[],
+        dueToday: [] as DigestItem[],
+        upcoming: [] as DigestItem[],
+      };
+      const owedToMe = {
+        overdue: [] as DigestItem[],
+        dueToday: [] as DigestItem[],
+        upcoming: [] as DigestItem[],
+      };
 
       for (const c of commitments) {
-        if (!c.dueDate) continue;
+        if (!c.dueDate) {
+          continue;
+        }
         const dueDate = new Date(c.dueDate);
-        const daysOverdue = Math.max(0, Math.floor((startOfToday.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)));
+        const daysOverdue = Math.max(
+          0,
+          Math.floor(
+            (startOfToday.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)
+          )
+        );
         const item: DigestItem = { title: c.title, dueDate, daysOverdue };
         const category = c.direction === "owed_by_me" ? owedByMe : owedToMe;
 
@@ -566,8 +587,13 @@ export const commitmentsRouter = router({
         }
       }
 
-      const totalOpen = owedByMe.overdue.length + owedByMe.dueToday.length + owedByMe.upcoming.length +
-                        owedToMe.overdue.length + owedToMe.dueToday.length + owedToMe.upcoming.length;
+      const totalOpen =
+        owedByMe.overdue.length +
+        owedByMe.dueToday.length +
+        owedByMe.upcoming.length +
+        owedToMe.overdue.length +
+        owedToMe.dueToday.length +
+        owedToMe.upcoming.length;
 
       return { owedByMe, owedToMe, totalOpen, generatedAt: now };
     }),

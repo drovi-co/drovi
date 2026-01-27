@@ -43,11 +43,11 @@ function AnalyticsPage() {
   const organizationId = activeOrg?.id ?? "";
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
 
-  const handleCommitmentClick = (commitmentId: string) => {
+  const handleCommitmentClick = (_commitmentId: string) => {
     navigate({ to: "/dashboard/commitments" });
   };
 
-  const handleDecisionClick = (decisionId: string) => {
+  const handleDecisionClick = (_decisionId: string) => {
     navigate({ to: "/dashboard/decisions" });
   };
 

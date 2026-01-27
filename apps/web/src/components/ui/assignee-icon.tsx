@@ -62,7 +62,7 @@ function getAvatarColor(identifier: string): string {
   for (let i = 0; i < identifier.length; i++) {
     const char = identifier.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash &= hash;
   }
 
   return colors[Math.abs(hash) % colors.length];
@@ -72,7 +72,7 @@ function getInitials(name?: string, email?: string): string {
   if (name) {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      return (parts[0]![0] + parts.at(-1)![0]).toUpperCase();
     }
     return name.slice(0, 2).toUpperCase();
   }

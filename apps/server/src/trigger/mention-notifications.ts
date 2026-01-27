@@ -7,19 +7,19 @@
 //
 
 import {
-  createNotification,
   broadcastNotification,
+  createNotification,
 } from "@memorystack/api/routers/notifications";
 import { db } from "@memorystack/db";
 import {
-  mention,
   activity,
-  user,
   member,
+  mention,
   notificationPreferences,
+  user,
 } from "@memorystack/db/schema";
-import { task, schedules } from "@trigger.dev/sdk";
-import { and, eq, isNull, lt, desc, inArray } from "drizzle-orm";
+import { schedules, task } from "@trigger.dev/sdk";
+import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { log } from "../lib/logger";
 import { sendEmailTask } from "./send-email";
 
@@ -72,7 +72,6 @@ export const sendMentionNotificationTask = task({
       mentionId,
       mentionedUserId,
       mentionedByUserId,
-      organizationId,
       contextType,
       contextId,
       contextPreview,
@@ -287,9 +286,7 @@ export const generateActivityDigestTask = task({
 
     log.info("Generating activity digest", { userId, organizationId });
 
-    // Get user's unread mentions from the last 24 hours
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
+    // Get user's unread mentions
     const unreadMentions = await db.query.mention.findMany({
       where: and(
         eq(mention.mentionedUserId, userId),
@@ -307,7 +304,7 @@ export const generateActivityDigestTask = task({
     const recentActivity = await db.query.activity.findMany({
       where: and(
         eq(activity.organizationId, organizationId),
-        lt(activity.createdAt, new Date()),
+        lt(activity.createdAt, new Date())
       ),
       orderBy: [desc(activity.createdAt)],
       limit: 20,
@@ -317,9 +314,7 @@ export const generateActivityDigestTask = task({
     });
 
     // Filter activity to exclude user's own actions
-    const relevantActivity = recentActivity.filter(
-      (a) => a.userId !== userId
-    );
+    const relevantActivity = recentActivity.filter((a) => a.userId !== userId);
 
     if (unreadMentions.length === 0 && relevantActivity.length === 0) {
       log.info("No activity for digest", { userId });
@@ -423,7 +418,9 @@ export const activityDigestSchedule = schedules.task({
 
     for (const u of users) {
       const orgId = userOrgMap.get(u.id);
-      if (!orgId || !u.email) continue;
+      if (!(orgId && u.email)) {
+        continue;
+      }
 
       try {
         await generateActivityDigestTask.trigger({
@@ -490,42 +487,42 @@ function buildActivityMessage(
   switch (activityType) {
     case "commitment_created":
       return {
-        title: `New commitment created`,
+        title: "New commitment created",
         message: `${actorName} created a commitment: ${target}`,
       };
     case "commitment_completed":
       return {
-        title: `Commitment completed`,
+        title: "Commitment completed",
         message: `${actorName} completed: ${target}`,
       };
     case "decision_made":
       return {
-        title: `Decision made`,
+        title: "Decision made",
         message: `${actorName} made a decision: ${target}`,
       };
     case "task_assigned":
       return {
-        title: `Task assigned`,
+        title: "Task assigned",
         message: `${actorName} assigned you a task: ${target}`,
       };
     case "comment_added":
       return {
-        title: `New comment`,
+        title: "New comment",
         message: `${actorName} commented on ${target}`,
       };
     case "conversation_assigned":
       return {
-        title: `Conversation assigned`,
+        title: "Conversation assigned",
         message: `${actorName} assigned a conversation to you`,
       };
     case "risk_detected":
       return {
-        title: `Risk detected`,
+        title: "Risk detected",
         message: `A risk was detected: ${target}`,
       };
     default:
       return {
-        title: `Activity`,
+        title: "Activity",
         message: `${actorName} performed an action on ${target}`,
       };
   }
@@ -534,31 +531,42 @@ function buildActivityMessage(
 function getActivityNotificationType(
   activityType: string
 ): "info" | "success" | "warning" | "error" {
-  if (activityType.includes("completed")) return "success";
-  if (activityType.includes("risk") || activityType.includes("overdue"))
+  if (activityType.includes("completed")) {
+    return "success";
+  }
+  if (activityType.includes("risk") || activityType.includes("overdue")) {
     return "error";
-  if (activityType.includes("deadline") || activityType.includes("escalated"))
+  }
+  if (activityType.includes("deadline") || activityType.includes("escalated")) {
     return "warning";
+  }
   return "info";
 }
 
-function getActivityCategory(activityType: string): "commitment" | "decision" | "system" {
-  if (activityType.includes("commitment")) return "commitment";
-  if (activityType.includes("decision")) return "decision";
+function getActivityCategory(
+  activityType: string
+): "commitment" | "decision" | "system" {
+  if (activityType.includes("commitment")) {
+    return "commitment";
+  }
+  if (activityType.includes("decision")) {
+    return "decision";
+  }
   return "system";
 }
 
 function getActivityPriority(
   activityType: string
 ): "low" | "normal" | "high" | "urgent" {
-  if (activityType.includes("risk") || activityType.includes("escalated"))
+  if (activityType.includes("risk") || activityType.includes("escalated")) {
     return "urgent";
-  if (
-    activityType.includes("assigned") ||
-    activityType.includes("deadline")
-  )
+  }
+  if (activityType.includes("assigned") || activityType.includes("deadline")) {
     return "high";
-  if (activityType.includes("completed")) return "low";
+  }
+  if (activityType.includes("completed")) {
+    return "low";
+  }
   return "normal";
 }
 

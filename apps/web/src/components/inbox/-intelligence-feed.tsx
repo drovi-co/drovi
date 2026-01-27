@@ -153,9 +153,15 @@ function getEventConfig(type: string) {
 }
 
 function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.8) return "bg-green-500";
-  if (confidence >= 0.6) return "bg-yellow-500";
-  if (confidence >= 0.4) return "bg-orange-500";
+  if (confidence >= 0.8) {
+    return "bg-green-500";
+  }
+  if (confidence >= 0.6) {
+    return "bg-yellow-500";
+  }
+  if (confidence >= 0.4) {
+    return "bg-orange-500";
+  }
   return "bg-red-500";
 }
 
@@ -167,9 +173,15 @@ function formatTimestamp(timestamp: number): string {
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
 
-  if (diffSec < 60) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffSec < 60) {
+    return "just now";
+  }
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+  if (diffHour < 24) {
+    return `${diffHour}h ago`;
+  }
   return date.toLocaleDateString();
 }
 
@@ -601,7 +613,9 @@ export function IntelligenceFeedDrawer({
   // Using a slide-over panel instead of a drawer for now
   // Can be converted to use Sheet from shadcn/ui if needed
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   return (
     <motion.div

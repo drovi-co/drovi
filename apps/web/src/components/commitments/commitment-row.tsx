@@ -87,17 +87,31 @@ function getPriority(
   dueDate: Date | null | undefined,
   status: string
 ): Priority {
-  if (status === "overdue" || (dueDate && isPast(dueDate))) return "urgent";
-  if (dueDate && (isToday(dueDate) || isTomorrow(dueDate))) return "high";
-  if (dueDate && isThisWeek(dueDate)) return "medium";
+  if (status === "overdue" || (dueDate && isPast(dueDate))) {
+    return "urgent";
+  }
+  if (dueDate && (isToday(dueDate) || isTomorrow(dueDate))) {
+    return "high";
+  }
+  if (dueDate && isThisWeek(dueDate)) {
+    return "medium";
+  }
   return "none";
 }
 
 function getStatus(status: string): Status {
-  if (status === "completed") return "done";
-  if (status === "in_progress" || status === "waiting") return "in_progress";
-  if (status === "cancelled") return "canceled";
-  if (status === "snoozed") return "backlog";
+  if (status === "completed") {
+    return "done";
+  }
+  if (status === "in_progress" || status === "waiting") {
+    return "in_progress";
+  }
+  if (status === "cancelled") {
+    return "canceled";
+  }
+  if (status === "snoozed") {
+    return "backlog";
+  }
   return "todo"; // pending, overdue
 }
 
@@ -107,7 +121,9 @@ function getPersonName(
     | null
     | undefined
 ): string {
-  if (!person) return "Unknown";
+  if (!person) {
+    return "Unknown";
+  }
   return person.displayName || person.primaryEmail.split("@")[0] || "Unknown";
 }
 
@@ -115,21 +131,31 @@ function formatDueDate(
   date: Date | null | undefined,
   daysOverdue?: number
 ): string {
-  if (!date) return "No due date";
+  if (!date) {
+    return "No due date";
+  }
   if (isPast(date)) {
     const days =
       daysOverdue ??
       Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
     return `${days}d overdue`;
   }
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isTomorrow(date)) {
+    return "Tomorrow";
+  }
   return format(date, "MMM d");
 }
 
 function getConfidenceLevel(confidence: number): "high" | "medium" | "low" {
-  if (confidence >= 0.8) return "high";
-  if (confidence >= 0.5) return "medium";
+  if (confidence >= 0.8) {
+    return "high";
+  }
+  if (confidence >= 0.5) {
+    return "medium";
+  }
   return "low";
 }
 

@@ -278,7 +278,6 @@ function getToneSuggestion(sourceType: SourceType): string {
       return "casual and conversational";
     case "whatsapp":
       return "brief and friendly";
-    case "email":
     default:
       return "professional";
   }
@@ -297,7 +296,6 @@ function getPlaceholderText(
         return "e.g., Agree and suggest we sync tomorrow";
       case "whatsapp":
         return "e.g., Confirm the time and location";
-      case "email":
       default:
         return "e.g., Accept the meeting but suggest Tuesday instead";
     }
@@ -308,7 +306,6 @@ function getPlaceholderText(
       return "e.g., Ask the team about the project status";
     case "whatsapp":
       return "e.g., Check if they're available for a call";
-    case "email":
     default:
       return "e.g., Introduce myself and ask for a meeting";
   }

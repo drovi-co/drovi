@@ -22,9 +22,9 @@ import { createEmailClient } from "../lib/email-client";
 import { log } from "../lib/logger";
 
 // Define the type for our context variables
-type Variables = {
+interface Variables {
   userId: string;
-};
+}
 
 // =============================================================================
 // TYPES
@@ -139,7 +139,9 @@ async function getThreadingInfo(
 
   let replyToMessage = conv.messages[0];
   if (inReplyToMessageId) {
-    const found = conv.messages.find((m: typeof conv.messages[0]) => m.id === inReplyToMessageId);
+    const found = conv.messages.find(
+      (m: (typeof conv.messages)[0]) => m.id === inReplyToMessageId
+    );
     if (found) {
       replyToMessage = found;
     }
@@ -147,7 +149,9 @@ async function getThreadingInfo(
 
   const references: string[] = [];
   for (const msg of conv.messages.reverse()) {
-    const msgId = (msg.metadata as Record<string, unknown> | null)?.headers as Record<string, string> | undefined;
+    const msgId = (msg.metadata as Record<string, unknown> | null)?.headers as
+      | Record<string, string>
+      | undefined;
     const messageId = msgId?.["Message-ID"];
     if (messageId) {
       references.push(messageId);
@@ -155,7 +159,9 @@ async function getThreadingInfo(
   }
 
   const replyHeaders = replyToMessage
-    ? ((replyToMessage.metadata as Record<string, unknown> | null)?.headers as Record<string, string> | undefined)
+    ? ((replyToMessage.metadata as Record<string, unknown> | null)?.headers as
+        | Record<string, string>
+        | undefined)
     : undefined;
   const inReplyTo = replyHeaders?.["Message-ID"];
 

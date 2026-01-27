@@ -56,7 +56,10 @@ const TYPE_ORDER: UIOType[] = [
   "brief",
 ];
 
-const TYPE_CONFIG: Record<UIOType, { icon: typeof Target; label: string; pluralLabel: string }> = {
+const TYPE_CONFIG: Record<
+  UIOType,
+  { icon: typeof Target; label: string; pluralLabel: string }
+> = {
   commitment: { icon: Target, label: "Commitment", pluralLabel: "Commitments" },
   decision: { icon: GitBranch, label: "Decision", pluralLabel: "Decisions" },
   task: { icon: CheckCircle2, label: "Task", pluralLabel: "Tasks" },
@@ -98,7 +101,7 @@ export function LinkedUIOsSection({ uios, className }: LinkedUIOsSectionProps) {
       {/* Section header */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-muted-foreground" />
-        <h3 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+        <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
           Linked Intelligence
         </h3>
         <Badge className="h-5 px-1.5 text-[10px]" variant="secondary">
@@ -122,7 +125,7 @@ export function LinkedUIOsSection({ uios, className }: LinkedUIOsSectionProps) {
               {/* Type header */}
               <div className="mb-2 flex items-center gap-2">
                 <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium text-xs text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {typeUIOs.length === 1 ? config.label : config.pluralLabel}
                 </span>
                 <Badge className="h-4 px-1 text-[9px]" variant="outline">

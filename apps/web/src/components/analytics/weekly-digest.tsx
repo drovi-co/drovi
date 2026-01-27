@@ -31,12 +31,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
-import {
-  useCommitmentStats,
-  useCommitmentUIOs,
-  useDecisionUIOs,
-} from "@/hooks/use-uio";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +47,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  useCommitmentStats,
+  useCommitmentUIOs,
+  useDecisionUIOs,
+} from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -232,11 +231,12 @@ export function WeeklyDigest({
   });
 
   // Fetch commitments using UIO hook
-  const { data: commitmentsData, isLoading: loadingCommitments } = useCommitmentUIOs({
-    organizationId,
-    limit: 100,
-    enabled: !!organizationId,
-  });
+  const { data: commitmentsData, isLoading: loadingCommitments } =
+    useCommitmentUIOs({
+      organizationId,
+      limit: 100,
+      enabled: !!organizationId,
+    });
 
   // Fetch stats using UIO hook
   const { data: commitmentStats } = useCommitmentStats({ organizationId });
@@ -301,7 +301,9 @@ export function WeeklyDigest({
 
     // Commitments due this week
     const dueThisWeek = commitments.filter((c) => {
-      if (!c.dueDate || c.status === "completed") return false;
+      if (!c.dueDate || c.status === "completed") {
+        return false;
+      }
       const due = new Date(c.dueDate);
       return due >= weekDates.start && due <= weekDates.end;
     });

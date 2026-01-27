@@ -7,7 +7,7 @@
 //
 
 import { log } from "../logger";
-import { CRMSyncProvider, type CRMSourceAccount } from "./base";
+import { type CRMSourceAccount, CRMSyncProvider } from "./base";
 import type {
   CRMContactData,
   CRMContactUpdate,
@@ -82,14 +82,12 @@ const LEAD_FIELDS = [
 // =============================================================================
 
 export class SalesforceSyncProvider extends CRMSyncProvider {
-  private instanceUrl: string;
+  private readonly instanceUrl: string;
 
   constructor(sourceAccount: CRMSourceAccount) {
     super(sourceAccount);
     this.instanceUrl =
-      this.credentials.instanceUrl ??
-      this.settings.instanceUrl ??
-      "";
+      this.credentials.instanceUrl ?? this.settings.instanceUrl ?? "";
 
     if (!this.instanceUrl) {
       throw new Error("Salesforce instance URL not configured");
@@ -121,7 +119,9 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
         endpoint,
         status: response.status,
       });
-      throw new Error(`Salesforce API error: ${response.status} - ${errorText}`);
+      throw new Error(
+        `Salesforce API error: ${response.status} - ${errorText}`
+      );
     }
 
     return response.json() as Promise<T>;
@@ -140,9 +140,7 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
     const conditions: string[] = [];
 
     if (options.since) {
-      conditions.push(
-        `LastModifiedDate > ${options.since.toISOString()}`
-      );
+      conditions.push(`LastModifiedDate > ${options.since.toISOString()}`);
     }
 
     if (conditions.length > 0) {
@@ -190,7 +188,7 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
     // Determine next cursor (use latest LastModifiedDate)
     let nextCursor: string | undefined;
     if (contacts.length > 0) {
-      const lastContact = contacts[contacts.length - 1];
+      const lastContact = contacts.at(-1);
       if (lastContact?.metadata?.updatedAt) {
         nextCursor = lastContact.metadata.updatedAt.toISOString();
       }
@@ -202,9 +200,7 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
   /**
    * Push contact updates to Salesforce.
    */
-  protected async pushContactUpdates(
-    updates: CRMContactUpdate[]
-  ): Promise<{
+  protected async pushContactUpdates(updates: CRMContactUpdate[]): Promise<{
     success: string[];
     failed: Array<{ id: string; error: string }>;
   }> {
@@ -243,13 +239,19 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
           const response = result.compositeResponse[j];
           const updateItem = batch[j];
 
-          if (!updateItem) continue;
+          if (!updateItem) {
+            continue;
+          }
 
-          if (response && response.httpStatusCode >= 200 && response.httpStatusCode < 300) {
+          if (
+            response &&
+            response.httpStatusCode >= 200 &&
+            response.httpStatusCode < 300
+          ) {
             success.push(updateItem.externalId);
           } else {
             const errorMsg = Array.isArray(response?.body)
-              ? response.body[0]?.message ?? "Unknown error"
+              ? (response.body[0]?.message ?? "Unknown error")
               : "Unknown error";
             failed.push({
               id: updateItem.externalId,
@@ -334,12 +336,17 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
     record: SalesforceRecord,
     type: "contact" | "lead"
   ): CRMContactData {
-    const displayName = record.Name ??
+    const displayName =
+      record.Name ??
       [record.FirstName, record.LastName].filter(Boolean).join(" ");
 
     const phones: Array<{ type: string; number: string }> = [];
-    if (record.Phone) phones.push({ type: "work", number: record.Phone });
-    if (record.MobilePhone) phones.push({ type: "mobile", number: record.MobilePhone });
+    if (record.Phone) {
+      phones.push({ type: "work", number: record.Phone });
+    }
+    if (record.MobilePhone) {
+      phones.push({ type: "mobile", number: record.MobilePhone });
+    }
 
     return {
       externalId: record.Id,
@@ -348,24 +355,29 @@ export class SalesforceSyncProvider extends CRMSyncProvider {
       primaryEmail: record.Email ?? undefined,
       company:
         type === "contact"
-          ? record.Account?.Name ?? undefined
-          : record.Company ?? undefined,
+          ? (record.Account?.Name ?? undefined)
+          : (record.Company ?? undefined),
       title: record.Title ?? undefined,
       phones: phones.length > 0 ? phones : undefined,
       address: {
         street:
-          type === "contact" ? record.MailingStreet : record.Street ?? undefined,
-        city: type === "contact" ? record.MailingCity : record.City ?? undefined,
+          type === "contact"
+            ? record.MailingStreet
+            : (record.Street ?? undefined),
+        city:
+          type === "contact" ? record.MailingCity : (record.City ?? undefined),
         state:
-          type === "contact" ? record.MailingState : record.State ?? undefined,
+          type === "contact"
+            ? record.MailingState
+            : (record.State ?? undefined),
         postalCode:
           type === "contact"
             ? record.MailingPostalCode
-            : record.PostalCode ?? undefined,
+            : (record.PostalCode ?? undefined),
         country:
           type === "contact"
             ? record.MailingCountry
-            : record.Country ?? undefined,
+            : (record.Country ?? undefined),
       },
       ownerId: record.OwnerId ?? undefined,
       ownerEmail: record.Owner?.Email ?? undefined,

@@ -7,7 +7,7 @@
 //
 
 import { log } from "../logger";
-import { CRMSyncProvider, type CRMSourceAccount } from "./base";
+import { CRMSyncProvider } from "./base";
 import type {
   CRMContactData,
   CRMContactUpdate,
@@ -53,10 +53,6 @@ const CONTACT_PROPERTIES = [
 // =============================================================================
 
 export class HubSpotSyncProvider extends CRMSyncProvider {
-  constructor(sourceAccount: CRMSourceAccount) {
-    super(sourceAccount);
-  }
-
   /**
    * Make authenticated request to HubSpot API.
    */
@@ -170,9 +166,7 @@ export class HubSpotSyncProvider extends CRMSyncProvider {
   /**
    * Push contact updates to HubSpot.
    */
-  protected async pushContactUpdates(
-    updates: CRMContactUpdate[]
-  ): Promise<{
+  protected async pushContactUpdates(updates: CRMContactUpdate[]): Promise<{
     success: string[];
     failed: Array<{ id: string; error: string }>;
   }> {
@@ -283,9 +277,12 @@ export class HubSpotSyncProvider extends CRMSyncProvider {
       [props.firstname, props.lastname].filter(Boolean).join(" ") || undefined;
 
     const phones: Array<{ type: string; number: string }> = [];
-    if (props.phone) phones.push({ type: "work", number: props.phone });
-    if (props.mobilephone)
+    if (props.phone) {
+      phones.push({ type: "work", number: props.phone });
+    }
+    if (props.mobilephone) {
       phones.push({ type: "mobile", number: props.mobilephone });
+    }
 
     return {
       externalId: record.id,
@@ -306,9 +303,7 @@ export class HubSpotSyncProvider extends CRMSyncProvider {
       linkedinUrl: props.linkedin_url ?? undefined,
       twitterHandle: props.twitter_handle ?? undefined,
       metadata: {
-        createdAt: props.createdate
-          ? new Date(props.createdate)
-          : undefined,
+        createdAt: props.createdate ? new Date(props.createdate) : undefined,
         updatedAt: props.lastmodifieddate
           ? new Date(props.lastmodifieddate)
           : undefined,

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useSearch } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { ShieldAlert, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
@@ -10,6 +10,7 @@ import {
   SignUpForm,
 } from "@/components/auth";
 import Loader from "@/components/loader";
+import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { useTRPC } from "@/utils/trpc";
 
@@ -30,19 +31,36 @@ export const Route = createFileRoute("/login")({
 
 type AuthView = "sign-in" | "sign-up" | "magic-link";
 
-// Storage key for invite code
-const INVITE_CODE_KEY = "drovi_invite_code";
+// Cookie name for invite code (survives OAuth redirect)
+const INVITE_CODE_COOKIE = "drovi_invite_code";
 
+/**
+ * Store invite code in a cookie (survives OAuth redirect)
+ */
 export function storeInviteCode(code: string) {
-  sessionStorage.setItem(INVITE_CODE_KEY, code);
+  // Set cookie with 1 hour expiry (enough time for OAuth flow)
+  document.cookie = `${INVITE_CODE_COOKIE}=${encodeURIComponent(code)}; path=/; max-age=3600; SameSite=Lax`;
 }
 
+/**
+ * Get stored invite code from cookie
+ */
 export function getStoredInviteCode(): string | null {
-  return sessionStorage.getItem(INVITE_CODE_KEY);
+  const cookies = document.cookie.split(";");
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split("=");
+    if (name === INVITE_CODE_COOKIE && value) {
+      return decodeURIComponent(value);
+    }
+  }
+  return null;
 }
 
+/**
+ * Clear stored invite code
+ */
 export function clearStoredInviteCode() {
-  sessionStorage.removeItem(INVITE_CODE_KEY);
+  document.cookie = `${INVITE_CODE_COOKIE}=; path=/; max-age=0`;
 }
 
 function LoginPage() {
@@ -51,14 +69,19 @@ function LoginPage() {
   const { isPending } = authClient.useSession();
   const trpc = useTRPC();
 
+  // Check for stored invite code (from previous visit)
+  const storedCode =
+    typeof window !== "undefined" ? getStoredInviteCode() : null;
+  const effectiveCode = code ?? storedCode;
+
   // Validate invite code if present
   const {
     data: codeValidation,
     isPending: isValidating,
     isError,
   } = useQuery({
-    ...trpc.waitlist.validateCode.queryOptions({ code: code ?? "" }),
-    enabled: !!code,
+    ...trpc.waitlist.validateCode.queryOptions({ code: effectiveCode ?? "" }),
+    enabled: !!effectiveCode,
   });
 
   // Store valid invite code for use after OAuth
@@ -70,7 +93,7 @@ function LoginPage() {
     }
   }, [code, codeValidation?.valid]);
 
-  if (isPending || (code && isValidating)) {
+  if (isPending || (effectiveCode && isValidating)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader />
@@ -82,10 +105,18 @@ function LoginPage() {
   const showInvalidCode =
     code && !isValidating && (!codeValidation?.valid || isError);
 
+  // Check if user needs an invite code (no valid code stored)
+  const hasValidInviteCode = effectiveCode && codeValidation?.valid;
+  const needsInviteCode = !hasValidInviteCode;
+
   const getTitle = () => {
     // Special title for invited users
-    if (code && codeValidation?.valid) {
+    if (hasValidInviteCode) {
       return "You're invited!";
+    }
+    // Invite-only message for new users
+    if (view === "sign-up" && needsInviteCode) {
+      return "Invite Only";
     }
     switch (view) {
       case "sign-in":
@@ -99,8 +130,12 @@ function LoginPage() {
 
   const getDescription = () => {
     // Special description for invited users
-    if (code && codeValidation?.valid && "name" in codeValidation) {
+    if (hasValidInviteCode && codeValidation && "name" in codeValidation) {
       return `Welcome ${codeValidation.name}! Create your account to get started with Drovi.`;
+    }
+    // Invite-only message for new users
+    if (view === "sign-up" && needsInviteCode) {
+      return "Drovi is currently invite-only. Join our waitlist to request access.";
     }
     switch (view) {
       case "sign-in":
@@ -153,7 +188,54 @@ function LoginPage() {
           onSwitchToSignUp={() => setView("sign-up")}
         />
       )}
-      {view === "sign-up" && (
+      {view === "sign-up" && needsInviteCode && (
+        <div className="space-y-6">
+          {/* Invite-only notice */}
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-500" />
+              <div>
+                <p className="font-medium text-amber-400 text-sm">
+                  Private Beta
+                </p>
+                <p className="mt-1 text-muted-foreground text-sm">
+                  Drovi is currently available by invitation only. Join our
+                  waitlist to request early access.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={() => window.open("https://drovi.co", "_blank")}
+          >
+            Join the Waitlist
+          </Button>
+
+          <p className="text-center text-muted-foreground text-sm">
+            Already have an invite code?{" "}
+            <a
+              className="font-medium text-primary transition-colors hover:text-primary/80"
+              href="/login?code="
+            >
+              Enter it here
+            </a>
+          </p>
+
+          <p className="text-center text-muted-foreground text-sm">
+            Already have an account?{" "}
+            <button
+              className="font-medium text-primary transition-colors hover:text-primary/80"
+              onClick={() => setView("sign-in")}
+              type="button"
+            >
+              Sign in
+            </button>
+          </p>
+        </div>
+      )}
+      {view === "sign-up" && hasValidInviteCode && (
         <SignUpForm
           defaultEmail={
             codeValidation?.valid && "email" in codeValidation

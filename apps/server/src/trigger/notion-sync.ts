@@ -32,12 +32,12 @@ import {
   sourceAccount,
 } from "@memorystack/db/schema";
 import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { safeDecryptToken } from "../lib/crypto/tokens";
 import {
   callPythonIntelligence,
   checkIntelligenceBackendHealth,
 } from "../lib/intelligence-backend";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { safeDecryptToken } from "../lib/crypto/tokens";
 
 const log = logger;
 

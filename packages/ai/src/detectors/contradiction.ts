@@ -337,8 +337,12 @@ export class ContradictionDetector {
       const contentMatches = content.match(pattern);
       const historicalMatches = historical.match(pattern);
 
-      if (contentMatches) contentDates.push(...contentMatches);
-      if (historicalMatches) historicalDates.push(...historicalMatches);
+      if (contentMatches) {
+        contentDates.push(...contentMatches);
+      }
+      if (historicalMatches) {
+        historicalDates.push(...historicalMatches);
+      }
     }
 
     // Check for different specific dates
@@ -375,8 +379,12 @@ export class ContradictionDetector {
       const contentMatches = content.match(pattern);
       const historicalMatches = historical.match(pattern);
 
-      if (contentMatches) contentAmounts.push(...contentMatches);
-      if (historicalMatches) historicalAmounts.push(...historicalMatches);
+      if (contentMatches) {
+        contentAmounts.push(...contentMatches);
+      }
+      if (historicalMatches) {
+        historicalAmounts.push(...historicalMatches);
+      }
     }
 
     // Check for different amounts of the same type
@@ -448,7 +456,9 @@ export class ContradictionDetector {
 
     let overlap = 0;
     for (const word of Array.from(words1)) {
-      if (words2.has(word)) overlap++;
+      if (words2.has(word)) {
+        overlap++;
+      }
     }
 
     const maxSize = Math.max(words1.size, words2.size);
@@ -493,7 +503,7 @@ export class ContradictionDetector {
       }
     }
 
-    return text.slice(0, 150) + "...";
+    return `${text.slice(0, 150)}...`;
   }
 
   private extractReversalSentence(text: string): string {
@@ -508,7 +518,7 @@ export class ContradictionDetector {
       }
     }
 
-    return text.slice(0, 150) + "...";
+    return `${text.slice(0, 150)}...`;
   }
 
   // ===========================================================================
@@ -516,7 +526,9 @@ export class ContradictionDetector {
   // ===========================================================================
 
   private calculateScore(conflicts: ConflictDetail[]): number {
-    if (conflicts.length === 0) return 0;
+    if (conflicts.length === 0) {
+      return 0;
+    }
 
     const severityScores = {
       low: 20,
@@ -537,10 +549,18 @@ export class ContradictionDetector {
   private getSeverity(
     score: number
   ): "none" | "low" | "medium" | "high" | "critical" {
-    if (score === 0) return "none";
-    if (score < this.thresholds.low) return "low";
-    if (score < this.thresholds.medium) return "medium";
-    if (score < this.thresholds.high) return "high";
+    if (score === 0) {
+      return "none";
+    }
+    if (score < this.thresholds.low) {
+      return "low";
+    }
+    if (score < this.thresholds.medium) {
+      return "medium";
+    }
+    if (score < this.thresholds.high) {
+      return "high";
+    }
     return "critical";
   }
 

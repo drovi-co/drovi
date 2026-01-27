@@ -226,7 +226,9 @@ function convertAttendeeResponse(
 function convertRecurrence(
   recurrence?: GraphPatternedRecurrence
 ): RecurrenceRule | undefined {
-  if (!recurrence?.pattern) return undefined;
+  if (!recurrence?.pattern) {
+    return undefined;
+  }
 
   const pattern = recurrence.pattern;
   const range = recurrence.range;
@@ -370,7 +372,9 @@ function buildRecurrencePattern(
  * Parse date/time from Graph format
  */
 function parseGraphDateTime(dt?: GraphDateTimeTimeZone): Date {
-  if (!dt?.dateTime) return new Date();
+  if (!dt?.dateTime) {
+    return new Date();
+  }
   return new Date(dt.dateTime);
 }
 

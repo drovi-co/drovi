@@ -15,12 +15,9 @@ import type { EventStreamOptions, IntelligenceEvent } from "./types";
  * Event stream for receiving real-time intelligence events via SSE.
  */
 export class EventStream {
-  private url: string;
-  private options: Required<
-    Pick<
-      EventStreamOptions,
-      "topics" | "autoReconnect" | "reconnectDelay"
-    >
+  private readonly url: string;
+  private readonly options: Required<
+    Pick<EventStreamOptions, "topics" | "autoReconnect" | "reconnectDelay">
   > &
     EventStreamOptions;
   private eventSource: EventSource | null = null;
@@ -223,7 +220,9 @@ export async function* createAnalysisStream(
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
@@ -241,7 +240,11 @@ export async function* createAnalysisStream(
             const eventType = data.type ?? "unknown";
 
             // Call appropriate callbacks
-            if (eventType === "node_start" && options.onNodeStart && data.node) {
+            if (
+              eventType === "node_start" &&
+              options.onNodeStart &&
+              data.node
+            ) {
               options.onNodeStart(data.node);
             } else if (
               eventType === "node_complete" &&

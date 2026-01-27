@@ -127,7 +127,8 @@ export const contactSourceLink = pgTable(
     fieldMapping: jsonb("field_mapping").$type<ContactSourceFieldMapping>(),
 
     // Snapshot of external data (for conflict detection)
-    externalSnapshot: jsonb("external_snapshot").$type<ExternalRecordSnapshot>(),
+    externalSnapshot:
+      jsonb("external_snapshot").$type<ExternalRecordSnapshot>(),
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),

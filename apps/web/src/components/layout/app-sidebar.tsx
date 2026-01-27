@@ -15,18 +15,17 @@ import {
   Shield,
   Users,
 } from "lucide-react";
-
-import { NotificationCenter } from "@/components/notifications/notification-center";
 import { TeamPresencePanel } from "@/components/collaboration/team-presence-panel";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarRail,
   SidebarSeparator,
-  SidebarGroup,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
@@ -188,7 +187,7 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
         {/* Team Presence Section */}
         <SidebarSeparator className="my-2" />
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs text-muted-foreground">
+          <SidebarGroupLabel className="text-muted-foreground text-xs">
             Team
           </SidebarGroupLabel>
           <TeamPresencePanel />

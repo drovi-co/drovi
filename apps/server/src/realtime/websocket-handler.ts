@@ -8,14 +8,14 @@
 //   /api/v1/events/stream/{organization_id}
 //
 
-import type { Server, ServerWebSocket } from "bun";
 import { auth } from "@memorystack/auth";
+import type { Server, ServerWebSocket } from "bun";
 import { log } from "../lib/logger";
 import {
-  presenceHandlers,
-  initializePresenceServer,
   closePresenceServer,
+  initializePresenceServer,
   type PresenceWebSocketData,
+  presenceHandlers,
 } from "./presence-handler";
 
 // =============================================================================
@@ -111,7 +111,11 @@ export const bunWebSocketHandlers = {
   /**
    * Called when a WebSocket connection is closed.
    */
-  async close(ws: ServerWebSocket<WebSocketData>, code: number, reason: string) {
+  async close(
+    ws: ServerWebSocket<WebSocketData>,
+    code: number,
+    reason: string
+  ) {
     await presenceHandlers.close(ws, code, reason);
   },
 

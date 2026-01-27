@@ -34,61 +34,61 @@
 // =============================================================================
 
 export {
-  IntelligenceClient,
-  createClient,
-  IntelligenceError,
   AuthenticationError,
+  createClient,
+  IntelligenceClient,
+  IntelligenceError,
   NotFoundError,
-  ValidationError,
   RateLimitError,
+  ValidationError,
 } from "./client";
 
 // =============================================================================
 // STREAMING
 // =============================================================================
 
-export { EventStream, createAnalysisStream } from "./stream";
 export type { AnalysisStreamOptions } from "./stream";
+export { createAnalysisStream, EventStream } from "./stream";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export type {
-  // Configuration
-  IntelligenceClientConfig,
-  // Common
-  PaginatedResponse,
-  ItemResponse,
-  ErrorResponse,
-  // UIO types
-  UIOType,
-  UIOStatus,
-  SourceRole,
-  SourceType,
-  TimelineEventType,
-  UIOSource,
-  UIOTimelineEvent,
-  UIOOwner,
-  RelatedTask,
-  UIOListItem,
-  UIODetail,
-  UIOFilters,
+  AnalysisResult,
+  AnalyzeInput,
   // Analysis types
   AnalyzeOptions,
-  AnalyzeInput,
-  AnalysisResult,
-  StreamEventType,
-  StreamEvent,
+  ErrorResponse,
+  EventStreamOptions,
   // Graph types
   GraphQueryInput,
   GraphQueryResult,
-  // Webhook types
-  WebhookInput,
-  Webhook,
+  // Configuration
+  IntelligenceClientConfig,
   // Event types
   IntelligenceEvent,
-  EventStreamOptions,
   // Stats types
   IntelligenceStats,
+  ItemResponse,
+  // Common
+  PaginatedResponse,
+  RelatedTask,
+  SourceRole,
+  SourceType,
+  StreamEvent,
+  StreamEventType,
+  TimelineEventType,
+  UIODetail,
+  UIOFilters,
+  UIOListItem,
+  UIOOwner,
+  UIOSource,
+  UIOStatus,
+  UIOTimelineEvent,
+  // UIO types
+  UIOType,
+  Webhook,
+  // Webhook types
+  WebhookInput,
 } from "./types";

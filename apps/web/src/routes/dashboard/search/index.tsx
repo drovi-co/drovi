@@ -209,7 +209,7 @@ function SearchPage() {
                     Searching your email intelligence...
                   </span>
                 </div>
-                {[...Array(5)].map((_, i) => (
+                {[...new Array(5)].map((_, i) => (
                   <div
                     className="flex items-center gap-4 border-border/40 border-b px-4 py-3"
                     key={i}

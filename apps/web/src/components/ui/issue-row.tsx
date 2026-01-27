@@ -82,15 +82,23 @@ interface IssueRowProps
 }
 
 function formatDueDate(date: Date | string | undefined): string | null {
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
   const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
   const diff = d.getTime() - now.getTime();
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
+  if (days === 0) {
+    return "Today";
+  }
+  if (days === 1) {
+    return "Tomorrow";
+  }
+  if (days === -1) {
+    return "Yesterday";
+  }
   if (days > 0 && days <= 7) {
     return d.toLocaleDateString("en-US", { weekday: "short" });
   }
@@ -182,7 +190,7 @@ function IssueRow({
             onLabelClick?.();
           }}
         >
-          {labels.slice(0, 2).map((label, idx) => (
+          {labels.slice(0, 2).map((label, _idx) => (
             <LabelDot
               color={label.color}
               key={label.name}

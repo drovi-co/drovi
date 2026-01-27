@@ -76,7 +76,9 @@ export function TaskActivityFeed({
   });
 
   const handleSubmitComment = () => {
-    if (!comment.trim()) return;
+    if (!comment.trim()) {
+      return;
+    }
     addCommentMutation.mutate({
       organizationId,
       taskId,
@@ -227,7 +229,9 @@ function StatusChangeVisualization({
   const FromIcon = fromConfig?.icon;
   const ToIcon = toConfig?.icon;
 
-  if (!(fromConfig && toConfig)) return null;
+  if (!(fromConfig && toConfig)) {
+    return null;
+  }
 
   return (
     <div className="mt-1.5 flex items-center gap-2">
@@ -281,7 +285,7 @@ function ActivityFeedSkeleton() {
       <div className="border-t pt-4">
         <Skeleton className="mb-3 h-4 w-16" />
         <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
+          {[...new Array(3)].map((_, i) => (
             <div className="flex gap-3" key={i}>
               <Skeleton className="h-7 w-7 rounded-full" />
               <div className="flex-1">
@@ -326,7 +330,7 @@ export function CompactActivityFeed({
   if (isLoading) {
     return (
       <div className={cn("space-y-2", className)}>
-        {[...Array(maxItems)].map((_, i) => (
+        {[...new Array(maxItems)].map((_, i) => (
           <Skeleton className="h-4 w-full" key={i} />
         ))}
       </div>

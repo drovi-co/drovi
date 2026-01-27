@@ -178,14 +178,22 @@ function calculateFormality(text: string, words: string[]): number {
 
   // Average word length contributes to formality
   const avgWordLen = words.reduce((sum, w) => sum + w.length, 0) / words.length;
-  if (avgWordLen > 6) formalScore += 0.1;
-  if (avgWordLen < 4) casualScore += 0.1;
+  if (avgWordLen > 6) {
+    formalScore += 0.1;
+  }
+  if (avgWordLen < 4) {
+    casualScore += 0.1;
+  }
 
   // Sentence length
   const sentences = extractSentences(text);
   const avgSentenceLen = words.length / Math.max(sentences.length, 1);
-  if (avgSentenceLen > 20) formalScore += 0.1;
-  if (avgSentenceLen < 10) casualScore += 0.1;
+  if (avgSentenceLen > 20) {
+    formalScore += 0.1;
+  }
+  if (avgSentenceLen < 10) {
+    casualScore += 0.1;
+  }
 
   // Normalize to 0-1 range
   const rawScore = (formalScore - casualScore + 0.5) / 1;
@@ -358,7 +366,9 @@ const COMPLEX_WORDS = new Set([
  * Calculate vocabulary complexity score.
  */
 function calculateVocabularyComplexity(words: string[]): number {
-  if (words.length === 0) return 0.5;
+  if (words.length === 0) {
+    return 0.5;
+  }
 
   let complexCount = 0;
   let longWordCount = 0;

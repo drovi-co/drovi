@@ -6,9 +6,9 @@
 // Supports filtering, bulk actions, and detailed alert views.
 //
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   AlertTriangle,
@@ -20,8 +20,6 @@ import {
   Clock,
   Eye,
   Filter,
-  Heart,
-  Loader2,
   MoreHorizontal,
   RefreshCw,
   Search,
@@ -29,21 +27,13 @@ import {
   Target,
   TrendingDown,
   User,
-  Users,
-  X,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,7 +44,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -62,6 +51,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
@@ -71,12 +61,18 @@ import { useTRPC } from "@/utils/trpc";
 
 interface AlertsManagementProps {
   organizationId: string;
+  contactId?: string;
   onContactClick?: (contactId: string) => void;
   className?: string;
 }
 
 type AlertSeverity = "critical" | "high" | "medium" | "low";
-type AlertStatus = "active" | "acknowledged" | "snoozed" | "resolved" | "dismissed";
+type AlertStatus =
+  | "active"
+  | "acknowledged"
+  | "snoozed"
+  | "resolved"
+  | "dismissed";
 type AlertType =
   | "vip_silence"
   | "relationship_degradation"
@@ -118,9 +114,15 @@ const severityConfig: Record<
   },
 };
 
-const typeConfig: Record<AlertType, { icon: React.ElementType; label: string }> = {
+const typeConfig: Record<
+  AlertType,
+  { icon: React.ElementType; label: string }
+> = {
   vip_silence: { icon: User, label: "VIP Silence" },
-  relationship_degradation: { icon: TrendingDown, label: "Relationship Degradation" },
+  relationship_degradation: {
+    icon: TrendingDown,
+    label: "Relationship Degradation",
+  },
   commitment_breach_pattern: { icon: Target, label: "Commitment Breach" },
   long_silence: { icon: Clock, label: "Long Silence" },
   engagement_spike: { icon: Sparkles, label: "Engagement Spike" },
@@ -184,10 +186,10 @@ interface AlertRowProps {
       displayName?: string | null;
       primaryEmail?: string | null;
       avatarUrl?: string | null;
-      isVip?: boolean;
+      isVip?: boolean | null;
     };
-    createdAt: Date;
-    acknowledgedAt?: Date | null;
+    createdAt: Date | string;
+    acknowledgedAt?: Date | string | null;
   };
   isSelected: boolean;
   onSelect: () => void;
@@ -208,7 +210,8 @@ function AlertRow({
   onViewContact,
   onViewDetails,
 }: AlertRowProps) {
-  const severity = severityConfig[alert.severity as AlertSeverity] ?? severityConfig.medium;
+  const severity =
+    severityConfig[alert.severity as AlertSeverity] ?? severityConfig.medium;
   const type = typeConfig[alert.alertType as AlertType];
   const SeverityIcon = severity.icon;
   const TypeIcon = type?.icon ?? Bell;
@@ -264,7 +267,7 @@ function AlertRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm">{alert.message}</span>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge className="text-[10px]" variant="outline">
             <TypeIcon className="mr-1 h-3 w-3" />
             {type?.label ?? alert.alertType}
           </Badge>
@@ -273,7 +276,9 @@ function AlertRow({
           <span>{alert.contact.displayName ?? alert.contact.primaryEmail}</span>
           <span>•</span>
           <span>
-            {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
+            {formatDistanceToNow(new Date(alert.createdAt), {
+              addSuffix: true,
+            })}
           </span>
           {alert.acknowledgedAt && (
             <>
@@ -291,37 +296,37 @@ function AlertRow({
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         {alert.status === "active" && (
           <Button
-            size="icon"
-            variant="ghost"
             className="h-8 w-8"
             onClick={(e) => {
               e.stopPropagation();
               onAcknowledge();
             }}
+            size="icon"
             title="Acknowledge"
+            variant="ghost"
           >
             <Eye className="h-4 w-4" />
           </Button>
         )}
         <Button
-          size="icon"
-          variant="ghost"
           className="h-8 w-8"
           onClick={(e) => {
             e.stopPropagation();
             onResolve();
           }}
+          size="icon"
           title="Resolve"
+          variant="ghost"
         >
           <CheckCircle2 className="h-4 w-4" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              size="icon"
-              variant="ghost"
               className="h-8 w-8"
               onClick={(e) => e.stopPropagation()}
+              size="icon"
+              variant="ghost"
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
@@ -366,11 +371,11 @@ interface AlertDetailSheetProps {
       primaryEmail?: string | null;
       company?: string | null;
       avatarUrl?: string | null;
-      isVip?: boolean;
+      isVip?: boolean | null;
     };
-    createdAt: Date;
-    acknowledgedAt?: Date | null;
-    resolvedAt?: Date | null;
+    createdAt: Date | string;
+    acknowledgedAt?: Date | string | null;
+    resolvedAt?: Date | string | null;
   } | null;
   isOpen: boolean;
   onClose: () => void;
@@ -389,14 +394,17 @@ function AlertDetailSheet({
   onDismiss,
   onViewContact,
 }: AlertDetailSheetProps) {
-  if (!alert) return null;
+  if (!alert) {
+    return null;
+  }
 
-  const severity = severityConfig[alert.severity as AlertSeverity] ?? severityConfig.medium;
+  const severity =
+    severityConfig[alert.severity as AlertSeverity] ?? severityConfig.medium;
   const type = typeConfig[alert.alertType as AlertType];
   const SeverityIcon = severity.icon;
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Sheet onOpenChange={(open) => !open && onClose()} open={isOpen}>
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center gap-3">
@@ -404,7 +412,9 @@ function AlertDetailSheet({
               <SeverityIcon className={cn("h-6 w-6", severity.color)} />
             </div>
             <div>
-              <SheetTitle className="text-left">{type?.label ?? alert.alertType}</SheetTitle>
+              <SheetTitle className="text-left">
+                {type?.label ?? alert.alertType}
+              </SheetTitle>
               <SheetDescription className="text-left">
                 {format(new Date(alert.createdAt), "PPpp")}
               </SheetDescription>
@@ -414,7 +424,10 @@ function AlertDetailSheet({
 
         <div className="mt-6 space-y-6">
           {/* Contact Card */}
-          <Card className="cursor-pointer hover:bg-accent/50" onClick={onViewContact}>
+          <Card
+            className="cursor-pointer hover:bg-accent/50"
+            onClick={onViewContact}
+          >
             <CardContent className="flex items-center gap-4 p-4">
               <Avatar className="h-12 w-12">
                 <AvatarImage src={alert.contact.avatarUrl ?? undefined} />
@@ -440,7 +453,9 @@ function AlertDetailSheet({
             <h4 className="mb-2 font-medium text-sm">Alert</h4>
             <p className="text-foreground">{alert.message}</p>
             {alert.description && (
-              <p className="mt-2 text-muted-foreground text-sm">{alert.description}</p>
+              <p className="mt-2 text-muted-foreground text-sm">
+                {alert.description}
+              </p>
             )}
           </div>
 
@@ -476,7 +491,10 @@ function AlertDetailSheet({
                   <Bell className="h-3 w-3" />
                 </div>
                 <span className="text-sm">
-                  Created {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
+                  Created{" "}
+                  {formatDistanceToNow(new Date(alert.createdAt), {
+                    addSuffix: true,
+                  })}
                 </span>
               </div>
               {alert.acknowledgedAt && (
@@ -486,7 +504,9 @@ function AlertDetailSheet({
                   </div>
                   <span className="text-sm">
                     Acknowledged{" "}
-                    {formatDistanceToNow(new Date(alert.acknowledgedAt), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(alert.acknowledgedAt), {
+                      addSuffix: true,
+                    })}
                   </span>
                 </div>
               )}
@@ -497,7 +517,9 @@ function AlertDetailSheet({
                   </div>
                   <span className="text-sm">
                     Resolved{" "}
-                    {formatDistanceToNow(new Date(alert.resolvedAt), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(alert.resolvedAt), {
+                      addSuffix: true,
+                    })}
                   </span>
                 </div>
               )}
@@ -507,7 +529,11 @@ function AlertDetailSheet({
           {/* Actions */}
           <div className="flex gap-3">
             {alert.status === "active" && (
-              <Button variant="outline" className="flex-1" onClick={onAcknowledge}>
+              <Button
+                className="flex-1"
+                onClick={onAcknowledge}
+                variant="outline"
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 Acknowledge
               </Button>
@@ -517,7 +543,7 @@ function AlertDetailSheet({
               Resolve
             </Button>
           </div>
-          <Button variant="ghost" className="w-full" onClick={onDismiss}>
+          <Button className="w-full" onClick={onDismiss} variant="ghost">
             <BellOff className="mr-2 h-4 w-4" />
             Dismiss Alert
           </Button>
@@ -533,6 +559,7 @@ function AlertDetailSheet({
 
 export function AlertsManagement({
   organizationId,
+  contactId,
   onContactClick,
   className,
 }: AlertsManagementProps) {
@@ -544,12 +571,19 @@ export function AlertsManagement({
   const [severityFilter, setSeverityFilter] = useState<AlertSeverity[]>([]);
   const [statusFilter, setStatusFilter] = useState<AlertStatus[]>(["active"]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [detailAlert, setDetailAlert] = useState<typeof alerts.alerts[0] | null>(null);
+  const [detailAlert, setDetailAlert] = useState<
+    NonNullable<typeof alerts>["alerts"][0] | null
+  >(null);
 
   // Queries
-  const { data: alerts, isLoading, refetch } = useQuery(
+  const {
+    data: alerts,
+    isLoading,
+    refetch,
+  } = useQuery(
     trpc.contactIntelligence.listAlerts.queryOptions({
       organizationId,
+      contactId,
       status: statusFilter.length > 0 ? statusFilter : undefined,
       severity: severityFilter.length > 0 ? severityFilter : undefined,
       limit: 100,
@@ -602,8 +636,12 @@ export function AlertsManagement({
 
   // Filter alerts by search query
   const filteredAlerts = useMemo(() => {
-    if (!alerts?.alerts) return [];
-    if (!searchQuery) return alerts.alerts;
+    if (!alerts?.alerts) {
+      return [];
+    }
+    if (!searchQuery) {
+      return alerts.alerts;
+    }
 
     const query = searchQuery.toLowerCase();
     return alerts.alerts.filter(
@@ -638,7 +676,9 @@ export function AlertsManagement({
 
   // Batch actions
   const handleBatchAction = (action: "acknowledge" | "dismiss" | "resolve") => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) {
+      return;
+    }
     batchUpdateMutation.mutate({
       organizationId,
       alertIds: Array.from(selectedIds),
@@ -650,14 +690,14 @@ export function AlertsManagement({
     return (
       <div className={cn("space-y-6", className)}>
         <div className="grid grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          {[...new Array(4)].map((_, i) => (
+            <Skeleton className="h-24 w-full rounded-xl" key={i} />
           ))}
         </div>
         <Skeleton className="h-12 w-full" />
         <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
+          {[...new Array(5)].map((_, i) => (
+            <Skeleton className="h-20 w-full" key={i} />
           ))}
         </div>
       </div>
@@ -669,10 +709,10 @@ export function AlertsManagement({
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard
-          label="Critical"
-          value={summary?.bySeverity?.critical ?? 0}
-          icon={AlertCircle}
           color="text-red-500"
+          icon={AlertCircle}
+          isActive={severityFilter.includes("critical")}
+          label="Critical"
           onClick={() =>
             setSeverityFilter((prev) =>
               prev.includes("critical")
@@ -680,13 +720,13 @@ export function AlertsManagement({
                 : [...prev, "critical"]
             )
           }
-          isActive={severityFilter.includes("critical")}
+          value={summary?.bySeverity?.critical ?? 0}
         />
         <SummaryCard
-          label="High Priority"
-          value={summary?.bySeverity?.high ?? 0}
-          icon={AlertTriangle}
           color="text-orange-500"
+          icon={AlertTriangle}
+          isActive={severityFilter.includes("high")}
+          label="High Priority"
           onClick={() =>
             setSeverityFilter((prev) =>
               prev.includes("high")
@@ -694,19 +734,19 @@ export function AlertsManagement({
                 : [...prev, "high"]
             )
           }
-          isActive={severityFilter.includes("high")}
+          value={summary?.bySeverity?.high ?? 0}
         />
         <SummaryCard
+          color="text-amber-500"
+          icon={Bell}
           label="Total Active"
           value={summary?.totalActive ?? 0}
-          icon={Bell}
-          color="text-amber-500"
         />
         <SummaryCard
+          color="text-purple-500"
+          icon={User}
           label="VIP Alerts"
           value={summary?.byType?.vip_silence ?? 0}
-          icon={User}
-          color="text-purple-500"
         />
       </div>
 
@@ -715,19 +755,19 @@ export function AlertsManagement({
         <CardContent className="flex items-center gap-4 p-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              className="pl-9"
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search alerts..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
             />
           </div>
 
           {/* Status Filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button className="gap-2" variant="outline">
                 <Filter className="h-4 w-4" />
                 Status
                 <ChevronDown className="h-4 w-4" />
@@ -736,23 +776,29 @@ export function AlertsManagement({
             <DropdownMenuContent>
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(["active", "acknowledged", "snoozed", "resolved", "dismissed"] as AlertStatus[]).map(
-                (status) => (
-                  <DropdownMenuCheckboxItem
-                    key={status}
-                    checked={statusFilter.includes(status)}
-                    onCheckedChange={(checked) => {
-                      setStatusFilter((prev) =>
-                        checked
-                          ? [...prev, status]
-                          : prev.filter((s) => s !== status)
-                      );
-                    }}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </DropdownMenuCheckboxItem>
-                )
-              )}
+              {(
+                [
+                  "active",
+                  "acknowledged",
+                  "snoozed",
+                  "resolved",
+                  "dismissed",
+                ] as AlertStatus[]
+              ).map((status) => (
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.includes(status)}
+                  key={status}
+                  onCheckedChange={(checked) => {
+                    setStatusFilter((prev) =>
+                      checked
+                        ? [...prev, status]
+                        : prev.filter((s) => s !== status)
+                    );
+                  }}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -764,25 +810,25 @@ export function AlertsManagement({
                 {selectedIds.size} selected
               </span>
               <Button
+                onClick={() => handleBatchAction("acknowledge")}
                 size="sm"
                 variant="outline"
-                onClick={() => handleBatchAction("acknowledge")}
               >
                 <Eye className="mr-2 h-4 w-4" />
                 Acknowledge
               </Button>
               <Button
+                onClick={() => handleBatchAction("resolve")}
                 size="sm"
                 variant="outline"
-                onClick={() => handleBatchAction("resolve")}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Resolve
               </Button>
               <Button
+                onClick={() => handleBatchAction("dismiss")}
                 size="sm"
                 variant="ghost"
-                onClick={() => handleBatchAction("dismiss")}
               >
                 <BellOff className="mr-2 h-4 w-4" />
                 Dismiss
@@ -791,7 +837,7 @@ export function AlertsManagement({
           )}
 
           {/* Refresh */}
-          <Button size="icon" variant="ghost" onClick={() => refetch()}>
+          <Button onClick={() => refetch()} size="icon" variant="ghost">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </CardContent>
@@ -825,12 +871,14 @@ export function AlertsManagement({
         <AnimatePresence mode="popLayout">
           {filteredAlerts.map((alert) => (
             <AlertRow
-              key={alert.id}
               alert={alert}
               isSelected={selectedIds.has(alert.id)}
-              onSelect={() => toggleSelect(alert.id)}
+              key={alert.id}
               onAcknowledge={() =>
-                acknowledgeMutation.mutate({ organizationId, alertId: alert.id })
+                acknowledgeMutation.mutate({
+                  organizationId,
+                  alertId: alert.id,
+                })
               }
               onDismiss={() =>
                 dismissMutation.mutate({ organizationId, alertId: alert.id })
@@ -838,6 +886,7 @@ export function AlertsManagement({
               onResolve={() =>
                 resolveMutation.mutate({ organizationId, alertId: alert.id })
               }
+              onSelect={() => toggleSelect(alert.id)}
               onViewContact={() => onContactClick?.(alert.contact.id)}
               onViewDetails={() => setDetailAlert(alert)}
             />
@@ -863,21 +912,24 @@ export function AlertsManagement({
       <AlertDetailSheet
         alert={detailAlert}
         isOpen={!!detailAlert}
-        onClose={() => setDetailAlert(null)}
         onAcknowledge={() => {
           if (detailAlert) {
-            acknowledgeMutation.mutate({ organizationId, alertId: detailAlert.id });
+            acknowledgeMutation.mutate({
+              organizationId,
+              alertId: detailAlert.id,
+            });
+          }
+        }}
+        onClose={() => setDetailAlert(null)}
+        onDismiss={() => {
+          if (detailAlert) {
+            dismissMutation.mutate({ organizationId, alertId: detailAlert.id });
+            setDetailAlert(null);
           }
         }}
         onResolve={() => {
           if (detailAlert) {
             resolveMutation.mutate({ organizationId, alertId: detailAlert.id });
-          }
-        }}
-        onDismiss={() => {
-          if (detailAlert) {
-            dismissMutation.mutate({ organizationId, alertId: detailAlert.id });
-            setDetailAlert(null);
           }
         }}
         onViewContact={() => {

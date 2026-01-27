@@ -187,7 +187,9 @@ export async function refreshSalesforceToken(
     throw new Error(`Salesforce token refresh failed: ${error}`);
   }
 
-  return response.json() as Promise<Omit<SalesforceTokenResponse, "refresh_token">>;
+  return response.json() as Promise<
+    Omit<SalesforceTokenResponse, "refresh_token">
+  >;
 }
 
 /**

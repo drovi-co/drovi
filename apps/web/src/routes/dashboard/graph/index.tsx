@@ -37,9 +37,14 @@ import {
 } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
-import { KnowledgeGraph } from "./components/-knowledge-graph";
+import type {
+  GraphEdge,
+  GraphNode,
+  GraphNodeData,
+  GraphNodeType,
+} from "./-types";
 import { GraphSidebar } from "./components/-graph-sidebar";
-import type { GraphNodeData, GraphNode, GraphEdge, GraphNodeType, GraphEdgeType } from "./-types";
+import { KnowledgeGraph } from "./components/-knowledge-graph";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -97,13 +102,17 @@ function GraphPage() {
   // The API returns compatible shapes, but TypeScript's strict null checks cause issues
   // with null vs undefined in optional boolean fields
   const transformedNodes = useMemo((): GraphNode[] => {
-    if (!graphData?.nodes) return [];
+    if (!graphData?.nodes) {
+      return [];
+    }
     // Cast through unknown to handle null vs undefined differences
     return graphData.nodes as unknown as GraphNode[];
   }, [graphData?.nodes]);
 
   const transformedEdges = useMemo((): GraphEdge[] => {
-    if (!graphData?.edges) return [];
+    if (!graphData?.edges) {
+      return [];
+    }
     // Cast through unknown to handle edgeType string literal type
     return graphData.edges as unknown as GraphEdge[];
   }, [graphData?.edges]);
@@ -138,11 +147,11 @@ function GraphPage() {
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Network className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold">Knowledge Graph</h1>
+          <h1 className="font-semibold text-lg">Knowledge Graph</h1>
           {graphData && (
-            <Badge variant="secondary" className="text-xs">
-              {graphData.nodes?.length ?? 0} nodes · {graphData.edges?.length ?? 0}{" "}
-              connections
+            <Badge className="text-xs" variant="secondary">
+              {graphData.nodes?.length ?? 0} nodes ·{" "}
+              {graphData.edges?.length ?? 0} connections
             </Badge>
           )}
         </div>
@@ -150,19 +159,19 @@ function GraphPage() {
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              className="w-64 pl-9"
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search graph..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-64 pl-9"
             />
           </div>
 
           {/* Filter */}
           <Select
-            value={nodeFilter}
             onValueChange={(v) => setNodeFilter(v as NodeFilter)}
+            value={nodeFilter}
           >
             <SelectTrigger className="w-36">
               <Filter className="mr-2 h-4 w-4" />
@@ -181,7 +190,7 @@ function GraphPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={handleRefresh}>
+                <Button onClick={handleRefresh} size="icon" variant="outline">
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -192,7 +201,11 @@ function GraphPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleFullscreen}>
+                <Button
+                  onClick={toggleFullscreen}
+                  size="icon"
+                  variant="outline"
+                >
                   {isFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
                   ) : (
@@ -216,15 +229,15 @@ function GraphPage() {
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <Network className="mx-auto h-12 w-12 animate-pulse text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-muted-foreground text-sm">
                   Loading your knowledge graph...
                 </p>
               </div>
             </div>
           ) : (
             <KnowledgeGraph
-              nodes={transformedNodes}
               edges={transformedEdges}
+              nodes={transformedNodes}
               onNodeSelect={handleNodeSelect}
               searchQuery={searchQuery}
             />

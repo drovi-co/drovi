@@ -530,11 +530,11 @@ async function syncChannel(
       .update(conversation)
       .set({
         title: conversationData.title,
-        snippet: messages[messages.length - 1]?.text?.slice(0, 200),
+        snippet: messages.at(-1)?.text?.slice(0, 200),
         participantIds: conversationData.participantIds,
         messageCount: sql`${conversation.messageCount} + ${messages.length}`,
         lastMessageAt: new Date(
-          Number.parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000
+          Number.parseFloat(messages.at(-1)?.ts ?? "0") * 1000
         ),
         metadata: enrichedMetadata,
         updatedAt: now,
@@ -561,14 +561,14 @@ async function syncChannel(
       externalId: channel.id,
       conversationType: convType,
       title: conversationData.title,
-      snippet: messages[messages.length - 1]?.text?.slice(0, 200),
+      snippet: messages.at(-1)?.text?.slice(0, 200),
       participantIds: conversationData.participantIds,
       messageCount: messages.length,
       firstMessageAt: new Date(
         Number.parseFloat(messages[0]?.ts ?? "0") * 1000
       ),
       lastMessageAt: new Date(
-        Number.parseFloat(messages[messages.length - 1]?.ts ?? "0") * 1000
+        Number.parseFloat(messages.at(-1)?.ts ?? "0") * 1000
       ),
       isRead: false,
       isStarred: false,
@@ -587,7 +587,7 @@ async function syncChannel(
   }
 
   // Update last synced message timestamp
-  const lastMsg = messages[messages.length - 1];
+  const lastMsg = messages.at(-1);
   if (lastMsg) {
     await db
       .update(slackChannel)
@@ -995,7 +995,10 @@ export const analyzeSlackConversationTask = task({
   ): Promise<SlackConversationAnalysisResult> => {
     const { conversationId, force = false } = payload;
 
-    log.info("Starting Slack conversation analysis via Python backend", { conversationId, force });
+    log.info("Starting Slack conversation analysis via Python backend", {
+      conversationId,
+      force,
+    });
 
     const result: SlackConversationAnalysisResult = {
       success: false,

@@ -550,13 +550,15 @@ export const presenceRouter = router({
           .where(eq(userPresence.userId, userId));
       } else {
         // Remove viewer record
-        await db.delete(resourceViewers).where(
-          and(
-            eq(resourceViewers.resourceType, input.resourceType),
-            eq(resourceViewers.resourceId, input.resourceId),
-            eq(resourceViewers.userId, userId)
-          )
-        );
+        await db
+          .delete(resourceViewers)
+          .where(
+            and(
+              eq(resourceViewers.resourceType, input.resourceType),
+              eq(resourceViewers.resourceId, input.resourceId),
+              eq(resourceViewers.userId, userId)
+            )
+          );
 
         // Clear viewing from presence
         await db
@@ -698,12 +700,14 @@ export const presenceRouter = router({
       }
 
       // Delete stale viewer records
-      await db.delete(resourceViewers).where(
-        and(
-          eq(resourceViewers.organizationId, input.organizationId),
-          sql`${resourceViewers.lastHeartbeat} < ${viewerCutoff}`
-        )
-      );
+      await db
+        .delete(resourceViewers)
+        .where(
+          and(
+            eq(resourceViewers.organizationId, input.organizationId),
+            sql`${resourceViewers.lastHeartbeat} < ${viewerCutoff}`
+          )
+        );
 
       return {
         success: true,

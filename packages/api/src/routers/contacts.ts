@@ -17,9 +17,9 @@ import {
   contactIdentity,
   conversation,
   conversationTopic,
+  type MessageRecipient,
   member,
   message,
-  type MessageRecipient,
   sourceAccount,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -691,7 +691,9 @@ export const contactsRouter = router({
       for (const [_identityKey, identities] of identityGroups) {
         if (identities.length > 1) {
           // Multiple contacts share this identity - they might be the same person
-          const uniqueContactIds = [...new Set(identities.map((i) => i.contactId))];
+          const uniqueContactIds = [
+            ...new Set(identities.map((i) => i.contactId)),
+          ];
           if (uniqueContactIds.length > 1) {
             // Get all pairs
             for (let i = 0; i < uniqueContactIds.length; i++) {
@@ -703,30 +705,43 @@ export const contactsRouter = router({
                 if (!seenPairs.has(pairKey)) {
                   seenPairs.add(pairKey);
 
-                  const contactA = identities.find((i) => i.contactId === contactAId)?.contact;
-                  const contactB = identities.find((i) => i.contactId === contactBId)?.contact;
+                  const contactA = identities.find(
+                    (i) => i.contactId === contactAId
+                  )?.contact;
+                  const contactB = identities.find(
+                    (i) => i.contactId === contactBId
+                  )?.contact;
 
                   if (contactA && contactB) {
                     // Find all shared identities for this pair
-                    const sharedIdentities: { type: string; value: string }[] = [];
+                    const sharedIdentities: { type: string; value: string }[] =
+                      [];
                     for (const [k, ids] of identityGroups) {
                       const hasA = ids.some((i) => i.contactId === contactAId);
                       const hasB = ids.some((i) => i.contactId === contactBId);
                       if (hasA && hasB) {
                         const [type, value] = k.split(":");
-                        sharedIdentities.push({ type: type ?? "unknown", value: value ?? "" });
+                        sharedIdentities.push({
+                          type: type ?? "unknown",
+                          value: value ?? "",
+                        });
                       }
                     }
 
                     // High confidence for shared identities
-                    const confidence = Math.min(0.95, 0.7 + sharedIdentities.length * 0.1);
+                    const confidence = Math.min(
+                      0.95,
+                      0.7 + sharedIdentities.length * 0.1
+                    );
 
                     if (confidence >= input.minConfidence) {
                       suggestions.push({
                         contactA,
                         contactB,
                         confidence,
-                        reasons: [`Share ${sharedIdentities.length} identifier(s)`],
+                        reasons: [
+                          `Share ${sharedIdentities.length} identifier(s)`,
+                        ],
                         sharedIdentities,
                       });
                     }
@@ -763,16 +778,22 @@ export const contactsRouter = router({
               const a = contacts[i];
               const b = contacts[j];
 
-              if (!a || !b) continue;
+              if (!(a && b)) {
+                continue;
+              }
 
               const pairKey = [a.id, b.id].sort().join(":");
-              if (seenPairs.has(pairKey)) continue;
+              if (seenPairs.has(pairKey)) {
+                continue;
+              }
 
               // Calculate name similarity
               const nameA = (a.displayName ?? "").toLowerCase().trim();
               const nameB = (b.displayName ?? "").toLowerCase().trim();
 
-              if (!nameA || !nameB || nameA.length < 2 || nameB.length < 2) continue;
+              if (!(nameA && nameB) || nameA.length < 2 || nameB.length < 2) {
+                continue;
+              }
 
               // Simple similarity: check for substring match or similar parts
               let nameSimilarity = 0;
@@ -788,7 +809,11 @@ export const contactsRouter = router({
                   partsB.some((pb) => pb.includes(p) || p.includes(pb))
                 );
                 if (sharedParts.length > 0) {
-                  nameSimilarity = 0.3 + (sharedParts.length / Math.max(partsA.length, partsB.length)) * 0.4;
+                  nameSimilarity =
+                    0.3 +
+                    (sharedParts.length /
+                      Math.max(partsA.length, partsB.length)) *
+                      0.4;
                 }
               }
 
@@ -806,8 +831,11 @@ export const contactsRouter = router({
                 }
 
                 // Company match bonus
-                if (a.company && b.company &&
-                    a.company.toLowerCase() === b.company.toLowerCase()) {
+                if (
+                  a.company &&
+                  b.company &&
+                  a.company.toLowerCase() === b.company.toLowerCase()
+                ) {
                   confidence += 0.2;
                   reasons.push("Same company");
                 }
@@ -889,7 +917,9 @@ export const contactsRouter = router({
 
       // Simple merge candidate detection (replaces AI agent)
       // Finds contacts with similar email domains or similar names
-      const targetEmailDomain = targetContact.primaryEmail.split("@")[1]?.toLowerCase();
+      const targetEmailDomain = targetContact.primaryEmail
+        .split("@")[1]
+        ?.toLowerCase();
       const targetName = (targetContact.displayName ?? "").toLowerCase();
 
       const candidates = allContacts
@@ -906,11 +936,15 @@ export const contactsRouter = router({
 
           // Check name similarity (simple substring match)
           const candidateName = (c.displayName ?? "").toLowerCase();
-          if (targetName && candidateName && targetName.length > 2) {
-            if (candidateName.includes(targetName) || targetName.includes(candidateName)) {
-              similarity += 0.5;
-              reasons.push("Similar name");
-            }
+          if (
+            targetName &&
+            candidateName &&
+            targetName.length > 2 &&
+            (candidateName.includes(targetName) ||
+              targetName.includes(candidateName))
+          ) {
+            similarity += 0.5;
+            reasons.push("Similar name");
           }
 
           return {
@@ -1275,9 +1309,7 @@ export const contactsRouter = router({
 // HELPER FUNCTIONS
 // =============================================================================
 
-function getHealthInsight(
-  contactRecord: typeof contact.$inferSelect
-): string {
+function getHealthInsight(contactRecord: typeof contact.$inferSelect): string {
   const healthScore = contactRecord.healthScore ?? 0.5;
   const responseRate = contactRecord.responseRate ?? 0;
   const daysSince = contactRecord.daysSinceLastContact ?? 0;

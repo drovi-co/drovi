@@ -9,14 +9,7 @@
 import { motion } from "framer-motion";
 import { Activity, Loader2, Signal, Waves, Zap } from "lucide-react";
 import { useMemo } from "react";
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
-import { useSignalNoiseStats } from "@/hooks/use-intelligence";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -26,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useSignalNoiseStats } from "@/hooks/use-intelligence";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -49,9 +43,21 @@ const COLORS = {
 };
 
 const ZONE_CONFIG = {
-  A: { label: "Zone A (>2σ)", color: "bg-green-500", description: "True signal" },
-  B: { label: "Zone B (1-2σ)", color: "bg-amber-500", description: "Possible signal" },
-  C: { label: "Zone C (<1σ)", color: "bg-gray-400", description: "Common cause" },
+  A: {
+    label: "Zone A (>2σ)",
+    color: "bg-green-500",
+    description: "True signal",
+  },
+  B: {
+    label: "Zone B (1-2σ)",
+    color: "bg-amber-500",
+    description: "Possible signal",
+  },
+  C: {
+    label: "Zone C (<1σ)",
+    color: "bg-gray-400",
+    description: "Common cause",
+  },
 };
 
 // =============================================================================
@@ -66,7 +72,9 @@ export function SignalNoiseChart({
   const { data, isLoading } = useSignalNoiseStats({ organizationId, days });
 
   const pieData = useMemo(() => {
-    if (!data) return [];
+    if (!data) {
+      return [];
+    }
     return [
       { name: "Signals", value: data.signals, fill: COLORS.signal },
       { name: "Noise", value: data.noise, fill: COLORS.noise },
@@ -75,13 +83,16 @@ export function SignalNoiseChart({
   }, [data]);
 
   const zoneData = useMemo(() => {
-    if (!data?.by_zone) return [];
+    if (!data?.by_zone) {
+      return [];
+    }
     return Object.entries(data.by_zone).map(([zone, count]) => ({
       zone: zone as keyof typeof ZONE_CONFIG,
       count,
-      percentage: data.total_intelligence > 0
-        ? Math.round((count / data.total_intelligence) * 100)
-        : 0,
+      percentage:
+        data.total_intelligence > 0
+          ? Math.round((count / data.total_intelligence) * 100)
+          : 0,
     }));
   }, [data]);
 
@@ -141,10 +152,10 @@ export function SignalNoiseChart({
             className={cn(
               "ml-2",
               signalRatioPercent >= 50
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                ? "border-green-500/30 bg-green-500/10 text-green-600"
                 : signalRatioPercent >= 25
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                  : "border-gray-500/30 bg-gray-500/10 text-gray-600"
             )}
             variant="outline"
           >
@@ -178,7 +189,9 @@ export function SignalNoiseChart({
                   </Pie>
                   <Tooltip
                     content={({ active, payload }) => {
-                      if (!(active && payload?.length)) return null;
+                      if (!(active && payload?.length)) {
+                        return null;
+                      }
                       const data = payload[0];
                       return (
                         <div className="rounded-lg border bg-background px-3 py-2 shadow-md">

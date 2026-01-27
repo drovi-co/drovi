@@ -7,12 +7,8 @@
  * Wrap your app or organization-scoped layouts with this provider.
  */
 
-import { type ReactNode } from "react";
-import {
-  PresenceContext,
-  usePresenceWebSocket,
-  type PresenceStatus,
-} from "@/hooks/use-presence";
+import type { ReactNode } from "react";
+import { PresenceContext, usePresenceWebSocket } from "@/hooks/use-presence";
 
 interface PresenceProviderProps {
   organizationId: string;
@@ -54,7 +50,7 @@ export function ConnectionStatus() {
   });
 
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex items-center gap-2 text-muted-foreground text-xs">
       <span
         className={`h-2 w-2 rounded-full ${
           presence.isConnected ? "bg-green-500" : "bg-red-500"

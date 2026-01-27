@@ -61,8 +61,12 @@ function calculateTextSimilarity(textA: string, textB: string): number {
   const wordsA = new Set(normalize(textA));
   const wordsB = new Set(normalize(textB));
 
-  if (wordsA.size === 0 && wordsB.size === 0) return 1;
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  if (wordsA.size === 0 && wordsB.size === 0) {
+    return 1;
+  }
+  if (wordsA.size === 0 || wordsB.size === 0) {
+    return 0;
+  }
 
   const intersection = new Set([...wordsA].filter((w) => wordsB.has(w)));
   const union = new Set([...wordsA, ...wordsB]);
@@ -78,7 +82,9 @@ function areDatesCompatible(
   dateB: Date | null | undefined
 ): boolean {
   // If either is null, they're compatible (no conflict)
-  if (!(dateA && dateB)) return true;
+  if (!(dateA && dateB)) {
+    return true;
+  }
 
   const daysDiff = Math.abs(
     (dateA.getTime() - dateB.getTime()) / (1000 * 60 * 60 * 24)

@@ -594,9 +594,12 @@ export const uioCommitmentDetails = pgTable(
     debtorContactId: text("debtor_contact_id").references(() => contact.id, {
       onDelete: "set null",
     }),
-    creditorContactId: text("creditor_contact_id").references(() => contact.id, {
-      onDelete: "set null",
-    }),
+    creditorContactId: text("creditor_contact_id").references(
+      () => contact.id,
+      {
+        onDelete: "set null",
+      }
+    ),
 
     // Due date sourcing
     dueDateSource: text("due_date_source"), // "explicit" | "inferred" | "user_set"
@@ -661,15 +664,16 @@ export const uioDecisionDetails = pgTable(
     rationale: text("rationale"),
 
     // Alternatives considered
-    alternatives: jsonb("alternatives").$type<
-      Array<{
-        title: string;
-        description?: string;
-        pros?: string[];
-        cons?: string[];
-        rejected?: boolean;
-      }>
-    >(),
+    alternatives:
+      jsonb("alternatives").$type<
+        Array<{
+          title: string;
+          description?: string;
+          pros?: string[];
+          cons?: string[];
+          rejected?: boolean;
+        }>
+      >(),
 
     // Decision maker
     decisionMakerContactId: text("decision_maker_contact_id").references(
@@ -783,9 +787,12 @@ export const uioTaskDetails = pgTable(
     priority: uioTaskPriorityEnum("priority").notNull().default("medium"),
 
     // Ownership
-    assigneeContactId: text("assignee_contact_id").references(() => contact.id, {
-      onDelete: "set null",
-    }),
+    assigneeContactId: text("assignee_contact_id").references(
+      () => contact.id,
+      {
+        onDelete: "set null",
+      }
+    ),
     createdByContactId: text("created_by_contact_id").references(
       () => contact.id,
       { onDelete: "set null" }
@@ -853,7 +860,9 @@ export const uioRiskDetails = pgTable(
     severity: uioRiskSeverityEnum("severity").notNull(),
 
     // Related UIOs
-    relatedCommitmentUioIds: text("related_commitment_uio_ids").array().default([]),
+    relatedCommitmentUioIds: text("related_commitment_uio_ids")
+      .array()
+      .default([]),
     relatedDecisionUioIds: text("related_decision_uio_ids").array().default([]),
 
     // Action
@@ -912,13 +921,14 @@ export const uioBriefDetails = pgTable(
     actionReasoning: text("action_reasoning"),
 
     // Open loops (unanswered questions, pending items)
-    openLoops: jsonb("open_loops").$type<
-      Array<{
-        description: string;
-        owner?: string;
-        isBlocking?: boolean;
-      }>
-    >(),
+    openLoops:
+      jsonb("open_loops").$type<
+        Array<{
+          description: string;
+          owner?: string;
+          isBlocking?: boolean;
+        }>
+      >(),
 
     // Priority tier
     priorityTier: uioBriefPriorityEnum("priority_tier").notNull(),
@@ -1104,35 +1114,29 @@ export const uioClaimDetailsRelations = relations(
   })
 );
 
-export const uioTaskDetailsRelations = relations(
-  uioTaskDetails,
-  ({ one }) => ({
-    unifiedObject: one(unifiedIntelligenceObject, {
-      fields: [uioTaskDetails.uioId],
-      references: [unifiedIntelligenceObject.id],
-    }),
-    assignee: one(contact, {
-      fields: [uioTaskDetails.assigneeContactId],
-      references: [contact.id],
-      relationName: "taskAssignee",
-    }),
-    createdBy: one(contact, {
-      fields: [uioTaskDetails.createdByContactId],
-      references: [contact.id],
-      relationName: "taskCreator",
-    }),
-  })
-);
+export const uioTaskDetailsRelations = relations(uioTaskDetails, ({ one }) => ({
+  unifiedObject: one(unifiedIntelligenceObject, {
+    fields: [uioTaskDetails.uioId],
+    references: [unifiedIntelligenceObject.id],
+  }),
+  assignee: one(contact, {
+    fields: [uioTaskDetails.assigneeContactId],
+    references: [contact.id],
+    relationName: "taskAssignee",
+  }),
+  createdBy: one(contact, {
+    fields: [uioTaskDetails.createdByContactId],
+    references: [contact.id],
+    relationName: "taskCreator",
+  }),
+}));
 
-export const uioRiskDetailsRelations = relations(
-  uioRiskDetails,
-  ({ one }) => ({
-    unifiedObject: one(unifiedIntelligenceObject, {
-      fields: [uioRiskDetails.uioId],
-      references: [unifiedIntelligenceObject.id],
-    }),
-  })
-);
+export const uioRiskDetailsRelations = relations(uioRiskDetails, ({ one }) => ({
+  unifiedObject: one(unifiedIntelligenceObject, {
+    fields: [uioRiskDetails.uioId],
+    references: [unifiedIntelligenceObject.id],
+  }),
+}));
 
 export const uioBriefDetailsRelations = relations(
   uioBriefDetails,

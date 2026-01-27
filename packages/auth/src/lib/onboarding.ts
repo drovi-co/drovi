@@ -75,19 +75,25 @@ function getOrgNameFromEmail(email: string): string {
  * Called when a new user is created via OAuth.
  * Creates their first organization and connects their email account.
  *
- * @param user - The newly created user
+ * NOTE: Subscription is NOT created here. The frontend must call
+ * `waitlist.finalizeSignup` after OAuth to validate invite codes
+ * and create the subscription.
+ *
+ * @param newUser - The newly created user
  */
-export async function onboardNewUser(user: NewUser): Promise<void> {
+export async function onboardNewUser(newUser: NewUser): Promise<void> {
   try {
     // 1. Get the OAuth account that was just created
     // (better-auth creates an account record linked to the user)
     const oauthAccount = await db.query.account.findFirst({
-      where: (acc, { eq }) => eq(acc.userId, user.id),
+      where: (acc, { eq }) => eq(acc.userId, newUser.id),
       orderBy: (acc, { desc }) => [desc(acc.createdAt)],
     });
 
     if (!oauthAccount) {
-      console.warn(`[onboarding] No OAuth account found for user ${user.id}`);
+      console.warn(
+        `[onboarding] No OAuth account found for user ${newUser.id}`
+      );
       return;
     }
 
@@ -99,13 +105,13 @@ export async function onboardNewUser(user: NewUser): Promise<void> {
       provider = "outlook";
     } else {
       console.warn(
-        `[onboarding] Unknown provider ${oauthAccount.providerId} for user ${user.id}`
+        `[onboarding] Unknown provider ${oauthAccount.providerId} for user ${newUser.id}`
       );
       return;
     }
 
     // 2. Create the first organization
-    const orgName = getOrgNameFromEmail(user.email);
+    const orgName = getOrgNameFromEmail(newUser.email);
     const orgSlug = generateSlug(orgName);
     const orgId = randomUUID();
 
@@ -113,16 +119,18 @@ export async function onboardNewUser(user: NewUser): Promise<void> {
       id: orgId,
       name: orgName,
       slug: orgSlug,
-      plan: "free",
+      plan: "free", // Actual plan is tracked in subscription table
     });
 
     // 3. Add user as owner of the organization
     await db.insert(member).values({
       id: randomUUID(),
       organizationId: orgId,
-      userId: user.id,
+      userId: newUser.id,
       role: "owner",
     });
+
+    console.log(`[onboarding] Created org "${orgName}" for ${newUser.email}`);
 
     // 4. Connect the email account to the organization
     // Note: The OAuth tokens from better-auth are stored in the account table
@@ -130,11 +138,11 @@ export async function onboardNewUser(user: NewUser): Promise<void> {
     if (oauthAccount.accessToken && oauthAccount.refreshToken) {
       await db.insert(sourceAccount).values({
         organizationId: orgId,
-        addedByUserId: user.id,
+        addedByUserId: newUser.id,
         type: "email",
         provider,
-        externalId: user.email,
-        displayName: user.name,
+        externalId: newUser.email,
+        displayName: newUser.name,
         accessToken: oauthAccount.accessToken,
         refreshToken: oauthAccount.refreshToken,
         tokenExpiresAt:
@@ -148,15 +156,18 @@ export async function onboardNewUser(user: NewUser): Promise<void> {
       });
 
       console.log(
-        `[onboarding] Created org "${orgName}" and connected ${provider} account for ${user.email}`
+        `[onboarding] Connected ${provider} account for ${newUser.email}`
       );
     } else {
       console.warn(
-        `[onboarding] No tokens available for ${user.email}, email account not connected`
+        `[onboarding] No tokens available for ${newUser.email}, email account not connected`
       );
     }
+
+    // NOTE: Subscription will be created by waitlist.finalizeSignup
+    // which validates the invite code and sets up the proper plan
   } catch (error) {
     // Don't fail user creation if onboarding fails
-    console.error(`[onboarding] Error onboarding user ${user.id}:`, error);
+    console.error(`[onboarding] Error onboarding user ${newUser.id}:`, error);
   }
 }

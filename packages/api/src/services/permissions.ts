@@ -47,16 +47,24 @@ function parsePermissionPath(path: PermissionPath): {
   category: keyof PermissionSet;
   permission: string;
 } {
-  const [category, permission] = path.split(".") as [keyof PermissionSet, string];
+  const [category, permission] = path.split(".") as [
+    keyof PermissionSet,
+    string,
+  ];
   return { category, permission };
 }
 
 /**
  * Get a permission value from a permission set.
  */
-function getPermission(permissions: PermissionSet, path: PermissionPath): boolean {
+function getPermission(
+  permissions: PermissionSet,
+  path: PermissionPath
+): boolean {
   const { category, permission } = parsePermissionPath(path);
-  const categoryPerms = permissions[category] as Record<string, boolean> | undefined;
+  const categoryPerms = permissions[category] as
+    | Record<string, boolean>
+    | undefined;
   return categoryPerms?.[permission] ?? false;
 }
 
@@ -78,7 +86,9 @@ export async function getMemberRecord(
     ),
   });
 
-  if (!membership) return null;
+  if (!membership) {
+    return null;
+  }
 
   return {
     memberId: membership.id,
@@ -91,7 +101,9 @@ export async function getMemberRecord(
  */
 export async function getActiveRoleAssignments(
   memberId: string
-): Promise<Array<{ roleId: string; permissions: PermissionSet; roleName: string }>> {
+): Promise<
+  Array<{ roleId: string; permissions: PermissionSet; roleName: string }>
+> {
   const assignments = await db.query.memberRoleAssignment.findMany({
     where: and(
       eq(memberRoleAssignment.memberId, memberId),
@@ -106,11 +118,11 @@ export async function getActiveRoleAssignments(
   });
 
   return assignments
-    .filter((a) => a.customRole && a.customRole.isActive)
+    .filter((a) => a.customRole?.isActive)
     .map((a) => ({
-      roleId: a.customRole!.id,
-      permissions: a.customRole!.permissions as PermissionSet,
-      roleName: a.customRole!.name,
+      roleId: a.customRole?.id,
+      permissions: a.customRole?.permissions as PermissionSet,
+      roleName: a.customRole?.name,
     }));
 }
 
@@ -137,11 +149,17 @@ export async function getEffectivePermissions(
     const rolePerms = assignment.permissions;
 
     // Iterate through all permission categories
-    for (const category of Object.keys(effective) as Array<keyof PermissionSet>) {
+    for (const category of Object.keys(effective) as Array<
+      keyof PermissionSet
+    >) {
       const effectiveCategory = effective[category] as Record<string, boolean>;
-      const roleCategory = rolePerms[category] as Record<string, boolean> | undefined;
+      const roleCategory = rolePerms[category] as
+        | Record<string, boolean>
+        | undefined;
 
-      if (!roleCategory) continue;
+      if (!roleCategory) {
+        continue;
+      }
 
       // Merge each permission in the category
       for (const perm of Object.keys(effectiveCategory)) {
@@ -163,7 +181,9 @@ export async function getUserPermissionContext(
   organizationId: string
 ): Promise<UserPermissionContext | null> {
   const memberRecord = await getMemberRecord(userId, organizationId);
-  if (!memberRecord) return null;
+  if (!memberRecord) {
+    return null;
+  }
 
   const effectivePermissions = await getEffectivePermissions(
     memberRecord.memberId,
@@ -285,7 +305,9 @@ export async function isOrgAdmin(
   organizationId: string
 ): Promise<boolean> {
   const memberRecord = await getMemberRecord(userId, organizationId);
-  if (!memberRecord) return false;
+  if (!memberRecord) {
+    return false;
+  }
 
   return memberRecord.baseRole === "owner" || memberRecord.baseRole === "admin";
 }
@@ -298,7 +320,9 @@ export async function isOrgOwner(
   organizationId: string
 ): Promise<boolean> {
   const memberRecord = await getMemberRecord(userId, organizationId);
-  if (!memberRecord) return false;
+  if (!memberRecord) {
+    return false;
+  }
 
   return memberRecord.baseRole === "owner";
 }
@@ -312,7 +336,9 @@ export async function hasCustomRole(
   roleSlug: string
 ): Promise<boolean> {
   const memberRecord = await getMemberRecord(userId, organizationId);
-  if (!memberRecord) return false;
+  if (!memberRecord) {
+    return false;
+  }
 
   const role = await db.query.customRole.findFirst({
     where: and(
@@ -322,7 +348,9 @@ export async function hasCustomRole(
     ),
   });
 
-  if (!role) return false;
+  if (!role) {
+    return false;
+  }
 
   const assignment = await db.query.memberRoleAssignment.findFirst({
     where: and(
@@ -402,7 +430,9 @@ export async function listGrantedPermissions(
   organizationId: string
 ): Promise<PermissionPath[]> {
   const context = await getUserPermissionContext(userId, organizationId);
-  if (!context) return [];
+  if (!context) {
+    return [];
+  }
 
   const granted: PermissionPath[] = [];
   const perms = context.effectivePermissions;

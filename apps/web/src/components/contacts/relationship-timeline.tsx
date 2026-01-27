@@ -7,26 +7,22 @@
 //
 
 import { useQuery } from "@tanstack/react-query";
-import { format, formatDistanceToNow, isToday, isYesterday, isSameDay } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { motion } from "framer-motion";
 import {
   Calendar,
-  CheckCircle2,
   ChevronRight,
   Clock,
   FileText,
   GitBranch,
-  Loader2,
   Mail,
   MessageSquare,
   Phone,
   Slack,
   Target,
-  Video,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -135,7 +131,9 @@ function DateGroupHeader({ date }: { date: Date }) {
     <div className="sticky top-0 z-10 -mx-4 bg-background/95 px-4 py-2 backdrop-blur">
       <div className="flex items-center gap-2">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-muted-foreground text-xs font-medium">{label}</span>
+        <span className="font-medium text-muted-foreground text-xs">
+          {label}
+        </span>
         <div className="h-px flex-1 bg-border" />
       </div>
     </div>
@@ -152,7 +150,11 @@ interface TimelineItemComponentProps {
   isLast: boolean;
 }
 
-function TimelineItemComponent({ item, onClick, isLast }: TimelineItemComponentProps) {
+function TimelineItemComponent({
+  item,
+  onClick,
+  isLast,
+}: TimelineItemComponentProps) {
   const Icon = typeIcons[item.type] ?? Mail;
   const color = typeColors[item.type] ?? "bg-gray-500";
   const bgColor = typeBgColors[item.type] ?? "bg-gray-500/10";
@@ -185,30 +187,30 @@ function TimelineItemComponent({ item, onClick, isLast }: TimelineItemComponentP
         onClick={onClick}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="font-medium text-sm truncate">{item.title}</p>
+              <p className="truncate font-medium text-sm">{item.title}</p>
               {item.direction && (
                 <Badge
-                  variant="outline"
                   className={cn(
                     "text-[10px]",
                     item.direction === "inbound"
                       ? "border-green-500/30 text-green-600"
                       : "border-blue-500/30 text-blue-600"
                   )}
+                  variant="outline"
                 >
                   {item.direction === "inbound" ? "Received" : "Sent"}
                 </Badge>
               )}
               {item.metadata?.status && (
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge className="text-[10px]" variant="secondary">
                   {item.metadata.status}
                 </Badge>
               )}
             </div>
             {item.summary && (
-              <p className="mt-1 text-muted-foreground text-sm line-clamp-2">
+              <p className="mt-1 line-clamp-2 text-muted-foreground text-sm">
                 {item.summary}
               </p>
             )}
@@ -217,14 +219,13 @@ function TimelineItemComponent({ item, onClick, isLast }: TimelineItemComponentP
                 <Clock className="h-3 w-3" />
                 {format(new Date(item.timestamp), "h:mm a")}
               </span>
-              {item.source && (
-                <span className="capitalize">{item.source}</span>
-              )}
-              {item.metadata?.participants && item.metadata.participants.length > 0 && (
-                <span className="flex items-center gap-1">
-                  +{item.metadata.participants.length} others
-                </span>
-              )}
+              {item.source && <span className="capitalize">{item.source}</span>}
+              {item.metadata?.participants &&
+                item.metadata.participants.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    +{item.metadata.participants.length} others
+                  </span>
+                )}
               {item.metadata?.duration && (
                 <span>{item.metadata.duration} min</span>
               )}
@@ -257,7 +258,6 @@ export function RelationshipTimeline({
   const { data: threadsData, isLoading: loadingThreads } = useQuery(
     trpc.threads.list.queryOptions({
       organizationId,
-      participantEmail: undefined, // Would need to filter by contact email
       limit: maxItems,
     })
   );
@@ -292,9 +292,11 @@ export function RelationshipTimeline({
         items.push({
           id: thread.id,
           type: "email",
-          title: thread.subject ?? "No Subject",
-          summary: thread.brief ?? undefined,
-          timestamp: new Date(thread.lastMessageAt ?? thread.createdAt),
+          title: thread.title ?? thread.snippet ?? "No Subject",
+          summary: thread.snippet ?? undefined,
+          timestamp: new Date(
+            thread.lastMessageAt ?? thread.firstMessageAt ?? Date.now()
+          ),
           direction: "inbound", // Would determine from thread data
           source: "email",
           sourceId: thread.id,
@@ -306,38 +308,42 @@ export function RelationshipTimeline({
     }
 
     // Add commitments
-    if (commitmentsData?.commitments) {
-      for (const commitment of commitmentsData.commitments) {
-        items.push({
-          id: commitment.id,
-          type: "commitment",
-          title: commitment.title,
-          summary: commitment.description ?? undefined,
-          timestamp: new Date(commitment.createdAt),
-          source: "commitment",
-          sourceId: commitment.id,
-          metadata: {
-            status: commitment.status,
-          },
-        });
+    if (commitmentsData?.items) {
+      for (const item of commitmentsData.items) {
+        if (item.type === "commitment" && item.commitmentDetails) {
+          items.push({
+            id: item.id,
+            type: "commitment",
+            title: item.canonicalTitle,
+            summary: item.canonicalDescription ?? undefined,
+            timestamp: new Date(item.createdAt),
+            source: "commitment",
+            sourceId: item.id,
+            metadata: {
+              status: item.commitmentDetails.status,
+            },
+          });
+        }
       }
     }
 
     // Add decisions
-    if (decisionsData?.decisions) {
-      for (const decision of decisionsData.decisions) {
-        items.push({
-          id: decision.id,
-          type: "decision",
-          title: decision.title,
-          summary: decision.description ?? undefined,
-          timestamp: new Date(decision.createdAt),
-          source: "decision",
-          sourceId: decision.id,
-          metadata: {
-            status: decision.status,
-          },
-        });
+    if (decisionsData?.items) {
+      for (const item of decisionsData.items) {
+        if (item.type === "decision" && item.decisionDetails) {
+          items.push({
+            id: item.id,
+            type: "decision",
+            title: item.canonicalTitle,
+            summary: item.canonicalDescription ?? undefined,
+            timestamp: new Date(item.createdAt),
+            source: "decision",
+            sourceId: item.id,
+            metadata: {
+              status: item.decisionDetails.status ?? item.status,
+            },
+          });
+        }
       }
     }
 
@@ -372,8 +378,8 @@ export function RelationshipTimeline({
           <Skeleton className="h-4 w-32" />
         </CardHeader>
         <CardContent className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex gap-4">
+          {[...new Array(5)].map((_, i) => (
+            <div className="flex gap-4" key={i}>
               <Skeleton className="h-8 w-8 rounded-full" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
@@ -415,30 +421,34 @@ export function RelationshipTimeline({
       </CardHeader>
       <CardContent>
         <div className="relative">
-          {Array.from(groupedItems.entries()).map(([dateKey, items], groupIndex) => (
-            <div key={dateKey}>
-              <DateGroupHeader date={new Date(dateKey)} />
-              {items.map((item, itemIndex) => {
-                const isLastInGroup = itemIndex === items.length - 1;
-                const isLastOverall =
-                  groupIndex === groupedItems.size - 1 && isLastInGroup;
+          {Array.from(groupedItems.entries()).map(
+            ([dateKey, items], groupIndex) => (
+              <div key={dateKey}>
+                <DateGroupHeader date={new Date(dateKey)} />
+                {items.map((item, itemIndex) => {
+                  const isLastInGroup = itemIndex === items.length - 1;
+                  const isLastOverall =
+                    groupIndex === groupedItems.size - 1 && isLastInGroup;
 
-                return (
-                  <TimelineItemComponent
-                    key={item.id}
-                    item={item}
-                    onClick={onItemClick ? () => onItemClick(item) : undefined}
-                    isLast={isLastOverall}
-                  />
-                );
-              })}
-            </div>
-          ))}
+                  return (
+                    <TimelineItemComponent
+                      isLast={isLastOverall}
+                      item={item}
+                      key={item.id}
+                      onClick={
+                        onItemClick ? () => onItemClick(item) : undefined
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )
+          )}
         </div>
 
         {!showAll && timelineItems.length >= 10 && (
           <div className="mt-4 flex justify-center">
-            <Button variant="outline" onClick={() => setShowAll(true)}>
+            <Button onClick={() => setShowAll(true)} variant="outline">
               Show All Interactions
             </Button>
           </div>

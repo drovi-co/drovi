@@ -548,7 +548,7 @@ export const whatsappMessageReceivedTask = task({
 /**
  * Fetch message templates from WhatsApp API.
  */
-type WhatsAppTemplateComponent = {
+interface WhatsAppTemplateComponent {
   type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
   format?: string;
   text?: string;
@@ -559,7 +559,7 @@ type WhatsAppTemplateComponent = {
     url?: string;
     phone_number?: string;
   }>;
-};
+}
 
 async function fetchMessageTemplates(
   wabaId: string,

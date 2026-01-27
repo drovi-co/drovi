@@ -1,16 +1,18 @@
 // Existing exports
 export * from "./audit";
 export * from "./auth";
+// Billing & Subscriptions
+export * from "./billing";
+// Contact alerts (proactive monitoring)
+export * from "./contact-alert";
 // Contact identity linking (cross-source resolution)
 export * from "./contact-identity";
+// Contact intelligence snapshots (historical trend data)
+export * from "./contact-intelligence-snapshot";
 // Contact relationships (social graph)
 export * from "./contact-relationship";
 // Contact source links (CRM sync, etc.)
 export * from "./contact-source-link";
-// Contact alerts (proactive monitoring)
-export * from "./contact-alert";
-// Contact intelligence snapshots (historical trend data)
-export * from "./contact-intelligence-snapshot";
 export * from "./credits";
 // Derivation rules and calibration (knowledge evolution)
 export * from "./derivation-rules";
@@ -43,17 +45,17 @@ export * from "./whatsapp";
 // MULTIPLAYER & ENTERPRISE SCHEMAS
 // =============================================================================
 
-// Organization settings (privacy, SSO, SCIM, feature flags)
-export * from "./organization-settings";
-// Shared inbox (round-robin assignment, SLA tracking)
-export * from "./shared-inbox";
-// Intelligence sharing (auto-share, teammate linking)
-export * from "./intelligence-sharing";
-// Custom roles (granular permissions)
-export * from "./custom-roles";
-// Presence (real-time user status, "who's viewing")
-export * from "./presence";
 // Collaboration (mentions, comments, activity feed, delegation)
 export * from "./collaboration";
+// Custom roles (granular permissions)
+export * from "./custom-roles";
+// Intelligence sharing (auto-share, teammate linking)
+export * from "./intelligence-sharing";
+// Organization settings (privacy, SSO, SCIM, feature flags)
+export * from "./organization-settings";
+// Presence (real-time user status, "who's viewing")
+export * from "./presence";
 // Push notifications (Web Push subscriptions)
 export * from "./push-notifications";
+// Shared inbox (round-robin assignment, SLA tracking)
+export * from "./shared-inbox";

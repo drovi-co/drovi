@@ -162,7 +162,9 @@ async function canManageShare(
     where: eq(unifiedIntelligenceObject.id, uioId),
   });
 
-  if (!uio) return false;
+  if (!uio) {
+    return false;
+  }
 
   // Check if user is linked to the owner contact - owner can always manage shares
   if (uio.ownerContactId) {
@@ -173,7 +175,9 @@ async function canManageShare(
         eq(teammateContactLink.isActive, true)
       ),
     });
-    if (ownerLink) return true;
+    if (ownerLink) {
+      return true;
+    }
   }
 
   // Check if user has admin share permission
@@ -186,7 +190,9 @@ async function canManageShare(
     ),
   });
 
-  if (share) return true;
+  if (share) {
+    return true;
+  }
 
   // Org admins can manage all shares
   const { role } = await verifyOrgMembership(userId, organizationId);
@@ -650,7 +656,11 @@ export const intelligenceSharingRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      await verifyUIOAccess(userId, input.organizationId, input.unifiedObjectId);
+      await verifyUIOAccess(
+        userId,
+        input.organizationId,
+        input.unifiedObjectId
+      );
 
       const shares = await db.query.intelligenceShare.findMany({
         where: and(
@@ -714,7 +724,10 @@ export const intelligenceSharingRouter = router({
         where: eq(contact.id, input.contactId),
       });
 
-      if (!contactRecord || contactRecord.organizationId !== input.organizationId) {
+      if (
+        !contactRecord ||
+        contactRecord.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Contact not found.",
@@ -741,7 +754,11 @@ export const intelligenceSharingRouter = router({
             })
             .where(eq(teammateContactLink.id, existing.id));
         }
-        return { success: true, linkId: existing.id, reactivated: !existing.isActive };
+        return {
+          success: true,
+          linkId: existing.id,
+          reactivated: !existing.isActive,
+        };
       }
 
       // If setting as primary, unset other primary links for this user
@@ -880,7 +897,9 @@ export const intelligenceSharingRouter = router({
       let linkedCount = 0;
 
       for (const m of members) {
-        if (!m.user?.email) continue;
+        if (!m.user?.email) {
+          continue;
+        }
 
         // Find contacts with matching email
         const matchingContacts = await db.query.contact.findMany({
@@ -1193,7 +1212,11 @@ export const intelligenceSharingRouter = router({
         })
         .where(eq(shareRequest.id, input.requestId));
 
-      return { success: true, approved: input.approve, shareId: createdShareId };
+      return {
+        success: true,
+        approved: input.approve,
+        shareId: createdShareId,
+      };
     }),
 
   // ===========================================================================

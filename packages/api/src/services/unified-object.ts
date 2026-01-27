@@ -267,11 +267,9 @@ export class UnifiedObjectService {
     this.generateUIOEmbedding(uioId).catch(console.error);
 
     // Re-process auto-share (participants may have changed)
-    processNewUIOAutoShare(
-      existingUio.organizationId,
-      uioId,
-      "system"
-    ).catch(console.error);
+    processNewUIOAutoShare(existingUio.organizationId, uioId, "system").catch(
+      console.error
+    );
 
     return (await db.query.unifiedIntelligenceObject.findFirst({
       where: eq(schema.unifiedIntelligenceObject.id, uioId),
@@ -523,7 +521,7 @@ export class UnifiedObjectService {
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = (hash << 5) - hash + char;
-      hash = hash & hash;
+      hash &= hash;
     }
     return hash.toString(16);
   }

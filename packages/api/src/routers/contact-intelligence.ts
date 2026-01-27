@@ -7,15 +7,15 @@
 //
 
 import { db } from "@memorystack/db";
+import type { ContactAlertContext, SnoozeConfig } from "@memorystack/db/schema";
 import {
   contact,
   contactAlert,
   contactIntelligenceSnapshot,
   member,
 } from "@memorystack/db/schema";
-import type { ContactAlertContext, SnoozeConfig } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -296,10 +296,7 @@ export const contactIntelligenceRouter = router({
         await db.query.contactIntelligenceSnapshot.findFirst({
           where: and(
             eq(contactIntelligenceSnapshot.contactId, input.contactId),
-            eq(
-              contactIntelligenceSnapshot.organizationId,
-              input.organizationId
-            )
+            eq(contactIntelligenceSnapshot.organizationId, input.organizationId)
           ),
           orderBy: [desc(contactIntelligenceSnapshot.snapshotAt)],
         });
@@ -407,9 +404,7 @@ export const contactIntelligenceRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
       await verifyContactAccess(input.organizationId, input.contactId);
 
-      const sinceDate = new Date(
-        Date.now() - input.days * 24 * 60 * 60 * 1000
-      );
+      const sinceDate = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
       const snapshots = await db.query.contactIntelligenceSnapshot.findMany({
         where: and(
@@ -442,7 +437,7 @@ export const contactIntelligenceRouter = router({
 
       if (dataPoints.length >= 2) {
         const firstValue = dataPoints[0]?.value ?? 0;
-        const lastValue = dataPoints[dataPoints.length - 1]?.value ?? 0;
+        const lastValue = dataPoints.at(-1)?.value ?? 0;
 
         if (firstValue > 0) {
           changePercent = ((lastValue - firstValue) / firstValue) * 100;
@@ -450,11 +445,15 @@ export const contactIntelligenceRouter = router({
 
         // For churn risk, "improving" means going down
         if (input.metric === "churn_risk_score") {
-          if (changePercent < -10) trend = "improving";
-          else if (changePercent > 10) trend = "declining";
-        } else {
-          if (changePercent > 10) trend = "improving";
-          else if (changePercent < -10) trend = "declining";
+          if (changePercent < -10) {
+            trend = "improving";
+          } else if (changePercent > 10) {
+            trend = "declining";
+          }
+        } else if (changePercent > 10) {
+          trend = "improving";
+        } else if (changePercent < -10) {
+          trend = "declining";
         }
       }
 
@@ -562,7 +561,9 @@ export const contactIntelligenceRouter = router({
       const userId = ctx.session.user.id;
       await verifyOrgMembership(userId, input.organizationId);
 
-      const conditions = [eq(contactAlert.organizationId, input.organizationId)];
+      const conditions = [
+        eq(contactAlert.organizationId, input.organizationId),
+      ];
 
       // Apply filters
       if (input.status && input.status.length > 0) {
@@ -581,13 +582,14 @@ export const contactIntelligenceRouter = router({
         conditions.push(eq(contactAlert.contactId, input.contactId));
       }
 
-      // Filter out expired alerts
-      conditions.push(
-        or(
-          isNull(contactAlert.expiresAt),
-          gte(contactAlert.expiresAt, new Date())
-        )
+      // Filter out expired alerts (include if expiresAt is null OR in the future)
+      const expiresAtCondition = or(
+        isNull(contactAlert.expiresAt),
+        gte(contactAlert.expiresAt, new Date())
       );
+      if (expiresAtCondition) {
+        conditions.push(expiresAtCondition);
+      }
 
       // Cursor-based pagination
       if (input.cursor) {
@@ -630,7 +632,7 @@ export const contactIntelligenceRouter = router({
 
       const hasMore = alerts.length > input.limit;
       const items = hasMore ? alerts.slice(0, -1) : alerts;
-      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+      const nextCursor = hasMore ? items.at(-1)?.id : undefined;
 
       return {
         alerts: items.map((a) => ({
@@ -889,7 +891,11 @@ export const contactIntelligenceRouter = router({
         })
         .where(eq(contactAlert.id, input.alertId));
 
-      return { success: true, alertId: input.alertId, snoozeUntil: input.snoozeUntil };
+      return {
+        success: true,
+        alertId: input.alertId,
+        snoozeUntil: input.snoozeUntil,
+      };
     }),
 
   /**

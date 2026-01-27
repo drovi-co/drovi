@@ -290,10 +290,11 @@ async function getAccountWithAccess(
   }
 
   // Verify tokens exist
-  if (!account.accessToken || !account.refreshToken) {
+  if (!(account.accessToken && account.refreshToken)) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Account is missing OAuth tokens. Please reconnect your account.",
+      message:
+        "Account is missing OAuth tokens. Please reconnect your account.",
     });
   }
 

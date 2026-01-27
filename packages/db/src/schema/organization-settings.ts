@@ -157,7 +157,9 @@ export const organizationSettings = pgTable(
     // ==========================================================================
 
     // Enable shared inbox functionality
-    sharedInboxEnabled: boolean("shared_inbox_enabled").notNull().default(false),
+    sharedInboxEnabled: boolean("shared_inbox_enabled")
+      .notNull()
+      .default(false),
 
     // Default assignment method for shared inboxes
     defaultAssignmentMethod: assignmentMethodEnum("default_assignment_method")
@@ -168,7 +170,9 @@ export const organizationSettings = pgTable(
     autoAssignEnabled: boolean("auto_assign_enabled").notNull().default(true),
 
     // Skip away members in round-robin
-    roundRobinSkipAway: boolean("round_robin_skip_away").notNull().default(true),
+    roundRobinSkipAway: boolean("round_robin_skip_away")
+      .notNull()
+      .default(true),
 
     // Maximum concurrent assignments per member (default)
     maxConcurrentAssignments: integer("max_concurrent_assignments")
@@ -188,7 +192,9 @@ export const organizationSettings = pgTable(
     autoShareDecisions: boolean("auto_share_decisions").notNull().default(true),
 
     // Auto-share when someone is @mentioned
-    autoShareOnMention: boolean("auto_share_on_mention").notNull().default(true),
+    autoShareOnMention: boolean("auto_share_on_mention")
+      .notNull()
+      .default(true),
 
     // ==========================================================================
     // SECURITY SETTINGS
@@ -206,7 +212,7 @@ export const organizationSettings = pgTable(
     // Session timeout in minutes
     sessionTimeoutMinutes: integer("session_timeout_minutes")
       .notNull()
-      .default(10080), // 7 days
+      .default(10_080), // 7 days
 
     // IP allowlist (empty = all allowed)
     ipAllowlist: text("ip_allowlist").array().default([]),

@@ -11,12 +11,7 @@ import {
   type HistoricalStatement,
 } from "@memorystack/ai/detectors";
 import { db } from "@memorystack/db";
-import {
-  claim,
-  conversation,
-  member,
-  message,
-} from "@memorystack/db/schema";
+import { claim, conversation, member, message } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -121,13 +116,21 @@ export const composeRouter = router({
         const msgCcRecipients = allRecipients.filter((r) => r.type === "cc");
 
         for (const recipient of msgToRecipients) {
-          if (recipient.email && recipient.email !== userEmail && recipient.email !== sender) {
+          if (
+            recipient.email &&
+            recipient.email !== userEmail &&
+            recipient.email !== sender
+          ) {
             toRecipients.push({ email: recipient.email, name: recipient.name });
           }
         }
 
         for (const recipient of msgCcRecipients) {
-          if (recipient.email && recipient.email !== userEmail && recipient.email !== sender) {
+          if (
+            recipient.email &&
+            recipient.email !== userEmail &&
+            recipient.email !== sender
+          ) {
             ccRecipients.push({ email: recipient.email, name: recipient.name });
           }
         }
@@ -139,7 +142,8 @@ export const composeRouter = router({
         const date = lastMessage.sentAt
           ? new Date(lastMessage.sentAt).toLocaleString()
           : "Unknown date";
-        const from = lastMessage.senderName ?? lastMessage.senderEmail ?? "Unknown";
+        const from =
+          lastMessage.senderName ?? lastMessage.senderEmail ?? "Unknown";
         const bodyText = lastMessage.bodyText ?? lastMessage.snippet ?? "";
 
         quotedBody = `\n\n---\nOn ${date}, ${from} wrote:\n\n${bodyText
@@ -214,7 +218,9 @@ export const composeRouter = router({
       // Also include claims from the same thread if replying
       let threadClaims: typeof claims = [];
       if (input.threadId) {
-        threadClaims = claims.filter((c) => c.conversationId === input.threadId);
+        threadClaims = claims.filter(
+          (c) => c.conversationId === input.threadId
+        );
       }
 
       // Combine and deduplicate

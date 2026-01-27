@@ -146,7 +146,9 @@ function parseRecurrenceRule(
   rruleStrings: string[]
 ): RecurrenceRule | undefined {
   const rruleLine = rruleStrings.find((r) => r.startsWith("RRULE:"));
-  if (!rruleLine) return undefined;
+  if (!rruleLine) {
+    return undefined;
+  }
 
   const rrule = rruleLine.replace("RRULE:", "");
   const parts = rrule.split(";");
@@ -227,7 +229,9 @@ function buildRecurrenceRule(rule: RecurrenceRule): string {
 function convertConferenceData(
   data?: GoogleConferenceData
 ): ConferenceData | undefined {
-  if (!data?.entryPoints?.length) return undefined;
+  if (!data?.entryPoints?.length) {
+    return undefined;
+  }
 
   let type: ConferenceData["type"] = "other";
   const solutionType = data.conferenceSolution?.key?.type;
@@ -266,7 +270,9 @@ function convertConferenceData(
  * Parse date/time from Google event format
  */
 function parseEventDateTime(dt?: GoogleEventDateTime): Date {
-  if (!dt) return new Date();
+  if (!dt) {
+    return new Date();
+  }
 
   if (dt.dateTime) {
     return new Date(dt.dateTime);
@@ -274,7 +280,7 @@ function parseEventDateTime(dt?: GoogleEventDateTime): Date {
 
   if (dt.date) {
     // All-day event: date only
-    return new Date(dt.date + "T00:00:00");
+    return new Date(`${dt.date}T00:00:00`);
   }
 
   return new Date();

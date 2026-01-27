@@ -321,7 +321,6 @@ function mapResponseStatusToMetadata(
       return "declined";
     case "tentative":
       return "tentative";
-    case "needsAction":
     default:
       return "needs_action";
   }
@@ -340,7 +339,6 @@ function getAttendeeStatusEmoji(
       return "❌";
     case "tentative":
       return "❓";
-    case "needsAction":
     default:
       return "⏳";
   }
@@ -352,7 +350,9 @@ function getAttendeeStatusEmoji(
 function getConferenceUrl(
   conferenceData: CalendarConferenceData | undefined
 ): string | undefined {
-  if (!conferenceData) return undefined;
+  if (!conferenceData) {
+    return undefined;
+  }
 
   const videoEntry = conferenceData.entryPoints.find(
     (e) => e.entryPointType === "video"
@@ -455,10 +455,14 @@ export function extractCommitmentsFromEvent(
 
   for (const attendee of event.attendees) {
     // Skip the organizer (they created the event, not committed to it)
-    if (attendee.organizer) continue;
+    if (attendee.organizer) {
+      continue;
+    }
 
     // Only create commitments for attendees with a response
-    if (attendee.responseStatus === "needsAction") continue;
+    if (attendee.responseStatus === "needsAction") {
+      continue;
+    }
 
     const commitment: CalendarCommitment = {
       debtor: {
@@ -554,7 +558,6 @@ function mapResponseToStatus(
       return "declined";
     case "tentative":
       return "tentative";
-    case "needsAction":
     default:
       return "pending";
   }
@@ -573,7 +576,6 @@ function mapResponseToConfidence(
       return 0.95; // High confidence - explicit decline
     case "tentative":
       return 0.6; // Medium confidence - might attend
-    case "needsAction":
     default:
       return 0.3; // Low confidence - no response yet
   }
@@ -584,13 +586,19 @@ function mapResponseToConfidence(
  */
 export function hasUpcomingCommitments(event: CalendarEventData): boolean {
   // Only track future events
-  if (event.start < new Date()) return false;
+  if (event.start < new Date()) {
+    return false;
+  }
 
   // Skip cancelled events
-  if (event.status === "cancelled") return false;
+  if (event.status === "cancelled") {
+    return false;
+  }
 
   // Only track events with attendees
-  if (event.attendees.length === 0) return false;
+  if (event.attendees.length === 0) {
+    return false;
+  }
 
   // Check if any attendees have responded
   return event.attendees.some(

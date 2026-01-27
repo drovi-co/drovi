@@ -112,16 +112,22 @@ const PII_PATTERNS: Array<{
     validate: (match) => {
       const digits = match.replace(/\D/g, "");
       // Luhn algorithm check
-      if (digits.length < 13 || digits.length > 19) return false;
+      if (digits.length < 13 || digits.length > 19) {
+        return false;
+      }
       let sum = 0;
       let isEven = false;
       for (let i = digits.length - 1; i >= 0; i--) {
         const char = digits[i];
-        if (char === undefined) continue;
+        if (char === undefined) {
+          continue;
+        }
         let digit = Number.parseInt(char, 10);
         if (isEven) {
           digit *= 2;
-          if (digit > 9) digit -= 9;
+          if (digit > 9) {
+            digit -= 9;
+          }
         }
         sum += digit;
         isEven = !isEven;
@@ -464,7 +470,9 @@ export class SensitiveDataDetector {
 
   private isExternalRecipient(email: string): boolean {
     const domain = email.split("@")[1]?.toLowerCase();
-    if (!domain) return true;
+    if (!domain) {
+      return true;
+    }
 
     return !this.organizationDomains.has(domain);
   }
@@ -482,15 +490,15 @@ export class SensitiveDataDetector {
   private redactValue(value: string, type: PIIType): string {
     switch (type) {
       case "ssn":
-        return "XXX-XX-" + value.slice(-4).replace(/\D/g, "");
+        return `XXX-XX-${value.slice(-4).replace(/\D/g, "")}`;
       case "credit_card":
-        return "XXXX-XXXX-XXXX-" + value.slice(-4).replace(/\D/g, "");
+        return `XXXX-XXXX-XXXX-${value.slice(-4).replace(/\D/g, "")}`;
       case "phone":
         return value.slice(0, -4).replace(/\d/g, "X") + value.slice(-4);
       case "email": {
         const [local, domain] = value.split("@");
         if (local && domain) {
-          return (local[0] ?? "X") + "***@" + domain;
+          return `${local[0] ?? "X"}***@${domain}`;
         }
         return value.replace(/[A-Za-z0-9]/g, "X");
       }
@@ -568,10 +576,18 @@ export class SensitiveDataDetector {
   private getSeverity(
     score: number
   ): "none" | "low" | "medium" | "high" | "critical" {
-    if (score === 0) return "none";
-    if (score < 20) return "low";
-    if (score < 50) return "medium";
-    if (score < 80) return "high";
+    if (score === 0) {
+      return "none";
+    }
+    if (score < 20) {
+      return "low";
+    }
+    if (score < 50) {
+      return "medium";
+    }
+    if (score < 80) {
+      return "high";
+    }
     return "critical";
   }
 }

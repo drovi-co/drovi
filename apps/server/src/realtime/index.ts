@@ -8,15 +8,14 @@
 //
 
 export {
-  getWebSocketServer,
-  initializeWebSocketServer,
-  handleWebSocketUpgrade,
-  closeWebSocketServer,
-  bunWebSocketHandlers,
-} from "./websocket-handler";
-
-export {
   getOnlineConnectionCount,
   isUserConnected,
   type PresenceWebSocketData,
 } from "./presence-handler";
+export {
+  bunWebSocketHandlers,
+  closeWebSocketServer,
+  getWebSocketServer,
+  handleWebSocketUpgrade,
+  initializeWebSocketServer,
+} from "./websocket-handler";

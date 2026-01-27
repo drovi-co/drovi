@@ -13,8 +13,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Inbox, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 import {
   ConversationListItem,
@@ -22,8 +22,8 @@ import {
 } from "@/components/smart-inbox/conversation-list-item";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import type { SourceType } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================

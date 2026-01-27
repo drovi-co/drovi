@@ -13,7 +13,6 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { z } from "zod";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
@@ -32,12 +31,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  useDismissUIO,
-  useUIO,
-  useVerifyUIO,
-} from "@/hooks/use-uio";
-import { useTrackViewing } from "@/hooks/use-presence";
+import { z } from "zod";
 import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +40,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -58,6 +51,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTrackViewing } from "@/hooks/use-presence";
+import { useDismissUIO, useUIO, useVerifyUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -165,9 +160,7 @@ function DecisionDetailPage() {
     ? {
         id: decisionData.id,
         title:
-          decisionData.userCorrectedTitle ??
-          decisionData.canonicalTitle ??
-          "",
+          decisionData.userCorrectedTitle ?? decisionData.canonicalTitle ?? "",
         statement:
           decisionData.decisionDetails?.statement ??
           decisionData.canonicalDescription ??
@@ -178,7 +171,9 @@ function DecisionDetailPage() {
         confidence: decisionData.overallConfidence ?? 0.8,
         isUserVerified: decisionData.isUserVerified ?? false,
         decisionMaker:
-          decisionData.decisionDetails?.decisionMaker ?? decisionData.owner ?? null,
+          decisionData.decisionDetails?.decisionMaker ??
+          decisionData.owner ??
+          null,
         alternatives: decisionData.decisionDetails?.alternatives ?? [],
         impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
         extractionContext:
@@ -187,7 +182,8 @@ function DecisionDetailPage() {
           ? new Date(decisionData.decisionDetails.decidedAt)
           : null,
         supersedesUioId: decisionData.decisionDetails?.supersedesUioId ?? null,
-        supersededByUioId: decisionData.decisionDetails?.supersededByUioId ?? null,
+        supersededByUioId:
+          decisionData.decisionDetails?.supersededByUioId ?? null,
         sources: decisionData.sources ?? [],
         timeline: decisionData.timeline ?? [],
         createdAt: new Date(decisionData.createdAt),
@@ -228,7 +224,9 @@ function DecisionDetailPage() {
   }, [navigate, returnUrl]);
 
   const handleDismiss = useCallback(() => {
-    if (!decision) return;
+    if (!decision) {
+      return;
+    }
     dismissMutation.mutate(
       { organizationId, id: decision.id },
       {
@@ -244,7 +242,9 @@ function DecisionDetailPage() {
   }, [decision, dismissMutation, organizationId, navigate]);
 
   const handleVerify = useCallback(() => {
-    if (!decision) return;
+    if (!decision) {
+      return;
+    }
     verifyMutation.mutate(
       { organizationId, id: decision.id },
       {
@@ -354,10 +354,10 @@ function DecisionDetailPage() {
             {/* Who's viewing indicator */}
             {organizationId && decisionId && (
               <WhoIsViewing
-                organizationId={organizationId}
-                resourceType="decision"
-                resourceId={decisionId}
                 compact
+                organizationId={organizationId}
+                resourceId={decisionId}
+                resourceType="decision"
               />
             )}
 
@@ -518,7 +518,7 @@ function DecisionDetailPage() {
                             {alt.title}
                           </span>
                           {!alt.rejected && (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge className="text-xs" variant="secondary">
                               Chosen
                             </Badge>
                           )}
@@ -564,7 +564,9 @@ function DecisionDetailPage() {
                     )}
                     {decision.extractionContext.modelUsed && (
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <span>Model: {decision.extractionContext.modelUsed}</span>
+                        <span>
+                          Model: {decision.extractionContext.modelUsed}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -651,23 +653,26 @@ function DecisionDetailPage() {
               <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
                 {decision.decidedAt && (
                   <div>
-                    Decided: {format(decision.decidedAt, "MMM d, yyyy 'at' h:mm a")}
+                    Decided:{" "}
+                    {format(decision.decidedAt, "MMM d, yyyy 'at' h:mm a")}
                   </div>
                 )}
                 <div>
-                  Created: {format(decision.createdAt, "MMM d, yyyy 'at' h:mm a")}
+                  Created:{" "}
+                  {format(decision.createdAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
                 <div>
-                  Updated: {format(decision.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  Updated:{" "}
+                  {format(decision.updatedAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
               </div>
 
               {/* Team Discussion / Comments Section */}
               <div className="border-border border-t pt-6">
                 <button
-                  type="button"
                   className="mb-4 flex w-full items-center justify-between gap-2"
                   onClick={() => setShowComments(!showComments)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -682,14 +687,17 @@ function DecisionDetailPage() {
                   )}
                 </button>
 
-                {showComments && organizationId && decisionId && currentUserId && (
-                  <CommentThread
-                    organizationId={organizationId}
-                    targetType="decision"
-                    targetId={decisionId}
-                    currentUserId={currentUserId}
-                  />
-                )}
+                {showComments &&
+                  organizationId &&
+                  decisionId &&
+                  currentUserId && (
+                    <CommentThread
+                      currentUserId={currentUserId}
+                      organizationId={organizationId}
+                      targetId={decisionId}
+                      targetType="decision"
+                    />
+                  )}
               </div>
             </div>
           </div>
@@ -780,7 +788,7 @@ function DecisionDetailPage() {
                 <PropertyRow label="Impact Areas">
                   <div className="flex flex-wrap gap-1.5 px-2 py-1.5">
                     {decision.impactAreas.map((area) => (
-                      <Badge key={area} variant="secondary" className="text-xs">
+                      <Badge className="text-xs" key={area} variant="secondary">
                         {area}
                       </Badge>
                     ))}

@@ -88,10 +88,7 @@ export function getHubSpotAuthorizationUrl(
 ): string {
   const config = getHubSpotOAuthConfig();
 
-  const allScopes = [
-    ...config.scopes,
-    ...(options.additionalScopes ?? []),
-  ];
+  const allScopes = [...config.scopes, ...(options.additionalScopes ?? [])];
 
   const params = new URLSearchParams({
     client_id: config.clientId,
@@ -181,9 +178,7 @@ export async function refreshHubSpotToken(
  *
  * @param accessToken - Valid access token
  */
-export async function getHubSpotTokenInfo(
-  accessToken: string
-): Promise<{
+export async function getHubSpotTokenInfo(accessToken: string): Promise<{
   token: string;
   user: string;
   hubDomain: string;
@@ -194,11 +189,14 @@ export async function getHubSpotTokenInfo(
   userId: number;
   tokenType: string;
 }> {
-  const response = await fetch(`${HUBSPOT_OAUTH_URLS.tokenInfo}/${accessToken}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await fetch(
+    `${HUBSPOT_OAUTH_URLS.tokenInfo}/${accessToken}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch HubSpot token info");
@@ -234,9 +232,7 @@ export async function getHubSpotTokenInfo(
  *
  * @param accessToken - Valid access token
  */
-export async function getHubSpotAccountInfo(
-  accessToken: string
-): Promise<{
+export async function getHubSpotAccountInfo(accessToken: string): Promise<{
   portalId: number;
   accountType: string;
   timeZone: string;
@@ -271,9 +267,7 @@ export async function getHubSpotAccountInfo(
  *
  * @param accessToken - Valid access token
  */
-export async function getHubSpotUserInfo(
-  accessToken: string
-): Promise<{
+export async function getHubSpotUserInfo(accessToken: string): Promise<{
   id: string;
   email: string;
   firstName: string;

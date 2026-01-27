@@ -323,7 +323,9 @@ export function ComposeDialog({
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) {
+        return;
+      }
 
       const limits = ATTACHMENT_LIMITS.email;
       const currentTotalSize = attachments.reduce((sum, a) => sum + a.size, 0);
@@ -523,7 +525,9 @@ export function ComposeDialog({
 
   // Keyboard shortcuts
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {

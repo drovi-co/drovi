@@ -8,6 +8,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { AtSign, Users } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -16,19 +17,21 @@ import {
   useRef,
   useState,
 } from "react";
-import { useTRPC } from "@/utils/trpc";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, AtSign } from "lucide-react";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { useTRPC } from "@/utils/trpc";
 
 // =============================================================================
 // Types
@@ -198,7 +201,9 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
     // Handle keyboard navigation
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
-        if (!isOpen) return;
+        if (!isOpen) {
+          return;
+        }
 
         switch (e.key) {
           case "ArrowDown":
@@ -232,12 +237,12 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
     // Insert mention into text
     const insertMention = useCallback(
       (suggestion: MentionSuggestion) => {
-        if (mentionStart === null) return;
+        if (mentionStart === null) {
+          return;
+        }
 
         const before = value.slice(0, mentionStart);
-        const after = value.slice(
-          mentionStart + 1 + mentionQuery.length
-        );
+        const after = value.slice(mentionStart + 1 + mentionQuery.length);
 
         const mentionText =
           suggestion.type === "all"
@@ -283,7 +288,9 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
     // Auto-resize textarea
     useEffect(() => {
       const textarea = textareaRef.current;
-      if (!textarea) return;
+      if (!textarea) {
+        return;
+      }
 
       textarea.style.height = "auto";
       const lineHeight = 24; // Approximate line height
@@ -296,27 +303,27 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
 
     return (
       <div className="relative">
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover onOpenChange={setIsOpen} open={isOpen}>
           <PopoverAnchor asChild>
             <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={handleInput}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              disabled={disabled}
               autoFocus={autoFocus}
               className={cn(
                 "flex w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                 className
               )}
+              disabled={disabled}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              ref={textareaRef}
               rows={minRows}
+              value={value}
             />
           </PopoverAnchor>
 
           <PopoverContent
-            className="w-64 p-0"
             align="start"
+            className="w-64 p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <Command>
@@ -325,13 +332,13 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
                 <CommandGroup heading="Mentions">
                   {limitedSuggestions.map((suggestion, index) => (
                     <CommandItem
-                      key={`${suggestion.type}-${suggestion.id}`}
-                      value={`${suggestion.type}-${suggestion.id}`}
-                      onSelect={() => insertMention(suggestion)}
                       className={cn(
                         "flex items-center gap-2",
                         index === selectedIndex && "bg-accent"
                       )}
+                      key={`${suggestion.type}-${suggestion.id}`}
+                      onSelect={() => insertMention(suggestion)}
+                      value={`${suggestion.type}-${suggestion.id}`}
                     >
                       {suggestion.type === "all" ? (
                         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
@@ -355,11 +362,11 @@ export const MentionInput = forwardRef<MentionInputRef, MentionInputProps>(
                         </Avatar>
                       )}
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">
+                        <span className="font-medium text-sm">
                           {suggestion.name}
                         </span>
                         {suggestion.email && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground text-xs">
                             {suggestion.email}
                           </span>
                         )}

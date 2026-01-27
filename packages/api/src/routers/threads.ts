@@ -10,10 +10,10 @@ import { db } from "@memorystack/db";
 import {
   claim,
   conversation,
+  type MessageRecipient,
   member,
   message,
   sourceAccount,
-  type MessageRecipient,
 } from "@memorystack/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
@@ -65,21 +65,48 @@ function extractFriendlyName(email: string): string {
   }
 
   // Check domain for known services
-  if (domain.includes("linkedin")) return "LinkedIn";
-  if (domain.includes("github")) return "GitHub";
-  if (domain.includes("google") || domain.includes("gmail")) return "Google";
-  if (domain.includes("slack")) return "Slack";
-  if (domain.includes("notion")) return "Notion";
-  if (domain.includes("figma")) return "Figma";
-  if (domain.includes("stripe")) return "Stripe";
-  if (domain.includes("vercel")) return "Vercel";
-  if (domain.includes("netlify")) return "Netlify";
-  if (domain.includes("heroku")) return "Heroku";
-  if (domain.includes("aws") || domain.includes("amazon")) return "AWS";
-  if (domain.includes("microsoft") || domain.includes("outlook"))
+  if (domain.includes("linkedin")) {
+    return "LinkedIn";
+  }
+  if (domain.includes("github")) {
+    return "GitHub";
+  }
+  if (domain.includes("google") || domain.includes("gmail")) {
+    return "Google";
+  }
+  if (domain.includes("slack")) {
+    return "Slack";
+  }
+  if (domain.includes("notion")) {
+    return "Notion";
+  }
+  if (domain.includes("figma")) {
+    return "Figma";
+  }
+  if (domain.includes("stripe")) {
+    return "Stripe";
+  }
+  if (domain.includes("vercel")) {
+    return "Vercel";
+  }
+  if (domain.includes("netlify")) {
+    return "Netlify";
+  }
+  if (domain.includes("heroku")) {
+    return "Heroku";
+  }
+  if (domain.includes("aws") || domain.includes("amazon")) {
+    return "AWS";
+  }
+  if (domain.includes("microsoft") || domain.includes("outlook")) {
     return "Microsoft";
-  if (domain.includes("apple")) return "Apple";
-  if (domain.includes("dropbox")) return "Dropbox";
+  }
+  if (domain.includes("apple")) {
+    return "Apple";
+  }
+  if (domain.includes("dropbox")) {
+    return "Dropbox";
+  }
 
   // For regular email addresses, try to format the local part nicely
   // Replace dots, underscores, and hyphens with spaces and capitalize
@@ -568,8 +595,7 @@ export const threadsRouter = router({
         for (const msg of threadMessages) {
           if (msg.senderEmail && !participantMap.has(msg.senderEmail)) {
             // Use senderName if available, otherwise try to extract a friendly name
-            const name =
-              msg.senderName || extractFriendlyName(msg.senderEmail);
+            const name = msg.senderName || extractFriendlyName(msg.senderEmail);
             participantMap.set(msg.senderEmail, name);
           }
         }

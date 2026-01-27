@@ -208,7 +208,9 @@ const classificationRules: ClassificationRule[] = [
     action: "delegate",
     weight: 0.75,
     condition: (ctx) => {
-      if (!ctx.teamMembers || ctx.teamMembers.length === 0) return false;
+      if (!ctx.teamMembers || ctx.teamMembers.length === 0) {
+        return false;
+      }
       const expertise = findExpertiseNeeded(ctx.thread);
       return (
         expertise.length > 0 &&

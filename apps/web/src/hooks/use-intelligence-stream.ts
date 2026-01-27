@@ -6,8 +6,8 @@
 // Integrates with React Query for automatic cache invalidation.
 //
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // =============================================================================
 // TYPES
@@ -48,7 +48,11 @@ interface ClientMessage {
 /**
  * Connection state.
  */
-export type ConnectionState = "connecting" | "connected" | "disconnected" | "error";
+export type ConnectionState =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
 
 /**
  * Hook options.
@@ -121,13 +125,16 @@ export function useIntelligenceStream(
   } = options;
 
   // State
-  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("disconnected");
   const [events, setEvents] = useState<IntelligenceEvent[]>([]);
   const [subscribedTopics, setSubscribedTopics] = useState<string[]>([]);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // React Query client for cache invalidation
@@ -139,7 +146,9 @@ export function useIntelligenceStream(
 
   const invalidateRelatedQueries = useCallback(
     (event: IntelligenceEvent) => {
-      if (!enableCacheInvalidation) return;
+      if (!enableCacheInvalidation) {
+        return;
+      }
 
       const eventType = event.type;
 
@@ -216,7 +225,7 @@ export function useIntelligenceStream(
         // Start ping interval to keep connection alive
         pingIntervalRef.current = setInterval(() => {
           sendMessage({ type: "ping" });
-        }, 30000);
+        }, 30_000);
       };
 
       ws.onmessage = (messageEvent) => {
@@ -224,7 +233,10 @@ export function useIntelligenceStream(
           const message: ServerMessage = JSON.parse(messageEvent.data);
           handleMessage(message);
         } catch (error) {
-          console.error("[useIntelligenceStream] Failed to parse message:", error);
+          console.error(
+            "[useIntelligenceStream] Failed to parse message:",
+            error
+          );
         }
       };
 
@@ -252,7 +264,10 @@ export function useIntelligenceStream(
         }
       };
     } catch (error) {
-      console.error("[useIntelligenceStream] Failed to create WebSocket:", error);
+      console.error(
+        "[useIntelligenceStream] Failed to create WebSocket:",
+        error
+      );
       updateConnectionState("error");
     }
   }, [url, topics, autoReconnect, reconnectDelay, updateConnectionState]);

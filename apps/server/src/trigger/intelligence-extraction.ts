@@ -8,13 +8,13 @@
 //
 
 import { task } from "@trigger.dev/sdk";
-import { log } from "../lib/logger";
 import {
+  type AnalyzeResponse,
   callPythonIntelligence,
   checkIntelligenceBackendHealth,
   streamPythonIntelligence,
-  type AnalyzeResponse,
 } from "../lib/intelligence-backend";
+import { log } from "../lib/logger";
 
 // =============================================================================
 // TYPES
@@ -87,7 +87,9 @@ export const orchestratorExtractTask = task({
     factor: 2,
   },
   maxDuration: 180,
-  run: async (payload: ExtractIntelligencePayload): Promise<ExtractionResult> => {
+  run: async (
+    payload: ExtractIntelligencePayload
+  ): Promise<ExtractionResult> => {
     const {
       organizationId,
       sourceType,
@@ -183,7 +185,9 @@ export const orchestratorExtractStreamTask = task({
     factor: 2,
   },
   maxDuration: 300,
-  run: async (payload: ExtractIntelligencePayload): Promise<ExtractionResult> => {
+  run: async (
+    payload: ExtractIntelligencePayload
+  ): Promise<ExtractionResult> => {
     const {
       organizationId,
       sourceType,

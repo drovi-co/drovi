@@ -119,7 +119,9 @@ export function SyncProgressOverlay({
     // Also cycle through steps for visual interest
     const interval = setInterval(() => {
       setCurrentStepIndex((prev) => {
-        if (prev < targetStep) return prev + 1;
+        if (prev < targetStep) {
+          return prev + 1;
+        }
         return prev;
       });
     }, 3000);

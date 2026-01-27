@@ -48,7 +48,9 @@ export function AutoUpdaterDialog() {
 
   // Check for updates on mount (with delay to not block startup)
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isDesktop) {
+      return;
+    }
 
     const timer = setTimeout(() => {
       checkForUpdates();
@@ -57,7 +59,9 @@ export function AutoUpdaterDialog() {
     return () => clearTimeout(timer);
   }, [isDesktop, checkForUpdates]);
 
-  if (!isDesktop) return null;
+  if (!isDesktop) {
+    return null;
+  }
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
@@ -148,7 +152,9 @@ export function UpdateIndicator({ className }: { className?: string }) {
   const { status, updateInfo, checkForUpdates, downloadAndInstall, isDesktop } =
     useUpdater();
 
-  if (!isDesktop) return null;
+  if (!isDesktop) {
+    return null;
+  }
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -210,7 +216,9 @@ export function VersionDisplay({ className }: { className?: string }) {
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isDesktop) {
+      return;
+    }
 
     (async () => {
       const { getVersion } = await import("@tauri-apps/api/app");
@@ -219,7 +227,9 @@ export function VersionDisplay({ className }: { className?: string }) {
     })();
   }, [isDesktop]);
 
-  if (!(isDesktop && currentVersion)) return null;
+  if (!(isDesktop && currentVersion)) {
+    return null;
+  }
 
   return (
     <div

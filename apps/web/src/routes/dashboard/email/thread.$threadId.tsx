@@ -31,16 +31,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useCommandBar } from "@/components/email/command-bar";
 import { WhoIsViewing } from "@/components/collaboration";
-import { RelationshipSidebar } from "@/components/inbox/-relationship-sidebar";
-import { useTrackViewing } from "@/hooks/use-presence";
-import { useActiveOrganization } from "@/lib/auth-client";
-
+import { useCommandBar } from "@/components/email/command-bar";
 import {
   ConversationView,
   type MessageData,
 } from "@/components/email/conversation-view";
+import { RelationshipSidebar } from "@/components/inbox/-relationship-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +46,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTrackViewing } from "@/hooks/use-presence";
+import { useActiveOrganization } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -175,7 +174,7 @@ function ThreadDetailPage() {
   const handleForward = useCallback(() => {
     // Get the last message in the thread for forwarding
     const messageList = messagesData?.messages ?? [];
-    const lastMessage = messageList[messageList.length - 1];
+    const lastMessage = messageList.at(-1);
     if (!lastMessage) {
       toast.error("No message to forward");
       return;
@@ -242,11 +241,21 @@ ${messageBody}`;
         return;
       }
 
-      if (e.key === "e") handleArchive();
-      if (e.key === "s") handleStar();
-      if (e.key === "r") handleReply();
-      if (e.key === "f") handleForward();
-      if (e.key === "#") handleDelete();
+      if (e.key === "e") {
+        handleArchive();
+      }
+      if (e.key === "s") {
+        handleStar();
+      }
+      if (e.key === "r") {
+        handleReply();
+      }
+      if (e.key === "f") {
+        handleForward();
+      }
+      if (e.key === "#") {
+        handleDelete();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -356,10 +365,10 @@ ${messageBody}`;
             {/* Real-time viewers indicator */}
             {organizationId && threadId && (
               <WhoIsViewing
-                organizationId={organizationId}
-                resourceType="conversation"
-                resourceId={threadId}
                 compact
+                organizationId={organizationId}
+                resourceId={threadId}
+                resourceType="conversation"
               />
             )}
 
@@ -710,18 +719,20 @@ ${messageBody}`;
           {showRelationshipSidebar && activeOrg?.id && selectedContactId && (
             <RelationshipSidebar
               contactId={selectedContactId}
-              organizationId={activeOrg.id}
               onClose={() => setShowRelationshipSidebar(false)}
+              organizationId={activeOrg.id}
             />
           )}
 
           {/* Participant selector when sidebar is open but no contact selected */}
           {showRelationshipSidebar && activeOrg?.id && !selectedContactId && (
             <ParticipantSelector
+              onClose={() => setShowRelationshipSidebar(false)}
+              onSelectParticipant={(contactId) =>
+                setSelectedContactId(contactId)
+              }
               organizationId={activeOrg.id}
               participants={participants}
-              onClose={() => setShowRelationshipSidebar(false)}
-              onSelectParticipant={(contactId) => setSelectedContactId(contactId)}
             />
           )}
         </div>
@@ -750,7 +761,7 @@ function ParticipantSelector({
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Select Participant</span>
+          <span className="font-medium text-sm">Select Participant</span>
         </div>
         <Button
           className="h-7 w-7"
@@ -762,17 +773,17 @@ function ParticipantSelector({
         </Button>
       </div>
       <div className="flex-1 overflow-auto p-4">
-        <p className="mb-3 text-sm text-muted-foreground">
+        <p className="mb-3 text-muted-foreground text-sm">
           Click a participant to see relationship intelligence:
         </p>
         <div className="space-y-2">
           {participants.map((p) => (
             <ParticipantButton
-              key={p.email}
               email={p.email}
+              key={p.email}
               name={p.name}
-              organizationId={organizationId}
               onSelect={onSelectParticipant}
+              organizationId={organizationId}
             />
           ))}
         </div>
@@ -820,10 +831,10 @@ function ParticipantButton({
     >
       <UserCircle className="h-4 w-4 text-muted-foreground" />
       <div className="min-w-0 flex-1 text-left">
-        <p className="truncate text-sm font-medium">
+        <p className="truncate font-medium text-sm">
           {name || email.split("@")[0]}
         </p>
-        <p className="truncate text-xs text-muted-foreground">{email}</p>
+        <p className="truncate text-muted-foreground text-xs">{email}</p>
       </div>
       {contactData?.contact && (
         <Badge className="shrink-0 text-[10px]" variant="secondary">

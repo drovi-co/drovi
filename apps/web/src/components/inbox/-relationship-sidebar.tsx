@@ -206,15 +206,25 @@ function RelationshipHealthMeter({
 }) {
   const percentage = Math.round(score * 100);
   const getHealthColor = (s: number) => {
-    if (s >= 0.7) return "bg-green-500";
-    if (s >= 0.4) return "bg-yellow-500";
+    if (s >= 0.7) {
+      return "bg-green-500";
+    }
+    if (s >= 0.4) {
+      return "bg-yellow-500";
+    }
     return "bg-red-500";
   };
 
   const getHealthLabel = (s: number) => {
-    if (s >= 0.8) return "Excellent";
-    if (s >= 0.6) return "Good";
-    if (s >= 0.4) return "Fair";
+    if (s >= 0.8) {
+      return "Excellent";
+    }
+    if (s >= 0.6) {
+      return "Good";
+    }
+    if (s >= 0.4) {
+      return "Fair";
+    }
     return "Needs Attention";
   };
 
@@ -538,8 +548,14 @@ function SidebarSkeleton({ onClose }: { onClose: () => void }) {
 // =============================================================================
 
 function formatResponseTime(minutes: number): string {
-  if (minutes === 0) return "N/A";
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  if (minutes < 1440) return `${Math.round(minutes / 60)}h`;
+  if (minutes === 0) {
+    return "N/A";
+  }
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  if (minutes < 1440) {
+    return `${Math.round(minutes / 60)}h`;
+  }
   return `${Math.round(minutes / 1440)}d`;
 }

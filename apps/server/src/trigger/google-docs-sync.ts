@@ -260,8 +260,7 @@ async function syncGoogleDoc(
       : new Date();
 
     if (
-      existingDoc &&
-      existingDoc.googleModifiedAt &&
+      existingDoc?.googleModifiedAt &&
       existingDoc.googleModifiedAt >= docModifiedAt
     ) {
       // Document hasn't changed, skip
@@ -496,7 +495,7 @@ async function syncGoogleDoc(
     }
 
     // Flatten comments and replies, sorted by creation time
-    type CommentItem = {
+    interface CommentItem {
       id: string;
       content: string;
       authorEmail?: string;
@@ -507,7 +506,7 @@ async function syncGoogleDoc(
       quotedContent?: string;
       isReply: boolean;
       parentCommentId?: string;
-    };
+    }
 
     const allComments: CommentItem[] = [];
 
@@ -744,7 +743,11 @@ export const analyzeGoogleDocTask = task({
       // Build content string from messages for Python backend
       const content = conv.messages
         .map((msg) => {
-          const sender = msg.senderName ?? msg.senderEmail ?? msg.senderExternalId ?? "Unknown";
+          const sender =
+            msg.senderName ??
+            msg.senderEmail ??
+            msg.senderExternalId ??
+            "Unknown";
           const timestamp = msg.sentAt?.toISOString() ?? "";
           return `[${timestamp}] ${sender}: ${msg.bodyText ?? ""}`;
         })
@@ -995,7 +998,6 @@ export const syncGoogleDocsSchedule = schedules.task({
     return { scheduled: true, accountsTriggered: googleDocsAccounts.length };
   },
 });
-
 
 // =============================================================================
 // EXPORTS

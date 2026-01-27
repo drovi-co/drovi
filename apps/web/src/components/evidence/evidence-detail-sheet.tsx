@@ -365,7 +365,9 @@ export function EvidenceDetailSheet({
   onThreadClick,
   onMentionClick,
 }: EvidenceDetailSheetProps) {
-  if (!evidence) return null;
+  if (!evidence) {
+    return null;
+  }
 
   const typeConfig = getTypeConfig(evidence.type);
   const TypeIcon = typeConfig.icon;

@@ -62,15 +62,22 @@ const ATTACHMENT_LIMITS: Record<SourceType, AttachmentLimits> = {
 // =============================================================================
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  if (mimeType.includes("pdf") || mimeType.includes("document"))
+  if (mimeType.startsWith("image/")) {
+    return ImageIcon;
+  }
+  if (mimeType.includes("pdf") || mimeType.includes("document")) {
     return FileText;
+  }
   return FileIcon;
 }
 
@@ -151,7 +158,9 @@ export function AttachmentList({
   onRemove,
   className,
 }: AttachmentListProps) {
-  if (attachments.length === 0) return null;
+  if (attachments.length === 0) {
+    return null;
+  }
 
   const limits = ATTACHMENT_LIMITS[sourceType];
   const totalSize = attachments.reduce((sum, a) => sum + a.size, 0);

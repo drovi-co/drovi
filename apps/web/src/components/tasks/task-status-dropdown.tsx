@@ -8,8 +8,6 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 import { STATUS_CONFIG, STATUS_ORDER, type TaskStatus } from "./task-types";
@@ -62,7 +61,9 @@ export function TaskStatusDropdown({
   const updateStatusMutationBase = useUpdateTaskStatusUIO();
 
   const handleStatusChange = (newStatus: TaskStatus) => {
-    if (newStatus === currentStatus) return;
+    if (newStatus === currentStatus) {
+      return;
+    }
 
     updateStatusMutationBase.mutate(
       { organizationId, id: taskId, status: newStatus },

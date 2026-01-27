@@ -718,7 +718,9 @@ async function resolveContactFromEmail(
   email: string | undefined,
   organizationId: string
 ): Promise<string | null> {
-  if (!email) return null;
+  if (!email) {
+    return null;
+  }
 
   const contact = await db.query.contact.findFirst({
     where: and(
@@ -816,7 +818,7 @@ function hashString(str: string): string {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash &= hash;
   }
   return hash.toString(16);
 }

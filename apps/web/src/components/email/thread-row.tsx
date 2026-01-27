@@ -100,7 +100,9 @@ export function ThreadRow({
       )}
       onClick={() => onClick?.(thread.id)}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onClick?.(thread.id);
+        if (e.key === "Enter" || e.key === " ") {
+          onClick?.(thread.id);
+        }
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

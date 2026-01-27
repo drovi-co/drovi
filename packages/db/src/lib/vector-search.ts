@@ -79,8 +79,12 @@ export async function searchSimilarMessages(
     conversationIds?: string[];
   } = {}
 ): Promise<MessageSearchResult[]> {
-  const { limit = 10, threshold = 0.5, sourceAccountIds, conversationIds } =
-    options;
+  const {
+    limit = 10,
+    threshold = 0.5,
+    sourceAccountIds,
+    conversationIds,
+  } = options;
   const vec = vectorLiteral(queryEmbedding);
 
   // Build dynamic WHERE conditions

@@ -12,6 +12,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import {
   Archive,
@@ -26,12 +27,8 @@ import {
   StarOff,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-
-import type { LinkedUIOCardData } from "@/components/smart-inbox/linked-uio-card";
 import { CommentThread, WhoIsViewing } from "@/components/collaboration";
-import { useTrackViewing } from "@/hooks/use-presence";
-import { useActiveOrganization, authClient } from "@/lib/auth-client";
+import type { LinkedUIOCardData } from "@/components/smart-inbox/linked-uio-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +39,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTrackViewing } from "@/hooks/use-presence";
+import { authClient, useActiveOrganization } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
@@ -73,7 +72,9 @@ interface TimelineEvent {
  * Strips everything after common signature patterns.
  */
 function cleanMessageBody(text: string): string {
-  if (!text) return "";
+  if (!text) {
+    return "";
+  }
 
   // Common signature patterns to cut off at
   const signaturePatterns = [
@@ -153,20 +154,17 @@ function linkifyText(text: string): string {
     .replace(/'/g, "&#039;");
 
   // Replace link placeholders with actual anchor tags
-  return escaped.replace(
-    /__LINK_START__(.+?)__LINK_END__/g,
-    (_match, url) => {
-      // Extract domain for display
-      let displayText = "Link";
-      try {
-        const urlObj = new URL(url);
-        displayText = urlObj.hostname.replace(/^www\./, "");
-      } catch {
-        displayText = "Link";
-      }
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-500 hover:underline">${displayText} ↗</a>`;
+  return escaped.replace(/__LINK_START__(.+?)__LINK_END__/g, (_match, url) => {
+    // Extract domain for display
+    let displayText = "Link";
+    try {
+      const urlObj = new URL(url);
+      displayText = urlObj.hostname.replace(/^www\./, "");
+    } catch {
+      displayText = "Link";
     }
-  );
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-500 hover:underline">${displayText} ↗</a>`;
+  });
 }
 
 // =============================================================================
@@ -197,15 +195,14 @@ export function ConversationDetailPanel({
   });
 
   // Fetch conversation details
-  const {
-    data: conversationData,
-    isLoading: isLoadingConversation,
-  } = useQuery({
-    ...trpc.unifiedInbox.get.queryOptions({
-      conversationId: conversationId ?? "",
-    }),
-    enabled: Boolean(conversationId),
-  });
+  const { data: conversationData, isLoading: isLoadingConversation } = useQuery(
+    {
+      ...trpc.unifiedInbox.get.queryOptions({
+        conversationId: conversationId ?? "",
+      }),
+      enabled: Boolean(conversationId),
+    }
+  );
 
   // Fetch messages for all source types (email, Slack, WhatsApp, etc.)
   const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
@@ -229,7 +226,9 @@ export function ConversationDetailPanel({
     trpc.unifiedInbox.star.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.unifiedInbox.get.queryKey({ conversationId: conversationId ?? "" }),
+          queryKey: trpc.unifiedInbox.get.queryKey({
+            conversationId: conversationId ?? "",
+          }),
         });
         queryClient.invalidateQueries({
           queryKey: trpc.unifiedInbox.list.queryKey(),
@@ -243,7 +242,9 @@ export function ConversationDetailPanel({
     trpc.unifiedInbox.archive.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.unifiedInbox.get.queryKey({ conversationId: conversationId ?? "" }),
+          queryKey: trpc.unifiedInbox.get.queryKey({
+            conversationId: conversationId ?? "",
+          }),
         });
         queryClient.invalidateQueries({
           queryKey: trpc.unifiedInbox.list.queryKey(),
@@ -258,7 +259,9 @@ export function ConversationDetailPanel({
     trpc.unifiedInbox.markRead.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.unifiedInbox.get.queryKey({ conversationId: conversationId ?? "" }),
+          queryKey: trpc.unifiedInbox.get.queryKey({
+            conversationId: conversationId ?? "",
+          }),
         });
         queryClient.invalidateQueries({
           queryKey: trpc.unifiedInbox.list.queryKey(),
@@ -347,28 +350,41 @@ export function ConversationDetailPanel({
   // No data state
   if (!conversationData) {
     return (
-      <div className={cn("flex h-full items-center justify-center bg-card", className)}>
+      <div
+        className={cn(
+          "flex h-full items-center justify-center bg-card",
+          className
+        )}
+      >
         <p className="text-muted-foreground">Conversation not found</p>
       </div>
     );
   }
 
   // Transform UIOs
-  const linkedUIOs: LinkedUIOCardData[] = (conversationData.unifiedObjects ?? []).map((uio: {
-    id: string;
-    type: string;
-    title: string;
-    dueDate?: Date | string | null;
-    status: string;
-    sourceBreadcrumbs?: Array<{ sourceType: string; count: number; sourceName: string }>;
-  }) => ({
-    id: uio.id,
-    type: uio.type as LinkedUIOCardData["type"],
-    title: uio.title,
-    dueDate: uio.dueDate ? new Date(uio.dueDate) : undefined,
-    status: uio.status,
-    sourceBreadcrumbs: uio.sourceBreadcrumbs,
-  }));
+  const linkedUIOs: LinkedUIOCardData[] = (
+    conversationData.unifiedObjects ?? []
+  ).map(
+    (uio: {
+      id: string;
+      type: string;
+      title: string;
+      dueDate?: Date | string | null;
+      status: string;
+      sourceBreadcrumbs?: Array<{
+        sourceType: string;
+        count: number;
+        sourceName: string;
+      }>;
+    }) => ({
+      id: uio.id,
+      type: uio.type as LinkedUIOCardData["type"],
+      title: uio.title,
+      dueDate: uio.dueDate ? new Date(uio.dueDate) : undefined,
+      status: uio.status,
+      sourceBreadcrumbs: uio.sourceBreadcrumbs,
+    })
+  );
 
   // Create timeline events from messages
   const timelineEvents: TimelineEvent[] = [];
@@ -380,7 +396,8 @@ export function ConversationDetailPanel({
       type: "status_change",
       icon: "pending",
       label: "Pending external",
-      description: "Provider engaged, waiting on their investigation and timeline",
+      description:
+        "Provider engaged, waiting on their investigation and timeline",
       date: new Date(conversationData.lastMessageAt ?? Date.now()),
     });
   }
@@ -408,21 +425,24 @@ export function ConversationDetailPanel({
         <div className="p-6">
           {/* Title with optional status tag and presence */}
           <div className="mb-6 flex items-start justify-between gap-3">
-            <h1 className="font-semibold text-xl text-foreground">
+            <h1 className="font-semibold text-foreground text-xl">
               {conversationData.title || "No subject"}
             </h1>
             <div className="flex items-center gap-2">
               {/* Real-time viewers indicator */}
               {organizationId && conversationId && (
                 <WhoIsViewing
-                  organizationId={organizationId}
-                  resourceType="conversation"
-                  resourceId={conversationId}
                   compact
+                  organizationId={organizationId}
+                  resourceId={conversationId}
+                  resourceType="conversation"
                 />
               )}
               {conversationData.hasOpenLoops && (
-                <Badge className="shrink-0 bg-amber-500/10 text-amber-600 text-[10px]" variant="secondary">
+                <Badge
+                  className="shrink-0 bg-amber-500/10 text-[10px] text-amber-600"
+                  variant="secondary"
+                >
                   Pending
                 </Badge>
               )}
@@ -448,27 +468,31 @@ export function ConversationDetailPanel({
                 <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
                   {conversationData.sourceType
                     ? `${conversationData.sourceType.charAt(0).toUpperCase()}${conversationData.sourceType.slice(1)} `
-                    : ""}Messages ({messagesData.messages.length})
+                    : ""}
+                  Messages ({messagesData.messages.length})
                 </span>
               </div>
               <div className="space-y-4">
                 {messagesData.messages.map((msg) => {
                   const isFromUser = msg.isFromUser;
-                  const senderName = msg.from?.name ?? msg.from?.email?.split("@")[0] ?? "Unknown";
+                  const senderName =
+                    msg.from?.name ??
+                    msg.from?.email?.split("@")[0] ??
+                    "Unknown";
                   const senderInitial = senderName.charAt(0).toUpperCase();
 
                   return (
                     <div
-                      key={msg.id}
                       className={cn(
                         "flex gap-3",
                         isFromUser && "flex-row-reverse"
                       )}
+                      key={msg.id}
                     >
                       {/* Avatar */}
                       <div
                         className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium text-white",
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-medium text-white text-xs",
                           isFromUser ? "bg-primary" : "bg-emerald-500"
                         )}
                       >
@@ -486,7 +510,7 @@ export function ConversationDetailPanel({
                       >
                         {/* Sender name for non-user messages */}
                         {!isFromUser && (
-                          <div className="mb-1 font-medium text-xs text-muted-foreground">
+                          <div className="mb-1 font-medium text-muted-foreground text-xs">
                             {senderName}
                           </div>
                         )}
@@ -502,11 +526,13 @@ export function ConversationDetailPanel({
                         <div
                           className={cn(
                             "whitespace-pre-wrap text-sm leading-relaxed",
-                            "[&_a]:underline [&_a]:text-blue-500"
+                            "[&_a]:text-blue-500 [&_a]:underline"
                           )}
                           // biome-ignore lint/security/noDangerouslySetInnerHtml: Links are sanitized
                           dangerouslySetInnerHTML={{
-                            __html: linkifyText(cleanMessageBody(msg.body || "")),
+                            __html: linkifyText(
+                              cleanMessageBody(msg.body || "")
+                            ),
                           }}
                         />
 
@@ -530,7 +556,7 @@ export function ConversationDetailPanel({
           ) : conversationData.snippet ? (
             <div className="mb-6">
               <div
-                className="whitespace-pre-wrap text-foreground text-sm leading-relaxed [&_a]:underline [&_a]:text-blue-500"
+                className="whitespace-pre-wrap text-foreground text-sm leading-relaxed [&_a]:text-blue-500 [&_a]:underline"
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: Links are sanitized
                 dangerouslySetInnerHTML={{
                   __html: linkifyText(conversationData.snippet),
@@ -540,10 +566,12 @@ export function ConversationDetailPanel({
           ) : null}
 
           {/* Timeline - Beautiful design with vertical line */}
-          <div className="mt-8 border-t border-border pt-6">
+          <div className="mt-8 border-border border-t pt-6">
             <div className="mb-4 flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-foreground text-sm">Timeline</span>
+              <span className="font-medium text-foreground text-sm">
+                Timeline
+              </span>
             </div>
 
             {/* Add Note Input */}
@@ -589,10 +617,13 @@ export function ConversationDetailPanel({
                           {event.label && (
                             <Badge
                               className={cn(
-                                "mb-1 mr-2 text-[10px]",
-                                event.icon === "pending" && "bg-amber-500/10 text-amber-600",
-                                event.icon === "investigating" && "bg-blue-500/10 text-blue-600",
-                                event.icon === "resolved" && "bg-green-500/10 text-green-600"
+                                "mr-2 mb-1 text-[10px]",
+                                event.icon === "pending" &&
+                                  "bg-amber-500/10 text-amber-600",
+                                event.icon === "investigating" &&
+                                  "bg-blue-500/10 text-blue-600",
+                                event.icon === "resolved" &&
+                                  "bg-green-500/10 text-green-600"
                               )}
                               variant="secondary"
                             >
@@ -634,9 +665,11 @@ export function ConversationDetailPanel({
                       <div>
                         <Badge
                           className={cn(
-                            "mb-1 mr-2 text-[10px] capitalize",
-                            uio.type === "commitment" && "bg-blue-500/10 text-blue-600",
-                            uio.type === "decision" && "bg-purple-500/10 text-purple-600"
+                            "mr-2 mb-1 text-[10px] capitalize",
+                            uio.type === "commitment" &&
+                              "bg-blue-500/10 text-blue-600",
+                            uio.type === "decision" &&
+                              "bg-purple-500/10 text-purple-600"
                           )}
                           variant="secondary"
                         >
@@ -662,7 +695,7 @@ export function ConversationDetailPanel({
           {/* Related Conversations Section */}
           {relatedConversationsData?.conversations &&
             relatedConversationsData.conversations.length > 0 && (
-              <div className="mt-6 border-t border-border pt-6">
+              <div className="mt-6 border-border border-t pt-6">
                 <div className="mb-4 flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium text-foreground text-sm">
@@ -676,8 +709,8 @@ export function ConversationDetailPanel({
                 <div className="space-y-2">
                   {relatedConversationsData.conversations.map((related) => (
                     <div
-                      key={related.conversation.id}
                       className="cursor-pointer rounded-lg border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                      key={related.conversation.id}
                       onClick={() => {
                         navigate({
                           to: "/dashboard/inbox",
@@ -702,7 +735,6 @@ export function ConversationDetailPanel({
                           <div className="mt-1 flex flex-wrap gap-1">
                             {related.sharedUIOs.map((uio) => (
                               <span
-                                key={uio.type}
                                 className={cn(
                                   "inline-flex items-center rounded px-1.5 py-0.5 text-[10px]",
                                   uio.type === "commitment" &&
@@ -712,6 +744,7 @@ export function ConversationDetailPanel({
                                   uio.type === "topic" &&
                                     "bg-cyan-500/10 text-cyan-600"
                                 )}
+                                key={uio.type}
                               >
                                 {uio.count} {uio.type}
                                 {uio.count > 1 ? "s" : ""}
@@ -728,11 +761,11 @@ export function ConversationDetailPanel({
             )}
 
           {/* Team Discussion / Comments Section */}
-          <div className="mt-6 border-t border-border pt-6">
+          <div className="mt-6 border-border border-t pt-6">
             <button
-              type="button"
               className="mb-4 flex w-full items-center justify-between gap-2"
               onClick={() => setShowComments(!showComments)}
+              type="button"
             >
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -745,20 +778,23 @@ export function ConversationDetailPanel({
               </Badge>
             </button>
 
-            {showComments && organizationId && conversationId && currentUserId && (
-              <CommentThread
-                organizationId={organizationId}
-                targetType="conversation"
-                targetId={conversationId}
-                currentUserId={currentUserId}
-              />
-            )}
+            {showComments &&
+              organizationId &&
+              conversationId &&
+              currentUserId && (
+                <CommentThread
+                  currentUserId={currentUserId}
+                  organizationId={organizationId}
+                  targetId={conversationId}
+                  targetType="conversation"
+                />
+              )}
           </div>
         </div>
       </div>
 
       {/* Bottom Actions Bar */}
-      <div className="shrink-0 border-t border-border bg-card px-4 py-2">
+      <div className="shrink-0 border-border border-t bg-card px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TooltipProvider>
@@ -838,7 +874,7 @@ function EmptyState({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col items-center justify-center px-6 text-center bg-card",
+        "flex h-full flex-col items-center justify-center bg-card px-6 text-center",
         className
       )}
     >

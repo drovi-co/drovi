@@ -7,13 +7,7 @@
 //
 
 import { motion } from "framer-motion";
-import {
-  Crosshair,
-  Gauge,
-  Loader2,
-  Target,
-  TrendingUp,
-} from "lucide-react";
+import { Crosshair, Gauge, Loader2, Target, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import {
   Bar,
@@ -25,7 +19,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useCalibrationMetrics } from "@/hooks/use-intelligence";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -36,11 +29,12 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
-  Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Tooltip as UITooltip,
 } from "@/components/ui/tooltip";
+import { useCalibrationMetrics } from "@/hooks/use-intelligence";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -58,21 +52,35 @@ interface CalibrationDisplayProps {
 
 function getBrierScoreColor(score: number): string {
   // Brier score: 0 is perfect, 1 is worst
-  if (score <= 0.1) return "text-green-500";
-  if (score <= 0.25) return "text-amber-500";
+  if (score <= 0.1) {
+    return "text-green-500";
+  }
+  if (score <= 0.25) {
+    return "text-amber-500";
+  }
   return "text-red-500";
 }
 
 function getBrierScoreLabel(score: number): string {
-  if (score <= 0.1) return "Excellent";
-  if (score <= 0.2) return "Good";
-  if (score <= 0.3) return "Fair";
+  if (score <= 0.1) {
+    return "Excellent";
+  }
+  if (score <= 0.2) {
+    return "Good";
+  }
+  if (score <= 0.3) {
+    return "Fair";
+  }
   return "Needs Improvement";
 }
 
 function getAccuracyColor(accuracy: number): string {
-  if (accuracy >= 0.8) return "#22c55e"; // green
-  if (accuracy >= 0.6) return "#f59e0b"; // amber
+  if (accuracy >= 0.8) {
+    return "#22c55e"; // green
+  }
+  if (accuracy >= 0.6) {
+    return "#f59e0b"; // amber
+  }
   return "#ef4444"; // red
 }
 
@@ -141,7 +149,9 @@ export function CalibrationDisplay({
   const { data, isLoading } = useCalibrationMetrics({ organizationId });
 
   const typeData = useMemo(() => {
-    if (!data?.calibration_by_type) return [];
+    if (!data?.calibration_by_type) {
+      return [];
+    }
     return Object.entries(data.calibration_by_type)
       .map(([type, stats]) => ({
         type: type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -178,9 +188,7 @@ export function CalibrationDisplay({
             <Crosshair className="h-5 w-5 text-blue-500" />
             AI Calibration
           </CardTitle>
-          <CardDescription>
-            DiBello&apos;s Strategic Rehearsal
-          </CardDescription>
+          <CardDescription>DiBello&apos;s Strategic Rehearsal</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -216,10 +224,10 @@ export function CalibrationDisplay({
             className={cn(
               "ml-2",
               data.brier_score <= 0.15
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                ? "border-green-500/30 bg-green-500/10 text-green-600"
                 : data.brier_score <= 0.25
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-red-500/10 text-red-600 border-red-500/30"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                  : "border-red-500/30 bg-red-500/10 text-red-600"
             )}
             variant="outline"
           >
@@ -243,7 +251,9 @@ export function CalibrationDisplay({
             </p>
           </div>
           <div className="text-right">
-            <p className="font-medium text-sm">{data.total_predictions} predictions</p>
+            <p className="font-medium text-sm">
+              {data.total_predictions} predictions
+            </p>
             <p className="text-muted-foreground text-xs">
               {evaluationRate}% evaluated
             </p>
@@ -315,7 +325,9 @@ export function CalibrationDisplay({
                   />
                   <Tooltip
                     content={({ active, payload }) => {
-                      if (!(active && payload?.length)) return null;
+                      if (!(active && payload?.length)) {
+                        return null;
+                      }
                       const data = payload[0].payload;
                       return (
                         <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
@@ -343,7 +355,9 @@ export function CalibrationDisplay({
 
         {/* Interpretation */}
         <div className="rounded-lg border border-dashed p-4">
-          <h4 className="mb-2 font-medium text-sm">Understanding Calibration</h4>
+          <h4 className="mb-2 font-medium text-sm">
+            Understanding Calibration
+          </h4>
           <ul className="space-y-2 text-muted-foreground text-sm">
             <li>
               <strong>Reliability:</strong> When the AI says 80% confidence, it

@@ -12,6 +12,7 @@ import type { GmailEmailClient } from "../email-client/gmail";
 import type { EmailThreadWithMessages } from "../email-client/types";
 import { log } from "../logger";
 import { batchDeduplicateThreads } from "./deduplication";
+import { triggerIntelligenceExtraction } from "./intelligence-trigger";
 import {
   collectThreadIds,
   estimateTimeRemaining,
@@ -26,7 +27,6 @@ import type {
   SyncError,
   SyncResult,
 } from "./types";
-import { triggerIntelligenceExtraction } from "./intelligence-trigger";
 
 // =============================================================================
 // INCREMENTAL SYNC

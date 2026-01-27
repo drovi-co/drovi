@@ -46,7 +46,7 @@ export interface AssignmentResult {
  */
 export async function getEligibleMembers(
   sharedInboxId: string,
-  skipAway: boolean = true
+  skipAway = true
 ): Promise<AssignmentCandidate[]> {
   const members = await db.query.sharedInboxMember.findMany({
     where: and(
@@ -63,7 +63,10 @@ export async function getEligibleMembers(
 
   for (const m of members) {
     // Skip unavailable members if configured
-    if (skipAway && (m.availability === "away" || m.availability === "offline")) {
+    if (
+      skipAway &&
+      (m.availability === "away" || m.availability === "offline")
+    ) {
       continue;
     }
 
@@ -94,7 +97,7 @@ export async function getEligibleMembers(
  */
 export async function roundRobinAssign(
   sharedInboxId: string,
-  skipAway: boolean = true
+  skipAway = true
 ): Promise<AssignmentResult> {
   const candidates = await getEligibleMembers(sharedInboxId, skipAway);
 
@@ -140,7 +143,7 @@ export async function roundRobinAssign(
  */
 export async function loadBalancedAssign(
   sharedInboxId: string,
-  skipAway: boolean = true
+  skipAway = true
 ): Promise<AssignmentResult> {
   const candidates = await getEligibleMembers(sharedInboxId, skipAway);
 
@@ -192,7 +195,7 @@ export async function loadBalancedAssign(
 export async function skillsBasedAssign(
   sharedInboxId: string,
   requiredSkills: string[] = [],
-  skipAway: boolean = true
+  skipAway = true
 ): Promise<AssignmentResult> {
   const candidates = await getEligibleMembers(sharedInboxId, skipAway);
 
@@ -449,7 +452,10 @@ export async function claimAssignment(
   });
 
   if (!member) {
-    return { success: false, reason: "User is not a member of this shared inbox" };
+    return {
+      success: false,
+      reason: "User is not a member of this shared inbox",
+    };
   }
 
   // Check capacity
@@ -573,7 +579,8 @@ export async function rebalanceWorkload(
   });
 
   // Default max if not set
-  const getMaxAssignments = (m: (typeof members)[number]) => m.maxAssignments ?? 10;
+  const getMaxAssignments = (m: (typeof members)[number]) =>
+    m.maxAssignments ?? 10;
 
   // Find overloaded and underloaded members
   const overloaded = members.filter(
@@ -605,7 +612,9 @@ export async function rebalanceWorkload(
         (u) => u.currentAssignments < getMaxAssignments(u)
       );
 
-      if (!target) break;
+      if (!target) {
+        break;
+      }
 
       // Reassign
       await db

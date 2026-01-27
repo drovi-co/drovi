@@ -90,7 +90,9 @@ export function useInbox(options: UseInboxOptions = {}) {
               | { threads: Array<{ id: string; isStarred: boolean }> }
               | undefined
           ) => {
-            if (!old) return old;
+            if (!old) {
+              return old;
+            }
             return {
               ...old,
               threads: old.threads.map((t) =>

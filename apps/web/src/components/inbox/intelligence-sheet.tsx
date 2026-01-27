@@ -56,12 +56,15 @@ interface IntelligenceSheetProps {
 
 // Confidence indicator colors
 function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.8)
+  if (confidence >= 0.8) {
     return "bg-green-500/20 text-green-400 border-green-500/30";
-  if (confidence >= 0.6)
+  }
+  if (confidence >= 0.6) {
     return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-  if (confidence >= 0.4)
+  }
+  if (confidence >= 0.4) {
     return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  }
   return "bg-gray-500/20 text-gray-400 border-gray-500/30";
 }
 
@@ -89,7 +92,9 @@ function SectionHeader({
   count: number;
   color: string;
 }) {
-  if (count === 0) return null;
+  if (count === 0) {
+    return null;
+  }
 
   return (
     <div className="mb-3 flex items-center gap-2">

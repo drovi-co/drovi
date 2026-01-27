@@ -175,7 +175,9 @@ export function ContradictionWarning({
     );
   }
 
-  if (!result) return null;
+  if (!result) {
+    return null;
+  }
 
   // No contradictions - show success state briefly
   if (result.contradictions.length === 0 && result.riskLevel === "low") {

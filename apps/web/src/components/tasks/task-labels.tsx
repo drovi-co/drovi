@@ -196,7 +196,9 @@ export function TaskLabelPicker({
   });
 
   const handleCreateLabel = () => {
-    if (!newLabelName.trim()) return;
+    if (!newLabelName.trim()) {
+      return;
+    }
     // Pick a random color from the palette
     const randomColor =
       LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)]!;
@@ -446,7 +448,9 @@ function LabelManageDialog({
   });
 
   const handleCreateLabel = () => {
-    if (!newLabelName.trim()) return;
+    if (!newLabelName.trim()) {
+      return;
+    }
     createMutation.mutate({
       organizationId,
       name: newLabelName.trim(),
@@ -455,7 +459,9 @@ function LabelManageDialog({
   };
 
   const handleUpdateLabel = () => {
-    if (!(editingLabel && editingLabel.name.trim())) return;
+    if (!editingLabel?.name.trim()) {
+      return;
+    }
     updateMutation.mutate({
       organizationId,
       labelId: editingLabel.id,
@@ -679,7 +685,9 @@ export function TaskLabelsDisplay({
   size = "sm",
   className,
 }: TaskLabelsDisplayProps) {
-  if (labels.length === 0) return null;
+  if (labels.length === 0) {
+    return null;
+  }
 
   const displayed = labels.slice(0, max);
   const remaining = labels.length - max;

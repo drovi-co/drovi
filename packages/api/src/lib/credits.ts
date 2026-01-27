@@ -240,7 +240,7 @@ export function addCredits(params: {
  */
 export function updateOrgPlan(
   organizationId: string,
-  plan: "free" | "pro" | "enterprise"
+  plan: "trial" | "pro" | "enterprise"
 ) {
   const monthlyCredits = PLAN_CREDITS[plan];
 
@@ -329,8 +329,8 @@ export async function getCreditStatus(organizationId: string) {
     );
   }
 
-  // Check low balance threshold (10% of monthly free tier)
-  const lowBalanceThreshold = Math.round(PLAN_CREDITS.free * 0.1);
+  // Check low balance threshold (10% of trial credits)
+  const lowBalanceThreshold = Math.round(PLAN_CREDITS.trial * 0.1);
   const isLowBalance = credits.balance <= lowBalanceThreshold;
 
   return {
@@ -665,9 +665,10 @@ export async function processMonthlyAllocations() {
       continue;
     }
 
-    const plan = (credits.organization as { plan?: string }).plan ?? "free";
-    const monthlyCredits =
-      PLAN_CREDITS[plan as keyof typeof PLAN_CREDITS] ?? PLAN_CREDITS.free;
+    // Get plan from organization, default to pro if not set
+    const orgPlan = (credits.organization as { plan?: string }).plan;
+    const plan = orgPlan === "enterprise" ? "enterprise" : "pro";
+    const monthlyCredits = PLAN_CREDITS[plan];
 
     await db.transaction(async (tx) => {
       const newBalance = credits.balance + monthlyCredits;

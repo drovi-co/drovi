@@ -32,9 +32,9 @@ import { toast } from "sonner";
 
 import {
   PresenceIndicator,
+  type PresenceStatus,
   QuickAssignButton,
   WhoIsViewing,
-  type PresenceStatus,
 } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +80,9 @@ function SharedInboxQueuePage() {
   const currentUserId = session?.user?.id ?? "";
 
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"unassigned" | "my" | "all">("unassigned");
+  const [activeTab, setActiveTab] = useState<"unassigned" | "my" | "all">(
+    "unassigned"
+  );
 
   // Track viewing shared inbox for presence
   useTrackViewing({
@@ -98,7 +100,8 @@ function SharedInboxQueuePage() {
 
   // Set default inbox on load
   const inboxes = inboxesData?.inboxes ?? [];
-  const activeInbox = inboxes.find((i) => i.id === selectedInboxId) ?? inboxes[0];
+  const activeInbox =
+    inboxes.find((i) => i.id === selectedInboxId) ?? inboxes[0];
   const sharedInboxId = activeInbox?.id ?? "";
 
   // Fetch stats for the inbox
@@ -119,12 +122,17 @@ function SharedInboxQueuePage() {
     ...trpc.sharedInbox.getAssignments.queryOptions({
       organizationId,
       sharedInboxId,
-      status: activeTab === "unassigned" ? "unassigned" : activeTab === "my" ? "assigned" : undefined,
+      status:
+        activeTab === "unassigned"
+          ? "unassigned"
+          : activeTab === "my"
+            ? "assigned"
+            : undefined,
       assigneeUserId: activeTab === "my" ? currentUserId : undefined,
       limit: 50,
     }),
     enabled: Boolean(organizationId && sharedInboxId),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30_000, // Refresh every 30 seconds
   });
 
   // Get online users for presence
@@ -201,7 +209,9 @@ function SharedInboxQueuePage() {
 
   // Calculate stats
   const unassignedCount = statsData?.unassigned ?? 0;
-  const myCount = assignments.filter((a) => a.assigneeUserId === currentUserId).length;
+  const myCount = assignments.filter(
+    (a) => a.assigneeUserId === currentUserId
+  ).length;
   const totalCount = statsData?.total ?? 0;
   const onlineMembers = members.filter((m) => presenceMap.has(m.userId));
 
@@ -235,8 +245,8 @@ function SharedInboxQueuePage() {
                 {/* Inbox selector */}
                 {inboxes.length > 1 && (
                   <Select
-                    value={selectedInboxId ?? activeInbox?.id}
                     onValueChange={setSelectedInboxId}
+                    value={selectedInboxId ?? activeInbox?.id}
                   >
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Select inbox" />
@@ -256,20 +266,23 @@ function SharedInboxQueuePage() {
                 {/* Who's viewing this inbox */}
                 {organizationId && (
                   <WhoIsViewing
-                    organizationId={organizationId}
-                    resourceType="other"
-                    resourceId={sharedInboxId || "shared-inbox-default"}
                     compact
+                    organizationId={organizationId}
+                    resourceId={sharedInboxId || "shared-inbox-default"}
+                    resourceType="other"
                   />
                 )}
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetchAssignments()}
                   disabled={isLoadingAssignments}
+                  onClick={() => refetchAssignments()}
+                  size="sm"
+                  variant="outline"
                 >
                   <RefreshCw
-                    className={cn("h-4 w-4", isLoadingAssignments && "animate-spin")}
+                    className={cn(
+                      "h-4 w-4",
+                      isLoadingAssignments && "animate-spin"
+                    )}
                   />
                 </Button>
               </div>
@@ -277,33 +290,33 @@ function SharedInboxQueuePage() {
 
             {/* Tabs */}
             <Tabs
-              value={activeTab}
-              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
               className="mt-4"
+              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+              value={activeTab}
             >
               <TabsList>
-                <TabsTrigger value="unassigned" className="gap-2">
+                <TabsTrigger className="gap-2" value="unassigned">
                   <Inbox className="h-4 w-4" />
                   Unassigned
                   {unassignedCount > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge className="text-[10px]" variant="secondary">
                       {unassignedCount}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="my" className="gap-2">
+                <TabsTrigger className="gap-2" value="my">
                   <User className="h-4 w-4" />
                   My Items
                   {myCount > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge className="text-[10px]" variant="secondary">
                       {myCount}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="all" className="gap-2">
+                <TabsTrigger className="gap-2" value="all">
                   <Users className="h-4 w-4" />
                   All
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge className="text-[10px]" variant="outline">
                     {totalCount}
                   </Badge>
                 </TabsTrigger>
@@ -333,19 +346,19 @@ function SharedInboxQueuePage() {
               <div className="space-y-2">
                 {assignments.map((assignment) => (
                   <QueueItemCard
-                    key={assignment.id}
                     assignment={assignment}
                     currentUserId={currentUserId}
-                    organizationId={organizationId}
-                    sharedInboxId={sharedInboxId}
+                    isClaimPending={claimMutation.isPending}
+                    isReleasePending={releaseMutation.isPending}
+                    key={assignment.id}
                     onClaim={() => handleClaim(assignment.id)}
                     onRelease={() => handleRelease(assignment.id)}
                     onView={() =>
                       assignment.conversationId &&
                       handleViewConversation(assignment.conversationId)
                     }
-                    isClaimPending={claimMutation.isPending}
-                    isReleasePending={releaseMutation.isPending}
+                    organizationId={organizationId}
+                    sharedInboxId={sharedInboxId}
                   />
                 ))}
               </div>
@@ -366,10 +379,100 @@ function SharedInboxQueuePage() {
           </div>
 
           <div className="overflow-y-auto p-4">
-            {!statsData ? (
+            {statsData ? (
+              members.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  No members in this inbox
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {members.map((member) => {
+                    const presenceStatus =
+                      presenceMap.get(member.userId) ?? "offline";
+                    const initials =
+                      member.user.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2) ?? "?";
+                    const maxAssignments = member.maxAssignments ?? 10;
+                    const workloadPercent =
+                      maxAssignments > 0
+                        ? Math.round(
+                            (member.currentAssignments / maxAssignments) * 100
+                          )
+                        : 0;
+
+                    return (
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg p-2 transition-colors",
+                          presenceStatus === "online" && "bg-green-500/5"
+                        )}
+                        key={member.userId}
+                      >
+                        <div className="relative">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage
+                              alt={member.user.name ?? undefined}
+                              src={member.user.image ?? undefined}
+                            />
+                            <AvatarFallback>{initials}</AvatarFallback>
+                          </Avatar>
+                          <span className="absolute -right-0.5 -bottom-0.5">
+                            <PresenceIndicator
+                              size="sm"
+                              status={presenceStatus}
+                            />
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-medium text-sm">
+                              {member.user.name ?? "Unknown"}
+                            </span>
+                            {member.availability !== "available" && (
+                              <Badge className="text-[10px]" variant="outline">
+                                {member.availability}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">
+                              {member.currentAssignments} / {maxAssignments}{" "}
+                              items
+                            </span>
+                            {/* Workload bar */}
+                            <div className="h-1.5 flex-1 rounded-full bg-muted">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  workloadPercent >= 90
+                                    ? "bg-red-500"
+                                    : workloadPercent >= 70
+                                      ? "bg-amber-500"
+                                      : "bg-green-500"
+                                )}
+                                style={{
+                                  width: `${Math.min(workloadPercent, 100)}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex animate-pulse items-center gap-3">
+                  <div
+                    className="flex animate-pulse items-center gap-3"
+                    key={i}
+                  >
                     <div className="h-10 w-10 rounded-full bg-muted" />
                     <div className="flex-1 space-y-2">
                       <div className="h-4 w-24 rounded bg-muted" />
@@ -377,80 +480,6 @@ function SharedInboxQueuePage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : members.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No members in this inbox
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {members.map((member) => {
-                  const presenceStatus = presenceMap.get(member.userId) ?? "offline";
-                  const initials = member.user.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) ?? "?";
-                  const maxAssignments = member.maxAssignments ?? 10;
-                  const workloadPercent = maxAssignments > 0
-                    ? Math.round((member.currentAssignments / maxAssignments) * 100)
-                    : 0;
-
-                  return (
-                    <div
-                      key={member.userId}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        presenceStatus === "online" && "bg-green-500/5"
-                      )}
-                    >
-                      <div className="relative">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage
-                            src={member.user.image ?? undefined}
-                            alt={member.user.name ?? undefined}
-                          />
-                          <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                          <PresenceIndicator status={presenceStatus} size="sm" />
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-sm">
-                            {member.user.name ?? "Unknown"}
-                          </span>
-                          {member.availability !== "available" && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {member.availability}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {member.currentAssignments} / {maxAssignments} items
-                          </span>
-                          {/* Workload bar */}
-                          <div className="h-1.5 flex-1 rounded-full bg-muted">
-                            <div
-                              className={cn(
-                                "h-full rounded-full transition-all",
-                                workloadPercent >= 90
-                                  ? "bg-red-500"
-                                  : workloadPercent >= 70
-                                    ? "bg-amber-500"
-                                    : "bg-green-500"
-                              )}
-                              style={{ width: `${Math.min(workloadPercent, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>
@@ -548,21 +577,23 @@ function QueueItemCard({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+          <Badge className="shrink-0 text-[10px] capitalize" variant="outline">
             {assignment.status}
           </Badge>
           <span className="truncate font-medium">
             {assignment.conversation?.title ?? "Untitled"}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
           <span>{format(new Date(assignment.createdAt), "MMM d, h:mm a")}</span>
           {isAssigned && assignment.assignee && (
             <>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <UserCheck className="h-3 w-3" />
-                {isAssignedToMe ? "You" : assignment.assignee.name ?? "Unknown"}
+                {isAssignedToMe
+                  ? "You"
+                  : (assignment.assignee.name ?? "Unknown")}
               </span>
             </>
           )}
@@ -571,14 +602,42 @@ function QueueItemCard({
 
       {/* Actions */}
       <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-        {!isAssigned ? (
+        {isAssigned ? (
+          isAssignedToMe ? (
+            <Button
+              disabled={isReleasePending}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRelease();
+              }}
+              size="sm"
+              variant="outline"
+            >
+              {isReleasePending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Release"
+              )}
+            </Button>
+          ) : (
+            <QuickAssignButton
+              assignmentId={assignment.id}
+              conversationTitle={assignment.conversation?.title ?? undefined}
+              currentAssigneeId={assignment.assigneeUserId}
+              currentAssigneeName={assignment.assignee?.name}
+              organizationId={organizationId}
+              sharedInboxId={sharedInboxId}
+              size="sm"
+            />
+          )
+        ) : (
           <Button
-            size="sm"
+            disabled={isClaimPending}
             onClick={(e) => {
               e.stopPropagation();
               onClaim();
             }}
-            disabled={isClaimPending}
+            size="sm"
           >
             {isClaimPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -589,41 +648,15 @@ function QueueItemCard({
               </>
             )}
           </Button>
-        ) : isAssignedToMe ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRelease();
-            }}
-            disabled={isReleasePending}
-          >
-            {isReleasePending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Release"
-            )}
-          </Button>
-        ) : (
-          <QuickAssignButton
-            organizationId={organizationId}
-            sharedInboxId={sharedInboxId}
-            assignmentId={assignment.id}
-            conversationTitle={assignment.conversation?.title ?? undefined}
-            currentAssigneeId={assignment.assigneeUserId}
-            currentAssigneeName={assignment.assignee?.name}
-            size="sm"
-          />
         )}
 
         <Button
-          size="sm"
-          variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
             onView();
           }}
+          size="sm"
+          variant="ghost"
         >
           <ArrowRight className="h-4 w-4" />
         </Button>

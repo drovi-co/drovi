@@ -16,15 +16,11 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
   ArrowLeft,
-  Bell,
   Building2,
-  Calendar,
-  CheckCircle2,
-  Clock,
   Edit,
   ExternalLink,
   FileText,
@@ -33,7 +29,6 @@ import {
   Mail,
   MessageSquare,
   MoreHorizontal,
-  Phone,
   RefreshCw,
   Star,
   TrendingDown,
@@ -44,10 +39,9 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { AlertsManagement } from "@/components/contacts/alerts-management";
 import { ContactIntelligenceDashboard } from "@/components/contacts/contact-intelligence-dashboard";
 import { RelationshipTimeline } from "@/components/contacts/relationship-timeline";
-import { AlertsManagement } from "@/components/contacts/alerts-management";
-import { useTrackViewing } from "@/hooks/use-presence";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +71,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -179,12 +174,16 @@ function ContactProfilePage() {
   }, [navigate]);
 
   const handleToggleVip = useCallback(() => {
-    if (!organizationId || !contactId) return;
+    if (!(organizationId && contactId)) {
+      return;
+    }
     toggleVipMutation.mutate({ organizationId, contactId });
   }, [toggleVipMutation, organizationId, contactId]);
 
   const handleEdit = useCallback(() => {
-    if (!contact) return;
+    if (!contact) {
+      return;
+    }
     setEditForm({
       displayName: contact.displayName ?? "",
       title: contact.title ?? "",
@@ -197,7 +196,9 @@ function ContactProfilePage() {
   }, [contact]);
 
   const handleSaveEdit = useCallback(() => {
-    if (!organizationId || !contactId) return;
+    if (!(organizationId && contactId)) {
+      return;
+    }
     updateContactMutation.mutate({
       organizationId,
       contactId,
@@ -206,12 +207,16 @@ function ContactProfilePage() {
   }, [updateContactMutation, organizationId, contactId, editForm]);
 
   const handleGenerateBrief = useCallback(() => {
-    if (!organizationId || !contactId) return;
+    if (!(organizationId && contactId)) {
+      return;
+    }
     meetingBriefMutation.mutate({ organizationId, contactId });
   }, [meetingBriefMutation, organizationId, contactId]);
 
   const handleEmailClick = useCallback(() => {
-    if (!contact?.primaryEmail) return;
+    if (!contact?.primaryEmail) {
+      return;
+    }
     window.location.href = `mailto:${contact.primaryEmail}`;
   }, [contact]);
 
@@ -252,7 +257,9 @@ function ContactProfilePage() {
       .map((n) => n[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2) ?? contact.primaryEmail[0]?.toUpperCase() ?? "?";
+      .slice(0, 2) ??
+    contact.primaryEmail[0]?.toUpperCase() ??
+    "?";
 
   return (
     <div className="h-full" data-no-shell-padding>
@@ -279,9 +286,9 @@ function ContactProfilePage() {
             </Avatar>
 
             {/* Contact info */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h1 className="font-semibold text-xl truncate">
+                <h1 className="truncate font-semibold text-xl">
                   {contact.displayName ?? contact.primaryEmail}
                 </h1>
                 {contact.isVip && (
@@ -318,30 +325,30 @@ function ContactProfilePage() {
             </div>
 
             {/* Quick metrics */}
-            <div className="hidden lg:flex items-center gap-6">
+            <div className="hidden items-center gap-6 lg:flex">
               <MetricBadge
                 label="Health"
-                value={contact.healthScore}
                 type="health"
+                value={contact.healthScore}
               />
               <MetricBadge
                 label="Engagement"
-                value={contact.engagementScore}
                 type="engagement"
+                value={contact.engagementScore}
               />
               <MetricBadge
                 label="Importance"
-                value={contact.importanceScore}
                 type="importance"
+                value={contact.importanceScore}
               />
             </div>
 
             {/* Who is viewing */}
             <WhoIsViewing
-              organizationId={organizationId}
-              resourceType="contact"
-              resourceId={contactId}
               compact
+              organizationId={organizationId}
+              resourceId={contactId}
+              resourceType="contact"
             />
 
             {/* Actions */}
@@ -351,8 +358,8 @@ function ContactProfilePage() {
                 Email
               </Button>
               <Button
-                onClick={handleGenerateBrief}
                 disabled={meetingBriefMutation.isPending}
+                onClick={handleGenerateBrief}
                 size="sm"
                 variant="outline"
               >
@@ -450,12 +457,15 @@ function ContactProfilePage() {
               </TabsList>
             </div>
 
-            <TabsContent className="m-0 h-[calc(100%-2.5rem)]" value="intelligence">
+            <TabsContent
+              className="m-0 h-[calc(100%-2.5rem)]"
+              value="intelligence"
+            >
               <div className="p-6">
                 <ContactIntelligenceDashboard
                   contactId={contactId}
-                  organizationId={organizationId}
                   onRefresh={refetch}
+                  organizationId={organizationId}
                 />
               </div>
             </TabsContent>
@@ -469,16 +479,22 @@ function ContactProfilePage() {
               </div>
             </TabsContent>
 
-            <TabsContent className="m-0 h-[calc(100%-2.5rem)] overflow-auto" value="alerts">
+            <TabsContent
+              className="m-0 h-[calc(100%-2.5rem)] overflow-auto"
+              value="alerts"
+            >
               <div className="p-6">
                 <AlertsManagement
-                  organizationId={organizationId}
                   contactId={contactId}
+                  organizationId={organizationId}
                 />
               </div>
             </TabsContent>
 
-            <TabsContent className="m-0 h-[calc(100%-2.5rem)] overflow-auto" value="threads">
+            <TabsContent
+              className="m-0 h-[calc(100%-2.5rem)] overflow-auto"
+              value="threads"
+            >
               <div className="p-6">
                 {recentThreads.length === 0 ? (
                   <Card>
@@ -495,14 +511,16 @@ function ContactProfilePage() {
                     <CardHeader>
                       <CardTitle>Recent Conversations</CardTitle>
                       <CardDescription>
-                        Email threads with {contact.displayName ?? "this contact"} in the last 90 days
+                        Email threads with{" "}
+                        {contact.displayName ?? "this contact"} in the last 90
+                        days
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="divide-y">
                         {recentThreads.map((thread) => (
                           <div
-                            className="flex items-center gap-4 px-6 py-3 hover:bg-muted/50 cursor-pointer"
+                            className="flex cursor-pointer items-center gap-4 px-6 py-3 hover:bg-muted/50"
                             key={thread.id}
                             onClick={() =>
                               navigate({
@@ -512,21 +530,24 @@ function ContactProfilePage() {
                             }
                           >
                             <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-sm">
                                 {thread.subject ?? "No Subject"}
                               </p>
                               {thread.snippet && (
-                                <p className="text-muted-foreground text-xs truncate">
+                                <p className="truncate text-muted-foreground text-xs">
                                   {thread.snippet}
                                 </p>
                               )}
                             </div>
-                            <span className="text-muted-foreground text-xs whitespace-nowrap">
+                            <span className="whitespace-nowrap text-muted-foreground text-xs">
                               {thread.lastMessageAt
-                                ? formatDistanceToNow(new Date(thread.lastMessageAt), {
-                                    addSuffix: true,
-                                  })
+                                ? formatDistanceToNow(
+                                    new Date(thread.lastMessageAt),
+                                    {
+                                      addSuffix: true,
+                                    }
+                                  )
                                 : ""}
                             </span>
                           </div>
@@ -538,22 +559,26 @@ function ContactProfilePage() {
               </div>
             </TabsContent>
 
-            <TabsContent className="m-0 h-[calc(100%-2.5rem)] overflow-auto" value="discussion">
+            <TabsContent
+              className="m-0 h-[calc(100%-2.5rem)] overflow-auto"
+              value="discussion"
+            >
               <div className="p-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Team Discussion</CardTitle>
                     <CardDescription>
-                      Internal notes and discussion about {contact.displayName ?? "this contact"}
+                      Internal notes and discussion about{" "}
+                      {contact.displayName ?? "this contact"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     {organizationId && currentUserId && (
                       <CommentThread
-                        organizationId={organizationId}
-                        targetType="contact"
-                        targetId={contactId}
                         currentUserId={currentUserId}
+                        organizationId={organizationId}
+                        targetId={contactId}
+                        targetType="contact"
                       />
                     )}
                   </CardContent>
@@ -641,10 +666,7 @@ function ContactProfilePage() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-4">
-              <Button
-                onClick={() => setShowEditSheet(false)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowEditSheet(false)} variant="outline">
                 Cancel
               </Button>
               <Button
@@ -675,26 +697,44 @@ interface MetricBadgeProps {
 }
 
 function MetricBadge({ label, value, type }: MetricBadgeProps) {
-  const normalizedValue = value !== null && value !== undefined ? Math.round(value * 100) : null;
+  const normalizedValue =
+    value !== null && value !== undefined ? Math.round(value * 100) : null;
 
   const getColor = () => {
-    if (normalizedValue === null) return "text-muted-foreground";
-    if (normalizedValue >= 70) return "text-green-600";
-    if (normalizedValue >= 40) return "text-amber-600";
+    if (normalizedValue === null) {
+      return "text-muted-foreground";
+    }
+    if (normalizedValue >= 70) {
+      return "text-green-600";
+    }
+    if (normalizedValue >= 40) {
+      return "text-amber-600";
+    }
     return "text-red-600";
   };
 
   const getIcon = () => {
-    if (normalizedValue === null) return null;
-    if (normalizedValue >= 70) return <TrendingUp className="h-3 w-3" />;
-    if (normalizedValue < 40) return <TrendingDown className="h-3 w-3" />;
+    if (normalizedValue === null) {
+      return null;
+    }
+    if (normalizedValue >= 70) {
+      return <TrendingUp className="h-3 w-3" />;
+    }
+    if (normalizedValue < 40) {
+      return <TrendingDown className="h-3 w-3" />;
+    }
     return null;
   };
 
   return (
     <div className="text-center">
       <p className="text-muted-foreground text-xs">{label}</p>
-      <div className={cn("flex items-center justify-center gap-1 font-semibold", getColor())}>
+      <div
+        className={cn(
+          "flex items-center justify-center gap-1 font-semibold",
+          getColor()
+        )}
+      >
         {normalizedValue !== null ? `${normalizedValue}%` : "N/A"}
         {getIcon()}
       </div>
@@ -724,7 +764,7 @@ function ContactProfileSkeleton() {
       <div className="flex-1 p-6">
         <div className="grid gap-6">
           <div className="grid gap-4 md:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
+            {[...new Array(4)].map((_, i) => (
               <Skeleton className="h-32" key={i} />
             ))}
           </div>

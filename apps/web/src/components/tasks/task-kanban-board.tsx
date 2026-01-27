@@ -33,12 +33,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, GripVertical, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-
-import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
 
 import {
@@ -110,7 +109,9 @@ export function TaskKanbanBoard({
   // Get the active task for drag overlay (with optimistic status applied)
   const activeTask = useMemo(() => {
     const task = tasks.find((t) => t.id === activeId);
-    if (!task) return null;
+    if (!task) {
+      return null;
+    }
     const effectiveStatus = optimisticMoves[task.id] ?? task.status;
     return { ...task, status: effectiveStatus };
   }, [tasks, activeId, optimisticMoves]);
@@ -133,7 +134,11 @@ export function TaskKanbanBoard({
   // Wrap with optimistic update handlers
   const updateStatusMutation = {
     ...updateStatusMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      status: TaskStatus;
+    }) => {
       // Apply optimistic update immediately
       setOptimisticMoves((prev) => ({
         ...prev,
@@ -141,7 +146,11 @@ export function TaskKanbanBoard({
       }));
 
       updateStatusMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          status: params.status,
+        },
         {
           onSuccess: () => {
             // Clear optimistic state - the query will have the real data
@@ -207,14 +216,18 @@ export function TaskKanbanBoard({
       setActiveId(null);
       setOverColumnId(null);
 
-      if (!over) return;
+      if (!over) {
+        return;
+      }
 
       const activeTaskId = active.id as string;
       const overId = over.id as string;
 
       // Get the active task
       const activeTask = tasks.find((t) => t.id === activeTaskId);
-      if (!activeTask) return;
+      if (!activeTask) {
+        return;
+      }
 
       let newStatus: TaskStatus;
 
@@ -224,7 +237,9 @@ export function TaskKanbanBoard({
       } else {
         // Dropped on another task - get its status
         const overTask = tasks.find((t) => t.id === overId);
-        if (!overTask) return;
+        if (!overTask) {
+          return;
+        }
         newStatus = overTask.status;
       }
 

@@ -131,7 +131,9 @@ export function registerPrompt(prompt: RegisteredPrompt): void {
  */
 export function getPrompt(promptId: string): RegisteredPrompt | null {
   const activeVersion = activeVersions.get(promptId);
-  if (!activeVersion) return null;
+  if (!activeVersion) {
+    return null;
+  }
 
   return getPromptVersion(promptId, activeVersion);
 }
@@ -144,7 +146,9 @@ export function getPromptVersion(
   version: string
 ): RegisteredPrompt | null {
   const versions = promptRegistry.get(promptId);
-  if (!versions) return null;
+  if (!versions) {
+    return null;
+  }
 
   return versions.find((v) => v.metadata.version === version) ?? null;
 }
@@ -185,7 +189,9 @@ export function getAllPrompts(): RegisteredPrompt[] {
   const prompts: RegisteredPrompt[] = [];
   for (const [_, versions] of promptRegistry) {
     const active = versions.find((v) => v.metadata.isActive);
-    if (active) prompts.push(active);
+    if (active) {
+      prompts.push(active);
+    }
   }
   return prompts;
 }
@@ -215,7 +221,9 @@ export function updatePromptMetrics(
   metrics: Partial<PromptMetrics>
 ): void {
   const prompt = getPromptVersion(promptId, version);
-  if (!prompt) return;
+  if (!prompt) {
+    return;
+  }
 
   prompt.metrics = {
     ...prompt.metrics,
@@ -238,7 +246,9 @@ export function recordPromptUsage(
   }
 ): void {
   const prompt = getPromptVersion(promptId, version);
-  if (!prompt) return;
+  if (!prompt) {
+    return;
+  }
 
   const current = prompt.metrics ?? {
     usageCount: 0,
@@ -279,7 +289,9 @@ export function recordPromptFeedback(
   score: number
 ): void {
   const prompt = getPromptVersion(promptId, version);
-  if (!prompt) return;
+  if (!prompt) {
+    return;
+  }
 
   const current = prompt.metrics ?? {
     usageCount: 0,
@@ -316,7 +328,9 @@ export function renderPrompt(
     ? getPromptVersion(promptId, version)
     : getPrompt(promptId);
 
-  if (!prompt) return null;
+  if (!prompt) {
+    return null;
+  }
 
   let rendered = prompt.template;
 

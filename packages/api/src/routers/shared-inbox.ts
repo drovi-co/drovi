@@ -134,7 +134,9 @@ async function getNextRoundRobinAssignee(
     where: eq(sharedInbox.id, sharedInboxId),
   });
 
-  if (!inbox) return null;
+  if (!inbox) {
+    return null;
+  }
 
   // Get all active members ordered by round-robin position
   const members = await db.query.sharedInboxMember.findMany({
@@ -145,7 +147,9 @@ async function getNextRoundRobinAssignee(
     orderBy: [asc(sharedInboxMember.roundRobinPosition)],
   });
 
-  if (members.length === 0) return null;
+  if (members.length === 0) {
+    return null;
+  }
 
   // Find first eligible member
   for (const m of members) {
@@ -155,15 +159,14 @@ async function getNextRoundRobinAssignee(
     }
 
     // Skip if at max capacity
-    if (
-      m.maxAssignments !== null &&
-      m.currentAssignments >= m.maxAssignments
-    ) {
+    if (m.maxAssignments !== null && m.currentAssignments >= m.maxAssignments) {
       continue;
     }
 
     // Found eligible member - update their position to end of queue
-    const maxPosition = Math.max(...members.map((mem) => mem.roundRobinPosition));
+    const maxPosition = Math.max(
+      ...members.map((mem) => mem.roundRobinPosition)
+    );
 
     await db
       .update(sharedInboxMember)
@@ -194,7 +197,9 @@ async function getNextLoadBalancedAssignee(
     where: eq(sharedInbox.id, sharedInboxId),
   });
 
-  if (!inbox) return null;
+  if (!inbox) {
+    return null;
+  }
 
   // Get all active members ordered by current assignments (ascending)
   const members = await db.query.sharedInboxMember.findMany({
@@ -205,7 +210,9 @@ async function getNextLoadBalancedAssignee(
     orderBy: [asc(sharedInboxMember.currentAssignments)],
   });
 
-  if (members.length === 0) return null;
+  if (members.length === 0) {
+    return null;
+  }
 
   // Find first eligible member (lowest workload)
   for (const m of members) {
@@ -215,10 +222,7 @@ async function getNextLoadBalancedAssignee(
     }
 
     // Skip if at max capacity
-    if (
-      m.maxAssignments !== null &&
-      m.currentAssignments >= m.maxAssignments
-    ) {
+    if (m.maxAssignments !== null && m.currentAssignments >= m.maxAssignments) {
       continue;
     }
 
@@ -378,8 +382,8 @@ export const sharedInboxRouter = router({
         assignmentMethod: assignmentMethodSchema.default("round_robin"),
         autoAssignEnabled: z.boolean().default(true),
         skipAwayMembers: z.boolean().default(true),
-        firstResponseSlaMinutes: z.number().int().min(1).max(10080).optional(),
-        resolutionSlaMinutes: z.number().int().min(1).max(43200).optional(),
+        firstResponseSlaMinutes: z.number().int().min(1).max(10_080).optional(),
+        resolutionSlaMinutes: z.number().int().min(1).max(43_200).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -440,8 +444,20 @@ export const sharedInboxRouter = router({
         assignmentMethod: assignmentMethodSchema.optional(),
         autoAssignEnabled: z.boolean().optional(),
         skipAwayMembers: z.boolean().optional(),
-        firstResponseSlaMinutes: z.number().int().min(1).max(10080).nullable().optional(),
-        resolutionSlaMinutes: z.number().int().min(1).max(43200).nullable().optional(),
+        firstResponseSlaMinutes: z
+          .number()
+          .int()
+          .min(1)
+          .max(10_080)
+          .nullable()
+          .optional(),
+        resolutionSlaMinutes: z
+          .number()
+          .int()
+          .min(1)
+          .max(43_200)
+          .nullable()
+          .optional(),
         isActive: z.boolean().optional(),
       })
     )
@@ -454,14 +470,30 @@ export const sharedInboxRouter = router({
         updatedAt: new Date(),
       };
 
-      if (input.name !== undefined) updates.name = input.name;
-      if (input.description !== undefined) updates.description = input.description;
-      if (input.assignmentMethod !== undefined) updates.assignmentMethod = input.assignmentMethod;
-      if (input.autoAssignEnabled !== undefined) updates.autoAssignEnabled = input.autoAssignEnabled;
-      if (input.skipAwayMembers !== undefined) updates.skipAwayMembers = input.skipAwayMembers;
-      if (input.firstResponseSlaMinutes !== undefined) updates.firstResponseSlaMinutes = input.firstResponseSlaMinutes;
-      if (input.resolutionSlaMinutes !== undefined) updates.resolutionSlaMinutes = input.resolutionSlaMinutes;
-      if (input.isActive !== undefined) updates.isActive = input.isActive;
+      if (input.name !== undefined) {
+        updates.name = input.name;
+      }
+      if (input.description !== undefined) {
+        updates.description = input.description;
+      }
+      if (input.assignmentMethod !== undefined) {
+        updates.assignmentMethod = input.assignmentMethod;
+      }
+      if (input.autoAssignEnabled !== undefined) {
+        updates.autoAssignEnabled = input.autoAssignEnabled;
+      }
+      if (input.skipAwayMembers !== undefined) {
+        updates.skipAwayMembers = input.skipAwayMembers;
+      }
+      if (input.firstResponseSlaMinutes !== undefined) {
+        updates.firstResponseSlaMinutes = input.firstResponseSlaMinutes;
+      }
+      if (input.resolutionSlaMinutes !== undefined) {
+        updates.resolutionSlaMinutes = input.resolutionSlaMinutes;
+      }
+      if (input.isActive !== undefined) {
+        updates.isActive = input.isActive;
+      }
 
       await db
         .update(sharedInbox)
@@ -622,8 +654,15 @@ export const sharedInboxRouter = router({
       await verifySharedInboxAccess(input.organizationId, input.sharedInboxId);
 
       // Users can update their own settings, admins can update anyone's
-      const { role } = await verifyOrgMembership(currentUserId, input.organizationId);
-      if (currentUserId !== input.userId && role !== "owner" && role !== "admin") {
+      const { role } = await verifyOrgMembership(
+        currentUserId,
+        input.organizationId
+      );
+      if (
+        currentUserId !== input.userId &&
+        role !== "owner" &&
+        role !== "admin"
+      ) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Cannot update other members' settings.",
@@ -646,8 +685,12 @@ export const sharedInboxRouter = router({
         updatedAt: new Date(),
       };
 
-      if (input.availability !== undefined) updates.availability = input.availability;
-      if (input.maxAssignments !== undefined) updates.maxAssignments = input.maxAssignments;
+      if (input.availability !== undefined) {
+        updates.availability = input.availability;
+      }
+      if (input.maxAssignments !== undefined) {
+        updates.maxAssignments = input.maxAssignments;
+      }
 
       await db
         .update(sharedInboxMember)
@@ -716,14 +759,18 @@ export const sharedInboxRouter = router({
       await verifyOrgMembership(userId, input.organizationId);
       await verifySharedInboxAccess(input.organizationId, input.sharedInboxId);
 
-      const conditions = [eq(conversationAssignment.sharedInboxId, input.sharedInboxId)];
+      const conditions = [
+        eq(conversationAssignment.sharedInboxId, input.sharedInboxId),
+      ];
 
       if (input.status) {
         conditions.push(eq(conversationAssignment.status, input.status));
       }
 
       if (input.assigneeUserId) {
-        conditions.push(eq(conversationAssignment.assigneeUserId, input.assigneeUserId));
+        conditions.push(
+          eq(conversationAssignment.assigneeUserId, input.assigneeUserId)
+        );
       }
 
       const [countResult] = await db
@@ -830,7 +877,7 @@ export const sharedInboxRouter = router({
         input.assignToUserId
       );
 
-      if (!targetMember || !targetMember.isActive) {
+      if (!targetMember?.isActive) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Target user is not an active member of this shared inbox.",
@@ -913,7 +960,7 @@ export const sharedInboxRouter = router({
         userId
       );
 
-      if (!memberRecord || !memberRecord.isActive) {
+      if (!memberRecord?.isActive) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You are not an active member of this shared inbox.",
@@ -1032,7 +1079,9 @@ export const sharedInboxRouter = router({
         if (inbox.assignmentMethod === "round_robin") {
           newAssigneeId = await getNextRoundRobinAssignee(input.sharedInboxId);
         } else if (inbox.assignmentMethod === "load_balanced") {
-          newAssigneeId = await getNextLoadBalancedAssignee(input.sharedInboxId);
+          newAssigneeId = await getNextLoadBalancedAssignee(
+            input.sharedInboxId
+          );
         }
       }
 

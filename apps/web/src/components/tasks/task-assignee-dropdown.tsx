@@ -106,7 +106,9 @@ export function TaskAssigneeDropdown({
   });
 
   const handleAssign = (userId: string | null) => {
-    if (userId === currentAssignee?.id) return;
+    if (userId === currentAssignee?.id) {
+      return;
+    }
 
     assignMutation.mutate({
       organizationId,

@@ -63,7 +63,7 @@ export function PresenceIndicator({
         title={statusLabels[status]}
       />
       {showLabel && (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {statusLabels[status]}
         </span>
       )}
@@ -114,9 +114,9 @@ export function PresenceAvatar({
     <div className={cn("relative inline-block", className)}>
       {image ? (
         <img
-          src={image}
           alt={name}
           className={cn("rounded-full object-cover", avatarSizes[size])}
+          src={image}
         />
       ) : (
         <div
@@ -173,26 +173,26 @@ export function AvatarStack({
       {visibleUsers.map((user) =>
         showPresence && user.status ? (
           <PresenceAvatar
+            className="ring-2 ring-background"
+            image={user.image}
             key={user.id}
             name={user.name}
-            image={user.image}
-            status={user.status}
             size={size}
-            className="ring-2 ring-background"
+            status={user.status}
           />
         ) : (
           <div
-            key={user.id}
             className={cn(
-              "relative inline-block ring-2 ring-background rounded-full",
+              "relative inline-block rounded-full ring-2 ring-background",
               avatarSizes[size]
             )}
+            key={user.id}
           >
             {user.image ? (
               <img
-                src={user.image}
                 alt={user.name}
                 className={cn("rounded-full object-cover", avatarSizes[size])}
+                src={user.image}
               />
             ) : (
               <div

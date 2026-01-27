@@ -77,7 +77,10 @@ export function useUIO(params: {
         organizationId: params.organizationId,
         id: params.id,
       },
-      { enabled: params.enabled !== false && !!params.id && !!params.organizationId }
+      {
+        enabled:
+          params.enabled !== false && !!params.id && !!params.organizationId,
+      }
     )
   );
 }
@@ -85,7 +88,10 @@ export function useUIO(params: {
 /**
  * Get UIO statistics for dashboard.
  */
-export function useUIOStats(params: { organizationId: string; enabled?: boolean }) {
+export function useUIOStats(params: {
+  organizationId: string;
+  enabled?: boolean;
+}) {
   const trpc = useTRPC();
 
   return useQuery(
@@ -107,7 +113,14 @@ export function useUIOStats(params: { organizationId: string; enabled?: boolean 
  */
 export function useCommitmentUIOs(params: {
   organizationId: string;
-  status?: "pending" | "in_progress" | "completed" | "cancelled" | "overdue" | "waiting" | "snoozed";
+  status?:
+    | "pending"
+    | "in_progress"
+    | "completed"
+    | "cancelled"
+    | "overdue"
+    | "waiting"
+    | "snoozed";
   direction?: "owed_by_me" | "owed_to_me";
   priority?: "low" | "medium" | "high" | "urgent";
   dueBefore?: Date;
@@ -165,7 +178,13 @@ export function useDecisionUIOs(params: {
  */
 export function useTaskUIOs(params: {
   organizationId: string;
-  status?: "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled";
+  status?:
+    | "backlog"
+    | "todo"
+    | "in_progress"
+    | "in_review"
+    | "done"
+    | "cancelled";
   priority?: "no_priority" | "low" | "medium" | "high" | "urgent";
   assigneeId?: string;
   project?: string;
@@ -351,7 +370,10 @@ export function useUpdateTaskPriorityUIO() {
 /**
  * Get commitment statistics.
  */
-export function useCommitmentStats(params: { organizationId: string; enabled?: boolean }) {
+export function useCommitmentStats(params: {
+  organizationId: string;
+  enabled?: boolean;
+}) {
   const trpc = useTRPC();
 
   return useQuery(
@@ -367,7 +389,10 @@ export function useCommitmentStats(params: { organizationId: string; enabled?: b
 /**
  * Get decision statistics.
  */
-export function useDecisionStats(params: { organizationId: string; enabled?: boolean }) {
+export function useDecisionStats(params: {
+  organizationId: string;
+  enabled?: boolean;
+}) {
   const trpc = useTRPC();
 
   return useQuery(
@@ -383,7 +408,10 @@ export function useDecisionStats(params: { organizationId: string; enabled?: boo
 /**
  * Get task statistics.
  */
-export function useTaskStats(params: { organizationId: string; enabled?: boolean }) {
+export function useTaskStats(params: {
+  organizationId: string;
+  enabled?: boolean;
+}) {
   const trpc = useTRPC();
 
   return useQuery(

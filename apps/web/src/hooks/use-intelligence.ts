@@ -28,7 +28,7 @@ export type BlindspotSeverity = "low" | "medium" | "high";
 
 export interface BlindspotIndicator {
   id: string;
-  blindspot_type: BlindspotType;
+  blindspot_type: string; // API returns string, may be one of BlindspotType values
   title: string;
   description: string;
   evidence_ids: string[];

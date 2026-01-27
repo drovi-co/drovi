@@ -104,8 +104,12 @@ const sourceNames: Record<string, string> = {
 function ConfidenceBadge({ confidence }: { confidence: number }) {
   const percent = Math.round(confidence * 100);
   let colorClass = "bg-green-500/10 text-green-600";
-  if (percent < 70) colorClass = "bg-yellow-500/10 text-yellow-600";
-  if (percent < 50) colorClass = "bg-red-500/10 text-red-600";
+  if (percent < 70) {
+    colorClass = "bg-yellow-500/10 text-yellow-600";
+  }
+  if (percent < 50) {
+    colorClass = "bg-red-500/10 text-red-600";
+  }
 
   return (
     <span className={cn("rounded px-1.5 py-0.5 text-xs", colorClass)}>
@@ -198,8 +202,12 @@ export function EvidenceChain({
 
   // Sort sources: origin first, then by timestamp
   const sortedSources = [...sources].sort((a, b) => {
-    if (a.role === "origin" && b.role !== "origin") return -1;
-    if (b.role === "origin" && a.role !== "origin") return 1;
+    if (a.role === "origin" && b.role !== "origin") {
+      return -1;
+    }
+    if (b.role === "origin" && a.role !== "origin") {
+      return 1;
+    }
     const aTime = a.sourceTimestamp?.getTime() ?? 0;
     const bTime = b.sourceTimestamp?.getTime() ?? 0;
     return bTime - aTime;

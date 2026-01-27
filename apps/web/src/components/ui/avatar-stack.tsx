@@ -115,7 +115,7 @@ export function AvatarStack({
         <div
           className={cn(
             "flex items-center justify-center rounded-full",
-            "bg-muted text-muted-foreground font-medium",
+            "bg-muted font-medium text-muted-foreground",
             config.ring,
             "ring-background",
             config.badge

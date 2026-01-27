@@ -11,7 +11,7 @@
 
 "use client";
 
-import { Check, ChevronDown, Filter } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import {
   getAvailableSources,
   getSourceColor,
@@ -31,6 +30,7 @@ import {
   getSourceLabel,
   type SourceType,
 } from "@/lib/source-config";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -84,7 +84,7 @@ export function SourceFilterDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           className={cn(
-            "h-7 gap-1.5 text-[13px] font-normal",
+            "h-7 gap-1.5 font-normal text-[13px]",
             hasSelection && "bg-accent",
             className
           )}
@@ -94,7 +94,10 @@ export function SourceFilterDropdown({
           <Filter className="h-3.5 w-3.5" strokeWidth={1.5} />
           <span>Sources</span>
           {hasSelection && (
-            <Badge className="ml-1 h-4 min-w-4 px-1 text-[9px]" variant="secondary">
+            <Badge
+              className="ml-1 h-4 min-w-4 px-1 text-[9px]"
+              variant="secondary"
+            >
               {selectedSources.length}
             </Badge>
           )}

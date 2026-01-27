@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   jsonb,
   pgTable,
   text,
   timestamp,
-  boolean,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 

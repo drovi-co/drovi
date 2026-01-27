@@ -7,33 +7,33 @@
  * Supports filtering by activity type and resource.
  */
 
-import { useCallback, useEffect } from "react";
+import { formatDistanceToNow } from "date-fns";
 import {
-  useActivityFeed,
-  useMarkActivitySeen,
-  useUnreadActivityCount,
-  type ActivityType,
-} from "@/hooks/use-collaboration";
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
+  AlertTriangle,
+  ArrowRight,
   Bell,
+  CheckCircle,
   CheckSquare,
+  Clock,
   FileText,
   MessageSquare,
   Share2,
   UserPlus,
-  AlertTriangle,
-  Clock,
-  ArrowRight,
-  CheckCircle,
   XCircle,
   Zap,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { useCallback } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  type ActivityType,
+  useActivityFeed,
+  useMarkActivitySeen,
+  useUnreadActivityCount,
+} from "@/hooks/use-collaboration";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // Types
@@ -259,10 +259,7 @@ export function ActivityFeed({
     return (
       <div className={cn("space-y-3", className)}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-start gap-3 animate-pulse"
-          >
+          <div className="flex animate-pulse items-start gap-3" key={i}>
             <div className="h-8 w-8 rounded-full bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-4 w-3/4 rounded bg-muted" />
@@ -282,17 +279,17 @@ export function ActivityFeed({
             <Bell className="h-4 w-4" />
             <span className="font-medium">Activity</span>
             {unreadCount > 0 && (
-              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+              <Badge className="h-5 px-1.5 text-xs" variant="secondary">
                 {unreadCount}
               </Badge>
             )}
           </div>
           {unreadCount > 0 && (
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkSeen}
               className="text-xs"
+              onClick={handleMarkSeen}
+              size="sm"
+              variant="ghost"
             >
               Mark all as read
             </Button>
@@ -311,9 +308,9 @@ export function ActivityFeed({
           <div className="space-y-1">
             {activities.map((activity) => (
               <ActivityItem
-                key={activity.id}
                 activity={activity}
                 compact={compact}
+                key={activity.id}
               />
             ))}
           </div>
@@ -349,7 +346,7 @@ function ActivityItem({ activity, compact = false }: ActivityItemProps) {
           </span>{" "}
           {config.label}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {formatDistanceToNow(new Date(activity.createdAt), {
             addSuffix: true,
           })}
@@ -374,7 +371,7 @@ function ActivityItem({ activity, compact = false }: ActivityItemProps) {
       </Avatar>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className={cn(config.color)}>{config.icon}</span>
           <span className="text-sm">
@@ -387,13 +384,13 @@ function ActivityItem({ activity, compact = false }: ActivityItemProps) {
 
         {/* Target title */}
         {activity.targetTitle && (
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <p className="mt-1 truncate text-muted-foreground text-sm">
             {activity.targetTitle}
           </p>
         )}
 
         {/* Timestamp */}
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-muted-foreground text-xs">
           {formatDistanceToNow(new Date(activity.createdAt), {
             addSuffix: true,
           })}
@@ -418,21 +415,23 @@ export function ActivitySidebar({
   isOpen,
   onClose,
 }: ActivitySidebarProps) {
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-y-0 right-0 z-50 w-80 border-l bg-background shadow-lg">
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b p-4">
-          <h2 className="text-lg font-semibold">Activity</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <h2 className="font-semibold text-lg">Activity</h2>
+          <Button onClick={onClose} size="sm" variant="ghost">
             Close
           </Button>
         </div>
         <ActivityFeed
+          className="flex-1 overflow-hidden p-4"
           organizationId={organizationId}
           showHeader={false}
-          className="flex-1 overflow-hidden p-4"
         />
       </div>
     </div>

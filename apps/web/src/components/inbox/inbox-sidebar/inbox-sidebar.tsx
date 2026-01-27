@@ -81,7 +81,9 @@ export function InboxSidebar({
 
   // Filter commitments for selected date (or all due soon)
   const relevantCommitments = commitments.filter((c) => {
-    if (!c.dueDate) return false;
+    if (!c.dueDate) {
+      return false;
+    }
     const dueDay = startOfDay(c.dueDate).getTime();
     const selectedDay = startOfDay(selectedDate).getTime();
     // Show if due on selected day or overdue

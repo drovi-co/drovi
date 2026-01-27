@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useListViewers, ListItemViewers } from "@/components/collaboration";
+import { ListItemViewers, useListViewers } from "@/components/collaboration";
 import { SourceIcon } from "@/components/inbox/source-icon";
 // Import shared task components
 import {
@@ -38,12 +38,6 @@ import {
   type TaskSourceType,
   type TaskStatus,
 } from "@/components/tasks";
-import {
-  useTaskStats,
-  useTaskUIOs,
-  useUpdateTaskPriorityUIO,
-  useUpdateTaskStatusUIO,
-} from "@/hooks/use-uio";
 import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +60,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useTaskStats,
+  useTaskUIOs,
+  useUpdateTaskPriorityUIO,
+  useUpdateTaskStatusUIO,
+} from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
@@ -150,9 +150,17 @@ function TasksPage() {
   const updateStatusMutationBase = useUpdateTaskStatusUIO();
   const updateStatusMutation = {
     ...updateStatusMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; status: TaskStatus }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      status: TaskStatus;
+    }) => {
       updateStatusMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.taskId, status: params.status },
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          status: params.status,
+        },
         {
           onSuccess: () => {
             toast.success("Status updated");
@@ -170,9 +178,17 @@ function TasksPage() {
   const updatePriorityMutationBase = useUpdateTaskPriorityUIO();
   const updatePriorityMutation = {
     ...updatePriorityMutationBase,
-    mutate: (params: { organizationId: string; taskId: string; priority: TaskPriority }) => {
+    mutate: (params: {
+      organizationId: string;
+      taskId: string;
+      priority: TaskPriority;
+    }) => {
       updatePriorityMutationBase.mutate(
-        { organizationId: params.organizationId, id: params.taskId, priority: params.priority },
+        {
+          organizationId: params.organizationId,
+          id: params.taskId,
+          priority: params.priority,
+        },
         {
           onSuccess: () => {
             toast.success("Priority updated");
@@ -317,7 +333,12 @@ function TasksPage() {
       const title = t.userCorrectedTitle ?? t.canonicalTitle ?? "";
       const description = t.canonicalDescription ?? "";
       const query = searchQuery.toLowerCase();
-      if (!title.toLowerCase().includes(query) && !description.toLowerCase().includes(query)) {
+      if (
+        !(
+          title.toLowerCase().includes(query) ||
+          description.toLowerCase().includes(query)
+        )
+      ) {
         return false;
       }
     }
@@ -335,12 +356,14 @@ function TasksPage() {
       sourceType: "manual" as TaskSourceType, // UIO tasks don't track sourceType
       dueDate: t.dueDate ? new Date(t.dueDate) : null,
       completedAt: details?.completedAt ? new Date(details.completedAt) : null,
-      assignee: t.owner ? {
-        id: t.owner.id,
-        name: t.owner.displayName,
-        email: t.owner.primaryEmail ?? "",
-        image: null, // owner contact doesn't have avatar in UIO schema
-      } : null,
+      assignee: t.owner
+        ? {
+            id: t.owner.id,
+            name: t.owner.displayName,
+            email: t.owner.primaryEmail ?? "",
+            image: null, // owner contact doesn't have avatar in UIO schema
+          }
+        : null,
       labels: [], // Labels would need separate query
       metadata: null, // UIO task details don't have metadata field
       createdAt: new Date(t.createdAt),
@@ -705,7 +728,9 @@ function TaskListView({
       <div>
         {statusOrder.map((status) => {
           const statusTasks = tasksByStatus[status] ?? [];
-          if (statusTasks.length === 0) return null;
+          if (statusTasks.length === 0) {
+            return null;
+          }
 
           const config = STATUS_CONFIG[status];
           const isCollapsed = collapsedSections.has(status);
@@ -1198,7 +1223,7 @@ function TaskRow({
         <div className="flex items-center gap-1.5 group-hover:hidden">
           {/* Viewers indicator */}
           {viewers.length > 0 && (
-            <ListItemViewers viewers={viewers} size="xs" maxVisible={2} />
+            <ListItemViewers maxVisible={2} size="xs" viewers={viewers} />
           )}
 
           {/* Date - fixed width, right aligned text */}
@@ -1289,7 +1314,7 @@ function TaskRow({
 function TaskListSkeleton() {
   return (
     <div>
-      {[...Array(10)].map((_, i) => (
+      {[...new Array(10)].map((_, i) => (
         <div className="flex h-10 items-center border-b px-3" key={i}>
           <div className="flex w-7 shrink-0 items-center justify-center">
             <Skeleton className="h-4 w-4 rounded" />

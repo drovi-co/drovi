@@ -54,6 +54,8 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  // Super admin flag - bypasses invite codes, has full platform access
+  isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
   // Two-factor authentication field
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   // AI settings for email composition

@@ -6,27 +6,26 @@
 //
 
 import {
-  ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  BackgroundVariant,
-  Panel,
   type NodeMouseHandler,
+  Panel,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import type { GraphNode, GraphEdge, GraphNodeData } from "../-types";
-import { ContactNode } from "./nodes/-contact-node";
+import type { GraphEdge, GraphNode, GraphNodeData } from "../-types";
+import { useGraphLayout } from "../hooks/-use-graph-layout";
 import { CommitmentNode } from "./nodes/-commitment-node";
+import { ContactNode } from "./nodes/-contact-node";
 import { DecisionNode } from "./nodes/-decision-node";
 import { TaskNode } from "./nodes/-task-node";
-import { useGraphLayout } from "../hooks/-use-graph-layout";
-import { useGraphRealtime } from "../hooks/-use-graph-realtime";
 
 // =============================================================================
 // NODE TYPES REGISTRATION
@@ -94,7 +93,11 @@ export function KnowledgeGraph({
 
   // Create a stable ID for the current nodes
   const nodesId = useMemo(
-    () => initialNodes.map((n) => n.id).sort().join(","),
+    () =>
+      initialNodes
+        .map((n) => n.id)
+        .sort()
+        .join(","),
     [initialNodes]
   );
 
@@ -112,7 +115,9 @@ export function KnowledgeGraph({
 
   // Filter nodes based on search query
   const filteredNodes = useMemo(() => {
-    if (!searchQuery) return nodes;
+    if (!searchQuery) {
+      return nodes;
+    }
     const query = searchQuery.toLowerCase();
     return nodes.map((node) => ({
       ...node,
@@ -151,72 +156,72 @@ export function KnowledgeGraph({
   return (
     <div className="h-full w-full">
       <ReactFlow
-        nodes={filteredNodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handlePaneClick}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.1}
-        maxZoom={2}
         defaultEdgeOptions={{
           animated: false,
           style: { stroke: "hsl(var(--border))", strokeWidth: 1.5 },
         }}
+        edges={edges}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        maxZoom={2}
+        minZoom={0.1}
+        nodes={filteredNodes}
+        nodeTypes={nodeTypes}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onNodesChange={onNodesChange}
+        onPaneClick={handlePaneClick}
         proOptions={{ hideAttribution: true }}
       >
         {/* Background grid */}
         <Background
-          variant={BackgroundVariant.Dots}
+          color="hsl(var(--muted-foreground) / 0.2)"
           gap={20}
           size={1}
-          color="hsl(var(--muted-foreground) / 0.2)"
+          variant={BackgroundVariant.Dots}
         />
 
         {/* Controls */}
         <Controls
-          showZoom
+          className="rounded-lg border bg-background shadow-sm"
           showFitView
           showInteractive={false}
-          className="rounded-lg border bg-background shadow-sm"
+          showZoom
         />
 
         {/* Minimap */}
         <MiniMap
-          nodeColor={getMinimapNodeColor}
-          maskColor="hsl(var(--background) / 0.8)"
           className="rounded-lg border bg-background/80 shadow-sm"
-          zoomable
+          maskColor="hsl(var(--background) / 0.8)"
+          nodeColor={getMinimapNodeColor}
           pannable
+          zoomable
         />
 
         {/* Legend panel */}
-        <Panel position="bottom-left" className="m-4">
+        <Panel className="m-4" position="bottom-left">
           <div className="flex gap-2 rounded-lg border bg-background/80 p-2 backdrop-blur-sm">
             <Badge
-              variant="outline"
               className="border-blue-500 bg-blue-500/10 text-blue-700"
+              variant="outline"
             >
               Contacts
             </Badge>
             <Badge
-              variant="outline"
               className="border-violet-500 bg-violet-500/10 text-violet-700"
+              variant="outline"
             >
               Commitments
             </Badge>
             <Badge
-              variant="outline"
               className="border-purple-500 bg-purple-500/10 text-purple-700"
+              variant="outline"
             >
               Decisions
             </Badge>
             <Badge
-              variant="outline"
               className="border-green-500 bg-green-500/10 text-green-700"
+              variant="outline"
             >
               Tasks
             </Badge>

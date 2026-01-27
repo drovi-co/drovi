@@ -9,7 +9,6 @@
  */
 
 import { useMemo } from "react";
-import { useOnlineUsers, type ViewingType } from "@/hooks/use-presence";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -17,12 +16,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useOnlineUsers, type ViewingType } from "@/hooks/use-presence";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
 // Types
 // =============================================================================
 
+/** User from the presence API with nested user data */
+interface PresenceUser {
+  userId: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+  status: string;
+  currentViewingType: string | null;
+  currentViewingId: string | null;
+}
+
+/** Flattened user for display purposes */
 interface OnlineUser {
   id: string;
   name: string | null;
@@ -47,7 +62,12 @@ export function useListViewers(params: {
   currentUserId?: string;
   enabled?: boolean;
 }) {
-  const { organizationId, resourceType, currentUserId, enabled = true } = params;
+  const {
+    organizationId,
+    resourceType,
+    currentUserId,
+    enabled = true,
+  } = params;
 
   const { data: onlineUsersData, isLoading } = useOnlineUsers({
     organizationId,
@@ -58,18 +78,38 @@ export function useListViewers(params: {
   const viewersMap = useMemo(() => {
     const map = new Map<string, OnlineUser[]>();
 
-    if (!onlineUsersData?.users) return map;
+    if (!onlineUsersData?.users) {
+      return map;
+    }
 
-    for (const user of onlineUsersData.users) {
+    for (const presenceUser of onlineUsersData.users as PresenceUser[]) {
       // Skip current user
-      if (currentUserId && user.id === currentUserId) continue;
+      if (currentUserId && presenceUser.user.id === currentUserId) {
+        continue;
+      }
 
       // Only include users viewing the requested resource type
-      if (user.viewingType !== resourceType || !user.viewingId) continue;
+      if (
+        presenceUser.currentViewingType !== resourceType ||
+        !presenceUser.currentViewingId
+      ) {
+        continue;
+      }
 
-      const existing = map.get(user.viewingId) || [];
-      existing.push(user as OnlineUser);
-      map.set(user.viewingId, existing);
+      // Transform to OnlineUser format
+      const user: OnlineUser = {
+        id: presenceUser.user.id,
+        name: presenceUser.user.name,
+        email: presenceUser.user.email,
+        image: presenceUser.user.image,
+        status: presenceUser.status,
+        viewingType: presenceUser.currentViewingType,
+        viewingId: presenceUser.currentViewingId,
+      };
+
+      const existing = map.get(presenceUser.currentViewingId) || [];
+      existing.push(user);
+      map.set(presenceUser.currentViewingId, existing);
     }
 
     return map;
@@ -103,7 +143,9 @@ export function ListItemViewers({
   size = "xs",
   className,
 }: ListItemViewersProps) {
-  if (viewers.length === 0) return null;
+  if (viewers.length === 0) {
+    return null;
+  }
 
   const visibleViewers = viewers.slice(0, maxVisible);
   const remainingCount = viewers.length - maxVisible;
@@ -132,11 +174,8 @@ export function ListItemViewers({
           <div className={cn("flex items-center -space-x-1", className)}>
             {visibleViewers.map((viewer) => (
               <Avatar
+                className={cn(sizeClasses[size], "ring-2 ring-background")}
                 key={viewer.id}
-                className={cn(
-                  sizeClasses[size],
-                  "ring-2 ring-background"
-                )}
               >
                 <AvatarImage src={viewer.image ?? undefined} />
                 <AvatarFallback className="bg-primary/10 font-medium text-primary">
@@ -158,7 +197,7 @@ export function ListItemViewers({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="max-w-xs">
+        <TooltipContent align="center" className="max-w-xs" side="top">
           <p className="text-sm">
             <span className="font-medium">Viewing now: </span>
             {viewers.map((v) => v.name ?? v.email).join(", ")}

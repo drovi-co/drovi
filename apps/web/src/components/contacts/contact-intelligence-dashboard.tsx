@@ -9,34 +9,27 @@
 // - Alerts and risk indicators
 //
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
   Activity,
   AlertCircle,
-  ArrowDown,
-  ArrowUp,
   Bell,
   BellOff,
   Brain,
   CheckCircle2,
-  Clock,
   Heart,
   Loader2,
-  Mail,
   MessageSquare,
   MoreHorizontal,
   RefreshCw,
-  Shield,
   Sparkles,
   Star,
-  Target,
   TrendingDown,
   TrendingUp,
   User,
   Users,
-  Zap,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -65,10 +58,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
@@ -96,8 +87,15 @@ interface ScoreRingProps {
   description?: string;
 }
 
-function ScoreRing({ score, label, icon: Icon, color, description }: ScoreRingProps) {
-  const normalizedScore = score !== null && score !== undefined ? Math.round(score * 100) : 0;
+function ScoreRing({
+  score,
+  label,
+  icon: Icon,
+  color,
+  description,
+}: ScoreRingProps) {
+  const normalizedScore =
+    score !== null && score !== undefined ? Math.round(score * 100) : 0;
   const data = [{ name: label, value: normalizedScore, fill: color }];
 
   return (
@@ -188,7 +186,7 @@ interface AlertItemProps {
     alertType: string;
     severity: string;
     message: string;
-    createdAt: Date;
+    createdAt: Date | string;
   };
   onAcknowledge?: (id: string) => void;
   onDismiss?: (id: string) => void;
@@ -209,8 +207,11 @@ function AlertItem({ alert, onAcknowledge, onDismiss }: AlertItemProps) {
     low: Bell,
   };
 
-  const SeverityIcon = severityIcons[alert.severity as keyof typeof severityIcons] ?? Bell;
-  const colorClass = severityColors[alert.severity as keyof typeof severityColors] ?? severityColors.medium;
+  const SeverityIcon =
+    severityIcons[alert.severity as keyof typeof severityIcons] ?? Bell;
+  const colorClass =
+    severityColors[alert.severity as keyof typeof severityColors] ??
+    severityColors.medium;
 
   return (
     <motion.div
@@ -224,13 +225,15 @@ function AlertItem({ alert, onAcknowledge, onDismiss }: AlertItemProps) {
           <div>
             <p className="font-medium text-sm">{alert.message}</p>
             <p className="mt-1 text-muted-foreground text-xs">
-              {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(alert.createdAt), {
+                addSuffix: true,
+              })}
             </p>
           </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-6 w-6">
+            <Button className="h-6 w-6" size="icon" variant="ghost">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -328,7 +331,9 @@ export function ContactIntelligenceDashboard({
 
   // Prepare trend chart data
   const trendChartData = useMemo(() => {
-    if (!healthTrend?.dataPoints) return [];
+    if (!healthTrend?.dataPoints) {
+      return [];
+    }
     return healthTrend.dataPoints.map((point) => ({
       date: format(new Date(point.timestamp), "MMM d"),
       health: Math.round(point.value * 100),
@@ -353,8 +358,8 @@ export function ContactIntelligenceDashboard({
     return (
       <div className={cn("space-y-6", className)}>
         <div className="grid grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-32 w-full" />
+          {[...new Array(4)].map((_, i) => (
+            <Skeleton className="h-32 w-full" key={i} />
           ))}
         </div>
         <Skeleton className="h-64 w-full" />
@@ -373,7 +378,7 @@ export function ContactIntelligenceDashboard({
               Run analysis to generate insights for this contact
             </p>
           </div>
-          <Button onClick={handleRefresh} disabled={isRefreshing}>
+          <Button disabled={isRefreshing} onClick={handleRefresh}>
             {isRefreshing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -406,7 +411,7 @@ export function ContactIntelligenceDashboard({
                 <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
               )}
               {flags.isAtRisk && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge className="text-xs" variant="destructive">
                   At Risk
                 </Badge>
               )}
@@ -414,15 +419,15 @@ export function ContactIntelligenceDashboard({
             <p className="text-muted-foreground text-sm">
               {contact.title && contact.company
                 ? `${contact.title} at ${contact.company}`
-                : contact.company ?? contact.primaryEmail}
+                : (contact.company ?? contact.primaryEmail)}
             </p>
           </div>
         </div>
         <Button
-          onClick={handleRefresh}
           disabled={isRefreshing}
-          variant="outline"
+          onClick={handleRefresh}
           size="sm"
+          variant="outline"
         >
           {isRefreshing ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -448,43 +453,43 @@ export function ContactIntelligenceDashboard({
           <div className="flex flex-wrap items-center justify-around gap-6">
             <div className="flex flex-col items-center gap-2">
               <ScoreRing
-                score={scores.healthScore}
-                label="Health"
-                icon={Heart}
                 color="#22c55e"
+                icon={Heart}
+                label="Health"
+                score={scores.healthScore}
               />
               {healthTrend && (
                 <TrendIndicator
-                  trend={healthTrend.trend}
                   change={healthTrend.changePercent}
+                  trend={healthTrend.trend}
                 />
               )}
             </div>
             <div className="flex flex-col items-center gap-2">
               <ScoreRing
-                score={scores.engagementScore}
-                label="Engagement"
-                icon={Activity}
                 color="#3b82f6"
+                icon={Activity}
+                label="Engagement"
+                score={scores.engagementScore}
               />
               {engagementTrend && (
                 <TrendIndicator
-                  trend={engagementTrend.trend}
                   change={engagementTrend.changePercent}
+                  trend={engagementTrend.trend}
                 />
               )}
             </div>
             <ScoreRing
-              score={scores.importanceScore}
-              label="Importance"
-              icon={Star}
               color="#f59e0b"
+              icon={Star}
+              label="Importance"
+              score={scores.importanceScore}
             />
             <ScoreRing
-              score={scores.sentimentScore}
-              label="Sentiment"
-              icon={MessageSquare}
               color="#8b5cf6"
+              icon={MessageSquare}
+              label="Sentiment"
+              score={scores.sentimentScore}
             />
           </div>
         </CardContent>
@@ -505,43 +510,58 @@ export function ContactIntelligenceDashboard({
               <ResponsiveContainer height={180} width="100%">
                 <AreaChart data={trendChartData}>
                   <defs>
-                    <linearGradient id="healthGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      id="healthGradient"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
                       <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <CartesianGrid
+                    className="stroke-muted"
+                    strokeDasharray="3 3"
+                  />
                   <XAxis
-                    dataKey="date"
-                    tickLine={false}
                     axisLine={false}
+                    dataKey="date"
                     tick={{ fontSize: 11 }}
+                    tickLine={false}
                   />
                   <YAxis
-                    tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11 }}
                     domain={[0, 100]}
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
                   />
                   <Tooltip
                     content={({ active, payload }) => {
-                      if (!active || !payload?.[0]) return null;
+                      if (!(active && payload?.[0])) {
+                        return null;
+                      }
+                      const data = payload[0].payload as {
+                        date: string;
+                        health: number;
+                      };
                       return (
                         <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
-                          <p className="font-medium">{payload[0].payload.date}</p>
+                          <p className="font-medium">{data.date}</p>
                           <p className="text-muted-foreground text-sm">
-                            Health: {payload[0].value}%
+                            Health: {data.health}%
                           </p>
                         </div>
                       );
                     }}
                   />
                   <Area
-                    type="monotone"
                     dataKey="health"
-                    stroke="#22c55e"
                     fill="url(#healthGradient)"
+                    stroke="#22c55e"
                     strokeWidth={2}
+                    type="monotone"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -593,10 +613,16 @@ export function ContactIntelligenceDashboard({
 
             {graph.communityIds && graph.communityIds.length > 0 && (
               <div>
-                <p className="mb-2 text-muted-foreground text-xs">Communities</p>
+                <p className="mb-2 text-muted-foreground text-xs">
+                  Communities
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {graph.communityIds.slice(0, 5).map((community) => (
-                    <Badge key={community} variant="secondary" className="text-xs">
+                    <Badge
+                      className="text-xs"
+                      key={community}
+                      variant="secondary"
+                    >
                       <Users className="mr-1 h-3 w-3" />
                       {community}
                     </Badge>
@@ -615,7 +641,7 @@ export function ContactIntelligenceDashboard({
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-amber-500" />
               Active Alerts
-              <Badge variant="secondary" className="ml-auto">
+              <Badge className="ml-auto" variant="secondary">
                 {alertsData.alerts.length}
               </Badge>
             </CardTitle>
@@ -623,8 +649,8 @@ export function ContactIntelligenceDashboard({
           <CardContent className="space-y-3">
             {alertsData.alerts.map((alert) => (
               <AlertItem
-                key={alert.id}
                 alert={alert}
+                key={alert.id}
                 onAcknowledge={(id) =>
                   acknowledgeMutation.mutate({ organizationId, alertId: id })
                 }
@@ -638,7 +664,7 @@ export function ContactIntelligenceDashboard({
       )}
 
       {/* Brief & Insights */}
-      {snapshot?.brief && (
+      {snapshot?.brief !== undefined && snapshot?.brief !== null ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -655,28 +681,41 @@ export function ContactIntelligenceDashboard({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="mb-4 text-foreground">{snapshot.brief.summary}</p>
-              {snapshot.brief.keyInsights && snapshot.brief.keyInsights.length > 0 && (
-                <div>
-                  <h4 className="mb-2 font-medium text-sm">Key Insights</h4>
-                  <ul className="space-y-1">
-                    {snapshot.brief.keyInsights.map((insight: string, i: number) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-muted-foreground text-sm"
-                      >
-                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
-                        {insight}
-                      </li>
-                    ))}
-                  </ul>
+            {(() => {
+              const brief = snapshot.brief as {
+                summary?: string;
+                keyInsights?: string[];
+              } | null;
+              if (!brief) {
+                return null;
+              }
+              return (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  {brief.summary && (
+                    <p className="mb-4 text-foreground">{brief.summary}</p>
+                  )}
+                  {brief.keyInsights && brief.keyInsights.length > 0 && (
+                    <div>
+                      <h4 className="mb-2 font-medium text-sm">Key Insights</h4>
+                      <ul className="space-y-1">
+                        {brief.keyInsights.map((insight: string, i: number) => (
+                          <li
+                            className="flex items-start gap-2 text-muted-foreground text-sm"
+                            key={i}
+                          >
+                            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
+                            {insight}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

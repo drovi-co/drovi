@@ -81,7 +81,9 @@ const COL = {
 } as const;
 
 function getStatus(decision: DecisionRowData): Status {
-  if (decision.isSuperseded || decision.supersededBy) return "done";
+  if (decision.isSuperseded || decision.supersededBy) {
+    return "done";
+  }
   return "in_progress"; // Active decisions
 }
 
@@ -91,19 +93,29 @@ function getOwnerName(
     | null
     | undefined
 ): string {
-  if (!owner) return "Unknown";
+  if (!owner) {
+    return "Unknown";
+  }
   return owner.displayName || owner.primaryEmail.split("@")[0] || "Unknown";
 }
 
 function formatDecisionDate(date: Date): string {
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
   return format(date, "MMM d");
 }
 
 function getConfidenceLevel(confidence: number): "high" | "medium" | "low" {
-  if (confidence >= 0.8) return "high";
-  if (confidence >= 0.5) return "medium";
+  if (confidence >= 0.8) {
+    return "high";
+  }
+  if (confidence >= 0.5) {
+    return "medium";
+  }
   return "low";
 }
 

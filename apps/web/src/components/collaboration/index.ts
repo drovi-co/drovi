@@ -5,53 +5,46 @@
 // Export all collaboration UI components for team features.
 //
 
-// Presence provider (wrap app with this for real-time presence)
-export { PresenceProvider, ConnectionStatus } from "./presence-provider";
-
-// Presence indicators
-export {
-  PresenceIndicator,
-  PresenceAvatar,
-  AvatarStack,
-  type PresenceStatus,
-} from "./presence-indicator";
-
-// Resource viewers
-export {
-  WhoIsViewing,
-  WhoIsViewingBadge,
-  TypingIndicator,
-} from "./who-is-viewing";
-
-// Mention input
-export {
-  MentionInput,
-  type MentionInputRef,
-  type MentionSuggestion,
-  type MentionData,
-} from "./mention-input";
-
-// Comments
-export { CommentThread } from "./comment-thread";
-
 // Activity feed
 export { ActivityFeed, ActivitySidebar } from "./activity-feed";
-
+// Comments
+export { CommentThread } from "./comment-thread";
 // Delegation / Assignment
 export {
   DelegationDialog,
-  QuickAssignButton,
   type DelegationType,
+  QuickAssignButton,
 } from "./delegation-dialog";
+// List item viewers (for list views)
+export {
+  ListItemViewers,
+  useListViewers,
+} from "./list-item-viewers";
+// Mention input
+export {
+  type MentionData,
+  MentionInput,
+  type MentionInputRef,
+  type MentionSuggestion,
+} from "./mention-input";
+// Presence indicators
+export {
+  AvatarStack,
+  PresenceAvatar,
+  PresenceIndicator,
+  type PresenceStatus,
+} from "./presence-indicator";
+// Presence provider (wrap app with this for real-time presence)
+export { ConnectionStatus, PresenceProvider } from "./presence-provider";
 
 // Team presence panel
 export {
-  TeamPresencePanel,
   OnlineUsersBadge,
+  TeamPresencePanel,
 } from "./team-presence-panel";
-
-// List item viewers (for list views)
+// Resource viewers
 export {
-  useListViewers,
-  ListItemViewers,
-} from "./list-item-viewers";
+  TypingIndicator,
+  WhoIsViewing,
+  WhoIsViewingBadge,
+} from "./who-is-viewing";

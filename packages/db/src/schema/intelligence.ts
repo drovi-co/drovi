@@ -362,7 +362,9 @@ export const contact = pgTable(
     communityIds: text("community_ids").array().default([]), // Community detection
 
     // Deep communication profile
-    communicationProfile: jsonb("communication_profile").$type<CommunicationProfile>(),
+    communicationProfile: jsonb(
+      "communication_profile"
+    ).$type<CommunicationProfile>(),
 
     // Intelligence processing tracking
     lastIntelligenceAt: timestamp("last_intelligence_at"),

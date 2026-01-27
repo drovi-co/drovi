@@ -8,21 +8,48 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Brain,
-  Filter,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Search,
-  Zap,
-} from "lucide-react";
+import { Brain, Filter, Plus, RefreshCw, Search, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  PatternCard,
-  type Pattern,
-} from "@/components/patterns/pattern-card";
+import { type Pattern, PatternCard } from "@/components/patterns/pattern-card";
+
+// Type for API response which uses snake_case
+interface ApiPattern {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  times_matched: number;
+  times_confirmed: number;
+  times_rejected: number;
+  accuracy_rate: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Transform API pattern to frontend Pattern type
+function transformPattern(p: ApiPattern): Pattern {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    domain: p.domain,
+    salientFeatures: [],
+    typicalExpectations: [],
+    typicalAction: "",
+    plausibleGoals: [],
+    confidenceThreshold: 0.7,
+    confidenceBoost: 0.1,
+    timesMatched: p.times_matched,
+    timesConfirmed: p.times_confirmed,
+    timesRejected: p.times_rejected,
+    accuracyRate: p.accuracy_rate,
+    isActive: p.is_active,
+    createdAt: p.created_at,
+    updatedAt: p.created_at,
+  };
+}
+
 import { PatternDetail } from "@/components/patterns/pattern-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +80,13 @@ export const Route = createFileRoute("/dashboard/patterns/")({
 // =============================================================================
 
 type ViewFilter = "all" | "active" | "inactive";
-type DomainFilter = "all" | "sales" | "engineering" | "legal" | "hr" | "general";
+type DomainFilter =
+  | "all"
+  | "sales"
+  | "engineering"
+  | "legal"
+  | "hr"
+  | "general";
 
 // =============================================================================
 // MAIN COMPONENT
@@ -100,9 +133,7 @@ function PatternsPage() {
       return { patternId, active };
     },
     onSuccess: (data) => {
-      toast.success(
-        data.active ? "Pattern activated" : "Pattern deactivated"
-      );
+      toast.success(data.active ? "Pattern activated" : "Pattern deactivated");
       refetch();
     },
     onError: () => {
@@ -124,10 +155,18 @@ function PatternsPage() {
         e.preventDefault();
         document.getElementById("pattern-search")?.focus();
       }
-      if (e.key === "r") refetch();
-      if (e.key === "1") setViewFilter("all");
-      if (e.key === "2") setViewFilter("active");
-      if (e.key === "3") setViewFilter("inactive");
+      if (e.key === "r") {
+        refetch();
+      }
+      if (e.key === "1") {
+        setViewFilter("all");
+      }
+      if (e.key === "2") {
+        setViewFilter("active");
+      }
+      if (e.key === "3") {
+        setViewFilter("inactive");
+      }
       if (e.key === "Escape") {
         setShowDetailSheet(false);
         setSelectedPatternId(null);
@@ -140,12 +179,17 @@ function PatternsPage() {
 
   // Filter patterns based on view and search
   const filteredPatterns = useCallback((): Pattern[] => {
-    const patterns = (patternsData?.patterns ?? []) as Pattern[];
+    const apiPatterns = (patternsData?.patterns ?? []) as ApiPattern[];
+    const patterns = apiPatterns.map(transformPattern);
 
     return patterns.filter((pattern) => {
       // View filter
-      if (viewFilter === "active" && !pattern.isActive) return false;
-      if (viewFilter === "inactive" && pattern.isActive) return false;
+      if (viewFilter === "active" && !pattern.isActive) {
+        return false;
+      }
+      if (viewFilter === "inactive" && pattern.isActive) {
+        return false;
+      }
 
       // Search filter
       if (searchQuery.length > 0) {
@@ -155,10 +199,7 @@ function PatternsPage() {
           .toLowerCase()
           .includes(query);
         const matchesDomain = pattern.domain.toLowerCase().includes(query);
-        const matchesFeatures = pattern.salientFeatures.some((f) =>
-          f.toLowerCase().includes(query)
-        );
-        if (!matchesName && !matchesDescription && !matchesDomain && !matchesFeatures) {
+        if (!(matchesName || matchesDescription || matchesDomain)) {
           return false;
         }
       }
@@ -189,22 +230,16 @@ function PatternsPage() {
   const selectedPattern = patterns.find((p) => p.id === selectedPatternId);
 
   // Stats
+  const apiPatterns = (patternsData?.patterns ?? []) as ApiPattern[];
   const stats = {
-    total: (patternsData?.patterns ?? []).length,
-    active: (patternsData?.patterns ?? []).filter(
-      (p: Pattern) => p.isActive
-    ).length,
-    inactive: (patternsData?.patterns ?? []).filter(
-      (p: Pattern) => !p.isActive
-    ).length,
+    total: apiPatterns.length,
+    active: apiPatterns.filter((p) => p.is_active).length,
+    inactive: apiPatterns.filter((p) => !p.is_active).length,
     avgAccuracy:
-      (patternsData?.patterns ?? []).length > 0
+      apiPatterns.length > 0
         ? Math.round(
-            ((patternsData?.patterns ?? []).reduce(
-              (acc: number, p: Pattern) => acc + p.accuracyRate,
-              0
-            ) /
-              (patternsData?.patterns ?? []).length) *
+            (apiPatterns.reduce((acc, p) => acc + p.accuracy_rate, 0) /
+              apiPatterns.length) *
               100
           )
         : 0,
@@ -347,10 +382,10 @@ function PatternsPage() {
               <Badge
                 className={
                   stats.avgAccuracy >= 80
-                    ? "bg-green-500/10 text-green-600 border-green-500/30"
+                    ? "border-green-500/30 bg-green-500/10 text-green-600"
                     : stats.avgAccuracy >= 60
-                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                      : "bg-red-500/10 text-red-600 border-red-500/30"
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                      : "border-red-500/30 bg-red-500/10 text-red-600"
                 }
                 variant="outline"
               >
@@ -372,7 +407,7 @@ function PatternsPage() {
         <div className="flex-1 overflow-auto p-4">
           {isLoadingPatterns ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, i) => (
+              {[...new Array(6)].map((_, i) => (
                 <div
                   className="h-48 animate-pulse rounded-xl bg-muted"
                   key={i}
@@ -411,7 +446,9 @@ function PatternsPage() {
                 <PatternCard
                   isSelected={selectedPatternId === pattern.id}
                   key={pattern.id}
-                  onDelete={() => toast.info("Delete functionality coming soon")}
+                  onDelete={() =>
+                    toast.info("Delete functionality coming soon")
+                  }
                   onEdit={() => toast.info("Edit functionality coming soon")}
                   onSelect={() => handleViewDetails(pattern.id)}
                   onToggleActive={handleToggleActive}

@@ -184,7 +184,8 @@ hubspotOAuth.get("/callback", async (c) => {
     const tokenInfo = await getHubSpotTokenInfo(tokens.access_token);
 
     // Get account info
-    let accountInfo: Awaited<ReturnType<typeof getHubSpotAccountInfo>> | null = null;
+    let accountInfo: Awaited<ReturnType<typeof getHubSpotAccountInfo>> | null =
+      null;
     try {
       accountInfo = await getHubSpotAccountInfo(tokens.access_token);
     } catch (e) {
@@ -282,7 +283,10 @@ hubspotOAuth.get("/callback", async (c) => {
         settings: {
           syncEnabled: true,
           syncFrequencyMinutes: 60,
-          pushEnabled: false, // Disabled by default, user can enable
+          crmSettings: {
+            pushEnabled: false, // Disabled by default, user can enable
+            syncDirection: "pull",
+          },
           customSettings: {
             hubId: tokenInfo.hubId,
             hubDomain: tokenInfo.hubDomain,

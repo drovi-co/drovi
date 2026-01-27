@@ -8,28 +8,15 @@
 // - Set team permissions
 //
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  MoreHorizontal,
-  Plus,
-  Trash2,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { MoreHorizontal, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -81,41 +68,31 @@ function TeamsManagementPage() {
 
   // Create team mutation (using Better Auth organization teams API)
   const handleCreateTeam = async () => {
-    if (!activeOrg || !newTeamName.trim()) return;
+    if (!(activeOrg && newTeamName.trim())) {
+      return;
+    }
 
     try {
       await authClient.organization.createTeam({
+        name: newTeamName.trim(),
         organizationId: activeOrg.id,
-        data: {
-          name: newTeamName.trim(),
-        },
       });
       toast.success("Team created successfully");
       setCreateDialogOpen(false);
       setNewTeamName("");
       setNewTeamDescription("");
-      queryClient.invalidateQueries({ queryKey: ["organizations", "getTeams"] });
+      queryClient.invalidateQueries({
+        queryKey: ["organizations", "getTeams"],
+      });
     } catch (error) {
       console.error("Failed to create team:", error);
       toast.error("Failed to create team");
     }
   };
 
-  // Delete team
-  const handleDeleteTeam = async (teamId: string) => {
-    if (!activeOrg) return;
-
-    try {
-      await authClient.organization.deleteTeam({
-        organizationId: activeOrg.id,
-        teamId,
-      });
-      toast.success("Team deleted");
-      queryClient.invalidateQueries({ queryKey: ["organizations", "getTeams"] });
-    } catch (error) {
-      console.error("Failed to delete team:", error);
-      toast.error("Failed to delete team");
-    }
+  // Delete team (not yet supported by Better Auth)
+  const handleDeleteTeam = async (_teamId: string) => {
+    toast.error("Team deletion is not yet supported");
   };
 
   const teams = teamsData?.teams ?? [];
@@ -130,7 +107,7 @@ function TeamsManagementPage() {
           </p>
         </div>
 
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -141,7 +118,8 @@ function TeamsManagementPage() {
             <DialogHeader>
               <DialogTitle>Create New Team</DialogTitle>
               <DialogDescription>
-                Create a team to organize members and manage permissions together
+                Create a team to organize members and manage permissions
+                together
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -149,32 +127,29 @@ function TeamsManagementPage() {
                 <Label htmlFor="name">Team Name</Label>
                 <Input
                   id="name"
+                  onChange={(e) => setNewTeamName(e.target.value)}
                   placeholder="e.g., Engineering, Sales, Support"
                   value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description (optional)</Label>
                 <Textarea
                   id="description"
+                  onChange={(e) => setNewTeamDescription(e.target.value)}
                   placeholder="What does this team do?"
                   value={newTeamDescription}
-                  onChange={(e) => setNewTeamDescription(e.target.value)}
                 />
               </div>
             </div>
             <DialogFooter>
               <Button
-                variant="outline"
                 onClick={() => setCreateDialogOpen(false)}
+                variant="outline"
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleCreateTeam}
-                disabled={!newTeamName.trim()}
-              >
+              <Button disabled={!newTeamName.trim()} onClick={handleCreateTeam}>
                 Create Team
               </Button>
             </DialogFooter>
@@ -185,7 +160,7 @@ function TeamsManagementPage() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
+            <Card className="animate-pulse" key={i}>
               <CardHeader>
                 <div className="h-5 w-32 rounded bg-muted" />
                 <div className="h-4 w-48 rounded bg-muted" />
@@ -220,15 +195,10 @@ function TeamsManagementPage() {
                     <Users className="h-4 w-4" />
                     {team.name}
                   </CardTitle>
-                  {team.description && (
-                    <CardDescription className="mt-1">
-                      {team.description}
-                    </CardDescription>
-                  )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button size="icon" variant="ghost">
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -250,9 +220,7 @@ function TeamsManagementPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">
-                    0 members
-                  </Badge>
+                  <Badge variant="secondary">0 members</Badge>
                   <span className="text-muted-foreground text-xs">
                     Created {new Date(team.createdAt).toLocaleDateString()}
                   </span>

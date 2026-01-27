@@ -128,7 +128,9 @@ export function trackServerEvent(
   properties?: ServerEventProperties
 ): void {
   const posthog = getClient();
-  if (!posthog) return;
+  if (!posthog) {
+    return;
+  }
 
   try {
     posthog.capture({
@@ -164,7 +166,9 @@ export function trackAIOperation(
   }
 ): void {
   const posthog = getClient();
-  if (!posthog) return;
+  if (!posthog) {
+    return;
+  }
 
   const event = options.success
     ? "ai_operation_completed"
@@ -298,7 +302,9 @@ export function setServerUserProperties(
   properties: Record<string, unknown>
 ): void {
   const posthog = getClient();
-  if (!posthog) return;
+  if (!posthog) {
+    return;
+  }
 
   try {
     posthog.identify({
@@ -319,7 +325,9 @@ export function setOrganizationProperties(
   properties: Record<string, unknown>
 ): void {
   const posthog = getClient();
-  if (!posthog) return;
+  if (!posthog) {
+    return;
+  }
 
   try {
     posthog.groupIdentify({

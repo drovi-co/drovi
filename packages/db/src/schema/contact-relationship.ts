@@ -77,7 +77,9 @@ export const contactRelationship = pgTable(
     sharedTopics: text("shared_topics").array().default([]),
 
     // Source of relationship
-    source: contactRelationshipSourceEnum("source").notNull().default("inferred"),
+    source: contactRelationshipSourceEnum("source")
+      .notNull()
+      .default("inferred"),
     confidence: real("confidence").notNull().default(0.5),
 
     // Graph sync tracking

@@ -32,7 +32,9 @@ export function useUpdater() {
   const [error, setError] = useState<string | null>(null);
 
   const checkForUpdates = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     try {
       setStatus("checking");
@@ -60,7 +62,9 @@ export function useUpdater() {
   }, []);
 
   const downloadAndInstall = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     try {
       setStatus("downloading");
@@ -70,7 +74,9 @@ export function useUpdater() {
       const { relaunch } = await import("@tauri-apps/plugin-process");
 
       const update = await check();
-      if (!update) return;
+      if (!update) {
+        return;
+      }
 
       let downloaded = 0;
       let contentLength = 0;
@@ -100,7 +106,9 @@ export function useUpdater() {
 
   // Listen for check-for-updates event from tray
   useEffect(() => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     let unlisten: (() => void) | undefined;
 
@@ -135,7 +143,9 @@ export function useNotifications() {
   const [permissionGranted, setPermissionGranted] = useState(false);
 
   useEffect(() => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     (async () => {
       const { isPermissionGranted, requestPermission } = await import(
@@ -153,7 +163,9 @@ export function useNotifications() {
 
   const sendNotification = useCallback(
     async (title: string, body?: string, options?: { icon?: string }) => {
-      if (!(isDesktop() && permissionGranted)) return;
+      if (!(isDesktop() && permissionGranted)) {
+        return;
+      }
 
       const { sendNotification: send } = await import(
         "@tauri-apps/plugin-notification"
@@ -176,7 +188,9 @@ export function useNotifications() {
  */
 export function useDeepLinks(onDeepLink?: (url: string) => void) {
   useEffect(() => {
-    if (!(isDesktop() && onDeepLink)) return;
+    if (!(isDesktop() && onDeepLink)) {
+      return;
+    }
 
     let unlisten: (() => void) | undefined;
 
@@ -199,7 +213,9 @@ export function useDeepLinks(onDeepLink?: (url: string) => void) {
  */
 export function useGlobalShortcut(shortcut: string, callback: () => void) {
   useEffect(() => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     let registered = false;
 
@@ -238,7 +254,9 @@ export function useGlobalShortcut(shortcut: string, callback: () => void) {
  */
 export function useWindow() {
   const minimize = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().minimize();
@@ -250,7 +268,9 @@ export function useWindow() {
   }, []);
 
   const maximize = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().maximize();
@@ -262,7 +282,9 @@ export function useWindow() {
   }, []);
 
   const unmaximize = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().unmaximize();
@@ -274,7 +296,9 @@ export function useWindow() {
   }, []);
 
   const toggleMaximize = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().toggleMaximize();
@@ -286,7 +310,9 @@ export function useWindow() {
   }, []);
 
   const close = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
@@ -298,7 +324,9 @@ export function useWindow() {
   }, []);
 
   const hide = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().hide();
@@ -310,7 +338,9 @@ export function useWindow() {
   }, []);
 
   const show = useCallback(async () => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().show();
@@ -322,7 +352,9 @@ export function useWindow() {
   }, []);
 
   const setTitle = useCallback(async (title: string) => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().setTitle(title);
@@ -370,7 +402,9 @@ export function useOpener() {
   }, []);
 
   const openPath = useCallback(async (path: string) => {
-    if (!isDesktop()) return;
+    if (!isDesktop()) {
+      return;
+    }
 
     try {
       const { openPath: open } = await import("@tauri-apps/plugin-opener");

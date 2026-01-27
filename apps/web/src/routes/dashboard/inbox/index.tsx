@@ -12,18 +12,18 @@
 "use client";
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { z } from "zod";
 
 import { useCommandBar } from "@/components/email/command-bar";
+import { ConversationDetailPanel } from "@/components/smart-inbox/conversation-detail-panel";
 import {
-  ConversationListPanel,
   type ConversationFilters,
+  ConversationListPanel,
   type ConversationTab,
 } from "@/components/smart-inbox/conversation-list-panel";
-import { ConversationDetailPanel } from "@/components/smart-inbox/conversation-detail-panel";
-import type { SourceType } from "@/lib/source-config";
 import { useActiveOrganization } from "@/lib/auth-client";
+import type { SourceType } from "@/lib/source-config";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -62,24 +62,32 @@ function SmartInboxPage() {
 
   // Parse source types from comma-separated string
   const sourceTypes = useMemo((): SourceType[] | undefined => {
-    if (!search.sources) return undefined;
+    if (!search.sources) {
+      return undefined;
+    }
     return search.sources.split(",").filter(Boolean) as SourceType[];
   }, [search.sources]);
 
   // Build filters object
-  const filters = useMemo((): ConversationFilters => ({
-    tab: activeTab,
-    sourceTypes,
-    search: searchQuery,
-  }), [activeTab, sourceTypes, searchQuery]);
+  const filters = useMemo(
+    (): ConversationFilters => ({
+      tab: activeTab,
+      sourceTypes,
+      search: searchQuery,
+    }),
+    [activeTab, sourceTypes, searchQuery]
+  );
 
   // Handle conversation selection - update URL
-  const handleSelectConversation = useCallback((id: string) => {
-    navigate({
-      to: "/dashboard/inbox",
-      search: (prev) => ({ ...prev, id }),
-    });
-  }, [navigate]);
+  const handleSelectConversation = useCallback(
+    (id: string) => {
+      navigate({
+        to: "/dashboard/inbox",
+        search: (prev) => ({ ...prev, id }),
+      });
+    },
+    [navigate]
+  );
 
   // Handle closing detail panel - remove ID from URL
   const handleCloseDetail = useCallback(() => {

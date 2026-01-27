@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -6,11 +6,12 @@ import {
   Calendar,
   CheckCircle2,
   CreditCard,
-  Crown,
   ExternalLink,
   Loader2,
+  Mail,
   Receipt,
   Sparkles,
+  Users,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
@@ -27,8 +28,9 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { useSubscription } from "@/hooks/use-subscription";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/dashboard/billing")({
   component: BillingPage,
@@ -40,16 +42,16 @@ interface PlanFeature {
 }
 
 interface Plan {
-  id: string;
+  id: "pro" | "enterprise";
   name: string;
   description: string;
   price: number | "custom";
-  interval: "month" | "year";
+  priceLabel: string;
+  interval: "month";
   features: PlanFeature[];
   popular?: boolean;
-  slug?: string;
   cta: string;
-  ctaVariant: "default" | "secondary" | "outline";
+  ctaVariant: "default" | "outline";
 }
 
 const plans: Plan[] = [
@@ -58,38 +60,19 @@ const plans: Plan[] = [
     name: "Pro",
     description: "Everything you need to master your inbox",
     price: 29,
+    priceLabel: "per user / month",
     interval: "month",
     popular: true,
-    slug: "pro",
     cta: "Upgrade to Pro",
     ctaVariant: "default",
     features: [
-      { text: "All 8 AI Agents", included: true },
-      { text: "Smart Inbox with priorities", included: true },
-      { text: "Commitment & Decision tracking", included: true },
-      { text: "Up to 10 team members", included: true },
-      { text: "5 organizations", included: true },
-      { text: "Email & chat support", included: true },
-      { text: "API access", included: true },
-    ],
-  },
-  {
-    id: "business",
-    name: "Business",
-    description: "Advanced features for growing teams",
-    price: 49,
-    interval: "month",
-    slug: "business",
-    cta: "Upgrade to Business",
-    ctaVariant: "default",
-    features: [
-      { text: "Everything in Pro", included: true },
-      { text: "Advanced analytics & reporting", included: true },
+      { text: "Unlimited email connections", included: true },
+      { text: "AI intelligence extraction", included: true },
+      { text: "Commitment & decision tracking", included: true },
+      { text: "Contact intelligence", included: true },
+      { text: "Unlimited team members", included: true },
       { text: "Priority support", included: true },
-      { text: "Up to 25 team members", included: true },
-      { text: "10 organizations", included: true },
-      { text: "Custom integrations", included: true },
-      { text: "SSO (coming soon)", included: true },
+      { text: "5,000 AI credits/month", included: true },
     ],
   },
   {
@@ -97,17 +80,18 @@ const plans: Plan[] = [
     name: "Enterprise",
     description: "Custom solutions for large organizations",
     price: "custom",
+    priceLabel: "Custom pricing",
     interval: "month",
-    cta: "Book a Call",
+    cta: "Contact Sales",
     ctaVariant: "outline",
     features: [
-      { text: "Everything in Business", included: true },
-      { text: "Unlimited team members", included: true },
-      { text: "Unlimited organizations", included: true },
-      { text: "Dedicated account manager", included: true },
-      { text: "Custom AI training", included: true },
-      { text: "On-premise deployment option", included: true },
-      { text: "SLA & compliance", included: true },
+      { text: "Everything in Pro", included: true },
+      { text: "SSO/SAML integration", included: true },
+      { text: "SCIM provisioning", included: true },
+      { text: "Advanced analytics", included: true },
+      { text: "Custom integrations", included: true },
+      { text: "Dedicated support & SLA", included: true },
+      { text: "50,000 AI credits/month", included: true },
     ],
   },
 ];
@@ -119,14 +103,12 @@ function PlanCard({
   isLoading,
 }: {
   plan: Plan;
-  currentPlan: string;
+  currentPlan: "pro" | "enterprise" | "trial" | null;
   onSelect: (plan: Plan) => void;
   isLoading: boolean;
 }) {
   const isCurrent = currentPlan === plan.id;
-
-  const Icon =
-    plan.id === "pro" ? Zap : plan.id === "business" ? Crown : Building2;
+  const Icon = plan.id === "pro" ? Zap : Building2;
 
   return (
     <Card
@@ -155,15 +137,13 @@ function PlanCard({
         <CardDescription>{plan.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-baseline gap-1">
+        <div className="space-y-1">
           {plan.price === "custom" ? (
             <span className="font-bold text-3xl">Custom</span>
           ) : (
-            <>
-              <span className="font-bold text-4xl">${plan.price}</span>
-              <span className="text-muted-foreground">/{plan.interval}</span>
-            </>
+            <span className="font-bold text-4xl">${plan.price}</span>
           )}
+          <p className="text-muted-foreground text-sm">{plan.priceLabel}</p>
         </div>
 
         <ul className="space-y-2">
@@ -212,67 +192,87 @@ function PlanCard({
   );
 }
 
-interface CustomerState {
-  activeSubscriptions?: Array<{
-    product?: { name?: string };
-    status?: string;
-  }>;
-}
-
 function BillingPage() {
-  const { customerState } = Route.useRouteContext() as {
-    customerState: CustomerState | null;
-  };
+  const trpc = useTRPC();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
-  // Fetch trial/credit status
-  const { data: creditStatus } = useQuery({
-    ...trpc.credits.getStatus.queryOptions(),
-  });
+  // Use the subscription hook for plan status
+  const {
+    subscription,
+    isLoading: subscriptionLoading,
+    isPro,
+    isEnterprise,
+    isActive,
+    isTrialing,
+    isPastDue,
+    trialDaysLeft,
+    monthlyTotal,
+    pricePerSeat,
+    seatCount,
+  } = useSubscription();
 
-  const hasProSubscription =
-    (customerState?.activeSubscriptions?.length ?? 0) > 0;
-  const subscription = customerState?.activeSubscriptions?.[0];
+  // Fetch trial/credit status for trial progress
+  const { data: creditStatus } = useQuery(
+    trpc.credits.getStatus.queryOptions()
+  );
 
-  // Determine current plan based on subscription
-  const currentPlan = hasProSubscription
-    ? subscription?.product?.name?.toLowerCase() === "enterprise"
-      ? "enterprise"
-      : subscription?.product?.name?.toLowerCase() === "business"
-        ? "business"
-        : "pro"
-    : "trial";
+  // Upgrade to Pro mutation
+  const upgradeMutation = useMutation(
+    trpc.credits.upgradeToPro.mutationOptions({
+      onSuccess: (data) => {
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to start checkout");
+      },
+    })
+  );
+
+  // Request Enterprise mutation
+  const enterpriseMutation = useMutation(
+    trpc.credits.requestEnterprise.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(data.message);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to submit request");
+      },
+    })
+  );
+
+  // Determine current plan state
+  const currentPlan: "pro" | "enterprise" | "trial" | null = isEnterprise
+    ? "enterprise"
+    : isPro && isActive
+      ? "pro"
+      : isTrialing
+        ? "trial"
+        : null;
+
+  const hasActiveSubscription = isActive && (isPro || isEnterprise);
 
   const handleSelectPlan = async (plan: Plan) => {
-    // Handle Enterprise - open Calendly
+    // Handle Enterprise - open contact form or send request
     if (plan.id === "enterprise") {
-      window.open("https://calendly.com/drovi/enterprise", "_blank");
+      setIsLoading(true);
+      setSelectedPlan(plan.id);
+      try {
+        await enterpriseMutation.mutateAsync({});
+      } finally {
+        setIsLoading(false);
+        setSelectedPlan(null);
+      }
       return;
     }
 
-    if (!plan.slug) {
-      toast.error("This plan is not available for purchase");
-      return;
-    }
-
+    // Handle Pro upgrade
     setIsLoading(true);
     setSelectedPlan(plan.id);
-
     try {
-      if ("checkout" in authClient) {
-        await (
-          authClient as unknown as {
-            checkout: (opts: { slug: string }) => Promise<void>;
-          }
-        ).checkout({
-          slug: plan.slug,
-        });
-      } else {
-        toast.error("Billing is not configured. Please contact support.");
-      }
-    } catch {
-      toast.error("Failed to start checkout. Please try again.");
+      await upgradeMutation.mutateAsync();
     } finally {
       setIsLoading(false);
       setSelectedPlan(null);
@@ -288,12 +288,20 @@ function BillingPage() {
           }
         ).portal();
       } else {
-        toast.error("Billing is not configured. Please contact support.");
+        toast.error("Billing portal is not available. Please contact support.");
       }
     } catch {
       toast.error("Failed to open billing portal. Please try again.");
     }
   };
+
+  if (subscriptionLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -305,57 +313,89 @@ function BillingPage() {
       </div>
 
       {/* Trial Status Card - shown when on trial */}
-      {!hasProSubscription && creditStatus && (
+      {isTrialing && creditStatus && (
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1">
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  {creditStatus.isTrialActive ? "Free Trial" : "Trial Status"}
+                  Free Trial
                 </CardTitle>
                 <CardDescription>
-                  {creditStatus.isTrialActive
-                    ? "Explore all features during your free trial"
-                    : "Your trial has ended. Upgrade to continue using Drovi."}
+                  Explore all features during your free trial
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {creditStatus.isTrialActive ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Trial Progress</span>
-                  <span className="text-muted-foreground">
-                    {creditStatus.trialDaysRemaining} days remaining
-                  </span>
-                </div>
-                <Progress value={100 - creditStatus.trialProgress} />
-                <p className="text-muted-foreground text-sm">
-                  Your 7-day free trial gives you full access to all features.
-                  Upgrade anytime to continue after your trial ends.
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Badge
-                  className="border-amber-600 text-amber-600"
-                  variant="outline"
-                >
-                  Trial Expired
-                </Badge>
-                <span className="text-muted-foreground text-sm">
-                  Choose a plan below to continue
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span>Trial Progress</span>
+                <span className="text-muted-foreground">
+                  {trialDaysLeft} days remaining
                 </span>
               </div>
-            )}
+              <Progress value={((7 - trialDaysLeft) / 7) * 100} />
+              <p className="text-muted-foreground text-sm">
+                Your 7-day free trial gives you full access to all Pro features.
+                Upgrade anytime to continue after your trial ends.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Trial Expired Card */}
+      {!(isActive || isTrialing) && subscription && (
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <CardTitle className="text-amber-600">
+                {subscription.status === "expired"
+                  ? "Trial Expired"
+                  : "Subscription Inactive"}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              {subscription.status === "expired"
+                ? "Your trial has ended. Choose a plan below to continue using Drovi and keep all your data."
+                : "Your subscription is no longer active. Please upgrade to continue using Drovi."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Past Due Warning */}
+      {isPastDue && (
+        <Card className="border-red-500/50 bg-red-500/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <CardTitle className="text-red-600">Payment Past Due</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Your last payment failed. Please update your payment method to
+              avoid service interruption.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={handleManageSubscription}
+              variant="destructive"
+            >
+              Update Payment Method
+            </Button>
           </CardContent>
         </Card>
       )}
 
       {/* Current Subscription Card - shown when subscribed */}
-      {hasProSubscription && (
+      {hasActiveSubscription && subscription && (
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -375,12 +415,14 @@ function BillingPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-4">
               <div className="space-y-2">
                 <p className="text-muted-foreground text-sm">Plan</p>
                 <div className="flex items-center gap-2">
                   <Badge variant="default">
-                    {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
+                    {subscription.planType === "enterprise"
+                      ? "Enterprise"
+                      : "Pro"}
                   </Badge>
                   <Badge className="text-green-600" variant="outline">
                     Active
@@ -388,22 +430,48 @@ function BillingPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Billing Period</p>
+                <p className="text-muted-foreground text-sm">Team Size</p>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Monthly</span>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">
+                    {seatCount} {seatCount === 1 ? "seat" : "seats"}
+                  </span>
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Status</p>
+                <p className="text-muted-foreground text-sm">Price per Seat</p>
                 <div className="flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm capitalize">
-                    {subscription?.status ?? "Active"}
+                  <span className="text-sm">${pricePerSeat}/month</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-sm">Monthly Total</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold text-sm">
+                    ${monthlyTotal.toFixed(2)}/month
                   </span>
                 </div>
               </div>
             </div>
+
+            {subscription.currentPeriodEnd && (
+              <div className="mt-4 flex items-center gap-2 border-t pt-4 text-muted-foreground text-sm">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  Next billing date:{" "}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString(
+                    "en-US",
+                    {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    }
+                  )}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -412,16 +480,16 @@ function BillingPage() {
       <div className="space-y-4">
         <div className="text-center">
           <h2 className="font-bold text-2xl">
-            {hasProSubscription ? "Upgrade Your Plan" : "Choose Your Plan"}
+            {hasActiveSubscription ? "Change Your Plan" : "Choose Your Plan"}
           </h2>
           <p className="text-muted-foreground">
-            {hasProSubscription
-              ? "Switch to a different plan to unlock more features"
+            {hasActiveSubscription
+              ? "Switch to Enterprise for advanced features"
               : "Select the plan that best fits your needs"}
           </p>
         </div>
 
-        <div className="grid gap-6 pt-4 md:grid-cols-3 lg:gap-8">
+        <div className="mx-auto grid max-w-4xl gap-6 pt-4 md:grid-cols-2 lg:gap-8">
           {plans.map((plan) => (
             <PlanCard
               currentPlan={currentPlan}
@@ -442,6 +510,14 @@ function BillingPage() {
           <CardTitle>Frequently Asked Questions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <h4 className="font-medium">How does per-user pricing work?</h4>
+            <p className="text-muted-foreground text-sm">
+              You're charged $29/month for each team member with access to
+              Drovi. When you add or remove team members, your bill adjusts
+              automatically.
+            </p>
+          </div>
           <div>
             <h4 className="font-medium">Can I cancel anytime?</h4>
             <p className="text-muted-foreground text-sm">
@@ -464,13 +540,33 @@ function BillingPage() {
             </p>
           </div>
           <div>
-            <h4 className="font-medium">Can I upgrade or downgrade my plan?</h4>
+            <h4 className="font-medium">
+              What's included in the Enterprise plan?
+            </h4>
             <p className="text-muted-foreground text-sm">
-              Yes, you can change your plan at any time. When upgrading, you'll
-              be charged the prorated difference. When downgrading, the change
-              takes effect at the end of your current billing period.
+              Enterprise includes SSO/SAML, SCIM provisioning, advanced
+              analytics, custom integrations, dedicated support, and SLA
+              guarantees. Contact us for custom pricing.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Contact Support */}
+      <Card>
+        <CardContent className="flex flex-col items-center justify-between gap-4 py-6 sm:flex-row">
+          <div className="flex items-center gap-3">
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Need help with billing?</p>
+              <p className="text-muted-foreground text-sm">
+                Our team is here to help with any questions
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline">
+            <a href="mailto:support@drovi.co">Contact Support</a>
+          </Button>
         </CardContent>
       </Card>
     </div>

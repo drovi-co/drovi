@@ -7,10 +7,10 @@
  * Uses presence hooks to track real-time viewers.
  */
 
+import { Eye } from "lucide-react";
 import { useResourceViewers, type ViewingType } from "@/hooks/use-presence";
 import { cn } from "@/lib/utils";
-import { Eye } from "lucide-react";
-import { AvatarStack, PresenceAvatar } from "./presence-indicator";
+import { AvatarStack } from "./presence-indicator";
 
 interface WhoIsViewingProps {
   organizationId: string;
@@ -43,17 +43,17 @@ export function WhoIsViewing({
     return (
       <div className={cn("flex items-center gap-1.5", className)}>
         <AvatarStack
+          maxVisible={3}
+          showPresence={false}
+          size="sm"
           users={viewers.map((v) => ({
             id: v.userId,
             name: v.user?.name ?? "Unknown",
             image: v.user?.image,
             status: "online",
           }))}
-          maxVisible={3}
-          size="sm"
-          showPresence={false}
         />
-        <span className="text-xs text-muted-foreground">viewing</span>
+        <span className="text-muted-foreground text-xs">viewing</span>
       </div>
     );
   }
@@ -68,17 +68,17 @@ export function WhoIsViewing({
       <Eye className="h-3.5 w-3.5 text-muted-foreground" />
       <div className="flex items-center gap-1.5">
         <AvatarStack
+          maxVisible={4}
+          showPresence={false}
+          size="sm"
           users={viewers.map((v) => ({
             id: v.userId,
             name: v.user?.name ?? "Unknown",
             image: v.user?.image,
             status: "online",
           }))}
-          maxVisible={4}
-          size="sm"
-          showPresence={false}
         />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {viewers.length === 1
             ? `${viewers[0]?.user?.name ?? "Someone"} is viewing`
             : `${viewers.length} people viewing`}

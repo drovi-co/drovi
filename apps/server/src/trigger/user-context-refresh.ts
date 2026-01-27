@@ -15,7 +15,7 @@ import {
   unifiedIntelligenceObject,
 } from "@memorystack/db/schema";
 import { schedules, task } from "@trigger.dev/sdk";
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { log } from "../lib/logger";
 
 // =============================================================================
@@ -227,10 +227,15 @@ export const batchRefreshUserContextTask = task({
 
       for (const result of results) {
         processed++;
-        if (result && typeof result === "object" && "success" in result) {
-          if (!result.success && "error" in result && result.error) {
-            errors.push(result.error);
-          }
+        if (
+          result &&
+          typeof result === "object" &&
+          "success" in result &&
+          !result.success &&
+          "error" in result &&
+          result.error
+        ) {
+          errors.push(result.error);
         }
       }
     }
@@ -280,12 +285,11 @@ export const userContextRefreshSchedule = schedules.task({
  * Calculate dynamic context from PostgreSQL data.
  */
 async function calculateDynamicContext(
-  userId: string,
+  _userId: string,
   organizationId: string
 ): Promise<DynamicContext> {
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   // Get recent UIOs to extract topics and focus
   const recentUios = await db.query.unifiedIntelligenceObject.findMany({
@@ -324,7 +328,12 @@ async function calculateDynamicContext(
       and(
         eq(commitment.organizationId, organizationId),
         eq(commitment.isUserDismissed, false),
-        inArray(commitment.status, ["pending", "in_progress", "waiting", "overdue"])
+        inArray(commitment.status, [
+          "pending",
+          "in_progress",
+          "waiting",
+          "overdue",
+        ])
       )
     );
 
@@ -335,12 +344,12 @@ async function calculateDynamicContext(
     (c) => c.status !== "overdue"
   ).length;
 
-  // Count pending decisions
-  const pendingDecisions = await db.query.decision.findMany({
+  // Count active decisions (not dismissed, not superseded)
+  const activeDecisions = await db.query.decision.findMany({
     where: and(
       eq(decision.organizationId, organizationId),
-      eq(decision.status, "pending"),
-      eq(decision.isUserDismissed, false)
+      eq(decision.isUserDismissed, false),
+      isNull(decision.supersededById)
     ),
     columns: { id: true },
   });
@@ -349,7 +358,7 @@ async function calculateDynamicContext(
   const moodIndicator = determineMoodIndicator(
     activeCount,
     overdueCount,
-    pendingDecisions.length
+    activeDecisions.length
   );
 
   return {
@@ -358,7 +367,7 @@ async function calculateDynamicContext(
     activeProjects: [], // TODO: Extract from project UIOs
     unreadCommitmentsCount: activeCount,
     overdueCommitmentsCount: overdueCount,
-    pendingDecisionsCount: pendingDecisions.length,
+    pendingDecisionsCount: activeDecisions.length,
     moodIndicator,
   };
 }
@@ -469,62 +478,28 @@ function determineMoodIndicator(
 
 /**
  * Update UserProfile in FalkorDB.
+ * TODO: Implement when Python intelligence backend integration is complete
  */
 async function updateGraphUserProfile(
-  userId: string,
-  organizationId: string,
-  context: DynamicContext
+  _userId: string,
+  _organizationId: string,
+  _context: DynamicContext
 ): Promise<boolean> {
-  try {
-    // Import graph client dynamically to avoid circular deps
-    const { callPythonIntelligence } = await import("../lib/intelligence");
-
-    // Call Python service to update graph
-    // This is a simplified approach - in production, you'd have a dedicated endpoint
-    await callPythonIntelligence("/graph/user-profile/update", {
-      userId,
-      organizationId,
-      dynamicContext: {
-        currentFocus: context.currentFocus,
-        recentTopics: context.recentTopics,
-        activeProjectIds: context.activeProjects,
-        unreadCommitmentsCount: context.unreadCommitmentsCount,
-        overdueCommitmentsCount: context.overdueCommitmentsCount,
-        pendingDecisionsCount: context.pendingDecisionsCount,
-        moodIndicator: context.moodIndicator,
-        dynamicUpdatedAt: new Date().toISOString(),
-      },
-    });
-
-    return true;
-  } catch (error) {
-    log.warn("Failed to update graph user profile", { error, userId });
-    // Return true anyway - we don't want to fail the task for graph errors
-    // The context calculation is still valuable for caching
-    return false;
-  }
+  // Graph user profile update is not yet implemented
+  // This will be enabled when the Python intelligence backend is fully integrated
+  return false;
 }
 
 /**
  * Invalidate user context cache in Redis.
+ * TODO: Implement when Python intelligence backend integration is complete
  */
 async function invalidateUserCache(
-  userId: string,
-  organizationId: string
+  _userId: string,
+  _organizationId: string
 ): Promise<void> {
-  try {
-    // Import cache service dynamically
-    const { callPythonIntelligence } = await import("../lib/intelligence");
-
-    await callPythonIntelligence("/memory/cache/invalidate", {
-      type: "user_context",
-      userId,
-      organizationId,
-    });
-  } catch (error) {
-    // Cache invalidation is non-critical
-    log.debug("Failed to invalidate user cache", { error, userId });
-  }
+  // Cache invalidation is not yet implemented
+  // This will be enabled when the Python intelligence backend is fully integrated
 }
 
 // =============================================================================

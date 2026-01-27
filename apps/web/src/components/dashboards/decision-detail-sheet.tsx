@@ -125,7 +125,9 @@ export function DecisionDetailSheet({
   onContactClick,
   onViewSupersession,
 }: DecisionDetailSheetProps) {
-  if (!decision) return null;
+  if (!decision) {
+    return null;
+  }
 
   const handleCopyStatement = () => {
     navigator.clipboard.writeText(decision.statement);

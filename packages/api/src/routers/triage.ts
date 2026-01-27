@@ -229,7 +229,10 @@ export const triageRouter = router({
           threadLastMessageAt: conversation.lastMessageAt,
         })
         .from(triageResult)
-        .innerJoin(conversation, eq(triageResult.conversationId, conversation.id))
+        .innerJoin(
+          conversation,
+          eq(triageResult.conversationId, conversation.id)
+        )
         .where(and(...conditions))
         .orderBy(desc(triageResult.urgencyScore), desc(triageResult.createdAt))
         .limit(input.limit)
@@ -269,7 +272,10 @@ export const triageRouter = router({
         },
       });
 
-      if (!thread || thread.sourceAccount?.organizationId !== input.organizationId) {
+      if (
+        !thread ||
+        thread.sourceAccount?.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -298,7 +304,10 @@ export const triageRouter = router({
         },
       });
 
-      if (!thread || thread.sourceAccount?.organizationId !== input.organizationId) {
+      if (
+        !thread ||
+        thread.sourceAccount?.organizationId !== input.organizationId
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Thread not found.",
@@ -511,23 +520,37 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
+      await verifyAccountAccess(
+        input.organizationId,
+        existingRule.sourceAccountId
+      );
 
       // Build updates
       const updates: Partial<typeof triageRule.$inferInsert> = {
         updatedAt: new Date(),
       };
 
-      if (input.name !== undefined) updates.name = input.name;
-      if (input.description !== undefined)
+      if (input.name !== undefined) {
+        updates.name = input.name;
+      }
+      if (input.description !== undefined) {
         updates.description = input.description;
-      if (input.trigger !== undefined)
+      }
+      if (input.trigger !== undefined) {
         updates.trigger = input.trigger as TriageRuleTrigger;
-      if (input.action !== undefined) updates.action = input.action;
-      if (input.actionValue !== undefined)
+      }
+      if (input.action !== undefined) {
+        updates.action = input.action;
+      }
+      if (input.actionValue !== undefined) {
         updates.actionValue = input.actionValue;
-      if (input.enabled !== undefined) updates.enabled = input.enabled;
-      if (input.priority !== undefined) updates.priority = input.priority;
+      }
+      if (input.enabled !== undefined) {
+        updates.enabled = input.enabled;
+      }
+      if (input.priority !== undefined) {
+        updates.priority = input.priority;
+      }
 
       const [updatedRule] = await db
         .update(triageRule)
@@ -559,7 +582,10 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
+      await verifyAccountAccess(
+        input.organizationId,
+        existingRule.sourceAccountId
+      );
 
       await db.delete(triageRule).where(eq(triageRule.id, input.ruleId));
 
@@ -591,7 +617,10 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
+      await verifyAccountAccess(
+        input.organizationId,
+        existingRule.sourceAccountId
+      );
 
       const [updatedRule] = await db
         .update(triageRule)
@@ -659,7 +688,10 @@ export const triageRouter = router({
         });
       }
 
-      await verifyAccountAccess(input.organizationId, existingRule.sourceAccountId);
+      await verifyAccountAccess(
+        input.organizationId,
+        existingRule.sourceAccountId
+      );
 
       const [updatedRule] = await db
         .update(triageRule)

@@ -105,7 +105,7 @@ export function createEmailClient(
   }
 
   // Validate tokens exist
-  if (!account.accessToken || !account.refreshToken) {
+  if (!(account.accessToken && account.refreshToken)) {
     throw new ProviderError(
       "Account is missing OAuth tokens",
       account.provider as EmailProvider,

@@ -11,10 +11,8 @@
  * - What they're currently viewing
  */
 
-import { useState } from "react";
 import { ChevronDown, ChevronUp, Circle, Eye, Users } from "lucide-react";
-import { useOnlineUsers } from "@/hooks/use-presence";
-import { useActiveOrganization } from "@/lib/auth-client";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +26,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useOnlineUsers } from "@/hooks/use-presence";
+import { useActiveOrganization } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { PresenceStatus } from "./presence-indicator";
 
@@ -35,6 +35,22 @@ import type { PresenceStatus } from "./presence-indicator";
 // Types
 // =============================================================================
 
+/** User from the presence API with nested user data */
+interface PresenceUser {
+  userId: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+  status: PresenceStatus;
+  currentViewingType: string | null;
+  currentViewingId: string | null;
+  lastActivityAt: Date | string | null;
+}
+
+/** Flattened user for display purposes */
 interface OnlineUser {
   id: string;
   name: string | null;
@@ -71,7 +87,9 @@ const statusLabels: Record<PresenceStatus, string> = {
 // =============================================================================
 
 function getViewingLabel(viewingType: string | null | undefined): string {
-  if (!viewingType) return "";
+  if (!viewingType) {
+    return "";
+  }
   const labels: Record<string, string> = {
     inbox: "Inbox",
     conversation: "Conversation",
@@ -103,7 +121,9 @@ export function OnlineUsersBadge() {
 
   const onlineCount = data?.users?.length ?? 0;
 
-  if (onlineCount === 0) return null;
+  if (onlineCount === 0) {
+    return null;
+  }
 
   return (
     <TooltipProvider>
@@ -111,7 +131,7 @@ export function OnlineUsersBadge() {
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5 rounded-md bg-green-500/10 px-2 py-1">
             <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-            <span className="text-xs font-medium text-green-600 dark:text-green-400">
+            <span className="font-medium text-green-600 text-xs dark:text-green-400">
               {onlineCount}
             </span>
           </div>
@@ -133,7 +153,10 @@ interface TeamPresencePanelProps {
   compact?: boolean;
 }
 
-export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps) {
+export function TeamPresencePanel({
+  className,
+  compact,
+}: TeamPresencePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: activeOrg } = useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -143,7 +166,24 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
     enabled: Boolean(organizationId),
   });
 
-  const onlineUsers = (data?.users ?? []) as OnlineUser[];
+  // Transform presence data to OnlineUser format
+  const onlineUsers: OnlineUser[] = (data?.users ?? []).map(
+    (p: PresenceUser) => ({
+      id: p.user.id,
+      name: p.user.name,
+      email: p.user.email,
+      image: p.user.image,
+      status: p.status,
+      viewingType: p.currentViewingType,
+      viewingId: p.currentViewingId,
+      lastActiveAt:
+        p.lastActivityAt === null
+          ? new Date().toISOString()
+          : typeof p.lastActivityAt === "string"
+            ? p.lastActivityAt
+            : p.lastActivityAt.toISOString(),
+    })
+  );
   const displayUsers = isExpanded ? onlineUsers : onlineUsers.slice(0, 3);
 
   if (isLoading) {
@@ -160,7 +200,7 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
   if (onlineUsers.length === 0) {
     return (
       <div className={cn("px-3 py-2", className)}>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <Users className="h-3.5 w-3.5" />
           <span>No one else online</span>
         </div>
@@ -178,7 +218,10 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
                 <TooltipTrigger asChild>
                   <div className="relative">
                     <Avatar className="h-6 w-6 border-2 border-background">
-                      <AvatarImage src={user.image ?? undefined} alt={user.name ?? undefined} />
+                      <AvatarImage
+                        alt={user.name ?? undefined}
+                        src={user.image ?? undefined}
+                      />
                       <AvatarFallback className="text-[10px]">
                         {user.name
                           ?.split(" ")
@@ -190,7 +233,7 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
                     </Avatar>
                     <span
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
+                        "absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-background",
                         statusColors[user.status || "online"]
                       )}
                     />
@@ -201,14 +244,15 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
                     <div className="font-medium">{user.name ?? user.email}</div>
                     <div className="text-muted-foreground">
                       {statusLabels[user.status || "online"]}
-                      {user.viewingType && ` · ${getViewingLabel(user.viewingType)}`}
+                      {user.viewingType &&
+                        ` · ${getViewingLabel(user.viewingType)}`}
                     </div>
                   </div>
                 </TooltipContent>
               </Tooltip>
             ))}
             {onlineUsers.length > 5 && (
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted font-medium text-[10px]">
                 +{onlineUsers.length - 5}
               </div>
             )}
@@ -219,16 +263,20 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
   }
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded} className={className}>
+    <Collapsible
+      className={className}
+      onOpenChange={setIsExpanded}
+      open={isExpanded}
+    >
       <CollapsibleTrigger asChild>
         <Button
-          variant="ghost"
+          className="h-auto w-full justify-between px-3 py-2"
           size="sm"
-          className="w-full justify-between px-3 py-2 h-auto"
+          variant="ghost"
         >
           <div className="flex items-center gap-2">
             <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-            <span className="text-xs font-medium">
+            <span className="font-medium text-xs">
               {onlineUsers.length} online
             </span>
           </div>
@@ -243,12 +291,15 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
       <CollapsibleContent className="space-y-1 px-2 pb-2">
         {displayUsers.map((user) => (
           <div
-            key={user.id}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+            key={user.id}
           >
             <div className="relative">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={user.image ?? undefined} alt={user.name ?? undefined} />
+                <AvatarImage
+                  alt={user.name ?? undefined}
+                  src={user.image ?? undefined}
+                />
                 <AvatarFallback className="text-[10px]">
                   {user.name
                     ?.split(" ")
@@ -260,19 +311,21 @@ export function TeamPresencePanel({ className, compact }: TeamPresencePanelProps
               </Avatar>
               <span
                 className={cn(
-                  "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background",
+                  "absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border border-background",
                   statusColors[user.status || "online"]
                 )}
               />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">
+              <div className="truncate font-medium text-xs">
                 {user.name ?? user.email.split("@")[0]}
               </div>
               {user.viewingType && (
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Eye className="h-2.5 w-2.5" />
-                  <span className="truncate">{getViewingLabel(user.viewingType)}</span>
+                  <span className="truncate">
+                    {getViewingLabel(user.viewingType)}
+                  </span>
                 </div>
               )}
             </div>

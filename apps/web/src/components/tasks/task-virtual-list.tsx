@@ -110,7 +110,9 @@ export function TaskVirtualList({
       >
         {virtualItems.map((virtualRow) => {
           const item = items[virtualRow.index];
-          if (!item) return null;
+          if (!item) {
+            return null;
+          }
 
           if (item.type === "header") {
             return (
@@ -493,7 +495,9 @@ function createGroupedItems(tasks: TaskData[]): ListItem[] {
 
   for (const status of statusOrder) {
     const statusTasks = grouped[status];
-    if (statusTasks.length === 0) continue;
+    if (statusTasks.length === 0) {
+      continue;
+    }
 
     items.push({ type: "header", status, count: statusTasks.length });
     for (const task of statusTasks) {

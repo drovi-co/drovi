@@ -79,7 +79,9 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
         queryClient.setQueryData(
           ["threads", "getById", threadId],
           (old: { thread: { isStarred: boolean } } | undefined) => {
-            if (!old) return old;
+            if (!old) {
+              return old;
+            }
             return {
               ...old,
               thread: { ...old.thread, isStarred: starred },
@@ -160,7 +162,9 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
 
   const handleCommitmentFeedback = useCallback(
     async (commitmentId: string, _positive: boolean) => {
-      if (!organizationId) return;
+      if (!organizationId) {
+        return;
+      }
       await commitmentFeedbackMutation.mutateAsync({
         organizationId,
         targetType: "commitment",
@@ -172,7 +176,9 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
 
   const handleDecisionFeedback = useCallback(
     async (decisionId: string, _positive: boolean) => {
-      if (!organizationId) return;
+      if (!organizationId) {
+        return;
+      }
       await decisionFeedbackMutation.mutateAsync({
         organizationId,
         targetType: "decision",
@@ -184,7 +190,9 @@ export function useThread({ threadId, organizationId }: UseThreadOptions) {
 
   const handleCompleteCommitment = useCallback(
     async (commitmentId: string) => {
-      if (!organizationId) return;
+      if (!organizationId) {
+        return;
+      }
       await completeCommitmentMutation.mutateAsync({
         organizationId,
         id: commitmentId,

@@ -8,7 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@memorystack/db";
 import { pushSubscription } from "@memorystack/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 
@@ -224,15 +224,27 @@ export const pushNotificationsRouter = router({
 // =============================================================================
 
 function detectBrowserType(userAgent: string | undefined): string {
-  if (!userAgent) return "unknown";
+  if (!userAgent) {
+    return "unknown";
+  }
 
   const ua = userAgent.toLowerCase();
 
-  if (ua.includes("chrome") && !ua.includes("edge")) return "chrome";
-  if (ua.includes("firefox")) return "firefox";
-  if (ua.includes("safari") && !ua.includes("chrome")) return "safari";
-  if (ua.includes("edge")) return "edge";
-  if (ua.includes("opera")) return "opera";
+  if (ua.includes("chrome") && !ua.includes("edge")) {
+    return "chrome";
+  }
+  if (ua.includes("firefox")) {
+    return "firefox";
+  }
+  if (ua.includes("safari") && !ua.includes("chrome")) {
+    return "safari";
+  }
+  if (ua.includes("edge")) {
+    return "edge";
+  }
+  if (ua.includes("opera")) {
+    return "opera";
+  }
 
   return "unknown";
 }
@@ -270,13 +282,15 @@ export async function markSubscriptionFailed(
     await db
       .update(pushSubscription)
       .set({
-        failureCount: `${Number(
-          (
-            await db.query.pushSubscription.findFirst({
-              where: eq(pushSubscription.id, subscriptionId),
-            })
-          )?.failureCount || "0"
-        ) + 1}`,
+        failureCount: `${
+          Number(
+            (
+              await db.query.pushSubscription.findFirst({
+                where: eq(pushSubscription.id, subscriptionId),
+              })
+            )?.failureCount || "0"
+          ) + 1
+        }`,
       })
       .where(eq(pushSubscription.id, subscriptionId));
   }

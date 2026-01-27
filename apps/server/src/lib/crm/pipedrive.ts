@@ -7,7 +7,7 @@
 //
 
 import { log } from "../logger";
-import { CRMSyncProvider, type CRMSourceAccount } from "./base";
+import { CRMSyncProvider } from "./base";
 import type {
   CRMContactData,
   CRMContactUpdate,
@@ -21,17 +21,12 @@ import type {
 // =============================================================================
 
 const PIPEDRIVE_API_BASE = "https://api.pipedrive.com/v1";
-const MAX_BATCH_SIZE = 100;
 
 // =============================================================================
 // PIPEDRIVE SYNC PROVIDER
 // =============================================================================
 
 export class PipedriveSyncProvider extends CRMSyncProvider {
-  constructor(sourceAccount: CRMSourceAccount) {
-    super(sourceAccount);
-  }
-
   /**
    * Make authenticated request to Pipedrive API.
    */
@@ -106,19 +101,19 @@ export class PipedriveSyncProvider extends CRMSyncProvider {
     if (result.data) {
       // Also fetch organizations for company info
       const orgIds = new Set(
-        result.data
-          .filter((p) => p.org_id?.value)
-          .map((p) => p.org_id?.value)
+        result.data.filter((p) => p.org_id?.value).map((p) => p.org_id?.value)
       );
 
       const orgsMap = new Map<number, PipedriveOrg>();
       if (orgIds.size > 0) {
         for (const orgId of orgIds) {
-          if (!orgId) continue;
+          if (!orgId) {
+            continue;
+          }
           try {
-            const orgResult = await this.pdRequest<PipedriveItemResult<PipedriveOrg>>(
-              `/organizations/${orgId}`
-            );
+            const orgResult = await this.pdRequest<
+              PipedriveItemResult<PipedriveOrg>
+            >(`/organizations/${orgId}`);
             if (orgResult.data) {
               orgsMap.set(orgId, orgResult.data);
             }
@@ -129,16 +124,16 @@ export class PipedriveSyncProvider extends CRMSyncProvider {
       }
 
       for (const person of result.data) {
-        const org = person.org_id?.value ? orgsMap.get(person.org_id.value) : undefined;
+        const org = person.org_id?.value
+          ? orgsMap.get(person.org_id.value)
+          : undefined;
         contacts.push(this.mapPipedrivePerson(person, org));
       }
     }
 
     // Calculate next cursor
     let nextCursor: string | undefined;
-    if (
-      result.additional_data?.pagination?.more_items_in_collection
-    ) {
+    if (result.additional_data?.pagination?.more_items_in_collection) {
       const nextStart =
         (result.additional_data.pagination.start ?? 0) +
         (result.additional_data.pagination.limit ?? 100);
@@ -151,9 +146,7 @@ export class PipedriveSyncProvider extends CRMSyncProvider {
   /**
    * Push contact updates to Pipedrive.
    */
-  protected async pushContactUpdates(
-    updates: CRMContactUpdate[]
-  ): Promise<{
+  protected async pushContactUpdates(updates: CRMContactUpdate[]): Promise<{
     success: string[];
     failed: Array<{ id: string; error: string }>;
   }> {
@@ -296,9 +289,7 @@ export class PipedriveSyncProvider extends CRMSyncProvider {
       phones: phones.length > 0 ? phones : undefined,
       ownerId: person.owner_id?.id?.toString() ?? undefined,
       metadata: {
-        createdAt: person.add_time
-          ? new Date(person.add_time)
-          : undefined,
+        createdAt: person.add_time ? new Date(person.add_time) : undefined,
         updatedAt: person.update_time
           ? new Date(person.update_time)
           : undefined,

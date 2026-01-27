@@ -1,10 +1,19 @@
 import { db } from "@memorystack/db";
-import { inviteCode, waitlistApplication } from "@memorystack/db/schema";
+import {
+  inviteCode,
+  subscription,
+  TRIAL_CONFIG,
+  user,
+  waitlistApplication,
+} from "@memorystack/db/schema";
 import { tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../index";
+
+// Allowed emails that bypass invite code requirement
+const ALLOWED_EMAILS = ["jeremy@drovi.co", "sos@bettercalljerem.com"] as const;
 
 // =============================================================================
 // HELPERS
@@ -185,6 +194,160 @@ export const waitlistRouter = router({
 
       return { success: true };
     }),
+
+  /**
+   * Finalize signup after OAuth - validates invite code and creates subscription
+   * Called from the frontend after OAuth completes
+   */
+  finalizeSignup: protectedProcedure
+    .input(z.object({ inviteCode: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const userEmail = ctx.session.user.email.toLowerCase();
+      const orgId = ctx.session.session.activeOrganizationId;
+
+      if (!orgId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No active organization",
+        });
+      }
+
+      // Check if subscription already exists
+      const existingSub = await db.query.subscription.findFirst({
+        where: eq(subscription.organizationId, orgId),
+      });
+
+      if (existingSub) {
+        // Already finalized
+        return { success: true, alreadyFinalized: true };
+      }
+
+      // Check if user is in allowed list (super admin)
+      const isAllowed = ALLOWED_EMAILS.includes(
+        userEmail as (typeof ALLOWED_EMAILS)[number]
+      );
+
+      if (isAllowed) {
+        // Set super admin flag
+        await db
+          .update(user)
+          .set({ isSuperAdmin: true })
+          .where(eq(user.id, userId));
+
+        // Create subscription with active status (no trial)
+        await db.insert(subscription).values({
+          organizationId: orgId,
+          planType: "pro",
+          status: "active",
+          seatCount: 1,
+          pricePerSeat: 2900,
+          trialEndsAt: null,
+        });
+
+        return { success: true, isSuperAdmin: true };
+      }
+
+      // Regular user - must have valid invite code
+      if (!input.inviteCode) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "An invite code is required to sign up. Please join the waitlist to request access.",
+        });
+      }
+
+      // Validate and use invite code
+      const codeRecord = await db.query.inviteCode.findFirst({
+        where: and(
+          eq(inviteCode.code, input.inviteCode.toUpperCase()),
+          isNull(inviteCode.usedAt)
+        ),
+      });
+
+      if (!codeRecord) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid or already used invite code",
+        });
+      }
+
+      if (codeRecord.expiresAt && codeRecord.expiresAt < new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This invite code has expired",
+        });
+      }
+
+      // Mark code as used
+      await db
+        .update(inviteCode)
+        .set({
+          usedAt: new Date(),
+          usedByUserId: userId,
+        })
+        .where(eq(inviteCode.id, codeRecord.id));
+
+      // Update waitlist application
+      await db
+        .update(waitlistApplication)
+        .set({ status: "converted" })
+        .where(eq(waitlistApplication.id, codeRecord.waitlistApplicationId));
+
+      // Create subscription with trial
+      const trialEndsAt = new Date(
+        Date.now() + TRIAL_CONFIG.durationDays * 24 * 60 * 60 * 1000
+      );
+
+      await db.insert(subscription).values({
+        organizationId: orgId,
+        planType: "pro",
+        status: "trial",
+        seatCount: 1,
+        pricePerSeat: 2900,
+        trialEndsAt,
+      });
+
+      return { success: true, trialEndsAt };
+    }),
+
+  /**
+   * Check if user needs to finalize signup
+   */
+  checkSignupStatus: protectedProcedure.query(async ({ ctx }) => {
+    const orgId = ctx.session.session.activeOrganizationId;
+    const userEmail = ctx.session.user.email.toLowerCase();
+
+    if (!orgId) {
+      return { needsFinalization: false, noOrganization: true };
+    }
+
+    // Check if subscription exists
+    const existingSub = await db.query.subscription.findFirst({
+      where: eq(subscription.organizationId, orgId),
+    });
+
+    if (existingSub) {
+      return {
+        needsFinalization: false,
+        subscription: {
+          planType: existingSub.planType,
+          status: existingSub.status,
+          trialEndsAt: existingSub.trialEndsAt,
+        },
+      };
+    }
+
+    // No subscription - check if allowed email
+    const isAllowed = ALLOWED_EMAILS.includes(
+      userEmail as (typeof ALLOWED_EMAILS)[number]
+    );
+
+    return {
+      needsFinalization: true,
+      isAllowedEmail: isAllowed,
+    };
+  }),
 
   // ===========================================================================
   // ADMIN PROCEDURES
@@ -377,7 +540,9 @@ export const waitlistRouter = router({
         const existing = await db.query.inviteCode.findFirst({
           where: eq(inviteCode.code, code),
         });
-        if (!existing) break;
+        if (!existing) {
+          break;
+        }
         attempts++;
       } while (attempts < 10);
 

@@ -357,8 +357,8 @@ export const DEFAULT_POLICY_RULES: Omit<
 // =============================================================================
 
 export class PolicyDetector {
-  private rules: PolicyRule[];
-  private organizationRules: Map<string, PolicyRule[]> = new Map();
+  private readonly rules: PolicyRule[];
+  private readonly organizationRules: Map<string, PolicyRule[]> = new Map();
 
   constructor(customRules?: PolicyRule[]) {
     // Initialize with default rules
@@ -395,7 +395,9 @@ export class PolicyDetector {
     const applicableRules = this.getApplicableRules(input.organizationId);
 
     for (const rule of applicableRules) {
-      if (!rule.enabled) continue;
+      if (!rule.enabled) {
+        continue;
+      }
 
       const matches = this.evaluateRule(rule, input);
       if (matches) {
@@ -820,7 +822,9 @@ export class PolicyDetector {
  * Format bytes to human readable string.
  */
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 Bytes";
+  if (bytes === 0) {
+    return "0 Bytes";
+  }
   const k = 1024;
   const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));

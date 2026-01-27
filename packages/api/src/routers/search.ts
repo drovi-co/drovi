@@ -360,7 +360,10 @@ async function searchThreads(
       briefSummary: conversation.briefSummary,
     })
     .from(threadEmbedding)
-    .innerJoin(conversation, eq(threadEmbedding.conversationId, conversation.id))
+    .innerJoin(
+      conversation,
+      eq(threadEmbedding.conversationId, conversation.id)
+    )
     .where(and(...conditions))
     .orderBy(asc(distance))
     .limit(options.limit);
@@ -538,30 +541,30 @@ export const searchRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-    const accountIds = await getAccountIds(
-      ctx.session.user.id,
-      input.organizationId,
-      input.accountId
-    );
+      const accountIds = await getAccountIds(
+        ctx.session.user.id,
+        input.organizationId,
+        input.accountId
+      );
 
-    if (accountIds.length === 0) {
-      return {
-        answer: "No email accounts found to search.",
-        citations: [],
-        confidence: 0,
-        sources: [],
-      };
-    }
+      if (accountIds.length === 0) {
+        return {
+          answer: "No email accounts found to search.",
+          citations: [],
+          confidence: 0,
+          sources: [],
+        };
+      }
 
-    // NOTE: AI-powered search/ask has been migrated to Python backend
-    // Use Python backend at /api/v1/search for AI-powered search
-    throw new TRPCError({
-      code: "NOT_IMPLEMENTED",
-      message:
-        "AI-powered search functionality is being migrated to Python backend. " +
-        "Use /api/v1/search endpoint directly.",
-    });
-  }),
+      // NOTE: AI-powered search/ask has been migrated to Python backend
+      // Use Python backend at /api/v1/search for AI-powered search
+      throw new TRPCError({
+        code: "NOT_IMPLEMENTED",
+        message:
+          "AI-powered search functionality is being migrated to Python backend. " +
+          "Use /api/v1/search endpoint directly.",
+      });
+    }),
 
   /**
    * Find threads related to a given thread.
@@ -579,7 +582,7 @@ export const searchRouter = router({
         where: eq(threadEmbedding.conversationId, input.threadId),
       });
 
-      if (!(sourceEmbedding && sourceEmbedding.embedding)) {
+      if (!sourceEmbedding?.embedding) {
         return { relatedThreads: [] };
       }
 
@@ -612,7 +615,10 @@ export const searchRouter = router({
           messageCount: conversation.messageCount,
         })
         .from(threadEmbedding)
-        .innerJoin(conversation, eq(threadEmbedding.conversationId, conversation.id))
+        .innerJoin(
+          conversation,
+          eq(threadEmbedding.conversationId, conversation.id)
+        )
         .where(and(...conditions))
         .orderBy(asc(distance))
         .limit(input.limit);
@@ -708,7 +714,9 @@ export const searchRouter = router({
         threadId: m.conversationId,
         threadSubject: m.conversation?.title ?? "",
         date: m.sentAt ?? new Date(),
-        participants: ((m.recipients as Array<{ email: string }>) ?? []).map((p) => p.email),
+        participants: ((m.recipients as Array<{ email: string }>) ?? []).map(
+          (p) => p.email
+        ),
       }));
 
       // NOTE: AI-powered topic summarization has been migrated to Python backend

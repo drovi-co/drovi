@@ -427,7 +427,7 @@ export function ThreadBrief({
                         e.stopPropagation();
                         onAction?.(
                           thread.id,
-                          thread.suggestedAction!.type as ThreadAction
+                          thread.suggestedAction?.type as ThreadAction
                         );
                       }}
                       size="sm"

@@ -11,15 +11,15 @@
 // Uses Redis pub/sub for multi-server deployments.
 //
 
-import type { ServerWebSocket } from "bun";
 import { db } from "@memorystack/db";
+import { getRedis, isRedisConfigured } from "@memorystack/db/lib/redis";
 import {
-  userPresence,
   resourceViewers,
+  userPresence,
   type ViewingType,
 } from "@memorystack/db/schema";
-import { eq, and, lt } from "drizzle-orm";
-import { getRedis, isRedisConfigured } from "@memorystack/db/lib/redis";
+import type { ServerWebSocket } from "bun";
+import { and, eq, lt } from "drizzle-orm";
 import { log } from "../lib/logger";
 
 // =============================================================================
@@ -34,13 +34,20 @@ export interface PresenceWebSocketData {
 }
 
 // Map to schema enum values
-type PresenceStatusDB = "online" | "away" | "busy" | "do_not_disturb" | "offline";
+type PresenceStatusDB =
+  | "online"
+  | "away"
+  | "busy"
+  | "do_not_disturb"
+  | "offline";
 
 // Client can send shorter version
 export type PresenceStatus = "online" | "away" | "dnd" | "busy" | "offline";
 
 function mapStatusToDb(status: PresenceStatus): PresenceStatusDB {
-  if (status === "dnd") return "do_not_disturb";
+  if (status === "dnd") {
+    return "do_not_disturb";
+  }
   return status;
 }
 
@@ -132,7 +139,10 @@ const subscriptions = new Map<string, Set<string>>();
 const channelSubscribers = new Map<string, Set<string>>();
 
 // Track current viewing per connection
-const connectionViewing = new Map<string, { resourceType: ViewingType; resourceId: string }>();
+const connectionViewing = new Map<
+  string,
+  { resourceType: ViewingType; resourceId: string }
+>();
 
 // Constants
 const HEARTBEAT_TIMEOUT_MS = 60_000; // Mark offline after 60s without heartbeat
@@ -158,9 +168,12 @@ async function initRedisSubscriber(): Promise<void> {
     await redisSubscriber.psubscribe("presence:*");
 
     // Handle pattern messages
-    redisSubscriber.on("pmessage", (_pattern: string, channel: string, message: string) => {
-      handleRedisBroadcast(channel, message);
-    });
+    redisSubscriber.on(
+      "pmessage",
+      (_pattern: string, channel: string, message: string) => {
+        handleRedisBroadcast(channel, message);
+      }
+    );
 
     log.info("Redis presence subscriber connected");
   } catch (error) {
@@ -170,18 +183,24 @@ async function initRedisSubscriber(): Promise<void> {
 
 function handleRedisBroadcast(channel: string, message: string): void {
   try {
-    const parsed = JSON.parse(message) as OutgoingMessage & { senderId?: string };
+    const parsed = JSON.parse(message) as OutgoingMessage & {
+      senderId?: string;
+    };
     const { senderId, ...payload } = parsed;
 
     // Get subscribers for this channel
     const subscribers = channelSubscribers.get(channel);
-    if (!subscribers) return;
+    if (!subscribers) {
+      return;
+    }
 
     const messageStr = JSON.stringify(payload);
 
     for (const connectionId of subscribers) {
       // Skip the sender to avoid echo
-      if (senderId === connectionId) continue;
+      if (senderId === connectionId) {
+        continue;
+      }
 
       const ws = connections.get(connectionId);
       if (ws) {
@@ -208,7 +227,9 @@ async function broadcastToChannel(
   const subscribers = channelSubscribers.get(channel);
   if (subscribers) {
     for (const connectionId of subscribers) {
-      if (senderId === connectionId) continue;
+      if (senderId === connectionId) {
+        continue;
+      }
 
       const ws = connections.get(connectionId);
       if (ws) {
@@ -354,7 +375,7 @@ async function updateTypingStatus(
     where: eq(userPresence.userId, userId),
   });
 
-  if (!presence?.currentViewingType || !presence?.currentViewingId) {
+  if (!(presence?.currentViewingType && presence?.currentViewingId)) {
     return null;
   }
 

@@ -70,7 +70,9 @@ export function useAnalytics(
 
   // Auto-track page views on route changes
   useEffect(() => {
-    if (!autoTrackPageViews) return;
+    if (!autoTrackPageViews) {
+      return;
+    }
 
     const currentPath = location.pathname;
     if (currentPath !== lastPathRef.current) {
@@ -81,7 +83,9 @@ export function useAnalytics(
 
   // Auto-identify user on session change
   useEffect(() => {
-    if (!autoIdentify) return;
+    if (!autoIdentify) {
+      return;
+    }
 
     const user = session?.user;
     const activeOrgId = session?.session?.activeOrganizationId;

@@ -285,8 +285,6 @@ function adjustLength(
     case "detailed":
       // Already detailed or needs LLM to expand
       return text;
-
-    case "standard":
     default:
       return text;
   }
@@ -419,7 +417,9 @@ function hasOverlappingContent(text1: string, text2: string): boolean {
 
   let overlap = 0;
   for (const word of words1) {
-    if (words2.has(word)) overlap++;
+    if (words2.has(word)) {
+      overlap++;
+    }
   }
 
   return overlap >= 2;
@@ -485,7 +485,7 @@ function extractRelevantSentence(text: string, keyword: string): string {
     }
   }
 
-  return text.slice(0, 100) + "...";
+  return `${text.slice(0, 100)}...`;
 }
 
 // =============================================================================

@@ -52,14 +52,25 @@ export const sendPushNotificationTask = task({
     maxTimeoutInMs: 10_000,
     factor: 2,
   },
-  run: async (payload: PushNotificationPayload): Promise<{
+  run: async (
+    payload: PushNotificationPayload
+  ): Promise<{
     success: boolean;
     sentCount: number;
     failedCount: number;
     results: SendResult[];
   }> => {
-    const { userId, title, body, icon, badge, tag, data, requireInteraction, silent } =
-      payload;
+    const {
+      userId,
+      title,
+      body,
+      icon,
+      badge,
+      tag,
+      data,
+      requireInteraction,
+      silent,
+    } = payload;
 
     log.info("Sending push notification", { userId, title });
 
@@ -81,7 +92,7 @@ export const sendPushNotificationTask = task({
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     const vapidSubject = process.env.VAPID_SUBJECT || "mailto:support@drovi.io";
 
-    if (!vapidPublicKey || !vapidPrivateKey) {
+    if (!(vapidPublicKey && vapidPrivateKey)) {
       log.error("VAPID keys not configured");
       return {
         success: false,
@@ -96,6 +107,7 @@ export const sendPushNotificationTask = task({
     }
 
     // Import web-push dynamically
+    // @ts-expect-error - web-push package not yet installed, feature disabled for launch
     const webpush = await import("web-push");
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 

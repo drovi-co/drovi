@@ -481,7 +481,9 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
 
   // Handle ask AI
   const handleAskAI = useCallback(() => {
-    if (cleanQuery.length < 3 || !organizationId) return;
+    if (cleanQuery.length < 3 || !organizationId) {
+      return;
+    }
     setIsAskingAI(true);
     setAiResponse(null);
     askAIMutation.mutate({ organizationId, question: cleanQuery });
@@ -512,7 +514,9 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
 
   // Keyboard handling
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Tab to cycle modes
@@ -1122,7 +1126,9 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                           <CommandItem
                             key={item.id}
                             onSelect={() => {
-                              if (isDisabled || isLoading) return;
+                              if (isDisabled || isLoading) {
+                                return;
+                              }
                               item.action();
                             }}
                           >

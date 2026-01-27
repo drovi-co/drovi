@@ -101,14 +101,22 @@ function getTypeConfig(type: EvidenceType) {
 }
 
 function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.85) return "text-green-600";
-  if (confidence >= 0.6) return "text-amber-600";
+  if (confidence >= 0.85) {
+    return "text-green-600";
+  }
+  if (confidence >= 0.6) {
+    return "text-amber-600";
+  }
   return "text-red-600";
 }
 
 function getConfidenceLabel(confidence: number): string {
-  if (confidence >= 0.85) return "High";
-  if (confidence >= 0.6) return "Medium";
+  if (confidence >= 0.85) {
+    return "High";
+  }
+  if (confidence >= 0.6) {
+    return "Medium";
+  }
   return "Low";
 }
 

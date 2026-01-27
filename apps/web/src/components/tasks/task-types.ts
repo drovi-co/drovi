@@ -247,7 +247,9 @@ export function formatDueDate(date: Date | null): {
   className: string;
   isOverdue: boolean;
 } | null {
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);

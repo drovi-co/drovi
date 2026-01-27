@@ -351,9 +351,7 @@
               "Engineering Team",
               "Marketing Team"
             ],
-            "dependencies": [
-              "Testing completion"
-            ],
+            "dependencies": ["Testing completion"],
             "implications": [
               "Compressed development timeline",
               "Later marketing push"
@@ -372,18 +370,9 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Product Team",
-              "Marketing Team",
-              "Sales Team"
-            ],
-            "dependencies": [
-              "Market analysis"
-            ],
-            "implications": [
-              "Revenue projections",
-              "Customer perception"
-            ],
+            "stakeholders": ["Product Team", "Marketing Team", "Sales Team"],
+            "dependencies": ["Market analysis"],
+            "implications": ["Revenue projections", "Customer perception"],
             "quoted_text": "The premium tier will be priced at $49/month (not $59 as originally proposed).",
             "confidence": 0.9,
             "reasoning": "Clear decision with comparison to previous proposal",
@@ -398,13 +387,8 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Engineering Team",
-              "DevOps Team"
-            ],
-            "dependencies": [
-              "AWS setup and configuration"
-            ],
+            "stakeholders": ["Engineering Team", "DevOps Team"],
+            "dependencies": ["AWS setup and configuration"],
             "implications": [
               "Infrastructure changes",
               "Potential cost differences"
@@ -423,16 +407,9 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Mike Torres",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Design completion"
-            ],
-            "implications": [
-              "Product development timeline"
-            ],
+            "stakeholders": ["Mike Torres", "Product Team"],
+            "dependencies": ["Design completion"],
+            "implications": ["Product development timeline"],
             "quoted_text": "@Mike: I need the final UI mockups by this Friday (Jan 24th).",
             "confidence": 0.85,
             "reasoning": "Clear commitment assigned to team member",
@@ -447,16 +424,9 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Jennifer",
-              "Marketing Team"
-            ],
-            "dependencies": [
-              "Content creation"
-            ],
-            "implications": [
-              "Marketing readiness"
-            ],
+            "stakeholders": ["Jennifer", "Marketing Team"],
+            "dependencies": ["Content creation"],
+            "implications": ["Marketing readiness"],
             "quoted_text": "@Jennifer: Please have the marketing copy ready by January 31st.",
             "confidence": 0.85,
             "reasoning": "Clear commitment assigned to team member",
@@ -471,16 +441,9 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Sarah Chen",
-              "Security Team"
-            ],
-            "dependencies": [
-              "Security audit completion"
-            ],
-            "implications": [
-              "Security readiness"
-            ],
+            "stakeholders": ["Sarah Chen", "Security Team"],
+            "dependencies": ["Security audit completion"],
+            "implications": ["Security readiness"],
             "quoted_text": "I'll personally review all security audit findings by next Wednesday.",
             "confidence": 0.85,
             "reasoning": "Clear commitment made by decision maker",
@@ -495,16 +458,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Engineering Team",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Development resources"
-            ],
-            "implications": [
-              "Technical readiness for launch"
-            ],
+            "stakeholders": ["Engineering Team", "Product Team"],
+            "dependencies": ["Development resources"],
+            "implications": ["Technical readiness for launch"],
             "quoted_text": "The engineering team has committed to completing the API v2 migration by February 10th.",
             "confidence": 0.8,
             "reasoning": "Commitment made by team",
@@ -519,16 +475,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Customer Success Team",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Resource allocation"
-            ],
-            "implications": [
-              "Customer experience during launch"
-            ],
+            "stakeholders": ["Customer Success Team", "Product Team"],
+            "dependencies": ["Resource allocation"],
+            "implications": ["Customer experience during launch"],
             "quoted_text": "Who will handle the customer migration communication?",
             "confidence": 0.9,
             "reasoning": "Listed as open question",
@@ -543,16 +492,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Legal Team",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Legal assessment"
-            ],
-            "implications": [
-              "Compliance and risk management"
-            ],
+            "stakeholders": ["Legal Team", "Product Team"],
+            "dependencies": ["Legal assessment"],
+            "implications": ["Compliance and risk management"],
             "quoted_text": "Do we need legal review for the new terms of service?",
             "confidence": 0.9,
             "reasoning": "Listed as open question",
@@ -567,16 +509,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Engineering Team",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Risk assessment"
-            ],
-            "implications": [
-              "Mitigating launch risks"
-            ],
+            "stakeholders": ["Engineering Team", "Product Team"],
+            "dependencies": ["Risk assessment"],
+            "implications": ["Mitigating launch risks"],
             "quoted_text": "What's our rollback plan if the launch fails?",
             "confidence": 0.9,
             "reasoning": "Listed as open question",
@@ -591,17 +526,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "David",
-              "Finance Team",
-              "Product Team"
-            ],
-            "dependencies": [
-              "Financial analysis"
-            ],
-            "implications": [
-              "Financial planning and resource allocation"
-            ],
+            "stakeholders": ["David", "Finance Team", "Product Team"],
+            "dependencies": ["Financial analysis"],
+            "implications": ["Financial planning and resource allocation"],
             "quoted_text": "@David - I noticed you mentioned budget concerns in the last meeting. Can you send me the revised budget projections by EOD Monday?",
             "confidence": 0.85,
             "reasoning": "Clear request made to team member",
@@ -1089,16 +1016,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Finance",
-              "Department Heads"
-            ],
-            "dependencies": [
-              "Q4 budget requests from VPs"
-            ],
-            "implications": [
-              "Financial planning for Q4"
-            ],
+            "stakeholders": ["Finance", "Department Heads"],
+            "dependencies": ["Q4 budget requests from VPs"],
+            "implications": ["Financial planning for Q4"],
             "quoted_text": "DECISIONS TO BE MADE:\n- Approval of Q4 discretionary spending",
             "confidence": 0.95,
             "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
@@ -1113,19 +1033,12 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "HR",
-              "Finance",
-              "Department Heads"
-            ],
+            "stakeholders": ["HR", "Finance", "Department Heads"],
             "dependencies": [
               "Current headcount status",
               "Financial projections"
             ],
-            "implications": [
-              "Hiring plans",
-              "Budget allocation"
-            ],
+            "implications": ["Hiring plans", "Budget allocation"],
             "quoted_text": "DECISIONS TO BE MADE:\n- Headcount freeze extension decision",
             "confidence": 0.95,
             "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
@@ -1140,18 +1053,12 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Marketing",
-              "Finance"
-            ],
+            "stakeholders": ["Marketing", "Finance"],
             "dependencies": [
               "Current marketing budget status",
               "Q4 marketing plans"
             ],
-            "implications": [
-              "Marketing strategy",
-              "Budget allocation"
-            ],
+            "implications": ["Marketing strategy", "Budget allocation"],
             "quoted_text": "DECISIONS TO BE MADE:\n- Marketing budget reallocation",
             "confidence": 0.95,
             "reasoning": "Listed under 'DECISIONS TO BE MADE' in the meeting agenda",
@@ -1166,13 +1073,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "All attendees"
-            ],
+            "stakeholders": ["All attendees"],
             "dependencies": [],
-            "implications": [
-              "Updated meeting schedule"
-            ],
+            "implications": ["Updated meeting schedule"],
             "quoted_text": "Note: This meeting has been rescheduled from January 29th due to conflicts.",
             "confidence": 0.9,
             "reasoning": "Meeting reschedule notice in the event description",
@@ -1187,13 +1090,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "All attendees"
-            ],
+            "stakeholders": ["All attendees"],
             "dependencies": [],
-            "implications": [
-              "Meeting preparation"
-            ],
+            "implications": ["Meeting preparation"],
             "quoted_text": "Please confirm attendance by January 30th.",
             "confidence": 0.85,
             "reasoning": "Explicit request in the event description",
@@ -1208,13 +1107,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "All VPs"
-            ],
+            "stakeholders": ["All VPs"],
             "dependencies": [],
-            "implications": [
-              "Q4 budget planning"
-            ],
+            "implications": ["Q4 budget planning"],
             "quoted_text": "PREP REQUIRED:\n- All VPs must submit their Q4 budget requests by February 3rd",
             "confidence": 0.9,
             "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
@@ -1229,13 +1124,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Finance"
-            ],
+            "stakeholders": ["Finance"],
             "dependencies": [],
-            "implications": [
-              "Q3 financial reporting"
-            ],
+            "implications": ["Q3 financial reporting"],
             "quoted_text": "PREP REQUIRED:\n- Tom needs to finalize Q3 close by February 4th",
             "confidence": 0.9,
             "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
@@ -1250,13 +1141,9 @@
             "decision_maker_email": "sarah.chen@techcorp.com",
             "decision_maker_is_user": true,
             "status": "pending",
-            "stakeholders": [
-              "Product team"
-            ],
+            "stakeholders": ["Product team"],
             "dependencies": [],
-            "implications": [
-              "Product planning"
-            ],
+            "implications": ["Product planning"],
             "quoted_text": "PREP REQUIRED:\n- Sarah to bring revised product roadmap with cost estimates",
             "confidence": 0.9,
             "reasoning": "Listed under 'PREP REQUIRED' in the meeting agenda",
@@ -1710,15 +1597,8 @@
             "decision_maker_email": "alex.kumar@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Engineering",
-              "DevOps",
-              "Customer Success"
-            ],
-            "dependencies": [
-              "v2.3.3 availability",
-              "Rollback capability"
-            ],
+            "stakeholders": ["Engineering", "DevOps", "Customer Success"],
+            "dependencies": ["v2.3.3 availability", "Rollback capability"],
             "implications": [
               "Service restoration",
               "Postmortem required",
@@ -1738,16 +1618,9 @@
             "decision_maker_email": "alex.kumar@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Engineering"
-            ],
-            "dependencies": [
-              "Incident details"
-            ],
-            "implications": [
-              "Identify root cause",
-              "Document lessons learned"
-            ],
+            "stakeholders": ["Engineering"],
+            "dependencies": ["Incident details"],
+            "implications": ["Identify root cause", "Document lessons learned"],
             "quoted_text": "I'll prepare a postmortem doc.",
             "confidence": 0.9,
             "reasoning": "Task assigned during incident response",
@@ -1762,13 +1635,8 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Engineering",
-              "DevOps"
-            ],
-            "dependencies": [
-              "Monitoring implementation"
-            ],
+            "stakeholders": ["Engineering", "DevOps"],
+            "dependencies": ["Monitoring implementation"],
             "implications": [
               "Improved incident detection",
               "Better performance visibility"
@@ -1787,13 +1655,8 @@
             "decision_maker_email": "alex.kumar@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Engineering",
-              "DevOps"
-            ],
-            "dependencies": [
-              "Availability of team members"
-            ],
+            "stakeholders": ["Engineering", "DevOps"],
+            "dependencies": ["Availability of team members"],
             "implications": [
               "Discussion of incident summary",
               "Planning follow-up actions"
@@ -1812,17 +1675,9 @@
             "decision_maker_email": "alex.kumar@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Customer Success",
-              "Customers"
-            ],
-            "dependencies": [
-              "Incident summary"
-            ],
-            "implications": [
-              "Customer communication",
-              "Transparency"
-            ],
+            "stakeholders": ["Customer Success", "Customers"],
+            "dependencies": ["Incident summary"],
+            "implications": ["Customer communication", "Transparency"],
             "quoted_text": "Please make sure the customer success team is notified about the 10-minute outage.",
             "confidence": 0.9,
             "reasoning": "Task assigned during incident response",
@@ -2197,16 +2052,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "TechCorp",
-              "Acme Inc"
-            ],
-            "dependencies": [
-              "Acme Inc confirmation of terms"
-            ],
-            "implications": [
-              "Finalization of contract by January 31st"
-            ],
+            "stakeholders": ["TechCorp", "Acme Inc"],
+            "dependencies": ["Acme Inc confirmation of terms"],
+            "implications": ["Finalization of contract by January 31st"],
             "quoted_text": "After careful review of your counter-proposal, we are prepared to accept the following terms",
             "confidence": 0.95,
             "reasoning": null,
@@ -2221,10 +2069,7 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "TechCorp Finance",
-              "Acme Inc Procurement"
-            ],
+            "stakeholders": ["TechCorp Finance", "Acme Inc Procurement"],
             "dependencies": [
               "3-year commitment",
               "NET 30 payment terms",
@@ -2247,16 +2092,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "TechCorp Operations",
-              "Acme Inc Technical Team"
-            ],
-            "dependencies": [
-              "Infrastructure capacity"
-            ],
-            "implications": [
-              "Service credits for non-compliance"
-            ],
+            "stakeholders": ["TechCorp Operations", "Acme Inc Technical Team"],
+            "dependencies": ["Infrastructure capacity"],
+            "implications": ["Service credits for non-compliance"],
             "quoted_text": "We commit to 99.9% uptime (excluding scheduled maintenance windows)",
             "confidence": 0.85,
             "reasoning": null,
@@ -2271,16 +2109,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "TechCorp Support",
-              "Acme Inc Technical Team"
-            ],
-            "dependencies": [
-              "Resource allocation for support"
-            ],
-            "implications": [
-              "Improved support response times"
-            ],
+            "stakeholders": ["TechCorp Support", "Acme Inc Technical Team"],
+            "dependencies": ["Resource allocation for support"],
+            "implications": ["Improved support response times"],
             "quoted_text": "Enterprise support with 4-hour response time for P1 issues",
             "confidence": 0.85,
             "reasoning": null,
@@ -2295,16 +2126,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "TechCorp Security",
-              "Acme Inc Compliance"
-            ],
-            "dependencies": [
-              "SOC2 Type II certification process"
-            ],
-            "implications": [
-              "Data management and compliance requirements"
-            ],
+            "stakeholders": ["TechCorp Security", "Acme Inc Compliance"],
+            "dependencies": ["SOC2 Type II certification process"],
+            "implications": ["Data management and compliance requirements"],
             "quoted_text": "All data will be stored in US-East region unless otherwise requested",
             "confidence": 0.85,
             "reasoning": null,
@@ -2319,16 +2143,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "Acme Inc Legal",
-              "Acme Inc Procurement"
-            ],
-            "dependencies": [
-              "Timely response from Acme Inc"
-            ],
-            "implications": [
-              "Delay in agreement finalization if not received"
-            ],
+            "stakeholders": ["Acme Inc Legal", "Acme Inc Procurement"],
+            "dependencies": ["Timely response from Acme Inc"],
+            "implications": ["Delay in agreement finalization if not received"],
             "quoted_text": "OUTSTANDING ITEMS REQUIRING YOUR INPUT",
             "confidence": 0.9,
             "reasoning": null,
@@ -2343,16 +2160,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "pending",
-            "stakeholders": [
-              "TechCorp Legal",
-              "Acme Inc Procurement"
-            ],
-            "dependencies": [
-              "Receipt of outstanding information"
-            ],
-            "implications": [
-              "Potential delay if not met"
-            ],
+            "stakeholders": ["TechCorp Legal", "Acme Inc Procurement"],
+            "dependencies": ["Receipt of outstanding information"],
+            "implications": ["Potential delay if not met"],
             "quoted_text": "We would like to finalize this agreement by January 31st",
             "confidence": 0.85,
             "reasoning": null,
@@ -2821,17 +2631,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Client",
-              "Project Alpha Group"
-            ],
-            "dependencies": [
-              "Demo environment readiness"
-            ],
-            "implications": [
-              "Client expectations",
-              "Demo preparation"
-            ],
+            "stakeholders": ["Client", "Project Alpha Group"],
+            "dependencies": ["Demo environment readiness"],
+            "implications": ["Client expectations", "Demo preparation"],
             "quoted_text": "the client demo is confirmed for thursday 2pm",
             "confidence": 0.9,
             "reasoning": "Explicit confirmation of demo time",
@@ -2846,14 +2648,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Project Alpha Group",
-              "Client"
-            ],
+            "stakeholders": ["Project Alpha Group", "Client"],
             "dependencies": [],
-            "implications": [
-              "Successful demo"
-            ],
+            "implications": ["Successful demo"],
             "quoted_text": "should be done by tomorrow night",
             "confidence": 0.85,
             "reasoning": "Commitment to have environment ready",
@@ -2868,13 +2665,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Project Alpha Group"
-            ],
+            "stakeholders": ["Project Alpha Group"],
             "dependencies": [],
-            "implications": [
-              "Demo readiness"
-            ],
+            "implications": ["Demo readiness"],
             "quoted_text": "yep will do it first thing tomorrow morning",
             "confidence": 0.9,
             "reasoning": "Explicit agreement to load test data",
@@ -2889,14 +2682,9 @@
             "decision_maker_email": "sarah@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "Project Alpha Group",
-              "Sarah"
-            ],
+            "stakeholders": ["Project Alpha Group", "Sarah"],
             "dependencies": [],
-            "implications": [
-              "Investor presentation readiness"
-            ],
+            "implications": ["Investor presentation readiness"],
             "quoted_text": "i need everyones slides by wednesday EOD",
             "confidence": 0.95,
             "reasoning": "Clear instruction given by team lead",
@@ -2911,14 +2699,9 @@
             "decision_maker_email": "sarah@company.com",
             "decision_maker_is_user": true,
             "status": "made",
-            "stakeholders": [
-              "James",
-              "Sarah"
-            ],
+            "stakeholders": ["James", "Sarah"],
             "dependencies": [],
-            "implications": [
-              "Timely review of slides"
-            ],
+            "implications": ["Timely review of slides"],
             "quoted_text": "can u aim for wednesday morning so i have time to review",
             "confidence": 0.9,
             "reasoning": "Request made to facilitate review process",
@@ -2933,14 +2716,9 @@
             "decision_maker_email": null,
             "decision_maker_is_user": false,
             "status": "made",
-            "stakeholders": [
-              "Project Alpha Group",
-              "Client"
-            ],
+            "stakeholders": ["Project Alpha Group", "Client"],
             "dependencies": [],
-            "implications": [
-              "Improved demo quality"
-            ],
+            "implications": ["Improved demo quality"],
             "quoted_text": "yeah ill prioritize it. will be done by lunch",
             "confidence": 0.9,
             "reasoning": "Commitment to fix the bug",
