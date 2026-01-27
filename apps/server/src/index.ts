@@ -365,6 +365,3 @@ Bun.serve({
 });
 
 log.info(`Server listening on port ${port}`);
-
-// Also export the app for testing
-export default app;

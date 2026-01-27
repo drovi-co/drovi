@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "next dev --port=4001",
     "build": "next build",
-    "start": "next start",
-    "check-types": "tsc --noEmit"
+    "start": "npx serve out",
+    "check-types": "tsc --noEmit",
+    "preview": "wrangler pages dev out",
+    "deploy": "wrangler pages deploy out",
+    "deploy:staging": "wrangler pages deploy out --project-name drovi-landing-staging",
+    "deploy:production": "wrangler pages deploy out --project-name drovi-landing"
   },
   "dependencies": {
     "@memorystack/api": "workspace:*",
@@ -30,6 +34,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@memorystack/config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^24.10.2",
@@ -37,6 +42,7 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "wrangler": "^4.61.0"
   }
 }

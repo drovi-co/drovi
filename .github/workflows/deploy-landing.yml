@@ -1,0 +1,86 @@
+name: Deploy Landing
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+    paths:
+      - 'apps/landing/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-landing.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Landing to Cloudflare Pages
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            if [ "$ENV" == "production" ]; then
+              echo "project_name=drovi-landing" >> $GITHUB_OUTPUT
+              echo "server_url=https://api.drovi.co" >> $GITHUB_OUTPUT
+              echo "app_url=https://app.drovi.co" >> $GITHUB_OUTPUT
+            elif [ "$ENV" == "staging" ]; then
+              echo "project_name=drovi-landing-staging" >> $GITHUB_OUTPUT
+              echo "server_url=https://api-staging.drovi.co" >> $GITHUB_OUTPUT
+              echo "app_url=https://app-staging.drovi.co" >> $GITHUB_OUTPUT
+            else
+              echo "project_name=drovi-landing-dev" >> $GITHUB_OUTPUT
+              echo "server_url=https://api-dev.drovi.co" >> $GITHUB_OUTPUT
+              echo "app_url=https://app-dev.drovi.co" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "project_name=drovi-landing" >> $GITHUB_OUTPUT
+            echo "server_url=https://api.drovi.co" >> $GITHUB_OUTPUT
+            echo "app_url=https://app.drovi.co" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+            echo "project_name=drovi-landing-staging" >> $GITHUB_OUTPUT
+            echo "server_url=https://api-staging.drovi.co" >> $GITHUB_OUTPUT
+            echo "app_url=https://app-staging.drovi.co" >> $GITHUB_OUTPUT
+          else
+            echo "project_name=drovi-landing-dev" >> $GITHUB_OUTPUT
+            echo "server_url=https://api-dev.drovi.co" >> $GITHUB_OUTPUT
+            echo "app_url=https://app-dev.drovi.co" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Landing Page
+        run: bun run build
+        working-directory: apps/landing
+        env:
+          NEXT_PUBLIC_SERVER_URL: ${{ steps.env.outputs.server_url }}
+          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/landing/out --project-name=${{ steps.env.outputs.project_name }} --commit-dirty=true
