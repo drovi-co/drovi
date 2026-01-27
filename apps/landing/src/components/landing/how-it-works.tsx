@@ -2,7 +2,14 @@
 
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { Database, Inbox, Link2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Blocks,
+  Database,
+  FileInput,
+  GitMerge,
+  Share2,
+} from "lucide-react";
 
 interface Step {
   icon: LucideIcon;
@@ -13,25 +20,46 @@ interface Step {
 
 const steps: Step[] = [
   {
-    icon: Link2,
+    icon: FileInput,
     number: "01",
-    title: "Connect Your Sources",
+    title: "Ingest",
     description:
-      "Securely connect email, chat, docs, meetings, and CRM. Drovi backfills history and stays continuously synced — across internal teams and customer conversations.",
+      "Connect email, chat, docs, meetings, and CRM. Drovi ingests everything — historical and real-time — into a unified data layer.",
+  },
+  {
+    icon: ArrowRightLeft,
+    number: "02",
+    title: "Normalize",
+    description:
+      "Messages, threads, files, and events are standardized into a common schema. Every source speaks the same language.",
+  },
+  {
+    icon: Blocks,
+    number: "03",
+    title: "Extract",
+    description:
+      "AI extracts structured intelligence: decisions, commitments, ownership, deadlines, risks, and relationships.",
+  },
+  {
+    icon: GitMerge,
+    number: "04",
+    title: "Resolve",
+    description:
+      "Entities are unified across sources. The same person, project, or commitment is recognized everywhere it appears.",
   },
   {
     icon: Database,
-    number: "02",
-    title: "Drovi Builds Your Memory",
+    number: "05",
+    title: "Persist",
     description:
-      "Decisions, commitments, owners, deadlines, and context are extracted automatically — then kept up to date as work evolves over time.",
+      "Memory is stored in a graph with full provenance. Every fact links back to its source, and history is preserved.",
   },
   {
-    icon: Inbox,
-    number: "03",
-    title: "Operate From One System of Record",
+    icon: Share2,
+    number: "06",
+    title: "Expose",
     description:
-      "One place to see what was decided, promised, and assigned. Every commitment becomes traceable, with context attached and history preserved.",
+      "Query via API, UI, or agent-ready interfaces. Humans and systems access the same truth.",
   },
 ];
 
@@ -59,13 +87,13 @@ export function HowItWorks() {
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 md:mb-6 md:gap-3 md:px-5 md:py-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 md:h-2 md:w-2" />
             <span className="font-medium text-amber-400 text-xs tracking-wide md:text-sm">
-              HOW IT WORKS
+              HOW THE MEMORY LAYER WORKS
             </span>
           </div>
           <h2 className="mb-6 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground">Connect once.</span>
+            <span className="text-foreground">From raw data</span>
             <br />
-            <span className="text-foreground/40">Memory stays current.</span>
+            <span className="text-foreground/40">to queryable truth.</span>
           </h2>
         </motion.div>
 

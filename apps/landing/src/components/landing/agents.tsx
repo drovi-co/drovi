@@ -24,49 +24,49 @@ const agents: Agent[] = [
     icon: MessageSquare,
     name: "Conversations",
     description:
-      "Remembers threads and messages across email, chat, docs, and meetings — internal and external.",
+      "Normalized threads and messages across email, chat, docs, and meetings — unified in one schema.",
   },
   {
     icon: Handshake,
     name: "Commitments",
     description:
-      "Tracks every promise, request, and follow-up with owner, status, due date, and full context.",
+      "Structured objects with owner, status, due date, and full provenance chain.",
   },
   {
     icon: Scale,
     name: "Decisions",
     description:
-      "Captures what was decided, why, and what replaced it — linked back to original sources.",
+      "What was decided, why, and what replaced it — linked to source evidence.",
   },
   {
     icon: Users,
-    name: "Relationships",
+    name: "Entities",
     description:
-      "Builds dossiers for contacts and customers, surfacing history and open loops before every meeting.",
+      "Resolved people, companies, and projects — unified across all sources.",
   },
   {
     icon: Search,
-    name: "Ask Drovi",
+    name: "Query Interface",
     description:
-      "Ask questions in plain language. Get answers grounded in what actually happened — with provenance.",
+      "Natural language and structured queries. Answers grounded in evidence with citations.",
   },
   {
     icon: Target,
     name: "Ownership",
     description:
-      "Knows who owns what, who promised what, and where work is stuck or waiting.",
+      "Who owns what, who promised what, and where work is blocked or waiting.",
   },
   {
     icon: FileSearch,
-    name: "Context",
+    name: "Provenance",
     description:
-      "Surfaces relevant history when you need it — drafts, decisions, and prior agreements.",
+      "Every fact links to its source. Full audit trail for compliance and trust.",
   },
   {
     icon: Shield,
     name: "Risks",
     description:
-      "Flags contradictions, dropped commitments, and policy risks before they become problems.",
+      "Contradictions, dropped commitments, and policy violations — surfaced automatically.",
   },
 ];
 
@@ -97,16 +97,18 @@ export function Agents() {
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500 md:h-2 md:w-2" />
             </span>
             <span className="font-medium text-amber-400 text-xs tracking-wide md:text-sm">
-              HOW MEMORY WORKS
+              WHAT LIVES IN MEMORY
             </span>
           </div>
           <h2 className="mb-4 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:mb-6 md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground">What Drovi Remembers</span>
+            <span className="text-foreground">Structured intelligence,</span>
+            <br />
+            <span className="text-foreground/40">not raw data.</span>
           </h2>
           <p className="mx-auto max-w-2xl text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-            Drovi doesn't just store information. It remembers how work unfolds
-            over time — what was decided, promised, and assigned — and keeps it
-            consistent across every conversation.
+            The memory layer doesn't just store information. It extracts,
+            resolves, and persists structured knowledge — ready for humans and
+            agents to query.
           </p>
         </motion.div>
 

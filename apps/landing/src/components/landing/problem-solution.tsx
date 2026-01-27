@@ -4,19 +4,17 @@ import { motion } from "framer-motion";
 import { CheckCircle2, X } from "lucide-react";
 
 const problems = [
-  "Decisions live in scattered threads, never connected",
-  "Commitments get made — then forgotten",
-  "Work spans internal teams and customers with no single view",
-  "The same discussions repeat because no one remembers",
-  "Work happens. Memory doesn't.",
+  "Decisions scattered across tools, never connected",
+  "Commitments made and forgotten",
+  "No single view across teams and customers",
+  "Same discussions repeat endlessly",
 ];
 
 const solutions = [
-  "Connects to email, chat, docs, meetings, and CRM",
-  "Extracts what matters: decisions, commitments, risks, ownership",
-  "Spans internal and external conversations automatically",
-  "One place to see what was decided, promised, and assigned",
-  "Keeps everything consistent, traceable, and up to date",
+  "A shared memory layer that ingests every source",
+  "Extracts decisions, commitments, ownership, and risks",
+  "Resolves entities and relationships across boundaries",
+  "Exposes via API, UI, and agent-ready interfaces",
 ];
 
 export function ProblemSolution() {

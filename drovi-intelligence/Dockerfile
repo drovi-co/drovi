@@ -8,11 +8,11 @@ WORKDIR /app
 # Install UV
 RUN pip install uv
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and README
+COPY pyproject.toml README.md ./
 
 # Create virtual environment and install dependencies
-RUN uv venv && uv pip install -e .
+RUN uv venv && uv pip install .
 
 # Production image
 FROM python:3.12-slim

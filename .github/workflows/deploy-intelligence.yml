@@ -1,0 +1,69 @@
+name: Deploy Intelligence Backend
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+    paths:
+      - 'drovi-intelligence/**'
+      - '.github/workflows/deploy-intelligence.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Intelligence to Railway
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            if [ "$ENV" == "production" ]; then
+              echo "environment=production" >> $GITHUB_OUTPUT
+              echo "service_name=drovi-intelligence" >> $GITHUB_OUTPUT
+            elif [ "$ENV" == "staging" ]; then
+              echo "environment=staging" >> $GITHUB_OUTPUT
+              echo "service_name=drovi-intelligence-staging" >> $GITHUB_OUTPUT
+            else
+              echo "environment=development" >> $GITHUB_OUTPUT
+              echo "service_name=drovi-intelligence-dev" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "service_name=drovi-intelligence" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "service_name=drovi-intelligence-staging" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "service_name=drovi-intelligence-dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd drovi-intelligence
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway environment ${{ steps.env.outputs.environment }}
+          railway up --service ${{ steps.env.outputs.service_name }} --detach

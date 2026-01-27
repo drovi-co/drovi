@@ -33,15 +33,15 @@ export function CTA({ onRequestAccess }: CTAProps) {
         >
           {/* Headline */}
           <h2 className="mb-6 font-normal text-[32px] text-foreground leading-[1.1] tracking-[-1.5px] md:mb-8 md:text-[48px] md:tracking-[-2.4px] lg:text-[64px]">
-            Give your company
+            Give your organization
             <br />
-            <span className="text-foreground/40">the memory it deserves</span>
+            <span className="text-foreground/40">a memory layer</span>
           </h2>
 
           {/* Subheadline */}
           <p className="mx-auto mb-8 max-w-xl text-[15px] text-foreground/60 leading-relaxed md:mb-12 md:text-[18px]">
-            Connect your tools. Let Drovi remember what was decided, promised,
-            and still owes — across internal teams and customer conversations.
+            A shared, queryable intelligence layer that humans, agents, and
+            systems rely on to know what's true.
           </p>
 
           {/* CTA Button */}
@@ -80,7 +80,7 @@ export function CTA({ onRequestAccess }: CTAProps) {
 
           {/* Trust text */}
           <p className="mt-6 text-[12px] text-foreground/40 md:mt-8 md:text-[14px]">
-            No credit card required • Private beta • Cancel anytime
+            7-day trial • No credit card required • Private beta
           </p>
         </motion.div>
       </div>

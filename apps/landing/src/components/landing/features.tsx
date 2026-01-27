@@ -14,44 +14,44 @@ interface Feature {
 const features: Feature[] = [
   {
     icon: Layers,
-    title: "One System of Record",
+    title: "Universal Connectors",
     description:
-      "Connects to email, chat, docs, meetings, and CRM. One place to see what was decided, promised, and assigned — across internal teams and customers.",
+      "Ingest from email, chat, docs, meetings, CRM, and custom sources. One ingestion layer for all your data.",
     size: "large",
   },
   {
     icon: Handshake,
-    title: "Trackable Commitments",
+    title: "Entity Resolution",
     description:
-      "Every promise and request becomes an object with owner, status, due date, and the full context of how it was made.",
+      "Unified identities across sources. The same person, project, or commitment is recognized everywhere.",
     size: "normal",
   },
   {
     icon: Network,
-    title: "Decision History",
+    title: "Knowledge Graph",
     description:
-      "Stop re-litigating. Track what was decided, why, and what replaced it — linked back to the original conversation.",
+      "Relationships, decisions, and commitments stored in a queryable graph with full provenance.",
     size: "normal",
   },
   {
     icon: Brain,
-    title: "Ask Drovi",
+    title: "Agent-Ready APIs",
     description:
-      '"What did we decide about X?", "Who owns this?", "What are we still waiting on?" — answers grounded in what actually happened.',
+      "Structured endpoints for AI agents to read and write memory. Your agents operate on the same truth.",
     size: "large",
   },
   {
     icon: Clock,
-    title: "History Backfill",
+    title: "Historical Backfill",
     description:
-      "Import history across tools so your memory starts on day one — not after weeks of usage.",
+      "Import years of history. Memory starts from day one, not after weeks of usage.",
     size: "normal",
   },
   {
     icon: Gauge,
-    title: "Drift Detection",
+    title: "Real-Time Sync",
     description:
-      "See where commitments pile up, where decisions stall, and where execution drifts — before it becomes a crisis.",
+      "Continuous ingestion keeps memory current. Changes propagate in seconds, not hours.",
     size: "normal",
   },
 ];
@@ -79,17 +79,17 @@ export function Features() {
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 md:mb-6 md:gap-3 md:px-5 md:py-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 md:h-2 md:w-2" />
             <span className="font-medium text-amber-400 text-xs tracking-wide md:text-sm">
-              FEATURES
+              INFRASTRUCTURE CAPABILITIES
             </span>
           </div>
           <h2 className="mb-4 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:mb-6 md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground/40">Docs store text.</span>
+            <span className="text-foreground">Built for scale.</span>
             <br />
-            <span className="text-foreground">Drovi stores memory.</span>
+            <span className="text-foreground/40">Ready for agents.</span>
           </h2>
           <p className="mx-auto max-w-2xl text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-            CRMs store records. Task tools store lists. Drovi remembers how work
-            unfolds — what was decided, promised, and still owes.
+            The memory layer is infrastructure — not an app. Designed to serve
+            humans, agents, and systems at enterprise scale.
           </p>
         </motion.div>
 

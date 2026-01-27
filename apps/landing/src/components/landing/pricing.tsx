@@ -18,33 +18,19 @@ interface Plan {
 const plans: Plan[] = [
   {
     name: "Pro",
-    description: "For individuals who need to remember everything",
+    description: "Full memory infrastructure for growing teams",
     price: "$29",
     popular: true,
     cta: "Request Access",
     features: [
-      "Connect email, chat, docs, meetings, and CRM",
-      "Decisions and commitments tracked automatically",
-      "Ask Drovi — answers grounded in what happened",
-      "History backfill from day one",
-      "Analytics and drift detection",
-      "Email & chat support",
-      "API access",
-    ],
-  },
-  {
-    name: "Business",
-    description: "For teams that need shared organizational memory",
-    price: "$49",
-    cta: "Request Access",
-    features: [
-      "Everything in Pro",
-      "Shared workspace with ownership and permissions",
-      "Spans internal teams and customer conversations",
-      "Advanced analytics & reporting",
+      "Unlimited source connections",
+      "Full intelligence extraction",
+      "Commitment and decision tracking",
+      "Entity resolution across sources",
+      "Natural language queries",
+      "API access for agents",
+      "Historical backfill",
       "Priority support",
-      "Admin controls",
-      "SSO (coming soon)",
     ],
   },
   {
@@ -53,8 +39,9 @@ const plans: Plan[] = [
     price: "Custom",
     cta: "Book a Call",
     features: [
-      "Everything in Business",
+      "Everything in Pro",
       "Unlimited team members",
+      "SSO/SAML integration",
       "Dedicated account manager",
       "Audit logs & security reviews",
       "Data residency options",
@@ -98,13 +85,13 @@ export function Pricing({ onRequestAccess }: PricingProps) {
             </span>
           </div>
           <h2 className="mb-4 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:mb-6 md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground">Memory that scales</span>
+            <span className="text-foreground">Infrastructure pricing</span>
             <br />
-            <span className="text-foreground/40">with your work</span>
+            <span className="text-foreground/40">that scales with you</span>
           </h2>
           <p className="mx-auto max-w-xl text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-            Start with your own memory. Scale to shared organizational memory
-            when your team needs it.
+            Per-seat pricing for teams of any size. Enterprise options for
+            security, compliance, and custom deployments.
           </p>
         </motion.div>
 
@@ -164,7 +151,7 @@ export function Pricing({ onRequestAccess }: PricingProps) {
                     </span>
                     {plan.price !== "Custom" && (
                       <span className="ml-1 text-[14px] text-foreground/40 md:text-[16px]">
-                        /month
+                        /user/month
                       </span>
                     )}
                   </div>

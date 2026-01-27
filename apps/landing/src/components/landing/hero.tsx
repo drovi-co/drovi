@@ -41,10 +41,9 @@ export function Hero({ onRequestAccess, onWatchDemo }: HeroProps) {
 
             {/* Subheadline */}
             <p className="max-w-[574px] font-normal text-[16px] text-[rgba(255,255,255,0.8)] leading-[1.5] tracking-[-0.5px] md:text-[18px] md:tracking-[-0.72px]">
-              Drovi remembers what your company decided, promised, and still
-              owes — everywhere it was said. A living system of record for
-              decisions, commitments, and relationships across internal teams
-              and customer conversations.
+              A shared, queryable intelligence layer that humans, agents, and
+              systems rely on to know what's true. What was decided. What was
+              promised. What's still owed.
             </p>
           </div>
 
