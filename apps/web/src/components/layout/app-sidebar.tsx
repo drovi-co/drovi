@@ -17,12 +17,16 @@ import {
 } from "lucide-react";
 
 import { NotificationCenter } from "@/components/notifications/notification-center";
+import { TeamPresencePanel } from "@/components/collaboration/team-presence-panel";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
+  SidebarSeparator,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
@@ -180,6 +184,15 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
         <NavMain items={sourcesNavItems} label="Sources" />
         <NavMain items={teamNavItems} label="Management" />
         {showAdmin && <NavMain items={adminNavItems} label="Administration" />}
+
+        {/* Team Presence Section */}
+        <SidebarSeparator className="my-2" />
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs text-muted-foreground">
+            Team
+          </SidebarGroupLabel>
+          <TeamPresencePanel />
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

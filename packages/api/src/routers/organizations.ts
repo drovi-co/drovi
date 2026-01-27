@@ -6,7 +6,7 @@
 //
 
 import { db } from "@memorystack/db";
-import { member } from "@memorystack/db/schema";
+import { member, team } from "@memorystack/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
@@ -64,6 +64,40 @@ export const organizationsRouter = router({
                 image: m.user.image,
               }
             : null,
+        })),
+      };
+    }),
+
+  /**
+   * Get teams in an organization.
+   * Used for @team mention dropdowns.
+   */
+  getTeams: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { organizationId } = input;
+
+      // Fetch all teams
+      const teams = await db.query.team.findMany({
+        where: eq(team.organizationId, organizationId),
+        columns: {
+          id: true,
+          name: true,
+          description: true,
+          createdAt: true,
+        },
+      });
+
+      return {
+        teams: teams.map((t) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          createdAt: t.createdAt,
         })),
       };
     }),

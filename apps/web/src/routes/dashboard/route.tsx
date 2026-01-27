@@ -8,6 +8,7 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import {
+  Bell,
   Calendar,
   CheckCircle2,
   Filter,
@@ -17,9 +18,10 @@ import {
   Plus,
   Star,
 } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { UpgradeModal } from "@/components/billing/upgrade-modal";
+import { PresenceProvider, ActivitySidebar } from "@/components/collaboration";
 import { useCommandBar } from "@/components/email/command-bar";
 import type {
   ActionButton,
@@ -27,7 +29,7 @@ import type {
   HeaderTab,
 } from "@/components/layout/interactive-header";
 import { AppShell } from "@/components/layout/app-shell";
-import { authClient, useSession } from "@/lib/auth-client";
+import { authClient, useSession, useActiveOrganization } from "@/lib/auth-client";
 import { useTRPC } from "@/utils/trpc";
 
 // Invite code storage helpers (imported from login page)
@@ -247,8 +249,17 @@ function getHeaderConfig(
     onCompose?: () => void;
     onTabChange?: (tabId: string) => void;
     onSourceFilter?: (value: string) => void;
+    onActivityToggle?: () => void;
   }
 ): RouteHeaderConfig {
+  // Common action for activity feed (available on all dashboard pages)
+  const activityAction: ActionButton = {
+    id: "activity",
+    label: "Activity",
+    icon: Bell,
+    onClick: handlers.onActivityToggle,
+  };
+
   // Smart Inbox page - Conversation-centric tabs
   if (pathname === "/dashboard/inbox") {
     return {
@@ -272,6 +283,7 @@ function getHeaderConfig(
           onSelect: handlers.onSourceFilter,
         },
       ],
+      actions: [activityAction],
       primaryAction: {
         id: "compose",
         label: "Compose",
@@ -281,8 +293,10 @@ function getHeaderConfig(
     };
   }
 
-  // Default - no special header configuration
-  return {};
+  // Default - just the activity action
+  return {
+    actions: [activityAction],
+  };
 }
 
 function DashboardLayout() {
@@ -295,8 +309,15 @@ function DashboardLayout() {
   const breadcrumbs = getBreadcrumbs(location.pathname);
   const trpc = useTRPC();
   const { data: session } = useSession();
+  const { data: activeOrg } = useActiveOrganization();
   const inviteCodeProcessed = useRef(false);
   const { openCompose } = useCommandBar();
+
+  // Get organization ID for presence tracking
+  const organizationId = activeOrg?.id ?? "";
+
+  // Activity sidebar state
+  const [activitySidebarOpen, setActivitySidebarOpen] = useState(false);
 
   // Read tab from URL search params (for inbox page)
   const searchParams = new URLSearchParams(location.search);
@@ -323,6 +344,7 @@ function DashboardLayout() {
   const headerConfig = getHeaderConfig(location.pathname, {
     onCompose: openCompose,
     onSourceFilter: handleSourceFilter,
+    onActivityToggle: () => setActivitySidebarOpen((prev) => !prev),
   });
 
   // Handle tab changes - update URL search params
@@ -390,7 +412,10 @@ function DashboardLayout() {
     : 7;
 
   return (
-    <>
+    <PresenceProvider
+      organizationId={organizationId}
+      enabled={Boolean(organizationId)}
+    >
       <AppShell
         activeTab={tabFromUrl}
         actions={headerConfig.actions}
@@ -406,6 +431,13 @@ function DashboardLayout() {
 
       {/* Hard paywall modal - cannot be dismissed */}
       {shouldShowUpgradeModal && <UpgradeModal trialDaysUsed={trialDaysUsed} />}
-    </>
+
+      {/* Activity sidebar - togglable via header action */}
+      <ActivitySidebar
+        organizationId={organizationId}
+        isOpen={activitySidebarOpen}
+        onClose={() => setActivitySidebarOpen(false)}
+      />
+    </PresenceProvider>
   );
 }

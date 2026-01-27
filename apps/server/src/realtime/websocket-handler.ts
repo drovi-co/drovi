@@ -2,29 +2,31 @@
 // WEBSOCKET HANDLER FOR BUN + HONO
 // =============================================================================
 //
-// NOTE: WebSocket functionality is now disabled in favor of Python SSE.
-// Real-time events are handled by the Python intelligence backend at:
+// Handles WebSocket connections for:
+// - Presence/collaboration features (active)
+// - Intelligence events are handled by Python SSE at:
 //   /api/v1/events/stream/{organization_id}
-//
-// This file maintains the same exports for backwards compatibility but
-// returns disabled/null states.
 //
 
 import type { Server, ServerWebSocket } from "bun";
+import { auth } from "@memorystack/auth";
 import { log } from "../lib/logger";
+import {
+  presenceHandlers,
+  initializePresenceServer,
+  closePresenceServer,
+  type PresenceWebSocketData,
+} from "./presence-handler";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface WebSocketData {
-  connectionId: string;
-  organizationId: string;
-  userId?: string;
-  authenticated: boolean;
+interface WebSocketData extends PresenceWebSocketData {
+  // Additional fields can be added here for other WebSocket features
 }
 
-// Simplified WebSocket server interface (stub)
+// Simplified WebSocket server interface
 interface WebSocketServer {
   close(): void;
 }
@@ -34,77 +36,90 @@ interface WebSocketServer {
 // =============================================================================
 
 let wsServer: WebSocketServer | null = null;
+let initialized = false;
 
 /**
  * Get the WebSocket server instance.
- * Returns null - WebSocket is disabled in favor of Python SSE.
  */
 export function getWebSocketServer(): WebSocketServer | null {
   return wsServer;
 }
 
 /**
- * Initialize the WebSocket server.
- * Returns null - WebSocket is disabled in favor of Python SSE.
- *
- * For real-time intelligence events, use Python SSE:
- *   const eventSource = new EventSource(
- *     `${INTELLIGENCE_BACKEND_URL}/api/v1/events/stream/${organizationId}`
- *   );
+ * Initialize the WebSocket server for presence features.
  */
 export async function initializeWebSocketServer(): Promise<WebSocketServer | null> {
-  log.info(
-    "WebSocket server disabled - use Python SSE for real-time events at /api/v1/events/stream/{organization_id}"
-  );
-  return null;
+  if (initialized) {
+    return wsServer;
+  }
+
+  try {
+    // Initialize presence server
+    await initializePresenceServer();
+
+    wsServer = {
+      close: () => {
+        // Handled in closeWebSocketServer
+      },
+    };
+
+    initialized = true;
+    log.info("WebSocket server initialized for presence features");
+    log.info(
+      "For intelligence events, use Python SSE at /api/v1/events/stream/{organization_id}"
+    );
+
+    return wsServer;
+  } catch (error) {
+    log.error("Failed to initialize WebSocket server", error);
+    return null;
+  }
 }
 
-
 // =============================================================================
-// BUN WEBSOCKET HANDLERS (DISABLED)
+// BUN WEBSOCKET HANDLERS
 // =============================================================================
 
 /**
- * Bun WebSocket configuration.
- * WebSocket is disabled - clients should use Python SSE instead.
+ * Bun WebSocket configuration for presence features.
  */
 export const bunWebSocketHandlers = {
   /**
    * Called when a WebSocket connection is opened.
-   * Immediately closes with a message to use SSE instead.
    */
   async open(ws: ServerWebSocket<WebSocketData>) {
-    log.warn(
-      "WebSocket connection attempted - WebSocket is disabled, use Python SSE instead"
-    );
-    ws.close(1000, "WebSocket disabled - use SSE at /api/v1/events/stream");
+    if (!ws.data.authenticated) {
+      log.warn("Unauthenticated WebSocket connection rejected");
+      ws.close(4001, "Authentication required");
+      return;
+    }
+
+    await presenceHandlers.open(ws);
   },
 
   /**
    * Called when a message is received from the client.
    */
-  message(_ws: ServerWebSocket<WebSocketData>, _message: string | Buffer) {
-    // No-op - WebSocket is disabled
+  async message(ws: ServerWebSocket<WebSocketData>, message: string | Buffer) {
+    if (!ws.data.authenticated) {
+      return;
+    }
+
+    await presenceHandlers.message(ws, message);
   },
 
   /**
    * Called when a WebSocket connection is closed.
    */
-  close(ws: ServerWebSocket<WebSocketData>, code: number, reason: string) {
-    log.info("WebSocket client disconnected", {
-      connectionId: ws.data.connectionId,
-      code,
-      reason,
-    });
+  async close(ws: ServerWebSocket<WebSocketData>, code: number, reason: string) {
+    await presenceHandlers.close(ws, code, reason);
   },
 
   /**
    * Called when an error occurs on the WebSocket.
    */
   error(ws: ServerWebSocket<WebSocketData>, error: Error) {
-    log.error("WebSocket error", error, {
-      connectionId: ws.data.connectionId,
-    });
+    presenceHandlers.error(ws, error);
   },
 };
 
@@ -114,16 +129,70 @@ export const bunWebSocketHandlers = {
 
 /**
  * Handle WebSocket upgrade requests.
- * Returns false - WebSocket is disabled in favor of Python SSE.
+ * Validates authentication and upgrades the connection.
  */
 export async function handleWebSocketUpgrade(
-  _server: Server<WebSocketData>,
-  _request: Request
+  server: Server<WebSocketData>,
+  request: Request
 ): Promise<boolean> {
-  log.warn(
-    "WebSocket upgrade rejected - use Python SSE at /api/v1/events/stream"
-  );
-  return false;
+  const url = new URL(request.url);
+
+  // Extract auth token from query params or headers
+  const token =
+    url.searchParams.get("token") ??
+    request.headers.get("authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    log.warn("WebSocket upgrade rejected - no token provided");
+    return false;
+  }
+
+  // Validate session
+  try {
+    const session = await auth.api.getSession({
+      headers: new Headers({
+        authorization: `Bearer ${token}`,
+      }),
+    });
+
+    if (!session?.user?.id) {
+      log.warn("WebSocket upgrade rejected - invalid session");
+      return false;
+    }
+
+    // Extract organization ID from query params
+    const organizationId = url.searchParams.get("organizationId");
+    if (!organizationId) {
+      log.warn("WebSocket upgrade rejected - no organizationId provided");
+      return false;
+    }
+
+    // Generate unique connection ID
+    const connectionId = `${session.user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    // Upgrade the connection with user data
+    const success = server.upgrade(request, {
+      data: {
+        connectionId,
+        organizationId,
+        userId: session.user.id,
+        authenticated: true,
+      },
+    });
+
+    if (success) {
+      log.info("WebSocket connection upgraded", {
+        connectionId,
+        userId: session.user.id,
+        organizationId,
+      });
+    }
+
+    return success;
+  } catch (error) {
+    log.error("Error during WebSocket upgrade", error);
+    return false;
+  }
 }
 
 // =============================================================================
@@ -135,8 +204,9 @@ export async function handleWebSocketUpgrade(
  */
 export async function closeWebSocketServer(): Promise<void> {
   if (wsServer) {
-    wsServer.close();
+    await closePresenceServer();
     wsServer = null;
+    initialized = false;
   }
   log.info("WebSocket server closed");
 }

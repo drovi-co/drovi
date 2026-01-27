@@ -18,14 +18,14 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
   FileText,
-  Loader2,
   MessageSquare,
   MoreHorizontal,
   Plus,
-  Send,
   Trash2,
   User,
 } from "lucide-react";
@@ -64,6 +64,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -91,15 +93,27 @@ function TaskDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
   const queryClientInstance = useQueryClient();
+
+  // Comments/Collaboration state
+  const [showComments, setShowComments] = useState(false);
+
+  // Track viewing for presence
+  useTrackViewing({
+    organizationId,
+    resourceType: "task",
+    resourceId: taskId,
+    enabled: Boolean(organizationId && taskId),
+  });
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [newComment, setNewComment] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -199,15 +213,6 @@ function TaskDetailPage() {
           },
         }
       );
-    },
-  };
-
-  // Comment mutation - not supported in UIO yet, stub for now
-  const addCommentMutation = {
-    isPending: false,
-    mutate: (_params: { organizationId: string; taskId: string; comment: string }) => {
-      toast.info("Comments are not yet supported for UIO tasks");
-      setNewComment("");
     },
   };
 
@@ -348,15 +353,6 @@ function TaskDetailPage() {
     [task, updateMutation, organizationId]
   );
 
-  const handleAddComment = useCallback(() => {
-    if (!(task && newComment.trim())) return;
-    addCommentMutation.mutate({
-      organizationId,
-      taskId: task.id,
-      comment: newComment.trim(),
-    });
-  }, [task, newComment, addCommentMutation, organizationId]);
-
   const handleDelete = useCallback(() => {
     if (!task) return;
     if (window.confirm("Are you sure you want to delete this task?")) {
@@ -495,6 +491,14 @@ function TaskDetailPage() {
             </div>
 
             <div className="flex-1" />
+
+            {/* Who is viewing */}
+            <WhoIsViewing
+              organizationId={organizationId}
+              resourceType="task"
+              resourceId={taskId}
+              compact
+            />
 
             {/* Actions */}
             <div className="flex items-center gap-1">
@@ -711,54 +715,36 @@ function TaskDetailPage() {
                 </div>
               )}
 
-              {/* Activity / Comments */}
+              {/* Team Discussion */}
               <div className="border-border border-t pt-6">
-                <div className="mb-4 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-foreground text-sm">
-                    Comments
-                  </span>
-                </div>
-
-                {/* Add Comment */}
-                <div className="flex gap-3">
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-secondary text-white text-xs">
-                      ME
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-1 gap-2">
-                    <Input
-                      className="flex-1 border-border bg-muted text-foreground placeholder:text-muted-foreground focus:border-secondary"
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddComment();
-                        }
-                      }}
-                      placeholder="Add a comment..."
-                      value={newComment}
-                    />
-                    <Button
-                      className="bg-secondary hover:bg-secondary/90"
-                      disabled={
-                        !newComment.trim() || addCommentMutation.isPending
-                      }
-                      onClick={handleAddComment}
-                      size="icon"
-                    >
-                      {addCommentMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between"
+                  onClick={() => setShowComments(!showComments)}
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground text-sm">
+                      Team Discussion
+                    </span>
                   </div>
-                </div>
-                <p className="mt-2 text-muted-foreground text-xs">
-                  Comments are not yet supported for tasks
-                </p>
+                  {showComments ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {showComments && organizationId && currentUserId && (
+                  <div className="mt-4">
+                    <CommentThread
+                      organizationId={organizationId}
+                      targetType="task"
+                      targetId={taskId}
+                      currentUserId={currentUserId}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Timestamps */}

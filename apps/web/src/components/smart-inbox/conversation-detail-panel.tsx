@@ -19,15 +19,19 @@ import {
   ExternalLink,
   Inbox,
   Link2,
+  MessageSquare,
   Paperclip,
   Send,
   Star,
   StarOff,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 import type { LinkedUIOCardData } from "@/components/smart-inbox/linked-uio-card";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { useTrackViewing } from "@/hooks/use-presence";
+import { useActiveOrganization, authClient } from "@/lib/auth-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,6 +182,19 @@ export function ConversationDetailPanel({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [newNote, setNewNote] = useState("");
+  const [showComments, setShowComments] = useState(false);
+  const { data: activeOrg } = useActiveOrganization();
+  const { data: session } = authClient.useSession();
+  const organizationId = activeOrg?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
+
+  // Track viewing this conversation for real-time presence
+  useTrackViewing({
+    organizationId,
+    resourceType: "conversation",
+    resourceId: conversationId ?? "",
+    enabled: Boolean(organizationId && conversationId),
+  });
 
   // Fetch conversation details
   const {
@@ -250,9 +267,18 @@ export function ConversationDetailPanel({
     })
   );
 
-  // Auto-mark as read when viewing
+  // Track which conversations we've already marked as read to prevent loops
+  const markedAsReadRef = useRef<Set<string>>(new Set());
+
+  // Auto-mark as read when viewing (only once per conversation)
   useEffect(() => {
-    if (conversationId && conversationData && !conversationData.isRead) {
+    if (
+      conversationId &&
+      conversationData &&
+      !conversationData.isRead &&
+      !markedAsReadRef.current.has(conversationId)
+    ) {
+      markedAsReadRef.current.add(conversationId);
       markReadMutation.mutate({ conversationId, read: true });
     }
   }, [conversationId, conversationData?.isRead]);
@@ -380,16 +406,27 @@ export function ConversationDetailPanel({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
-          {/* Title with optional status tag */}
+          {/* Title with optional status tag and presence */}
           <div className="mb-6 flex items-start justify-between gap-3">
             <h1 className="font-semibold text-xl text-foreground">
               {conversationData.title || "No subject"}
             </h1>
-            {conversationData.hasOpenLoops && (
-              <Badge className="shrink-0 bg-amber-500/10 text-amber-600 text-[10px]" variant="secondary">
-                Pending
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Real-time viewers indicator */}
+              {organizationId && conversationId && (
+                <WhoIsViewing
+                  organizationId={organizationId}
+                  resourceType="conversation"
+                  resourceId={conversationId}
+                  compact
+                />
+              )}
+              {conversationData.hasOpenLoops && (
+                <Badge className="shrink-0 bg-amber-500/10 text-amber-600 text-[10px]" variant="secondary">
+                  Pending
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Description (AI Brief) - clean text only */}
@@ -689,13 +726,41 @@ export function ConversationDetailPanel({
                 </div>
               </div>
             )}
+
+          {/* Team Discussion / Comments Section */}
+          <div className="mt-6 border-t border-border pt-6">
+            <button
+              type="button"
+              className="mb-4 flex w-full items-center justify-between gap-2"
+              onClick={() => setShowComments(!showComments)}
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-foreground text-sm">
+                  Team Discussion
+                </span>
+              </div>
+              <Badge className="text-[10px]" variant="secondary">
+                {showComments ? "Hide" : "Show"}
+              </Badge>
+            </button>
+
+            {showComments && organizationId && conversationId && currentUserId && (
+              <CommentThread
+                organizationId={organizationId}
+                targetType="conversation"
+                targetId={conversationId}
+                currentUserId={currentUserId}
+              />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Bottom Actions Bar */}
       <div className="shrink-0 border-t border-border bg-card px-4 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -734,6 +799,23 @@ export function ConversationDetailPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Archive</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Comments toggle button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    className="h-8 w-8"
+                    onClick={() => setShowComments(!showComments)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Team Discussion</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>

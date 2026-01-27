@@ -31,6 +31,7 @@ import {
   Linkedin,
   Loader2,
   Mail,
+  MessageSquare,
   MoreHorizontal,
   Phone,
   RefreshCw,
@@ -42,9 +43,11 @@ import {
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { ContactIntelligenceDashboard } from "@/components/contacts/contact-intelligence-dashboard";
 import { RelationshipTimeline } from "@/components/contacts/relationship-timeline";
 import { AlertsManagement } from "@/components/contacts/alerts-management";
+import { useTrackViewing } from "@/hooks/use-presence";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +97,17 @@ function ContactProfilePage() {
   const navigate = useNavigate();
   const { contactId } = useParams({ from: "/dashboard/contacts/$contactId" });
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
+
+  // Track viewing for presence
+  useTrackViewing({
+    organizationId,
+    resourceType: "contact",
+    resourceId: contactId,
+    enabled: Boolean(organizationId && contactId),
+  });
 
   // State
   const [activeTab, setActiveTab] = useState<string>("intelligence");
@@ -323,6 +336,14 @@ function ContactProfilePage() {
               />
             </div>
 
+            {/* Who is viewing */}
+            <WhoIsViewing
+              organizationId={organizationId}
+              resourceType="contact"
+              resourceId={contactId}
+              compact
+            />
+
             {/* Actions */}
             <div className="flex items-center gap-2">
               <Button onClick={handleEmailClick} size="sm" variant="outline">
@@ -419,6 +440,13 @@ function ContactProfilePage() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger
+                  className="px-4 data-[state=active]:bg-accent"
+                  value="discussion"
+                >
+                  <MessageSquare className="mr-1.5 h-4 w-4" />
+                  Discussion
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -507,6 +535,29 @@ function ContactProfilePage() {
                     </CardContent>
                   </Card>
                 )}
+              </div>
+            </TabsContent>
+
+            <TabsContent className="m-0 h-[calc(100%-2.5rem)] overflow-auto" value="discussion">
+              <div className="p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Team Discussion</CardTitle>
+                    <CardDescription>
+                      Internal notes and discussion about {contact.displayName ?? "this contact"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {organizationId && currentUserId && (
+                      <CommentThread
+                        organizationId={organizationId}
+                        targetType="contact"
+                        targetId={contactId}
+                        currentUserId={currentUserId}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>

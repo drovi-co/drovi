@@ -18,6 +18,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
   FileText,
@@ -35,6 +37,8 @@ import {
   useUIO,
   useVerifyUIO,
 } from "@/hooks/use-uio";
+import { useTrackViewing } from "@/hooks/use-presence";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,7 +123,9 @@ function DecisionDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
 
   // Editing state
@@ -127,8 +133,17 @@ function DecisionDetailPage() {
   const [editingRationale, setEditingRationale] = useState(false);
   const [title, setTitle] = useState("");
   const [rationale, setRationale] = useState("");
+  const [showComments, setShowComments] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const rationaleRef = useRef<HTMLTextAreaElement>(null);
+
+  // Track viewing this decision for real-time presence
+  useTrackViewing({
+    organizationId,
+    resourceType: "decision",
+    resourceId: decisionId,
+    enabled: Boolean(organizationId && decisionId),
+  });
 
   // Fetch decision details using UIO hook
   const {
@@ -335,6 +350,16 @@ function DecisionDetailPage() {
             </div>
 
             <div className="flex-1" />
+
+            {/* Who's viewing indicator */}
+            {organizationId && decisionId && (
+              <WhoIsViewing
+                organizationId={organizationId}
+                resourceType="decision"
+                resourceId={decisionId}
+                compact
+              />
+            )}
 
             {/* Actions */}
             <div className="flex items-center gap-1">
@@ -635,6 +660,36 @@ function DecisionDetailPage() {
                 <div>
                   Updated: {format(decision.updatedAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
+              </div>
+
+              {/* Team Discussion / Comments Section */}
+              <div className="border-border border-t pt-6">
+                <button
+                  type="button"
+                  className="mb-4 flex w-full items-center justify-between gap-2"
+                  onClick={() => setShowComments(!showComments)}
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground text-sm">
+                      Team Discussion
+                    </span>
+                  </div>
+                  {showComments ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {showComments && organizationId && decisionId && currentUserId && (
+                  <CommentThread
+                    organizationId={organizationId}
+                    targetType="decision"
+                    targetId={decisionId}
+                    currentUserId={currentUserId}
+                  />
+                )}
               </div>
             </div>
           </div>

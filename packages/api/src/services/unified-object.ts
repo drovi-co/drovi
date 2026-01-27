@@ -8,6 +8,7 @@
 
 import { db, schema } from "@memorystack/db";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { processNewUIOAutoShare } from "./auto-share";
 
 // =============================================================================
 // NOTE: Deduplication AI has been moved to Python backend.
@@ -175,6 +176,11 @@ export class UnifiedObjectService {
     // Trigger embedding generation (async)
     this.generateUIOEmbedding(uio.id).catch(console.error);
 
+    // Trigger auto-share with teammates (async)
+    processNewUIOAutoShare(source.organizationId, uio.id, "system").catch(
+      console.error
+    );
+
     return uio;
   }
 
@@ -259,6 +265,13 @@ export class UnifiedObjectService {
 
     // Re-generate embedding (async)
     this.generateUIOEmbedding(uioId).catch(console.error);
+
+    // Re-process auto-share (participants may have changed)
+    processNewUIOAutoShare(
+      existingUio.organizationId,
+      uioId,
+      "system"
+    ).catch(console.error);
 
     return (await db.query.unifiedIntelligenceObject.findFirst({
       where: eq(schema.unifiedIntelligenceObject.id, uioId),

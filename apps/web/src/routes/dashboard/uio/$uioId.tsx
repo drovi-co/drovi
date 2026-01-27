@@ -55,6 +55,8 @@ import {
   Timeline,
   type TimelineEvent,
 } from "@/components/unified-object/timeline";
+import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -137,8 +139,18 @@ function UIODetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
+
+  // Track viewing this UIO for real-time presence
+  useTrackViewing({
+    organizationId,
+    resourceType: "uio",
+    resourceId: uioId,
+    enabled: Boolean(organizationId && uioId),
+  });
 
   // Smart back navigation
   const handleBack = () => {
@@ -321,6 +333,16 @@ function UIODetailPage() {
                 </Badge>
               )}
             </div>
+
+            {/* Real-time viewers indicator */}
+            {organizationId && uioId && (
+              <WhoIsViewing
+                organizationId={organizationId}
+                resourceType="uio"
+                resourceId={uioId}
+                compact
+              />
+            )}
 
             <div className="ml-auto flex items-center gap-2">
               <Button onClick={handleVerify} size="sm" variant="outline">
@@ -527,6 +549,19 @@ function UIODetailPage() {
                     // Could open the message in a sheet
                     console.log("View message:", messageId);
                   }}
+                />
+              </div>
+            )}
+
+            {/* Comments & Discussion */}
+            {organizationId && currentUserId && (
+              <div>
+                <h3 className="mb-3 font-medium text-sm">Discussion</h3>
+                <CommentThread
+                  organizationId={organizationId}
+                  targetType="uio"
+                  targetId={uioId}
+                  currentUserId={currentUserId}
                 />
               </div>
             )}

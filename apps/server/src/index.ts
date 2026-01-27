@@ -27,6 +27,8 @@ import { composeRoutes } from "./routes/compose";
 import { intelligenceApi } from "./routes/intelligence-api";
 import { oauthRoutes } from "./routes/oauth";
 import { publicApi } from "./routes/public-api";
+import { scimRoutes } from "./routes/scim";
+import { ssoRoutes } from "./routes/sso";
 import { gmailWebhook } from "./routes/webhooks/gmail";
 import { polarWebhook } from "./routes/webhooks/polar";
 import {
@@ -169,6 +171,12 @@ app.route("/api/webhooks/polar", polarWebhook);
 
 // Gmail webhooks (for push notifications via Google Pub/Sub)
 app.route("/api/webhooks/gmail", gmailWebhook);
+
+// SSO routes (SAML 2.0 & OIDC for enterprise authentication)
+app.route("/api/v1/sso", ssoRoutes);
+
+// SCIM 2.0 routes (user provisioning for enterprise identity providers)
+app.route("/scim/v2", scimRoutes);
 
 app.get("/", (c) => {
   return c.text("OK");
@@ -335,10 +343,11 @@ Bun.serve({
   fetch: async (request, bunServer) => {
     const url = new URL(request.url);
 
-    // Handle WebSocket upgrade requests
+    // Handle WebSocket upgrade requests for presence/collaboration
     if (
       url.pathname === "/ws" ||
-      url.pathname === "/api/v1/intelligence/ws"
+      url.pathname === "/ws/presence" ||
+      url.pathname === "/api/v1/presence/ws"
     ) {
       const upgraded = await handleWebSocketUpgrade(bunServer, request);
       if (upgraded) {

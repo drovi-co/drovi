@@ -247,6 +247,16 @@ export const priorityTierEnum = pgEnum("priority_tier", [
   "low",
 ]);
 
+/**
+ * Source account visibility for multiplayer/team features
+ */
+export const sourceVisibilityEnum = pgEnum("source_visibility", [
+  "private", // Only owner sees data
+  "team", // Specific team(s) see data
+  "organization", // Entire org sees data
+  "delegated", // Admin-connected, delegated access
+]);
+
 // =============================================================================
 // SOURCE ACCOUNT TABLE
 // =============================================================================
@@ -322,6 +332,29 @@ export const sourceAccount = pgTable(
     // Primary account flag (for sources with multiple accounts)
     isPrimary: boolean("is_primary").notNull().default(false),
 
+    // ==========================================================================
+    // VISIBILITY & SHARING (Multiplayer features)
+    // ==========================================================================
+
+    // Visibility level for this source account's data
+    visibility: sourceVisibilityEnum("visibility").notNull().default("private"),
+
+    // Team IDs that can see this source (when visibility = "team")
+    visibleToTeamIds: text("visible_to_team_ids").array().default([]),
+
+    // For delegated accounts: admin who connected it on behalf of someone
+    delegatedByUserId: text("delegated_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+
+    // For delegated accounts: current manager/delegate
+    managedByUserId: text("managed_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+
+    // Is this a shared team inbox?
+    isSharedInbox: boolean("is_shared_inbox").notNull().default(false),
+
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -334,6 +367,8 @@ export const sourceAccount = pgTable(
     index("source_account_type_idx").on(table.type),
     index("source_account_status_idx").on(table.status),
     index("source_account_added_by_idx").on(table.addedByUserId),
+    index("source_account_visibility_idx").on(table.visibility),
+    index("source_account_shared_inbox_idx").on(table.isSharedInbox),
     // Same external ID can only be connected once per organization per type
     unique("source_account_org_type_external_unique").on(
       table.organizationId,
@@ -828,3 +863,10 @@ export type SourceType =
   | "discord"
   | "linear"
   | "github";
+
+// Source visibility type union for TypeScript
+export type SourceVisibility =
+  | "private"
+  | "team"
+  | "organization"
+  | "delegated";

@@ -3,12 +3,15 @@ import { adminRouter } from "./admin";
 import { apiKeysRouter } from "./api-keys";
 import { auditRouter } from "./audit";
 import { calendarRouter } from "./calendar";
+// Collaboration & Multiplayer routers
+import { collaborationRouter } from "./collaboration";
 // Legacy routers - kept temporarily for frontend compatibility during UIO migration
 import { commitmentsRouter } from "./commitments";
 import { composeRouter } from "./compose";
 import { contactIntelligenceRouter } from "./contact-intelligence";
 import { contactsRouter } from "./contacts";
 import { creditsRouter } from "./credits";
+import { customRolesRouter } from "./custom-roles";
 import { decisionsRouter } from "./decisions";
 import { draftsRouter } from "./drafts";
 import { emailAccountsRouter } from "./email-accounts";
@@ -17,10 +20,15 @@ import { featureFlagsRouter } from "./feature-flags";
 import { feedbackRouter } from "./feedback";
 import { graphRouter } from "./graph";
 import { intelligenceRouter } from "./intelligence";
+import { intelligenceSharingRouter } from "./intelligence-sharing";
 import { notificationsRouter } from "./notifications";
 import { organizationsRouter } from "./organizations";
+import { pushNotificationsRouter } from "./push-notifications";
+import { organizationSettingsRouter } from "./organization-settings";
+import { presenceRouter } from "./presence";
 import { riskRouter } from "./risk";
 import { searchRouter } from "./search";
+import { sharedInboxRouter } from "./shared-inbox";
 import { sourcesRouter } from "./sources";
 import { tasksRouter } from "./tasks";
 import { threadsRouter } from "./threads";
@@ -101,12 +109,31 @@ export const appRouter = router({
   uploads: uploadsRouter,
   // In-app notifications
   notifications: notificationsRouter,
+  // Push notifications (Web Push API)
+  pushNotifications: pushNotificationsRouter,
   // Organizations management
   organizations: organizationsRouter,
+  // Organization settings (privacy, SSO, SCIM, feature flags)
+  organizationSettings: organizationSettingsRouter,
   // Admin operations
   admin: adminRouter,
   // Waitlist management (public + admin)
   waitlist: waitlistRouter,
+
+  // =============================================================================
+  // MULTIPLAYER & ENTERPRISE ROUTERS
+  // =============================================================================
+
+  // Shared Inbox (round-robin assignment, SLA tracking)
+  sharedInbox: sharedInboxRouter,
+  // Intelligence Sharing (auto-share, teammate linking)
+  intelligenceSharing: intelligenceSharingRouter,
+  // Custom Roles (granular permissions)
+  customRoles: customRolesRouter,
+  // Presence (real-time user status, "who's viewing")
+  presence: presenceRouter,
+  // Collaboration (mentions, comments, activity feed, delegation)
+  collaboration: collaborationRouter,
 });
 
 export type AppRouter = typeof appRouter;

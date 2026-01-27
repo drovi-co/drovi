@@ -52,6 +52,12 @@ import { Route as DashboardTeamSettingsRouteImport } from './routes/dashboard/te
 import { Route as DashboardTeamMembersRouteImport } from './routes/dashboard/team/members'
 import { Route as DashboardTeamInvitationsRouteImport } from './routes/dashboard/team/invitations'
 import { Route as DashboardTasksTaskIdRouteImport } from './routes/dashboard/tasks/$taskId'
+import { Route as DashboardSettingsTeamsRouteImport } from './routes/dashboard/settings/teams'
+import { Route as DashboardSettingsSharedInboxRouteImport } from './routes/dashboard/settings/shared-inbox'
+import { Route as DashboardSettingsRolesRouteImport } from './routes/dashboard/settings/roles'
+import { Route as DashboardSettingsOrganizationRouteImport } from './routes/dashboard/settings/organization'
+import { Route as DashboardSettingsNotificationsRouteImport } from './routes/dashboard/settings/notifications'
+import { Route as DashboardInboxSharedRouteImport } from './routes/dashboard/inbox/shared'
 import { Route as DashboardDecisionsDecisionIdRouteImport } from './routes/dashboard/decisions/$decisionId'
 import { Route as DashboardContactsContactIdRouteImport } from './routes/dashboard/contacts/$contactId'
 import { Route as DashboardCommitmentsCommitmentIdRouteImport } from './routes/dashboard/commitments/$commitmentId'
@@ -275,6 +281,39 @@ const DashboardTasksTaskIdRoute = DashboardTasksTaskIdRouteImport.update({
   path: '/tasks/$taskId',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardSettingsTeamsRoute = DashboardSettingsTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => DashboardSettingsRoute,
+} as any)
+const DashboardSettingsSharedInboxRoute =
+  DashboardSettingsSharedInboxRouteImport.update({
+    id: '/shared-inbox',
+    path: '/shared-inbox',
+    getParentRoute: () => DashboardSettingsRoute,
+  } as any)
+const DashboardSettingsRolesRoute = DashboardSettingsRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => DashboardSettingsRoute,
+} as any)
+const DashboardSettingsOrganizationRoute =
+  DashboardSettingsOrganizationRouteImport.update({
+    id: '/organization',
+    path: '/organization',
+    getParentRoute: () => DashboardSettingsRoute,
+  } as any)
+const DashboardSettingsNotificationsRoute =
+  DashboardSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => DashboardSettingsRoute,
+  } as any)
+const DashboardInboxSharedRoute = DashboardInboxSharedRouteImport.update({
+  id: '/inbox/shared',
+  path: '/inbox/shared',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardDecisionsDecisionIdRoute =
   DashboardDecisionsDecisionIdRouteImport.update({
     id: '/decisions/$decisionId',
@@ -320,7 +359,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
@@ -331,6 +370,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
+  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
+  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
+  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
+  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
+  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
+  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -367,7 +412,7 @@ export interface FileRoutesByTo {
   '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
@@ -378,6 +423,12 @@ export interface FileRoutesByTo {
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
+  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
+  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
+  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
+  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
+  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
+  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -417,7 +468,7 @@ export interface FileRoutesById {
   '/dashboard/calendar': typeof DashboardCalendarRoute
   '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
@@ -428,6 +479,12 @@ export interface FileRoutesById {
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
+  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
+  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
+  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
+  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
+  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
+  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -479,6 +536,12 @@ export interface FileRouteTypes {
     | '/dashboard/commitments/$commitmentId'
     | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
+    | '/dashboard/inbox/shared'
+    | '/dashboard/settings/notifications'
+    | '/dashboard/settings/organization'
+    | '/dashboard/settings/roles'
+    | '/dashboard/settings/shared-inbox'
+    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -526,6 +589,12 @@ export interface FileRouteTypes {
     | '/dashboard/commitments/$commitmentId'
     | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
+    | '/dashboard/inbox/shared'
+    | '/dashboard/settings/notifications'
+    | '/dashboard/settings/organization'
+    | '/dashboard/settings/roles'
+    | '/dashboard/settings/shared-inbox'
+    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -575,6 +644,12 @@ export interface FileRouteTypes {
     | '/dashboard/commitments/$commitmentId'
     | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
+    | '/dashboard/inbox/shared'
+    | '/dashboard/settings/notifications'
+    | '/dashboard/settings/organization'
+    | '/dashboard/settings/roles'
+    | '/dashboard/settings/shared-inbox'
+    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -914,6 +989,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTasksTaskIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/settings/teams': {
+      id: '/dashboard/settings/teams'
+      path: '/teams'
+      fullPath: '/dashboard/settings/teams'
+      preLoaderRoute: typeof DashboardSettingsTeamsRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/settings/shared-inbox': {
+      id: '/dashboard/settings/shared-inbox'
+      path: '/shared-inbox'
+      fullPath: '/dashboard/settings/shared-inbox'
+      preLoaderRoute: typeof DashboardSettingsSharedInboxRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/settings/roles': {
+      id: '/dashboard/settings/roles'
+      path: '/roles'
+      fullPath: '/dashboard/settings/roles'
+      preLoaderRoute: typeof DashboardSettingsRolesRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/settings/organization': {
+      id: '/dashboard/settings/organization'
+      path: '/organization'
+      fullPath: '/dashboard/settings/organization'
+      preLoaderRoute: typeof DashboardSettingsOrganizationRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/settings/notifications': {
+      id: '/dashboard/settings/notifications'
+      path: '/notifications'
+      fullPath: '/dashboard/settings/notifications'
+      preLoaderRoute: typeof DashboardSettingsNotificationsRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/inbox/shared': {
+      id: '/dashboard/inbox/shared'
+      path: '/inbox/shared'
+      fullPath: '/dashboard/inbox/shared'
+      preLoaderRoute: typeof DashboardInboxSharedRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/decisions/$decisionId': {
       id: '/dashboard/decisions/$decisionId'
       path: '/decisions/$decisionId'
@@ -965,6 +1082,25 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
   AdminRouteRouteChildren,
 )
 
+interface DashboardSettingsRouteChildren {
+  DashboardSettingsNotificationsRoute: typeof DashboardSettingsNotificationsRoute
+  DashboardSettingsOrganizationRoute: typeof DashboardSettingsOrganizationRoute
+  DashboardSettingsRolesRoute: typeof DashboardSettingsRolesRoute
+  DashboardSettingsSharedInboxRoute: typeof DashboardSettingsSharedInboxRoute
+  DashboardSettingsTeamsRoute: typeof DashboardSettingsTeamsRoute
+}
+
+const DashboardSettingsRouteChildren: DashboardSettingsRouteChildren = {
+  DashboardSettingsNotificationsRoute: DashboardSettingsNotificationsRoute,
+  DashboardSettingsOrganizationRoute: DashboardSettingsOrganizationRoute,
+  DashboardSettingsRolesRoute: DashboardSettingsRolesRoute,
+  DashboardSettingsSharedInboxRoute: DashboardSettingsSharedInboxRoute,
+  DashboardSettingsTeamsRoute: DashboardSettingsTeamsRoute,
+}
+
+const DashboardSettingsRouteWithChildren =
+  DashboardSettingsRoute._addFileChildren(DashboardSettingsRouteChildren)
+
 interface DashboardRouteRouteChildren {
   DashboardAiRoute: typeof DashboardAiRoute
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
@@ -972,11 +1108,12 @@ interface DashboardRouteRouteChildren {
   DashboardCalendarRoute: typeof DashboardCalendarRoute
   DashboardEmailAccountsRoute: typeof DashboardEmailAccountsRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardCommitmentsCommitmentIdRoute: typeof DashboardCommitmentsCommitmentIdRoute
   DashboardContactsContactIdRoute: typeof DashboardContactsContactIdRoute
   DashboardDecisionsDecisionIdRoute: typeof DashboardDecisionsDecisionIdRoute
+  DashboardInboxSharedRoute: typeof DashboardInboxSharedRoute
   DashboardTasksTaskIdRoute: typeof DashboardTasksTaskIdRoute
   DashboardTeamInvitationsRoute: typeof DashboardTeamInvitationsRoute
   DashboardTeamMembersRoute: typeof DashboardTeamMembersRoute
@@ -1003,11 +1140,12 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardCalendarRoute: DashboardCalendarRoute,
   DashboardEmailAccountsRoute: DashboardEmailAccountsRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
-  DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardCommitmentsCommitmentIdRoute: DashboardCommitmentsCommitmentIdRoute,
   DashboardContactsContactIdRoute: DashboardContactsContactIdRoute,
   DashboardDecisionsDecisionIdRoute: DashboardDecisionsDecisionIdRoute,
+  DashboardInboxSharedRoute: DashboardInboxSharedRoute,
   DashboardTasksTaskIdRoute: DashboardTasksTaskIdRoute,
   DashboardTeamInvitationsRoute: DashboardTeamInvitationsRoute,
   DashboardTeamMembersRoute: DashboardTeamMembersRoute,

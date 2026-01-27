@@ -38,3 +38,22 @@ export * from "./vectors";
 export * from "./waitlist";
 // WhatsApp integration
 export * from "./whatsapp";
+
+// =============================================================================
+// MULTIPLAYER & ENTERPRISE SCHEMAS
+// =============================================================================
+
+// Organization settings (privacy, SSO, SCIM, feature flags)
+export * from "./organization-settings";
+// Shared inbox (round-robin assignment, SLA tracking)
+export * from "./shared-inbox";
+// Intelligence sharing (auto-share, teammate linking)
+export * from "./intelligence-sharing";
+// Custom roles (granular permissions)
+export * from "./custom-roles";
+// Presence (real-time user status, "who's viewing")
+export * from "./presence";
+// Collaboration (mentions, comments, activity feed, delegation)
+export * from "./collaboration";
+// Push notifications (Web Push subscriptions)
+export * from "./push-notifications";

@@ -32,7 +32,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCommandBar } from "@/components/email/command-bar";
+import { WhoIsViewing } from "@/components/collaboration";
 import { RelationshipSidebar } from "@/components/inbox/-relationship-sidebar";
+import { useTrackViewing } from "@/hooks/use-presence";
 import { useActiveOrganization } from "@/lib/auth-client";
 
 import {
@@ -77,6 +79,15 @@ function ThreadDetailPage() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null
   );
+
+  // Track viewing this thread for real-time presence
+  const organizationId = activeOrg?.id ?? "";
+  useTrackViewing({
+    organizationId,
+    resourceType: "conversation",
+    resourceId: threadId,
+    enabled: Boolean(organizationId && threadId),
+  });
 
   // Fetch thread details
   const { data: threadData, isLoading: isLoadingThread } = useQuery({
@@ -341,6 +352,16 @@ ${messageBody}`;
                 </div>
               )}
             </div>
+
+            {/* Real-time viewers indicator */}
+            {organizationId && threadId && (
+              <WhoIsViewing
+                organizationId={organizationId}
+                resourceType="conversation"
+                resourceId={threadId}
+                compact
+              />
+            )}
 
             <div className="flex items-center gap-1">
               <TooltipProvider>
