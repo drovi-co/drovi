@@ -96,7 +96,7 @@ export function Pricing({ onRequestAccess }: PricingProps) {
         </motion.div>
 
         {/* Pricing cards */}
-        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-4xl gap-4 md:gap-6 lg:grid-cols-2">
           {plans.map((plan, index) => (
             <motion.div
               className="group"

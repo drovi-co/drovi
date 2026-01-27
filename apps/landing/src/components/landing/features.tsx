@@ -45,7 +45,7 @@ const features: Feature[] = [
     title: "Historical Backfill",
     description:
       "Import years of history. Memory starts from day one, not after weeks of usage.",
-    size: "normal",
+    size: "large",
   },
   {
     icon: Gauge,
