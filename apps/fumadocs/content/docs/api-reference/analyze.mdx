@@ -1,0 +1,331 @@
+---
+title: Analyze
+description: Extract intelligence from content
+---
+
+# Analyze API
+
+The Analyze endpoints extract structured intelligence from unstructured text content.
+
+## POST /analyze
+
+Extract intelligence from a single piece of content.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "content": "I will send the report by Friday",
+    "source_type": "email",
+    "user_email": "alice@company.com",
+    "metadata": {
+      "subject": "Follow-up",
+      "thread_id": "thread_123"
+    }
+  }'
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `organization_id` | string | Yes | Your organization identifier |
+| `content` | string | Yes | Text content to analyze |
+| `source_type` | string | Yes | Source type: `email`, `slack`, `notion`, `document`, `custom` |
+| `user_email` | string | No | Email of the content author |
+| `metadata` | object | No | Additional context about the content |
+| `options` | object | No | Analysis options (see below) |
+
+#### Options Object
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `extract_commitments` | boolean | true | Extract commitments |
+| `extract_decisions` | boolean | true | Extract decisions |
+| `extract_tasks` | boolean | true | Extract tasks |
+| `extract_risks` | boolean | true | Extract risks |
+| `extract_questions` | boolean | true | Extract open questions |
+| `generate_brief` | boolean | true | Generate 3-line summary |
+| `resolve_entities` | boolean | true | Resolve entity identities |
+
+### Response
+
+```json
+{
+  "trace_id": "trace_abc123",
+  "status": "completed",
+  "extracted": {
+    "commitments": [
+      {
+        "id": "comm_xyz",
+        "type": "commitment",
+        "title": "Send report",
+        "description": "Commitment to send the report",
+        "direction": "owed_by_me",
+        "counterparty": "recipient",
+        "due_date_text": "Friday",
+        "due_date_parsed": "2024-01-05T00:00:00Z",
+        "status": "active",
+        "confidence": 0.95,
+        "quoted_text": "I will send the report by Friday",
+        "created_at": "2024-01-01T12:00:00Z"
+      }
+    ],
+    "decisions": [],
+    "tasks": [],
+    "risks": [],
+    "questions": []
+  },
+  "entities_resolved": [
+    {
+      "name": "Alice",
+      "type": "person",
+      "email": "alice@company.com",
+      "identity_id": "id_abc123"
+    }
+  ],
+  "brief": {
+    "summary": "Commitment to send report by Friday.",
+    "key_points": ["Send report by Friday"],
+    "open_loops": []
+  },
+  "processing_time_ms": 245
+}
+```
+
+---
+
+## POST /analyze/batch
+
+Analyze multiple items in a single request.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze/batch \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "items": [
+      {
+        "id": "item_1",
+        "content": "First message content",
+        "source_type": "email",
+        "metadata": {"thread_id": "t1"}
+      },
+      {
+        "id": "item_2",
+        "content": "Second message content",
+        "source_type": "slack",
+        "metadata": {"channel_id": "C123"}
+      }
+    ],
+    "options": {
+      "parallel": true,
+      "fail_fast": false
+    }
+  }'
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `organization_id` | string | Yes | Your organization identifier |
+| `items` | array | Yes | Array of items to analyze (max 100) |
+| `options.parallel` | boolean | No | Process items in parallel (default: true) |
+| `options.fail_fast` | boolean | No | Stop on first error (default: false) |
+
+### Response
+
+```json
+{
+  "trace_id": "trace_batch_123",
+  "status": "completed",
+  "results": [
+    {
+      "id": "item_1",
+      "status": "success",
+      "extracted": { ... }
+    },
+    {
+      "id": "item_2",
+      "status": "success",
+      "extracted": { ... }
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  }
+}
+```
+
+---
+
+## POST /analyze/async
+
+Start an asynchronous analysis job for large content or many items.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze/async \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "items": [ ... ],
+    "webhook_url": "https://your-app.com/webhooks/drovi"
+  }'
+```
+
+### Response
+
+```json
+{
+  "job_id": "job_abc123",
+  "status": "queued",
+  "estimated_completion": "2024-01-01T12:05:00Z",
+  "status_url": "https://api.drovi.io/api/v1/jobs/job_abc123"
+}
+```
+
+---
+
+## GET /jobs/:job_id
+
+Check the status of an async analysis job.
+
+### Response
+
+```json
+{
+  "job_id": "job_abc123",
+  "status": "completed",
+  "progress": {
+    "total": 100,
+    "completed": 100,
+    "failed": 0
+  },
+  "results_url": "https://api.drovi.io/api/v1/jobs/job_abc123/results",
+  "created_at": "2024-01-01T12:00:00Z",
+  "completed_at": "2024-01-01T12:03:45Z"
+}
+```
+
+## Intelligence Object Schemas
+
+### Commitment
+
+```typescript
+{
+  id: string;
+  type: "commitment";
+  title: string;
+  description?: string;
+  direction: "owed_by_me" | "owed_to_me";
+  counterparty?: string;
+  counterparty_id?: string;
+  due_date_text?: string;
+  due_date_parsed?: string; // ISO 8601
+  status: "active" | "fulfilled" | "broken" | "cancelled";
+  confidence: number; // 0-1
+  quoted_text: string;
+  source_id?: string;
+  created_at: string;
+}
+```
+
+### Decision
+
+```typescript
+{
+  id: string;
+  type: "decision";
+  title: string;
+  description?: string;
+  status: "made" | "proposed" | "deferred" | "reversed";
+  rationale?: string;
+  alternatives?: string[];
+  decision_maker?: string;
+  decision_maker_id?: string;
+  confidence: number;
+  quoted_text: string;
+  source_id?: string;
+  created_at: string;
+}
+```
+
+### Task
+
+```typescript
+{
+  id: string;
+  type: "task";
+  title: string;
+  description?: string;
+  assignee?: string;
+  assignee_id?: string;
+  status: "todo" | "in_progress" | "done" | "blocked";
+  priority?: "low" | "medium" | "high" | "urgent";
+  due_date_text?: string;
+  due_date_parsed?: string;
+  effort_estimate?: string;
+  dependencies?: string[];
+  subtasks?: Task[];
+  confidence: number;
+  quoted_text: string;
+  source_id?: string;
+  created_at: string;
+}
+```
+
+### Risk
+
+```typescript
+{
+  id: string;
+  type: "risk";
+  title: string;
+  description?: string;
+  risk_type: "contradiction" | "deadline_risk" | "policy_violation" |
+             "deal_risk" | "resource_constraint" | "dependency_risk" |
+             "communication_gap" | "scope_creep" | "quality_risk" |
+             "security_risk" | "compliance_risk" | "other";
+  severity: "low" | "medium" | "high" | "critical";
+  likelihood?: "unlikely" | "possible" | "likely" | "certain";
+  mitigation?: string;
+  confidence: number;
+  quoted_text: string;
+  source_id?: string;
+  created_at: string;
+}
+```
+
+### Question
+
+```typescript
+{
+  id: string;
+  type: "question";
+  question: string;
+  context?: string;
+  asked_by?: string;
+  asked_by_id?: string;
+  directed_to?: string;
+  directed_to_id?: string;
+  status: "open" | "answered" | "dismissed";
+  answer?: string;
+  confidence: number;
+  quoted_text: string;
+  source_id?: string;
+  created_at: string;
+}
+```

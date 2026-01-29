@@ -10,6 +10,7 @@ from .extract_tasks import extract_tasks_node
 from .detect_risks import detect_risks_node
 from .entity_resolution import entity_resolution_node
 from .deduplicate import deduplicate_node
+from .detect_contradictions import detect_contradictions_node
 from .persist import persist_node
 from .finalize import finalize_node
 
@@ -24,6 +25,7 @@ __all__ = [
     "detect_risks_node",
     "entity_resolution_node",
     "deduplicate_node",
+    "detect_contradictions_node",
     "persist_node",
     "finalize_node",
 ]

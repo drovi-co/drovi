@@ -1,0 +1,163 @@
+---
+title: Authentication
+description: Learn how to authenticate with the Drovi Intelligence API
+---
+
+# Authentication
+
+All requests to the Drovi Intelligence API require authentication using an API key.
+
+## Getting Your API Key
+
+1. Log in to your Drovi dashboard at [app.drovi.io](https://app.drovi.io)
+2. Navigate to **Settings** > **API Keys**
+3. Click **Create API Key**
+4. Give your key a descriptive name (e.g., "Production Backend" or "Development")
+5. Select the appropriate scopes for your use case
+6. Copy and securely store your API key
+
+<Callout type="warning">
+API keys are only shown once when created. Store them securely - you won't be able to see the full key again.
+</Callout>
+
+## Using Your API Key
+
+Include your API key in the `X-API-Key` header with every request:
+
+```bash
+curl -X GET https://api.drovi.io/api/v1/uios \
+  -H "X-API-Key: sk_live_abc123..."
+```
+
+With the Python SDK:
+
+```python
+from drovi import DroviClient
+
+client = DroviClient(api_key="sk_live_abc123...")
+```
+
+Or via environment variable:
+
+```bash
+export DROVI_API_KEY="sk_live_abc123..."
+```
+
+```python
+from drovi import DroviClient
+
+client = DroviClient()  # Automatically reads DROVI_API_KEY
+```
+
+## API Key Scopes
+
+API keys can have different permission scopes:
+
+| Scope | Description | Use Case |
+|-------|-------------|----------|
+| `read` | Read-only access to data | Dashboards, reporting |
+| `write` | Create and update data | Applications, integrations |
+| `admin` | Full access including config | Admin tools |
+| `manage:keys` | Manage API keys | Key rotation scripts |
+
+### Scope Hierarchy
+
+Higher-level scopes include all lower-level permissions:
+
+```
+admin > write > read
+```
+
+An `admin` key can do everything a `write` or `read` key can do.
+
+## Rate Limiting
+
+API requests are rate-limited based on your plan:
+
+| Plan | Requests per Minute | Burst |
+|------|---------------------|-------|
+| Free | 60 | 10 |
+| Pro | 300 | 50 |
+| Enterprise | Custom | Custom |
+
+Rate limit headers are included in every response:
+
+```
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 299
+X-RateLimit-Reset: 1704067260
+```
+
+When rate limited, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "rate_limit_exceeded",
+  "message": "Rate limit exceeded. Try again in 30 seconds.",
+  "retry_after": 30
+}
+```
+
+## Key Security Best Practices
+
+### Do
+
+- Store API keys in environment variables or secret managers
+- Use different keys for development and production
+- Rotate keys regularly (every 90 days recommended)
+- Use the minimum required scope for each key
+- Monitor key usage in the dashboard
+
+### Don't
+
+- Commit API keys to version control
+- Share keys between team members (create individual keys)
+- Use production keys in development environments
+- Include keys in client-side code or logs
+
+## Revoking API Keys
+
+If you suspect a key has been compromised:
+
+1. Go to **Settings** > **API Keys** in the dashboard
+2. Find the compromised key
+3. Click **Revoke**
+4. Create a new key and update your applications
+
+Revoked keys stop working immediately.
+
+## Troubleshooting
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Invalid or missing API key"
+}
+```
+
+**Solutions:**
+- Verify the key is correct (check for typos)
+- Ensure the key hasn't been revoked
+- Check the key hasn't expired
+- Verify the `X-API-Key` header is set correctly
+
+### 403 Forbidden
+
+```json
+{
+  "error": "forbidden",
+  "message": "Insufficient permissions for this operation"
+}
+```
+
+**Solutions:**
+- Check the key has the required scope
+- Upgrade to a higher scope if needed
+- Verify you're accessing the correct organization
+
+## Next Steps
+
+- [Make your first request](/getting-started/first-request)
+- [Explore the API reference](/api-reference)

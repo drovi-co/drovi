@@ -1,0 +1,147 @@
+---
+title: Notion
+description: Connect Notion to extract pages, databases, and comments
+---
+
+# Notion Connector
+
+Extract pages, databases, and comments from Notion workspaces.
+
+## Features
+
+- **Pages**: Sync page content with full block hierarchy
+- **Databases**: Sync database entries and properties
+- **Comments**: Extract discussion threads
+- **Incremental Sync**: Uses last_edited_time for efficient updates
+- **Block Content**: Full support for all Notion block types
+
+## Prerequisites
+
+1. **Notion Integration**
+   - Create an integration in Notion Developer portal
+   - Get the integration token
+   - Share pages/databases with the integration
+
+## Setup
+
+### 1. Create Notion Integration
+
+1. Go to [Notion Integrations](https://www.notion.so/my-integrations)
+2. Create a new integration
+3. Copy the integration token
+
+### 2. Share Content with Integration
+
+In Notion:
+1. Open the page or database
+2. Click "..." > "Connections"
+3. Add your integration
+
+### 3. Configure Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "connector_type": "notion",
+    "name": "Company Workspace",
+    "credentials": {
+      "access_token": "secret_xxx..."
+    },
+    "config": {
+      "root_page_ids": ["page-id-1", "page-id-2"]
+    }
+  }'
+```
+
+## Available Streams
+
+| Stream | Sync Mode | Description |
+|--------|-----------|-------------|
+| `pages` | Incremental | Notion pages with content |
+| `databases` | Incremental | Database entries |
+| `comments` | Incremental | Page and block comments |
+| `users` | Full Refresh | Workspace members |
+
+## Data Extraction
+
+### Pages
+
+```json
+{
+  "id": "page-id-xxx",
+  "type": "notion_page",
+  "title": "Product Roadmap Q1",
+  "content": "## Goals\n- Launch feature X by March...",
+  "last_edited_time": "2024-01-15T10:00:00Z",
+  "parent_type": "workspace",
+  "created_by": "user-id"
+}
+```
+
+### Databases
+
+```json
+{
+  "id": "entry-id-xxx",
+  "type": "notion_database_entry",
+  "database_id": "db-id-xxx",
+  "properties": {
+    "Name": "Q1 Planning Task",
+    "Status": "In Progress",
+    "Assignee": "John Doe",
+    "Due Date": "2024-02-01"
+  }
+}
+```
+
+### Intelligence Extracted
+
+```json
+{
+  "tasks": [{
+    "title": "Launch feature X",
+    "due_date_text": "March",
+    "status": "planned"
+  }],
+  "decisions": [{
+    "title": "Product roadmap for Q1",
+    "status": "made"
+  }]
+}
+```
+
+## Block Types Supported
+
+All Notion block types are parsed:
+
+| Block Type | Handling |
+|------------|----------|
+| `paragraph` | Plain text extraction |
+| `heading_1/2/3` | Markdown headers |
+| `bulleted_list` | Markdown lists |
+| `numbered_list` | Markdown lists |
+| `to_do` | Task extraction |
+| `code` | Code block preservation |
+| `table` | Table parsing |
+| `toggle` | Content extraction |
+
+## Incremental Sync
+
+Uses `last_edited_time` cursor:
+
+```json
+{
+  "cursor_state": {
+    "last_edited_time": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+## Best Practices
+
+1. **Start with root pages** - Share specific pages rather than entire workspace
+2. **Use database queries** - Filter large databases by date
+3. **Handle nested pages** - Recursively sync child pages
+4. **Rate limiting** - Notion has 3 requests/second limit

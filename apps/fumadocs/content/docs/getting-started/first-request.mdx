@@ -1,0 +1,201 @@
+---
+title: First Request
+description: Make your first intelligence extraction request
+---
+
+# Your First Request
+
+Let's extract intelligence from a piece of text. This guide will walk you through making your first API request.
+
+## The Analyze Endpoint
+
+The `/api/v1/analyze` endpoint is the core of Drovi Intelligence. It takes text content and extracts structured intelligence objects.
+
+## Basic Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "content": "Hi John, thanks for the meeting yesterday. I will send you the Q4 report by Friday. Let me know if you have questions about the budget we discussed - I think we should go with Option B for the marketing spend.",
+    "source_type": "email",
+    "user_email": "alice@company.com",
+    "metadata": {
+      "subject": "Follow-up from yesterday",
+      "thread_id": "thread_abc123"
+    }
+  }'
+```
+
+## Understanding the Response
+
+```json
+{
+  "trace_id": "trace_abc123",
+  "status": "completed",
+  "extracted": {
+    "commitments": [
+      {
+        "id": "comm_xyz",
+        "title": "Send Q4 report",
+        "description": "Alice committed to sending the Q4 report to John",
+        "direction": "owed_by_me",
+        "counterparty": "John",
+        "due_date_text": "Friday",
+        "confidence": 0.95,
+        "quoted_text": "I will send you the Q4 report by Friday"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "dec_xyz",
+        "title": "Go with Option B for marketing spend",
+        "status": "proposed",
+        "rationale": "Based on discussion about budget",
+        "confidence": 0.82,
+        "quoted_text": "I think we should go with Option B for the marketing spend"
+      }
+    ],
+    "tasks": [],
+    "risks": [],
+    "questions": [
+      {
+        "id": "q_xyz",
+        "question": "Questions about budget discussion",
+        "status": "open",
+        "confidence": 0.78,
+        "quoted_text": "Let me know if you have questions about the budget we discussed"
+      }
+    ]
+  },
+  "entities_resolved": [
+    {
+      "name": "John",
+      "type": "person",
+      "confidence": 0.9
+    },
+    {
+      "name": "Alice",
+      "type": "person",
+      "email": "alice@company.com"
+    }
+  ],
+  "brief": {
+    "summary": "Alice following up on meeting, committing to send Q4 report by Friday and proposing Option B for marketing budget.",
+    "key_points": [
+      "Commitment to send Q4 report by Friday",
+      "Proposal to use Option B for marketing spend"
+    ],
+    "open_loops": [
+      "John may have questions about budget"
+    ]
+  }
+}
+```
+
+## Intelligence Types Explained
+
+### Commitments
+
+Things people have promised to do. Tracked bidirectionally:
+- `owed_by_me`: You committed to do something
+- `owed_to_me`: Someone committed to do something for you
+
+### Decisions
+
+Conclusions reached or proposed. Status can be:
+- `made`: Final decision
+- `proposed`: Suggestion, not finalized
+- `deferred`: Postponed for later
+- `reversed`: Changed from a previous decision
+
+### Tasks
+
+Action items with ownership and status. Can have:
+- Subtasks
+- Dependencies
+- Effort estimates
+
+### Risks
+
+Potential issues identified:
+- Contradictions with previous statements
+- Policy violations
+- Deal risks
+- Deadline concerns
+
+### Questions
+
+Open questions that need answers:
+- Direct questions asked
+- Implicit questions (areas needing clarification)
+
+## With the Python SDK
+
+```python
+from drovi import DroviClient
+
+client = DroviClient(api_key="your_api_key")
+
+result = client.analyze(
+    organization_id="org_123",
+    content="""
+    Hi John, thanks for the meeting yesterday.
+    I will send you the Q4 report by Friday.
+    Let me know if you have questions about the budget we discussed -
+    I think we should go with Option B for the marketing spend.
+    """,
+    source_type="email",
+    user_email="alice@company.com",
+    metadata={
+        "subject": "Follow-up from yesterday",
+        "thread_id": "thread_abc123"
+    }
+)
+
+# Access extracted intelligence
+for commitment in result.commitments:
+    print(f"Commitment: {commitment.title}")
+    print(f"  Due: {commitment.due_date_text}")
+    print(f"  Confidence: {commitment.confidence}")
+
+for decision in result.decisions:
+    print(f"Decision: {decision.title}")
+    print(f"  Status: {decision.status}")
+```
+
+## Bulk Analysis
+
+For processing multiple items:
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze/batch \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "items": [
+      {
+        "content": "First email content...",
+        "source_type": "email",
+        "metadata": {"thread_id": "1"}
+      },
+      {
+        "content": "Second email content...",
+        "source_type": "email",
+        "metadata": {"thread_id": "2"}
+      }
+    ]
+  }'
+```
+
+## Next Steps
+
+Now that you've made your first request:
+
+- [Explore the full API reference](/api-reference)
+- [Set up connectors](/connectors) to automatically process your data
+- [Learn about MCP tools](/mcp-tools) for AI agent integration
+- [Understand intelligence types](/intelligence) in depth

@@ -7,9 +7,11 @@ Combines vector (semantic), full-text (keyword), and graph (relationship) search
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.search.hybrid import HybridSearch, get_hybrid_search
 
 router = APIRouter()
@@ -40,12 +42,13 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     """A single search result."""
 
-    id: str
+    id: str | None = None
     type: str
+    title: str | None = None
     properties: dict
     score: float
-    scores: dict = Field(default_factory=dict)  # {vector, fulltext, graph}
-    match_source: str  # vector, fulltext, or both
+    scores: dict = Field(default_factory=dict)  # {vector, fulltext, contains}
+    match_source: str  # vector, fulltext, contains, both, or combinations
     connections: list[dict] | None = None
 
 
@@ -59,12 +62,24 @@ class SearchResponse(BaseModel):
 
 
 @router.post("/search")
-async def hybrid_search(request: SearchRequest) -> SearchResponse:
+async def hybrid_search(
+    request: SearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> SearchResponse:
     """
     Perform hybrid search combining vector and full-text search.
 
     Uses Reciprocal Rank Fusion (RRF) to combine results from multiple sources.
+
+    Requires `read` scope.
     """
+    # Validate organization_id matches auth context
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     start_time = datetime.utcnow()
 
     logger.info(
@@ -72,6 +87,7 @@ async def hybrid_search(request: SearchRequest) -> SearchResponse:
         organization_id=request.organization_id,
         query=request.query[:50],
         types=request.types,
+        key_id=ctx.key_id,
     )
 
     try:
@@ -102,10 +118,22 @@ async def hybrid_search(request: SearchRequest) -> SearchResponse:
 
 
 @router.post("/search/vector")
-async def vector_search(request: SearchRequest) -> SearchResponse:
+async def vector_search(
+    request: SearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> SearchResponse:
     """
     Perform vector-only search for semantic similarity.
+
+    Requires `read` scope.
     """
+    # Validate organization_id matches auth context
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     start_time = datetime.utcnow()
 
     try:
@@ -133,10 +161,22 @@ async def vector_search(request: SearchRequest) -> SearchResponse:
 
 
 @router.post("/search/fulltext")
-async def fulltext_search(request: SearchRequest) -> SearchResponse:
+async def fulltext_search(
+    request: SearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> SearchResponse:
     """
     Perform full-text search for keyword matching.
+
+    Requires `read` scope.
     """
+    # Validate organization_id matches auth context
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     start_time = datetime.utcnow()
 
     try:
@@ -164,12 +204,25 @@ async def fulltext_search(request: SearchRequest) -> SearchResponse:
 
 
 @router.post("/search/graph-aware")
-async def graph_aware_search(request: SearchRequest, depth: int = 1) -> SearchResponse:
+async def graph_aware_search(
+    request: SearchRequest,
+    depth: int = 1,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> SearchResponse:
     """
     Perform search with graph context expansion.
 
     Finds matching nodes and expands to connected nodes up to specified depth.
+
+    Requires `read` scope.
     """
+    # Validate organization_id matches auth context
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     start_time = datetime.utcnow()
 
     try:

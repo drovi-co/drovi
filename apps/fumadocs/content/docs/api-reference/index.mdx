@@ -1,0 +1,135 @@
+---
+title: API Reference
+description: Complete REST API documentation for Drovi Intelligence
+---
+
+# API Reference
+
+The Drovi Intelligence API provides programmatic access to intelligence extraction, search, and knowledge graph capabilities.
+
+## Base URL
+
+```
+https://api.drovi.io/api/v1
+```
+
+For self-hosted deployments:
+```
+https://your-domain.com/api/v1
+```
+
+## Authentication
+
+All API requests require authentication via the `X-API-Key` header:
+
+```bash
+curl -X GET https://api.drovi.io/api/v1/uios \
+  -H "X-API-Key: sk_live_abc123..."
+```
+
+See [Authentication](/getting-started/authentication) for details on obtaining and managing API keys.
+
+## Response Format
+
+All responses are JSON and follow a consistent structure:
+
+### Success Response
+
+```json
+{
+  "data": { ... },
+  "meta": {
+    "request_id": "req_abc123",
+    "timestamp": "2024-01-01T12:00:00Z"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "error_code",
+  "message": "Human-readable error message",
+  "details": { ... }
+}
+```
+
+## Common Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `organization_id` | string | Required for most endpoints. Your organization identifier. |
+| `limit` | integer | Pagination: number of results (default: 20, max: 100) |
+| `offset` | integer | Pagination: number of results to skip |
+| `cursor` | string | Cursor-based pagination token |
+
+## Endpoints
+
+<Cards>
+  <Card title="Analyze" href="/api-reference/analyze">
+    Extract intelligence from content
+  </Card>
+  <Card title="Search" href="/api-reference/search">
+    Search across the knowledge graph
+  </Card>
+  <Card title="UIOs" href="/api-reference/uios">
+    Manage Unified Intelligence Objects
+  </Card>
+  <Card title="Customers" href="/api-reference/customers">
+    Customer context and relationships
+  </Card>
+  <Card title="Sessions" href="/api-reference/sessions">
+    Communication session management
+  </Card>
+  <Card title="Graph" href="/api-reference/graph">
+    Direct graph operations
+  </Card>
+  <Card title="Monitoring" href="/api-reference/monitoring">
+    Health checks and metrics
+  </Card>
+</Cards>
+
+## Rate Limits
+
+| Plan | Requests/Minute | Burst |
+|------|-----------------|-------|
+| Free | 60 | 10 |
+| Pro | 300 | 50 |
+| Enterprise | Custom | Custom |
+
+Rate limit headers are included in all responses:
+
+```
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 299
+X-RateLimit-Reset: 1704067260
+```
+
+## HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Invalid or missing API key |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Resource doesn't exist |
+| 429 | Rate Limited - Too many requests |
+| 500 | Server Error - Internal error |
+
+## Versioning
+
+The API is versioned via the URL path (`/api/v1/`). When breaking changes are introduced, a new version will be released. Older versions are supported for at least 12 months after a new version is released.
+
+## SDKs
+
+Official SDKs are available for:
+
+- **Python**: `pip install drovi-intelligence`
+- **TypeScript/JavaScript**: `npm install @drovi/intelligence`
+
+Community SDKs:
+- Go: [github.com/drovi/go-intelligence](https://github.com/drovi/go-intelligence)
+- Ruby: [github.com/drovi/ruby-intelligence](https://github.com/drovi/ruby-intelligence)

@@ -118,15 +118,15 @@ class DroviGraph:
             return value
         if isinstance(value, list):
             return [self._parse_value(v) for v in value]
-        if hasattr(value, "properties"):
-            # Node object
-            return dict(value.properties)
         if hasattr(value, "src_node"):
-            # Relationship object
+            # Relationship object (check before Node since relationships also have properties)
             return {
                 "type": value.relation,
                 "properties": dict(value.properties) if hasattr(value, "properties") else {},
             }
+        if hasattr(value, "properties"):
+            # Node object
+            return dict(value.properties)
         return value
 
     # =========================================================================
@@ -404,11 +404,9 @@ class DroviGraph:
             List of matching nodes with scores
         """
         try:
-            # FalkorDB vector index query syntax:
-            # db.idx.vector.queryNodes(label:property, topK, vector, {options})
-            index_name = f"{label}:embedding"
+            # FalkorDB vector query: 4 arguments - label, property, k, vector
             query = f"""
-            CALL db.idx.vector.queryNodes('{index_name}', $k, vecf32($embedding), {{}})
+            CALL db.idx.vector.queryNodes('{label}', 'embedding', $k, vecf32($embedding))
             YIELD node, score
             WHERE node.organizationId = $orgId
             RETURN node, score
@@ -419,7 +417,7 @@ class DroviGraph:
                 {"k": k, "embedding": embedding, "orgId": organization_id},
             )
         except Exception as e:
-            # Vector index may not exist or syntax differs
+            # Vector index may not exist or no embeddings in data
             logger.warning(
                 "Vector search failed, returning empty results",
                 label=label,
@@ -430,6 +428,28 @@ class DroviGraph:
     # =========================================================================
     # Full-text Search
     # =========================================================================
+
+    @staticmethod
+    def _escape_redisearch_query(text: str) -> str:
+        """Escape special RediSearch characters in a query string."""
+        special = r'\-|~*%@!{}()[]"\':;^'
+        escaped = ""
+        for char in text:
+            if char in special:
+                escaped += f"\\{char}"
+            else:
+                escaped += char
+        return escaped
+
+    def _build_fulltext_query(self, query_text: str) -> str:
+        """Build a RediSearch-compatible fulltext query using OR logic for broad matching."""
+        words = query_text.strip().split()
+        if not words:
+            return ""
+        escaped_words = [self._escape_redisearch_query(w) for w in words if len(w) > 1]
+        if not escaped_words:
+            return self._escape_redisearch_query(query_text)
+        return "|".join(escaped_words)
 
     async def fulltext_search(
         self,
@@ -451,13 +471,12 @@ class DroviGraph:
             List of matching nodes with scores
         """
         try:
-            # FalkorDB fulltext index query syntax:
-            # db.idx.fulltext.queryNodes(index_name, query_text)
-            index_name = f"{label.lower()}_search_idx"
-            # Escape special characters
-            escaped_query = query_text.replace("'", "\\'")
+            # Build RediSearch-compatible query with OR logic and escaped special chars
+            redisearch_query = self._build_fulltext_query(query_text)
+            escaped_query = redisearch_query.replace("'", "\\'")
+
             query = f"""
-            CALL db.idx.fulltext.queryNodes('{index_name}', '{escaped_query}')
+            CALL db.idx.fulltext.queryNodes('{label}', '{escaped_query}')
             YIELD node, score
             WHERE node.organizationId = $orgId
             RETURN node, score
@@ -472,20 +491,54 @@ class DroviGraph:
                 label=label,
                 error=str(e),
             )
-            # Fallback to simple CONTAINS search
-            fallback_query = f"""
-            MATCH (n:{label})
-            WHERE n.organizationId = $orgId
-              AND (toLower(n.name) CONTAINS toLower($query)
-                   OR toLower(n.title) CONTAINS toLower($query)
-                   OR toLower(n.description) CONTAINS toLower($query))
-            RETURN n as node, 1.0 as score
-            LIMIT $limit
-            """
+            return await self.contains_search(label, query_text, organization_id, limit)
+
+    # =========================================================================
+    # CONTAINS Search (Substring)
+    # =========================================================================
+
+    async def contains_search(
+        self,
+        label: str,
+        query_text: str,
+        organization_id: str,
+        limit: int = 10,
+    ) -> list[dict]:
+        """
+        Perform CONTAINS-based substring search across multiple properties.
+
+        More robust than fulltext for exact substring matches. Searches
+        name, title, description, content, summary, email, and company fields.
+        """
+        search_fields = {
+            "Contact": ["name", "displayName", "email", "company"],
+            "Commitment": ["title", "description"],
+            "Decision": ["title", "outcome", "rationale"],
+            "Episode": ["name", "content", "summary"],
+            "Entity": ["name", "summary"],
+            "Risk": ["title", "impact", "mitigations"],
+            "Task": ["title", "description"],
+        }
+        fields = search_fields.get(label, ["name", "title", "description"])
+
+        contains_clauses = [f"toLower(n.{f}) CONTAINS toLower($query)" for f in fields]
+        where_clause = " OR ".join(contains_clauses)
+
+        query = f"""
+        MATCH (n:{label})
+        WHERE n.organizationId = $orgId
+          AND ({where_clause})
+        RETURN n as node, 0.5 as score
+        LIMIT $limit
+        """
+        try:
             return await self.query(
-                fallback_query,
+                query,
                 {"orgId": organization_id, "query": query_text, "limit": limit},
             )
+        except Exception as e:
+            logger.warning("CONTAINS search failed", label=label, error=str(e))
+            return []
 
     # =========================================================================
     # Utility Methods
@@ -1081,7 +1134,7 @@ class GraphAnalyticsEngine:
                     SET c.pagerankScore = $pr,
                         c.betweennessScore = $bc,
                         c.communityId = $community,
-                        c.analyticsUpdatedAt = datetime()
+                        c.analyticsUpdatedAt = $now
                     """,
                     {
                         "contactId": contact_id,
@@ -1089,6 +1142,7 @@ class GraphAnalyticsEngine:
                         "pr": pr_score,
                         "bc": bc_score,
                         "community": community,
+                        "now": datetime.utcnow().isoformat(),
                     },
                 )
                 updated += 1

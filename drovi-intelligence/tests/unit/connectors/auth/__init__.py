@@ -1,0 +1,1 @@
+"""Connector auth tests package."""

@@ -1,0 +1,198 @@
+---
+title: Webhook Security
+description: How to verify webhook signatures and secure your endpoint
+---
+
+# Webhook Security
+
+Secure your webhook endpoint to ensure events are from Drovi.
+
+## Signature Verification
+
+Every webhook includes an `X-Drovi-Signature` header containing an HMAC-SHA256 signature of the payload.
+
+### Header Format
+
+```
+X-Drovi-Signature: sha256=a1b2c3d4...
+```
+
+### Verification Process
+
+1. Get the raw request body
+2. Compute HMAC-SHA256 using your webhook secret
+3. Compare with the signature header
+
+### Python Example
+
+```python
+import hmac
+import hashlib
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+WEBHOOK_SECRET = 'your-webhook-secret'
+
+def verify_signature(payload: bytes, signature: str) -> bool:
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+
+    provided = signature.replace('sha256=', '')
+    return hmac.compare_digest(expected, provided)
+
+@app.route('/webhooks/drovi', methods=['POST'])
+def handle_webhook():
+    signature = request.headers.get('X-Drovi-Signature', '')
+
+    if not verify_signature(request.data, signature):
+        abort(401, 'Invalid signature')
+
+    event = request.json
+    # Process event...
+    return 'OK', 200
+```
+
+### Node.js Example
+
+```javascript
+const crypto = require('crypto');
+const express = require('express');
+
+const app = express();
+const WEBHOOK_SECRET = 'your-webhook-secret';
+
+function verifySignature(payload, signature) {
+  const expected = crypto
+    .createHmac('sha256', WEBHOOK_SECRET)
+    .update(payload)
+    .digest('hex');
+
+  const provided = signature.replace('sha256=', '');
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(provided)
+  );
+}
+
+app.post('/webhooks/drovi', express.raw({type: '*/*'}), (req, res) => {
+  const signature = req.headers['x-drovi-signature'] || '';
+
+  if (!verifySignature(req.body, signature)) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  const event = JSON.parse(req.body);
+  // Process event...
+  res.send('OK');
+});
+```
+
+### Go Example
+
+```go
+package main
+
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "io"
+    "net/http"
+    "strings"
+)
+
+const webhookSecret = "your-webhook-secret"
+
+func verifySignature(payload []byte, signature string) bool {
+    mac := hmac.New(sha256.New, []byte(webhookSecret))
+    mac.Write(payload)
+    expected := hex.EncodeToString(mac.Sum(nil))
+
+    provided := strings.TrimPrefix(signature, "sha256=")
+    return hmac.Equal([]byte(expected), []byte(provided))
+}
+
+func webhookHandler(w http.ResponseWriter, r *http.Request) {
+    payload, _ := io.ReadAll(r.Body)
+    signature := r.Header.Get("X-Drovi-Signature")
+
+    if !verifySignature(payload, signature) {
+        http.Error(w, "Invalid signature", 401)
+        return
+    }
+
+    // Process event...
+    w.WriteHeader(200)
+}
+```
+
+## Additional Headers
+
+| Header | Description |
+|--------|-------------|
+| `X-Drovi-Signature` | HMAC-SHA256 signature |
+| `X-Drovi-Event-Type` | Event type (e.g., `uio.created`) |
+| `X-Drovi-Delivery-Id` | Unique delivery ID |
+| `X-Drovi-Timestamp` | Event timestamp (Unix) |
+
+## Timestamp Validation
+
+Prevent replay attacks by validating the timestamp:
+
+```python
+import time
+
+TOLERANCE_SECONDS = 300  # 5 minutes
+
+def validate_timestamp(timestamp: str) -> bool:
+    event_time = int(timestamp)
+    current_time = int(time.time())
+    return abs(current_time - event_time) < TOLERANCE_SECONDS
+```
+
+## IP Allowlisting
+
+Drovi sends webhooks from these IP ranges:
+
+```
+# Production
+34.102.136.180/32
+35.192.0.0/16
+
+# Staging (if applicable)
+34.102.136.181/32
+```
+
+Configure your firewall to only accept webhooks from these IPs.
+
+## HTTPS Required
+
+Webhook URLs must use HTTPS in production. HTTP is only allowed for local development.
+
+## Secret Rotation
+
+To rotate your webhook secret:
+
+1. Generate a new secret
+2. Update your webhook with the new secret
+3. During transition, verify against both secrets
+4. Remove the old secret from your code
+
+```bash
+curl -X PATCH https://api.drovi.io/api/v1/webhooks/{webhook_id} \
+  -H "X-API-Key: your_api_key" \
+  -d '{"secret": "new-webhook-secret"}'
+```
+
+## Best Practices
+
+1. **Always verify signatures** - Never skip verification
+2. **Use timing-safe comparison** - Prevent timing attacks
+3. **Validate timestamps** - Reject old events
+4. **Use HTTPS** - Encrypt data in transit
+5. **IP allowlist** - Additional layer of security
+6. **Log failed verifications** - Monitor for attacks
+7. **Rotate secrets periodically** - Limit exposure window

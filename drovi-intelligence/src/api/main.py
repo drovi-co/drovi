@@ -19,9 +19,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from src.config import get_settings
-from src.api.routes import analyze, analytics, customer, graph, health, memory, search, uios
+from src.api.routes import (
+    analyze,
+    analytics,
+    api_keys,
+    ask,
+    changes,
+    connections,
+    customer,
+    events,
+    graph,
+    health,
+    memory,
+    monitoring,
+    search,
+    sessions,
+    stream,
+    uios,
+    workflows,
+)
+from src.mcp.http import router as mcp_router
+from src.connectors.webhooks import webhook_router
+from src.connectors.scheduling.scheduler import init_scheduler, shutdown_scheduler
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
+from src.streaming import init_streaming, shutdown_streaming
 
 # Map log level string to logging constant
 _LOG_LEVEL_MAP = {
@@ -78,10 +100,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await graph_client.initialize_indexes()
     logger.info("FalkorDB connection initialized with indexes")
 
+    # Initialize connector scheduler
+    await init_scheduler()
+    logger.info("Connector scheduler initialized")
+
+    # Initialize Kafka streaming (if enabled)
+    streaming_started = await init_streaming()
+    if streaming_started:
+        logger.info("Kafka streaming infrastructure initialized")
+    else:
+        logger.info("Running without Kafka streaming (disabled or unavailable)")
+
     yield
 
     # Shutdown
     logger.info("Shutting down Drovi Intelligence Backend")
+    await shutdown_streaming()
+    await shutdown_scheduler()
     await close_graph_client()
     await close_db()
 
@@ -119,6 +154,17 @@ app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory"])
 app.include_router(search.router, prefix="/api/v1", tags=["Search"])
 app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
+app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
+app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
+app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
+app.include_router(events.router, prefix="/api/v1", tags=["Events"])
+app.include_router(sessions.router, prefix="/api/v1", tags=["Sessions"])
+app.include_router(changes.router, prefix="/api/v1", tags=["Changes"])
+app.include_router(monitoring.router, prefix="/api/v1", tags=["Monitoring"])
+app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
+app.include_router(stream.router, prefix="/api/v1", tags=["Real-Time Stream"])
+app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"])
+app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])
 
 
 @app.get("/")

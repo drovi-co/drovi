@@ -1,0 +1,196 @@
+---
+title: WhatsApp Business
+description: Connect WhatsApp Business API to extract messages and contacts
+---
+
+# WhatsApp Business Connector
+
+Extract messages and contacts from WhatsApp Business API (Cloud API).
+
+## Features
+
+- **Real-Time Messages**: Receive messages instantly via webhooks
+- **Media Support**: Handle images, videos, documents, and voice messages
+- **Contact Profiles**: Extract contact information
+- **Rich Messages**: Support for buttons, lists, and interactive messages
+- **Message Status**: Track sent, delivered, read, and failed statuses
+
+## Prerequisites
+
+1. **Meta Business Account**
+   - Create a Meta Business account
+   - Set up WhatsApp Business API
+
+2. **WhatsApp Business API Access**
+   - Create a WhatsApp Business app in Meta for Developers
+   - Get phone number ID and access token
+   - Configure webhook URL
+
+## Setup
+
+### 1. Configure Webhook
+
+In Meta for Developers Console:
+
+1. Go to WhatsApp > Configuration
+2. Set Webhook URL: `https://api.drovi.io/webhooks/whatsapp`
+3. Set Verify Token: Your chosen verify token
+4. Subscribe to: `messages`, `message_status`
+
+### 2. Create Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "connector_type": "whatsapp",
+    "name": "Business WhatsApp",
+    "credentials": {
+      "access_token": "your-whatsapp-access-token",
+      "phone_number_id": "your-phone-number-id"
+    },
+    "config": {
+      "verify_token": "your-webhook-verify-token"
+    }
+  }'
+```
+
+## Available Streams
+
+| Stream | Sync Mode | Description |
+|--------|-----------|-------------|
+| `messages` | Incremental | Incoming messages (via webhooks) |
+| `contacts` | Full Refresh | Contacts extracted from messages |
+
+## Message Types
+
+### Text Messages
+
+```json
+{
+  "id": "wamid.xxx",
+  "type": "whatsapp_message",
+  "message_type": "text",
+  "from_number": "+1234567890",
+  "content": "Can you send the contract by tomorrow?",
+  "timestamp": "1705312200"
+}
+```
+
+### Media Messages
+
+```json
+{
+  "id": "wamid.xxx",
+  "type": "whatsapp_message",
+  "message_type": "image",
+  "media_id": "media-id-xxx",
+  "caption": "Draft contract for review",
+  "mime_type": "image/jpeg"
+}
+```
+
+### Location Messages
+
+```json
+{
+  "id": "wamid.xxx",
+  "type": "whatsapp_message",
+  "message_type": "location",
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "name": "Office HQ",
+    "address": "123 Main St"
+  }
+}
+```
+
+## Webhook Processing
+
+WhatsApp Cloud API is webhook-first. Messages are delivered in real-time:
+
+```json
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "changes": [{
+      "value": {
+        "messages": [{
+          "from": "+1234567890",
+          "type": "text",
+          "text": {"body": "Hello!"}
+        }]
+      }
+    }]
+  }]
+}
+```
+
+## Intelligence Extraction
+
+Messages are automatically analyzed for intelligence:
+
+```json
+{
+  "commitments": [{
+    "title": "Send the contract",
+    "due_date_text": "tomorrow",
+    "direction": "owed_to_me"
+  }]
+}
+```
+
+## Media Handling
+
+Media files can be downloaded for processing:
+
+```bash
+# Get media URL
+curl https://graph.facebook.com/v18.0/{media-id} \
+  -H "Authorization: Bearer {access-token}"
+
+# Download media
+curl {media-url} \
+  -H "Authorization: Bearer {access-token}" \
+  -o media.jpg
+```
+
+## Message Status Tracking
+
+Track message delivery status:
+
+| Status | Description |
+|--------|-------------|
+| `sent` | Message sent to WhatsApp servers |
+| `delivered` | Message delivered to recipient |
+| `read` | Message read by recipient |
+| `failed` | Message delivery failed |
+
+## Rate Limits
+
+WhatsApp Cloud API rate limits:
+- **Messages**: 1000/second per phone number
+- **Template messages**: Subject to tier limits
+
+## Troubleshooting
+
+### "Webhook verification failed"
+
+Ensure your verify token matches the one configured in Meta for Developers.
+
+### "Invalid access token"
+
+WhatsApp access tokens expire. Generate a new system user token or use a permanent token.
+
+### "Media download failed"
+
+Media URLs expire after a few minutes. Download media immediately upon receiving the webhook.
+
+## Best Practices
+
+1. **Store messages locally** - WhatsApp doesn't provide message history
+2. **Process webhooks quickly** - Return 200 within 20 seconds
+3. **Handle duplicates** - Webhooks may be sent multiple times
+4. **Secure webhook endpoint** - Validate webhook signatures

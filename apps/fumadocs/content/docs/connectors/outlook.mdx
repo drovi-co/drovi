@@ -1,0 +1,119 @@
+---
+title: Microsoft Outlook
+description: Connect Outlook/Office 365 to extract emails and calendar events
+---
+
+# Microsoft Outlook Connector
+
+Extract emails and calendar events from Microsoft Outlook via the Microsoft Graph API.
+
+## Features
+
+- **Email Messages**: Sync inbox, sent items, and custom folders
+- **Calendar Events**: Sync meetings and appointments
+- **Attachments**: Process email attachments
+- **Incremental Sync**: Uses delta queries for efficient updates
+- **Real-Time Webhooks**: Receive instant notifications
+
+## Prerequisites
+
+1. **Azure AD App Registration**
+   - Same setup as Teams connector
+   - Grant mail and calendar permissions
+
+2. **Required Permissions**
+   - `Mail.Read` - Read user's mail
+   - `Calendar.Read` - Read calendar events
+   - `User.Read` - Read user profile
+
+## Setup
+
+### 1. Configure Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "connector_type": "outlook",
+    "name": "Work Outlook",
+    "config": {
+      "tenant_id": "your-azure-tenant-id",
+      "folders": ["inbox", "sentitems"]
+    }
+  }'
+```
+
+### 2. Complete OAuth
+
+```bash
+curl https://api.drovi.io/api/v1/oauth/outlook/authorize?connection_id=conn_xxx
+```
+
+## Available Streams
+
+| Stream | Sync Mode | Description |
+|--------|-----------|-------------|
+| `messages` | Incremental | Email messages (delta query) |
+| `calendar_events` | Incremental | Calendar events |
+| `folders` | Full Refresh | Mail folders |
+| `contacts` | Full Refresh | Outlook contacts |
+
+## Data Extraction
+
+### Email Messages
+
+```json
+{
+  "id": "AAMkAGI...",
+  "type": "outlook_message",
+  "subject": "Q1 Planning Review",
+  "body_preview": "Let's finalize the budget by Friday...",
+  "from": "john@company.com",
+  "to": ["team@company.com"],
+  "sent_datetime": "2024-01-15T10:00:00Z",
+  "has_attachments": true
+}
+```
+
+### Intelligence Extracted
+
+```json
+{
+  "commitments": [{
+    "title": "Finalize the budget",
+    "due_date_text": "Friday"
+  }]
+}
+```
+
+## Incremental Sync
+
+Uses Microsoft Graph delta queries:
+
+```json
+{
+  "cursor_state": {
+    "delta_link": "https://graph.microsoft.com/.../delta?token=..."
+  }
+}
+```
+
+## Webhooks
+
+Enable real-time updates:
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/webhooks/outlook/subscribe \
+  -H "X-API-Key: your_api_key" \
+  -d '{
+    "connection_id": "conn_xxx",
+    "resources": ["messages", "calendar_events"]
+  }'
+```
+
+## Best Practices
+
+1. **Start with recent history** - Avoid syncing years of emails initially
+2. **Use folder filtering** - Sync only relevant folders
+3. **Handle large attachments** - Consider attachment size limits

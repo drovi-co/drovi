@@ -27,6 +27,13 @@ async def parse_messages(state: IntelligenceState) -> dict:
     return await parse_messages_node(state)
 
 
+async def persist_raw(state: IntelligenceState) -> dict:
+    """Persist raw content to FalkorDB for deeper graph memory."""
+    from .nodes.persist_raw import persist_raw_content_node
+
+    return await persist_raw_content_node(state)
+
+
 async def resolve_contacts_early(state: IntelligenceState) -> dict:
     """Pre-resolve contacts before extraction for rich relationship context."""
     from .nodes.resolve_contacts_early import resolve_contacts_early_node
@@ -90,6 +97,20 @@ async def entity_resolution(state: IntelligenceState) -> dict:
     return await entity_resolution_node(state)
 
 
+async def extract_relationships(state: IntelligenceState) -> dict:
+    """Extract relationship signals between contacts."""
+    from .nodes.extract_relationships import extract_relationships_node
+
+    return await extract_relationships_node(state)
+
+
+async def extract_communication(state: IntelligenceState) -> dict:
+    """Extract communication patterns for relationship intelligence."""
+    from .nodes.extract_communication import extract_communication_node
+
+    return await extract_communication_node(state)
+
+
 async def generate_brief(state: IntelligenceState) -> dict:
     """Generate a brief summary for the conversation."""
     from .nodes.generate_brief import generate_brief_node
@@ -104,6 +125,13 @@ async def deduplicate(state: IntelligenceState) -> dict:
     return await deduplicate_node(state)
 
 
+async def detect_contradictions(state: IntelligenceState) -> dict:
+    """Detect contradictions between new extractions and existing graph data."""
+    from .nodes.detect_contradictions import detect_contradictions_node
+
+    return await detect_contradictions_node(state)
+
+
 async def signal_filter(state: IntelligenceState) -> dict:
     """Filter signal from noise using Wheeler's Statistical Process Control."""
     from .nodes.signal_filter import signal_filter_node
@@ -116,6 +144,13 @@ async def persist(state: IntelligenceState) -> dict:
     from .nodes.persist import persist_node
 
     return await persist_node(state)
+
+
+async def link_intelligence(state: IntelligenceState) -> dict:
+    """Cross-link intelligence objects for connected knowledge graph."""
+    from .nodes.link_intelligence import link_intelligence_node
+
+    return await link_intelligence_node(state)
 
 
 async def evolve_memory(state: IntelligenceState) -> dict:
@@ -239,8 +274,18 @@ def after_risks(state: IntelligenceState) -> Literal["entity_resolution", "dedup
     return "entity_resolution"
 
 
-def after_entity_resolution(state: IntelligenceState) -> Literal["generate_brief"]:
-    """Route after entity resolution - always generate brief next."""
+def after_entity_resolution(state: IntelligenceState) -> Literal["extract_relationships"]:
+    """Route after entity resolution - extract relationships next."""
+    return "extract_relationships"
+
+
+def after_extract_relationships(state: IntelligenceState) -> Literal["extract_communication"]:
+    """Route after relationship extraction - extract communication patterns next."""
+    return "extract_communication"
+
+
+def after_extract_communication(state: IntelligenceState) -> Literal["generate_brief"]:
+    """Route after communication extraction - generate brief next."""
     return "generate_brief"
 
 
@@ -252,8 +297,13 @@ def after_generate_brief(state: IntelligenceState) -> Literal["deduplicate", "pe
     return "persist"
 
 
-def after_deduplicate(state: IntelligenceState) -> Literal["signal_filter"]:
-    """Route after deduplication to signal filtering."""
+def after_deduplicate(state: IntelligenceState) -> Literal["detect_contradictions"]:
+    """Route after deduplication to contradiction detection."""
+    return "detect_contradictions"
+
+
+def after_detect_contradictions(state: IntelligenceState) -> Literal["signal_filter"]:
+    """Route after contradiction detection to signal filtering."""
     return "signal_filter"
 
 
@@ -262,8 +312,13 @@ def after_signal_filter(state: IntelligenceState) -> Literal["persist"]:
     return "persist"
 
 
-def after_persist(state: IntelligenceState) -> Literal["evolve_memory"]:
-    """Route after persistence to evolve memory."""
+def after_persist(state: IntelligenceState) -> Literal["link_intelligence"]:
+    """Route after persistence to link intelligence."""
+    return "link_intelligence"
+
+
+def after_link_intelligence(state: IntelligenceState) -> Literal["evolve_memory"]:
+    """Route after linking intelligence to evolve memory."""
     return "evolve_memory"
 
 
@@ -283,21 +338,24 @@ def create_intelligence_graph() -> StateGraph:
 
     The graph follows this general flow:
     1. parse_messages - Parse raw content into structured messages
-    2. resolve_contacts_early - Pre-resolve contacts for relationship context (NEW)
-    3. classify - Classify content to determine what to extract
-    4. pattern_match - Match against learned patterns (Klein's RPD)
+    2. persist_raw - Persist raw content to FalkorDB (Phase 1 - Deeper Graph)
+    3. resolve_contacts_early - Pre-resolve contacts for relationship context
+    4. classify - Classify content to determine what to extract
+    5. pattern_match - Match against learned patterns (Klein's RPD)
     5. extract_claims - Extract claims (facts, promises, questions, etc.)
     6. extract_commitments - Extract commitments (if applicable)
     7. extract_decisions - Extract decisions (if applicable)
     8. extract_tasks - Extract tasks from commitments
     9. detect_risks - Detect risks in extracted content
     10. entity_resolution - Resolve and merge entities across sources
-    11. generate_brief - Generate 3-line summary and suggested actions
-    12. deduplicate - Deduplicate against existing UIOs
-    13. signal_filter - Classify signal vs noise (Wheeler's SPC)
-    14. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
-    15. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
-    16. finalize - Prepare final output
+    11. extract_relationships - Extract relationship signals between contacts
+    12. generate_brief - Generate 3-line summary and suggested actions
+    13. deduplicate - Deduplicate against existing UIOs
+    14. detect_contradictions - Detect contradictions with existing graph data
+    15. signal_filter - Classify signal vs noise (Wheeler's SPC)
+    16. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
+    17. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
+    18. finalize - Prepare final output
 
     Routing is conditional based on classification results.
     """
@@ -306,6 +364,7 @@ def create_intelligence_graph() -> StateGraph:
 
     # Add all nodes
     workflow.add_node("parse_messages", parse_messages)
+    workflow.add_node("persist_raw", persist_raw)  # Raw content layer (Phase 1 - Deeper Graph)
     workflow.add_node("resolve_contacts_early", resolve_contacts_early)
     workflow.add_node("classify", classify)
     workflow.add_node("pattern_match", pattern_match)
@@ -315,10 +374,14 @@ def create_intelligence_graph() -> StateGraph:
     workflow.add_node("extract_tasks", extract_tasks)
     workflow.add_node("detect_risks", detect_risks)
     workflow.add_node("entity_resolution", entity_resolution)
+    workflow.add_node("extract_relationships", extract_relationships)
+    workflow.add_node("extract_communication", extract_communication)  # Communication graph (Phase 2)
     workflow.add_node("generate_brief", generate_brief)
     workflow.add_node("deduplicate", deduplicate)
+    workflow.add_node("detect_contradictions", detect_contradictions)
     workflow.add_node("signal_filter", signal_filter)
     workflow.add_node("persist", persist)
+    workflow.add_node("link_intelligence", link_intelligence)  # Cross-link intelligence (Phase 2)
     workflow.add_node("evolve_memory", evolve_memory)
     workflow.add_node("finalize", finalize)
 
@@ -326,8 +389,9 @@ def create_intelligence_graph() -> StateGraph:
     workflow.set_entry_point("parse_messages")
 
     # Define edges
-    # parse_messages -> resolve_contacts_early -> classify (always)
-    workflow.add_edge("parse_messages", "resolve_contacts_early")
+    # parse_messages -> persist_raw -> resolve_contacts_early -> classify (always)
+    workflow.add_edge("parse_messages", "persist_raw")
+    workflow.add_edge("persist_raw", "resolve_contacts_early")
     workflow.add_edge("resolve_contacts_early", "classify")
 
     # classify -> pattern_match OR finalize (conditional)
@@ -400,10 +464,28 @@ def create_intelligence_graph() -> StateGraph:
         },
     )
 
-    # entity_resolution -> generate_brief (always)
+    # entity_resolution -> extract_relationships (always)
     workflow.add_conditional_edges(
         "entity_resolution",
         after_entity_resolution,
+        {
+            "extract_relationships": "extract_relationships",
+        },
+    )
+
+    # extract_relationships -> extract_communication (always)
+    workflow.add_conditional_edges(
+        "extract_relationships",
+        after_extract_relationships,
+        {
+            "extract_communication": "extract_communication",
+        },
+    )
+
+    # extract_communication -> generate_brief (always)
+    workflow.add_conditional_edges(
+        "extract_communication",
+        after_extract_communication,
         {
             "generate_brief": "generate_brief",
         },
@@ -419,14 +501,20 @@ def create_intelligence_graph() -> StateGraph:
         },
     )
 
-    # deduplicate -> signal_filter (always)
-    workflow.add_edge("deduplicate", "signal_filter")
+    # deduplicate -> detect_contradictions (always)
+    workflow.add_edge("deduplicate", "detect_contradictions")
+
+    # detect_contradictions -> signal_filter (always)
+    workflow.add_edge("detect_contradictions", "signal_filter")
 
     # signal_filter -> persist (always)
     workflow.add_edge("signal_filter", "persist")
 
-    # persist -> evolve_memory (always)
-    workflow.add_edge("persist", "evolve_memory")
+    # persist -> link_intelligence (always)
+    workflow.add_edge("persist", "link_intelligence")
+
+    # link_intelligence -> evolve_memory (always)
+    workflow.add_edge("link_intelligence", "evolve_memory")
 
     # evolve_memory -> finalize (always)
     workflow.add_edge("evolve_memory", "finalize")

@@ -1,0 +1,159 @@
+---
+title: Webhooks
+description: Receive real-time notifications when intelligence changes
+---
+
+# Webhooks
+
+Webhooks allow your application to receive real-time notifications when intelligence changes in Drovi.
+
+## Overview
+
+Instead of polling for changes, webhooks push events to your endpoint:
+
+```
+Drovi → Your Endpoint → Your Application
+```
+
+## Quick Start
+
+### 1. Create a Webhook
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/webhooks \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-app.com/webhooks/drovi",
+    "events": ["uio.created", "commitment.due"],
+    "secret": "your-webhook-secret"
+  }'
+```
+
+### 2. Handle Events
+
+```python
+from flask import Flask, request
+import hmac
+import hashlib
+
+app = Flask(__name__)
+
+@app.route('/webhooks/drovi', methods=['POST'])
+def handle_webhook():
+    # Verify signature
+    signature = request.headers.get('X-Drovi-Signature')
+    payload = request.data
+    expected = hmac.new(
+        b'your-webhook-secret',
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(signature, f'sha256={expected}'):
+        return 'Invalid signature', 401
+
+    # Process event
+    event = request.json
+    print(f"Received: {event['event_type']}")
+
+    return 'OK', 200
+```
+
+## Event Format
+
+All webhook events follow this structure:
+
+```json
+{
+  "event_id": "evt_abc123",
+  "event_type": "uio.created",
+  "organization_id": "org_xxx",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "payload": {
+    // Event-specific data
+  }
+}
+```
+
+## Available Events
+
+| Event | Description |
+|-------|-------------|
+| `uio.created` | New UIO extracted |
+| `uio.updated` | UIO modified |
+| `uio.deleted` | UIO removed |
+| `commitment.created` | New commitment |
+| `commitment.due` | Commitment due soon |
+| `commitment.overdue` | Commitment past due |
+| `decision.created` | New decision |
+| `decision.superseded` | Decision replaced |
+| `risk.detected` | Risk identified |
+| `entity.merged` | Identities merged |
+| `sync.completed` | Connector sync finished |
+| `sync.failed` | Connector sync failed |
+
+## Webhook Management
+
+### List Webhooks
+
+```bash
+curl https://api.drovi.io/api/v1/webhooks \
+  -H "X-API-Key: your_api_key"
+```
+
+### Get Webhook Details
+
+```bash
+curl https://api.drovi.io/api/v1/webhooks/{webhook_id} \
+  -H "X-API-Key: your_api_key"
+```
+
+### Update Webhook
+
+```bash
+curl -X PATCH https://api.drovi.io/api/v1/webhooks/{webhook_id} \
+  -H "X-API-Key: your_api_key" \
+  -d '{"events": ["uio.created", "risk.detected"]}'
+```
+
+### Delete Webhook
+
+```bash
+curl -X DELETE https://api.drovi.io/api/v1/webhooks/{webhook_id} \
+  -H "X-API-Key: your_api_key"
+```
+
+## Delivery
+
+### Retry Policy
+
+Failed deliveries are retried with exponential backoff:
+
+| Attempt | Delay |
+|---------|-------|
+| 1 | Immediate |
+| 2 | 1 minute |
+| 3 | 5 minutes |
+| 4 | 30 minutes |
+| 5 | 2 hours |
+
+After 5 failed attempts, the webhook is disabled.
+
+### Delivery History
+
+```bash
+curl https://api.drovi.io/api/v1/webhooks/{webhook_id}/deliveries \
+  -H "X-API-Key: your_api_key"
+```
+
+## Learn More
+
+<Cards>
+  <Card title="Event Types" href="/webhooks/events">
+    Complete list of webhook events
+  </Card>
+  <Card title="Security" href="/webhooks/security">
+    Signature verification and best practices
+  </Card>
+</Cards>

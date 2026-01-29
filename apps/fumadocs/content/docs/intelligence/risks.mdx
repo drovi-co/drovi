@@ -1,0 +1,167 @@
+---
+title: Risk Detection
+description: How Drovi automatically detects contradictions, violations, and risks
+---
+
+# Risk Detection
+
+Drovi automatically surfaces risks — contradictions, policy violations, deal risks, and more.
+
+## Risk Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `contradiction` | Conflicting statements | "Yes" then "No" to same question |
+| `policy_violation` | Breaking established rules | Discount exceeding limits |
+| `deal_risk` | Potential deal problems | Customer expressing concerns |
+| `commitment_at_risk` | Deadline likely to be missed | No progress on due item |
+| `scope_creep` | Expanding beyond agreement | New requirements added |
+| `stakeholder_misalignment` | Different expectations | Conflicting priorities |
+
+## Risk Schema
+
+```typescript
+interface Risk {
+  id: string;
+  risk_type: RiskType;
+  title: string;
+  description: string;
+
+  // Severity
+  severity: 'low' | 'medium' | 'high' | 'critical';
+
+  // Related objects
+  related_uio_ids: string[];
+  related_entity_ids: string[];
+
+  // Contradiction specifics
+  statement_1?: string;
+  statement_2?: string;
+
+  // Mitigation
+  suggested_action?: string;
+  resolution_status: 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+
+  // Evidence
+  quoted_text: string;
+  episode_id: string;
+}
+```
+
+## Contradiction Detection
+
+Drovi identifies when statements conflict:
+
+### Same Topic, Different Answers
+
+```
+Email 1: "We can deliver by March 1st"
+Email 2: "The earliest delivery is April"
+→ Risk: contradiction, severity: high
+```
+
+### Decision Reversal Without Acknowledgment
+
+```
+Meeting 1: "We decided to use AWS"
+Meeting 2: "We're going with Azure"
+→ Risk: contradiction (unless explicitly noted as reversal)
+```
+
+## Policy Violation Detection
+
+When content violates established rules:
+
+```json
+{
+  "risk_type": "policy_violation",
+  "title": "Discount exceeds authorization",
+  "description": "20% discount offered, max authorized is 15%",
+  "severity": "high",
+  "suggested_action": "Escalate for approval"
+}
+```
+
+## Deal Risk Indicators
+
+Signals that a deal may be at risk:
+
+| Signal | Risk Level |
+|--------|------------|
+| "Budget concerns" | Medium |
+| "Need to talk to..." | Low |
+| "Not a priority right now" | High |
+| "Going with another vendor" | Critical |
+| "Timeline doesn't work" | High |
+
+## Query Risks
+
+### All Open Risks
+
+```bash
+curl https://api.drovi.io/api/v1/risks?status=open \
+  -H "X-API-Key: your_api_key"
+```
+
+### By Severity
+
+```bash
+curl https://api.drovi.io/api/v1/risks?severity=high,critical \
+  -H "X-API-Key: your_api_key"
+```
+
+### By Type
+
+```bash
+curl https://api.drovi.io/api/v1/risks?type=contradiction \
+  -H "X-API-Key: your_api_key"
+```
+
+## Risk Resolution
+
+### Acknowledge Risk
+
+```bash
+curl -X PATCH https://api.drovi.io/api/v1/risks/{risk_id} \
+  -H "X-API-Key: your_api_key" \
+  -d '{"resolution_status": "acknowledged", "note": "Discussing with stakeholders"}'
+```
+
+### Resolve Risk
+
+```bash
+curl -X PATCH https://api.drovi.io/api/v1/risks/{risk_id} \
+  -H "X-API-Key: your_api_key" \
+  -d '{"resolution_status": "resolved", "resolution": "Clarified timeline in call"}'
+```
+
+### Dismiss Risk
+
+```bash
+curl -X PATCH https://api.drovi.io/api/v1/risks/{risk_id} \
+  -H "X-API-Key: your_api_key" \
+  -d '{"resolution_status": "dismissed", "reason": "False positive"}'
+```
+
+## Webhooks
+
+Get notified when risks are detected:
+
+```json
+{
+  "event_type": "risk.detected",
+  "payload": {
+    "risk_id": "risk_xxx",
+    "risk_type": "contradiction",
+    "severity": "high",
+    "title": "Conflicting delivery dates"
+  }
+}
+```
+
+## Best Practices
+
+1. **Act on high-severity risks** promptly
+2. **Document resolutions** for audit trail
+3. **Set up alerts** for critical risks
+4. **Review dismissed risks** periodically for patterns

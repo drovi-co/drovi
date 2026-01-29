@@ -1,0 +1,47 @@
+# FalkorDB Helm Chart Values
+
+replicaCount: 1
+
+image:
+  repository: falkordb/falkordb
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 6379
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: gp3
+  size: 50Gi
+  accessModes:
+    - ReadWriteOnce
+
+# FalkorDB configuration
+config:
+  appendonly: "yes"
+  maxmemoryPolicy: "noeviction"
+
+# Health checks
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 5
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

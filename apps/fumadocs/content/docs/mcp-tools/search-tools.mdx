@@ -1,0 +1,350 @@
+---
+title: Search Tools
+description: MCP tools for semantic and graph search
+---
+
+# Search Tools
+
+These MCP tools provide powerful search capabilities across the Drovi Intelligence knowledge graph.
+
+## search_intelligence
+
+Perform hybrid semantic search across all intelligence types.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Natural language search query |
+| `types` | array | No | Filter by types: commitment, decision, task, risk, question |
+| `source_types` | array | No | Filter by source: email, slack, notion, etc. |
+| `entity_ids` | array | No | Filter by related entity IDs |
+| `time_range` | object | No | Filter by time range |
+| `min_confidence` | number | No | Minimum confidence threshold (0-1) |
+| `limit` | integer | No | Max results (default: 20) |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "id": "dec_abc123",
+      "type": "decision",
+      "title": "Proceed with API v2 migration",
+      "description": "Decision to migrate to API v2 by Q2",
+      "relevance_score": 0.95,
+      "confidence": 0.88,
+      "source": {
+        "type": "email",
+        "timestamp": "2024-01-10T14:00:00Z",
+        "from": "john@acme.com"
+      },
+      "evidence": {
+        "quoted_text": "We've decided to proceed with the API v2 migration",
+        "context": "Discussion about technical roadmap for Q2"
+      },
+      "related_entities": [
+        {"id": "person_xyz", "name": "John Smith", "role": "decision_maker"}
+      ]
+    }
+  ],
+  "total": 15,
+  "query_understanding": {
+    "intent": "find_decisions",
+    "entities_detected": ["API v2"],
+    "time_context": "recent"
+  }
+}
+```
+
+### Example Usage
+
+```python
+# Search for decisions about a specific topic
+results = await mcp.call_tool("drovi", "search_intelligence", {
+    "query": "API migration decisions",
+    "types": ["decision"],
+    "min_confidence": 0.8,
+    "limit": 5
+})
+
+# Ground agent response in evidence
+for result in results['results']:
+    print(f"Decision: {result['title']}")
+    print(f"Evidence: {result['evidence']['quoted_text']}")
+```
+
+---
+
+## search_by_entity
+
+Find all intelligence related to a specific entity (person, company, project, etc.).
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `entity_id` | string | No* | Entity ID |
+| `entity_email` | string | No* | Entity email (for contacts) |
+| `entity_name` | string | No* | Entity name (fuzzy match) |
+| `relationship_types` | array | No | Filter by relationship type |
+| `types` | array | No | Filter by intelligence types |
+| `limit` | integer | No | Max results (default: 50) |
+
+*At least one entity identifier is required.
+
+### Response
+
+```json
+{
+  "entity": {
+    "id": "person_abc123",
+    "type": "person",
+    "name": "John Smith",
+    "email": "john@acme.com"
+  },
+  "intelligence": {
+    "commitments": [
+      {
+        "id": "comm_xyz",
+        "title": "Deliver API documentation",
+        "direction": "owed_to_me",
+        "status": "active",
+        "relationship": "COMMITTED_TO"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "dec_abc",
+        "title": "Use GraphQL for new API",
+        "relationship": "DECIDED"
+      }
+    ],
+    "tasks": [],
+    "risks": [
+      {
+        "id": "risk_def",
+        "title": "Resource constraints for Q2",
+        "relationship": "RAISED"
+      }
+    ]
+  },
+  "summary": {
+    "total_items": 12,
+    "by_type": {
+      "commitment": 5,
+      "decision": 3,
+      "task": 2,
+      "risk": 2
+    }
+  }
+}
+```
+
+---
+
+## get_context_for_topic
+
+Get comprehensive context for a topic before taking action or responding.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `topic` | string | Yes | Topic to get context for |
+| `include_decisions` | boolean | No | Include relevant decisions (default: true) |
+| `include_commitments` | boolean | No | Include relevant commitments (default: true) |
+| `include_risks` | boolean | No | Include relevant risks (default: true) |
+| `include_questions` | boolean | No | Include open questions (default: true) |
+| `include_history` | boolean | No | Include discussion history (default: false) |
+| `time_horizon` | string | No | Time relevance: week, month, quarter, all (default: month) |
+
+### Response
+
+```json
+{
+  "topic": "Q2 product roadmap",
+  "context": {
+    "summary": "Q2 roadmap planning is in progress with 3 key decisions made and 2 pending. Main focus areas: API v2 migration, mobile app improvements, and analytics dashboard.",
+    "decisions": {
+      "made": [
+        {
+          "id": "dec_1",
+          "title": "Proceed with API v2 migration",
+          "date": "2024-01-10",
+          "decision_maker": "John Smith"
+        },
+        {
+          "id": "dec_2",
+          "title": "Prioritize mobile app over web",
+          "date": "2024-01-08",
+          "decision_maker": "Sarah Johnson"
+        }
+      ],
+      "pending": [
+        {
+          "id": "dec_3",
+          "title": "Analytics dashboard scope",
+          "proposed_by": "Mike Chen",
+          "blocking": true
+        }
+      ]
+    },
+    "commitments": [
+      {
+        "id": "comm_1",
+        "title": "API v2 spec by Jan 30",
+        "owner": "Engineering team",
+        "status": "active"
+      }
+    ],
+    "risks": [
+      {
+        "id": "risk_1",
+        "title": "Resource constraints",
+        "severity": "medium",
+        "mitigation": "Consider hiring contractor"
+      }
+    ],
+    "open_questions": [
+      {
+        "id": "q_1",
+        "question": "What's the analytics dashboard budget?",
+        "asked_by": "Mike Chen",
+        "open_since": "2024-01-12"
+      }
+    ],
+    "key_people": [
+      {"name": "John Smith", "role": "Technical decisions"},
+      {"name": "Sarah Johnson", "role": "Product priorities"},
+      {"name": "Mike Chen", "role": "Analytics owner"}
+    ]
+  },
+  "recommendations": [
+    "Resolve analytics dashboard scope decision (blocking)",
+    "Clarify budget question with finance"
+  ]
+}
+```
+
+### Example: Agent Pre-flight Check
+
+```python
+# Before responding to a question about the roadmap
+context = await mcp.call_tool("drovi", "get_context_for_topic", {
+    "topic": "Q2 product roadmap",
+    "include_history": True
+})
+
+# Use context in response
+prompt = f"""
+The user asked about the Q2 roadmap status.
+
+Current Context:
+{context['context']['summary']}
+
+Decisions Made:
+{format_decisions(context['context']['decisions']['made'])}
+
+Open Questions:
+{format_questions(context['context']['open_questions'])}
+
+Provide an informed response.
+"""
+```
+
+---
+
+## find_similar_intelligence
+
+Find intelligence similar to a given item (for deduplication, related items).
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `uio_id` | string | No* | ID of intelligence object |
+| `text` | string | No* | Text to find similar items for |
+| `threshold` | number | No | Similarity threshold 0-1 (default: 0.7) |
+| `limit` | integer | No | Max results (default: 10) |
+
+### Response
+
+```json
+{
+  "similar_items": [
+    {
+      "id": "comm_abc",
+      "type": "commitment",
+      "title": "Send Q4 report by Friday",
+      "similarity_score": 0.92,
+      "overlap": ["Q4 report", "deadline"],
+      "relationship": "potential_duplicate"
+    },
+    {
+      "id": "task_def",
+      "type": "task",
+      "title": "Prepare Q4 report",
+      "similarity_score": 0.85,
+      "overlap": ["Q4 report"],
+      "relationship": "related"
+    }
+  ]
+}
+```
+
+---
+
+## get_thread_context
+
+Get full context for a conversation thread (email thread, Slack thread).
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `thread_id` | string | Yes | Thread identifier |
+| `source_type` | string | No | Source type if ambiguous |
+
+### Response
+
+```json
+{
+  "thread_id": "thread_abc123",
+  "source_type": "email",
+  "subject": "Q4 Planning Discussion",
+  "participants": [
+    {"name": "Alice Chen", "email": "alice@company.com", "role": "initiator"},
+    {"name": "John Smith", "email": "john@acme.com", "role": "participant"}
+  ],
+  "message_count": 8,
+  "time_span": {
+    "first": "2024-01-10T09:00:00Z",
+    "last": "2024-01-15T14:30:00Z"
+  },
+  "brief": {
+    "summary": "Discussion about Q4 planning between Alice and John. Key outcomes: agreed on timeline, John committed to sending report by Friday.",
+    "key_points": [
+      "Timeline agreed for Q4 deliverables",
+      "John to send report by Friday",
+      "Budget discussion pending"
+    ],
+    "open_loops": [
+      "Budget confirmation needed from John"
+    ]
+  },
+  "extracted_intelligence": {
+    "commitments": [...],
+    "decisions": [...],
+    "questions": [...]
+  },
+  "related_threads": [
+    {
+      "thread_id": "thread_def456",
+      "subject": "Budget Discussion",
+      "relationship": "referenced"
+    }
+  ]
+}
+```

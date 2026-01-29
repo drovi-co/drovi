@@ -295,6 +295,41 @@ class ExtractedContact(BaseModel):
     confidence: float = 0.0
 
 
+class ExtractedRelationship(BaseModel):
+    """
+    A relationship extracted between contacts.
+
+    Used to build the relationship graph between people.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+
+    # Parties
+    source_contact_id: str
+    target_contact_id: str
+
+    # Relationship details
+    relationship_type: Literal[
+        "reports_to", "manages", "works_with", "collaborates_with", "partners_with",
+        "client_of", "vendor_to", "stakeholder_of", "influences", "advises",
+        "mentors", "knows", "introduced_by", "referred_by"
+    ] = "knows"
+    strength: Literal["very_strong", "strong", "moderate", "weak", "unknown"] = "moderate"
+    bidirectional: bool = False
+
+    # Evidence
+    evidence_text: str = ""
+    confidence: float = 0.8
+
+    # Sentiment
+    sentiment: Literal["positive", "negative", "neutral"] = "neutral"
+    health_indicator: Literal["good", "strained", "improving", "declining"] | None = None
+
+    # Metadata
+    extracted_at: datetime = Field(default_factory=datetime.utcnow)
+    source_message_id: str | None = None
+
+
 # =============================================================================
 # Aggregated Extracted Intelligence
 # =============================================================================
@@ -310,6 +345,7 @@ class ExtractedIntelligence(BaseModel):
     topics: list[ExtractedTopic] = Field(default_factory=list)
     risks: list[DetectedRisk] = Field(default_factory=list)
     contacts: list[ExtractedContact] = Field(default_factory=list)
+    relationships: list["ExtractedRelationship"] = Field(default_factory=list)
 
 
 # =============================================================================
@@ -538,6 +574,16 @@ class IntelligenceState(BaseModel):
 
     # Parsed messages
     messages: list[ParsedMessage] = Field(default_factory=list)
+
+    # Raw content layer (Phase 1 - Deeper Graph)
+    raw_message_ids: list[str] = Field(default_factory=list)  # IDs of RawMessage nodes in FalkorDB
+    thread_context_id: str | None = None  # ID of ThreadContext node in FalkorDB
+
+    # Communication graph (Phase 2 - Wider Graph)
+    communication_events_recorded: int = 0  # Number of communication events recorded
+
+    # Intelligence cross-links (Phase 2 - Wider Graph)
+    intelligence_links_created: int = 0  # Number of cross-links between intelligence objects
 
     # Pre-resolved contact context (populated by resolve_contacts_early node)
     contact_context: ContactContextData = Field(default_factory=ContactContextData)

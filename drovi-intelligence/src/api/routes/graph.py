@@ -4,14 +4,27 @@ Graph Query Endpoints
 Execute Cypher queries and graph operations on the knowledge graph.
 """
 
+import re
+
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.graph.client import get_graph_client
 
 router = APIRouter()
 logger = structlog.get_logger()
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization_id matches auth context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 class GraphQueryRequest(BaseModel):
@@ -31,18 +44,26 @@ class GraphQueryResponse(BaseModel):
 
 
 @router.post("/graph/query")
-async def execute_query(request: GraphQueryRequest) -> GraphQueryResponse:
+async def execute_query(
+    request: GraphQueryRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_GRAPH)),
+) -> GraphQueryResponse:
     """
     Execute a Cypher query on the knowledge graph.
 
     Note: Only read queries are allowed. Write operations must go through
     specific endpoints.
+
+    Requires `read:graph` scope.
     """
-    # Validate query is read-only
+    _validate_org_id(ctx, request.organization_id)
+
+    # Validate query is read-only (use word boundaries to avoid false positives
+    # like "createdAt" matching "CREATE" or "OFFSET" matching "SET")
     query_upper = request.cypher.upper().strip()
     write_keywords = ["CREATE", "MERGE", "DELETE", "SET", "REMOVE", "DETACH"]
 
-    if any(kw in query_upper for kw in write_keywords):
+    if any(re.search(rf"\b{kw}\b", query_upper) for kw in write_keywords):
         raise HTTPException(
             status_code=400,
             detail="Write operations not allowed via query endpoint. Use specific mutation endpoints.",
@@ -52,6 +73,7 @@ async def execute_query(request: GraphQueryRequest) -> GraphQueryResponse:
         "Executing graph query",
         organization_id=request.organization_id,
         query_length=len(request.cypher),
+        key_id=ctx.key_id,
     )
 
     try:
@@ -75,8 +97,16 @@ async def execute_query(request: GraphQueryRequest) -> GraphQueryResponse:
 
 
 @router.get("/graph/stats")
-async def get_graph_stats(organization_id: str):
-    """Get graph statistics for an organization."""
+async def get_graph_stats(
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_GRAPH)),
+):
+    """
+    Get graph statistics for an organization.
+
+    Requires `read:graph` scope.
+    """
+    _validate_org_id(ctx, organization_id)
     try:
         graph = await get_graph_client()
 

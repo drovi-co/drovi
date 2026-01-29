@@ -88,6 +88,11 @@ class GraphNodeType(str, Enum):
     # Identity Resolution (Contact-First Intelligence)
     IDENTITY = "Identity"  # Cross-source identity linking for contacts
 
+    # Raw Content Layer (Phase 1 - Deeper Graph)
+    RAW_MESSAGE = "RawMessage"  # Raw message content for full-text search
+    THREAD_CONTEXT = "ThreadContext"  # Thread/conversation aggregation
+    COMMUNICATION_EVENT = "CommunicationEvent"  # Communication pattern tracking
+
 
 class GraphRelationshipType(str, Enum):
     """All graph relationship types."""
@@ -141,6 +146,18 @@ class GraphRelationshipType(str, Enum):
     HAS_IDENTITY = "HAS_IDENTITY"  # Contact -> Identity (contact owns this identity)
     POTENTIAL_MERGE = "POTENTIAL_MERGE"  # Contact -> Contact (suggested merge candidates)
     MERGED_FROM = "MERGED_FROM"  # Contact -> Contact (after merge, source contacts)
+
+    # Raw Content Layer relationships (Phase 1 - Deeper Graph)
+    IN_THREAD = "IN_THREAD"  # RawMessage -> ThreadContext
+    SENT_BY = "SENT_BY"  # RawMessage -> Contact (sender)
+    RECEIVED_BY = "RECEIVED_BY"  # RawMessage -> Contact (recipient)
+    COMMUNICATED = "COMMUNICATED"  # CommunicationEvent -> Contact (edge)
+    THREAD_PARTICIPANT = "THREAD_PARTICIPANT"  # ThreadContext -> Contact
+
+    # Intelligence Cross-Links (Phase 2 - Wider Graph)
+    IMPACTS = "IMPACTS"  # Decision -> Commitment
+    THREATENS = "THREATENS"  # Risk -> Decision/Commitment
+    FULFILLS = "FULFILLS"  # Task -> Commitment
 
 
 # ============================================================================
@@ -244,6 +261,12 @@ class EntityNode(BaseNode):
     # Confidence for derived entities
     confidence: float = 1.0
 
+    # Graph Analytics Metrics (from Phase 4 - Smart Graph)
+    pagerank_score: float = 0.0  # PageRank-derived importance
+    importance_score: float = 0.0  # Computed importance score
+    community_id: str | None = None  # CDLP community assignment
+    analytics_updated_at: datetime | None = None  # When analytics were last computed
+
     # Embedding
     embedding: list[float] | None = None
 
@@ -262,6 +285,7 @@ class ContactNode(BaseNode):
     betweenness_score: float = 0.0  # Betweenness centrality (bridging)
     community_id: str | None = None
     community_ids: list[str] = Field(default_factory=list)  # Multiple communities
+    analytics_updated_at: datetime | None = None  # When analytics were last computed
 
     # Relationship stats
     interaction_count: int = 0
@@ -516,3 +540,215 @@ class PatternNode(BaseNode):
     accuracy_rate: float = 1.0  # times_confirmed / (times_confirmed + times_rejected)
 
     is_active: bool = True
+
+
+# ============================================================================
+# Raw Content Layer Nodes (Phase 1 - Deeper Graph)
+# ============================================================================
+
+
+class RawMessageNode(BaseNode):
+    """
+    Raw message content for full-text search and provenance tracking.
+
+    Stores the original message content from any source, enabling:
+    - Full-text search across all communications
+    - Evidence linking for extracted intelligence
+    - Thread reconstruction
+    - Temporal analysis
+    """
+
+    # Content
+    content: str
+    content_html: str | None = None  # Preserve HTML for rich formatting
+    subject: str | None = None
+
+    # Source metadata
+    source_type: SourceType
+    source_id: str  # External ID from source system
+    source_account_id: str | None = None  # Account this came from
+
+    # Participants
+    sender_contact_id: str | None = None
+    sender_email: str | None = None
+    sender_name: str | None = None
+    recipient_contact_ids: list[str] = Field(default_factory=list)
+    recipient_emails: list[str] = Field(default_factory=list)
+    cc_contact_ids: list[str] = Field(default_factory=list)
+    bcc_contact_ids: list[str] = Field(default_factory=list)
+
+    # Threading
+    thread_id: str | None = None  # Links to ThreadContextNode
+    in_reply_to_id: str | None = None  # Previous message in thread
+    references: list[str] = Field(default_factory=list)  # Message-ID references
+
+    # Temporal
+    sent_at: datetime
+    received_at: datetime | None = None
+
+    # Multi-source specifics
+    channel_id: str | None = None  # Slack channel
+    channel_name: str | None = None
+    page_id: str | None = None  # Notion page
+    doc_id: str | None = None  # Google doc
+    event_id: str | None = None  # Calendar event
+
+    # Attachments
+    has_attachments: bool = False
+    attachment_count: int = 0
+    attachment_names: list[str] = Field(default_factory=list)
+
+    # Analysis flags
+    is_processed: bool = False  # Intelligence extracted
+    processed_at: datetime | None = None
+    extraction_version: str | None = None
+
+    # Embedding for semantic search
+    embedding: list[float] | None = None
+
+    # Metadata
+    metadata: dict = Field(default_factory=dict)
+
+
+class ThreadContextNode(BaseNode):
+    """
+    Thread/conversation aggregation for context tracking.
+
+    Aggregates messages in a thread to provide:
+    - High-level thread summary
+    - Participant tracking
+    - Thread health metrics
+    - Quick access to thread intelligence
+    """
+
+    # Thread identification
+    thread_id: str  # External thread ID
+    source_type: SourceType
+
+    # Subject and summary
+    subject: str | None = None
+    summary: str | None = None  # AI-generated summary
+    summary_updated_at: datetime | None = None
+
+    # Participants
+    participant_contact_ids: list[str] = Field(default_factory=list)
+    participant_count: int = 0
+    initiator_contact_id: str | None = None
+
+    # Message counts
+    message_count: int = 0
+    unread_count: int = 0
+
+    # Temporal bounds
+    first_message_at: datetime
+    last_message_at: datetime
+    last_activity_at: datetime | None = None
+
+    # Thread state
+    status: Literal["active", "stale", "closed", "archived"] = "active"
+    is_starred: bool = False
+    is_important: bool = False
+
+    # Intelligence aggregation
+    commitment_count: int = 0
+    decision_count: int = 0
+    open_question_count: int = 0
+    risk_count: int = 0
+
+    # Urgency/priority (computed)
+    urgency_score: float = 0.0
+    priority: Literal["low", "medium", "high", "urgent"] = "medium"
+
+    # Labels/categories
+    labels: list[str] = Field(default_factory=list)
+    topic_ids: list[str] = Field(default_factory=list)
+
+    # Embedding for semantic search
+    embedding: list[float] | None = None
+
+
+class CommunicationEventNode(BaseNode):
+    """
+    Communication pattern tracking for relationship intelligence.
+
+    Captures individual communication events to enable:
+    - Communication frequency analysis
+    - Relationship strength computation
+    - Response time patterns
+    - Sentiment trajectory tracking
+    """
+
+    # Event type
+    event_type: Literal[
+        "email_sent",
+        "email_received",
+        "slack_message",
+        "slack_mention",
+        "meeting_scheduled",
+        "meeting_attended",
+        "call",
+        "document_shared",
+        "comment",
+    ]
+
+    # Participants
+    from_contact_id: str
+    to_contact_ids: list[str] = Field(default_factory=list)
+
+    # Source
+    source_type: SourceType
+    source_id: str | None = None  # Links to RawMessage or event
+
+    # Temporal
+    occurred_at: datetime
+
+    # Channel
+    channel: Literal["email", "slack", "calendar", "whatsapp", "notion", "gdocs", "phone"] | None = None
+    channel_id: str | None = None
+
+    # Response tracking
+    is_response: bool = False
+    response_to_event_id: str | None = None
+    response_time_seconds: int | None = None
+
+    # Sentiment (if analyzed)
+    sentiment_score: float | None = None  # -1 to 1
+    sentiment_label: Literal["negative", "neutral", "positive"] | None = None
+
+    # Metadata
+    message_length: int | None = None
+    has_attachments: bool = False
+    is_first_contact: bool = False  # First communication with this person
+
+
+# ============================================================================
+# Confidence Tier Enum (Phase 1 - Tiered Confidence System)
+# ============================================================================
+
+
+class ConfidenceTier(str, Enum):
+    """
+    Tiered confidence system for intelligence storage.
+
+    Replaces binary filtering with tiered storage:
+    - HIGH: Full indexing, primary results
+    - MEDIUM: Indexed, secondary results
+    - LOW: Stored but de-prioritized
+    - SPECULATIVE: Stored, flagged for review
+    """
+
+    HIGH = "high"  # >= 0.80 confidence
+    MEDIUM = "medium"  # 0.50 - 0.80 confidence
+    LOW = "low"  # 0.20 - 0.50 confidence
+    SPECULATIVE = "speculative"  # < 0.20 confidence
+
+
+def get_confidence_tier(confidence: float) -> ConfidenceTier:
+    """Determine confidence tier from score."""
+    if confidence >= 0.80:
+        return ConfidenceTier.HIGH
+    if confidence >= 0.50:
+        return ConfidenceTier.MEDIUM
+    if confidence >= 0.20:
+        return ConfidenceTier.LOW
+    return ConfidenceTier.SPECULATIVE

@@ -1,0 +1,130 @@
+---
+title: Installation
+description: Set up Drovi Intelligence in your environment
+---
+
+# Installation
+
+Drovi Intelligence can be used in several ways depending on your needs.
+
+## Option 1: REST API (Recommended)
+
+The simplest way to use Drovi Intelligence is through our REST API. No installation required - just make HTTP requests.
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "content": "I will send the report by Friday",
+    "source_type": "email"
+  }'
+```
+
+## Option 2: Python SDK
+
+Install the official Python SDK for a more integrated experience:
+
+```bash
+pip install drovi-intelligence
+```
+
+### Basic Usage
+
+```python
+from drovi import DroviClient
+
+client = DroviClient(api_key="your_api_key")
+
+# Extract intelligence from content
+result = client.analyze(
+    organization_id="org_123",
+    content="I will send the report by Friday",
+    source_type="email"
+)
+
+print(result.commitments)
+# [Commitment(title="Send report", due_date="Friday", direction="owed_by_me")]
+```
+
+### Configuration
+
+The SDK can be configured via environment variables:
+
+```bash
+export DROVI_API_KEY="your_api_key"
+export DROVI_BASE_URL="https://api.drovi.io"  # Optional, defaults to production
+```
+
+Or programmatically:
+
+```python
+from drovi import DroviClient
+
+client = DroviClient(
+    api_key="your_api_key",
+    base_url="https://api.drovi.io",
+    timeout=30,
+    max_retries=3
+)
+```
+
+## Option 3: Self-Hosted
+
+For enterprise deployments, Drovi Intelligence can be self-hosted.
+
+### Requirements
+
+- Python 3.11+
+- Redis 7+
+- FalkorDB 4+
+- PostgreSQL 15+
+
+### Docker Deployment
+
+```bash
+docker pull drovi/intelligence:latest
+
+docker run -d \
+  -p 8000:8000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e REDIS_URL="redis://..." \
+  -e FALKORDB_URL="redis://..." \
+  -e OPENAI_API_KEY="..." \
+  drovi/intelligence:latest
+```
+
+### Kubernetes Deployment
+
+Helm charts are available for Kubernetes deployments:
+
+```bash
+helm repo add drovi https://charts.drovi.io
+helm install intelligence drovi/intelligence \
+  --set database.url="postgresql://..." \
+  --set redis.url="redis://..."
+```
+
+## Verification
+
+After installation, verify your setup by checking the health endpoint:
+
+```bash
+curl https://api.drovi.io/api/v1/health/live
+# {"status": "healthy"}
+```
+
+Or with the SDK:
+
+```python
+client = DroviClient(api_key="your_api_key")
+health = client.health()
+print(health.status)  # "healthy"
+```
+
+## Next Steps
+
+- [Get your API key](/getting-started/authentication)
+- [Make your first request](/getting-started/first-request)
+- [Explore the API reference](/api-reference)

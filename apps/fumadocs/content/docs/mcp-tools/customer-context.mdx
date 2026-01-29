@@ -1,0 +1,343 @@
+---
+title: Customer Context Tools
+description: MCP tools for accessing customer and contact information
+---
+
+# Customer Context Tools
+
+These MCP tools provide comprehensive access to customer and contact information stored in the Drovi Intelligence knowledge graph.
+
+## get_customer_context
+
+Get comprehensive context about a customer or contact, including profile, relationship history, and active intelligence.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `contact_id` | string | No* | Drovi contact ID |
+| `contact_email` | string | No* | Contact's email address |
+| `include_commitments` | boolean | No | Include open commitments (default: true) |
+| `include_decisions` | boolean | No | Include recent decisions (default: true) |
+| `include_timeline` | boolean | No | Include recent interactions (default: false) |
+| `timeline_limit` | integer | No | Max timeline entries (default: 10) |
+
+*One of `contact_id` or `contact_email` is required.
+
+### Response
+
+```json
+{
+  "contact": {
+    "id": "contact_abc123",
+    "name": "John Smith",
+    "email": "john@acme.com",
+    "company": "Acme Corp",
+    "title": "VP of Engineering",
+    "first_seen": "2023-06-15T10:00:00Z",
+    "last_interaction": "2024-01-15T14:30:00Z",
+    "interaction_count": 47
+  },
+  "relationship": {
+    "health_score": 0.85,
+    "health_trend": "stable",
+    "engagement_level": "high",
+    "response_time_avg": "2.3 hours",
+    "sentiment_trend": "positive"
+  },
+  "open_commitments": [
+    {
+      "id": "comm_xyz",
+      "title": "Send Q4 report",
+      "direction": "owed_by_me",
+      "due_date": "2024-01-20",
+      "status": "active",
+      "confidence": 0.95
+    }
+  ],
+  "recent_decisions": [
+    {
+      "id": "dec_abc",
+      "title": "Go with Option B for marketing",
+      "status": "made",
+      "date": "2024-01-10",
+      "confidence": 0.88
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "q_def",
+      "question": "Budget confirmation needed",
+      "status": "open",
+      "asked_at": "2024-01-15"
+    }
+  ],
+  "key_topics": ["Q4 planning", "Marketing budget", "Product roadmap"],
+  "related_contacts": [
+    {
+      "id": "contact_def",
+      "name": "Sarah Johnson",
+      "relationship": "reports_to",
+      "company": "Acme Corp"
+    }
+  ]
+}
+```
+
+### Example Usage
+
+```python
+# Get context before responding to a customer email
+context = await mcp.call_tool("drovi", "get_customer_context", {
+    "contact_email": "john@acme.com",
+    "include_timeline": True,
+    "timeline_limit": 5
+})
+
+# Use context in response
+print(f"Last interaction: {context['contact']['last_interaction']}")
+print(f"Open commitments: {len(context['open_commitments'])}")
+```
+
+---
+
+## search_customers
+
+Search across customer profiles using semantic search.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search query |
+| `company` | string | No | Filter by company |
+| `min_interactions` | integer | No | Minimum interaction count |
+| `limit` | integer | No | Max results (default: 20) |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "contact": {
+        "id": "contact_abc123",
+        "name": "John Smith",
+        "email": "john@acme.com",
+        "company": "Acme Corp",
+        "title": "VP of Engineering"
+      },
+      "relevance_score": 0.92,
+      "match_reason": "Mentioned in Q4 planning discussions",
+      "snippet": "...John confirmed the timeline for Q4 deliverables..."
+    }
+  ],
+  "total": 15
+}
+```
+
+### Example Usage
+
+```python
+# Find customers related to a topic
+customers = await mcp.call_tool("drovi", "search_customers", {
+    "query": "enterprise deployment concerns",
+    "limit": 5
+})
+
+for result in customers['results']:
+    print(f"{result['contact']['name']}: {result['match_reason']}")
+```
+
+---
+
+## get_customer_timeline
+
+Get the interaction timeline for a customer.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `contact_id` | string | No* | Drovi contact ID |
+| `contact_email` | string | No* | Contact's email address |
+| `limit` | integer | No | Max entries (default: 50) |
+| `include_intelligence` | boolean | No | Include extracted intelligence (default: true) |
+| `source_types` | array | No | Filter by source (email, slack, etc.) |
+
+### Response
+
+```json
+{
+  "contact_id": "contact_abc123",
+  "timeline": [
+    {
+      "timestamp": "2024-01-15T14:30:00Z",
+      "source_type": "email",
+      "direction": "inbound",
+      "subject": "Re: Q4 Planning",
+      "summary": "John confirmed the Q4 timeline and raised concerns about resources.",
+      "intelligence": {
+        "commitments": [
+          {"title": "Confirm resource allocation", "direction": "owed_to_me"}
+        ],
+        "risks": [
+          {"title": "Resource constraints for Q4", "severity": "medium"}
+        ]
+      }
+    },
+    {
+      "timestamp": "2024-01-14T10:00:00Z",
+      "source_type": "slack",
+      "direction": "outbound",
+      "channel": "#acme-project",
+      "summary": "Shared project timeline with Acme team.",
+      "intelligence": {
+        "tasks": [
+          {"title": "Review timeline", "assignee": "John"}
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_interactions": 47,
+    "emails": 32,
+    "slack_messages": 15,
+    "first_interaction": "2023-06-15T10:00:00Z",
+    "topics_discussed": ["Q4 planning", "Resource allocation", "Timeline"]
+  }
+}
+```
+
+---
+
+## get_relationship_health
+
+Assess the health and status of a customer relationship.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `contact_id` | string | No* | Drovi contact ID |
+| `contact_email` | string | No* | Contact's email address |
+| `include_recommendations` | boolean | No | Include action recommendations (default: true) |
+
+### Response
+
+```json
+{
+  "contact_id": "contact_abc123",
+  "health": {
+    "overall_score": 0.85,
+    "trend": "stable",
+    "risk_level": "low"
+  },
+  "metrics": {
+    "engagement": {
+      "score": 0.9,
+      "response_rate": 0.95,
+      "avg_response_time": "2.3 hours",
+      "interaction_frequency": "3.2 per week"
+    },
+    "sentiment": {
+      "score": 0.82,
+      "trend": "improving",
+      "recent_tone": "positive"
+    },
+    "commitment_health": {
+      "score": 0.78,
+      "open_commitments": 3,
+      "overdue_commitments": 0,
+      "fulfillment_rate": 0.92
+    },
+    "risk_factors": {
+      "score": 0.88,
+      "active_risks": 1,
+      "unresolved_questions": 2
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "medium",
+      "action": "Follow up on budget confirmation",
+      "reason": "Question open for 3 days",
+      "uio_id": "q_def456"
+    },
+    {
+      "priority": "low",
+      "action": "Schedule check-in call",
+      "reason": "Last synchronous meeting was 2 weeks ago"
+    }
+  ],
+  "alerts": [],
+  "compared_to_baseline": {
+    "engagement": "+15%",
+    "sentiment": "+5%",
+    "response_time": "-20%"
+  }
+}
+```
+
+---
+
+## generate_relationship_summary
+
+Generate a natural language summary of a customer relationship.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `contact_id` | string | No* | Drovi contact ID |
+| `contact_email` | string | No* | Contact's email address |
+| `format` | string | No | Summary format: brief, detailed, executive (default: brief) |
+| `time_period` | string | No | Time period: week, month, quarter, all (default: month) |
+
+### Response
+
+```json
+{
+  "contact_id": "contact_abc123",
+  "summary": {
+    "brief": "Strong relationship with John Smith (Acme VP Engineering). Active collaboration on Q4 planning with 3 open commitments. Sentiment positive, engagement high.",
+    "key_points": [
+      "47 interactions over 7 months",
+      "Currently working on Q4 deliverables",
+      "3 open commitments, 0 overdue",
+      "Decision made to proceed with Option B for marketing",
+      "One medium-priority risk flagged (resource constraints)"
+    ],
+    "action_items": [
+      "Confirm budget numbers (open question)",
+      "Send Q4 report by Jan 20 (commitment)"
+    ],
+    "relationship_stage": "active_collaboration",
+    "next_recommended_action": "Follow up on budget confirmation"
+  }
+}
+```
+
+### Example: Using in Agent Prompt
+
+```python
+summary = await mcp.call_tool("drovi", "generate_relationship_summary", {
+    "contact_email": "john@acme.com",
+    "format": "detailed"
+})
+
+prompt = f"""
+You are responding to an email from John Smith.
+
+Relationship Context:
+{summary['summary']['brief']}
+
+Key Points:
+{chr(10).join('- ' + p for p in summary['summary']['key_points'])}
+
+Action Items to Address:
+{chr(10).join('- ' + a for a in summary['summary']['action_items'])}
+
+Draft a response to John's question about project status.
+"""
+```

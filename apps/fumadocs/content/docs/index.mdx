@@ -1,13 +1,140 @@
 ---
-title: Hello World
-description: Your first document
+title: The Memory Infrastructure for Work
+description: A shared, queryable intelligence layer that humans, agents, and systems rely on to know what's true. What was decided. What was promised. What's still owed.
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Drovi Intelligence
 
-## What is Next?
+A shared, queryable intelligence layer that humans, agents, and systems rely on to know what's true. What was decided. What was promised. What's still owed.
+
+## Companies don't lack tools. They lack memory.
+
+Decisions scattered across tools, never connected. Commitments made and forgotten. No single view across teams and customers. The same discussions repeat endlessly.
+
+**Drovi changes this.** A shared memory layer that ingests every source, extracts decisions, commitments, ownership, and risks, resolves entities and relationships across boundaries, and exposes everything via API, UI, and agent-ready interfaces.
+
+## What Lives in Memory
+
+The memory layer doesn't just store information. It extracts, resolves, and persists structured knowledge — ready for humans and agents to query.
+
+| Type | Description |
+|------|-------------|
+| **Commitments** | Structured objects with owner, status, due date, and full provenance chain |
+| **Decisions** | What was decided, why, and what replaced it — linked to source evidence |
+| **Entities** | Resolved people, companies, and projects — unified across all sources |
+| **Ownership** | Who owns what, who promised what, and where work is blocked or waiting |
+| **Risks** | Contradictions, dropped commitments, and policy violations — surfaced automatically |
+
+## How the Memory Layer Works
+
+From raw data to queryable truth:
+
+1. **Ingest** — Connect email, chat, docs, meetings, and CRM. Drovi ingests everything — historical and real-time — into a unified data layer.
+
+2. **Normalize** — Messages, threads, files, and events are standardized into a common schema. Every source speaks the same language.
+
+3. **Extract** — AI extracts structured intelligence: decisions, commitments, ownership, deadlines, risks, and relationships.
+
+4. **Resolve** — Entities are unified across sources. The same person, project, or commitment is recognized everywhere it appears.
+
+5. **Persist** — Memory is stored in a graph with full provenance. Every fact links back to its source, and history is preserved.
+
+6. **Expose** — Query via API, UI, or agent-ready interfaces. Humans and systems access the same truth.
+
+## Get Started
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+  <Card title="Quick Start" href="/getting-started">
+    Set up Drovi Intelligence in minutes
+  </Card>
+  <Card title="API Reference" href="/api-reference">
+    Complete REST API documentation
+  </Card>
+  <Card title="Connectors" href="/connectors">
+    Connect Gmail, Slack, Notion, and more
+  </Card>
+  <Card title="MCP Tools" href="/mcp-tools">
+    Enable AI agents to access organizational memory
+  </Card>
 </Cards>
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  DROVI INTELLIGENCE                                         │
+├─────────────────────────────────────────────────────────────┤
+│  Connector Layer (Universal)                                │
+│  ├─ Email (Gmail, Outlook)                                  │
+│  ├─ Messaging (Slack, Teams, WhatsApp)                      │
+│  └─ Documents (Notion, Google Docs)                         │
+├─────────────────────────────────────────────────────────────┤
+│  Intelligence Orchestrator                                  │
+│  ├─ Entity Resolution                                       │
+│  ├─ Extraction (Decisions, Commitments, Risks)              │
+│  └─ Deduplication & Linking                                 │
+├─────────────────────────────────────────────────────────────┤
+│  Knowledge Graph (FalkorDB)                                 │
+│  └─ Entities, Relationships, Intelligence Objects           │
+├─────────────────────────────────────────────────────────────┤
+│  Query Layer                                                │
+│  ├─ Hybrid Search (Vector + Fulltext + Graph)               │
+│  ├─ REST API                                                │
+│  └─ MCP Tools for AI Agents                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Built for Scale. Ready for Agents.
+
+The memory layer is infrastructure — not an app. Designed to serve humans, agents, and systems at enterprise scale.
+
+| Capability | Description |
+|------------|-------------|
+| **Universal Connectors** | Ingest from email, chat, docs, meetings, CRM, and custom sources |
+| **Entity Resolution** | Unified identities across sources. The same person, project, or commitment is recognized everywhere |
+| **Knowledge Graph** | Relationships, decisions, and commitments stored in a queryable graph with full provenance |
+| **Agent-Ready APIs** | Structured endpoints for AI agents to read and write memory |
+| **Historical Backfill** | Import years of history. Memory starts from day one |
+| **Real-Time Sync** | Continuous ingestion keeps memory current. Changes propagate in seconds |
+
+## Quick Start
+
+```bash
+# Make your first request
+curl -X POST https://api.drovi.io/api/v1/analyze \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "content": "I will send the report by Friday. We decided to go with Option B for the marketing campaign.",
+    "source_type": "email"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "extracted": {
+    "commitments": [{
+      "title": "Send report",
+      "due_date_text": "Friday",
+      "direction": "owed_by_me",
+      "confidence": 0.95
+    }],
+    "decisions": [{
+      "title": "Go with Option B for marketing campaign",
+      "status": "made",
+      "confidence": 0.88
+    }]
+  }
+}
+```
+
+## Next Steps
+
+- [Install and configure](/getting-started/installation) Drovi Intelligence
+- [Get your API key](/getting-started/authentication) and make your first request
+- Explore the [API reference](/api-reference) for all available endpoints
+- Connect your [data sources](/connectors)
+- Enable [MCP tools](/mcp-tools) for AI agent integration

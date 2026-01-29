@@ -103,7 +103,7 @@ def parse_slack_messages(content: str, user_email: str | None = None, metadata: 
             current_sender = ts_sender_match.group(2).strip()
             current_message = [ts_sender_match.group(3)] if ts_sender_match.group(3) else []
 
-        elif sender_match and not current_message:  # Only at start of new message
+        elif sender_match:  # New sender detected
             if current_message and current_sender:
                 messages.append(ParsedMessage(
                     id=f"msg_{len(messages)}",
@@ -470,7 +470,7 @@ def parse_google_doc(content: str, user_email: str | None = None, metadata: dict
         content="\n".join(content_parts),
         sender_name=owner.get("name"),
         sender_email=owner.get("email"),
-        is_from_user=user_email and owner.get("email", "").lower() == user_email.lower(),
+        is_from_user=bool(user_email and owner.get("email", "").lower() == user_email.lower()),
     )]
 
     for i, comment in enumerate(comments):

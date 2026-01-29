@@ -13,12 +13,24 @@ From the "Trillion Dollar Hole" research:
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization_id matches auth context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 # =============================================================================
@@ -111,6 +123,7 @@ class SignalNoiseStatsResponse(BaseModel):
 async def get_organization_profile(
     organization_id: str,
     days: int = Query(30, ge=7, le=365, description="Analysis period in days"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     Get comprehensive organization intelligence profile.
@@ -121,13 +134,17 @@ async def get_organization_profile(
     - Organizational health score
 
     MCP Tool: get_organization_profile
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.analytics.blindspot_detection import get_blindspot_detection_service
 
     logger.info(
         "Getting organization profile",
         organization_id=organization_id,
         days=days,
+        key_id=ctx.key_id,
     )
 
     service = await get_blindspot_detection_service()
@@ -182,12 +199,16 @@ async def list_blindspots(
     days: int = Query(30, ge=7, le=365),
     severity: str | None = Query(None, description="Filter by severity: low, medium, high"),
     blindspot_type: str | None = Query(None, description="Filter by type"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     List detected organizational blindspots.
 
     MCP Tool: list_blindspots
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.analytics.blindspot_detection import get_blindspot_detection_service
 
     logger.info(
@@ -196,6 +217,7 @@ async def list_blindspots(
         days=days,
         severity=severity,
         blindspot_type=blindspot_type,
+        key_id=ctx.key_id,
     )
 
     service = await get_blindspot_detection_service()
@@ -235,6 +257,7 @@ async def dismiss_blindspot(
     organization_id: str,
     blindspot_id: str,
     reason: str = Query(..., description="Reason for dismissal"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Dismiss a blindspot with feedback.
@@ -242,7 +265,10 @@ async def dismiss_blindspot(
     This feeds back into the detection system to improve accuracy.
 
     MCP Tool: dismiss_blindspot
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.analytics.blindspot_detection import get_blindspot_detection_service
 
     logger.info(
@@ -250,6 +276,7 @@ async def dismiss_blindspot(
         organization_id=organization_id,
         blindspot_id=blindspot_id,
         reason=reason,
+        key_id=ctx.key_id,
     )
 
     service = await get_blindspot_detection_service()
@@ -274,6 +301,7 @@ async def get_calibration_metrics(
     organization_id: str,
     prediction_type: str | None = Query(None, description="Filter by prediction type"),
     days: int = Query(90, ge=7, le=365),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     Get confidence calibration metrics.
@@ -281,7 +309,10 @@ async def get_calibration_metrics(
     Uses DiBello's Strategic Rehearsal methodology with Brier score decomposition.
 
     MCP Tool: get_calibration_metrics
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.finetuning.calibration import (
         PredictionType,
         get_calibration_service,
@@ -293,6 +324,7 @@ async def get_calibration_metrics(
         organization_id=organization_id,
         prediction_type=prediction_type,
         days=days,
+        key_id=ctx.key_id,
     )
 
     service = await get_calibration_service()
@@ -336,6 +368,7 @@ async def get_calibration_metrics(
 async def get_signal_noise_stats(
     organization_id: str,
     days: int = Query(30, ge=7, le=365),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     Get statistics about signal vs noise classification.
@@ -343,13 +376,17 @@ async def get_signal_noise_stats(
     Uses Wheeler's Statistical Process Control methodology.
 
     MCP Tool: get_signal_noise_stats
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.graph.client import get_graph_client
 
     logger.info(
         "Getting signal/noise stats",
         organization_id=organization_id,
         days=days,
+        key_id=ctx.key_id,
     )
 
     graph = await get_graph_client()
@@ -431,6 +468,7 @@ async def list_patterns(
     organization_id: str,
     domain: str | None = Query(None, description="Filter by domain"),
     active_only: bool = Query(True, description="Only active patterns"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     List recognition patterns for the organization.
@@ -438,7 +476,10 @@ async def list_patterns(
     Uses Klein's Recognition-Primed Decision methodology.
 
     MCP Tool: list_patterns
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.graph.client import get_graph_client
 
     logger.info(
@@ -446,6 +487,7 @@ async def list_patterns(
         organization_id=organization_id,
         domain=domain,
         active_only=active_only,
+        key_id=ctx.key_id,
     )
 
     graph = await get_graph_client()
@@ -511,6 +553,7 @@ async def record_pattern_feedback(
     pattern_id: str,
     was_correct: bool = Query(..., description="Whether the pattern match was correct"),
     reason: str | None = Query(None, description="Optional reason for feedback"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Record feedback on a pattern match.
@@ -518,7 +561,10 @@ async def record_pattern_feedback(
     Updates pattern accuracy metrics.
 
     MCP Tool: record_pattern_feedback
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.graph.client import get_graph_client
 
     logger.info(
@@ -526,6 +572,7 @@ async def record_pattern_feedback(
         organization_id=organization_id,
         pattern_id=pattern_id,
         was_correct=was_correct,
+        key_id=ctx.key_id,
     )
 
     graph = await get_graph_client()
@@ -565,18 +612,23 @@ async def record_pattern_feedback(
 async def get_organizational_health(
     organization_id: str,
     days: int = Query(30, ge=7, le=365),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
 ):
     """
     Get overall organizational health score with breakdown.
 
     MCP Tool: get_organizational_health
+
+    Requires `read:analytics` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.analytics.blindspot_detection import get_blindspot_detection_service
 
     logger.info(
         "Getting organizational health",
         organization_id=organization_id,
         days=days,
+        key_id=ctx.key_id,
     )
 
     service = await get_blindspot_detection_service()
@@ -612,4 +664,333 @@ async def get_organizational_health(
             "blindspots_detected": len(profile.blindspots),
         },
         "generated_at": profile.generated_at.isoformat(),
+    }
+
+
+# =============================================================================
+# GRAPH ANALYTICS ENDPOINTS
+# =============================================================================
+
+
+@router.get("/graph/influential/{organization_id}")
+async def get_influential_contacts(
+    organization_id: str,
+    limit: int = Query(20, ge=1, le=100, description="Maximum contacts to return"),
+    min_score: float = Query(0.0, ge=0.0, description="Minimum PageRank score"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
+):
+    """
+    Get most influential contacts based on PageRank scores.
+
+    PageRank analyzes the communication network to identify contacts
+    who are central to information flow.
+
+    Higher scores indicate greater network influence.
+
+    MCP Tool: get_influential_contacts
+
+    Requires `read:analytics` scope.
+    """
+    _validate_org_id(ctx, organization_id)
+    from src.graph.client import get_graph_client
+
+    logger.info(
+        "Getting influential contacts",
+        organization_id=organization_id,
+        limit=limit,
+        key_id=ctx.key_id,
+    )
+
+    graph = await get_graph_client()
+
+    result = await graph.query(
+        """
+        MATCH (c:Contact {organizationId: $orgId})
+        WHERE c.pagerankScore IS NOT NULL
+        AND c.pagerankScore >= $minScore
+        RETURN c.id as id, c.displayName as name, c.email as email,
+               c.company as company, c.pagerankScore as influence_score,
+               c.communityId as community_id, c.betweennessScore as bridge_score
+        ORDER BY c.pagerankScore DESC
+        LIMIT $limit
+        """,
+        {"orgId": organization_id, "minScore": min_score, "limit": limit},
+    )
+
+    return {
+        "organization_id": organization_id,
+        "contacts": [
+            {
+                "id": row.get("id"),
+                "name": row.get("name"),
+                "email": row.get("email"),
+                "company": row.get("company"),
+                "influence_score": row.get("influence_score", 0),
+                "community_id": row.get("community_id"),
+                "bridge_score": row.get("bridge_score"),
+            }
+            for row in (result or [])
+        ],
+        "total": len(result or []),
+        "algorithm": "PageRank",
+    }
+
+
+@router.get("/graph/communities/{organization_id}")
+async def get_communication_clusters(
+    organization_id: str,
+    min_size: int = Query(2, ge=1, description="Minimum cluster size"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum clusters to return"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
+):
+    """
+    Get communication clusters from CDLP community detection.
+
+    Shows groups of contacts who communicate frequently together.
+    Useful for identifying teams, departments, or project groups.
+
+    MCP Tool: get_communication_clusters
+
+    Requires `read:analytics` scope.
+    """
+    _validate_org_id(ctx, organization_id)
+    from src.graph.client import get_graph_client
+
+    logger.info(
+        "Getting communication clusters",
+        organization_id=organization_id,
+        min_size=min_size,
+        key_id=ctx.key_id,
+    )
+
+    graph = await get_graph_client()
+
+    result = await graph.query(
+        """
+        MATCH (c:Contact {organizationId: $orgId})
+        WHERE c.communityId IS NOT NULL
+        WITH c.communityId as cluster_id, collect({
+            id: c.id,
+            name: c.displayName,
+            email: c.email,
+            company: c.company,
+            influence_score: c.pagerankScore
+        }) as members
+        WHERE size(members) >= $minSize
+        RETURN cluster_id, members, size(members) as size
+        ORDER BY size DESC
+        LIMIT $limit
+        """,
+        {"orgId": organization_id, "minSize": min_size, "limit": limit},
+    )
+
+    return {
+        "organization_id": organization_id,
+        "clusters": [
+            {
+                "cluster_id": row.get("cluster_id"),
+                "members": row.get("members", []),
+                "size": row.get("size", 0),
+            }
+            for row in (result or [])
+        ],
+        "total_clusters": len(result or []),
+        "algorithm": "CDLP (Community Detection Label Propagation)",
+    }
+
+
+@router.get("/graph/bridges/{organization_id}")
+async def get_bridge_connectors(
+    organization_id: str,
+    limit: int = Query(20, ge=1, le=100, description="Maximum contacts to return"),
+    min_score: float = Query(0.1, ge=0.0, description="Minimum betweenness score"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
+):
+    """
+    Get bridge connectors based on betweenness centrality.
+
+    Bridge connectors are people who link different groups together.
+    They are valuable for cross-team communication and introductions.
+
+    Higher betweenness scores indicate more bridging connections.
+
+    MCP Tool: get_bridge_connectors
+
+    Requires `read:analytics` scope.
+    """
+    _validate_org_id(ctx, organization_id)
+    from src.graph.client import get_graph_client
+
+    logger.info(
+        "Getting bridge connectors",
+        organization_id=organization_id,
+        limit=limit,
+        key_id=ctx.key_id,
+    )
+
+    graph = await get_graph_client()
+
+    result = await graph.query(
+        """
+        MATCH (c:Contact {organizationId: $orgId})
+        WHERE c.betweennessScore IS NOT NULL
+        AND c.betweennessScore >= $minScore
+        RETURN c.id as id, c.displayName as name, c.email as email,
+               c.company as company, c.betweennessScore as bridge_score,
+               c.communityId as community_id, c.pagerankScore as influence_score
+        ORDER BY c.betweennessScore DESC
+        LIMIT $limit
+        """,
+        {"orgId": organization_id, "minScore": min_score, "limit": limit},
+    )
+
+    return {
+        "organization_id": organization_id,
+        "connectors": [
+            {
+                "id": row.get("id"),
+                "name": row.get("name"),
+                "email": row.get("email"),
+                "company": row.get("company"),
+                "bridge_score": row.get("bridge_score", 0),
+                "community_id": row.get("community_id"),
+                "influence_score": row.get("influence_score"),
+            }
+            for row in (result or [])
+        ],
+        "total": len(result or []),
+        "algorithm": "Betweenness Centrality",
+        "description": "Bridge connectors link different groups and are valuable for introductions.",
+    }
+
+
+@router.post("/graph/run-analytics/{organization_id}")
+async def trigger_graph_analytics(
+    organization_id: str,
+    algorithms: list[str] = Query(
+        default=["pagerank", "communities", "betweenness"],
+        description="Algorithms to run",
+    ),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """
+    Trigger graph analytics computation.
+
+    Runs specified algorithms and stores results on Contact nodes:
+    - pagerank: Computes influence scores (pagerankScore)
+    - communities: Detects clusters (communityId)
+    - betweenness: Computes bridge scores (betweennessScore)
+
+    Note: This may take time for large graphs.
+
+    Requires `write` scope.
+    """
+    _validate_org_id(ctx, organization_id)
+    from src.jobs.graph_analytics import get_analytics_job
+
+    logger.info(
+        "Triggering graph analytics",
+        organization_id=organization_id,
+        algorithms=algorithms,
+        key_id=ctx.key_id,
+    )
+
+    job = await get_analytics_job()
+    results = {}
+
+    for algo in algorithms:
+        if algo == "pagerank":
+            result = await job.run_pagerank(organization_id)
+            results["pagerank"] = result
+        elif algo == "communities":
+            result = await job.run_communities(organization_id)
+            results["communities"] = result
+        elif algo == "betweenness":
+            result = await job.run_betweenness(organization_id)
+            results["betweenness"] = result
+        else:
+            results[algo] = {"status": "unknown_algorithm"}
+
+    return {
+        "organization_id": organization_id,
+        "algorithms_run": algorithms,
+        "results": results,
+    }
+
+
+@router.get("/graph/stats/{organization_id}")
+async def get_graph_statistics(
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ_ANALYTICS)),
+):
+    """
+    Get graph statistics and analytics status.
+
+    Returns overview of graph content and analytics coverage.
+
+    Requires `read:analytics` scope.
+    """
+    _validate_org_id(ctx, organization_id)
+    from src.graph.client import get_graph_client
+
+    logger.info(
+        "Getting graph statistics",
+        organization_id=organization_id,
+        key_id=ctx.key_id,
+    )
+
+    graph = await get_graph_client()
+
+    # Get node counts by type
+    node_counts = await graph.query(
+        """
+        MATCH (n {organizationId: $orgId})
+        RETURN labels(n)[0] as type, count(n) as count
+        ORDER BY count DESC
+        """,
+        {"orgId": organization_id},
+    )
+
+    # Get relationship counts
+    rel_counts = await graph.query(
+        """
+        MATCH (a {organizationId: $orgId})-[r]-(b)
+        RETURN type(r) as type, count(r) / 2 as count
+        ORDER BY count DESC
+        LIMIT 20
+        """,
+        {"orgId": organization_id},
+    )
+
+    # Get analytics coverage
+    analytics_coverage = await graph.query(
+        """
+        MATCH (c:Contact {organizationId: $orgId})
+        RETURN count(c) as total_contacts,
+               sum(CASE WHEN c.pagerankScore IS NOT NULL THEN 1 ELSE 0 END) as with_pagerank,
+               sum(CASE WHEN c.communityId IS NOT NULL THEN 1 ELSE 0 END) as with_community,
+               sum(CASE WHEN c.betweennessScore IS NOT NULL THEN 1 ELSE 0 END) as with_betweenness
+        """,
+        {"orgId": organization_id},
+    )
+
+    coverage = analytics_coverage[0] if analytics_coverage else {}
+    total = coverage.get("total_contacts", 0)
+
+    return {
+        "organization_id": organization_id,
+        "node_counts": {
+            row.get("type"): row.get("count", 0)
+            for row in (node_counts or [])
+        },
+        "relationship_counts": {
+            row.get("type"): row.get("count", 0)
+            for row in (rel_counts or [])
+        },
+        "analytics_coverage": {
+            "total_contacts": total,
+            "pagerank_coverage": coverage.get("with_pagerank", 0) / max(total, 1),
+            "community_coverage": coverage.get("with_community", 0) / max(total, 1),
+            "betweenness_coverage": coverage.get("with_betweenness", 0) / max(total, 1),
+        },
     }

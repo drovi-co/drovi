@@ -89,3 +89,32 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         raise
     finally:
         await session.close()
+
+
+# Legacy asyncpg pool support
+# Some modules use direct asyncpg pool for raw SQL queries
+_pool = None
+
+
+async def get_db_pool():
+    """
+    Get an asyncpg connection pool for raw SQL queries.
+
+    This is used by modules that need direct database access outside SQLAlchemy.
+    """
+    global _pool
+    if _pool is None:
+        import asyncpg
+        settings = get_settings()
+        # Convert SQLAlchemy URL to asyncpg format
+        db_url = str(settings.database_url).replace("postgresql+asyncpg://", "postgresql://")
+        _pool = await asyncpg.create_pool(db_url)
+    return _pool
+
+
+async def close_db_pool():
+    """Close the asyncpg connection pool."""
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None

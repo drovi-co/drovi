@@ -13,6 +13,7 @@ from .types import (
 )
 from .algorithms import GraphAlgorithms, get_graph_algorithms, AlgorithmResult, CommunityResult
 from .schema import GraphSchema, get_graph_schema, setup_graph_schema
+from .evolution import MemoryEvolution, SupersessionReason, EvolutionResult, get_memory_evolution
 
 __all__ = [
     # Client
@@ -40,4 +41,9 @@ __all__ = [
     "GraphSchema",
     "get_graph_schema",
     "setup_graph_schema",
+    # Evolution
+    "MemoryEvolution",
+    "SupersessionReason",
+    "EvolutionResult",
+    "get_memory_evolution",
 ]

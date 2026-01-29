@@ -17,13 +17,23 @@ from ..state import (
     Output,
     NodeTiming,
 )
+from src.graph.types import ConfidenceTier, get_confidence_tier
 
 logger = structlog.get_logger()
 
-# Minimum confidence thresholds for persisting intelligence
-MIN_CONFIDENCE_COMMITMENT = 0.70
-MIN_CONFIDENCE_DECISION = 0.70
-MIN_CONFIDENCE_CLAIM = 0.50
+# Tiered confidence system - replaces binary filtering
+# All items are persisted, but indexed/prioritized differently by tier
+CONFIDENCE_TIER_THRESHOLDS = {
+    "high": 0.80,      # Full indexing, primary results
+    "medium": 0.50,    # Indexed, secondary results
+    "low": 0.20,       # Stored but de-prioritized
+    "speculative": 0,  # Stored, flagged for review
+}
+
+# Legacy thresholds for logging comparison (no longer used for filtering)
+LEGACY_MIN_CONFIDENCE_COMMITMENT = 0.70
+LEGACY_MIN_CONFIDENCE_DECISION = 0.70
+LEGACY_MIN_CONFIDENCE_CLAIM = 0.50
 
 
 def serialize_for_graph(value):
@@ -184,63 +194,66 @@ async def persist_node(state: IntelligenceState) -> dict:
     tasks_created: list[dict] = []
     claims_created: list[dict] = []
     contacts_created: list[dict] = []
-    low_confidence_skipped: list[dict] = []
 
-    # Filter out low-confidence items
+    # Tiered confidence tracking - NO filtering, ALL items are persisted
+    tier_stats = {
+        "commitments": {"high": 0, "medium": 0, "low": 0, "speculative": 0},
+        "decisions": {"high": 0, "medium": 0, "low": 0, "speculative": 0},
+        "claims": {"high": 0, "medium": 0, "low": 0, "speculative": 0},
+    }
+
+    # Assign confidence tiers to all items (no filtering!)
     commitments_to_persist = []
     for commitment in state.extracted.commitments:
-        if commitment.confidence >= MIN_CONFIDENCE_COMMITMENT:
-            commitments_to_persist.append(commitment)
-        else:
-            low_confidence_skipped.append({
-                "type": "commitment",
-                "title": commitment.title,
-                "confidence": commitment.confidence,
-            })
-            logger.debug(
-                "Skipping low-confidence commitment",
-                title=commitment.title,
-                confidence=commitment.confidence,
-                threshold=MIN_CONFIDENCE_COMMITMENT,
-            )
+        tier = get_confidence_tier(commitment.confidence)
+        tier_stats["commitments"][tier.value] += 1
+        # Attach tier to commitment for persistence
+        commitment._confidence_tier = tier.value
+        commitments_to_persist.append(commitment)
+        logger.debug(
+            "Commitment tiered",
+            title=commitment.title,
+            confidence=commitment.confidence,
+            tier=tier.value,
+        )
 
     decisions_to_persist = []
     for decision in state.extracted.decisions:
-        if decision.confidence >= MIN_CONFIDENCE_DECISION:
-            decisions_to_persist.append(decision)
-        else:
-            low_confidence_skipped.append({
-                "type": "decision",
-                "title": decision.title,
-                "confidence": decision.confidence,
-            })
-            logger.debug(
-                "Skipping low-confidence decision",
-                title=decision.title,
-                confidence=decision.confidence,
-                threshold=MIN_CONFIDENCE_DECISION,
-            )
+        tier = get_confidence_tier(decision.confidence)
+        tier_stats["decisions"][tier.value] += 1
+        decision._confidence_tier = tier.value
+        decisions_to_persist.append(decision)
+        logger.debug(
+            "Decision tiered",
+            title=decision.title,
+            confidence=decision.confidence,
+            tier=tier.value,
+        )
 
     claims_to_persist = []
     for claim in state.extracted.claims:
-        if claim.confidence >= MIN_CONFIDENCE_CLAIM:
-            claims_to_persist.append(claim)
-        else:
-            low_confidence_skipped.append({
-                "type": "claim",
-                "text": claim.content[:50] if claim.content else "",
-                "confidence": claim.confidence,
-            })
+        tier = get_confidence_tier(claim.confidence)
+        tier_stats["claims"][tier.value] += 1
+        claim._confidence_tier = tier.value
+        claims_to_persist.append(claim)
+
+    # Calculate legacy comparison (what would have been filtered before)
+    legacy_would_filter = {
+        "commitments": sum(1 for c in state.extracted.commitments if c.confidence < LEGACY_MIN_CONFIDENCE_COMMITMENT),
+        "decisions": sum(1 for d in state.extracted.decisions if d.confidence < LEGACY_MIN_CONFIDENCE_DECISION),
+        "claims": sum(1 for c in state.extracted.claims if c.confidence < LEGACY_MIN_CONFIDENCE_CLAIM),
+    }
 
     logger.info(
-        "Confidence filtering",
-        commitments_original=len(state.extracted.commitments),
-        commitments_kept=len(commitments_to_persist),
-        decisions_original=len(state.extracted.decisions),
-        decisions_kept=len(decisions_to_persist),
-        claims_original=len(state.extracted.claims),
-        claims_kept=len(claims_to_persist),
-        total_skipped=len(low_confidence_skipped),
+        "Tiered confidence system - ALL items persisted",
+        commitments_total=len(commitments_to_persist),
+        commitments_tiers=tier_stats["commitments"],
+        decisions_total=len(decisions_to_persist),
+        decisions_tiers=tier_stats["decisions"],
+        claims_total=len(claims_to_persist),
+        claims_tiers=tier_stats["claims"],
+        legacy_would_have_filtered=legacy_would_filter,
+        data_saved_by_tiering=sum(legacy_would_filter.values()),
     )
 
     # =========================================================================
@@ -446,11 +459,13 @@ async def persist_node(state: IntelligenceState) -> dict:
 
                 # Create UIO extension record (uio_commitment_details)
                 commitment_details_id = str(uuid4())
+                confidence_tier = getattr(commitment, "_confidence_tier", "medium")
                 extraction_context = {
                     "reasoning": getattr(commitment, "reasoning", None),
                     "quotedText": getattr(commitment, "quoted_text", None),
                     "commitmentType": getattr(commitment, "commitment_type", None),
                     "modelUsed": "sonnet",
+                    "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
                 await session.execute(
                     text("""
@@ -548,6 +563,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                 await session.commit()
 
                 # Create graph node
+                graph_confidence_tier = getattr(commitment, "_confidence_tier", "medium")
                 await graph.query(
                     """
                     CREATE (c:Commitment {
@@ -558,6 +574,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         direction: $direction,
                         priority: $priority,
                         status: 'active',
+                        confidence: $confidence,
+                        confidenceTier: $confidenceTier,
                         createdAt: $createdAt
                     })
                     RETURN c
@@ -569,6 +587,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "description": serialize_for_graph(commitment.description),
                         "direction": serialize_for_graph(commitment.direction),
                         "priority": serialize_for_graph(commitment.priority),
+                        "confidence": commitment.confidence,
+                        "confidenceTier": graph_confidence_tier,
                         "createdAt": now.isoformat(),
                     },
                 )
@@ -583,9 +603,10 @@ async def persist_node(state: IntelligenceState) -> dict:
 
                 logger.debug(
                     "Created commitment",
-                        uio_id=uio_id,
-                        title=commitment.title,
-                    )
+                    uio_id=uio_id,
+                    title=commitment.title,
+                    confidence_tier=graph_confidence_tier,
+                )
 
         # Persist decisions (filtered by confidence)
         async with get_db_session() as session:
@@ -713,10 +734,12 @@ async def persist_node(state: IntelligenceState) -> dict:
 
                 # Create UIO extension record (uio_decision_details)
                 decision_details_id = str(uuid4())
+                confidence_tier = getattr(decision, "_confidence_tier", "medium")
                 extraction_context = {
                     "reasoning": getattr(decision, "reasoning", None),
                     "quotedText": getattr(decision, "quoted_text", None),
                     "modelUsed": "sonnet",
+                    "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
                 await session.execute(
                     text("""
@@ -807,6 +830,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                 await session.commit()
 
                 # Create graph node
+                graph_confidence_tier = getattr(decision, "_confidence_tier", "medium")
                 await graph.query(
                     """
                     CREATE (d:Decision {
@@ -819,6 +843,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         stakeholders: $stakeholders,
                         dependencies: $dependencies,
                         implications: $implications,
+                        confidence: $confidence,
+                        confidenceTier: $confidenceTier,
                         createdAt: $createdAt
                     })
                     RETURN d
@@ -833,6 +859,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "stakeholders": serialize_for_graph(decision.stakeholders),
                         "dependencies": serialize_for_graph(decision.dependencies),
                         "implications": serialize_for_graph(decision.implications),
+                        "confidence": decision.confidence,
+                        "confidenceTier": graph_confidence_tier,
                         "createdAt": now.isoformat(),
                     },
                 )
@@ -841,6 +869,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "Created decision",
                     uio_id=uio_id,
                     title=decision.title,
+                    confidence_tier=graph_confidence_tier,
                 )
 
         # Persist risks to PostgreSQL and graph
@@ -1522,10 +1551,12 @@ async def persist_node(state: IntelligenceState) -> dict:
 
                 # Create UIO extension record (uio_claim_details)
                 claim_details_id = str(uuid4())
+                confidence_tier = getattr(claim, "_confidence_tier", "medium")
                 extraction_context = {
                     "entities": getattr(claim, "entities", []),
                     "temporalReferences": getattr(claim, "temporal_references", []),
                     "modelUsed": "sonnet",
+                    "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
                 await session.execute(
                     text("""

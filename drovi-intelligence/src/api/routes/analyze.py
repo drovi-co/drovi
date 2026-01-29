@@ -8,10 +8,12 @@ from datetime import datetime
 from typing import Literal
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.orchestrator.graph import compile_intelligence_graph
 from src.orchestrator.state import IntelligenceState, AnalysisInput
 
@@ -55,18 +57,31 @@ class AnalyzeResponse(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze_content(request: AnalyzeRequest) -> AnalyzeResponse:
+async def analyze_content(
+    request: AnalyzeRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+) -> AnalyzeResponse:
     """
     Analyze content and extract intelligence.
 
     Returns extracted claims, commitments, decisions, and risks.
+
+    Requires `write` scope.
     """
+    # Use organization_id from auth context if not in request, or validate match
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     start_time = datetime.utcnow()
     logger.info(
         "Starting analysis",
         organization_id=request.organization_id,
         source_type=request.source_type,
         content_length=len(request.content),
+        key_id=ctx.key_id,
     )
 
     try:
@@ -133,16 +148,29 @@ async def analyze_content(request: AnalyzeRequest) -> AnalyzeResponse:
 
 
 @router.post("/analyze/stream")
-async def analyze_content_stream(request: AnalyzeRequest):
+async def analyze_content_stream(
+    request: AnalyzeRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
     """
     Analyze content with streaming updates.
 
     Returns Server-Sent Events (SSE) with progress updates.
+
+    Requires `write` scope.
     """
+    # Validate organization_id matches auth context
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
+
     logger.info(
         "Starting streaming analysis",
         organization_id=request.organization_id,
         source_type=request.source_type,
+        key_id=ctx.key_id,
     )
 
     async def generate_events():

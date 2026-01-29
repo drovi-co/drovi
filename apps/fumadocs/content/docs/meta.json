@@ -1,0 +1,18 @@
+{
+  "title": "Drovi Intelligence",
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started",
+    "---API Reference---",
+    "api-reference",
+    "---Connectors---",
+    "connectors",
+    "---Intelligence---",
+    "intelligence",
+    "---MCP Tools---",
+    "mcp-tools",
+    "---Webhooks---",
+    "webhooks"
+  ]
+}

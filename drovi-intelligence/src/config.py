@@ -78,6 +78,25 @@ class Settings(BaseSettings):
     circuit_breaker_threshold: int = Field(default=5)
     circuit_breaker_reset_seconds: int = Field(default=30)
 
+    # Kafka Streaming
+    kafka_enabled: bool = Field(default=False)  # Enable to start Kafka producer/consumer
+    kafka_bootstrap_servers: str = Field(default="localhost:9092")
+    kafka_security_protocol: str = Field(default="PLAINTEXT")  # Use SASL_SSL for Upstash
+    kafka_sasl_mechanism: str | None = Field(default=None)  # Use SCRAM-SHA-256 for Upstash
+    kafka_sasl_username: str | None = Field(default=None)
+    kafka_sasl_password: str | None = Field(default=None)
+    kafka_consumer_group_id: str = Field(default="drovi-intelligence")
+    kafka_auto_offset_reset: str = Field(default="earliest")
+    kafka_enable_auto_commit: bool = Field(default=False)
+    kafka_batch_size: int = Field(default=100)
+    kafka_linger_ms: int = Field(default=10)
+    kafka_ssl_ca_location: str | None = Field(default=None)  # Path to CA cert if needed
+
+    # Kafka Topics
+    kafka_topic_raw_events: str = Field(default="drovi-raw-events")
+    kafka_topic_intelligence: str = Field(default="drovi-intelligence")
+    kafka_topic_graph_changes: str = Field(default="drovi-graph-changes")
+
     # Orchestrator
     orchestrator_timeout_seconds: int = Field(default=60)
     auto_approval_threshold: float = Field(default=0.85)

@@ -1,17 +1,17 @@
 """
 Hybrid Search Engine
 
-Combines vector (semantic), fulltext (keyword), and graph (relationship) search
-using Reciprocal Rank Fusion (RRF) for result combination.
+Combines vector (semantic), fulltext (keyword), CONTAINS (substring),
+and graph (relationship) search using Reciprocal Rank Fusion (RRF).
 
 This provides state-of-the-art search capabilities by leveraging:
 - Vector search for semantic similarity
 - Fulltext search for exact keyword matches
+- CONTAINS search for robust substring matching
 - Graph traversal for relationship context
 """
 
 import asyncio
-from typing import Literal
 
 import structlog
 
@@ -20,10 +20,15 @@ from src.search.embeddings import EmbeddingError, generate_embedding
 
 logger = structlog.get_logger()
 
+# Default node types to search across
+DEFAULT_SEARCH_TYPES = [
+    "Commitment", "Decision", "Episode", "Entity", "Contact", "Risk", "Task",
+]
+
 
 class HybridSearch:
     """
-    Hybrid Search Engine combining vector, fulltext, and graph search.
+    Hybrid Search Engine combining vector, fulltext, CONTAINS, and graph search.
 
     Uses Reciprocal Rank Fusion (RRF) to combine results from multiple
     search strategies into a single ranked list.
@@ -31,21 +36,12 @@ class HybridSearch:
 
     def __init__(self):
         self._graph = None
-        self._embedding_model = None
 
     async def _get_graph(self):
         """Lazy load graph client."""
         if self._graph is None:
             self._graph = await get_graph_client()
         return self._graph
-
-    async def _generate_embedding(self, text: str) -> list[float]:
-        """Generate embedding for text using the EmbeddingService."""
-        try:
-            return await generate_embedding(text)
-        except EmbeddingError as e:
-            logger.error("Embedding generation failed", error=str(e))
-            raise  # Don't silently fail - propagate the error
 
     # =========================================================================
     # Core Search Methods
@@ -62,19 +58,10 @@ class HybridSearch:
         limit: int = 20,
     ) -> list[dict]:
         """
-        Perform hybrid search combining vector and fulltext.
+        Perform hybrid search combining vector, fulltext, and CONTAINS.
 
-        Args:
-            query: Search query
-            organization_id: Organization to search within
-            types: Node types to search (commitment, decision, etc.)
-            source_types: Filter by source types
-            time_range: Optional time range filter {from, to}
-            include_graph_context: Include connected nodes in results
-            limit: Maximum results to return
-
-        Returns:
-            List of search results with combined scores
+        Runs all three strategies in parallel with graceful degradation —
+        if vector search fails (no embeddings), fulltext + CONTAINS still work.
         """
         logger.info(
             "Performing hybrid search",
@@ -83,19 +70,29 @@ class HybridSearch:
             types=types,
         )
 
-        # Run vector and fulltext searches in parallel
-        vector_task = self.vector_search(query, organization_id, types, limit * 2)
-        fulltext_task = self.fulltext_search(query, organization_id, types, limit * 2)
-
-        vector_results, fulltext_results = await asyncio.gather(
-            vector_task,
-            fulltext_task,
+        # Run all three search strategies in parallel
+        results = await asyncio.gather(
+            self.vector_search(query, organization_id, types, limit * 2),
+            self.fulltext_search(query, organization_id, types, limit * 2),
+            self.contains_search(query, organization_id, types, limit * 2),
+            return_exceptions=True,
         )
 
-        # Combine using RRF
-        combined = self._reciprocal_rank_fusion(
-            vector_results,
-            fulltext_results,
+        vector_results = results[0] if not isinstance(results[0], Exception) else []
+        fulltext_results = results[1] if not isinstance(results[1], Exception) else []
+        contains_results = results[2] if not isinstance(results[2], Exception) else []
+
+        if isinstance(results[0], Exception):
+            logger.warning("Vector search failed in hybrid", error=str(results[0]))
+        if isinstance(results[1], Exception):
+            logger.warning("Fulltext search failed in hybrid", error=str(results[1]))
+        if isinstance(results[2], Exception):
+            logger.warning("CONTAINS search failed in hybrid", error=str(results[2]))
+
+        # Combine using multi-list RRF
+        combined = self._reciprocal_rank_fusion_multi(
+            [vector_results, fulltext_results, contains_results],
+            ["vector", "fulltext", "contains"],
             limit,
         )
 
@@ -128,24 +125,19 @@ class HybridSearch:
         """
         Perform vector-only search for semantic similarity.
 
-        Args:
-            query: Search query
-            organization_id: Organization to search within
-            types: Node types to search
-            limit: Maximum results
-
-        Returns:
-            List of results with vector similarity scores
+        Gracefully returns empty results if embedding generation fails.
         """
         graph = await self._get_graph()
 
-        # Generate embedding for query
-        embedding = await self._generate_embedding(query)
+        # Generate embedding — graceful failure
+        try:
+            embedding = await generate_embedding(query)
+        except (EmbeddingError, Exception) as e:
+            logger.warning("Embedding generation failed, skipping vector search", error=str(e))
+            return []
 
         results = []
-
-        # Search each type
-        search_types = types or ["Commitment", "Decision", "Episode", "Entity", "Contact"]
+        search_types = types or DEFAULT_SEARCH_TYPES
 
         for node_type in search_types:
             try:
@@ -155,26 +147,11 @@ class HybridSearch:
                     organization_id=organization_id,
                     k=limit,
                 )
-
-                for result in type_results:
-                    results.append({
-                        "id": result.get("id"),
-                        "type": node_type.lower(),
-                        "properties": result.get("properties", {}),
-                        "score": result.get("score", 0),
-                        "scores": {"vector": result.get("score", 0)},
-                        "match_source": "vector",
-                    })
-
+                results.extend(self._parse_search_results(type_results, node_type, "vector"))
             except Exception as e:
-                logger.warning(
-                    f"Vector search failed for type {node_type}",
-                    error=str(e),
-                )
+                logger.warning(f"Vector search failed for type {node_type}", error=str(e))
 
-        # Sort by score
         results.sort(key=lambda x: x["score"], reverse=True)
-
         return results[:limit]
 
     async def fulltext_search(
@@ -184,24 +161,10 @@ class HybridSearch:
         types: list[str] | None = None,
         limit: int = 20,
     ) -> list[dict]:
-        """
-        Perform fulltext search for keyword matching.
-
-        Args:
-            query: Search query
-            organization_id: Organization to search within
-            types: Node types to search
-            limit: Maximum results
-
-        Returns:
-            List of results with fulltext match scores
-        """
+        """Perform fulltext search for keyword matching."""
         graph = await self._get_graph()
-
         results = []
-
-        # Search each type
-        search_types = types or ["Commitment", "Decision", "Episode", "Entity", "Contact"]
+        search_types = types or DEFAULT_SEARCH_TYPES
 
         for node_type in search_types:
             try:
@@ -211,26 +174,38 @@ class HybridSearch:
                     organization_id=organization_id,
                     limit=limit,
                 )
-
-                for result in type_results:
-                    results.append({
-                        "id": result.get("id"),
-                        "type": node_type.lower(),
-                        "properties": result.get("properties", {}),
-                        "score": result.get("score", 0),
-                        "scores": {"fulltext": result.get("score", 0)},
-                        "match_source": "fulltext",
-                    })
-
+                results.extend(self._parse_search_results(type_results, node_type, "fulltext"))
             except Exception as e:
-                logger.warning(
-                    f"Fulltext search failed for type {node_type}",
-                    error=str(e),
-                )
+                logger.warning(f"Fulltext search failed for type {node_type}", error=str(e))
 
-        # Sort by score
         results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
 
+    async def contains_search(
+        self,
+        query: str,
+        organization_id: str,
+        types: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Perform CONTAINS-based substring search as a robust fallback."""
+        graph = await self._get_graph()
+        results = []
+        search_types = types or DEFAULT_SEARCH_TYPES
+
+        for node_type in search_types:
+            try:
+                type_results = await graph.contains_search(
+                    label=node_type,
+                    query_text=query,
+                    organization_id=organization_id,
+                    limit=limit,
+                )
+                results.extend(self._parse_search_results(type_results, node_type, "contains"))
+            except Exception as e:
+                logger.warning(f"CONTAINS search failed for type {node_type}", error=str(e))
+
+        results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
 
     async def graph_aware_search(
@@ -245,26 +220,14 @@ class HybridSearch:
         Perform search with graph context expansion.
 
         Finds matching nodes and expands to connected nodes.
-
-        Args:
-            query: Search query
-            organization_id: Organization to search within
-            types: Node types to search
-            depth: How many hops to expand
-            limit: Maximum results
-
-        Returns:
-            List of results with connection information
         """
-        # First, do hybrid search
         initial_results = await self.search(
             query=query,
             organization_id=organization_id,
             types=types,
-            limit=limit // 2,  # Leave room for expanded results
+            limit=limit // 2,
         )
 
-        # Expand each result with graph context
         expanded_results = await self._expand_with_graph_context(
             initial_results,
             organization_id,
@@ -272,6 +235,46 @@ class HybridSearch:
         )
 
         return expanded_results[:limit]
+
+    # =========================================================================
+    # Result Parsing
+    # =========================================================================
+
+    @staticmethod
+    def _parse_search_results(
+        type_results: list[dict],
+        node_type: str,
+        source: str,
+    ) -> list[dict]:
+        """Parse raw graph results into standardized search result dicts."""
+        results = []
+        for result in type_results:
+            # Graph returns {"node": {props}, "score": float}
+            node = result.get("node", result)
+            if isinstance(node, dict):
+                node_id = node.get("id", result.get("id"))
+                properties = node
+            else:
+                node_id = result.get("id")
+                properties = result.get("properties", {})
+
+            if not node_id:
+                continue
+
+            title = None
+            if isinstance(node, dict):
+                title = node.get("title") or node.get("name") or node.get("displayName")
+
+            results.append({
+                "id": node_id,
+                "type": node_type.lower(),
+                "title": title,
+                "properties": properties,
+                "score": result.get("score", 0),
+                "scores": {source: result.get("score", 0)},
+                "match_source": source,
+            })
+        return results
 
     # =========================================================================
     # Fusion and Scoring
@@ -282,70 +285,62 @@ class HybridSearch:
         vector_results: list[dict],
         fulltext_results: list[dict],
         limit: int,
-        k: int = 60,  # RRF constant
+        k: int = 60,
+    ) -> list[dict]:
+        """Legacy 2-list RRF — delegates to multi-list version."""
+        return self._reciprocal_rank_fusion_multi(
+            [vector_results, fulltext_results],
+            ["vector", "fulltext"],
+            limit,
+            k=k,
+        )
+
+    def _reciprocal_rank_fusion_multi(
+        self,
+        result_lists: list[list[dict]],
+        list_names: list[str],
+        limit: int,
+        k: int = 60,
     ) -> list[dict]:
         """
-        Combine results using Reciprocal Rank Fusion.
+        Combine results from N ranked lists using Reciprocal Rank Fusion.
 
-        RRF score = sum(1 / (k + rank_i)) for each result list
-
-        This is a proven technique for combining ranked lists that:
-        - Doesn't require score normalization
-        - Handles missing results gracefully
-        - Produces robust rankings
+        RRF score = sum(1 / (k + rank_i)) for each result list.
         """
-        # Build ID to result mapping
         results_map: dict[str, dict] = {}
 
-        # Process vector results
-        for rank, result in enumerate(vector_results):
-            result_id = result.get("id")
-            if not result_id:
-                continue
+        for list_idx, result_list in enumerate(result_lists):
+            list_name = list_names[list_idx] if list_idx < len(list_names) else f"list_{list_idx}"
+            for rank, result in enumerate(result_list):
+                result_id = result.get("id")
+                if not result_id:
+                    continue
 
-            if result_id not in results_map:
-                results_map[result_id] = {
-                    **result,
-                    "rrf_score": 0,
-                    "scores": {},
-                }
+                if result_id not in results_map:
+                    results_map[result_id] = {
+                        **result,
+                        "rrf_score": 0,
+                        "scores": {},
+                    }
 
-            results_map[result_id]["rrf_score"] += 1 / (k + rank + 1)
-            results_map[result_id]["scores"]["vector"] = result.get("score", 0)
-
-        # Process fulltext results
-        for rank, result in enumerate(fulltext_results):
-            result_id = result.get("id")
-            if not result_id:
-                continue
-
-            if result_id not in results_map:
-                results_map[result_id] = {
-                    **result,
-                    "rrf_score": 0,
-                    "scores": {},
-                }
-
-            results_map[result_id]["rrf_score"] += 1 / (k + rank + 1)
-            results_map[result_id]["scores"]["fulltext"] = result.get("score", 0)
+                results_map[result_id]["rrf_score"] += 1 / (k + rank + 1)
+                results_map[result_id]["scores"][list_name] = result.get("score", 0)
 
         # Determine match source
         for result in results_map.values():
             scores = result.get("scores", {})
-            if "vector" in scores and "fulltext" in scores:
-                result["match_source"] = "both"
-            elif "vector" in scores:
-                result["match_source"] = "vector"
+            matched_sources = [name for name in list_names if name in scores]
+            if len(matched_sources) > 1:
+                result["match_source"] = "both" if set(matched_sources) == {"vector", "fulltext"} else "+".join(matched_sources)
+            elif matched_sources:
+                result["match_source"] = matched_sources[0]
             else:
-                result["match_source"] = "fulltext"
+                result["match_source"] = "unknown"
 
-            # Use RRF score as the main score
             result["score"] = result.pop("rrf_score")
 
-        # Sort by RRF score
         combined = list(results_map.values())
         combined.sort(key=lambda x: x["score"], reverse=True)
-
         return combined[:limit]
 
     def _filter_by_time_range(
@@ -357,7 +352,6 @@ class HybridSearch:
         from datetime import datetime
 
         filtered = []
-
         from_date = time_range.get("from")
         to_date = time_range.get("to")
 
@@ -366,11 +360,9 @@ class HybridSearch:
             created_at = props.get("createdAt") or props.get("referenceTime")
 
             if not created_at:
-                # Include results without dates
                 filtered.append(result)
                 continue
 
-            # Parse date if string
             if isinstance(created_at, str):
                 try:
                     created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
@@ -378,7 +370,6 @@ class HybridSearch:
                     filtered.append(result)
                     continue
 
-            # Check range
             if from_date and isinstance(from_date, str):
                 from_date = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
             if to_date and isinstance(to_date, str):
@@ -408,10 +399,9 @@ class HybridSearch:
                 continue
 
             try:
-                # Get connected nodes
                 connections = await graph.query(
-                    f"""
-                    MATCH (n {{id: $id, organizationId: $orgId}})-[r]-(connected)
+                    """
+                    MATCH (n {id: $id, organizationId: $orgId})-[r]-(connected)
                     WHERE connected.organizationId = $orgId
                     RETURN type(r) as relationship, labels(connected)[0] as type, connected.id as id, connected.name as name
                     LIMIT 10
@@ -430,11 +420,7 @@ class HybridSearch:
                 ]
 
             except Exception as e:
-                logger.warning(
-                    "Failed to expand graph context",
-                    result_id=result_id,
-                    error=str(e),
-                )
+                logger.warning("Failed to expand graph context", result_id=result_id, error=str(e))
                 result["connections"] = []
 
         return results

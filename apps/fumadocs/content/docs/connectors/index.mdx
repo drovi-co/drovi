@@ -1,0 +1,210 @@
+---
+title: Connectors
+description: Connect your data sources to Drovi Intelligence
+---
+
+# Connectors
+
+Connectors enable Drovi Intelligence to automatically ingest and process data from your existing tools and platforms.
+
+## Overview
+
+Drovi Intelligence supports a growing list of data sources:
+
+| Connector | Category | Status | Real-Time |
+|-----------|----------|--------|-----------|
+| [Gmail](/connectors/gmail) | Email | GA | Yes (Push) |
+| [Outlook](/connectors/outlook) | Email | GA | Yes (Subscriptions) |
+| [Slack](/connectors/slack) | Messaging | GA | Yes (Events API) |
+| [Notion](/connectors/notion) | Documents | GA | Yes (Webhooks) |
+| Google Docs | Documents | GA | Polling |
+| Calendar | Productivity | GA | Polling |
+| HubSpot | CRM | GA | Webhooks |
+| Salesforce | CRM | Beta | Webhooks |
+| WhatsApp | Messaging | Beta | Cloud API |
+| Microsoft Teams | Messaging | Beta | Polling |
+
+## How Connectors Work
+
+### 1. Authentication
+
+Most connectors use OAuth 2.0 for secure authentication:
+
+```
+┌─────────┐     ┌─────────┐     ┌─────────┐
+│  User   │────▶│  Drovi  │────▶│Provider │
+│         │◀────│         │◀────│(Google) │
+└─────────┘     └─────────┘     └─────────┘
+    │               │               │
+    │   1. Start    │               │
+    │   OAuth flow  │               │
+    │───────────────▶               │
+    │               │  2. Redirect  │
+    │               │───────────────▶
+    │               │               │
+    │               │  3. Auth Code │
+    │               │◀───────────────
+    │               │               │
+    │               │  4. Exchange  │
+    │               │  for tokens   │
+    │               │───────────────▶
+    │               │               │
+    │  5. Connected │  6. Tokens    │
+    │◀───────────────◀───────────────
+```
+
+### 2. Initial Sync
+
+After authentication, connectors perform an initial sync:
+
+- Fetch historical data (configurable lookback period)
+- Process all items through the intelligence pipeline
+- Build the knowledge graph
+
+### 3. Incremental Updates
+
+After initial sync, connectors maintain freshness through:
+
+- **Webhooks/Push**: Real-time notifications (Gmail, Slack)
+- **Polling**: Periodic checks for new data (configurable interval)
+- **Delta Sync**: Only fetch changed items (Outlook, Notion)
+
+## Managing Connections
+
+### Create a Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "connector_type": "gmail",
+    "name": "Work Gmail",
+    "config": {
+      "lookback_days": 90,
+      "sync_labels": ["INBOX", "SENT"]
+    }
+  }'
+```
+
+### Response
+
+```json
+{
+  "connection_id": "conn_abc123",
+  "status": "pending_auth",
+  "auth_url": "https://api.drovi.io/oauth/google/authorize?state=..."
+}
+```
+
+### List Connections
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/connections?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "connections": [
+    {
+      "id": "conn_abc123",
+      "connector_type": "gmail",
+      "name": "Work Gmail",
+      "status": "active",
+      "last_sync": "2024-01-01T12:00:00Z",
+      "items_synced": 1523,
+      "created_at": "2023-12-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+### Trigger Manual Sync
+
+```bash
+curl -X POST "https://api.drovi.io/api/v1/connections/conn_abc123/sync" \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "full_sync": false
+  }'
+```
+
+### Delete Connection
+
+```bash
+curl -X DELETE "https://api.drovi.io/api/v1/connections/conn_abc123?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+## Connection States
+
+| State | Description |
+|-------|-------------|
+| `pending_auth` | Awaiting OAuth authorization |
+| `authenticating` | OAuth flow in progress |
+| `active` | Connected and syncing |
+| `syncing` | Currently performing sync |
+| `error` | Connection error (check `error_message`) |
+| `paused` | Manually paused by user |
+| `expired` | Auth tokens expired, needs re-auth |
+
+## Connector Guides
+
+<Cards>
+  <Card title="Gmail" href="/connectors/gmail">
+    Connect Google Workspace email
+  </Card>
+  <Card title="Outlook" href="/connectors/outlook">
+    Connect Microsoft 365 email
+  </Card>
+  <Card title="Slack" href="/connectors/slack">
+    Connect Slack workspaces
+  </Card>
+  <Card title="Notion" href="/connectors/notion">
+    Connect Notion workspaces
+  </Card>
+</Cards>
+
+## Data Security
+
+All connector data is:
+
+- **Encrypted in transit** using TLS 1.3
+- **Encrypted at rest** using AES-256
+- **Isolated per organization** with strict access controls
+- **Compliant** with SOC 2 Type II and GDPR
+
+OAuth tokens are stored encrypted and never shared with third parties.
+
+## Custom Connectors
+
+Need to connect a custom data source? You can:
+
+1. **Use the Analyze API** to send data directly
+2. **Build a custom connector** using our SDK
+3. **Request a new connector** via support
+
+```python
+from drovi.connectors import BaseConnector
+
+class CustomConnector(BaseConnector):
+    async def check_connection(self, config):
+        # Verify credentials
+        pass
+
+    async def discover_streams(self, config):
+        # Return available data streams
+        pass
+
+    async def read_stream(self, config, stream, state):
+        # Yield records from the stream
+        pass
+```
+
+See the [Custom Connector Guide](/guides/custom-connectors) for details.

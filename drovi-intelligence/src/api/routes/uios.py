@@ -12,13 +12,24 @@ Provides endpoints for:
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.orchestrator.state import UIOStatus
 from src.uio.manager import get_uio_manager
 
 router = APIRouter(prefix="/uios", tags=["uios"])
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization_id matches auth context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 # =============================================================================
@@ -86,6 +97,7 @@ async def list_uios(
     needs_review: bool | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     List UIOs with filtering.
@@ -100,7 +112,10 @@ async def list_uios(
 
     Returns:
         List of UIOs matching filters
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio_status = UIOStatus(status) if status else None
@@ -125,12 +140,16 @@ async def list_uios(
 async def get_pending_review(
     organization_id: str,
     limit: int = Query(50, ge=1, le=200),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get UIOs pending review.
 
     Returns UIOs in DRAFT status that need human review.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
     uios = await manager.get_pending_review(limit=limit)
 
@@ -149,6 +168,7 @@ async def get_pending_review(
 async def get_uio(
     uio_id: str,
     organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get a single UIO by ID.
@@ -159,7 +179,10 @@ async def get_uio(
 
     Returns:
         UIO data or 404
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
     uio = await manager.get_uio(uio_id)
 
@@ -173,13 +196,17 @@ async def get_uio(
 async def create_uio(
     organization_id: str,
     request: CreateUIORequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Create a UIO manually.
 
     UIOs are typically created automatically during analysis,
     but this endpoint allows manual creation.
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio_id = await manager.create_uio(
@@ -202,13 +229,17 @@ async def update_uio(
     uio_id: str,
     organization_id: str,
     updates: dict,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Update UIO fields.
 
     For status changes, use PATCH /{uio_id}/status instead.
     For user corrections, use PATCH /{uio_id}/correct instead.
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     # This would directly update fields - simplified implementation
     manager = await get_uio_manager(organization_id)
 
@@ -245,12 +276,16 @@ async def update_uio(
 async def delete_uio(
     uio_id: str,
     organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Soft delete a UIO (archive it).
 
     UIOs are never hard deleted - they are archived instead.
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio = await manager.get_uio(uio_id)
@@ -282,6 +317,7 @@ async def update_status(
     uio_id: str,
     organization_id: str,
     request: StatusChangeRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Change UIO status.
@@ -292,7 +328,10 @@ async def update_status(
     - in_progress → completed, cancelled, active
     - completed → archived
     - cancelled → archived
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio = await manager.get_uio(uio_id)
@@ -330,13 +369,17 @@ async def apply_correction(
     uio_id: str,
     organization_id: str,
     request: CorrectionRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Apply user corrections to a UIO.
 
     Stores the original extraction for training data and
     marks the UIO as user-corrected.
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio = await manager.get_uio(uio_id)
@@ -372,6 +415,7 @@ async def merge_uios(
     target_uio_id: str,
     organization_id: str,
     request: MergeRequest | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
     """
     Merge two UIOs.
@@ -382,7 +426,10 @@ async def merge_uios(
     Args:
         uio_id: Source UIO (will be archived)
         target_uio_id: Target UIO (will be updated)
+
+    Requires `write` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     # Verify both UIOs exist
@@ -425,10 +472,14 @@ async def merge_uios(
 async def get_uio_history(
     uio_id: str,
     organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get status change history for a UIO.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio = await manager.get_uio(uio_id)
@@ -448,12 +499,16 @@ async def get_related_uios(
     uio_id: str,
     organization_id: str,
     depth: int = Query(1, ge=1, le=3),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get UIOs related to this one in the graph.
 
     Follows relationships up to the specified depth.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
 
     uio = await manager.get_uio(uio_id)

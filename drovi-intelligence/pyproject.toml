@@ -57,6 +57,30 @@ dependencies = [
 
     # Async utilities
     "aiofiles>=24.1.0",
+
+    # Job Scheduling
+    "APScheduler>=3.10.0",
+
+    # OAuth & Authentication
+    "cryptography>=42.0.0",
+
+    # API Clients (for connectors)
+    "google-api-python-client>=2.100.0",
+    "google-auth-oauthlib>=1.2.0",
+    "slack-sdk>=3.27.0",
+    "notion-client>=2.2.0",
+
+    # MCP (Model Context Protocol)
+    "mcp>=1.0.0",
+
+    # Kafka Streaming
+    "confluent-kafka>=2.3.0",
+
+    # Multi-Agent (AG2/AutoGen)
+    "ag2>=0.4.0",
+
+    # Graph Algorithms
+    "networkx>=3.2.0",
 ]
 
 [project.optional-dependencies]

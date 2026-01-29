@@ -1,0 +1,206 @@
+# Porter Application Configuration
+# Deploy drovi-intelligence to AWS with full infrastructure
+#
+# Prerequisites:
+# 1. Porter CLI installed: https://docs.porter.run/getting-started/install-porter
+# 2. AWS account connected to Porter
+# 3. Create a project in Porter dashboard
+#
+# Deployment:
+#   porter apply -f porter.yaml
+
+version: v2
+name: drovi-intelligence
+
+# =============================================================================
+# Main Application Service
+# =============================================================================
+apps:
+  - name: api
+    type: web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    run:
+      command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      port: 8000
+    resources:
+      cpu: 500m
+      memory: 1Gi
+    replicas: 2
+    autoscaling:
+      enabled: true
+      min_replicas: 2
+      max_replicas: 10
+      cpu_threshold: 70
+    health_check:
+      path: /health
+      interval: 30
+      timeout: 10
+    domains:
+      - name: drovi-intelligence
+        # Porter will generate: drovi-intelligence-<project>.porter.run
+        # Or configure custom domain in Porter dashboard
+    env:
+      # Database - Will be injected by Porter RDS addon
+      DATABASE_URL:
+        from_addon: postgres
+        key: DATABASE_URL
+
+      # FalkorDB - Internal service
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+
+      # Redis - Will be injected by Porter ElastiCache addon
+      REDIS_URL:
+        from_addon: redis
+        key: REDIS_URL
+
+      # Kafka - Will be injected by MSK addon
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS:
+        from_addon: kafka
+        key: BOOTSTRAP_SERVERS
+      KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+      KAFKA_SASL_MECHANISM: "SCRAM-SHA-512"
+      KAFKA_SASL_USERNAME:
+        from_addon: kafka
+        key: SASL_USERNAME
+      KAFKA_SASL_PASSWORD:
+        from_addon: kafka
+        key: SASL_PASSWORD
+
+      # Application Config
+      LOG_LEVEL: "INFO"
+      LOG_FORMAT: "json"
+      CORS_ORIGINS: '["https://drovi.app", "https://app.drovi.app"]'
+
+      # LLM Providers (set in Porter secrets)
+      TOGETHER_API_KEY:
+        from_secret: together-api-key
+      OPENAI_API_KEY:
+        from_secret: openai-api-key
+
+      # Internal Service Token (for TypeScript backend)
+      DROVI_INTERNAL_SERVICE_TOKEN:
+        from_secret: internal-service-token
+
+  # =========================================================================
+  # FalkorDB (Graph Database) - Custom Deployment
+  # =========================================================================
+  - name: falkordb
+    type: worker
+    image: falkordb/falkordb:latest
+    run:
+      command: ["redis-server", "--loadmodule", "/FalkorDB/bin/linux-x64-release/src/falkordb.so", "--appendonly", "yes", "--port", "6379"]
+      port: 6379
+    resources:
+      cpu: 1000m
+      memory: 4Gi
+    replicas: 1
+    volumes:
+      - name: falkordb-data
+        mount_path: /data
+        size: 50Gi
+    health_check:
+      tcp_port: 6379
+      interval: 10
+      timeout: 5
+    # Internal service - not exposed publicly
+    internal: true
+
+  # =========================================================================
+  # Kafka Consumer Worker (processes events from Kafka)
+  # =========================================================================
+  - name: kafka-worker
+    type: worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    run:
+      command: ["python", "-m", "src.streaming.worker"]
+    resources:
+      cpu: 500m
+      memory: 1Gi
+    replicas: 2
+    autoscaling:
+      enabled: true
+      min_replicas: 2
+      max_replicas: 5
+      cpu_threshold: 80
+    env:
+      # Same env vars as api service
+      DATABASE_URL:
+        from_addon: postgres
+        key: DATABASE_URL
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      REDIS_URL:
+        from_addon: redis
+        key: REDIS_URL
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS:
+        from_addon: kafka
+        key: BOOTSTRAP_SERVERS
+      KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+      KAFKA_SASL_MECHANISM: "SCRAM-SHA-512"
+      KAFKA_SASL_USERNAME:
+        from_addon: kafka
+        key: SASL_USERNAME
+      KAFKA_SASL_PASSWORD:
+        from_addon: kafka
+        key: SASL_PASSWORD
+      TOGETHER_API_KEY:
+        from_secret: together-api-key
+      LOG_LEVEL: "INFO"
+      LOG_FORMAT: "json"
+
+# =============================================================================
+# Managed Add-ons (AWS Services)
+# =============================================================================
+addons:
+  # PostgreSQL via AWS RDS
+  - name: postgres
+    type: rds-postgres
+    config:
+      version: "16"
+      instance_class: db.t3.medium
+      storage_size: 50
+      multi_az: true
+      backup_retention: 7
+
+  # Redis via AWS ElastiCache
+  - name: redis
+    type: elasticache-redis
+    config:
+      version: "7.0"
+      node_type: cache.t3.medium
+      num_cache_nodes: 2
+
+  # Kafka via Amazon MSK
+  - name: kafka
+    type: msk
+    config:
+      kafka_version: "3.5.1"
+      broker_node_type: kafka.t3.small
+      number_of_broker_nodes: 3
+      storage_size: 100
+      # Topics to create
+      topics:
+        - name: drovi-raw-events
+          partitions: 6
+          replication_factor: 2
+        - name: drovi-intelligence
+          partitions: 6
+          replication_factor: 2
+        - name: drovi-graph-changes
+          partitions: 3
+          replication_factor: 2
+
+# =============================================================================
+# Secrets (create in Porter dashboard or CLI)
+# =============================================================================
+# Run these commands to set secrets:
+#   porter secret set together-api-key <your-api-key>
+#   porter secret set openai-api-key <your-api-key>
+#   porter secret set internal-service-token <generate-strong-token>

@@ -13,12 +13,24 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/customer", tags=["Customer Context"])
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization_id matches auth context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 # =============================================================================
@@ -132,14 +144,20 @@ class RelationshipHealthResponse(BaseModel):
 
 
 @router.post("/context", response_model=CustomerContextResponse)
-async def get_customer_context(request: CustomerContextRequest):
+async def get_customer_context(
+    request: CustomerContextRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
     """
     Get complete context about a customer.
 
     MCP Tool: get_customer_context
     - Aggregates all intelligence about a customer via graph traversal
     - Includes commitments, decisions, timeline, relationships
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, request.organization_id)
     from src.customer.context_aggregator import get_customer_context_aggregator
 
     logger.info(
@@ -147,6 +165,7 @@ async def get_customer_context(request: CustomerContextRequest):
         contact_id=request.contact_id,
         email=request.email,
         organization_id=request.organization_id,
+        key_id=ctx.key_id,
     )
 
     aggregator = await get_customer_context_aggregator()
@@ -231,18 +250,25 @@ async def get_customer_context(request: CustomerContextRequest):
 
 
 @router.post("/search", response_model=CustomerSearchResponse)
-async def search_customers(request: CustomerSearchRequest):
+async def search_customers(
+    request: CustomerSearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
     """
     Search for customers by name, email, or company.
 
     MCP Tool: search_customers
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, request.organization_id)
     from src.customer.context_aggregator import get_customer_context_aggregator
 
     logger.info(
         "Searching customers",
         query=request.query,
         organization_id=request.organization_id,
+        key_id=ctx.key_id,
     )
 
     aggregator = await get_customer_context_aggregator()
@@ -273,12 +299,16 @@ async def get_customer_timeline(
     contact_id: str,
     organization_id: str = Query(...),
     limit: int = Query(50, ge=1, le=200),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get chronological interaction timeline for a customer.
 
     MCP Tool: get_customer_timeline
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.customer.context_aggregator import get_customer_context_aggregator
 
     aggregator = await get_customer_context_aggregator()
@@ -310,12 +340,16 @@ async def get_customer_timeline(
 async def get_relationship_health(
     contact_id: str,
     organization_id: str = Query(...),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get relationship health score for a customer.
 
     MCP Tool: get_relationship_health
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.customer.context_aggregator import get_customer_context_aggregator
 
     aggregator = await get_customer_context_aggregator()
@@ -338,12 +372,16 @@ async def get_relationship_health(
 async def generate_relationship_summary(
     contact_id: str,
     organization_id: str = Query(...),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Generate AI summary of relationship with customer.
 
     MCP Tool: generate_relationship_summary
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.customer.context_aggregator import get_customer_context_aggregator
 
     aggregator = await get_customer_context_aggregator()
@@ -364,12 +402,16 @@ async def get_customer_commitments(
     contact_id: str,
     organization_id: str = Query(...),
     status: str = Query(None, description="Filter by status"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
     Get open commitments for a customer.
 
     MCP Tool: list_open_commitments
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, organization_id)
     from src.graph.client import get_graph_client
 
     graph = await get_graph_client()

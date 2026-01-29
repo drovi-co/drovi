@@ -1,0 +1,251 @@
+---
+title: MCP Tools
+description: Model Context Protocol tools for AI agent integration
+---
+
+# MCP Tools
+
+Drovi Intelligence provides Model Context Protocol (MCP) tools that enable AI agents to access organizational memory and intelligence.
+
+## What is MCP?
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard for connecting AI assistants to external data sources and tools. MCP enables:
+
+- **Contextual awareness**: Agents understand organizational history
+- **Intelligent retrieval**: Find relevant information before acting
+- **Evidence-based responses**: Ground answers in real data
+
+## Why MCP for Drovi?
+
+Traditional RAG (Retrieval-Augmented Generation) treats memory as documents. Drovi's MCP tools treat memory as **structured intelligence**:
+
+| Traditional RAG | Drovi MCP |
+|-----------------|-----------|
+| "Here are some documents" | "Here are the commitments, decisions, and risks" |
+| Text similarity search | Hybrid semantic + graph search |
+| No relationship context | Full entity relationships |
+| Static snapshots | Living, evolving intelligence |
+
+## Available Tools
+
+### Customer Context Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_customer_context` | Get full context about a customer/contact |
+| `search_customers` | Search across customer profiles |
+| `get_customer_timeline` | View customer interaction history |
+| `get_relationship_health` | Assess relationship status and health |
+
+### Intelligence Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_open_commitments` | Find active commitments (what's owed) |
+| `get_recent_decisions` | Get recent decisions and rationale |
+| `list_open_questions` | Find unanswered questions |
+| `list_risks` | Get active risks and concerns |
+
+### Search Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_intelligence` | Semantic search across all intelligence |
+| `search_by_entity` | Find intelligence related to an entity |
+| `get_context_for_topic` | Get relevant context for a topic |
+
+### Analytics Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_organizational_health` | Overall org health metrics |
+| `list_blindspots` | Identify gaps in coverage |
+| `get_calibration_metrics` | Extraction quality metrics |
+
+## Quick Start
+
+### 1. Configure MCP Client
+
+Add Drovi to your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "drovi": {
+      "command": "drovi-mcp",
+      "args": ["--api-key", "your_api_key"],
+      "env": {
+        "DROVI_ORG_ID": "org_123"
+      }
+    }
+  }
+}
+```
+
+Or use the HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "drovi": {
+      "transport": "http",
+      "url": "https://api.drovi.io/mcp",
+      "headers": {
+        "X-API-Key": "your_api_key",
+        "X-Organization-ID": "org_123"
+      }
+    }
+  }
+}
+```
+
+### 2. Use in Your Agent
+
+```python
+# Example: Agent checking context before responding
+
+# First, get customer context
+context = await mcp.call_tool("drovi", "get_customer_context", {
+    "contact_email": "john@acme.com"
+})
+
+# Check for open commitments
+commitments = await mcp.call_tool("drovi", "list_open_commitments", {
+    "counterparty_email": "john@acme.com"
+})
+
+# Now respond with full context
+response = await llm.generate(f"""
+Given this customer context:
+{context}
+
+And these open commitments:
+{commitments}
+
+Respond to: "What's the status of our Q4 deliverables?"
+""")
+```
+
+## Tool Reference
+
+<Cards>
+  <Card title="Customer Context" href="/mcp-tools/customer-context">
+    Tools for customer/contact information
+  </Card>
+  <Card title="Search Tools" href="/mcp-tools/search-tools">
+    Semantic and graph search capabilities
+  </Card>
+  <Card title="Analytics Tools" href="/mcp-tools/analytics-tools">
+    Organizational insights and metrics
+  </Card>
+</Cards>
+
+## Best Practices
+
+### 1. Query Before Acting
+
+Always check context before taking action:
+
+```python
+# Bad: Acting without context
+await send_email(customer, "Following up on our discussion...")
+
+# Good: Check context first
+context = await mcp.call_tool("drovi", "get_customer_context", {...})
+recent = await mcp.call_tool("drovi", "get_customer_timeline", {...})
+
+# Now craft a contextual response
+await send_email(customer, f"Following up on {recent.last_topic}...")
+```
+
+### 2. Use Specific Tools
+
+Choose the right tool for the job:
+
+```python
+# Need customer info? Use get_customer_context
+# Need open items? Use list_open_commitments
+# Need to find something? Use search_intelligence
+# Need history? Use get_customer_timeline
+```
+
+### 3. Respect Confidence Scores
+
+Intelligence has confidence scores. Use them:
+
+```python
+context = await mcp.call_tool("drovi", "get_customer_context", {...})
+
+# Only cite high-confidence intelligence
+for commitment in context.commitments:
+    if commitment.confidence > 0.8:
+        # Safe to reference
+    else:
+        # Verify before citing
+```
+
+### 4. Provide Feedback
+
+Help improve extraction quality:
+
+```python
+# If AI notices incorrect information
+await mcp.call_tool("drovi", "provide_feedback", {
+    "uio_id": "comm_xyz",
+    "feedback_type": "incorrect_extraction",
+    "notes": "This commitment was actually fulfilled"
+})
+```
+
+## Authentication
+
+MCP tools use the same API key authentication as the REST API:
+
+```bash
+# Environment variable
+export DROVI_API_KEY="sk_live_abc123..."
+
+# Or in config
+{
+  "headers": {
+    "X-API-Key": "sk_live_abc123..."
+  }
+}
+```
+
+## Rate Limits
+
+MCP tool calls count against your API rate limit. Consider:
+
+- Batching related queries
+- Caching frequently-accessed context
+- Using specific tools vs. broad searches
+
+## Error Handling
+
+MCP tools return structured errors:
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Customer not found",
+    "details": {
+      "searched_email": "unknown@example.com"
+    }
+  }
+}
+```
+
+Handle errors gracefully in your agent:
+
+```python
+try:
+    context = await mcp.call_tool("drovi", "get_customer_context", {...})
+except MCPError as e:
+    if e.code == "not_found":
+        # Customer not in system - proceed without context
+        pass
+    else:
+        raise
+```

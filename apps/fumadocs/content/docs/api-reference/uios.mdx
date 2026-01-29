@@ -1,0 +1,322 @@
+---
+title: UIOs
+description: Unified Intelligence Objects API
+---
+
+# UIOs API
+
+Unified Intelligence Objects (UIOs) are the core data model in Drovi Intelligence. They represent extracted intelligence like commitments, decisions, tasks, and risks.
+
+## GET /uios
+
+List UIOs with filtering and pagination.
+
+### Request
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/uios?organization_id=org_123&type=commitment&status=active&limit=20" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `organization_id` | string | Yes | Your organization identifier |
+| `type` | string | No | Filter by type (commitment, decision, task, risk, question) |
+| `status` | string | No | Filter by status |
+| `entity_id` | string | No | Filter by related entity |
+| `source_type` | string | No | Filter by source type |
+| `min_confidence` | number | No | Minimum confidence (0-1) |
+| `created_after` | string | No | ISO 8601 timestamp |
+| `created_before` | string | No | ISO 8601 timestamp |
+| `limit` | integer | No | Max results (default: 20, max: 100) |
+| `offset` | integer | No | Results to skip |
+| `sort` | string | No | Sort field (created_at, confidence, due_date) |
+| `order` | string | No | Sort order (asc, desc) |
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "id": "comm_abc123",
+      "type": "commitment",
+      "title": "Send Q4 report",
+      "description": "Committed to send the quarterly report",
+      "status": "active",
+      "direction": "owed_by_me",
+      "counterparty": "John Smith",
+      "counterparty_id": "person_xyz",
+      "due_date_text": "Friday",
+      "due_date_parsed": "2024-01-05T00:00:00Z",
+      "confidence": 0.95,
+      "quoted_text": "I will send the report by Friday",
+      "source": {
+        "type": "email",
+        "id": "msg_123",
+        "timestamp": "2024-01-01T10:00:00Z"
+      },
+      "created_at": "2024-01-01T10:05:00Z",
+      "updated_at": "2024-01-01T10:05:00Z"
+    }
+  ],
+  "meta": {
+    "total": 42,
+    "limit": 20,
+    "offset": 0
+  }
+}
+```
+
+---
+
+## GET /uios/:id
+
+Get a specific UIO by ID.
+
+### Request
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/uios/comm_abc123?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "id": "comm_abc123",
+  "type": "commitment",
+  "title": "Send Q4 report",
+  "description": "Committed to send the quarterly report",
+  "status": "active",
+  "direction": "owed_by_me",
+  "counterparty": "John Smith",
+  "counterparty_id": "person_xyz",
+  "due_date_text": "Friday",
+  "due_date_parsed": "2024-01-05T00:00:00Z",
+  "confidence": 0.95,
+  "quoted_text": "I will send the report by Friday",
+  "source": {
+    "type": "email",
+    "id": "msg_123",
+    "timestamp": "2024-01-01T10:00:00Z",
+    "thread_id": "thread_456"
+  },
+  "related": {
+    "entities": [
+      {"id": "person_xyz", "name": "John Smith", "type": "person"}
+    ],
+    "uios": [
+      {"id": "task_def", "type": "task", "title": "Prepare Q4 report"}
+    ]
+  },
+  "history": [
+    {
+      "timestamp": "2024-01-01T10:05:00Z",
+      "action": "created",
+      "source": "extraction"
+    }
+  ],
+  "created_at": "2024-01-01T10:05:00Z",
+  "updated_at": "2024-01-01T10:05:00Z"
+}
+```
+
+---
+
+## PATCH /uios/:id
+
+Update a UIO's status or properties.
+
+### Request
+
+```bash
+curl -X PATCH "https://api.drovi.io/api/v1/uios/comm_abc123" \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "status": "fulfilled",
+    "notes": "Report was sent on Jan 4th"
+  }'
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | New status value |
+| `notes` | string | User notes/comments |
+| `due_date_parsed` | string | Update due date (ISO 8601) |
+| `assignee_id` | string | Update assignee (for tasks) |
+| `priority` | string | Update priority (for tasks) |
+
+### Response
+
+```json
+{
+  "id": "comm_abc123",
+  "type": "commitment",
+  "status": "fulfilled",
+  "notes": "Report was sent on Jan 4th",
+  "updated_at": "2024-01-04T15:30:00Z"
+}
+```
+
+---
+
+## DELETE /uios/:id
+
+Soft-delete a UIO (marks as dismissed, doesn't permanently delete).
+
+### Request
+
+```bash
+curl -X DELETE "https://api.drovi.io/api/v1/uios/comm_abc123?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "id": "comm_abc123",
+  "status": "dismissed",
+  "dismissed_at": "2024-01-04T15:30:00Z"
+}
+```
+
+---
+
+## GET /uios/:id/timeline
+
+Get the history/timeline of a UIO including all changes and related events.
+
+### Request
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/uios/comm_abc123/timeline?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "uio_id": "comm_abc123",
+  "events": [
+    {
+      "timestamp": "2024-01-01T10:00:00Z",
+      "type": "source_message",
+      "data": {
+        "content": "I will send the report by Friday",
+        "source_type": "email",
+        "from": "alice@company.com"
+      }
+    },
+    {
+      "timestamp": "2024-01-01T10:05:00Z",
+      "type": "created",
+      "data": {
+        "extracted_by": "intelligence_pipeline",
+        "confidence": 0.95
+      }
+    },
+    {
+      "timestamp": "2024-01-04T15:30:00Z",
+      "type": "status_changed",
+      "data": {
+        "from": "active",
+        "to": "fulfilled",
+        "changed_by": "user_xyz"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## GET /uios/stats
+
+Get aggregate statistics about UIOs.
+
+### Request
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/uios/stats?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "total": 1234,
+  "by_type": {
+    "commitment": 456,
+    "decision": 234,
+    "task": 321,
+    "risk": 123,
+    "question": 100
+  },
+  "by_status": {
+    "active": 567,
+    "fulfilled": 432,
+    "dismissed": 235
+  },
+  "by_confidence": {
+    "high": 678,
+    "medium": 345,
+    "low": 211
+  },
+  "trends": {
+    "last_7_days": 89,
+    "last_30_days": 312
+  }
+}
+```
+
+---
+
+## POST /uios/:id/feedback
+
+Provide feedback on a UIO to improve extraction quality.
+
+### Request
+
+```bash
+curl -X POST "https://api.drovi.io/api/v1/uios/comm_abc123/feedback" \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "feedback_type": "incorrect_extraction",
+    "correct_type": "task",
+    "notes": "This should have been extracted as a task, not a commitment"
+  }'
+```
+
+### Feedback Types
+
+| Type | Description |
+|------|-------------|
+| `incorrect_extraction` | Wrong intelligence type |
+| `false_positive` | Should not have been extracted |
+| `missing_information` | Important details missing |
+| `wrong_entity` | Incorrect entity resolution |
+| `incorrect_date` | Wrong date parsing |
+| `other` | General feedback |
+
+### Response
+
+```json
+{
+  "feedback_id": "fb_xyz",
+  "status": "received",
+  "message": "Thank you for your feedback"
+}
+```

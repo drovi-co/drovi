@@ -1,0 +1,260 @@
+---
+title: Search
+description: Search across the knowledge graph
+---
+
+# Search API
+
+The Search API provides powerful hybrid search combining vector similarity, fulltext matching, and graph traversal.
+
+## POST /search
+
+Perform a hybrid search across all intelligence types.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/search \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "query": "Q4 budget decisions",
+    "types": ["decision", "commitment"],
+    "limit": 20,
+    "include_context": true
+  }'
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `organization_id` | string | Yes | Your organization identifier |
+| `query` | string | Yes | Search query (natural language) |
+| `types` | array | No | Filter by intelligence types |
+| `source_types` | array | No | Filter by source types (email, slack, etc.) |
+| `time_range` | object | No | Filter by time range |
+| `entities` | array | No | Filter by entity IDs |
+| `limit` | integer | No | Max results (default: 20, max: 100) |
+| `offset` | integer | No | Results to skip |
+| `include_context` | boolean | No | Include graph context (default: false) |
+| `min_confidence` | number | No | Minimum confidence threshold (0-1) |
+
+#### Time Range Object
+
+```json
+{
+  "from": "2024-01-01T00:00:00Z",
+  "to": "2024-01-31T23:59:59Z"
+}
+```
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "id": "dec_abc123",
+      "type": "decision",
+      "title": "Approve Q4 marketing budget",
+      "description": "Decision to approve $50k for Q4 marketing",
+      "score": 0.95,
+      "confidence": 0.88,
+      "source": {
+        "type": "email",
+        "id": "msg_xyz",
+        "timestamp": "2024-01-15T10:30:00Z"
+      },
+      "context": {
+        "related_entities": [
+          {"id": "person_1", "name": "John Smith", "role": "decision_maker"}
+        ],
+        "related_uios": [
+          {"id": "comm_def", "type": "commitment", "title": "Deliver Q4 report"}
+        ]
+      },
+      "highlights": [
+        "...approved the <mark>Q4 budget</mark> for marketing..."
+      ]
+    }
+  ],
+  "total": 42,
+  "facets": {
+    "types": {
+      "decision": 15,
+      "commitment": 27
+    },
+    "source_types": {
+      "email": 30,
+      "slack": 12
+    }
+  }
+}
+```
+
+---
+
+## POST /search/semantic
+
+Perform a pure vector similarity search for finding semantically similar content.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/search/semantic \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "query": "concerns about project timeline",
+    "limit": 10
+  }'
+```
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "id": "risk_xyz",
+      "type": "risk",
+      "title": "Project deadline at risk",
+      "similarity": 0.92,
+      "content": "The timeline for Phase 2 delivery is looking tight..."
+    }
+  ]
+}
+```
+
+---
+
+## POST /search/graph
+
+Search using graph traversal from a starting point.
+
+### Request
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/search/graph \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "start_node": "person_abc123",
+    "relationship_types": ["COMMITTED_TO", "DECIDED"],
+    "depth": 2,
+    "limit": 50
+  }'
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `organization_id` | string | Yes | Your organization identifier |
+| `start_node` | string | Yes | Starting node ID |
+| `relationship_types` | array | No | Filter by relationship types |
+| `direction` | string | No | `outgoing`, `incoming`, or `both` |
+| `depth` | integer | No | Max traversal depth (default: 1, max: 5) |
+| `limit` | integer | No | Max results |
+
+### Response
+
+```json
+{
+  "nodes": [
+    {
+      "id": "person_abc123",
+      "type": "person",
+      "name": "John Smith",
+      "depth": 0
+    },
+    {
+      "id": "comm_xyz",
+      "type": "commitment",
+      "title": "Deliver Q4 report",
+      "depth": 1
+    }
+  ],
+  "relationships": [
+    {
+      "from": "person_abc123",
+      "to": "comm_xyz",
+      "type": "COMMITTED_TO",
+      "properties": {
+        "created_at": "2024-01-15T10:00:00Z"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## GET /search/suggestions
+
+Get search suggestions based on partial input.
+
+### Request
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/search/suggestions?organization_id=org_123&q=budget" \
+  -H "X-API-Key: your_api_key"
+```
+
+### Response
+
+```json
+{
+  "suggestions": [
+    {
+      "text": "budget approval Q4",
+      "type": "query",
+      "count": 15
+    },
+    {
+      "text": "budget constraints",
+      "type": "query",
+      "count": 8
+    },
+    {
+      "text": "Budget Committee",
+      "type": "entity",
+      "entity_id": "org_budget_committee"
+    }
+  ]
+}
+```
+
+---
+
+## Search Operators
+
+The search query supports several operators for precise matching:
+
+| Operator | Example | Description |
+|----------|---------|-------------|
+| `"..."` | `"exact phrase"` | Exact phrase match |
+| `+` | `+required` | Term must be present |
+| `-` | `-excluded` | Term must not be present |
+| `type:` | `type:decision` | Filter by type |
+| `from:` | `from:john@example.com` | Filter by author |
+| `to:` | `to:jane@example.com` | Filter by recipient |
+| `after:` | `after:2024-01-01` | After date |
+| `before:` | `before:2024-01-31` | Before date |
+
+### Examples
+
+```bash
+# Find decisions about budget that are not deferred
+"budget approval" type:decision -status:deferred
+
+# Find commitments from John in January
+type:commitment from:john@example.com after:2024-01-01 before:2024-02-01
+
+# Find risks mentioning deadline
++deadline type:risk
+```

@@ -1,0 +1,271 @@
+---
+title: Event Types
+description: Complete reference for all webhook event types
+---
+
+# Webhook Event Types
+
+All events that can be delivered via webhooks.
+
+## UIO Events
+
+### uio.created
+
+Fired when a new UIO (Unified Intelligence Object) is extracted.
+
+```json
+{
+  "event_type": "uio.created",
+  "payload": {
+    "uio_id": "uio_xxx",
+    "uio_type": "commitment",
+    "title": "Send quarterly report",
+    "data": {
+      "owner_id": "identity_xxx",
+      "due_date_text": "Friday",
+      "confidence": 0.92
+    }
+  }
+}
+```
+
+### uio.updated
+
+Fired when a UIO is modified.
+
+```json
+{
+  "event_type": "uio.updated",
+  "payload": {
+    "uio_id": "uio_xxx",
+    "uio_type": "commitment",
+    "changes": {
+      "status": {"old": "active", "new": "fulfilled"}
+    }
+  }
+}
+```
+
+### uio.deleted
+
+Fired when a UIO is deleted.
+
+```json
+{
+  "event_type": "uio.deleted",
+  "payload": {
+    "uio_id": "uio_xxx",
+    "uio_type": "commitment"
+  }
+}
+```
+
+## Commitment Events
+
+### commitment.created
+
+Alias for `uio.created` with `uio_type: commitment`.
+
+### commitment.due
+
+Fired when a commitment is due within the configured threshold (default: 24 hours).
+
+```json
+{
+  "event_type": "commitment.due",
+  "payload": {
+    "commitment_id": "comm_xxx",
+    "title": "Send quarterly report",
+    "due_date": "2024-01-15T17:00:00Z",
+    "hours_until_due": 4,
+    "owner_id": "identity_xxx"
+  }
+}
+```
+
+### commitment.overdue
+
+Fired when a commitment passes its due date.
+
+```json
+{
+  "event_type": "commitment.overdue",
+  "payload": {
+    "commitment_id": "comm_xxx",
+    "title": "Send quarterly report",
+    "due_date": "2024-01-15T17:00:00Z",
+    "hours_overdue": 24,
+    "owner_id": "identity_xxx"
+  }
+}
+```
+
+## Decision Events
+
+### decision.created
+
+Fired when a new decision is recorded.
+
+```json
+{
+  "event_type": "decision.created",
+  "payload": {
+    "decision_id": "dec_xxx",
+    "title": "Use React for frontend",
+    "rationale": "Better ecosystem",
+    "decision_makers": ["identity_xxx"]
+  }
+}
+```
+
+### decision.superseded
+
+Fired when a decision is replaced by a new one.
+
+```json
+{
+  "event_type": "decision.superseded",
+  "payload": {
+    "old_decision_id": "dec_old",
+    "new_decision_id": "dec_new",
+    "old_title": "Use Vue",
+    "new_title": "Use React instead"
+  }
+}
+```
+
+## Risk Events
+
+### risk.detected
+
+Fired when a risk is identified.
+
+```json
+{
+  "event_type": "risk.detected",
+  "payload": {
+    "risk_id": "risk_xxx",
+    "risk_type": "contradiction",
+    "severity": "high",
+    "title": "Conflicting delivery dates",
+    "related_uio_ids": ["uio_1", "uio_2"]
+  }
+}
+```
+
+### risk.resolved
+
+Fired when a risk is resolved.
+
+```json
+{
+  "event_type": "risk.resolved",
+  "payload": {
+    "risk_id": "risk_xxx",
+    "resolution_status": "resolved",
+    "resolution": "Clarified in follow-up call"
+  }
+}
+```
+
+## Entity Events
+
+### entity.created
+
+Fired when a new entity is created.
+
+```json
+{
+  "event_type": "entity.created",
+  "payload": {
+    "entity_id": "identity_xxx",
+    "entity_type": "person",
+    "display_name": "John Smith",
+    "identifiers": {
+      "emails": ["john@company.com"]
+    }
+  }
+}
+```
+
+### entity.merged
+
+Fired when two entities are merged.
+
+```json
+{
+  "event_type": "entity.merged",
+  "payload": {
+    "primary_id": "identity_1",
+    "merged_id": "identity_2",
+    "display_name": "John Smith"
+  }
+}
+```
+
+## Sync Events
+
+### sync.started
+
+Fired when a connector sync begins.
+
+```json
+{
+  "event_type": "sync.started",
+  "payload": {
+    "connection_id": "conn_xxx",
+    "connector_type": "gmail",
+    "streams": ["messages"]
+  }
+}
+```
+
+### sync.completed
+
+Fired when a connector sync finishes successfully.
+
+```json
+{
+  "event_type": "sync.completed",
+  "payload": {
+    "connection_id": "conn_xxx",
+    "connector_type": "gmail",
+    "records_synced": 150,
+    "duration_seconds": 45
+  }
+}
+```
+
+### sync.failed
+
+Fired when a connector sync fails.
+
+```json
+{
+  "event_type": "sync.failed",
+  "payload": {
+    "connection_id": "conn_xxx",
+    "connector_type": "gmail",
+    "error": "Authentication failed"
+  }
+}
+```
+
+## Filtering Events
+
+Subscribe only to events you need:
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/webhooks \
+  -H "X-API-Key: your_api_key" \
+  -d '{
+    "url": "https://your-app.com/webhooks",
+    "events": [
+      "commitment.due",
+      "commitment.overdue",
+      "risk.detected"
+    ]
+  }'
+```
+
+Use `*` for all events (not recommended for production).

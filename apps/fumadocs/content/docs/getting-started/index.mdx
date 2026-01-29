@@ -1,0 +1,98 @@
+---
+title: Getting Started
+description: From zero to queryable memory in minutes
+---
+
+# Getting Started
+
+From zero to queryable memory in minutes. This guide will help you set up Drovi Intelligence and make your first API request.
+
+## Three Ways to Use Drovi
+
+<Cards>
+  <Card title="Installation" href="/getting-started/installation">
+    Set up your development environment
+  </Card>
+  <Card title="Authentication" href="/getting-started/authentication">
+    Get your API key and configure access
+  </Card>
+  <Card title="First Request" href="/getting-started/first-request">
+    Make your first intelligence extraction
+  </Card>
+</Cards>
+
+## Choose Your Path
+
+### REST API — Direct Integration
+
+Extract intelligence from any content with simple HTTP requests. No SDK required.
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/analyze \
+  -H "X-API-Key: your_api_key" \
+  -d '{"content": "I will send the report by Friday", "source_type": "email"}'
+```
+
+**Best for:** Backend integrations, custom workflows, any language
+
+→ [Get started with the API](/getting-started/first-request)
+
+### Connectors — Automatic Ingestion
+
+Connect your data sources and let Drovi continuously ingest and process everything.
+
+- **Email:** Gmail, Outlook
+- **Messaging:** Slack, Teams, WhatsApp
+- **Documents:** Notion, Google Docs
+
+**Best for:** Continuous memory building, organizational knowledge
+
+→ [Set up your first connector](/connectors)
+
+### MCP Tools — Agent Memory
+
+Enable AI agents to query organizational memory through the Model Context Protocol.
+
+```python
+# Your agent queries before acting
+context = await mcp.call_tool("drovi", "get_customer_context", {
+    "contact_email": "john@acme.com"
+})
+```
+
+**Best for:** AI assistants, autonomous agents, context-aware applications
+
+→ [Enable MCP tools](/mcp-tools)
+
+## Prerequisites
+
+Before you begin:
+
+- **Drovi account** — Sign up at [app.drovi.io](https://app.drovi.io)
+- **API key** — Created in your dashboard under Settings → API Keys
+- **REST client** — cURL, Postman, or your favorite HTTP library
+
+## What You'll Build
+
+By the end of these guides, you'll have:
+
+1. **An API key** configured with the right scopes
+2. **Your first extraction** — commitments, decisions, and risks from text
+3. **Understanding** of how the memory layer works
+
+## Quick Links
+
+| Guide | Description |
+|-------|-------------|
+| [Installation](/getting-started/installation) | SDK setup and configuration options |
+| [Authentication](/getting-started/authentication) | API keys, scopes, and rate limits |
+| [First Request](/getting-started/first-request) | Complete walkthrough of your first extraction |
+| [API Reference](/api-reference) | Full endpoint documentation |
+| [Connectors](/connectors) | Connect Gmail, Slack, Notion, and more |
+| [MCP Tools](/mcp-tools) | Agent-accessible memory tools |
+
+## Need Help?
+
+- **Documentation** — You're in the right place
+- **API Reference** — Complete endpoint docs at [/api-reference](/api-reference)
+- **Support** — Contact us at support@drovi.io

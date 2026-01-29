@@ -163,6 +163,39 @@ class GraphSchema:
                     REQUIRE p.id IS UNIQUE
                 """,
             },
+            # Raw Content Layer constraints (Phase 1 - Deeper Graph)
+            # RawMessage uniqueness by ID
+            {
+                "name": "rawmessage_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (m:RawMessage)
+                    REQUIRE m.id IS UNIQUE
+                """,
+            },
+            # ThreadContext uniqueness by ID
+            {
+                "name": "threadcontext_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (t:ThreadContext)
+                    REQUIRE t.id IS UNIQUE
+                """,
+            },
+            # ThreadContext uniqueness by threadId within organization
+            {
+                "name": "threadcontext_thread_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (t:ThreadContext)
+                    REQUIRE (t.organizationId, t.threadId) IS UNIQUE
+                """,
+            },
+            # CommunicationEvent uniqueness by ID
+            {
+                "name": "communicationevent_id_unique",
+                "query": """
+                    CREATE CONSTRAINT IF NOT EXISTS FOR (e:CommunicationEvent)
+                    REQUIRE e.id IS UNIQUE
+                """,
+            },
         ]
 
         results = {}
@@ -212,128 +245,44 @@ class GraphSchema:
         """
         graph = await self._get_graph()
 
+        # FalkorDB fulltext indexes use the 2-argument syntax:
+        # CALL db.idx.fulltext.createNodeIndex('Label', 'property')
+        # The 3-argument syntax with options is not supported.
+        # Each property needs its own createNodeIndex call.
         indexes = [
-            # Contact name with phonetic support
-            {
-                "name": "contact_name_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Contact', 'name',
-                        {language: 'english', phonetic: 'dm:en'}
-                    )
-                """,
-            },
-            # Contact email for exact and partial matching
-            {
-                "name": "contact_email_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Contact', 'email',
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Commitment title and description
-            {
-                "name": "commitment_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Commitment', ['title', 'description'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Decision content
-            {
-                "name": "decision_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Decision', ['title', 'statement', 'rationale'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Task content
-            {
-                "name": "task_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Task', ['title', 'description'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Risk content
-            {
-                "name": "risk_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Risk', ['title', 'suggestedAction'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Brief content
-            {
-                "name": "brief_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Brief', ['title', 'summary'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Claim content
-            {
-                "name": "claim_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Claim', ['title'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Episode content for memory search
-            {
-                "name": "episode_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Episode', ['name', 'content'],
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Entity name with phonetic
-            {
-                "name": "entity_name_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Entity', 'name',
-                        {language: 'english', phonetic: 'dm:en'}
-                    )
-                """,
-            },
-            # Topic name
-            {
-                "name": "topic_name_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Topic', 'name',
-                        {language: 'english'}
-                    )
-                """,
-            },
-            # Memory System full-text indexes (NEW)
-            # Pattern name and description for search
-            {
-                "name": "pattern_content_ft",
-                "query": """
-                    CALL db.idx.fulltext.createNodeIndex(
-                        'Pattern', ['name', 'description'],
-                        {language: 'english'}
-                    )
-                """,
-            },
+            # Contact fields
+            {"name": "contact_name_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Contact', 'name')"},
+            {"name": "contact_email_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Contact', 'email')"},
+            {"name": "contact_company_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Contact', 'company')"},
+            # Commitment fields
+            {"name": "commitment_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Commitment', 'title')"},
+            {"name": "commitment_desc_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Commitment', 'description')"},
+            # Decision fields
+            {"name": "decision_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Decision', 'title')"},
+            {"name": "decision_rationale_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Decision', 'rationale')"},
+            # Task fields
+            {"name": "task_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Task', 'title')"},
+            {"name": "task_desc_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Task', 'description')"},
+            # Risk fields
+            {"name": "risk_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Risk', 'title')"},
+            {"name": "risk_impact_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Risk', 'impact')"},
+            # Entity fields
+            {"name": "entity_name_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Entity', 'name')"},
+            {"name": "entity_summary_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Entity', 'summary')"},
+            # Episode fields
+            {"name": "episode_name_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Episode', 'name')"},
+            {"name": "episode_content_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Episode', 'content')"},
+            {"name": "episode_summary_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Episode', 'summary')"},
+            # Brief fields
+            {"name": "brief_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Brief', 'title')"},
+            {"name": "brief_summary_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Brief', 'summary')"},
+            # Claim fields
+            {"name": "claim_title_ft", "query": "CALL db.idx.fulltext.createNodeIndex('Claim', 'title')"},
+            # RawMessage fields
+            {"name": "rawmessage_content_ft", "query": "CALL db.idx.fulltext.createNodeIndex('RawMessage', 'content')"},
+            {"name": "rawmessage_subject_ft", "query": "CALL db.idx.fulltext.createNodeIndex('RawMessage', 'subject')"},
+            # ThreadContext fields
+            {"name": "threadcontext_subject_ft", "query": "CALL db.idx.fulltext.createNodeIndex('ThreadContext', 'subject')"},
         ]
 
         results = {}
@@ -407,6 +356,9 @@ class GraphSchema:
             # Memory System nodes (NEW)
             "Pattern",  # trigger_embedding for semantic pattern matching
             "UserProfile",  # static_embedding and dynamic_embedding
+            # Raw Content Layer nodes (Phase 1 - Deeper Graph)
+            "RawMessage",  # embedding for semantic search over raw content
+            "ThreadContext",  # embedding for semantic thread search
         ]
 
         results = {}
@@ -543,6 +495,10 @@ class GraphSchema:
             "RELATED_TO",
             "INVOLVES",
             "EXTRACTED_FROM",
+            # Communication Graph relationships (Phase 2 - Wider Graph)
+            "COMMUNICATED_WITH",
+            "IN_THREAD",
+            "REPLIES_TO",
         ]
 
         results = {}
@@ -648,6 +604,52 @@ class GraphSchema:
             ("Pattern", "domain"),  # Filter by domain
             ("Pattern", "isActive"),  # Find active patterns only
             ("Pattern", "accuracyRate"),  # Find high-accuracy patterns
+            # Raw Content Layer indexes (Phase 1 - Deeper Graph)
+            # RawMessage indexes
+            ("RawMessage", "organizationId"),
+            ("RawMessage", "sourceType"),
+            ("RawMessage", "threadId"),  # Link to ThreadContext
+            ("RawMessage", "senderEmail"),
+            ("RawMessage", "sentAt"),
+            ("RawMessage", "isProcessed"),
+            ("RawMessage", "createdAt"),
+            # ThreadContext indexes
+            ("ThreadContext", "organizationId"),
+            ("ThreadContext", "threadId"),  # External thread ID
+            ("ThreadContext", "sourceType"),
+            ("ThreadContext", "status"),
+            ("ThreadContext", "lastMessageAt"),
+            ("ThreadContext", "firstMessageAt"),
+            ("ThreadContext", "createdAt"),
+            # CommunicationEvent indexes
+            ("CommunicationEvent", "organizationId"),
+            ("CommunicationEvent", "fromContactId"),
+            ("CommunicationEvent", "eventType"),
+            ("CommunicationEvent", "occurredAt"),
+            ("CommunicationEvent", "channel"),
+            # Confidence tier index (tiered confidence system)
+            ("Commitment", "confidenceTier"),
+            ("Decision", "confidenceTier"),
+            # Graph Analytics indexes (Phase 4 - Smart Graph)
+            # PageRank results
+            ("Contact", "pagerankScore"),
+            ("Contact", "importanceScore"),
+            # Community detection results
+            ("Contact", "communityId"),
+            # Betweenness centrality results
+            ("Contact", "betweennessScore"),
+            # Analytics metadata
+            ("Contact", "analyticsUpdatedAt"),
+            # Entity analytics
+            ("Entity", "pagerankScore"),
+            ("Entity", "importanceScore"),
+            ("Entity", "communityId"),
+            # Claim indexes (additional)
+            ("Claim", "confidenceTier"),
+            # Task indexes (additional)
+            ("Task", "confidenceTier"),
+            # Risk indexes (additional)
+            ("Risk", "confidenceTier"),
         ]
 
         results = {}
@@ -680,6 +682,206 @@ class GraphSchema:
         return results
 
     # =========================================================================
+    # Relationship Property Indexes (Communication Graph)
+    # =========================================================================
+
+    async def setup_relationship_property_indexes(self) -> dict[str, bool]:
+        """
+        Set up indexes on relationship properties for communication graph queries.
+
+        These indexes optimize queries on relationship properties like:
+        - Communication frequency (count)
+        - Last interaction time (last_at)
+        - Sentiment average (sentiment_avg)
+
+        Returns:
+            Dict mapping index name to success status
+        """
+        graph = await self._get_graph()
+
+        # Relationship property indexes for communication graph
+        rel_indexes = [
+            # COMMUNICATED_WITH properties (Contact-to-Contact communication)
+            ("COMMUNICATED_WITH", "count"),
+            ("COMMUNICATED_WITH", "lastAt"),
+            ("COMMUNICATED_WITH", "sentimentAvg"),
+            ("COMMUNICATED_WITH", "channel"),
+            # IN_THREAD properties (Message threading)
+            ("IN_THREAD", "position"),
+            # REPLIES_TO properties (Message replies)
+            ("REPLIES_TO", "responseTimeSeconds"),
+            # EXTRACTED_FROM properties (Intelligence provenance)
+            ("EXTRACTED_FROM", "confidence"),
+            ("EXTRACTED_FROM", "extractedAt"),
+            # IMPACTS properties (Decision → Commitment cross-link)
+            ("IMPACTS", "impactScore"),
+            # THREATENS properties (Risk → Decision/Commitment)
+            ("THREATENS", "severity"),
+            # FULFILLS properties (Task → Commitment)
+            ("FULFILLS", "completionPercentage"),
+        ]
+
+        results = {}
+
+        for rel_type, property_name in rel_indexes:
+            index_name = f"{rel_type.lower()}_{property_name}_idx"
+            try:
+                query = f"""
+                    CREATE INDEX IF NOT EXISTS {index_name}
+                    FOR ()-[r:{rel_type}]-()
+                    ON (r.{property_name})
+                """
+                await graph.query(query)
+                results[index_name] = True
+                logger.debug(
+                    "Relationship property index created",
+                    index=index_name,
+                )
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    results[index_name] = True
+                else:
+                    results[index_name] = False
+                    logger.warning(
+                        "Failed to create relationship property index",
+                        index=index_name,
+                        error=str(e),
+                    )
+
+        return results
+
+    # =========================================================================
+    # Composite Indexes for Common Query Patterns
+    # =========================================================================
+
+    async def setup_composite_indexes(self) -> dict[str, bool]:
+        """
+        Set up composite indexes for common multi-property query patterns.
+
+        These indexes optimize queries that filter on multiple properties,
+        such as organization + status + date combinations.
+
+        Returns:
+            Dict mapping index name to success status
+        """
+        graph = await self._get_graph()
+
+        # Composite indexes for common query patterns
+        composite_indexes = [
+            # Organization + Status queries (most common pattern)
+            {
+                "name": "commitment_org_status_idx",
+                "node": "Commitment",
+                "properties": ["organizationId", "status"],
+            },
+            {
+                "name": "decision_org_status_idx",
+                "node": "Decision",
+                "properties": ["organizationId", "status"],
+            },
+            {
+                "name": "task_org_status_idx",
+                "node": "Task",
+                "properties": ["organizationId", "status"],
+            },
+            # Organization + Date range queries
+            {
+                "name": "commitment_org_due_idx",
+                "node": "Commitment",
+                "properties": ["organizationId", "dueDate"],
+            },
+            {
+                "name": "episode_org_time_idx",
+                "node": "Episode",
+                "properties": ["organizationId", "referenceTime"],
+            },
+            # Organization + Confidence tier queries
+            {
+                "name": "commitment_org_tier_idx",
+                "node": "Commitment",
+                "properties": ["organizationId", "confidenceTier"],
+            },
+            {
+                "name": "decision_org_tier_idx",
+                "node": "Decision",
+                "properties": ["organizationId", "confidenceTier"],
+            },
+            # Organization + Source type queries
+            {
+                "name": "rawmessage_org_source_idx",
+                "node": "RawMessage",
+                "properties": ["organizationId", "sourceType"],
+            },
+            {
+                "name": "episode_org_source_idx",
+                "node": "Episode",
+                "properties": ["organizationId", "sourceType"],
+            },
+            # Thread queries
+            {
+                "name": "rawmessage_org_thread_idx",
+                "node": "RawMessage",
+                "properties": ["organizationId", "threadId"],
+            },
+            {
+                "name": "threadcontext_org_status_idx",
+                "node": "ThreadContext",
+                "properties": ["organizationId", "status"],
+            },
+            # Communication event queries
+            {
+                "name": "commevent_org_type_idx",
+                "node": "CommunicationEvent",
+                "properties": ["organizationId", "eventType"],
+            },
+            {
+                "name": "commevent_org_channel_idx",
+                "node": "CommunicationEvent",
+                "properties": ["organizationId", "channel"],
+            },
+            # Analytics queries
+            {
+                "name": "contact_org_importance_idx",
+                "node": "Contact",
+                "properties": ["organizationId", "importanceScore"],
+            },
+            {
+                "name": "contact_org_community_idx",
+                "node": "Contact",
+                "properties": ["organizationId", "communityId"],
+            },
+        ]
+
+        results = {}
+
+        for index in composite_indexes:
+            try:
+                props = ", ".join(f"n.{p}" for p in index["properties"])
+                query = f"""
+                    CREATE INDEX IF NOT EXISTS {index["name"]}
+                    FOR (n:{index["node"]})
+                    ON ({props})
+                """
+                await graph.query(query)
+                results[index["name"]] = True
+                logger.debug(
+                    "Composite index created",
+                    index=index["name"],
+                )
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    results[index["name"]] = True
+                else:
+                    results[index["name"]] = False
+                    logger.warning(
+                        "Failed to create composite index",
+                        index=index["name"],
+                        error=str(e),
+                    )
+
+        return results
+
+    # =========================================================================
     # Full Schema Setup
     # =========================================================================
 
@@ -701,6 +903,8 @@ class GraphSchema:
             "vector_indexes": await self.setup_vector_indexes(),
             "relationship_vectors": await self.setup_relationship_vector_indexes(),
             "performance_indexes": await self.setup_performance_indexes(),
+            "relationship_property_indexes": await self.setup_relationship_property_indexes(),
+            "composite_indexes": await self.setup_composite_indexes(),
         }
 
         # Count successes

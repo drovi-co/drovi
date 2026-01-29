@@ -7,13 +7,24 @@ Temporal and bi-temporal memory queries inspired by Graphiti.
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.memory.drovi_memory import get_memory
 
 router = APIRouter()
 logger = structlog.get_logger()
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization_id matches auth context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 class MemorySearchRequest(BaseModel):
@@ -37,12 +48,18 @@ class TimelineRequest(BaseModel):
 
 
 @router.post("/memory/search")
-async def search_memory(request: MemorySearchRequest):
+async def search_memory(
+    request: MemorySearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
     """
     Search agentic memory with optional temporal filtering.
 
     If as_of_date is provided, returns the memory state as of that date.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, request.organization_id)
     logger.info(
         "Searching memory",
         organization_id=request.organization_id,
@@ -80,12 +97,18 @@ async def search_memory(request: MemorySearchRequest):
 
 
 @router.post("/memory/search/cross-source")
-async def search_cross_source(request: MemorySearchRequest):
+async def search_cross_source(
+    request: MemorySearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
     """
     Search memory across all sources, grouped by source type.
 
     Returns results organized by email, slack, notion, etc.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, request.organization_id)
     logger.info(
         "Cross-source memory search",
         organization_id=request.organization_id,
@@ -110,10 +133,16 @@ async def search_cross_source(request: MemorySearchRequest):
 
 
 @router.post("/memory/timeline")
-async def get_timeline(request: TimelineRequest):
+async def get_timeline(
+    request: TimelineRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
     """
     Get timeline of episodes for an entity or contact.
+
+    Requires `read` scope.
     """
+    _validate_org_id(ctx, request.organization_id)
     if not request.entity_id and not request.contact_id:
         raise HTTPException(
             status_code=400,
@@ -150,8 +179,17 @@ async def get_timeline(request: TimelineRequest):
 
 
 @router.get("/memory/recent")
-async def get_recent_episodes(organization_id: str, limit: int = 50):
-    """Get the most recent episodes."""
+async def get_recent_episodes(
+    organization_id: str,
+    limit: int = 50,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """
+    Get the most recent episodes.
+
+    Requires `read` scope.
+    """
+    _validate_org_id(ctx, organization_id)
     try:
         memory = await get_memory(organization_id)
         episodes = await memory.get_recent_episodes(limit)

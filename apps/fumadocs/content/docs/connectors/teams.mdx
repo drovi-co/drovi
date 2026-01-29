@@ -1,0 +1,159 @@
+---
+title: Microsoft Teams
+description: Connect Microsoft Teams to extract messages, channels, and chats
+---
+
+# Microsoft Teams Connector
+
+Extract messages, channels, and chats from Microsoft Teams via the Microsoft Graph API.
+
+## Features
+
+- **Channel Messages**: Sync messages from public and private channels
+- **Chat Messages**: Sync 1:1 and group chat messages
+- **Teams & Channels**: Discover and sync team/channel metadata
+- **Incremental Sync**: Uses delta queries for efficient updates
+- **Real-Time Webhooks**: Receive instant notifications via Graph subscriptions
+
+## Prerequisites
+
+1. **Azure AD App Registration**
+   - Register an application in Azure Active Directory
+   - Configure redirect URIs for OAuth
+   - Grant required API permissions
+
+2. **Required Permissions**
+   - `Channel.ReadBasic.All` - Read channel names
+   - `ChannelMessage.Read.All` - Read channel messages
+   - `Chat.Read` - Read chat messages
+   - `Team.ReadBasic.All` - Read team info
+   - `User.Read` - Read user profile
+
+## Setup
+
+### 1. Create Azure AD Application
+
+```bash
+# Via Azure CLI
+az ad app create --display-name "Drovi Intelligence" \
+  --sign-in-audience AzureADMyOrg \
+  --web-redirect-uris "https://your-app.com/oauth/callback"
+```
+
+### 2. Configure Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "connector_type": "teams",
+    "name": "Company Teams",
+    "config": {
+      "tenant_id": "your-azure-tenant-id",
+      "team_ids": ["team-id-1", "team-id-2"]
+    }
+  }'
+```
+
+### 3. Complete OAuth Flow
+
+```bash
+# Get authorization URL
+curl https://api.drovi.io/api/v1/oauth/teams/authorize?connection_id=conn_xxx
+
+# After user authorization, the callback will store tokens
+```
+
+## Available Streams
+
+| Stream | Sync Mode | Description |
+|--------|-----------|-------------|
+| `teams` | Full Refresh | List of joined teams |
+| `channels` | Full Refresh | Channels across all teams |
+| `channel_messages` | Incremental | Messages in channels (delta query) |
+| `chats` | Incremental | 1:1 and group chats |
+| `chat_messages` | Incremental | Messages in chats (delta query) |
+
+## Incremental Sync
+
+Teams connector uses Microsoft Graph delta queries for efficient syncing:
+
+```json
+{
+  "cursor_state": {
+    "delta_links": {
+      "team1_channel1": "https://graph.microsoft.com/v1.0/.../delta?token=...",
+      "team1_channel2": "https://graph.microsoft.com/v1.0/.../delta?token=..."
+    }
+  }
+}
+```
+
+## Webhooks
+
+Enable real-time updates with Graph subscriptions:
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/webhooks/teams/subscribe \
+  -H "X-API-Key: your_api_key" \
+  -d '{
+    "connection_id": "conn_xxx",
+    "resources": ["channel_messages", "chat_messages"]
+  }'
+```
+
+Webhook events trigger incremental syncs automatically.
+
+## Data Extraction
+
+### Messages
+
+```json
+{
+  "id": "1234567890",
+  "type": "teams_message",
+  "channel_id": "19:abc@thread.tacv2",
+  "team_id": "team-id",
+  "content": "Let's finalize the proposal by Friday",
+  "from_user_name": "John Doe",
+  "created_datetime": "2024-01-15T10:30:00Z",
+  "importance": "high",
+  "mentions": [
+    {"mentioned_name": "Jane Smith"}
+  ]
+}
+```
+
+### Intelligence Extracted
+
+From the message above, Drovi extracts:
+
+```json
+{
+  "commitments": [{
+    "title": "Finalize the proposal",
+    "due_date_text": "Friday",
+    "owner": "resolved-contact-id"
+  }]
+}
+```
+
+## Rate Limits
+
+Microsoft Graph has rate limits:
+- **Per-app**: 2000 requests per 10 minutes
+- **Per-user**: 10,000 requests per 10 minutes
+
+The connector handles rate limiting with automatic backoff.
+
+## Troubleshooting
+
+### "Insufficient privileges"
+Ensure the Azure AD app has admin consent for the required permissions.
+
+### "Token expired"
+OAuth tokens are automatically refreshed. If issues persist, re-authorize the connection.
+
+### "Subscription validation failed"
+Verify your webhook endpoint is publicly accessible and responds to validation requests.

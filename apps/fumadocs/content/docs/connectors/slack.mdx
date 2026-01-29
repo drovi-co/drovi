@@ -1,0 +1,266 @@
+---
+title: Slack Connector
+description: Connect Slack workspaces to Drovi Intelligence
+---
+
+# Slack Connector
+
+The Slack connector enables Drovi Intelligence to process messages from your Slack workspace and extract intelligence.
+
+## Prerequisites
+
+- A Slack workspace
+- Admin or Owner permissions (to install apps)
+
+## Setup
+
+### 1. Create a Connection
+
+```bash
+curl -X POST https://api.drovi.io/api/v1/connections \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "connector_type": "slack",
+    "name": "Company Slack",
+    "config": {
+      "lookback_days": 30,
+      "channel_types": ["public", "private"],
+      "include_threads": true,
+      "include_reactions": false
+    }
+  }'
+```
+
+### 2. Complete OAuth Authorization
+
+Redirect the user to the `auth_url` to install the Drovi app in their workspace:
+
+```json
+{
+  "connection_id": "conn_abc123",
+  "status": "pending_auth",
+  "auth_url": "https://slack.com/oauth/v2/authorize?..."
+}
+```
+
+### 3. Select Channels
+
+After OAuth, you can configure which channels to sync:
+
+```bash
+curl -X PATCH "https://api.drovi.io/api/v1/connections/conn_abc123" \
+  -H "X-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "config": {
+      "channels": ["C01ABC123", "C02DEF456"],
+      "exclude_channels": ["C03GHI789"]
+    }
+  }'
+```
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `lookback_days` | integer | 30 | Days of historical messages to sync |
+| `channel_types` | array | ["public"] | Channel types: public, private, im, mpim |
+| `channels` | array | all | Specific channel IDs to sync |
+| `exclude_channels` | array | [] | Channel IDs to exclude |
+| `include_threads` | boolean | true | Sync thread replies |
+| `include_reactions` | boolean | false | Track message reactions |
+| `include_files` | boolean | false | Process shared files |
+
+## Permissions Required
+
+The Slack app requests these OAuth scopes:
+
+| Scope | Purpose |
+|-------|---------|
+| `channels:history` | Read public channel messages |
+| `channels:read` | List public channels |
+| `groups:history` | Read private channel messages |
+| `groups:read` | List private channels |
+| `im:history` | Read direct messages |
+| `mpim:history` | Read group DMs |
+| `users:read` | Identify users |
+| `users:read.email` | Get user emails |
+
+<Callout type="info">
+Drovi only requests read-only access. We never send messages or modify your workspace.
+</Callout>
+
+## Real-Time Updates
+
+The Slack connector uses the [Events API](https://api.slack.com/apis/connections/events-api) for real-time updates:
+
+1. User sends a message in Slack
+2. Slack sends an event to Drovi's webhook
+3. Drovi processes the message immediately
+4. Intelligence extracted in **under 10 seconds**
+
+### Supported Events
+
+| Event | Description |
+|-------|-------------|
+| `message` | New message posted |
+| `message_changed` | Message edited |
+| `message_deleted` | Message deleted |
+| `reaction_added` | Reaction added (if enabled) |
+| `channel_created` | New channel created |
+| `member_joined_channel` | User joined channel |
+
+## Data Extracted
+
+From each message, Drovi extracts:
+
+| Field | Description |
+|-------|-------------|
+| Text | Message content |
+| User | Sender information |
+| Channel | Channel ID and name |
+| Thread | Parent message (if reply) |
+| Timestamp | Message timestamp |
+| Attachments | Block kit, files, links |
+| Reactions | Emoji reactions (if enabled) |
+
+## Example: Processed Message
+
+**Original Slack Message:**
+```
+#product-team
+
+@sarah: Hey team, we need to finalize the roadmap by Friday.
+
+@mike: I can take the API section. Should be done by Wednesday.
+
+@sarah: Great! @john can you handle the mobile features?
+
+@john: Sure, but I'm concerned about the timeline - we might
+need to cut the analytics dashboard to make it.
+```
+
+**Extracted Intelligence:**
+
+```json
+{
+  "commitments": [
+    {
+      "title": "Complete API section",
+      "direction": "owed_by_me",
+      "counterparty": "Mike",
+      "due_date_text": "Wednesday",
+      "confidence": 0.92
+    },
+    {
+      "title": "Handle mobile features",
+      "direction": "owed_by_me",
+      "counterparty": "John",
+      "confidence": 0.85
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Finalize roadmap",
+      "due_date_text": "Friday",
+      "assignee": "Team"
+    }
+  ],
+  "risks": [
+    {
+      "title": "Timeline risk for roadmap",
+      "description": "May need to cut analytics dashboard",
+      "severity": "medium",
+      "raised_by": "John"
+    }
+  ]
+}
+```
+
+## Thread Intelligence
+
+Slack threads are powerful for context. Drovi:
+
+1. **Groups thread messages** into a single conversation
+2. **Tracks thread participants** separately from channel
+3. **Extracts thread-specific intelligence** with full context
+4. **Links to parent message** for reference
+
+## Channel Discovery
+
+Automatically discover available channels:
+
+```bash
+curl -X GET "https://api.drovi.io/api/v1/connections/conn_abc123/streams?organization_id=org_123" \
+  -H "X-API-Key: your_api_key"
+```
+
+```json
+{
+  "streams": [
+    {
+      "id": "C01ABC123",
+      "name": "general",
+      "type": "public",
+      "member_count": 150,
+      "enabled": true
+    },
+    {
+      "id": "C02DEF456",
+      "name": "product-team",
+      "type": "private",
+      "member_count": 12,
+      "enabled": true
+    }
+  ]
+}
+```
+
+## Troubleshooting
+
+### Bot not receiving messages
+
+1. Verify the bot is added to the channel
+2. Check if the channel is in the sync list
+3. Ensure the workspace hasn't restricted the app
+
+### Missing historical messages
+
+Slack limits history access based on your plan:
+
+| Slack Plan | History Access |
+|------------|----------------|
+| Free | 90 days |
+| Pro | Unlimited |
+| Business+ | Unlimited |
+| Enterprise Grid | Unlimited |
+
+### User names showing as IDs
+
+This usually means missing `users:read` permission. Re-authorize the app with full permissions.
+
+## Rate Limits
+
+Slack API tiers:
+
+| Method | Tier | Rate |
+|--------|------|------|
+| conversations.history | 3 | 50+/min |
+| users.info | 4 | 100+/min |
+| conversations.list | 2 | 20/min |
+
+Drovi implements rate limiting and exponential backoff automatically.
+
+## Security
+
+- OAuth tokens encrypted at rest
+- Bot has minimal required permissions
+- Data transmitted over TLS 1.3
+- Compliant with Slack's security requirements
+
+To remove access:
+1. Delete the connection in Drovi
+2. Remove the app from [Slack App Management](https://slack.com/apps/manage)
