@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ListItemViewers, useListViewers } from "@/components/collaboration";
 import { SourceIcon } from "@/components/inbox/source-icon";
 // Import shared task components
 import {
@@ -108,14 +107,6 @@ function TasksPage() {
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
   const currentUserId = session?.user?.id ?? "";
-
-  // Get viewers for all tasks
-  const { viewersMap } = useListViewers({
-    organizationId,
-    resourceType: "task",
-    currentUserId,
-    enabled: Boolean(organizationId),
-  });
 
   // State
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -601,7 +592,6 @@ function TasksPage() {
                 showGroupHeaders={statusFilter === "all"}
                 tasks={tasks}
                 tasksByStatus={tasksByStatus}
-                viewersMap={viewersMap}
               />
             )
           ) : (
@@ -628,16 +618,6 @@ function TasksPage() {
 // Items to show per section by default
 const ITEMS_PER_SECTION = 10;
 
-interface OnlineUser {
-  id: string;
-  name: string | null;
-  email: string;
-  image: string | null;
-  status: string;
-  viewingType: string | null;
-  viewingId: string | null;
-}
-
 interface TaskListViewProps {
   tasks: TaskData[];
   tasksByStatus: Record<TaskStatus, TaskData[]>;
@@ -651,7 +631,6 @@ interface TaskListViewProps {
   onStar: (id: string) => void;
   onArchive: (id: string) => void;
   showGroupHeaders: boolean;
-  viewersMap: Map<string, OnlineUser[]>;
 }
 
 function TaskListView({
@@ -667,7 +646,6 @@ function TaskListView({
   onStar,
   onArchive,
   showGroupHeaders,
-  viewersMap,
 }: TaskListViewProps) {
   const statusOrder: TaskStatus[] = [
     "backlog",
@@ -797,7 +775,6 @@ function TaskListView({
                       onStar={onStar}
                       onStatusChange={onStatusChange}
                       task={task}
-                      viewers={viewersMap.get(task.id) ?? []}
                     />
                   ))}
 
@@ -897,7 +874,6 @@ function TaskListView({
           onStar={onStar}
           onStatusChange={onStatusChange}
           task={task}
-          viewers={viewersMap.get(task.id) ?? []}
         />
       ))}
 
@@ -1079,7 +1055,6 @@ interface TaskRowProps {
   onPriorityChange: (id: string, priority: TaskPriority) => void;
   onStar?: (id: string) => void;
   onArchive?: (id: string) => void;
-  viewers?: OnlineUser[];
 }
 
 function TaskRow({
@@ -1092,7 +1067,6 @@ function TaskRow({
   onPriorityChange,
   onStar,
   onArchive,
-  viewers = [],
 }: TaskRowProps) {
   const dueInfo = formatDueDate(task.dueDate);
   const iconStatus = mapStatus(task.status);
@@ -1219,13 +1193,8 @@ function TaskRow({
 
       {/* Right section - fixed width, perfectly aligned (matches inbox exactly) */}
       <div className="flex w-[160px] shrink-0 items-center justify-end">
-        {/* Default state: Viewers + Date + Assignee + Labels - hidden on hover */}
+        {/* Default state: Date + Assignee + Labels - hidden on hover */}
         <div className="flex items-center gap-1.5 group-hover:hidden">
-          {/* Viewers indicator */}
-          {viewers.length > 0 && (
-            <ListItemViewers maxVisible={2} size="xs" viewers={viewers} />
-          )}
-
           {/* Date - fixed width, right aligned text */}
           <span
             className={cn(

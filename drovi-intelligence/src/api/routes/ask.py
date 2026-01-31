@@ -4,6 +4,10 @@ Ask API - Natural Language Query Interface
 Enables natural language questions over the Drovi knowledge graph.
 Uses GraphRAG for intelligent query generation and response synthesis.
 
+Includes 2-phase truth-first protocol for pilot surface:
+- Phase A: Truth (< 200ms) - structured retrieval from graph
+- Phase B: Reasoning (streaming) - LLM narrative synthesis
+
 Examples:
 - "Who are the most influential people in our network?"
 - "What commitments are at risk?"
@@ -11,18 +15,39 @@ Examples:
 - "Who connects the sales and engineering teams?"
 """
 
+import asyncio
+import json
+import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, AsyncGenerator, Literal
 
 import structlog
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Cookie
+from fastapi.responses import StreamingResponse
+from prometheus_client import Histogram
 from pydantic import BaseModel, Field
 
 from src.graphrag import query_graph
+from src.auth.pilot_accounts import verify_jwt
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/ask", tags=["Natural Language Query"])
+
+# Prometheus metrics
+ask_truth_latency = Histogram(
+    "drovi_ask_truth_latency_seconds",
+    "Ask truth phase latency",
+    ["organization_id"],
+    buckets=[0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0],
+)
+
+ask_total_latency = Histogram(
+    "drovi_ask_total_latency_seconds",
+    "Ask total latency including reasoning",
+    ["organization_id", "mode"],
+    buckets=[0.5, 1.0, 2.0, 3.0, 5.0, 10.0],
+)
 
 
 def utc_now() -> datetime:
@@ -358,3 +383,324 @@ async def check_graphrag_health() -> dict[str, Any]:
         "llm": llm_status,
         "timestamp": utc_now().isoformat(),
     }
+
+
+# =============================================================================
+# 2-Phase Truth-First Protocol (Pilot Surface)
+# =============================================================================
+
+
+class AskStreamRequest(BaseModel):
+    """Request for 2-phase streaming ask."""
+
+    organization_id: str = Field(..., description="Organization ID")
+    query: str = Field(..., min_length=3, max_length=1000, description="Natural language query")
+    mode: Literal["truth", "truth+reasoning"] = Field(
+        default="truth+reasoning",
+        description="Response mode: truth only or truth + streaming reasoning",
+    )
+
+
+class TruthResult(BaseModel):
+    """Individual result in truth phase."""
+
+    type: str
+    id: str
+    title: str
+    status: str
+    confidence: float
+    evidence_id: str | None = None
+
+
+class Citation(BaseModel):
+    """Citation for evidence."""
+
+    index: int
+    evidence_id: str
+    snippet: str
+    source: str
+    date: str
+
+
+class TruthEvent(BaseModel):
+    """Truth phase event (Phase A)."""
+
+    type: str = "truth"
+    query_understood: str
+    results: list[TruthResult]
+    citations: list[Citation]
+
+
+async def _retrieve_truth(
+    organization_id: str,
+    query: str,
+) -> tuple[TruthEvent, list[dict]]:
+    """
+    Phase A: Retrieve structured truth from graph (< 200ms target).
+
+    Returns truth event and raw results for reasoning phase.
+    """
+    start = time.time()
+
+    try:
+        # Use existing GraphRAG query
+        result = await query_graph(
+            question=query,
+            organization_id=organization_id,
+            include_evidence=True,
+        )
+
+        # Transform to truth format
+        results = []
+        citations = []
+
+        for i, source in enumerate(result.get("sources", [])[:10]):
+            # Build result
+            results.append(
+                TruthResult(
+                    type=source.get("type", "item"),
+                    id=source.get("id", f"item_{i}"),
+                    title=source.get("title") or source.get("name", "Unknown"),
+                    status=source.get("status", "unknown"),
+                    confidence=source.get("confidence", 0.8),
+                    evidence_id=source.get("evidence_id"),
+                )
+            )
+
+            # Build citation if evidence exists
+            if source.get("evidence_id"):
+                citations.append(
+                    Citation(
+                        index=i + 1,
+                        evidence_id=source["evidence_id"],
+                        snippet=source.get("snippet", source.get("title", ""))[:200],
+                        source=source.get("source_type", "unknown"),
+                        date=source.get("date", utc_now().strftime("%Y-%m-%d")),
+                    )
+                )
+
+        truth = TruthEvent(
+            query_understood=result.get("intent", "general query"),
+            results=results,
+            citations=citations,
+        )
+
+        latency = time.time() - start
+        ask_truth_latency.labels(organization_id=organization_id).observe(latency)
+
+        logger.info(
+            "Truth phase completed",
+            organization_id=organization_id,
+            results_count=len(results),
+            latency_ms=round(latency * 1000),
+        )
+
+        return truth, result.get("sources", [])
+
+    except Exception as e:
+        logger.error("Truth phase failed", error=str(e), organization_id=organization_id)
+        # Return empty truth on error
+        return TruthEvent(
+            query_understood="query processing",
+            results=[],
+            citations=[],
+        ), []
+
+
+async def _stream_reasoning(
+    query: str,
+    truth: TruthEvent,
+    raw_results: list[dict],
+    organization_id: str,
+) -> AsyncGenerator[str, None]:
+    """
+    Phase B: Stream reasoning tokens from LLM.
+
+    Synthesizes natural language explanation based on truth.
+    """
+    from src.graphrag import get_graphrag
+
+    try:
+        graphrag = await get_graphrag()
+        llm = await graphrag._get_llm_client()
+
+        if not llm:
+            # No LLM configured, return simple summary
+            summary = f"Found {len(truth.results)} results for your query about {truth.query_understood}."
+            if truth.results:
+                summary += " The top results include: "
+                summary += ", ".join(r.title for r in truth.results[:3])
+                summary += "."
+
+            for char in summary:
+                yield char
+                await asyncio.sleep(0.01)
+            return
+
+        # Build context from truth
+        context = f"Query: {query}\n\nResults found:\n"
+        for i, result in enumerate(truth.results[:5]):
+            context += f"{i+1}. [{result.type}] {result.title} (status: {result.status}, confidence: {result.confidence:.0%})\n"
+
+        if truth.citations:
+            context += "\nEvidence citations:\n"
+            for citation in truth.citations[:5]:
+                context += f"[{citation.index}] {citation.snippet} ({citation.source}, {citation.date})\n"
+
+        # Stream from LLM
+        prompt = f"""Based on the following search results, provide a concise analysis for the user.
+Reference citations using [1], [2] etc format when mentioning specific items.
+
+{context}
+
+Provide a helpful, conversational summary:"""
+
+        # Use streaming if available
+        response = await llm.agenerate([prompt])
+        text = response.generations[0][0].text
+
+        # Simulate streaming by yielding character by character
+        for char in text:
+            yield char
+            await asyncio.sleep(0.005)
+
+    except Exception as e:
+        logger.error("Reasoning phase failed", error=str(e))
+        yield f"Unable to generate reasoning: {str(e)}"
+
+
+def _sse_event(event_type: str, data: dict) -> str:
+    """Format SSE event."""
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+
+async def _ask_stream_generator(
+    request: AskStreamRequest,
+) -> AsyncGenerator[str, None]:
+    """
+    Generate SSE stream for 2-phase ask protocol.
+
+    Events:
+    - truth: Structured results (Phase A, < 200ms)
+    - reasoning_start: Reasoning phase begins
+    - token: Individual reasoning token
+    - done: Stream complete with stats
+    - error: Error occurred
+    """
+    start_time = time.time()
+    total_tokens = 0
+
+    try:
+        # Phase A: Truth (< 200ms target)
+        truth, raw_results = await _retrieve_truth(
+            organization_id=request.organization_id,
+            query=request.query,
+        )
+
+        yield _sse_event("truth", truth.model_dump())
+
+        # If truth-only mode, we're done
+        if request.mode == "truth":
+            latency_ms = (time.time() - start_time) * 1000
+            yield _sse_event("done", {
+                "total_tokens": 0,
+                "latency_ms": round(latency_ms),
+            })
+            return
+
+        # Phase B: Reasoning (streaming)
+        yield _sse_event("reasoning_start", {})
+
+        reasoning_buffer = ""
+        async for token in _stream_reasoning(
+            query=request.query,
+            truth=truth,
+            raw_results=raw_results,
+            organization_id=request.organization_id,
+        ):
+            reasoning_buffer += token
+            total_tokens += 1
+            yield _sse_event("token", {"token": token})
+
+        # Done
+        latency_ms = (time.time() - start_time) * 1000
+        ask_total_latency.labels(
+            organization_id=request.organization_id,
+            mode=request.mode,
+        ).observe(latency_ms / 1000)
+
+        yield _sse_event("done", {
+            "total_tokens": total_tokens,
+            "latency_ms": round(latency_ms),
+        })
+
+        logger.info(
+            "Ask stream completed",
+            organization_id=request.organization_id,
+            total_tokens=total_tokens,
+            latency_ms=round(latency_ms),
+        )
+
+    except Exception as e:
+        logger.error("Ask stream failed", error=str(e))
+        yield _sse_event("error", {"message": str(e)})
+
+
+@router.post("/stream")
+async def ask_stream(
+    request: AskStreamRequest,
+    session: str | None = Cookie(default=None),
+) -> StreamingResponse:
+    """
+    2-Phase Truth-First Ask Protocol (SSE Streaming).
+
+    This endpoint implements the truth-first protocol for the pilot surface:
+
+    **Phase A: Truth (< 200ms)**
+    - Retrieves structured results from the knowledge graph
+    - Returns immediately with evidence and citations
+    - User sees "truth" before any LLM processing
+
+    **Phase B: Reasoning (streaming)**
+    - LLM synthesizes natural language explanation
+    - Tokens stream after truth is delivered
+    - References citations from Phase A
+
+    **SSE Event Types:**
+    - `truth`: Structured results (query_understood, results, citations)
+    - `reasoning_start`: Reasoning phase begins
+    - `token`: Individual reasoning token
+    - `done`: Stream complete (total_tokens, latency_ms)
+    - `error`: Error occurred (message)
+
+    **Example Usage:**
+    ```javascript
+    const response = await fetch('/api/v1/ask/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        organization_id: 'org_123',
+        query: 'What did we promise Acme Corp?',
+        mode: 'truth+reasoning'
+      })
+    });
+
+    const reader = response.body.getReader();
+    // Parse SSE events...
+    ```
+    """
+    # Validate session if provided
+    if session:
+        token = verify_jwt(session)
+        if token and token.org_id != request.organization_id:
+            raise HTTPException(403, "Organization mismatch")
+
+    return StreamingResponse(
+        _ask_stream_generator(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -47,13 +47,14 @@ export interface ConfidenceBadgeProps {
 // HELPERS
 // =============================================================================
 
+// Vercel-style confidence colors
 function getConfidenceConfig(confidence: number) {
   if (confidence >= 0.9) {
     return {
       label: "Very High",
       color:
-        "bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800",
-      progressColor: "bg-green-500",
+        "bg-[#ecfdf5] text-[#047857] dark:bg-[#022c22] dark:text-[#6ee7b7] border-[#a7f3d0] dark:border-[#064e3b]",
+      progressColor: "bg-[#059669]",
       description: "Strong indicators and clear context",
     };
   }
@@ -61,8 +62,8 @@ function getConfidenceConfig(confidence: number) {
     return {
       label: "High",
       color:
-        "bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800",
-      progressColor: "bg-green-500",
+        "bg-[#ecfdf5] text-[#047857] dark:bg-[#022c22] dark:text-[#6ee7b7] border-[#a7f3d0] dark:border-[#064e3b]",
+      progressColor: "bg-[#059669]",
       description: "Clear indicators with supporting context",
     };
   }
@@ -70,16 +71,16 @@ function getConfidenceConfig(confidence: number) {
     return {
       label: "Medium",
       color:
-        "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-      progressColor: "bg-amber-500",
+        "bg-[#fffbeb] text-[#b45309] dark:bg-[#451a03] dark:text-[#fcd34d] border-[#fde68a] dark:border-[#78350f]",
+      progressColor: "bg-[#d97706]",
       description: "Likely correct but some ambiguity",
     };
   }
   return {
     label: "Low",
     color:
-      "bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
-    progressColor: "bg-red-500",
+      "bg-[#fef2f2] text-[#b91c1c] dark:bg-[#450a0a] dark:text-[#fca5a5] border-[#fecaca] dark:border-[#7f1d1d]",
+    progressColor: "bg-[#dc2626]",
     description: "Review recommended",
   };
 }
@@ -100,12 +101,12 @@ export function ConfidenceBadge({
   const config = getConfidenceConfig(confidence);
   const percentage = Math.round(confidence * 100);
 
-  // User status overrides
+  // User status overrides - Vercel style
   if (isUserVerified) {
     return (
       <Badge
         className={cn(
-          "border-green-200 bg-green-500/10 text-green-700 dark:border-green-800 dark:text-green-400",
+          "border-[#a7f3d0] bg-[#ecfdf5] text-[#047857] dark:border-[#064e3b] dark:bg-[#022c22] dark:text-[#6ee7b7]",
           size === "sm" && "px-1.5 py-0 text-xs",
           size === "lg" && "px-3 py-1 text-sm",
           className
@@ -204,10 +205,10 @@ export function ConfidenceBadge({
                       className={cn(
                         "font-medium text-xs",
                         factor.score >= 0.7
-                          ? "text-green-600"
+                          ? "text-[#047857] dark:text-[#6ee7b7]"
                           : factor.score >= 0.5
-                            ? "text-amber-600"
-                            : "text-red-600"
+                            ? "text-[#b45309] dark:text-[#fcd34d]"
+                            : "text-[#b91c1c] dark:text-[#fca5a5]"
                       )}
                     >
                       {Math.round(factor.score * 100)}%

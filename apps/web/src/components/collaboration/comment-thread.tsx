@@ -20,7 +20,7 @@ import {
   SmilePlus,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,10 +38,8 @@ import {
   useRemoveReaction,
   useResolveThread,
 } from "@/hooks/use-collaboration";
-import { useTypingIndicator } from "@/hooks/use-presence";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./mention-input";
-import { TypingIndicator } from "./who-is-viewing";
 
 // =============================================================================
 // Types
@@ -132,48 +130,6 @@ export function CommentThread({
   const resolveThread = useResolveThread({ organizationId });
   const deleteComment = useDeleteComment({ organizationId });
 
-  // Typing indicator for comment thread
-  const resourceType =
-    targetType === "conversation"
-      ? "conversation"
-      : targetType === "uio"
-        ? "uio"
-        : "other";
-  const { setTyping } = useTypingIndicator({
-    organizationId,
-    resourceType: resourceType as "conversation" | "uio" | "other",
-    resourceId: targetId,
-  });
-
-  // Track typing when user is writing - debounced to prevent rapid calls
-  const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTypingStateRef = useRef(false);
-
-  useEffect(() => {
-    const isTyping = newComment.length > 0;
-
-    // Skip if state hasn't changed
-    if (isTyping === lastTypingStateRef.current) {
-      return;
-    }
-
-    // Clear previous debounce
-    if (typingDebounceRef.current) {
-      clearTimeout(typingDebounceRef.current);
-    }
-
-    // Debounce the typing state change
-    typingDebounceRef.current = setTimeout(() => {
-      lastTypingStateRef.current = isTyping;
-      setTyping(isTyping);
-    }, 300);
-
-    return () => {
-      if (typingDebounceRef.current) {
-        clearTimeout(typingDebounceRef.current);
-      }
-    };
-  }, [newComment.length, setTyping]);
 
   const comments = data?.comments ?? [];
 
@@ -303,12 +259,6 @@ export function CommentThread({
 
       {/* New comment input */}
       <div className="space-y-2 border-t pt-4">
-        {/* Typing indicator */}
-        <TypingIndicator
-          organizationId={organizationId}
-          resourceId={targetId}
-          resourceType={resourceType as "conversation" | "uio" | "other"}
-        />
         <MentionInput
           maxRows={6}
           minRows={2}

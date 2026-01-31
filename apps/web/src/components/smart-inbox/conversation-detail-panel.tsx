@@ -27,7 +27,7 @@ import {
   StarOff,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import type { LinkedUIOCardData } from "@/components/smart-inbox/linked-uio-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient, useActiveOrganization } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
@@ -185,14 +184,6 @@ export function ConversationDetailPanel({
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
   const currentUserId = session?.user?.id ?? "";
-
-  // Track viewing this conversation for real-time presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "conversation",
-    resourceId: conversationId ?? "",
-    enabled: Boolean(organizationId && conversationId),
-  });
 
   // Fetch conversation details
   const { data: conversationData, isLoading: isLoadingConversation } = useQuery(
@@ -423,30 +414,19 @@ export function ConversationDetailPanel({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
-          {/* Title with optional status tag and presence */}
+          {/* Title with optional status tag */}
           <div className="mb-6 flex items-start justify-between gap-3">
             <h1 className="font-semibold text-foreground text-xl">
               {conversationData.title || "No subject"}
             </h1>
-            <div className="flex items-center gap-2">
-              {/* Real-time viewers indicator */}
-              {organizationId && conversationId && (
-                <WhoIsViewing
-                  compact
-                  organizationId={organizationId}
-                  resourceId={conversationId}
-                  resourceType="conversation"
-                />
-              )}
-              {conversationData.hasOpenLoops && (
-                <Badge
-                  className="shrink-0 bg-amber-500/10 text-[10px] text-amber-600"
-                  variant="secondary"
-                >
-                  Pending
-                </Badge>
-              )}
-            </div>
+            {conversationData.hasOpenLoops && (
+              <Badge
+                className="shrink-0 bg-amber-500/10 text-[10px] text-amber-600"
+                variant="secondary"
+              >
+                Pending
+              </Badge>
+            )}
           </div>
 
           {/* Description (AI Brief) - clean text only */}

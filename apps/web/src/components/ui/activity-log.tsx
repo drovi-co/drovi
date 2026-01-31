@@ -106,7 +106,7 @@ function ActivityAvatar({
         size="xs"
       />
       {showOnlineStatus && user.isOnline && (
-        <div className="absolute -right-0.5 -bottom-0.5 size-[7px] rounded-full border border-border bg-green-500" />
+        <div className="absolute -right-0.5 -bottom-0.5 size-[7px] rounded-full border border-border bg-[#059669]" />
       )}
     </div>
   );

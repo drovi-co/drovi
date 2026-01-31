@@ -72,6 +72,32 @@ def to_naive_utc(dt):
     return dt
 
 
+async def resolve_contact_id_by_email(session, org_id: str, email: str | None) -> str | None:
+    """Look up a contact ID by email within an organization.
+
+    Args:
+        session: SQLAlchemy async session
+        org_id: Organization ID to search within
+        email: Email address to look up
+
+    Returns:
+        Contact ID if found, None otherwise
+    """
+    if not email:
+        return None
+
+    result = await session.execute(
+        text("""
+            SELECT id FROM contact
+            WHERE organization_id = :org_id AND primary_email = :email
+            LIMIT 1
+        """),
+        {"org_id": org_id, "email": email.lower()},
+    )
+    row = result.fetchone()
+    return row[0] if row else None
+
+
 async def create_timeline_event(
     session,
     uio_id: str,
@@ -467,10 +493,20 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "modelUsed": "sonnet",
                     "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
+
+                # Resolve debtor and creditor contact IDs from emails
+                debtor_contact_id = await resolve_contact_id_by_email(
+                    session, state.input.organization_id, getattr(commitment, "debtor_email", None)
+                )
+                creditor_contact_id = await resolve_contact_id_by_email(
+                    session, state.input.organization_id, getattr(commitment, "creditor_email", None)
+                )
+
                 await session.execute(
                     text("""
                         INSERT INTO uio_commitment_details (
                             id, uio_id, direction,
+                            debtor_contact_id, creditor_contact_id,
                             due_date_source, due_date_original_text,
                             priority, status,
                             is_conditional, condition,
@@ -478,6 +514,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             created_at, updated_at
                         ) VALUES (
                             :id, :uio_id, :direction,
+                            :debtor_contact_id, :creditor_contact_id,
                             :due_date_source, :due_date_text,
                             :priority, 'pending',
                             :is_conditional, :condition,
@@ -489,6 +526,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "id": commitment_details_id,
                         "uio_id": uio_id,
                         "direction": commitment.direction or "owed_to_me",
+                        "debtor_contact_id": debtor_contact_id,
+                        "creditor_contact_id": creditor_contact_id,
                         "due_date_source": "explicit" if commitment.due_date else "inferred",
                         "due_date_text": commitment.due_date_text,
                         "priority": commitment.priority or "medium",
@@ -741,16 +780,24 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "modelUsed": "sonnet",
                     "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
+
+                # Resolve decision maker contact ID from email
+                decision_maker_contact_id = await resolve_contact_id_by_email(
+                    session, state.input.organization_id, getattr(decision, "decision_maker_email", None)
+                )
+
                 await session.execute(
                     text("""
                         INSERT INTO uio_decision_details (
                             id, uio_id, statement, rationale,
+                            decision_maker_contact_id,
                             alternatives, stakeholder_contact_ids, impact_areas,
                             status, decided_at,
                             extraction_context,
                             created_at, updated_at
                         ) VALUES (
                             :id, :uio_id, :statement, :rationale,
+                            :decision_maker_contact_id,
                             :alternatives, :stakeholders, :impact_areas,
                             'made', :decided_at,
                             :extraction_context,
@@ -762,6 +809,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "uio_id": uio_id,
                         "statement": decision.statement,
                         "rationale": decision.rationale or "",
+                        "decision_maker_contact_id": decision_maker_contact_id,
                         "alternatives": json.dumps(getattr(decision, "alternatives", []) or []),
                         "stakeholders": getattr(decision, "stakeholders", []) or [],
                         "impact_areas": getattr(decision, "implications", []) or [],
@@ -1335,15 +1383,25 @@ async def persist_node(state: IntelligenceState) -> dict:
                 if task_status == "done" and hasattr(task, "completed_at"):
                     completed_at = to_naive_utc(task.completed_at)
 
+                # Resolve assignee and created_by contact IDs from emails
+                assignee_contact_id = await resolve_contact_id_by_email(
+                    session, state.input.organization_id, getattr(task, "assignee_email", None)
+                )
+                created_by_contact_id = await resolve_contact_id_by_email(
+                    session, state.input.organization_id, getattr(task, "created_by_email", None)
+                )
+
                 await session.execute(
                     text("""
                         INSERT INTO uio_task_details (
                             id, uio_id, status, priority,
+                            assignee_contact_id, created_by_contact_id,
                             estimated_effort, completed_at,
                             project, tags,
                             created_at, updated_at
                         ) VALUES (
                             :id, :uio_id, :status, :priority,
+                            :assignee_contact_id, :created_by_contact_id,
                             :estimated_effort, :completed_at,
                             :project, :tags,
                             :now, :now
@@ -1354,6 +1412,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "uio_id": uio_id,
                         "status": task_status,
                         "priority": task_priority,
+                        "assignee_contact_id": assignee_contact_id,
+                        "created_by_contact_id": created_by_contact_id,
                         "estimated_effort": getattr(task, "estimated_effort", None),
                         "completed_at": completed_at,
                         "project": getattr(task, "project", None),

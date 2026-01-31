@@ -348,65 +348,59 @@ class ConnectorScheduler:
     async def trigger_sync_by_id(
         self,
         connection_id: str,
+        organization_id: str,
         streams: list[str] | None = None,
-        incremental: bool = True,
-        sync_params: dict[str, Any] | None = None,
+        full_refresh: bool = False,
+        job_type: SyncJobType = SyncJobType.ON_DEMAND,
     ) -> SyncJob:
         """
-        Trigger sync by connection ID (for webhook-triggered syncs).
+        Trigger sync by connection ID with proper token decryption.
 
-        Looks up the connection config from the database.
+        Uses connection_service to build ConnectorConfig with decrypted OAuth tokens.
 
         Args:
-            connection_id: Connection ID
-            streams: Specific streams to sync
-            incremental: If True, use incremental sync (default)
-            sync_params: Additional sync parameters
+            connection_id: Connection ID (UUID as string)
+            organization_id: Organization ID
+            streams: Specific streams to sync (None = all enabled)
+            full_refresh: Force full refresh instead of incremental
+            job_type: Type of sync job
 
         Returns:
             SyncJob tracking object
+
+        Raises:
+            ValueError: If connection not found or tokens cannot be decrypted
         """
-        from src.db.client import get_db_pool
+        from src.connectors.connection_service import get_connection_config
 
-        pool = await get_db_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT id, organization_id, connector_type, name, config
-                FROM connections
-                WHERE id = $1 AND status = 'active'
-                """,
-                connection_id,
-            )
+        # Get connection config with decrypted tokens
+        config = await get_connection_config(connection_id, organization_id)
 
-            if not row:
-                raise ValueError(f"Connection not found: {connection_id}")
+        if not config:
+            raise ValueError(f"Connection not found or tokens unavailable: {connection_id}")
 
-            # Build config
-            config = ConnectorConfig(
-                connection_id=row["id"],
-                organization_id=row["organization_id"],
-                connector_type=row["connector_type"],
-                name=row["name"],
-                credentials=row["config"].get("credentials", {}),
-                settings=row["config"].get("settings", {}),
-            )
+        if not config.is_authenticated:
+            raise ValueError(f"Connection has no valid authentication: {connection_id}")
 
         job = SyncJob(
             connection_id=config.connection_id,
             organization_id=config.organization_id,
             connector_type=config.connector_type,
-            job_type=SyncJobType.WEBHOOK,
+            job_type=job_type,
             streams=streams or [],
-            full_refresh=not incremental,
+            full_refresh=full_refresh,
         )
-
-        # Store sync params in job extras
-        if sync_params:
-            job.__dict__["sync_params"] = sync_params
 
         # Execute in background
         asyncio.create_task(self._execute_sync(job, config))
+
+        logger.info(
+            "Sync job triggered",
+            job_id=job.job_id,
+            connection_id=connection_id,
+            connector_type=config.connector_type,
+            job_type=job_type.value,
+        )
 
         return job
 
@@ -426,6 +420,12 @@ class ConnectorScheduler:
 
         This is the core sync execution logic.
         """
+        from src.connectors.sync_events import (
+            emit_sync_started,
+            emit_sync_completed,
+            emit_sync_failed,
+        )
+
         job.status = SyncJobStatus.RUNNING
         job.started_at = datetime.utcnow()
         self._running_jobs[job.job_id] = job
@@ -437,6 +437,17 @@ class ConnectorScheduler:
             connector_type=job.connector_type,
             job_type=job.job_type.value,
         )
+
+        # Emit sync started event
+        await emit_sync_started(
+            connection_id=job.connection_id,
+            organization_id=job.organization_id,
+            connector_type=job.connector_type,
+            job_id=job.job_id,
+        )
+
+        # Initialize result to handle edge cases where exception handler also fails
+        result: SyncJobResult | None = None
 
         try:
             # If a callback is set, use it
@@ -469,8 +480,54 @@ class ConnectorScheduler:
 
         finally:
             job.completed_at = datetime.utcnow()
-            del self._running_jobs[job.job_id]
+            if job.job_id in self._running_jobs:
+                del self._running_jobs[job.job_id]
+            # Handle edge case where result is None (exception handler also failed)
+            if result is None:
+                result = SyncJobResult(
+                    job_id=job.job_id,
+                    status=SyncJobStatus.FAILED,
+                    error_message="Sync failed with unhandled exception",
+                    duration_seconds=(datetime.utcnow() - job.started_at).total_seconds() if job.started_at else 0,
+                )
+                job.status = SyncJobStatus.FAILED
             self._job_history[job.job_id] = result
+
+        # Update connection sync status in database
+        try:
+            from src.connectors.connection_service import update_sync_status
+
+            await update_sync_status(
+                connection_id=job.connection_id,
+                status="success" if result.status == SyncJobStatus.COMPLETED else "failed",
+                records_synced=result.records_synced,
+                error=result.error_message,
+            )
+        except Exception as status_error:
+            logger.warning(
+                "Failed to update sync status",
+                job_id=job.job_id,
+                error=str(status_error),
+            )
+
+        # Emit completion/failure event
+        if result.status == SyncJobStatus.COMPLETED:
+            await emit_sync_completed(
+                connection_id=job.connection_id,
+                organization_id=job.organization_id,
+                connector_type=job.connector_type,
+                job_id=job.job_id,
+                records_synced=result.records_synced,
+            )
+        else:
+            await emit_sync_failed(
+                connection_id=job.connection_id,
+                organization_id=job.organization_id,
+                connector_type=job.connector_type,
+                job_id=job.job_id,
+                error=result.error_message or "Unknown error",
+                records_synced=result.records_synced,
+            )
 
         logger.info(
             "Sync job completed",
@@ -490,13 +547,19 @@ class ConnectorScheduler:
         """
         Default sync execution using connector directly.
 
-        This runs the actual data extraction.
+        This runs the actual data extraction and sends records
+        through the intelligence extraction pipeline.
         """
+        from src.orchestrator.graph import run_intelligence_extraction
+        from src.connectors.sync_events import emit_sync_progress
+
         start_time = datetime.utcnow()
         records_synced = 0
         bytes_synced = 0
         streams_completed: list[str] = []
         streams_failed: list[str] = []
+        last_progress_emit = 0  # Track when we last emitted progress
+        last_progress_time = datetime.utcnow()  # Track time for periodic updates
 
         # Get connector
         connector = ConnectorRegistry.create(job.connector_type)
@@ -543,9 +606,95 @@ class ConnectorScheduler:
                     records_synced += batch.record_count
                     bytes_synced += batch.byte_count
 
+                    # Process each record through intelligence pipeline
+                    for record in batch.records:
+                        try:
+                            # Build content from record data
+                            data = record.data
+                            content_parts = []
+
+                            # Email-specific formatting
+                            if data.get("subject"):
+                                content_parts.append(f"Subject: {data['subject']}")
+                            if data.get("sender_name") or data.get("sender_email"):
+                                sender = data.get("sender_name") or data.get("sender_email")
+                                content_parts.append(f"From: {sender}")
+                            if data.get("recipient_names") or data.get("recipient_emails"):
+                                recipients = data.get("recipient_names") or data.get("recipient_emails", [])
+                                if recipients:
+                                    content_parts.append(f"To: {', '.join(recipients)}")
+                            if data.get("body_text"):
+                                content_parts.append(f"\n{data['body_text']}")
+                            elif data.get("snippet"):
+                                content_parts.append(f"\n{data['snippet']}")
+
+                            content = "\n".join(content_parts)
+
+                            if content.strip():
+                                # Map connector type to source type
+                                source_type_map = {
+                                    "gmail": "email",
+                                    "outlook": "email",
+                                    "slack": "slack",
+                                    "notion": "notion",
+                                    "google_docs": "google_docs",
+                                    "google_calendar": "calendar",
+                                    "hubspot": "api",
+                                }
+                                source_type = source_type_map.get(job.connector_type, "api")
+
+                                # Build metadata for source intelligence node
+                                email_metadata = {
+                                    "from": data.get("sender_email", ""),
+                                    "subject": data.get("subject", ""),
+                                    "headers": data.get("headers", {}),
+                                    "body": data.get("body_text") or data.get("snippet", ""),
+                                }
+
+                                # Run intelligence extraction
+                                await run_intelligence_extraction(
+                                    content=content,
+                                    organization_id=config.organization_id,
+                                    source_type=source_type,
+                                    source_id=record.record_id,
+                                    source_account_id=config.connection_id,
+                                    conversation_id=data.get("thread_id"),
+                                    message_ids=[record.record_id],
+                                    user_email=data.get("sender_email"),
+                                    user_name=data.get("sender_name"),
+                                    metadata=email_metadata,
+                                )
+
+                                logger.debug(
+                                    "Record processed through intelligence pipeline",
+                                    record_id=record.record_id,
+                                    source_type=job.connector_type,
+                                )
+
+                        except Exception as extraction_error:
+                            # Log but don't fail the whole sync for one record
+                            logger.warning(
+                                "Failed to extract intelligence from record",
+                                record_id=record.record_id,
+                                error=str(extraction_error),
+                            )
+
                     # Update state cursor
                     if batch.next_cursor:
                         state.update_cursor(stream.stream_name, batch.next_cursor)
+
+                    # Emit progress event every 10 records or every 5 seconds
+                    time_since_progress = (datetime.utcnow() - last_progress_time).total_seconds()
+                    if records_synced - last_progress_emit >= 10 or time_since_progress >= 5:
+                        await emit_sync_progress(
+                            connection_id=job.connection_id,
+                            organization_id=job.organization_id,
+                            connector_type=job.connector_type,
+                            job_id=job.job_id,
+                            records_synced=records_synced,
+                        )
+                        last_progress_emit = records_synced
+                        last_progress_time = datetime.utcnow()
 
                 state.mark_sync_completed(
                     stream.stream_name,

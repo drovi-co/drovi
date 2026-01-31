@@ -29,10 +29,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useOnlineUsers } from "@/hooks/use-presence";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
-import { PresenceIndicator, type PresenceStatus } from "./presence-indicator";
 
 // =============================================================================
 // Types
@@ -99,20 +97,6 @@ export function DelegationDialog({
     }),
     enabled: open && Boolean(organizationId),
   });
-
-  // Get online users for presence indicators
-  const { data: onlineUsersData } = useOnlineUsers({
-    organizationId,
-    enabled: open && Boolean(organizationId),
-  });
-
-  // Create presence map
-  const presenceMap = new Map<string, PresenceStatus>();
-  if (onlineUsersData?.users) {
-    for (const user of onlineUsersData.users) {
-      presenceMap.set(user.userId, (user.status as PresenceStatus) || "online");
-    }
-  }
 
   // Assign mutation (for shared inbox assignment)
   const assignMutation = useMutation(
@@ -222,7 +206,6 @@ export function DelegationDialog({
                   const user = member.user!;
                   const isSelected = selectedUserId === user.id;
                   const isCurrentAssignee = currentAssigneeId === user.id;
-                  const presenceStatus = presenceMap.get(user.id) ?? "offline";
                   const initials =
                     user.name
                       ?.split(" ")
@@ -245,34 +228,19 @@ export function DelegationDialog({
                       onClick={() => setSelectedUserId(user.id)}
                       type="button"
                     >
-                      <div className="relative">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage
-                            alt={user.name ?? undefined}
-                            src={user.image ?? undefined}
-                          />
-                          <AvatarFallback className="text-xs">
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="absolute -right-0.5 -bottom-0.5">
-                          <PresenceIndicator
-                            size="sm"
-                            status={presenceStatus}
-                          />
-                        </span>
-                      </div>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          alt={user.name ?? undefined}
+                          src={user.image ?? undefined}
+                        />
+                        <AvatarFallback className="text-xs">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-sm">
-                            {user.name ?? "Unknown"}
-                          </span>
-                          {presenceStatus === "online" && (
-                            <span className="text-[10px] text-green-600">
-                              Online
-                            </span>
-                          )}
-                        </div>
+                        <span className="truncate font-medium text-sm">
+                          {user.name ?? "Unknown"}
+                        </span>
                         <span className="truncate text-muted-foreground text-xs">
                           {user.email}
                         </span>

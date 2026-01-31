@@ -40,7 +40,7 @@ class Connection(Base):
 
     # Identity
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    organization_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    organization_id = Column(String(100), nullable=False, index=True)  # Text ID like "org_xyz"
 
     # Connector info
     connector_type = Column(String(50), nullable=False, index=True)  # gmail, slack, etc.
@@ -101,7 +101,7 @@ class OAuthToken(Base):
         nullable=False,
         unique=True,
     )
-    organization_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    organization_id = Column(String(100), nullable=False, index=True)  # Text ID like "org_xyz"
 
     # Provider
     provider = Column(String(50), nullable=False)  # google, microsoft, slack, etc.
@@ -196,7 +196,7 @@ class SyncJobHistory(Base):
         nullable=False,
         index=True,
     )
-    organization_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    organization_id = Column(String(100), nullable=False, index=True)  # Text ID like "org_xyz"
 
     # Job type
     job_type = Column(String(20), nullable=False)  # scheduled, on_demand, backfill, webhook

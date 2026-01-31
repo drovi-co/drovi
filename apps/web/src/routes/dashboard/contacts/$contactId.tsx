@@ -38,7 +38,7 @@ import {
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import { AlertsManagement } from "@/components/contacts/alerts-management";
 import { ContactIntelligenceDashboard } from "@/components/contacts/contact-intelligence-dashboard";
 import { RelationshipTimeline } from "@/components/contacts/relationship-timeline";
@@ -71,10 +71,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
+import { contactsAPI, type ContactDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -96,14 +95,6 @@ function ContactProfilePage() {
   const organizationId = activeOrg?.id ?? "";
   const currentUserId = session?.user?.id ?? "";
 
-  // Track viewing for presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "contact",
-    resourceId: contactId,
-    enabled: Boolean(organizationId && contactId),
-  });
-
   // State
   const [activeTab, setActiveTab] = useState<string>("intelligence");
   const [showEditSheet, setShowEditSheet] = useState(false);
@@ -118,23 +109,24 @@ function ContactProfilePage() {
 
   // Fetch contact details
   const {
-    data: contactData,
+    data: contact,
     isLoading,
     refetch,
   } = useQuery({
-    ...trpc.contacts.get.queryOptions({
-      organizationId,
-      contactId,
-    }),
+    queryKey: ["contacts", "detail", organizationId, contactId],
+    queryFn: () => contactsAPI.get(contactId, organizationId),
     enabled: !!organizationId && !!contactId,
   });
 
-  const contact = contactData?.contact;
-  const recentThreads = contactData?.recentThreads ?? [];
+  // TODO: Fetch recent threads from a separate endpoint
+  const recentThreads: Array<{ id: string; title: string; date: Date }> = [];
 
   // Toggle VIP mutation
   const toggleVipMutation = useMutation({
-    ...trpc.contacts.toggleVip.mutationOptions(),
+    mutationFn: async () => {
+      const currentVipStatus = contact?.isVip ?? false;
+      return contactsAPI.toggleVip(contactId, organizationId, !currentVipStatus);
+    },
     onSuccess: () => {
       toast.success("VIP status updated");
       refetch();
@@ -144,9 +136,12 @@ function ContactProfilePage() {
     },
   });
 
-  // Update contact mutation
+  // Update contact mutation - not yet implemented in backend
   const updateContactMutation = useMutation({
-    ...trpc.contacts.update.mutationOptions(),
+    mutationFn: async (_data: typeof editForm) => {
+      // TODO: Implement update contact endpoint
+      throw new Error("Not implemented");
+    },
     onSuccess: () => {
       toast.success("Contact updated");
       setShowEditSheet(false);
@@ -159,7 +154,7 @@ function ContactProfilePage() {
 
   // Generate meeting brief mutation
   const meetingBriefMutation = useMutation({
-    ...trpc.contacts.generateMeetingBrief.mutationOptions(),
+    mutationFn: async () => contactsAPI.generateMeetingBrief(contactId, organizationId),
     onSuccess: () => {
       toast.success("Meeting brief generated");
     },
@@ -177,7 +172,7 @@ function ContactProfilePage() {
     if (!(organizationId && contactId)) {
       return;
     }
-    toggleVipMutation.mutate({ organizationId, contactId });
+    toggleVipMutation.mutate();
   }, [toggleVipMutation, organizationId, contactId]);
 
   const handleEdit = useCallback(() => {
@@ -342,14 +337,6 @@ function ContactProfilePage() {
                 value={contact.importanceScore}
               />
             </div>
-
-            {/* Who is viewing */}
-            <WhoIsViewing
-              compact
-              organizationId={organizationId}
-              resourceId={contactId}
-              resourceType="contact"
-            />
 
             {/* Actions */}
             <div className="flex items-center gap-2">

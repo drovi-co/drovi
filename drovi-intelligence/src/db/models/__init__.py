@@ -14,6 +14,12 @@ from src.db.models.webhooks import (
 from src.db.models.events import (
     EventRecord,
 )
+from src.db.models.pilot import (
+    Organization,
+    User,
+    Membership,
+    Invite,
+)
 
 __all__ = [
     "Base",
@@ -24,4 +30,8 @@ __all__ = [
     "WebhookSubscription",
     "WebhookDelivery",
     "EventRecord",
+    "Organization",
+    "User",
+    "Membership",
+    "Invite",
 ]

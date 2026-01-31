@@ -9,7 +9,7 @@ import time
 import structlog
 
 from src.llm import get_llm_service, ClaimExtractionOutput
-from src.llm.prompts import get_claim_extraction_prompt
+from src.llm.prompts_v2 import get_claim_extraction_v2_prompt
 from ..state import (
     IntelligenceState,
     ExtractedClaim,
@@ -53,10 +53,10 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt
-    messages = get_claim_extraction_prompt(
+    # Build prompt using V2 strict prompts
+    messages = get_claim_extraction_v2_prompt(
         content=content,
-        classification_topics=state.classification.topics,
+        source_type=state.input.source_type,
         user_email=state.input.user_email,
     )
 

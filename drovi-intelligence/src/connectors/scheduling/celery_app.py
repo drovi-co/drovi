@@ -15,8 +15,8 @@ settings = get_settings()
 # Create Celery app
 celery_app = Celery(
     "drovi_intelligence",
-    broker=settings.redis_url if hasattr(settings, 'redis_url') else "redis://localhost:6379/0",
-    backend=settings.redis_url if hasattr(settings, 'redis_url') else "redis://localhost:6379/0",
+    broker=str(settings.redis_url) if hasattr(settings, 'redis_url') else "redis://localhost:6379/0",
+    backend=str(settings.redis_url) if hasattr(settings, 'redis_url') else "redis://localhost:6379/0",
 )
 
 # Configure Celery

@@ -380,7 +380,14 @@ class CustomerContextAggregator:
         Returns:
             Health score (0-1)
         """
+        from datetime import timedelta
+
         await self._ensure_graph()
+
+        # Calculate cutoff dates in Python for FalkorDB compatibility
+        now = datetime.now(timezone.utc)
+        cutoff_30d = (now - timedelta(days=30)).isoformat()
+        cutoff_60d = (now - timedelta(days=60)).isoformat()
 
         try:
             result = await self._graph.query(
@@ -401,9 +408,9 @@ class CustomerContextAggregator:
                      collect(ep) as episodes
 
                 WITH c, fulfilled, total_commits, episodes,
-                     size([ep IN episodes WHERE ep.referenceTime > datetime() - duration('P30D')]) as recent,
-                     size([ep IN episodes WHERE ep.referenceTime > datetime() - duration('P60D')
-                           AND ep.referenceTime <= datetime() - duration('P30D')]) as previous
+                     size([ep IN episodes WHERE ep.referenceTime > $cutoff_30d]) as recent,
+                     size([ep IN episodes WHERE ep.referenceTime > $cutoff_60d
+                           AND ep.referenceTime <= $cutoff_30d]) as previous
 
                 RETURN {
                     fulfillment_rate: CASE WHEN total_commits > 0
@@ -415,7 +422,12 @@ class CustomerContextAggregator:
                     total_interactions: size(episodes)
                 } as metrics
                 """,
-                {"contact_id": contact_id, "org_id": organization_id},
+                {
+                    "contact_id": contact_id,
+                    "org_id": organization_id,
+                    "cutoff_30d": cutoff_30d,
+                    "cutoff_60d": cutoff_60d,
+                },
             )
 
             if not result or not result[0].get("metrics"):
@@ -515,16 +527,18 @@ class CustomerContextAggregator:
 
         # Cache in graph
         try:
+            now = datetime.now(timezone.utc).isoformat()
             await self._graph.query(
                 """
                 MATCH (c:Contact {id: $contact_id, organizationId: $org_id})
                 SET c.relationshipSummary = $summary,
-                    c.relationshipSummaryUpdatedAt = datetime()
+                    c.relationshipSummaryUpdatedAt = $now
                 """,
                 {
                     "contact_id": contact_id,
                     "org_id": organization_id,
                     "summary": summary,
+                    "now": now,
                 },
             )
         except Exception:

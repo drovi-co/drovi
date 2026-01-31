@@ -138,9 +138,10 @@ class SessionManager:
             if not self._redis_url:
                 from src.config import get_settings
                 settings = get_settings()
-                self._redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379/0')
+                redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379/0')
+                self._redis_url = str(redis_url) if redis_url else 'redis://localhost:6379/0'
 
-            self._redis = redis.from_url(self._redis_url)
+            self._redis = redis.from_url(str(self._redis_url))
             await self._redis.ping()
             self._connected = True
             logger.info("Session manager connected to Redis")

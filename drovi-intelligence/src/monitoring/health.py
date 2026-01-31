@@ -188,7 +188,7 @@ class HealthCheck:
             settings = get_settings()
             redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379/0')
 
-            client = redis.from_url(redis_url)
+            client = redis.from_url(str(redis_url))
             pong = await client.ping()
             await client.close()
 
@@ -267,11 +267,16 @@ class HealthCheck:
         start = time.perf_counter()
 
         try:
-            from src.llm.client import get_llm_client
+            from src.llm import get_llm_service
 
-            client = await get_llm_client()
+            llm = get_llm_service()
             # Try a minimal request
-            response = await client.generate("Hello", max_tokens=1)
+            response, _ = await llm.complete(
+                messages=[{"role": "user", "content": "Hello"}],
+                model_tier="fast",
+                max_tokens=1,
+                node_name="health_check",
+            )
 
             latency = (time.perf_counter() - start) * 1000
 

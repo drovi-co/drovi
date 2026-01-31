@@ -393,9 +393,9 @@ function CommitmentsPage() {
           ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
           : undefined;
       const details = c.commitmentDetails;
-      // Get debtor and creditor from commitment details (with nested relations)
-      const debtor = details?.debtor ?? c.owner;
-      const creditor = details?.creditor;
+      // Get debtor and creditor from UIO root level (where transformer places them)
+      const debtor = c.debtor ?? c.owner;
+      const creditor = c.creditor;
       return {
         id: c.id,
         title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",

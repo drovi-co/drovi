@@ -38,12 +38,13 @@ interface PriorityIconProps
   showLabel?: boolean;
 }
 
+// Vercel-style priority colors
 const priorityConfig: Record<Priority, { label: string; color: string }> = {
-  urgent: { label: "Urgent", color: "#F2994A" },
-  high: { label: "High", color: "#EB5757" },
-  medium: { label: "Medium", color: "#F2C94C" },
-  low: { label: "Low", color: "#6FCF97" },
-  none: { label: "No Priority", color: "#858699" },
+  urgent: { label: "Urgent", color: "#dc2626" },
+  high: { label: "High", color: "#ea580c" },
+  medium: { label: "Medium", color: "#d97706" },
+  low: { label: "Low", color: "#059669" },
+  none: { label: "No Priority", color: "#a3a3a3" },
 };
 
 function PriorityIcon({
@@ -130,7 +131,7 @@ function PriorityIcon({
       >
         {/* Left bar (always shown) */}
         <rect
-          fill={bars >= 1 ? config.color : "#858699"}
+          fill={bars >= 1 ? config.color : "#a3a3a3"}
           height="4"
           opacity={bars >= 1 ? 1 : 0.3}
           rx="0.5"
@@ -140,7 +141,7 @@ function PriorityIcon({
         />
         {/* Middle bar */}
         <rect
-          fill={bars >= 2 ? config.color : "#858699"}
+          fill={bars >= 2 ? config.color : "#a3a3a3"}
           height="7"
           opacity={bars >= 2 ? 1 : 0.3}
           rx="0.5"
@@ -150,7 +151,7 @@ function PriorityIcon({
         />
         {/* Right bar */}
         <rect
-          fill={bars >= 3 ? config.color : "#858699"}
+          fill={bars >= 3 ? config.color : "#a3a3a3"}
           height="10"
           opacity={bars >= 3 ? 1 : 0.3}
           rx="0.5"

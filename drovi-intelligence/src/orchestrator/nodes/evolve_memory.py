@@ -10,7 +10,7 @@ This node runs after persist to evolve the knowledge graph.
 """
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import structlog
@@ -179,7 +179,7 @@ async def _handle_updates(state: IntelligenceState, graph) -> list[dict]:
                 await graph.query(
                     """
                     MATCH (old:Contact {id: $old_id})
-                    SET old.validTo = datetime($now),
+                    SET old.validTo = $now,
                         old.supersededById = $new_id
                     """,
                     {
@@ -196,7 +196,7 @@ async def _handle_updates(state: IntelligenceState, graph) -> list[dict]:
                     WHERE new.validTo IS NULL AND new.company = $new_company
                     MATCH (old:Contact {id: $old_id})
                     MERGE (new)-[:SUPERSEDES {
-                        created_at: datetime($now),
+                        created_at: $now,
                         reason: 'company_change'
                     }]->(old)
                     """,
@@ -306,17 +306,18 @@ async def _handle_forgetting(state: IntelligenceState, graph) -> list[dict]:
     try:
         # Decay entities not accessed in last 30 days
         # relevance_score = relevance_score * (1 - decay_rate)
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         result = await graph.query(
             """
             MATCH (e:Entity {organizationId: $org_id})
             WHERE e.relevanceScore IS NOT NULL
-            AND e.lastAccessedAt < datetime() - duration('P30D')
+            AND e.lastAccessedAt < $cutoff_date
             AND e.validTo IS NULL
             WITH e, e.relevanceScore * (1 - COALESCE(e.decayRate, 0.01)) as new_score
             SET e.relevanceScore = new_score
             RETURN e.id as id, e.name as name, new_score
             """,
-            {"org_id": organization_id},
+            {"org_id": organization_id, "cutoff_date": cutoff_date},
         )
 
         for row in result:
@@ -335,12 +336,13 @@ async def _handle_forgetting(state: IntelligenceState, graph) -> list[dict]:
                 """
                 MATCH (c:Contact {organizationId: $org_id})
                 WHERE c.email IN $emails
-                SET c.lastAccessedAt = datetime($now),
+                SET c.lastAccessedAt = $now,
                     c.accessCount = COALESCE(c.accessCount, 0) + 1,
                     c.relevanceScore = CASE
                         WHEN c.relevanceScore IS NULL THEN 1.0
                         WHEN c.relevanceScore < 0.5 THEN c.relevanceScore + 0.1
-                        ELSE LEAST(c.relevanceScore + 0.05, 1.0)
+                        WHEN c.relevanceScore + 0.05 > 1.0 THEN 1.0
+                        ELSE c.relevanceScore + 0.05
                     END
                 """,
                 {

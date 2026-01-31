@@ -32,7 +32,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useTrackViewing } from "@/hooks/use-presence";
 import {
   useDismissUIO,
   useMarkCompleteUIO,
@@ -205,14 +204,6 @@ function CommitmentDetailPage() {
   const [showComments, setShowComments] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-
-  // Track viewing this commitment for real-time presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "commitment",
-    resourceId: commitmentId,
-    enabled: Boolean(organizationId && commitmentId),
-  });
 
   // Fetch commitment details using UIO hook
   const {
@@ -499,16 +490,6 @@ function CommitmentDetailPage() {
             </div>
 
             <div className="flex-1" />
-
-            {/* Who's viewing indicator */}
-            {organizationId && commitmentId && (
-              <WhoIsViewing
-                compact
-                organizationId={organizationId}
-                resourceId={commitmentId}
-                resourceType="commitment"
-              />
-            )}
 
             {/* Actions */}
             <div className="flex items-center gap-1">

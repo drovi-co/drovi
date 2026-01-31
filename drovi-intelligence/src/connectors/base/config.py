@@ -112,7 +112,7 @@ class ConnectorConfig(BaseModel):
     backfill_enabled: bool = True
 
     # Status
-    status: Literal["active", "paused", "error", "pending_auth"] = "pending_auth"
+    status: Literal["active", "connected", "syncing", "paused", "error", "pending_auth"] = "pending_auth"
     last_sync_at: datetime | None = None
     last_error: str | None = None
 

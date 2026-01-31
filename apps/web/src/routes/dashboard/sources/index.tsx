@@ -2,25 +2,29 @@
 // SOURCES PAGE - Multi-Source Connection Management
 // =============================================================================
 
-import { env } from "@memorystack/env/web";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   Calendar,
   CheckCircle,
   Clock,
+  FileText,
   Hash,
   Loader2,
   Mail,
   MessageCircle,
   MoreHorizontal,
+  Phone,
   Plus,
   RefreshCw,
   Settings,
+  Target,
   Trash2,
+  Users,
 } from "lucide-react";
-import { useState } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -57,33 +61,114 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/auth-client";
-import {
-  getSourceColor,
-  getSourceConfig,
-  getSourceLabel,
-  type SourceType,
-} from "@/lib/source-config";
+import { useAuthStore } from "@/lib/auth";
+import { orgAPI, orgSSE, type OrgConnection, type SyncEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/dashboard/sources/")({
   component: SourcesPage,
 });
 
 // =============================================================================
-// TYPES
+// CONNECTOR DEFINITIONS
 // =============================================================================
 
-interface ConnectedSource {
+interface ConnectorInfo {
   id: string;
-  type: SourceType;
-  provider: string;
-  identifier: string;
-  displayName: string;
-  status: string;
-  lastSyncAt: string | null;
-  isLegacy: boolean;
+  name: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  color: string;
+  description: string;
+  category: "email" | "messaging" | "calendar" | "knowledge" | "crm";
+  available: boolean;
+}
+
+const CONNECTORS: ConnectorInfo[] = [
+  {
+    id: "gmail",
+    name: "Gmail",
+    icon: Mail,
+    color: "#EA4335",
+    description: "Email messages and threads from Gmail",
+    category: "email",
+    available: true,
+  },
+  {
+    id: "outlook",
+    name: "Outlook",
+    icon: Mail,
+    color: "#0078D4",
+    description: "Email messages from Microsoft Outlook",
+    category: "email",
+    available: true,
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    icon: Hash,
+    color: "#4A154B",
+    description: "Messages and channels from Slack workspaces",
+    category: "messaging",
+    available: true,
+  },
+  {
+    id: "teams",
+    name: "Microsoft Teams",
+    icon: Users,
+    color: "#6264A7",
+    description: "Chats and channel messages from Teams",
+    category: "messaging",
+    available: true,
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp Business",
+    icon: Phone,
+    color: "#25D366",
+    description: "Business messages from WhatsApp",
+    category: "messaging",
+    available: true,
+  },
+  {
+    id: "google_calendar",
+    name: "Google Calendar",
+    icon: Calendar,
+    color: "#4285F4",
+    description: "Events and meetings from Google Calendar",
+    category: "calendar",
+    available: true,
+  },
+  {
+    id: "notion",
+    name: "Notion",
+    icon: FileText,
+    color: "#000000",
+    description: "Pages and databases from Notion",
+    category: "knowledge",
+    available: true,
+  },
+  {
+    id: "google_docs",
+    name: "Google Docs",
+    icon: FileText,
+    color: "#4285F4",
+    description: "Documents from Google Drive",
+    category: "knowledge",
+    available: true,
+  },
+  {
+    id: "hubspot",
+    name: "HubSpot",
+    icon: Target,
+    color: "#FF7A59",
+    description: "Contacts, deals, and engagements from HubSpot CRM",
+    category: "crm",
+    available: true,
+  },
+];
+
+function getConnectorInfo(providerId: string): ConnectorInfo | undefined {
+  return CONNECTORS.find((c) => c.id === providerId);
 }
 
 // =============================================================================
@@ -91,162 +176,124 @@ interface ConnectedSource {
 // =============================================================================
 
 function SourcesPage() {
-  const { data: activeOrg, isPending: orgLoading } =
-    authClient.useActiveOrganization();
+  const { user, isLoading: authLoading } = useAuthStore();
+  const queryClient = useQueryClient();
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
-  const [selectedSource, setSelectedSource] = useState<ConnectedSource | null>(
-    null
-  );
+  const [selectedConnection, setSelectedConnection] =
+    useState<OrgConnection | null>(null);
 
   // Check URL params for success/error messages
   const searchParams = new URLSearchParams(window.location.search);
-  const success = searchParams.get("success");
+  const connectionSuccess = searchParams.get("connection");
   const error = searchParams.get("error");
-  const sourceType = searchParams.get("source");
 
   // Show toast based on URL params
-  if (success === "true" && sourceType) {
-    toast.success(
-      `${getSourceLabel(sourceType as SourceType)} connected successfully!`
+  useEffect(() => {
+    if (connectionSuccess === "success") {
+      toast.success("Source connected successfully!");
+      window.history.replaceState({}, "", window.location.pathname);
+      // Refetch connections
+      queryClient.invalidateQueries({ queryKey: ["org-connections"] });
+    } else if (error) {
+      toast.error(`Failed to connect: ${error}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [connectionSuccess, error, queryClient]);
+
+  // Subscribe to SSE for real-time sync updates
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = orgSSE.subscribeSyncEvents(
+      (event: SyncEvent) => {
+        if (event.event_type === "completed") {
+          toast.success("Sync completed!");
+          queryClient.invalidateQueries({ queryKey: ["org-connections"] });
+        } else if (event.event_type === "failed") {
+          toast.error(`Sync failed: ${event.error || "Unknown error"}`);
+          queryClient.invalidateQueries({ queryKey: ["org-connections"] });
+        }
+      },
+      (error) => {
+        console.error("SSE error:", error);
+      }
     );
-    window.history.replaceState({}, "", window.location.pathname);
-  } else if (error) {
-    toast.error(`Failed to connect: ${error}`);
-    window.history.replaceState({}, "", window.location.pathname);
-  }
+
+    return unsubscribe;
+  }, [user, queryClient]);
 
   // Fetch connected sources
   const {
-    data: sourcesData,
-    isLoading: sourcesLoading,
-    refetch: refetchSources,
+    data: connections,
+    isLoading: connectionsLoading,
+    refetch: refetchConnections,
   } = useQuery({
-    ...trpc.unifiedInbox.getSources.queryOptions(),
-    enabled: !!activeOrg?.id,
+    queryKey: ["org-connections"],
+    queryFn: () => orgAPI.listConnections(),
+    enabled: !!user,
   });
 
-  // Fetch inbox stats
-  const { data: statsData } = useQuery({
-    ...trpc.unifiedInbox.getStats.queryOptions(),
-    enabled: !!activeOrg?.id,
-  });
-  const statsBySource = (statsData?.bySource ?? {}) as Record<
-    string,
-    { total: number; unread: number }
-  >;
-
-  // Email connect mutation (existing)
-  const connectEmailMutation = useMutation({
-    ...trpc.emailAccounts.connect.mutationOptions(),
-    onSuccess: (data) => {
-      window.location.href = data.authorizationUrl;
+  // Connect mutation
+  const connectMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      const response = await orgAPI.initiateConnect(provider);
+      return response;
     },
-    onError: (error) => {
+    onSuccess: (data) => {
+      // Redirect to OAuth
+      window.location.href = data.auth_url;
+    },
+    onError: (error: Error) => {
       toast.error(`Failed to connect: ${error.message}`);
     },
   });
 
-  // Source disconnect mutation
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: async (connectionId: string) => {
+      return orgAPI.triggerSync(connectionId);
+    },
+    onSuccess: () => {
+      toast.success("Sync started!");
+      refetchConnections();
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to trigger sync: ${error.message}`);
+    },
+  });
+
+  // Disconnect mutation
   const disconnectMutation = useMutation({
-    ...trpc.sources.disconnect.mutationOptions(),
+    mutationFn: async (connectionId: string) => {
+      return orgAPI.deleteConnection(connectionId);
+    },
     onSuccess: () => {
       toast.success("Source disconnected successfully");
       setDisconnectDialogOpen(false);
-      setSelectedSource(null);
-      refetchSources();
+      setSelectedConnection(null);
+      refetchConnections();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Failed to disconnect: ${error.message}`);
     },
   });
 
-  const handleConnectEmail = (provider: "gmail" | "outlook") => {
-    if (!activeOrg?.id) {
-      return;
-    }
-    connectEmailMutation.mutate({
-      organizationId: activeOrg.id,
-      provider,
-    });
+  const handleConnect = (provider: string) => {
+    connectMutation.mutate(provider);
   };
 
-  // Get current user ID from auth client
-  const { data: session } = authClient.useSession();
-
-  const handleConnectSlack = () => {
-    // Redirect to Slack OAuth endpoint
-    const params = new URLSearchParams({
-      organizationId: activeOrg?.id ?? "",
-      userId: session?.user?.id ?? "",
-      redirect: window.location.href,
-    });
-    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/slack/authorize?${params.toString()}`;
-  };
-
-  const handleConnectWhatsApp = () => {
-    // Redirect to WhatsApp OAuth endpoint
-    const params = new URLSearchParams({
-      organizationId: activeOrg?.id ?? "",
-      userId: session?.user?.id ?? "",
-      redirect: window.location.pathname,
-    });
-    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/whatsapp/authorize?${params.toString()}`;
-  };
-
-  const handleConnectNotion = () => {
-    // Redirect to Notion OAuth endpoint
-    const params = new URLSearchParams({
-      organizationId: activeOrg?.id ?? "",
-      userId: session?.user?.id ?? "",
-      redirect: window.location.pathname,
-    });
-    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/notion/authorize?${params.toString()}`;
-  };
-
-  const handleConnectGoogleDocs = () => {
-    // Redirect to Google Docs OAuth endpoint
-    const params = new URLSearchParams({
-      organizationId: activeOrg?.id ?? "",
-      userId: session?.user?.id ?? "",
-      redirect: window.location.pathname,
-    });
-    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/google-docs/authorize?${params.toString()}`;
-  };
-
-  const handleConnectGoogleSheets = () => {
-    // Google Sheets uses same OAuth as Google Docs
-    const params = new URLSearchParams({
-      organizationId: activeOrg?.id ?? "",
-      userId: session?.user?.id ?? "",
-      redirect: window.location.pathname,
-    });
-    window.location.href = `${env.VITE_SERVER_URL}/api/oauth/google-docs/authorize?${params.toString()}`;
-  };
-
-  const handleConnectCalendar = () => {
-    // Calendar uses Gmail OAuth - connect via email first
-    if (!activeOrg?.id) {
-      return;
-    }
-    connectEmailMutation.mutate({
-      organizationId: activeOrg.id,
-      provider: "gmail",
-    });
+  const handleSync = (connectionId: string) => {
+    syncMutation.mutate(connectionId);
   };
 
   const handleDisconnect = () => {
-    if (!(activeOrg?.id && selectedSource)) {
-      return;
-    }
-    disconnectMutation.mutate({
-      organizationId: activeOrg.id,
-      sourceAccountId: selectedSource.id,
-    });
+    if (!selectedConnection) return;
+    disconnectMutation.mutate(selectedConnection.id);
   };
 
   // Loading state
-  if (orgLoading) {
+  if (authLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
@@ -259,30 +306,34 @@ function SourcesPage() {
     );
   }
 
-  // No org selected
-  if (!activeOrg) {
+  // No user
+  if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Mail className="h-12 w-12 text-muted-foreground" />
-        <h2 className="mt-4 font-semibold text-xl">No Organization Selected</h2>
+        <h2 className="mt-4 font-semibold text-xl">Not Authenticated</h2>
         <p className="mt-2 text-muted-foreground">
-          Create or select an organization to manage sources
+          Please log in to manage your data sources
         </p>
-        <Link to="/onboarding/create-org">
-          <Button className="mt-4">Create Organization</Button>
+        <Link to="/login">
+          <Button className="mt-4">Log In</Button>
         </Link>
       </div>
     );
   }
 
-  const sources = sourcesData?.sources ?? [];
-  const emailSources = sources.filter((s) => s.type === "email");
-  const slackSources = sources.filter((s) => s.type === "slack");
-  const calendarSources = sources.filter((s) => s.type === "calendar");
-  const whatsappSources = sources.filter((s) => s.type === "whatsapp");
-  const notionSources = sources.filter((s) => s.type === "notion");
-  const googleDocsSources = sources.filter((s) => s.type === "google_docs");
-  const googleSheetsSources = sources.filter((s) => s.type === "google_sheets");
+  const connectionsList = connections || [];
+
+  // Group connections by category
+  const emailConnections = connectionsList.filter((c) =>
+    ["gmail", "outlook"].includes(c.provider)
+  );
+  const messagingConnections = connectionsList.filter((c) =>
+    ["slack", "teams", "whatsapp"].includes(c.provider)
+  );
+  const calendarConnections = connectionsList.filter((c) =>
+    ["google_calendar"].includes(c.provider)
+  );
 
   return (
     <div className="space-y-6">
@@ -292,7 +343,7 @@ function SourcesPage() {
             Connected Sources
           </h1>
           <p className="text-muted-foreground">
-            Manage data sources for your multi-source intelligence platform
+            Manage data sources for your intelligence platform
           </p>
         </div>
         <Button onClick={() => setConnectDialogOpen(true)}>
@@ -302,77 +353,67 @@ function SourcesPage() {
       </div>
 
       {/* Stats Overview */}
-      {statsData && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Conversations</CardDescription>
-              <CardTitle className="text-2xl">
-                {statsData.total.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Unread</CardDescription>
-              <CardTitle className="text-2xl">
-                {statsData.unread.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Connected Sources</CardDescription>
-              <CardTitle className="text-2xl">{sources.length}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Source Types</CardDescription>
-              <CardTitle className="text-2xl">
-                {Object.keys(statsBySource).length}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Sources</CardDescription>
+            <CardTitle className="text-2xl">{connectionsList.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Messages Synced</CardDescription>
+            <CardTitle className="text-2xl">
+              {connectionsList
+                .reduce((sum, c) => sum + c.messages_synced, 0)
+                .toLocaleString()}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Active Syncs</CardDescription>
+            <CardTitle className="text-2xl">
+              {connectionsList.filter((c) => c.progress !== null).length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
       {/* Sources by Type */}
       <Tabs className="space-y-4" defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">All Sources ({sources.length})</TabsTrigger>
+          <TabsTrigger value="all">
+            All Sources ({connectionsList.length})
+          </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="mr-2 h-4 w-4" />
-            Email ({emailSources.length})
+            Email ({emailConnections.length})
           </TabsTrigger>
-          <TabsTrigger value="slack">
-            <Hash className="mr-2 h-4 w-4" />
-            Slack ({slackSources.length})
+          <TabsTrigger value="messaging">
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Messaging ({messagingConnections.length})
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="mr-2 h-4 w-4" />
-            Calendar ({calendarSources.length})
-          </TabsTrigger>
-          <TabsTrigger value="whatsapp">
-            <MessageCircle className="mr-2 h-4 w-4" />
-            WhatsApp ({whatsappSources.length})
+            Calendar ({calendarConnections.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent className="space-y-4" value="all">
-          {sourcesLoading ? (
+          {connectionsLoading ? (
             <SourcesSkeleton />
-          ) : sources.length > 0 ? (
+          ) : connectionsList.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {sources.map((source) => (
+              {connectionsList.map((connection) => (
                 <SourceCard
-                  key={source.id}
+                  connection={connection}
+                  key={connection.id}
                   onDisconnect={() => {
-                    setSelectedSource(source as ConnectedSource);
+                    setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
-                  source={source as ConnectedSource}
-                  stats={statsBySource[source.type]}
+                  onSync={() => handleSync(connection.id)}
                 />
               ))}
             </div>
@@ -382,93 +423,70 @@ function SourcesPage() {
         </TabsContent>
 
         <TabsContent className="space-y-4" value="email">
-          {emailSources.length > 0 ? (
+          {emailConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {emailSources.map((source) => (
+              {emailConnections.map((connection) => (
                 <SourceCard
-                  key={source.id}
+                  connection={connection}
+                  key={connection.id}
                   onDisconnect={() => {
-                    setSelectedSource(source as ConnectedSource);
+                    setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
-                  source={source as ConnectedSource}
-                  stats={statsBySource.email}
+                  onSync={() => handleSync(connection.id)}
                 />
               ))}
             </div>
           ) : (
             <EmptySourceTypeCard
+              category="email"
               onConnect={() => setConnectDialogOpen(true)}
-              type="email"
             />
           )}
         </TabsContent>
 
-        <TabsContent className="space-y-4" value="slack">
-          {slackSources.length > 0 ? (
+        <TabsContent className="space-y-4" value="messaging">
+          {messagingConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {slackSources.map((source) => (
+              {messagingConnections.map((connection) => (
                 <SourceCard
-                  key={source.id}
+                  connection={connection}
+                  key={connection.id}
                   onDisconnect={() => {
-                    setSelectedSource(source as ConnectedSource);
+                    setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
-                  source={source as ConnectedSource}
-                  stats={statsBySource.slack}
+                  onSync={() => handleSync(connection.id)}
                 />
               ))}
             </div>
           ) : (
             <EmptySourceTypeCard
+              category="messaging"
               onConnect={() => setConnectDialogOpen(true)}
-              type="slack"
             />
           )}
         </TabsContent>
 
         <TabsContent className="space-y-4" value="calendar">
-          {calendarSources.length > 0 ? (
+          {calendarConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {calendarSources.map((source) => (
+              {calendarConnections.map((connection) => (
                 <SourceCard
-                  key={source.id}
+                  connection={connection}
+                  key={connection.id}
                   onDisconnect={() => {
-                    setSelectedSource(source as ConnectedSource);
+                    setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
-                  source={source as ConnectedSource}
-                  stats={statsBySource.calendar}
+                  onSync={() => handleSync(connection.id)}
                 />
               ))}
             </div>
           ) : (
             <EmptySourceTypeCard
+              category="calendar"
               onConnect={() => setConnectDialogOpen(true)}
-              type="calendar"
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent className="space-y-4" value="whatsapp">
-          {whatsappSources.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {whatsappSources.map((source) => (
-                <SourceCard
-                  key={source.id}
-                  onDisconnect={() => {
-                    setSelectedSource(source as ConnectedSource);
-                    setDisconnectDialogOpen(true);
-                  }}
-                  source={source as ConnectedSource}
-                  stats={statsBySource.whatsapp}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptySourceTypeCard
-              onConnect={() => setConnectDialogOpen(true)}
-              type="whatsapp"
             />
           )}
         </TabsContent>
@@ -485,265 +503,44 @@ function SourcesPage() {
           </DialogHeader>
           <div className="grid gap-4 overflow-y-auto py-4 pr-2">
             {/* Email */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Email
-              </h4>
-              <div className="grid gap-2">
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  disabled={connectEmailMutation.isPending}
-                  onClick={() => handleConnectEmail("gmail")}
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900">
-                    <Mail className="h-6 w-6 text-red-600 dark:text-red-400" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Gmail</div>
-                    <div className="text-muted-foreground text-sm">
-                      Connect your Google account
-                    </div>
-                  </div>
-                  {connectEmailMutation.isPending && (
-                    <Loader2 className="ml-auto h-4 w-4 animate-spin" />
-                  )}
-                </Button>
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  disabled={connectEmailMutation.isPending}
-                  onClick={() => handleConnectEmail("outlook")}
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
-                    <Mail className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Outlook</div>
-                    <div className="text-muted-foreground text-sm">
-                      Connect your Microsoft account
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            </div>
+            <ConnectorCategory
+              connectors={CONNECTORS.filter((c) => c.category === "email")}
+              isLoading={connectMutation.isPending}
+              onConnect={handleConnect}
+              title="Email"
+            />
 
-            {/* Slack */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Team Chat
-              </h4>
-              <Button
-                className="h-auto w-full justify-start gap-4 p-4"
-                onClick={handleConnectSlack}
-                variant="outline"
-              >
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: "#4A154B20" }}
-                >
-                  <Hash className="h-6 w-6" style={{ color: "#4A154B" }} />
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">Slack</div>
-                  <div className="text-muted-foreground text-sm">
-                    Connect your Slack workspace
-                  </div>
-                </div>
-              </Button>
-            </div>
-
-            {/* WhatsApp */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Messaging
-              </h4>
-              <Button
-                className="h-auto w-full justify-start gap-4 p-4"
-                onClick={handleConnectWhatsApp}
-                variant="outline"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900">
-                  <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">WhatsApp Business</div>
-                  <div className="text-muted-foreground text-sm">
-                    Connect your WhatsApp Business account
-                  </div>
-                </div>
-              </Button>
-            </div>
+            {/* Messaging */}
+            <ConnectorCategory
+              connectors={CONNECTORS.filter((c) => c.category === "messaging")}
+              isLoading={connectMutation.isPending}
+              onConnect={handleConnect}
+              title="Messaging"
+            />
 
             {/* Calendar */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Calendar
-              </h4>
-              <Button
-                className="h-auto w-full justify-start gap-4 p-4"
-                disabled={connectEmailMutation.isPending}
-                onClick={handleConnectCalendar}
-                variant="outline"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
-                  <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">Google Calendar</div>
-                  <div className="text-muted-foreground text-sm">
-                    Connect your calendar for event tracking
-                  </div>
-                </div>
-                {connectEmailMutation.isPending && (
-                  <Loader2 className="ml-auto h-4 w-4 animate-spin" />
-                )}
-              </Button>
-            </div>
+            <ConnectorCategory
+              connectors={CONNECTORS.filter((c) => c.category === "calendar")}
+              isLoading={connectMutation.isPending}
+              onConnect={handleConnect}
+              title="Calendar"
+            />
 
             {/* Knowledge Base */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Knowledge Base
-              </h4>
-              <div className="grid gap-2">
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  onClick={handleConnectNotion}
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <svg
-                      className="h-6 w-6"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4zm2 0v16h12V4H6zm2 2h8v2H8V6zm0 4h8v2H8v-2zm0 4h5v2H8v-2z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Notion</div>
-                    <div className="text-muted-foreground text-sm">
-                      Pages, databases, and comments
-                    </div>
-                  </div>
-                </Button>
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  onClick={handleConnectGoogleDocs}
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
-                    <svg
-                      className="h-6 w-6 text-blue-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Google Docs</div>
-                    <div className="text-muted-foreground text-sm">
-                      Documents and comments
-                    </div>
-                  </div>
-                </Button>
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  onClick={handleConnectGoogleSheets}
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900">
-                    <svg
-                      className="h-6 w-6 text-green-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 10h3v2H8v-2zm5 0h3v2h-3v-2zm-5 3h3v2H8v-2zm5 0h3v2h-3v-2z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Google Sheets</div>
-                    <div className="text-muted-foreground text-sm">
-                      Spreadsheets and comments
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            </div>
+            <ConnectorCategory
+              connectors={CONNECTORS.filter((c) => c.category === "knowledge")}
+              isLoading={connectMutation.isPending}
+              onConnect={handleConnect}
+              title="Knowledge Base"
+            />
 
-            {/* Coming Soon */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-muted-foreground text-sm">
-                Coming Soon
-              </h4>
-              <div className="grid gap-2 opacity-50">
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  disabled
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900">
-                    <svg
-                      className="h-6 w-6 text-purple-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Microsoft Teams</div>
-                    <div className="text-muted-foreground text-sm">
-                      Coming soon
-                    </div>
-                  </div>
-                </Button>
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  disabled
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900">
-                    <svg
-                      className="h-6 w-6 text-indigo-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">Discord</div>
-                    <div className="text-muted-foreground text-sm">
-                      Coming soon
-                    </div>
-                  </div>
-                </Button>
-                <Button
-                  className="h-auto justify-start gap-4 p-4"
-                  disabled
-                  variant="outline"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <svg
-                      className="h-6 w-6"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">GitHub</div>
-                    <div className="text-muted-foreground text-sm">
-                      Coming soon
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            </div>
+            {/* CRM */}
+            <ConnectorCategory
+              connectors={CONNECTORS.filter((c) => c.category === "crm")}
+              isLoading={connectMutation.isPending}
+              onConnect={handleConnect}
+              title="CRM"
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -757,9 +554,10 @@ function SourcesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Source</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to disconnect {selectedSource?.displayName}?
-              This will stop syncing data from this source. Existing data will
-              be preserved.
+              Are you sure you want to disconnect{" "}
+              {selectedConnection?.email || selectedConnection?.workspace}? This
+              will stop syncing data from this source. Existing data will be
+              preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -787,18 +585,64 @@ function SourcesPage() {
 // SUB-COMPONENTS
 // =============================================================================
 
+function ConnectorCategory({
+  title,
+  connectors,
+  onConnect,
+  isLoading,
+}: {
+  title: string;
+  connectors: ConnectorInfo[];
+  onConnect: (provider: string) => void;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <h4 className="font-medium text-muted-foreground text-sm">{title}</h4>
+      <div className="grid gap-2">
+        {connectors.map((connector) => (
+          <Button
+            className="h-auto justify-start gap-4 p-4"
+            disabled={isLoading || !connector.available}
+            key={connector.id}
+            onClick={() => onConnect(connector.id)}
+            variant="outline"
+          >
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${connector.color}20` }}
+            >
+              <connector.icon
+                className="h-6 w-6"
+                style={{ color: connector.color }}
+              />
+            </div>
+            <div className="text-left">
+              <div className="font-medium">{connector.name}</div>
+              <div className="text-muted-foreground text-sm">
+                {connector.description}
+              </div>
+            </div>
+            {isLoading && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SourceCard({
-  source,
-  stats,
+  connection,
+  onSync,
   onDisconnect,
 }: {
-  source: ConnectedSource;
-  stats?: { total: number; unread: number };
+  connection: OrgConnection;
+  onSync: () => void;
   onDisconnect: () => void;
 }) {
-  const config = getSourceConfig(source.type);
-  const Icon = config.icon;
-  const color = getSourceColor(source.type);
+  const connectorInfo = getConnectorInfo(connection.provider);
+  const Icon = connectorInfo?.icon || Mail;
+  const color = connectorInfo?.color || "#888";
 
   const statusConfig: Record<
     string,
@@ -819,10 +663,10 @@ function SourceCard({
       color: "text-blue-600 dark:text-blue-400",
       label: "Syncing",
     },
-    disconnected: {
+    pending_auth: {
       icon: <AlertCircle className="h-4 w-4" />,
-      color: "text-gray-500",
-      label: "Disconnected",
+      color: "text-amber-600 dark:text-amber-400",
+      label: "Pending Auth",
     },
     error: {
       icon: <AlertCircle className="h-4 w-4" />,
@@ -831,7 +675,9 @@ function SourceCard({
     },
   };
 
-  const status = statusConfig[source.status] ?? statusConfig.disconnected;
+  const status = statusConfig[connection.status] || statusConfig.connected;
+  const displayName =
+    connection.email || connection.workspace || connectorInfo?.name || "Unknown";
 
   return (
     <Card>
@@ -844,9 +690,9 @@ function SourceCard({
             <Icon className="h-5 w-5" style={{ color }} />
           </div>
           <div>
-            <CardTitle className="text-base">{source.displayName}</CardTitle>
+            <CardTitle className="text-base">{displayName}</CardTitle>
             <CardDescription className="text-xs">
-              {config.label} • {source.identifier}
+              {connectorInfo?.name || connection.provider}
             </CardDescription>
           </div>
         </div>
@@ -861,7 +707,7 @@ function SourceCard({
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={onSync}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Sync Now
             </DropdownMenuItem>
@@ -884,29 +730,24 @@ function SourceCard({
               {status.icon}
               <span className="text-sm">{status.label}</span>
             </div>
-            {source.isLegacy && (
-              <Badge className="text-xs" variant="outline">
-                Legacy
+            {connection.progress !== null && (
+              <Badge className="text-xs" variant="secondary">
+                {Math.round(connection.progress * 100)}%
               </Badge>
             )}
           </div>
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-muted-foreground text-sm">
-            {stats && (
-              <div className="flex items-center gap-1">
-                <span>{stats.total.toLocaleString()} items</span>
-                {stats.unread > 0 && (
-                  <Badge className="ml-1" variant="secondary">
-                    {stats.unread} unread
-                  </Badge>
-                )}
-              </div>
-            )}
-            {source.lastSyncAt && (
+            <div className="flex items-center gap-1">
+              <span>{connection.messages_synced.toLocaleString()} synced</span>
+            </div>
+            {connection.last_sync && (
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                <span>{new Date(source.lastSyncAt).toLocaleDateString()}</span>
+                <span>
+                  {new Date(connection.last_sync).toLocaleDateString()}
+                </span>
               </div>
             )}
           </div>
@@ -946,34 +787,47 @@ function EmptySourcesCard({ onConnect }: { onConnect: () => void }) {
 }
 
 function EmptySourceTypeCard({
-  type,
+  category,
   onConnect,
 }: {
-  type: SourceType;
+  category: string;
   onConnect: () => void;
 }) {
-  const config = getSourceConfig(type);
-  const Icon = config.icon;
-  const color = getSourceColor(type);
+  const categoryLabels: Record<string, string> = {
+    email: "Email",
+    messaging: "Messaging",
+    calendar: "Calendar",
+    knowledge: "Knowledge Base",
+    crm: "CRM",
+  };
+
+  const categoryIcons: Record<
+    string,
+    React.ComponentType<{ className?: string }>
+  > = {
+    email: Mail,
+    messaging: MessageCircle,
+    calendar: Calendar,
+    knowledge: FileText,
+    crm: Target,
+  };
+
+  const Icon = categoryIcons[category] || Mail;
+  const label = categoryLabels[category] || category;
 
   return (
     <Card className="py-8">
       <CardContent className="flex flex-col items-center justify-center">
-        <div
-          className="flex h-12 w-12 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${color}20` }}
-        >
-          <Icon className="h-6 w-6" style={{ color }} />
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+          <Icon className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 font-semibold text-lg">
-          No {config.label} connected
-        </h3>
+        <h3 className="mt-4 font-semibold text-lg">No {label} connected</h3>
         <p className="mt-2 text-center text-muted-foreground">
-          {config.description}
+          Connect a {label.toLowerCase()} source to get started
         </p>
         <Button className="mt-4" onClick={onConnect} variant="outline">
           <Plus className="mr-2 h-4 w-4" />
-          Connect {config.label}
+          Connect {label}
         </Button>
       </CardContent>
     </Card>

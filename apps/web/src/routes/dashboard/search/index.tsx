@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { searchAPI, type SearchResult } from "@/lib/api";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -76,12 +76,13 @@ function SearchPage() {
 
   // Search query
   const { data: searchResults, isLoading: isSearching } = useQuery({
-    ...trpc.search.search.queryOptions({
-      organizationId,
+    queryKey: ["search", submittedQuery],
+    queryFn: () => searchAPI.search({
       query: submittedQuery,
       limit: 20,
+      include_graph_context: true,
     }),
-    enabled: !!organizationId && submittedQuery.length > 2,
+    enabled: submittedQuery.length > 2,
   });
 
   // Handlers
@@ -230,128 +231,61 @@ function SearchPage() {
                 {/* Results */}
                 {searchResults.results.length > 0 ? (
                   <div>
-                    {/* Threads */}
-                    {searchResults.results.filter((r) => r.type === "thread")
-                      .length > 0 && (
-                      <>
-                        <div className="border-border/40 border-b bg-muted/30 px-4 py-1.5">
-                          <span className="flex items-center gap-1 font-medium text-muted-foreground text-xs">
-                            <MessageSquare className="h-3 w-3" />
-                            Threads (
-                            {
-                              searchResults.results.filter(
-                                (r) => r.type === "thread"
-                              ).length
-                            }
-                            )
-                          </span>
-                        </div>
-                        {searchResults.results
-                          .filter((r) => r.type === "thread")
-                          .map((result) => (
-                            <div
-                              className="flex cursor-pointer items-center gap-4 border-border/40 border-b px-4 py-3 hover:bg-accent/50"
-                              key={result.id}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-sm">
-                                  {(result.metadata as { subject?: string })
-                                    ?.subject || "Thread"}
-                                </p>
-                                <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
-                                  {result.content}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-muted-foreground text-xs">
-                                {Math.round(result.score * 100)}%
-                              </span>
-                            </div>
-                          ))}
-                      </>
-                    )}
+                    {/* Group results by type */}
+                    {(() => {
+                      const resultsByType = searchResults.results.reduce((acc, result) => {
+                        const type = result.type || "other";
+                        if (!acc[type]) acc[type] = [];
+                        acc[type].push(result);
+                        return acc;
+                      }, {} as Record<string, SearchResult[]>);
 
-                    {/* Messages */}
-                    {searchResults.results.filter((r) => r.type === "message")
-                      .length > 0 && (
-                      <>
-                        <div className="border-border/40 border-b bg-muted/30 px-4 py-1.5">
-                          <span className="flex items-center gap-1 font-medium text-muted-foreground text-xs">
-                            <FileText className="h-3 w-3" />
-                            Messages (
-                            {
-                              searchResults.results.filter(
-                                (r) => r.type === "message"
-                              ).length
-                            }
-                            )
-                          </span>
-                        </div>
-                        {searchResults.results
-                          .filter((r) => r.type === "message")
-                          .map((result) => (
-                            <div
-                              className="flex cursor-pointer items-center gap-4 border-border/40 border-b px-4 py-3 hover:bg-accent/50"
-                              key={result.id}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-sm">
-                                  {(
-                                    result.metadata as {
-                                      threadSubject?: string;
-                                    }
-                                  )?.threadSubject || "Email"}
-                                </p>
-                                <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
-                                  {result.content}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-muted-foreground text-xs">
-                                {
-                                  (result.metadata as { fromAddress?: string })
-                                    ?.fromAddress
-                                }
-                              </span>
-                              <span className="shrink-0 text-muted-foreground text-xs">
-                                {Math.round(result.score * 100)}%
-                              </span>
-                            </div>
-                          ))}
-                      </>
-                    )}
+                      const typeIcons: Record<string, React.ReactNode> = {
+                        commitment: <FileText className="h-3 w-3" />,
+                        decision: <Lightbulb className="h-3 w-3" />,
+                        task: <MessageSquare className="h-3 w-3" />,
+                        contact: <FileText className="h-3 w-3" />,
+                        thread: <MessageSquare className="h-3 w-3" />,
+                        message: <FileText className="h-3 w-3" />,
+                      };
 
-                    {/* Claims */}
-                    {searchResults.results.filter((r) => r.type === "claim")
-                      .length > 0 && (
-                      <>
-                        <div className="border-border/40 border-b bg-muted/30 px-4 py-1.5">
-                          <span className="flex items-center gap-1 font-medium text-muted-foreground text-xs">
-                            <Lightbulb className="h-3 w-3" />
-                            Intelligence (
-                            {
-                              searchResults.results.filter(
-                                (r) => r.type === "claim"
-                              ).length
-                            }
-                            )
-                          </span>
-                        </div>
-                        {searchResults.results
-                          .filter((r) => r.type === "claim")
-                          .map((result) => (
+                      const typeLabels: Record<string, string> = {
+                        commitment: "Commitments",
+                        decision: "Decisions",
+                        task: "Tasks",
+                        contact: "Contacts",
+                        thread: "Threads",
+                        message: "Messages",
+                      };
+
+                      return Object.entries(resultsByType).map(([type, results]) => (
+                        <div key={type}>
+                          <div className="border-border/40 border-b bg-muted/30 px-4 py-1.5">
+                            <span className="flex items-center gap-1 font-medium text-muted-foreground text-xs">
+                              {typeIcons[type] || <FileText className="h-3 w-3" />}
+                              {typeLabels[type] || type} ({results.length})
+                            </span>
+                          </div>
+                          {results.map((result) => (
                             <div
                               className="flex cursor-pointer items-center gap-4 border-border/40 border-b px-4 py-3 hover:bg-accent/50"
-                              key={result.id}
+                              key={result.id || Math.random().toString()}
                             >
                               <Badge
                                 className="shrink-0 text-[10px] capitalize"
                                 variant="secondary"
                               >
-                                {(result.metadata as { claimType?: string })
-                                  ?.claimType || "claim"}
+                                {type}
                               </Badge>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm">
-                                  {result.content}
+                                <p className="truncate font-medium text-sm">
+                                  {result.title || (result.properties?.title as string) || type}
+                                </p>
+                                <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
+                                  {(result.properties?.description as string) ||
+                                   (result.properties?.content as string) ||
+                                   (result.properties?.summary as string) ||
+                                   ""}
                                 </p>
                               </div>
                               <span className="shrink-0 text-muted-foreground text-xs">
@@ -359,8 +293,9 @@ function SearchPage() {
                               </span>
                             </div>
                           ))}
-                      </>
-                    )}
+                        </div>
+                      ));
+                    })()}
                   </div>
                 ) : (
                   /* No results */

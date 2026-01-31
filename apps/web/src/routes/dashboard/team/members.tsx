@@ -1,11 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  PresenceIndicator,
-  type PresenceStatus,
-} from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +18,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useOnlineUsers } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard/team/members")({
@@ -45,23 +40,6 @@ function MembersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [isPending, setIsPending] = useState(true);
-
-  // Get online users for presence indicators
-  const { data: onlineUsersData } = useOnlineUsers({
-    organizationId: activeOrg?.id ?? "",
-    enabled: Boolean(activeOrg?.id),
-  });
-
-  // Create a map of userId -> presence status for quick lookup
-  const presenceMap = useMemo(() => {
-    const map = new Map<string, PresenceStatus>();
-    if (onlineUsersData?.users) {
-      for (const user of onlineUsersData.users) {
-        map.set(user.userId, (user.status as PresenceStatus) || "online");
-      }
-    }
-    return map;
-  }, [onlineUsersData?.users]);
 
   // Fetch members when org changes
   useEffect(() => {
@@ -195,41 +173,21 @@ function MembersPage() {
                   .toUpperCase()
                   .slice(0, 2);
 
-                // Get presence status for this member
-                const presenceStatus =
-                  presenceMap.get(member.user?.id) ?? "offline";
-
                 return (
                   <div
                     className="flex items-center justify-between py-2"
                     key={member.id}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage
-                            alt={member.user?.name ?? "User"}
-                            src={member.user?.image ?? undefined}
-                          />
-                          <AvatarFallback>{initials ?? "U"}</AvatarFallback>
-                        </Avatar>
-                        {/* Presence indicator positioned at bottom-right of avatar */}
-                        <span className="absolute -right-0.5 -bottom-0.5">
-                          <PresenceIndicator
-                            size="sm"
-                            status={presenceStatus}
-                          />
-                        </span>
-                      </div>
+                      <Avatar>
+                        <AvatarImage
+                          alt={member.user?.name ?? "User"}
+                          src={member.user?.image ?? undefined}
+                        />
+                        <AvatarFallback>{initials ?? "U"}</AvatarFallback>
+                      </Avatar>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{member.user?.name}</p>
-                          {presenceStatus === "online" && (
-                            <span className="text-[10px] text-green-600">
-                              Online
-                            </span>
-                          )}
-                        </div>
+                        <p className="font-medium">{member.user?.name}</p>
                         <p className="text-muted-foreground text-sm">
                           {member.user?.email}
                         </p>

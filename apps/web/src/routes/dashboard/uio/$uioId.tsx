@@ -6,7 +6,7 @@
 // Shows cross-source commitment/decision with full timeline and evidence chain.
 //
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   useNavigate,
@@ -30,7 +30,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,17 +48,12 @@ import {
   type EvidenceSource,
 } from "@/components/unified-object/evidence-chain";
 import {
-  type SourceBreadcrumb,
-  SourceBreadcrumbs,
-} from "@/components/unified-object/source-breadcrumbs";
-import {
   Timeline,
   type TimelineEvent,
 } from "@/components/unified-object/timeline";
-import { useTrackViewing } from "@/hooks/use-presence";
+import { useUIO, useUpdateUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -143,14 +138,6 @@ function UIODetailPage() {
   const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
 
-  // Track viewing this UIO for real-time presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "uio",
-    resourceId: uioId,
-    enabled: Boolean(organizationId && uioId),
-  });
-
   // Smart back navigation
   const handleBack = () => {
     if (returnUrl) {
@@ -164,32 +151,39 @@ function UIODetailPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [correctedTitle, setCorrectedTitle] = useState("");
 
-  // Fetch UIO details
+  // Fetch UIO details using the Python API
   const {
     data: uioData,
     isLoading,
     refetch,
-  } = useQuery({
-    ...trpc.unifiedObjects.get.queryOptions({
-      organizationId,
-      uioId,
-    }),
-    enabled: !!organizationId && !!uioId,
+  } = useUIO({
+    organizationId,
+    id: uioId,
+    enabled: !!uioId,
   });
 
-  // Update mutation
-  const updateMutation = useMutation(
-    trpc.unifiedObjects.update.mutationOptions({
-      onSuccess: () => {
-        toast.success("Updated successfully");
-        refetch();
-        setEditingTitle(false);
-      },
-      onError: (error) => {
-        toast.error(error.message || "Failed to update");
-      },
-    })
-  );
+  // Update mutation using the Python API
+  const updateMutationFn = useUpdateUIO();
+  const updateMutation = {
+    mutate: (data: { status?: string }) => {
+      if (data.status) {
+        updateMutationFn.mutate(
+          { id: uioId, status: data.status },
+          {
+            onSuccess: () => {
+              toast.success("Updated successfully");
+              refetch();
+              setEditingTitle(false);
+            },
+            onError: (error) => {
+              toast.error(error instanceof Error ? error.message : "Failed to update");
+            },
+          }
+        );
+      }
+    },
+    isPending: updateMutationFn.isPending,
+  };
 
   // Handle title save
   const handleSaveTitle = () => {
@@ -197,30 +191,19 @@ function UIODetailPage() {
       setEditingTitle(false);
       return;
     }
-
-    updateMutation.mutate({
-      organizationId,
-      uioId,
-      userCorrectedTitle: correctedTitle.trim(),
-    });
+    // Title updates would need backend support - for now just close editing
+    setEditingTitle(false);
+    toast.info("Title editing requires backend support");
   };
 
   // Handle status change
-  const handleStatusChange = (status: "active" | "archived" | "dismissed") => {
-    updateMutation.mutate({
-      organizationId,
-      uioId,
-      status,
-    });
+  const handleStatusChange = (status: "active" | "archived" | "dismissed" | "completed") => {
+    updateMutation.mutate({ status });
   };
 
-  // Handle verify
+  // Handle verify - mark as active (verified)
   const handleVerify = () => {
-    updateMutation.mutate({
-      organizationId,
-      uioId,
-      isUserVerified: !uioData?.isUserVerified,
-    });
+    updateMutation.mutate({ status: "active" });
   };
 
   if (isLoading) {
@@ -249,40 +232,45 @@ function UIODetailPage() {
     STATUS_CONFIG[uioData.status as keyof typeof STATUS_CONFIG] ??
     STATUS_CONFIG.active;
   const TypeIcon = typeConfig.icon;
-  const displayTitle = uioData.userCorrectedTitle || uioData.canonicalTitle;
+  const displayTitle = uioData.title;
 
-  // Transform sources to EvidenceSource format
-  const evidenceSources: EvidenceSource[] = (uioData.sources ?? []).map(
-    (source) => ({
-      id: source.id,
-      sourceType: source.sourceType,
-      role: source.role as "origin" | "update" | "confirmation" | "context",
-      quotedText: source.quotedText,
-      extractedTitle: source.extractedTitle,
-      confidence: source.confidence ?? 0.8,
-      sourceTimestamp: source.sourceTimestamp
-        ? new Date(source.sourceTimestamp)
-        : null,
-      conversationId: source.conversationId,
-      messageId: source.messageId,
-    })
-  );
+  // Evidence sources (would need to be fetched separately if available)
+  const evidenceSources: EvidenceSource[] = uioData.evidence_id
+    ? [
+        {
+          id: uioData.evidence_id,
+          sourceType: "email",
+          role: "origin" as const,
+          quotedText: uioData.description || "",
+          extractedTitle: uioData.title,
+          confidence: uioData.confidence || 0.8,
+          sourceTimestamp: uioData.extracted_at ? new Date(uioData.extracted_at) : null,
+          conversationId: null,
+          messageId: null,
+        },
+      ]
+    : [];
 
-  // Transform timeline to TimelineEvent format
-  const timelineEvents: TimelineEvent[] = (uioData.timeline ?? []).map(
-    (event) => ({
-      id: event.id,
-      eventType: event.eventType as TimelineEvent["eventType"],
-      eventDescription: event.eventDescription,
-      sourceType: event.sourceType,
-      sourceName: event.sourceName,
-      messageId: event.messageId,
-      quotedText: event.quotedText,
-      confidence: event.confidence,
-      triggeredBy: event.triggeredBy,
-      eventAt: new Date(event.eventAt),
-    })
-  );
+  // Timeline events (simplified based on available data)
+  const timelineEvents: TimelineEvent[] = uioData.created_at
+    ? [
+        {
+          id: "created",
+          eventType: "created" as TimelineEvent["eventType"],
+          eventDescription: "Intelligence extracted",
+          sourceType: "email",
+          sourceName: "Email",
+          messageId: null,
+          quotedText: null,
+          confidence: uioData.confidence || 0.8,
+          triggeredBy: null,
+          eventAt: new Date(uioData.created_at),
+        },
+      ]
+    : [];
+
+  // Computed properties for compatibility
+  const isUserVerified = uioData.status === "active";
 
   return (
     <TooltipProvider>
@@ -315,7 +303,7 @@ function UIODetailPage() {
                 <span className={statusConfig.color}>{statusConfig.label}</span>
               </Badge>
 
-              {uioData.isUserVerified && (
+              {isUserVerified && (
                 <Badge
                   className="border-green-500/30 bg-green-500/10 text-green-500"
                   variant="outline"
@@ -326,20 +314,10 @@ function UIODetailPage() {
               )}
             </div>
 
-            {/* Real-time viewers indicator */}
-            {organizationId && uioId && (
-              <WhoIsViewing
-                compact
-                organizationId={organizationId}
-                resourceId={uioId}
-                resourceType="uio"
-              />
-            )}
-
             <div className="ml-auto flex items-center gap-2">
               <Button onClick={handleVerify} size="sm" variant="outline">
                 <Check className="mr-2 size-4" />
-                {uioData.isUserVerified ? "Unverify" : "Verify"}
+                {isUserVerified ? "Unverify" : "Verify"}
               </Button>
 
               <DropdownMenu>
@@ -413,25 +391,22 @@ function UIODetailPage() {
                   {displayTitle}
                   <Edit2 className="ml-2 inline size-4 opacity-0 group-hover:opacity-50" />
                 </h1>
-                {uioData.userCorrectedTitle && (
+                {uioData.description && (
                   <p className="mt-1 text-muted-foreground text-sm">
-                    Original: {uioData.canonicalTitle}
+                    {uioData.description}
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Source breadcrumbs */}
-          {uioData.sourceBreadcrumbs &&
-            uioData.sourceBreadcrumbs.length > 0 && (
-              <div className="mt-3">
-                <SourceBreadcrumbs
-                  sources={uioData.sourceBreadcrumbs as SourceBreadcrumb[]}
-                  variant="default"
-                />
-              </div>
-            )}
+          {/* Source info - simplified */}
+          {uioData.evidence_id && (
+            <div className="mt-3 flex items-center gap-2 text-muted-foreground text-xs">
+              <ExternalLink className="h-3 w-3" />
+              <span>Evidence: {uioData.evidence_id.slice(0, 8)}...</span>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -439,7 +414,7 @@ function UIODetailPage() {
           <div className="mx-auto max-w-4xl space-y-8 p-6">
             {/* Meta info */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {uioData.dueDate && (
+              {uioData.due_date && (
                 <div className="rounded-lg border bg-card p-4">
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <Calendar className="size-4" />
@@ -448,24 +423,21 @@ function UIODetailPage() {
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {format(new Date(uioData.dueDate), "MMM d, yyyy")}
+                    {format(new Date(uioData.due_date), "MMM d, yyyy")}
                   </p>
-                  {uioData.dueDateConfidence && (
-                    <p className="text-muted-foreground text-xs">
-                      {Math.round(uioData.dueDateConfidence * 100)}% confident
-                    </p>
-                  )}
                 </div>
               )}
 
-              {uioData.owner && (
+              {(uioData.creditor || uioData.debtor) && (
                 <div className="rounded-lg border bg-card p-4">
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <User className="size-4" />
-                    <span className="font-medium text-xs uppercase">Owner</span>
+                    <span className="font-medium text-xs uppercase">
+                      {uioData.direction === "owed_to_me" ? "From" : "To"}
+                    </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {uioData.owner.displayName || uioData.owner.primaryEmail}
+                    {uioData.direction === "owed_to_me" ? uioData.debtor : uioData.creditor}
                   </p>
                 </div>
               )}
@@ -474,37 +446,37 @@ function UIODetailPage() {
                 <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                   <Clock className="size-4" />
                   <span className="font-medium text-xs uppercase">
-                    First Seen
+                    Confidence
                   </span>
                 </div>
                 <p className="font-medium text-sm">
-                  {formatDistanceToNow(new Date(uioData.firstSeenAt), {
-                    addSuffix: true,
-                  })}
+                  {Math.round((uioData.confidence || 0) * 100)}% ({uioData.confidence_tier || "medium"})
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-card p-4">
-                <div className="mb-1 flex items-center gap-2 text-muted-foreground">
-                  <Clock className="size-4" />
-                  <span className="font-medium text-xs uppercase">
-                    Last Updated
-                  </span>
+              {uioData.created_at && (
+                <div className="rounded-lg border bg-card p-4">
+                  <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+                    <Clock className="size-4" />
+                    <span className="font-medium text-xs uppercase">
+                      Created
+                    </span>
+                  </div>
+                  <p className="font-medium text-sm">
+                    {formatDistanceToNow(new Date(uioData.created_at), {
+                      addSuffix: true,
+                    })}
+                  </p>
                 </div>
-                <p className="font-medium text-sm">
-                  {formatDistanceToNow(new Date(uioData.lastUpdatedAt), {
-                    addSuffix: true,
-                  })}
-                </p>
-              </div>
+              )}
             </div>
 
             {/* Description */}
-            {uioData.canonicalDescription && (
+            {uioData.description && (
               <div className="rounded-lg border bg-card p-4">
                 <h3 className="mb-2 font-medium text-sm">Description</h3>
                 <p className="text-muted-foreground">
-                  {uioData.canonicalDescription}
+                  {uioData.description}
                 </p>
               </div>
             )}

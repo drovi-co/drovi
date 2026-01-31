@@ -3,6 +3,18 @@ LangGraph Intelligence Extraction Pipeline
 
 The main orchestrator graph that coordinates all agent nodes
 for extracting intelligence from content.
+
+Pipeline Overview:
+1. SOURCE TRIAGE (new - eliminates garbage BEFORE LLM calls)
+   - source_intelligence: Rule-based source/channel classification
+   - pipeline_router: Route to skip/minimal/full extraction
+   - content_zones: Remove noise zones (signatures, footers, etc.)
+
+2. EXTRACTION (LLM-based)
+   - parse_messages → classify → extract_claims/commitments/decisions
+
+3. POST-PROCESSING
+   - entity_resolution → deduplicate → signal_filter → persist
 """
 
 from typing import Literal
@@ -13,6 +25,32 @@ from langgraph.graph import END, StateGraph
 from .state import IntelligenceState, Routing
 
 logger = structlog.get_logger()
+
+
+# =============================================================================
+# Source Triage Nodes (NEW - run BEFORE extraction to eliminate garbage)
+# =============================================================================
+
+
+async def source_intelligence(state: IntelligenceState) -> dict:
+    """Classify source to determine content category and extraction level."""
+    from .nodes.source_intelligence import source_intelligence_node
+
+    return await source_intelligence_node(state)
+
+
+async def pipeline_router(state: IntelligenceState) -> dict:
+    """Route to appropriate extraction path based on source intelligence."""
+    from .nodes.pipeline_router import pipeline_router_node
+
+    return await pipeline_router_node(state)
+
+
+async def content_zones(state: IntelligenceState) -> dict:
+    """Remove noise zones (signatures, footers, etc.) before extraction."""
+    from .nodes.content_zones import content_zones_node
+
+    return await content_zones_node(state)
 
 
 # =============================================================================
@@ -160,6 +198,13 @@ async def evolve_memory(state: IntelligenceState) -> dict:
     return await evolve_memory_node(state)
 
 
+async def enrich_contacts(state: IntelligenceState) -> dict:
+    """Enrich contacts involved in this extraction with full contact intelligence."""
+    from .nodes.enrich_contacts import enrich_contacts_node
+
+    return await enrich_contacts_node(state)
+
+
 async def finalize(state: IntelligenceState) -> dict:
     """Finalize the analysis and prepare output."""
     from .nodes.finalize import finalize_node
@@ -170,6 +215,15 @@ async def finalize(state: IntelligenceState) -> dict:
 # =============================================================================
 # Routing Functions
 # =============================================================================
+
+
+def route_after_source_intelligence(
+    state: IntelligenceState,
+) -> Literal["skip", "minimal", "full"]:
+    """Route based on source intelligence classification."""
+    from .nodes.pipeline_router import determine_route
+
+    return determine_route(state)
 
 
 def should_extract(state: IntelligenceState) -> Literal["pattern_match", "finalize"]:
@@ -322,8 +376,13 @@ def after_link_intelligence(state: IntelligenceState) -> Literal["evolve_memory"
     return "evolve_memory"
 
 
-def after_evolve_memory(state: IntelligenceState) -> Literal["finalize"]:
-    """Route after memory evolution."""
+def after_evolve_memory(state: IntelligenceState) -> Literal["enrich_contacts"]:
+    """Route after memory evolution to contact enrichment."""
+    return "enrich_contacts"
+
+
+def after_enrich_contacts(state: IntelligenceState) -> Literal["finalize"]:
+    """Route after contact enrichment to finalize."""
     return "finalize"
 
 
@@ -337,32 +396,48 @@ def create_intelligence_graph() -> StateGraph:
     Create the LangGraph intelligence extraction pipeline.
 
     The graph follows this general flow:
+
+    PHASE 0 - SOURCE TRIAGE (eliminates garbage BEFORE LLM calls):
+    0a. source_intelligence - Rule-based source/channel classification
+    0b. pipeline_router - Route to skip/minimal/full extraction path
+    0c. content_zones - Remove noise zones (signatures, footers, etc.)
+
+    PHASE 1 - PARSING:
     1. parse_messages - Parse raw content into structured messages
     2. persist_raw - Persist raw content to FalkorDB (Phase 1 - Deeper Graph)
     3. resolve_contacts_early - Pre-resolve contacts for relationship context
+
+    PHASE 2 - CLASSIFICATION & EXTRACTION:
     4. classify - Classify content to determine what to extract
     5. pattern_match - Match against learned patterns (Klein's RPD)
-    5. extract_claims - Extract claims (facts, promises, questions, etc.)
-    6. extract_commitments - Extract commitments (if applicable)
-    7. extract_decisions - Extract decisions (if applicable)
-    8. extract_tasks - Extract tasks from commitments
-    9. detect_risks - Detect risks in extracted content
-    10. entity_resolution - Resolve and merge entities across sources
-    11. extract_relationships - Extract relationship signals between contacts
-    12. generate_brief - Generate 3-line summary and suggested actions
-    13. deduplicate - Deduplicate against existing UIOs
-    14. detect_contradictions - Detect contradictions with existing graph data
-    15. signal_filter - Classify signal vs noise (Wheeler's SPC)
-    16. persist - Save to PostgreSQL and FalkorDB (including brief to conversation)
-    17. evolve_memory - Evolve knowledge (handle updates/supersession, derivations, forgetting)
-    18. finalize - Prepare final output
+    6. extract_claims - Extract claims (facts, promises, questions, etc.)
+    7. extract_commitments - Extract commitments (if applicable)
+    8. extract_decisions - Extract decisions (if applicable)
+    9. extract_tasks - Extract tasks from commitments
+    10. detect_risks - Detect risks in extracted content
 
-    Routing is conditional based on classification results.
+    PHASE 3 - POST-PROCESSING:
+    11. entity_resolution - Resolve and merge entities across sources
+    12. extract_relationships - Extract relationship signals between contacts
+    13. generate_brief - Generate 3-line summary and suggested actions
+    14. deduplicate - Deduplicate against existing UIOs
+    15. detect_contradictions - Detect contradictions with existing graph data
+    16. signal_filter - Classify signal vs noise (Wheeler's SPC)
+    17. persist - Save to PostgreSQL and FalkorDB
+    18. evolve_memory - Evolve knowledge (handle updates/supersession)
+    19. enrich_contacts - Run contact intelligence for involved contacts
+    20. finalize - Prepare final output
+
+    Routing is conditional based on source intelligence and classification.
     """
     # Create the graph with IntelligenceState
     workflow = StateGraph(IntelligenceState)
 
-    # Add all nodes
+    # Add source triage nodes (PHASE 0 - run BEFORE any LLM calls)
+    workflow.add_node("source_intelligence", source_intelligence)
+    workflow.add_node("content_zones", content_zones)
+
+    # Add all other nodes
     workflow.add_node("parse_messages", parse_messages)
     workflow.add_node("persist_raw", persist_raw)  # Raw content layer (Phase 1 - Deeper Graph)
     workflow.add_node("resolve_contacts_early", resolve_contacts_early)
@@ -383,12 +458,30 @@ def create_intelligence_graph() -> StateGraph:
     workflow.add_node("persist", persist)
     workflow.add_node("link_intelligence", link_intelligence)  # Cross-link intelligence (Phase 2)
     workflow.add_node("evolve_memory", evolve_memory)
+    workflow.add_node("enrich_contacts", enrich_contacts)  # Contact intelligence enrichment
     workflow.add_node("finalize", finalize)
 
-    # Set entry point
-    workflow.set_entry_point("parse_messages")
+    # Set entry point - START with source triage
+    workflow.set_entry_point("source_intelligence")
 
     # Define edges
+
+    # PHASE 0: Source Triage (eliminates garbage BEFORE LLM calls)
+    # source_intelligence -> skip OR minimal OR full extraction path
+    workflow.add_conditional_edges(
+        "source_intelligence",
+        route_after_source_intelligence,
+        {
+            "skip": "finalize",  # Skip extraction entirely (newsletters, automated)
+            "minimal": "parse_messages",  # Minimal extraction (transactional)
+            "full": "content_zones",  # Full extraction (human content)
+        },
+    )
+
+    # content_zones -> parse_messages (cleaned content)
+    workflow.add_edge("content_zones", "parse_messages")
+
+    # PHASE 1: Parsing
     # parse_messages -> persist_raw -> resolve_contacts_early -> classify (always)
     workflow.add_edge("parse_messages", "persist_raw")
     workflow.add_edge("persist_raw", "resolve_contacts_early")
@@ -516,8 +609,11 @@ def create_intelligence_graph() -> StateGraph:
     # link_intelligence -> evolve_memory (always)
     workflow.add_edge("link_intelligence", "evolve_memory")
 
-    # evolve_memory -> finalize (always)
-    workflow.add_edge("evolve_memory", "finalize")
+    # evolve_memory -> enrich_contacts (always)
+    workflow.add_edge("evolve_memory", "enrich_contacts")
+
+    # enrich_contacts -> finalize (always - enriches contacts involved in extraction)
+    workflow.add_edge("enrich_contacts", "finalize")
 
     # finalize -> END
     workflow.add_edge("finalize", END)
@@ -548,6 +644,7 @@ async def run_intelligence_extraction(
     message_ids: list[str] | None = None,
     user_email: str | None = None,
     user_name: str | None = None,
+    metadata: dict | None = None,
 ) -> IntelligenceState:
     """
     Run the intelligence extraction pipeline on content.
@@ -562,6 +659,7 @@ async def run_intelligence_extraction(
         message_ids: Optional list of message IDs
         user_email: Optional user email for context
         user_name: Optional user name for context
+        metadata: Optional source-specific metadata (from, subject, headers for email)
 
     Returns:
         The final IntelligenceState with all extracted intelligence
@@ -579,6 +677,7 @@ async def run_intelligence_extraction(
         message_ids=message_ids,
         user_email=user_email,
         user_name=user_name,
+        metadata=metadata,
     )
 
     initial_state = IntelligenceState(input=initial_input)
@@ -595,17 +694,26 @@ async def run_intelligence_extraction(
     )
 
     # Execute the graph
-    final_state = await compiled_graph.ainvoke(initial_state)
+    final_state_dict = await compiled_graph.ainvoke(initial_state)
+
+    # Convert dict result back to IntelligenceState for type safety
+    if isinstance(final_state_dict, dict):
+        final_state = IntelligenceState(**final_state_dict)
+    else:
+        final_state = final_state_dict
+
+    # Get extracted counts safely
+    extracted = final_state.extracted if hasattr(final_state, 'extracted') else None
 
     logger.info(
         "Intelligence extraction complete",
         analysis_id=initial_state.analysis_id,
-        claims_count=len(final_state.extracted.claims),
-        commitments_count=len(final_state.extracted.commitments),
-        decisions_count=len(final_state.extracted.decisions),
-        tasks_count=len(final_state.extracted.tasks),
-        contacts_count=len(final_state.extracted.contacts),
-        risks_count=len(final_state.extracted.risks),
+        claims_count=len(extracted.claims) if extracted else 0,
+        commitments_count=len(extracted.commitments) if extracted else 0,
+        decisions_count=len(extracted.decisions) if extracted else 0,
+        tasks_count=len(extracted.tasks) if extracted else 0,
+        contacts_count=len(extracted.contacts) if extracted else 0,
+        risks_count=len(extracted.risks) if extracted else 0,
     )
 
     return final_state

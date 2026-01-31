@@ -27,15 +27,10 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import {
-  PresenceIndicator,
-  type PresenceStatus,
-  QuickAssignButton,
-  WhoIsViewing,
-} from "@/components/collaboration";
+import { QuickAssignButton } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +42,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useOnlineUsers, useTrackViewing } from "@/hooks/use-presence";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
@@ -83,14 +77,6 @@ function SharedInboxQueuePage() {
   const [activeTab, setActiveTab] = useState<"unassigned" | "my" | "all">(
     "unassigned"
   );
-
-  // Track viewing shared inbox for presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "other",
-    resourceId: selectedInboxId ?? "shared-inbox-default",
-    enabled: Boolean(organizationId),
-  });
 
   // Fetch shared inboxes
   const { data: inboxesData, isLoading: isLoadingInboxes } = useQuery({
@@ -134,23 +120,6 @@ function SharedInboxQueuePage() {
     enabled: Boolean(organizationId && sharedInboxId),
     refetchInterval: 30_000, // Refresh every 30 seconds
   });
-
-  // Get online users for presence
-  const { data: onlineUsersData } = useOnlineUsers({
-    organizationId,
-    enabled: Boolean(organizationId),
-  });
-
-  // Build presence map
-  const presenceMap = useMemo(() => {
-    const map = new Map<string, PresenceStatus>();
-    if (onlineUsersData?.users) {
-      for (const user of onlineUsersData.users) {
-        map.set(user.userId, (user.status as PresenceStatus) || "online");
-      }
-    }
-    return map;
-  }, [onlineUsersData?.users]);
 
   // Claim mutation
   const claimMutation = useMutation(
@@ -213,7 +182,6 @@ function SharedInboxQueuePage() {
     (a) => a.assigneeUserId === currentUserId
   ).length;
   const totalCount = statsData?.total ?? 0;
-  const onlineMembers = members.filter((m) => presenceMap.has(m.userId));
 
   if (!organizationId) {
     return (
@@ -262,30 +230,19 @@ function SharedInboxQueuePage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Who's viewing this inbox */}
-                {organizationId && (
-                  <WhoIsViewing
-                    compact
-                    organizationId={organizationId}
-                    resourceId={sharedInboxId || "shared-inbox-default"}
-                    resourceType="other"
-                  />
-                )}
-                <Button
-                  disabled={isLoadingAssignments}
-                  onClick={() => refetchAssignments()}
-                  size="sm"
-                  variant="outline"
-                >
-                  <RefreshCw
-                    className={cn(
-                      "h-4 w-4",
-                      isLoadingAssignments && "animate-spin"
-                    )}
-                  />
-                </Button>
-              </div>
+              <Button
+                disabled={isLoadingAssignments}
+                onClick={() => refetchAssignments()}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4",
+                    isLoadingAssignments && "animate-spin"
+                  )}
+                />
+              </Button>
             </div>
 
             {/* Tabs */}
@@ -374,7 +331,7 @@ function SharedInboxQueuePage() {
               Team Members
             </h2>
             <p className="text-muted-foreground text-xs">
-              {onlineMembers.length} online of {members.length} total
+              {members.length} members
             </p>
           </div>
 
@@ -387,8 +344,6 @@ function SharedInboxQueuePage() {
               ) : (
                 <div className="space-y-3">
                   {members.map((member) => {
-                    const presenceStatus =
-                      presenceMap.get(member.userId) ?? "offline";
                     const initials =
                       member.user.name
                         ?.split(" ")
@@ -406,27 +361,16 @@ function SharedInboxQueuePage() {
 
                     return (
                       <div
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg p-2 transition-colors",
-                          presenceStatus === "online" && "bg-green-500/5"
-                        )}
+                        className="flex items-center gap-3 rounded-lg p-2 transition-colors"
                         key={member.userId}
                       >
-                        <div className="relative">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage
-                              alt={member.user.name ?? undefined}
-                              src={member.user.image ?? undefined}
-                            />
-                            <AvatarFallback>{initials}</AvatarFallback>
-                          </Avatar>
-                          <span className="absolute -right-0.5 -bottom-0.5">
-                            <PresenceIndicator
-                              size="sm"
-                              status={presenceStatus}
-                            />
-                          </span>
-                        </div>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage
+                            alt={member.user.name ?? undefined}
+                            src={member.user.image ?? undefined}
+                          />
+                          <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="truncate font-medium text-sm">

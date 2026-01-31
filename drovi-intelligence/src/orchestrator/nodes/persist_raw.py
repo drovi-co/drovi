@@ -1,13 +1,11 @@
 """
 Persist Raw Content Node
 
-Persists raw message content to FalkorDB for:
-- Full-text search across all communications
-- Evidence linking for extracted intelligence
-- Thread reconstruction
-- Temporal analysis
+Persists raw message content to:
+- PostgreSQL: conversation and message tables (for Console queries)
+- FalkorDB: RawMessage and ThreadContext nodes (for graph memory)
 
-This is part of Phase 1 (Deeper Graph) of the FalkorDB enhancement plan.
+This ensures source evidence is queryable from both systems.
 """
 
 import json
@@ -17,8 +15,9 @@ from uuid import uuid4
 
 import structlog
 
-from ..state import IntelligenceState, NodeTiming
+from ..state import IntelligenceState, NodeTiming, ParsedMessage
 from src.graph.types import RawMessageNode, ThreadContextNode, SourceType
+from src.db import get_db_pool
 
 logger = structlog.get_logger()
 
@@ -37,6 +36,193 @@ def serialize_for_graph(value):
     if isinstance(value, datetime):
         return value.isoformat()
     return value
+
+
+async def persist_to_postgresql(
+    state: IntelligenceState,
+    now: datetime,
+) -> tuple[str | None, list[str]]:
+    """
+    Persist conversation and messages to PostgreSQL.
+
+    This enables the Console to query source evidence with full message content.
+    Works for all source types (email, slack, calendar, etc.)
+
+    Returns:
+        Tuple of (conversation_id, message_ids)
+    """
+    if not state.input.conversation_id and not state.messages:
+        return None, []
+
+    try:
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            conversation_db_id = None
+            message_db_ids = []
+
+            # Get the source_account_id if available
+            source_account_id = state.input.source_account_id
+
+            # Map source type to conversation_type
+            source_to_conv_type = {
+                "email": "thread",
+                "slack": "channel",
+                "whatsapp": "chat",
+                "calendar": "event",
+                "notion": "page",
+                "google_docs": "document",
+                "api": "other",
+                "manual": "other",
+            }
+            conversation_type = source_to_conv_type.get(state.input.source_type, "other")
+
+            # Create or update conversation if we have a conversation_id
+            if state.input.conversation_id and source_account_id:
+                # Extract data for conversation
+                external_id = state.input.conversation_id
+                title = state.input.metadata.get("subject") if state.input.metadata else None
+                snippet = None
+
+                # Get participant info from messages
+                participant_emails = list(set(
+                    m.sender_email.lower()
+                    for m in state.messages
+                    if m.sender_email
+                ))
+
+                # Find message timestamps
+                message_times = [m.sent_at for m in state.messages if m.sent_at]
+                first_message_at = min(message_times) if message_times else now
+                last_message_at = max(message_times) if message_times else now
+
+                # Get first message snippet
+                if state.messages:
+                    first_content = state.messages[0].content or ""
+                    snippet = first_content[:200] + "..." if len(first_content) > 200 else first_content
+
+                # Upsert conversation
+                conversation_db_id = str(uuid4())
+                result = await conn.fetchrow(
+                    """
+                    INSERT INTO conversation (
+                        id, source_account_id, external_id, conversation_type,
+                        title, snippet, participant_ids, message_count,
+                        first_message_at, last_message_at, created_at, updated_at
+                    ) VALUES (
+                        $1, $2, $3, $4,
+                        $5, $6, $7, $8,
+                        $9, $10, $11, $11
+                    )
+                    ON CONFLICT (source_account_id, external_id)
+                    DO UPDATE SET
+                        title = COALESCE(EXCLUDED.title, conversation.title),
+                        snippet = COALESCE(EXCLUDED.snippet, conversation.snippet),
+                        message_count = conversation.message_count + EXCLUDED.message_count,
+                        last_message_at = GREATEST(conversation.last_message_at, EXCLUDED.last_message_at),
+                        updated_at = $11
+                    RETURNING id
+                    """,
+                    conversation_db_id,
+                    source_account_id,
+                    external_id,
+                    conversation_type,
+                    title,
+                    snippet,
+                    participant_emails,
+                    len(state.messages),
+                    first_message_at,
+                    last_message_at,
+                    now,
+                )
+                conversation_db_id = result["id"] if result else conversation_db_id
+
+                logger.debug(
+                    "Persisted conversation to PostgreSQL",
+                    conversation_id=conversation_db_id,
+                    external_id=external_id,
+                    message_count=len(state.messages),
+                )
+
+            # Create message records
+            for i, message in enumerate(state.messages):
+                message_db_id = str(uuid4())
+
+                # Generate external_id from message.id or index
+                external_message_id = message.id or f"{state.input.conversation_id}_{i}"
+
+                # Build recipients list (placeholder - would need to be extracted from metadata)
+                recipients = []
+                if state.input.user_email and not message.is_from_user:
+                    recipients = [{"email": state.input.user_email, "name": state.input.user_name}]
+
+                # Get subject from metadata
+                subject = state.input.metadata.get("subject") if state.input.metadata else None
+
+                # Only insert if we have a conversation
+                if conversation_db_id:
+                    try:
+                        result = await conn.fetchrow(
+                            """
+                            INSERT INTO message (
+                                id, conversation_id, external_id,
+                                sender_external_id, sender_name, sender_email,
+                                recipients, subject, body_text, snippet,
+                                sent_at, received_at, message_index, is_from_user,
+                                created_at, updated_at
+                            ) VALUES (
+                                $1, $2, $3,
+                                $4, $5, $6,
+                                $7, $8, $9, $10,
+                                $11, $12, $13, $14,
+                                $15, $15
+                            )
+                            ON CONFLICT (conversation_id, external_id)
+                            DO UPDATE SET
+                                body_text = COALESCE(EXCLUDED.body_text, message.body_text),
+                                updated_at = $15
+                            RETURNING id
+                            """,
+                            message_db_id,
+                            conversation_db_id,
+                            external_message_id,
+                            message.sender_email or "unknown",
+                            message.sender_name,
+                            message.sender_email,
+                            json.dumps(recipients),
+                            subject,
+                            message.content,
+                            message.content[:200] if message.content else None,
+                            message.sent_at or now,
+                            now,
+                            i,
+                            message.is_from_user,
+                            now,
+                        )
+                        message_db_id = result["id"] if result else message_db_id
+                        message_db_ids.append(message_db_id)
+
+                        logger.debug(
+                            "Persisted message to PostgreSQL",
+                            message_id=message_db_id,
+                            conversation_id=conversation_db_id,
+                            sender_email=message.sender_email,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to persist message",
+                            error=str(e),
+                            message_index=i,
+                        )
+
+            return conversation_db_id, message_db_ids
+
+    except Exception as e:
+        logger.error(
+            "Failed to persist to PostgreSQL",
+            error=str(e),
+            analysis_id=state.analysis_id,
+        )
+        return None, []
 
 
 async def persist_raw_content_node(state: IntelligenceState) -> dict:
@@ -67,12 +253,31 @@ async def persist_raw_content_node(state: IntelligenceState) -> dict:
 
     raw_message_ids: list[str] = []
     thread_context_id: str | None = None
+    pg_conversation_id: str | None = None
+    pg_message_ids: list[str] = []
 
+    now = utc_now()
+
+    # First, persist to PostgreSQL for Console queries
+    try:
+        pg_conversation_id, pg_message_ids = await persist_to_postgresql(state, now)
+        logger.info(
+            "PostgreSQL persistence complete",
+            analysis_id=state.analysis_id,
+            conversation_id=pg_conversation_id,
+            message_count=len(pg_message_ids),
+        )
+    except Exception as e:
+        logger.warning(
+            "PostgreSQL persistence failed (non-fatal)",
+            error=str(e),
+            analysis_id=state.analysis_id,
+        )
+
+    # Then, persist to FalkorDB for graph memory
     try:
         from src.graph.client import get_graph_client
         graph = await get_graph_client()
-
-        now = utc_now()
 
         # Map source_type string to SourceType enum
         source_type_map = {
@@ -255,8 +460,8 @@ async def _get_or_create_thread_context(
         {"threadId": conversation_id, "orgId": organization_id},
     )
 
-    if result.result_set and len(result.result_set) > 0:
-        existing_id = result.result_set[0][0]
+    if result and len(result) > 0:
+        existing_id = result[0]["id"]
 
         # Update thread with new message count
         await graph.query(

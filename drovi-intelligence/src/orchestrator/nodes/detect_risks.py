@@ -9,7 +9,7 @@ import time
 import structlog
 
 from src.llm import get_llm_service, RiskDetectionOutput
-from src.llm.prompts import get_risk_detection_prompt
+from src.llm.prompts_v2 import get_risk_detection_v2_prompt
 from ..state import (
     IntelligenceState,
     DetectedRisk,
@@ -76,12 +76,12 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt
-    messages = get_risk_detection_prompt(
+    # Build prompt using V2 strict prompts
+    messages = get_risk_detection_v2_prompt(
         content=content,
         commitments=commitments_dicts,
         decisions=decisions_dicts,
-        user_email=state.input.user_email,
+        source_type=state.input.source_type,
     )
 
     try:

@@ -401,7 +401,7 @@ async def _analyze_risk(
 
     # Risk type based deviation
     high_priority_types = ["deadline_risk", "commitment_conflict", "escalation_needed", "fraud_signal"]
-    if risk.risk_type in high_priority_types:
+    if risk.type in high_priority_types:
         deviation_score += 0.5
 
     zone, classification = _classify_deviation(deviation_score)
@@ -413,7 +413,7 @@ async def _analyze_risk(
         zone=zone,
         deviation_score=deviation_score,
         actionability_score=actionability,
-        reasoning=f"Severity: {risk.severity}, Type: {risk.risk_type}",
+        reasoning=f"Severity: {risk.severity}, Type: {risk.type}",
     )
 
 

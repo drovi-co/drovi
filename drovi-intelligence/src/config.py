@@ -66,7 +66,35 @@ class Settings(BaseSettings):
 
     # API Settings
     api_key_salt: str = Field(default="")
-    cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000"])
+    api_base_url: str = Field(default="http://localhost:8000")
+    cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
+    environment: Literal["development", "production"] = Field(default="development")
+
+    # OAuth - Google (Gmail, Calendar, Docs)
+    google_client_id: str = Field(default="")
+    google_client_secret: str = Field(default="")
+
+    # OAuth - Slack
+    slack_client_id: str = Field(default="")
+    slack_client_secret: str = Field(default="")
+
+    # OAuth - Microsoft (Outlook, Teams)
+    microsoft_client_id: str = Field(default="")
+    microsoft_client_secret: str = Field(default="")
+    microsoft_tenant_id: str = Field(default="common")
+
+    # OAuth - Notion
+    notion_client_id: str = Field(default="")
+    notion_client_secret: str = Field(default="")
+
+    # OAuth - HubSpot
+    hubspot_client_id: str = Field(default="")
+    hubspot_client_secret: str = Field(default="")
+
+    # OAuth - Meta (WhatsApp Business)
+    meta_app_id: str = Field(default="")
+    meta_app_secret: str = Field(default="")
+    whatsapp_business_id: str = Field(default="")
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")

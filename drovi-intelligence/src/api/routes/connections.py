@@ -255,7 +255,7 @@ async def list_connections(
 
     return [
         ConnectionResponse(
-            id=conn.id,
+            id=str(conn.id),
             connector_type=conn.connector_type,
             name=conn.name,
             organization_id=conn.organization_id,
@@ -263,7 +263,7 @@ async def list_connections(
             created_at=conn.created_at,
             last_sync_at=conn.last_sync_at,
             sync_enabled=conn.sync_enabled,
-            streams=list(conn.enabled_streams or []),
+            streams=list(conn.streams_config or []),
         )
         for conn in connections
     ]
@@ -293,7 +293,7 @@ async def get_connection(
         raise HTTPException(status_code=404, detail="Connection not found")
 
     return ConnectionResponse(
-        id=connection.id,
+        id=str(connection.id),
         connector_type=connection.connector_type,
         name=connection.name,
         organization_id=connection.organization_id,
@@ -301,7 +301,7 @@ async def get_connection(
         created_at=connection.created_at,
         last_sync_at=connection.last_sync_at,
         sync_enabled=connection.sync_enabled,
-        streams=list(connection.enabled_streams or []),
+        streams=list(connection.streams_config or []),
     )
 
 
@@ -341,7 +341,7 @@ async def update_connection(
         await session.refresh(connection)
 
     return ConnectionResponse(
-        id=connection.id,
+        id=str(connection.id),
         connector_type=connection.connector_type,
         name=connection.name,
         organization_id=connection.organization_id,
@@ -349,7 +349,7 @@ async def update_connection(
         created_at=connection.created_at,
         last_sync_at=connection.last_sync_at,
         sync_enabled=connection.sync_enabled,
-        streams=list(connection.enabled_streams or []),
+        streams=list(connection.streams_config or []),
     )
 
 
@@ -523,17 +523,21 @@ async def trigger_sync(
                 detail=f"Connection is not active (status: {connection.status})",
             )
 
+        # Save organization_id before exiting session context
+        organization_id = connection.organization_id
+
     # Trigger the sync
-    scheduler = await get_scheduler()
-    job_id = await scheduler.trigger_sync(
+    scheduler = get_scheduler()
+    job = await scheduler.trigger_sync_by_id(
         connection_id=connection_id,
+        organization_id=organization_id,
         full_refresh=request.full_refresh,
         streams=request.streams,
     )
 
     return {
         "connection_id": connection_id,
-        "sync_job_id": job_id,
+        "sync_job_id": job.job_id,
         "status": "queued",
     }
 
@@ -718,12 +722,12 @@ async def configure_stream(
             raise HTTPException(status_code=404, detail="Connection not found")
 
         # Update enabled streams
-        enabled_streams = set(connection.enabled_streams or [])
+        streams_config = set(connection.streams_config or [])
         if request.enabled:
-            enabled_streams.add(stream_name)
+            streams_config.add(stream_name)
         else:
-            enabled_streams.discard(stream_name)
-        connection.enabled_streams = list(enabled_streams)
+            streams_config.discard(stream_name)
+        connection.streams_config = list(streams_config)
 
         # Update or create sync state
         result = await session.execute(

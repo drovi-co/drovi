@@ -47,9 +47,11 @@ class EventSubscriber:
             if not self._redis_url:
                 from src.config import get_settings
                 settings = get_settings()
-                self._redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379/0')
+                redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379/0')
+                # Convert RedisDsn to string if needed
+                self._redis_url = str(redis_url) if redis_url else 'redis://localhost:6379/0'
 
-            self._redis = redis.from_url(self._redis_url)
+            self._redis = redis.from_url(str(self._redis_url))
             self._pubsub = self._redis.pubsub()
             await self._redis.ping()
             logger.info("Event subscriber connected to Redis")

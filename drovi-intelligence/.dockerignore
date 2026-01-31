@@ -1,0 +1,41 @@
+# Virtual environment
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Test/Coverage
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+
+# Build
+dist
+build
+*.egg-info
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+
+# Training data
+training_data/

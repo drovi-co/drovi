@@ -245,18 +245,20 @@ class BlindspotDetectionService:
         self, organization_id: str, days: int
     ) -> dict[str, Any]:
         """Analyze decision patterns."""
+        # Calculate cutoff date in Python for FalkorDB compatibility
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
         try:
             result = await self._graph.query(
                 """
                 MATCH (d:Decision {organizationId: $org_id})
-                WHERE d.createdAt > datetime() - duration({days: $days})
+                WHERE d.createdAt > $cutoff_date
                 WITH d,
                      CASE WHEN d.status = 'reversed' THEN 1 ELSE 0 END as reversed
                 RETURN count(d) as total,
-                       sum(reversed) as reversed_count,
-                       avg(duration.between(d.createdAt, d.decidedAt).days) as avg_latency
+                       sum(reversed) as reversed_count
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             if result and len(result) > 0:
@@ -269,7 +271,7 @@ class BlindspotDetectionService:
                     "total": total,
                     "per_week": total / weeks if weeks > 0 else 0,
                     "reversal_rate": reversed_count / total if total > 0 else 0,
-                    "avg_latency": row.get("avg_latency", 0) or 0,
+                    "avg_latency": 0,  # Latency calculation not supported in FalkorDB
                 }
         except Exception as e:
             logger.warning("Decision analysis failed", error=str(e))
@@ -280,11 +282,13 @@ class BlindspotDetectionService:
         self, organization_id: str, days: int
     ) -> dict[str, Any]:
         """Analyze commitment patterns."""
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
         try:
             result = await self._graph.query(
                 """
                 MATCH (c:Commitment {organizationId: $org_id})
-                WHERE c.createdAt > datetime() - duration({days: $days})
+                WHERE c.createdAt > $cutoff_date
                 WITH c,
                      CASE WHEN c.status = 'completed' THEN 1 ELSE 0 END as completed,
                      CASE WHEN c.status = 'overdue' THEN 1 ELSE 0 END as overdue
@@ -292,7 +296,7 @@ class BlindspotDetectionService:
                        sum(completed) as completed_count,
                        sum(overdue) as overdue_count
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             if result and len(result) > 0:
@@ -323,19 +327,21 @@ class BlindspotDetectionService:
         self, organization_id: str, days: int
     ) -> dict[str, Any]:
         """Analyze communication patterns."""
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
         try:
             # Get topics and their decision coverage
             result = await self._graph.query(
                 """
                 MATCH (t:Topic {organizationId: $org_id})
-                WHERE t.lastSeen > datetime() - duration({days: $days})
+                WHERE t.lastSeen > $cutoff_date
                 OPTIONAL MATCH (t)<-[:RELATED_TO]-(d:Decision)
-                WHERE d.createdAt > datetime() - duration({days: $days})
+                WHERE d.createdAt > $cutoff_date
                 WITH t, count(d) as decision_count
                 RETURN count(t) as total_topics,
                        sum(CASE WHEN decision_count = 0 THEN 1 ELSE 0 END) as topics_without_decisions
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             # Get communication bottlenecks (contacts with high betweenness)
@@ -371,11 +377,13 @@ class BlindspotDetectionService:
         self, organization_id: str, days: int
     ) -> dict[str, Any]:
         """Analyze risk patterns."""
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
         try:
             result = await self._graph.query(
                 """
                 MATCH (r:Risk {organizationId: $org_id})
-                WHERE r.createdAt > datetime() - duration({days: $days})
+                WHERE r.createdAt > $cutoff_date
                 WITH r,
                      CASE WHEN r.status = 'open' THEN 1 ELSE 0 END as open_risk,
                      CASE WHEN r.status = 'ignored' THEN 1 ELSE 0 END as ignored_risk,
@@ -386,7 +394,7 @@ class BlindspotDetectionService:
                        sum(mitigated_risk) as mitigated_count,
                        collect(DISTINCT r.riskType) as risk_types
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             if result and len(result) > 0:
@@ -409,24 +417,25 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect topics that are actively discussed but have no decisions."""
         blindspots = []
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         try:
             result = await self._graph.query(
                 """
                 MATCH (t:Topic {organizationId: $org_id})
-                WHERE t.lastSeen > datetime() - duration({days: $days})
+                WHERE t.lastSeen > $cutoff_date
                 OPTIONAL MATCH (t)<-[:RELATED_TO]-(d:Decision)
                 WITH t, count(d) as decision_count
                 WHERE decision_count = 0
                 MATCH (t)<-[:MENTIONED_IN]-(ep:Episode)
-                WHERE ep.referenceTime > datetime() - duration({days: $days})
+                WHERE ep.referenceTime > $cutoff_date
                 WITH t, count(ep) as mention_count
                 WHERE mention_count >= 3
                 RETURN t.id as id, t.name as name, mention_count
                 ORDER BY mention_count DESC
                 LIMIT 5
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             for row in (result or []):
@@ -454,6 +463,7 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect commitments without clear ownership."""
         blindspots = []
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         try:
             result = await self._graph.query(
@@ -462,11 +472,11 @@ class BlindspotDetectionService:
                 WHERE c.status IN ['pending', 'in_progress']
                 AND c.debtorContactId IS NULL
                 AND c.creditorContactId IS NULL
-                AND c.createdAt > datetime() - duration({days: $days})
+                AND c.createdAt > $cutoff_date
                 RETURN c.id as id, c.title as title
                 LIMIT 10
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             if result and len(result) > 3:
@@ -494,19 +504,20 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect questions that keep appearing without resolution."""
         blindspots = []
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         try:
             result = await self._graph.query(
                 """
                 MATCH (c:Claim {organizationId: $org_id, type: 'question'})
-                WHERE c.createdAt > datetime() - duration({days: $days})
+                WHERE c.createdAt > $cutoff_date
                 WITH c.normalizedText as question, count(c) as occurrences, collect(c.id) as claim_ids
                 WHERE occurrences >= 3
                 RETURN question, occurrences, claim_ids[0..5] as evidence
                 ORDER BY occurrences DESC
                 LIMIT 5
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             for row in (result or []):
@@ -535,6 +546,8 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect risks that were identified but not addressed."""
         blindspots = []
+        # Risks open for more than 7 days
+        cutoff_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
 
         try:
             result = await self._graph.query(
@@ -542,27 +555,38 @@ class BlindspotDetectionService:
                 MATCH (r:Risk {organizationId: $org_id})
                 WHERE r.severity IN ['high', 'critical']
                 AND r.status = 'open'
-                AND r.createdAt < datetime() - duration({days: 7})
-                RETURN r.id as id, r.title as title, r.severity as severity,
-                       duration.between(r.createdAt, datetime()).days as days_open
-                ORDER BY r.severity DESC, days_open DESC
+                AND r.createdAt < $cutoff_7d
+                RETURN r.id as id, r.title as title, r.severity as severity, r.createdAt as created_at
+                ORDER BY r.severity DESC, r.createdAt ASC
                 LIMIT 5
                 """,
-                {"org_id": organization_id},
+                {"org_id": organization_id, "cutoff_7d": cutoff_7d},
             )
 
+            now = datetime.now(timezone.utc)
             for row in (result or []):
+                # Calculate days_open in Python
+                created_at_str = row.get("created_at", "")
+                try:
+                    if created_at_str:
+                        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                        days_open = (now - created_at).days
+                    else:
+                        days_open = 7  # Default if no date
+                except Exception:
+                    days_open = 7
+
                 blindspots.append(
                     BlindspotIndicator(
                         id=f"ir_{row['id']}",
                         blindspot_type=BlindspotType.IGNORED_RISK,
                         title=f"Ignored {row['severity']} risk: {row['title'][:40]}",
                         severity=BlindspotSeverity.CRITICAL if row["severity"] == "critical" else BlindspotSeverity.HIGH,
-                        description=f"{row['severity'].upper()} risk '{row['title']}' open for {row['days_open']} days",
+                        description=f"{row['severity'].upper()} risk '{row['title']}' open for {days_open} days",
                         evidence_ids=[row["id"]],
                         suggested_action=f"Address this {row['severity']} risk or document mitigation strategy",
-                        detected_at=datetime.now(timezone.utc),
-                        metadata={"days_open": row["days_open"], "severity": row["severity"]},
+                        detected_at=now,
+                        metadata={"days_open": days_open, "severity": row["severity"]},
                     )
                 )
 
@@ -576,13 +600,14 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect information that's not reaching relevant stakeholders."""
         blindspots = []
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         try:
             # Find decisions where stakeholders weren't included in discussions
             result = await self._graph.query(
                 """
                 MATCH (d:Decision {organizationId: $org_id})
-                WHERE d.createdAt > datetime() - duration({days: $days})
+                WHERE d.createdAt > $cutoff_date
                 AND size(d.stakeholderContactIds) > 0
                 WITH d
                 MATCH (d)-[:EXTRACTED_FROM]->(ep:Episode)
@@ -593,7 +618,7 @@ class BlindspotDetectionService:
                        collect(DISTINCT stakeholder.name) as uninformed_stakeholders
                 LIMIT 5
                 """,
-                {"org_id": organization_id, "days": days},
+                {"org_id": organization_id, "cutoff_date": cutoff_date},
             )
 
             for row in (result or []):
@@ -647,19 +672,19 @@ class BlindspotDetectionService:
     ) -> list[BlindspotIndicator]:
         """Detect commitments without recent progress."""
         blindspots = []
+        cutoff_14d = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
 
         try:
             result = await self._graph.query(
                 """
                 MATCH (c:Commitment {organizationId: $org_id})
                 WHERE c.status IN ['pending', 'in_progress']
-                AND c.updatedAt < datetime() - duration({days: 14})
-                RETURN c.id as id, c.title as title,
-                       duration.between(c.updatedAt, datetime()).days as days_stale
-                ORDER BY days_stale DESC
+                AND c.updatedAt < $cutoff_14d
+                RETURN c.id as id, c.title as title, c.updatedAt as updated_at
+                ORDER BY c.updatedAt ASC
                 LIMIT 5
                 """,
-                {"org_id": organization_id},
+                {"org_id": organization_id, "cutoff_14d": cutoff_14d},
             )
 
             stale_count = len(result or [])

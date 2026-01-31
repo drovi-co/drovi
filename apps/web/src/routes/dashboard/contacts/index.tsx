@@ -21,7 +21,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { contactsAPI, type ContactSummary } from "@/lib/api";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -56,7 +56,8 @@ function ContactsPage() {
 
   // Fetch stats
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
-    ...trpc.contacts.getStats.queryOptions({ organizationId }),
+    queryKey: ["contacts", "stats", organizationId],
+    queryFn: () => contactsAPI.getStats(organizationId),
     enabled: !!organizationId,
   });
 
@@ -66,46 +67,36 @@ function ContactsPage() {
     isLoading: isLoadingContacts,
     refetch,
   } = useQuery({
-    ...trpc.contacts.list.queryOptions({
-      organizationId,
-      limit: 50,
-      isVip: viewFilter === "vip" ? true : undefined,
-      isAtRisk: viewFilter === "at_risk" ? true : undefined,
-    }),
+    queryKey: ["contacts", "list", organizationId],
+    queryFn: () => contactsAPI.list({ organizationId, limit: 50 }),
     enabled: !!organizationId && viewFilter === "all",
   });
 
   // VIP contacts query
   const { data: vipData, isLoading: isLoadingVip } = useQuery({
-    ...trpc.contacts.getVips.queryOptions({
-      organizationId,
-      limit: 50,
-    }),
+    queryKey: ["contacts", "vips", organizationId],
+    queryFn: () => contactsAPI.getVips({ organizationId, limit: 50 }),
     enabled: !!organizationId && viewFilter === "vip",
   });
 
   // At-risk contacts query
   const { data: atRiskData, isLoading: isLoadingAtRisk } = useQuery({
-    ...trpc.contacts.getAtRisk.queryOptions({
-      organizationId,
-      limit: 50,
-    }),
+    queryKey: ["contacts", "at-risk", organizationId],
+    queryFn: () => contactsAPI.getAtRisk({ organizationId, limit: 50 }),
     enabled: !!organizationId && viewFilter === "at_risk",
   });
 
   // Search query
   const { data: searchData, isLoading: isLoadingSearch } = useQuery({
-    ...trpc.contacts.search.queryOptions({
-      organizationId,
-      query: searchQuery,
-      limit: 20,
-    }),
+    queryKey: ["contacts", "search", organizationId, searchQuery],
+    queryFn: () => contactsAPI.search({ organizationId, query: searchQuery, limit: 20 }),
     enabled: !!organizationId && searchQuery.length > 2,
   });
 
   // Mutations
   const toggleVipMutation = useMutation({
-    ...trpc.contacts.toggleVip.mutationOptions(),
+    mutationFn: async ({ contactId, isVip }: { contactId: string; isVip: boolean }) =>
+      contactsAPI.toggleVip(contactId, organizationId, isVip),
     onSuccess: () => {
       toast.success("VIP status updated");
       refetch();
@@ -116,7 +107,8 @@ function ContactsPage() {
   });
 
   const meetingBriefMutation = useMutation({
-    ...trpc.contacts.generateMeetingBrief.mutationOptions(),
+    mutationFn: async (contactId: string) =>
+      contactsAPI.generateMeetingBrief(contactId, organizationId),
     onSuccess: (_data) => {
       toast.success("Meeting brief generated", {
         description: "Check your downloads",
@@ -179,17 +171,16 @@ function ContactsPage() {
 
   // Get current contacts based on filter
   const getCurrentContacts = useCallback((): ContactCardData[] => {
-    type RawContact = NonNullable<typeof contactsData>["contacts"][number];
-    let rawContacts: RawContact[] | undefined;
+    let rawContacts: ContactSummary[] | undefined;
 
-    if (searchQuery.length > 2 && searchData?.contacts) {
-      rawContacts = searchData.contacts;
-    } else if (viewFilter === "vip" && vipData?.contacts) {
-      rawContacts = vipData.contacts;
-    } else if (viewFilter === "at_risk" && atRiskData?.contacts) {
-      rawContacts = atRiskData.contacts;
+    if (searchQuery.length > 2 && searchData?.items) {
+      rawContacts = searchData.items;
+    } else if (viewFilter === "vip" && vipData?.items) {
+      rawContacts = vipData.items;
+    } else if (viewFilter === "at_risk" && atRiskData?.items) {
+      rawContacts = atRiskData.items;
     } else {
-      rawContacts = contactsData?.contacts;
+      rawContacts = contactsData?.items;
     }
 
     return (rawContacts ?? []).map((c) => ({
@@ -198,8 +189,8 @@ function ContactsPage() {
       primaryEmail: c.primaryEmail,
       title: c.title,
       company: c.company,
-      phone: c.phone,
-      linkedinUrl: c.linkedinUrl,
+      phone: null,
+      linkedinUrl: null,
       avatarUrl: c.avatarUrl,
       isVip: c.isVip ?? false,
       isAtRisk: c.isAtRisk ?? false,
@@ -209,33 +200,33 @@ function ContactsPage() {
       sentimentScore: c.sentimentScore,
       totalThreads: c.totalThreads,
       totalMessages: c.totalMessages,
-      firstInteractionAt: c.firstInteractionAt
-        ? new Date(c.firstInteractionAt)
-        : null,
+      firstInteractionAt: null,
       lastInteractionAt: c.lastInteractionAt
         ? new Date(c.lastInteractionAt)
         : null,
-      avgResponseTimeHours: c.avgResponseTimeMinutes
-        ? c.avgResponseTimeMinutes / 60
-        : null,
-      responseRate: c.responseRate,
-      tags: c.tags as string[] | null,
+      avgResponseTimeHours: null,
+      responseRate: null,
+      tags: null,
     }));
   }, [contactsData, vipData, atRiskData, searchData, searchQuery, viewFilter]);
 
   // Handlers
   const handleToggleVip = useCallback(
     (contactId: string) => {
-      toggleVipMutation.mutate({ organizationId, contactId });
+      // Find current VIP status from contacts
+      const allContacts = getCurrentContacts();
+      const contact = allContacts.find(c => c.id === contactId);
+      const currentVipStatus = contact?.isVip ?? false;
+      toggleVipMutation.mutate({ contactId, isVip: !currentVipStatus });
     },
-    [toggleVipMutation, organizationId]
+    [toggleVipMutation, getCurrentContacts]
   );
 
   const handleGenerateMeetingBrief = useCallback(
     (contactId: string) => {
-      meetingBriefMutation.mutate({ organizationId, contactId });
+      meetingBriefMutation.mutate(contactId);
     },
-    [meetingBriefMutation, organizationId]
+    [meetingBriefMutation]
   );
 
   const handleEmailClick = useCallback((email: string) => {
@@ -255,13 +246,13 @@ function ContactsPage() {
         ? isLoadingVip
         : isLoadingAtRisk;
 
-  const stats = statsData ?? {
-    total: 0,
-    vipCount: 0,
-    atRiskCount: 0,
+  const stats = {
+    total: statsData?.totalContacts ?? 0,
+    vipCount: statsData?.vipCount ?? 0,
+    atRiskCount: statsData?.atRiskCount ?? 0,
     recentlyActiveCount: 0,
     needsAttentionCount: 0,
-    avgHealthScore: 0,
+    avgHealthScore: statsData?.avgHealthScore ?? 0,
   };
 
   if (orgLoading) {

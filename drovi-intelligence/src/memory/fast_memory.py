@@ -395,10 +395,10 @@ class FastMemoryRetrieval:
 
         Target: < 100ms
         """
-        from ..embedding.service import get_embedding
+        from src.search.embeddings import generate_embedding
 
         # Get query embedding
-        query_embedding = await get_embedding(query)
+        query_embedding = await generate_embedding(query)
 
         # Search entities using vector similarity
         entities_result = await self._graph.query(

@@ -127,6 +127,9 @@ async def persist_contact_intelligence_node(
 
                     is_vip = COALESCE(user_override_vip, $13),
                     is_at_risk = $14,
+                    risk_reason = $15,
+
+                    contact_brief = $16,
 
                     last_intelligence_at = NOW(),
                     intelligence_version = COALESCE(intelligence_version, 0) + 1,
@@ -147,6 +150,10 @@ async def persist_contact_intelligence_node(
                 comm.model_dump_json(),
                 is_vip,
                 is_at_risk,
+                # Risk reason based on churn factors
+                ", ".join(lifecycle.churn_risk_factors[:2]) if is_at_risk and lifecycle.churn_risk_factors else None,
+                # Contact brief as JSON
+                brief.model_dump_json() if brief else None,
             )
 
         # =================================================================
@@ -236,6 +243,9 @@ async def persist_contact_intelligence_node(
         # =================================================================
 
         try:
+            from datetime import timezone
+            now = datetime.now(timezone.utc).isoformat()
+
             graph_client = await get_graph_client()
             await graph_client.query(
                 """
@@ -249,7 +259,7 @@ async def persist_contact_intelligence_node(
                     c.bridgingScore = $bridgingScore,
                     c.isVip = $isVip,
                     c.isAtRisk = $isAtRisk,
-                    c.lastIntelligenceAt = datetime()
+                    c.lastIntelligenceAt = $now
                 """,
                 {
                     "contactId": state.input.contact_id,
@@ -263,6 +273,7 @@ async def persist_contact_intelligence_node(
                     "bridgingScore": graph.bridging_score if graph else 0,
                     "isVip": is_vip,
                     "isAtRisk": is_at_risk,
+                    "now": now,
                 },
             )
         except Exception as e:

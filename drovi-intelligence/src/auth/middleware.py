@@ -1,12 +1,18 @@
 """
 FastAPI Authentication Middleware for Drovi Intelligence API.
 
-Provides API key authentication with internal service bypass for the Drovi app.
+Provides multiple authentication methods:
+1. Session cookies (for Pilot Surface frontend)
+2. Internal service token (for internal services)
+3. API keys (for external integrations)
 
-Internal Service Authentication:
-- The Drovi TypeScript app communicates with this backend using an internal service token
-- This bypasses external API key requirements for internal app requests
-- Set DROVI_INTERNAL_SERVICE_TOKEN environment variable to enable
+Authentication priority:
+1. Session cookie (if present and valid)
+2. Internal service token (if present and valid)
+3. API key (required if no other auth method works)
+
+IMPORTANT: Use `get_auth_context()` for new code. The `get_api_key_context()`
+is kept for backward compatibility but should not be used in new code.
 """
 
 import os
@@ -15,10 +21,12 @@ from functools import wraps
 from typing import Callable
 
 import structlog
-from fastapi import Depends, HTTPException, Request
+from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader
 
 from src.auth.api_key import validate_api_key, APIKeyInfo
+from src.auth.context import AuthContext, AuthMetadata, AuthType, get_scopes_for_role
+from src.auth.pilot_accounts import verify_jwt
 from src.auth.scopes import has_scope, Scope
 from src.auth.rate_limit import check_rate_limit, RateLimitResult
 
@@ -98,18 +106,20 @@ async def _extract_org_id_from_request(request: Request) -> str | None:
 async def get_api_key_context(
     request: Request,
     api_key: str | None = Depends(api_key_header),
+    session: str | None = Cookie(default=None),
 ) -> APIKeyContext:
     """
     FastAPI dependency for API key authentication.
 
-    Validates the API key or internal service token and returns context.
-
-    The Drovi app uses an internal service token that bypasses external API key auth.
-    This allows the internal app to access all endpoints without needing API keys.
+    Supports multiple auth methods (in priority order):
+    1. Session cookies (Pilot Surface frontend)
+    2. Internal service token (internal services)
+    3. API keys (external integrations)
 
     Args:
         request: The FastAPI request
         api_key: API key from X-API-Key header
+        session: Session cookie from Pilot Surface
 
     Returns:
         APIKeyContext with organization and scope information
@@ -117,7 +127,26 @@ async def get_api_key_context(
     Raises:
         HTTPException: If authentication fails
     """
-    # Check for internal service token first (Drovi app bypass)
+    # 1. Check for session cookie first (Pilot Surface frontend)
+    if session:
+        token = verify_jwt(session)
+        if token:
+            logger.debug(
+                "Session cookie authentication",
+                user_id=token.sub,
+                org_id=token.org_id,
+                path=request.url.path,
+            )
+            return APIKeyContext(
+                organization_id=token.org_id,
+                scopes=["*"],  # Full access for authenticated users
+                key_id=f"session:{token.sub}",
+                key_name=f"Session: {token.email}",
+                is_internal=True,  # Treat as internal for rate limits
+                rate_limit_per_minute=1000,
+            )
+
+    # 2. Check for internal service token (Drovi app bypass)
     internal_token = request.headers.get(INTERNAL_SERVICE_HEADER)
 
     if internal_token and INTERNAL_SERVICE_TOKEN:
@@ -212,6 +241,184 @@ async def get_api_key_context(
         key_name=key_info.name,
         is_internal=False,
         rate_limit_per_minute=key_info.rate_limit_per_minute,
+    )
+
+
+# =============================================================================
+# UNIFIED AUTH CONTEXT (Recommended for new code)
+# =============================================================================
+
+
+async def get_auth_context(
+    request: Request,
+    api_key: str | None = Depends(api_key_header),
+    session: str | None = Cookie(default=None),
+) -> AuthContext:
+    """
+    Unified authentication middleware - returns AuthContext for all auth types.
+
+    This is the RECOMMENDED auth dependency for new code. It provides:
+    - Role-based scopes for session users (not wildcard ["*"])
+    - Immutable organization_id from JWT/API key (not from request body)
+    - Comprehensive audit metadata
+    - Consistent rate limiting
+
+    Priority:
+    1. Session cookie (Pilot Surface frontend)
+    2. Internal service token (with X-Organization-ID header)
+    3. API key (external integrations)
+
+    Args:
+        request: The FastAPI request
+        api_key: API key from X-API-Key header
+        session: Session cookie from Pilot Surface
+
+    Returns:
+        AuthContext with organization, scopes, and audit metadata
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    # 1. Check for session cookie first (Pilot Surface frontend)
+    if session:
+        token = verify_jwt(session)
+        if token:
+            # Get role-based scopes (not wildcard ["*"])
+            scopes = get_scopes_for_role(token.role)
+
+            logger.debug(
+                "session_authentication_success",
+                user_id=token.sub,
+                org_id=token.org_id,
+                role=token.role,
+                scopes=scopes,
+                path=request.url.path,
+            )
+
+            return AuthContext(
+                organization_id=token.org_id,
+                auth_subject_id=f"user_{token.sub}",
+                scopes=scopes,
+                metadata=AuthMetadata(
+                    auth_type=AuthType.SESSION,
+                    user_email=token.email,
+                    user_id=token.sub,
+                ),
+                rate_limit_per_minute=1000,
+                is_internal=False,  # Session users are not internal
+            )
+
+    # 2. Check for internal service token (Drovi app)
+    internal_token = request.headers.get(INTERNAL_SERVICE_HEADER)
+
+    if internal_token and INTERNAL_SERVICE_TOKEN:
+        if internal_token == INTERNAL_SERVICE_TOKEN:
+            # SECURITY: org_id MUST come from X-Organization-ID header, NOT request body
+            org_id = request.headers.get("X-Organization-ID")
+
+            if not org_id:
+                # Fall back to query params for backward compatibility
+                org_id = request.query_params.get("organization_id")
+
+            if not org_id:
+                logger.warning(
+                    "internal_service_missing_org_header",
+                    path=request.url.path,
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="X-Organization-ID header required for internal service auth",
+                )
+
+            logger.debug(
+                "internal_service_authentication_success",
+                organization_id=org_id,
+                path=request.url.path,
+            )
+
+            return AuthContext(
+                organization_id=org_id,
+                auth_subject_id="service_internal",
+                scopes=[Scope.ADMIN.value, Scope.INTERNAL.value],
+                metadata=AuthMetadata(
+                    auth_type=AuthType.INTERNAL_SERVICE,
+                    service_name="Drovi Internal Service",
+                ),
+                rate_limit_per_minute=10000,
+                is_internal=True,
+            )
+        else:
+            logger.warning(
+                "invalid_internal_service_token",
+                path=request.url.path,
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid internal service token",
+            )
+
+    # 3. External API key validation
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing authentication. Use session cookie or X-API-Key header.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+    # Validate the API key
+    key_info = await validate_api_key(api_key)
+
+    if not key_info:
+        logger.warning(
+            "invalid_api_key",
+            key_prefix=api_key[:8] if len(api_key) > 8 else "***",
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key",
+        )
+
+    # Check if revoked
+    if key_info.revoked_at:
+        logger.warning(
+            "revoked_api_key_used",
+            key_id=key_info.id,
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="API key has been revoked",
+        )
+
+    # Check if expired
+    if key_info.expires_at and key_info.expires_at < datetime.utcnow():
+        logger.warning(
+            "expired_api_key_used",
+            key_id=key_info.id,
+            expired_at=key_info.expires_at.isoformat(),
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="API key has expired",
+        )
+
+    logger.debug(
+        "api_key_authentication_success",
+        key_id=key_info.id,
+        organization_id=key_info.organization_id,
+        scopes=key_info.scopes,
+    )
+
+    return AuthContext(
+        organization_id=key_info.organization_id,
+        auth_subject_id=f"key_{key_info.id}",
+        scopes=key_info.scopes,
+        metadata=AuthMetadata(
+            auth_type=AuthType.API_KEY,
+            key_id=key_info.id,
+            key_name=key_info.name,
+        ),
+        rate_limit_per_minute=key_info.rate_limit_per_minute,
+        is_internal=False,
     )
 
 

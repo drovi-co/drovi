@@ -157,6 +157,7 @@ class TogetherProvider:
         model: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout: float = 60.0,
     ) -> tuple[str, int, int]:
         """
         Chat completion using v2 SDK.
@@ -164,11 +165,14 @@ class TogetherProvider:
         Returns:
             Tuple of (content, prompt_tokens, completion_tokens)
         """
-        response = await self.async_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        response = await asyncio.wait_for(
+            self.async_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
+            timeout=timeout,
         )
 
         content = response.choices[0].message.content or ""
@@ -183,6 +187,7 @@ class TogetherProvider:
         model: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout: float = 60.0,
     ) -> tuple[dict[str, Any], int, int]:
         """
         Structured JSON output using v2 SDK.
@@ -190,12 +195,15 @@ class TogetherProvider:
         Returns:
             Tuple of (parsed_json, prompt_tokens, completion_tokens)
         """
-        response = await self.async_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
+        response = await asyncio.wait_for(
+            self.async_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            ),
+            timeout=timeout,
         )
 
         content = response.choices[0].message.content or "{}"
@@ -208,11 +216,15 @@ class TogetherProvider:
         self,
         texts: list[str],
         model: str = "togethercomputer/m2-bert-80M-32k-retrieval",
+        timeout: float = 30.0,
     ) -> list[list[float]]:
         """Generate embeddings using v2 SDK."""
-        response = await self.async_client.embeddings.create(
-            model=model,
-            input=texts,
+        response = await asyncio.wait_for(
+            self.async_client.embeddings.create(
+                model=model,
+                input=texts,
+            ),
+            timeout=timeout,
         )
         return [data.embedding for data in response.data]
 
@@ -233,15 +245,19 @@ class LiteLLMProvider:
         model: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout: float = 60.0,
     ) -> tuple[str, int, int]:
         """Chat completion using LiteLLM."""
         import litellm
 
-        response = await litellm.acompletion(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        response = await asyncio.wait_for(
+            litellm.acompletion(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
+            timeout=timeout,
         )
 
         content = response.choices[0].message.content or ""
@@ -256,16 +272,20 @@ class LiteLLMProvider:
         model: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout: float = 60.0,
     ) -> tuple[dict[str, Any], int, int]:
         """Structured JSON output using LiteLLM."""
         import litellm
 
-        response = await litellm.acompletion(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
+        response = await asyncio.wait_for(
+            litellm.acompletion(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            ),
+            timeout=timeout,
         )
 
         content = response.choices[0].message.content or "{}"

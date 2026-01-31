@@ -1,26 +1,11 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Outlet,
   redirect,
   useLocation,
-  useNavigate,
 } from "@tanstack/react-router";
-import {
-  Bell,
-  Calendar,
-  CheckCircle2,
-  Filter,
-  Inbox,
-  Mail,
-  MessageSquare,
-  Plus,
-  Star,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 
-import { UpgradeModal } from "@/components/billing/upgrade-modal";
-import { ActivitySidebar, PresenceProvider } from "@/components/collaboration";
 import { useCommandBar } from "@/components/email/command-bar";
 import { AppShell } from "@/components/layout/app-shell";
 import type {
@@ -28,36 +13,7 @@ import type {
   FilterConfig,
   HeaderTab,
 } from "@/components/layout/interactive-header";
-import {
-  authClient,
-  useActiveOrganization,
-  useSession,
-} from "@/lib/auth-client";
-import { useTRPC } from "@/utils/trpc";
-
-// Invite code storage helpers (cookie-based to survive OAuth redirect)
-const INVITE_CODE_COOKIE = "drovi_invite_code";
-
-function getStoredInviteCode(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const cookies = document.cookie.split(";");
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split("=");
-    if (name === INVITE_CODE_COOKIE && value) {
-      return decodeURIComponent(value);
-    }
-  }
-  return null;
-}
-
-function clearStoredInviteCode() {
-  if (typeof window === "undefined") {
-    return;
-  }
-  document.cookie = `${INVITE_CODE_COOKIE}=; path=/; max-age=0`;
-}
+import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -69,41 +25,10 @@ export const Route = createFileRoute("/dashboard")({
       });
     }
 
-    // Check if user has an active organization
-    const activeOrgResult = await authClient.organization.getActiveMember();
-
-    // If no active organization, try to get list of orgs
-    if (!activeOrgResult.data) {
-      const orgsResult = await authClient.organization.list();
-
-      // If user has no organizations, redirect to onboarding
-      if (!orgsResult.data || orgsResult.data.length === 0) {
-        throw redirect({
-          to: "/onboarding/create-org",
-        });
-      }
-
-      // If user has organizations but none active, set the first one as active
-      if (orgsResult.data.length > 0) {
-        await authClient.organization.setActive({
-          organizationId: orgsResult.data[0].id,
-        });
-      }
-    }
-
     // Check if user is admin
     const isAdmin = session.data.user.role === "admin";
 
-    // Get customer state for billing info (only if Polar plugin is enabled)
-    let customerState = null;
-    if ("customer" in authClient && authClient.customer) {
-      const result = await (
-        authClient.customer as { state: () => Promise<{ data: unknown }> }
-      ).state();
-      customerState = result.data;
-    }
-
-    return { session, customerState, isAdmin };
+    return { session, isAdmin };
   },
 });
 
@@ -128,9 +53,15 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
-  // Notifications
-  if (pathname === "/dashboard/notifications") {
-    breadcrumbs.push({ label: "Notifications" });
+  // Console (primary view)
+  if (pathname === "/dashboard/console") {
+    breadcrumbs.push({ label: "Console" });
+    return breadcrumbs;
+  }
+
+  // Graph
+  if (pathname === "/dashboard/graph") {
+    breadcrumbs.push({ label: "Graph" });
     return breadcrumbs;
   }
 
@@ -158,22 +89,10 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
-  // Unified Inbox section
-  if (pathname === "/dashboard/inbox") {
-    breadcrumbs.push({ label: "Smart Inbox" });
-    return breadcrumbs;
-  }
-
   // Thread detail page (under /dashboard/email/thread for route compatibility)
   if (pathname.startsWith("/dashboard/email/thread")) {
-    breadcrumbs.push({ label: "Smart Inbox", href: "/dashboard/inbox" });
+    breadcrumbs.push({ label: "Console", href: "/dashboard/console" });
     breadcrumbs.push({ label: "Thread" });
-    return breadcrumbs;
-  }
-
-  // Search section
-  if (pathname === "/dashboard/search") {
-    breadcrumbs.push({ label: "Search" });
     return breadcrumbs;
   }
 
@@ -208,11 +127,6 @@ function getBreadcrumbs(pathname: string) {
     return breadcrumbs;
   }
 
-  // Analytics section
-  if (pathname === "/dashboard/analytics") {
-    breadcrumbs.push({ label: "Analytics" });
-    return breadcrumbs;
-  }
 
   // Team section
   if (pathname.startsWith("/dashboard/team")) {
@@ -236,19 +150,9 @@ function getBreadcrumbs(pathname: string) {
   return breadcrumbs;
 }
 
-interface CustomerState {
-  activeSubscriptions?: Array<{
-    id: string;
-    product?: { name?: string };
-    status?: string;
-  }>;
-}
-
 // =============================================================================
 // HEADER CONFIGURATION BY ROUTE
 // =============================================================================
-// This configures the interactive header based on the current route, creating
-// an Octolane-style header with tabs, filters, and actions.
 
 interface RouteHeaderConfig {
   tabs?: HeaderTab[];
@@ -258,229 +162,46 @@ interface RouteHeaderConfig {
 }
 
 function getHeaderConfig(
-  pathname: string,
+  _pathname: string,
   handlers: {
     onCompose?: () => void;
-    onTabChange?: (tabId: string) => void;
-    onSourceFilter?: (value: string) => void;
-    onActivityToggle?: () => void;
   }
 ): RouteHeaderConfig {
-  // Common action for activity feed (available on all dashboard pages)
-  const activityAction: ActionButton = {
-    id: "activity",
-    label: "Activity",
-    icon: Bell,
-    onClick: handlers.onActivityToggle,
-  };
-
-  // Smart Inbox page - Conversation-centric tabs
-  if (pathname === "/dashboard/inbox") {
-    return {
-      tabs: [
-        { id: "all", label: "All", icon: Inbox },
-        { id: "unread", label: "Unread", icon: Mail },
-        { id: "starred", label: "Starred", icon: Star },
-        { id: "done", label: "Done", icon: CheckCircle2 },
-      ],
-      filters: [
-        {
-          id: "source",
-          label: "Source",
-          icon: Filter,
-          options: [
-            { value: "all", label: "All sources" },
-            { value: "email", label: "Email", icon: Mail },
-            { value: "slack", label: "Slack", icon: MessageSquare },
-            { value: "calendar", label: "Calendar", icon: Calendar },
-          ],
-          onSelect: handlers.onSourceFilter,
-        },
-      ],
-      actions: [activityAction],
-      primaryAction: {
-        id: "compose",
-        label: "Compose",
-        icon: Plus,
-        onClick: handlers.onCompose,
-      },
-    };
-  }
-
-  // Default - just the activity action
+  // Console page will handle its own header with search bar
+  // Other pages get default config
   return {
-    actions: [activityAction],
+    primaryAction: {
+      id: "compose",
+      label: "Compose",
+      icon: Plus,
+      onClick: handlers.onCompose,
+    },
   };
 }
 
 function DashboardLayout() {
-  const { isAdmin, customerState } = Route.useRouteContext() as {
+  const { isAdmin } = Route.useRouteContext() as {
     isAdmin: boolean;
-    customerState: CustomerState | null;
   };
   const location = useLocation();
-  const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs(location.pathname);
-  const trpc = useTRPC();
-  const { data: session } = useSession();
-  const { data: activeOrg } = useActiveOrganization();
-  const inviteCodeProcessed = useRef(false);
   const { openCompose } = useCommandBar();
-
-  // Get organization ID for presence tracking
-  const organizationId = activeOrg?.id ?? "";
-
-  // Activity sidebar state
-  const [activitySidebarOpen, setActivitySidebarOpen] = useState(false);
-
-  // Read tab from URL search params (for inbox page)
-  const searchParams = new URLSearchParams(location.search);
-  const tabFromUrl = searchParams.get("tab") ?? "all";
-
-  // Handle source filter changes
-  const handleSourceFilter = useCallback(
-    (value: string) => {
-      if (location.pathname === "/dashboard/inbox") {
-        navigate({
-          to: "/dashboard/inbox",
-          search: (prev) => {
-            if (value === "all") {
-              // Remove sources from search params
-              const { sources, ...rest } = prev as Record<string, unknown>;
-              return rest;
-            }
-            return { ...prev, sources: value };
-          },
-        });
-      }
-    },
-    [location.pathname, navigate]
-  );
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
     onCompose: openCompose,
-    onSourceFilter: handleSourceFilter,
-    onActivityToggle: () => setActivitySidebarOpen((prev) => !prev),
   });
-
-  // Handle tab changes - update URL search params
-  const handleTabChange = useCallback(
-    (tabId: string) => {
-      // Only update URL if we're on the inbox page
-      if (location.pathname === "/dashboard/inbox") {
-        const validTabs = ["all", "unread", "starred", "done"] as const;
-        const tab = validTabs.includes(tabId as (typeof validTabs)[number])
-          ? (tabId as (typeof validTabs)[number])
-          : "all";
-        navigate({
-          to: "/dashboard/inbox",
-          search: tab === "all" ? {} : { tab },
-        });
-      }
-    },
-    [location.pathname, navigate]
-  );
-
-  // Check if user needs to finalize signup
-  const { data: signupStatus, isLoading: isCheckingSignup } = useQuery({
-    ...trpc.waitlist.checkSignupStatus.queryOptions(),
-    enabled: Boolean(session?.user?.id),
-  });
-
-  // Mutation to finalize signup (validates invite code, creates subscription)
-  const finalizeSignupMutation = useMutation(
-    trpc.waitlist.finalizeSignup.mutationOptions({
-      onSuccess: () => {
-        clearStoredInviteCode();
-      },
-      onError: (err) => {
-        clearStoredInviteCode();
-        // If finalization fails and user needs a code, redirect to login
-        if (err.data?.code === "FORBIDDEN") {
-          navigate({ to: "/login" });
-        }
-      },
-    })
-  );
-
-  // Finalize signup if needed
-  useEffect(() => {
-    if (inviteCodeProcessed.current) {
-      return;
-    }
-    if (isCheckingSignup) {
-      return;
-    }
-    if (!signupStatus) {
-      return;
-    }
-
-    // If signup is already finalized, nothing to do
-    if (!signupStatus.needsFinalization) {
-      inviteCodeProcessed.current = true;
-      clearStoredInviteCode(); // Clean up any leftover code
-      return;
-    }
-
-    // User needs to finalize - get stored invite code and call API
-    inviteCodeProcessed.current = true;
-    const storedCode = getStoredInviteCode();
-
-    finalizeSignupMutation.mutate({
-      inviteCode: storedCode ?? undefined,
-    });
-  }, [signupStatus, isCheckingSignup, finalizeSignupMutation, navigate]);
-
-  // Query trial/credit status
-  const { data: creditStatus } = useQuery(
-    trpc.credits.getStatus.queryOptions()
-  );
-
-  // Check if user has an active subscription
-  const hasActiveSubscription =
-    (customerState?.activeSubscriptions?.length ?? 0) > 0;
-
-  // Determine if we should show the upgrade modal
-  // Show when trial is expired AND user has no active subscription
-  // Skip in development mode to avoid blocking the app during testing
-  const shouldShowUpgradeModal =
-    !import.meta.env.DEV &&
-    creditStatus?.trialStatus === "expired" &&
-    !hasActiveSubscription;
-
-  // Calculate trial days used (7 day trial - days remaining)
-  const trialDaysUsed = creditStatus?.trialDaysRemaining
-    ? 7 - creditStatus.trialDaysRemaining
-    : 7;
 
   return (
-    <PresenceProvider
-      enabled={Boolean(organizationId)}
-      organizationId={organizationId}
+    <AppShell
+      actions={headerConfig.actions}
+      breadcrumbs={breadcrumbs}
+      filters={headerConfig.filters}
+      primaryAction={headerConfig.primaryAction}
+      showAdmin={isAdmin}
+      tabs={headerConfig.tabs}
     >
-      <AppShell
-        actions={headerConfig.actions}
-        activeTab={tabFromUrl}
-        breadcrumbs={breadcrumbs}
-        filters={headerConfig.filters}
-        onTabChange={handleTabChange}
-        primaryAction={headerConfig.primaryAction}
-        showAdmin={isAdmin}
-        tabs={headerConfig.tabs}
-      >
-        <Outlet />
-      </AppShell>
-
-      {/* Hard paywall modal - cannot be dismissed */}
-      {shouldShowUpgradeModal && <UpgradeModal trialDaysUsed={trialDaysUsed} />}
-
-      {/* Activity sidebar - togglable via header action */}
-      <ActivitySidebar
-        isOpen={activitySidebarOpen}
-        onClose={() => setActivitySidebarOpen(false)}
-        organizationId={organizationId}
-      />
-    </PresenceProvider>
+      <Outlet />
+    </AppShell>
   );
 }

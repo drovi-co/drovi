@@ -18,20 +18,33 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
+from src.api.middleware import (
+    SecurityHeadersMiddleware,
+    RequestIDMiddleware,
+    RateLimitMiddleware,
+    get_cors_origins,
+)
+
 from src.config import get_settings
 from src.api.routes import (
     analyze,
     analytics,
     api_keys,
     ask,
+    auth,
+    brief,
     changes,
     connections,
+    console,
+    contacts,
     customer,
     events,
+    evidence,
     graph,
     health,
     memory,
     monitoring,
+    org,
     search,
     sessions,
     stream,
@@ -131,15 +144,35 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware
+# Security middleware (order matters - first added = last executed)
 settings = get_settings()
+
+# Rate limiting (applied first to reject early)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=100,
+    burst_limit=20,
+)
+
+# Request ID tracking
+app.add_middleware(RequestIDMiddleware)
+
+# Security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS middleware (must be after security headers)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
+
+# Note: CSRF middleware is optional - pilot surface uses httpOnly cookies
+# which provide CSRF protection via SameSite=Lax. Enable if needed:
+# app.add_middleware(CSRFMiddleware)
 
 # Prometheus metrics endpoint
 metrics_app = make_asgi_app()
@@ -147,8 +180,11 @@ app.mount("/metrics", metrics_app)
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
+app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+app.include_router(console.router, prefix="/api/v1", tags=["Console"])
 app.include_router(customer.router, prefix="/api/v1", tags=["Customer Context"])
 app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory"])
@@ -156,6 +192,7 @@ app.include_router(search.router, prefix="/api/v1", tags=["Search"])
 app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
 app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
+app.include_router(contacts.router, prefix="/api/v1", tags=["Contacts"])
 app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])
 app.include_router(sessions.router, prefix="/api/v1", tags=["Sessions"])
@@ -165,6 +202,8 @@ app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
 app.include_router(stream.router, prefix="/api/v1", tags=["Real-Time Stream"])
 app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"])
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])
+app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(org.router, prefix="/api/v1", tags=["Organization Management"])
 
 
 @app.get("/")

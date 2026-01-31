@@ -86,14 +86,14 @@ async def pattern_match_node(state: IntelligenceState) -> dict:
 
     try:
         from ...graph.client import get_graph_client
-        from ...embedding.service import get_embedding
+        from src.search.embeddings import generate_embedding
 
         graph = await get_graph_client()
         organization_id = state.input.organization_id
 
         # Get content embedding for semantic matching
         content = state.input.content
-        content_embedding = await get_embedding(content[:8000])  # Limit for embedding
+        content_embedding = await generate_embedding(content[:8000])  # Limit for embedding
 
         # Get active patterns for this organization
         patterns = await _get_active_patterns(graph, organization_id)
@@ -277,14 +277,17 @@ def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 
 async def _record_pattern_match(graph, pattern_id: str) -> None:
     """Record that a pattern was matched (for learning metrics)."""
+    from datetime import datetime, timezone
+
     try:
+        now = datetime.now(timezone.utc).isoformat()
         await graph.query(
             """
             MATCH (p:Pattern {id: $pattern_id})
             SET p.timesMatched = COALESCE(p.timesMatched, 0) + 1,
-                p.lastMatchedAt = datetime()
+                p.lastMatchedAt = $now
             """,
-            {"pattern_id": pattern_id},
+            {"pattern_id": pattern_id, "now": now},
         )
     except Exception as e:
         logger.debug("Failed to record pattern match", error=str(e))
@@ -305,9 +308,13 @@ async def record_pattern_feedback(
         user_id: ID of user providing feedback
         graph: Optional graph client
     """
+    from datetime import datetime, timezone
+
     if graph is None:
         from ...graph.client import get_graph_client
         graph = await get_graph_client()
+
+    now = datetime.now(timezone.utc).isoformat()
 
     try:
         if was_correct:
@@ -320,9 +327,9 @@ async def record_pattern_feedback(
                                      (COALESCE(p.timesConfirmed, 0) + COALESCE(p.timesRejected, 0) + 1)
                 WITH p
                 MATCH (u:Contact {userId: $user_id})
-                MERGE (p)-[:CONFIRMED_BY {timestamp: datetime()}]->(u)
+                MERGE (p)-[:CONFIRMED_BY {timestamp: $now}]->(u)
                 """,
-                {"pattern_id": pattern_id, "user_id": user_id},
+                {"pattern_id": pattern_id, "user_id": user_id, "now": now},
             )
         else:
             # Rejected - decrease accuracy
@@ -334,9 +341,9 @@ async def record_pattern_feedback(
                                      (COALESCE(p.timesConfirmed, 0) + COALESCE(p.timesRejected, 0) + 1)
                 WITH p
                 MATCH (u:Contact {userId: $user_id})
-                MERGE (p)-[:REJECTED_BY {timestamp: datetime()}]->(u)
+                MERGE (p)-[:REJECTED_BY {timestamp: $now}]->(u)
                 """,
-                {"pattern_id": pattern_id, "user_id": user_id},
+                {"pattern_id": pattern_id, "user_id": user_id, "now": now},
             )
 
             # Deactivate pattern if accuracy drops too low
@@ -399,13 +406,13 @@ async def create_pattern_from_feedback(
         from uuid import uuid4
         from datetime import datetime, timezone
 
-        from ...embedding.service import get_embedding
+        from src.search.embeddings import generate_embedding
 
         pattern_id = str(uuid4())
 
         # Generate embedding from name + description + features
         embedding_text = f"{pattern_name}. {description}. " + ". ".join(salient_features)
-        trigger_embedding = await get_embedding(embedding_text)
+        trigger_embedding = await generate_embedding(embedding_text)
 
         now = datetime.now(timezone.utc).isoformat()
 
@@ -430,12 +437,12 @@ async def create_pattern_from_feedback(
                 timesRejected: 0,
                 accuracyRate: 1.0,
                 isActive: true,
-                createdAt: datetime($now),
-                updatedAt: datetime($now)
+                createdAt: $now,
+                updatedAt: $now
             })
             WITH p
             MATCH (u:UIO {id: $uio_id})
-            MERGE (p)-[:LEARNED_FROM {timestamp: datetime($now)}]->(u)
+            MERGE (p)-[:LEARNED_FROM {timestamp: $now}]->(u)
             RETURN p.id as id
             """,
             {

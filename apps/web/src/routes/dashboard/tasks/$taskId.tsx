@@ -30,7 +30,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import {
   formatDueDate,
   PRIORITY_CONFIG,
@@ -62,7 +62,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useTrackViewing } from "@/hooks/use-presence";
 import {
   useArchiveUIO,
   useUIO,
@@ -103,14 +102,6 @@ function TaskDetailPage() {
 
   // Comments/Collaboration state
   const [showComments, setShowComments] = useState(false);
-
-  // Track viewing for presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "task",
-    resourceId: taskId,
-    enabled: Boolean(organizationId && taskId),
-  });
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -528,14 +519,6 @@ function TaskDetailPage() {
             </div>
 
             <div className="flex-1" />
-
-            {/* Who is viewing */}
-            <WhoIsViewing
-              compact
-              organizationId={organizationId}
-              resourceId={taskId}
-              resourceType="task"
-            />
 
             {/* Actions */}
             <div className="flex items-center gap-1">

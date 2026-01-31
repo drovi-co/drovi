@@ -289,7 +289,7 @@ async def _analyze_decision_contradiction(
 
     Uses heuristics and optionally LLM for semantic analysis.
     """
-    from src.llm.client import get_llm_client
+    from src.llm import get_llm_service
 
     # Quick heuristics first
     new_statement = (new_decision.statement or "").lower()
@@ -323,7 +323,7 @@ async def _analyze_decision_contradiction(
     # Check if decisions are on similar topic but with different outcomes
     # Use LLM for semantic analysis
     try:
-        llm = await get_llm_client()
+        llm = get_llm_service()
 
         prompt = f"""Analyze whether these two decisions contradict each other.
 
@@ -345,14 +345,16 @@ Answer with a JSON object:
 
 Only return the JSON, nothing else."""
 
-        response = await llm.chat(
+        response, _ = await llm.complete(
             messages=[{"role": "user", "content": prompt}],
+            model_tier="fast",
             temperature=0.1,
-            response_format={"type": "json_object"},
+            max_tokens=200,
+            node_name="detect_contradictions",
         )
 
         import json
-        result = json.loads(response.content)
+        result = json.loads(response)
         return result
 
     except Exception as e:

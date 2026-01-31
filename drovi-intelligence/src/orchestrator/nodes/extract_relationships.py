@@ -273,10 +273,10 @@ async def _extract_with_llm(
     contacts: list[Any],
 ) -> list[ExtractedRelationship]:
     """Extract relationships using LLM analysis."""
-    from src.llm.client import get_llm_client
+    from src.llm import get_llm_service
 
     try:
-        llm = await get_llm_client()
+        llm = get_llm_service()
 
         contact_names = [c.name for c in contacts if c.name]
         contact_list = ", ".join(contact_names[:10])  # Limit to 10 contacts
@@ -299,7 +299,13 @@ Return as JSON array of objects with keys: source, target, type, strength, senti
 If no clear relationships are found, return an empty array [].
 """
 
-        response = await llm.generate(prompt, max_tokens=1000)
+        response, _ = await llm.complete(
+            messages=[{"role": "user", "content": prompt}],
+            model_tier="fast",
+            temperature=0.0,
+            max_tokens=1000,
+            node_name="extract_relationships",
+        )
 
         # Parse response
         import json

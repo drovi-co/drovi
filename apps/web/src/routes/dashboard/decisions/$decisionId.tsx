@@ -32,7 +32,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread, WhoIsViewing } from "@/components/collaboration";
+import { CommentThread } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useTrackViewing } from "@/hooks/use-presence";
 import { useDismissUIO, useUIO, useVerifyUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -131,14 +130,6 @@ function DecisionDetailPage() {
   const [showComments, setShowComments] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const rationaleRef = useRef<HTMLTextAreaElement>(null);
-
-  // Track viewing this decision for real-time presence
-  useTrackViewing({
-    organizationId,
-    resourceType: "decision",
-    resourceId: decisionId,
-    enabled: Boolean(organizationId && decisionId),
-  });
 
   // Fetch decision details using UIO hook
   const {
@@ -350,16 +341,6 @@ function DecisionDetailPage() {
             </div>
 
             <div className="flex-1" />
-
-            {/* Who's viewing indicator */}
-            {organizationId && decisionId && (
-              <WhoIsViewing
-                compact
-                organizationId={organizationId}
-                resourceId={decisionId}
-                resourceType="decision"
-              />
-            )}
 
             {/* Actions */}
             <div className="flex items-center gap-1">

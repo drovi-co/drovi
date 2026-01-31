@@ -10,7 +10,7 @@ import time
 import structlog
 
 from src.llm import get_llm_service, TaskExtractionOutput
-from src.llm.prompts import get_task_extraction_prompt
+from src.llm.prompts_v2 import get_task_extraction_v2_prompt
 from ..state import (
     IntelligenceState,
     ExtractedTask,
@@ -88,14 +88,12 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt
-    messages = get_task_extraction_prompt(
+    # Build prompt using V2 strict prompts
+    messages = get_task_extraction_v2_prompt(
         content=content,
         commitments=commitments_dicts,
-        claims=claims_dicts,
         decisions=decisions_dicts,
-        user_email=state.input.user_email,
-        user_name=state.input.user_name,
+        source_type=state.input.source_type,
     )
 
     try:

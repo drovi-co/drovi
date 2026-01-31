@@ -279,8 +279,8 @@ function DecisionsPage() {
   // Transform UIO data for DecisionRow
   const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map((d) => {
     const details = d.decisionDetails;
-    // Use decision maker from details if available, otherwise fall back to owner
-    const decisionMaker = details?.decisionMaker ?? d.owner;
+    // Get decision maker from UIO root level (where transformer places it)
+    const decisionMaker = d.decisionMaker ?? d.owner;
     return {
       id: d.id,
       title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
@@ -312,7 +312,7 @@ function DecisionsPage() {
   const decisionsLegacy: DecisionCardData[] = (decisionsData?.items ?? []).map(
     (d) => {
       const details = d.decisionDetails;
-      const decisionMaker = details?.decisionMaker ?? d.owner;
+      const decisionMaker = d.decisionMaker ?? d.owner;
       return {
         id: d.id,
         title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",

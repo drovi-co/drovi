@@ -1,43 +1,44 @@
 import {
-  BarChart3,
-  Bell,
   BookOpen,
   Calendar,
   CheckCircle2,
-  CreditCard,
   FileText,
-  Inbox,
   Link2,
   ListTodo,
   Mail,
-  Search,
+  Network,
   Settings,
   Shield,
+  Terminal,
   Users,
 } from "lucide-react";
-import { TeamPresencePanel } from "@/components/collaboration/team-presence-panel";
-import { NotificationCenter } from "@/components/notifications/notification-center";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarRail,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { TeamSwitcher } from "./team-switcher";
 
+// Console - Primary Intelligence View (Datadog-like)
+const consoleNavItems: NavItem[] = [
+  {
+    title: "Console",
+    url: "/dashboard/console",
+    icon: Terminal,
+  },
+  {
+    title: "Graph",
+    url: "/dashboard/graph",
+    icon: Network,
+  },
+];
+
 // Intelligence navigation items (Drovi - Multi-Source)
 const intelligenceNavItems: NavItem[] = [
-  {
-    title: "Smart Inbox",
-    url: "/dashboard/inbox",
-    icon: Inbox,
-  },
   {
     title: "Tasks",
     url: "/dashboard/tasks",
@@ -64,26 +65,16 @@ const memoryNavItems: NavItem[] = [
   },
 ];
 
-// People & Search items
+// People items
 const discoveryNavItems: NavItem[] = [
   {
     title: "People",
     url: "/dashboard/contacts",
     icon: Users,
   },
-  {
-    title: "Search",
-    url: "/dashboard/search",
-    icon: Search,
-  },
-  {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    icon: BarChart3,
-  },
 ];
 
-// Sources & Settings items
+// Sources items
 const sourcesNavItems: NavItem[] = [
   {
     title: "Connected Sources",
@@ -94,11 +85,6 @@ const sourcesNavItems: NavItem[] = [
     title: "Email Accounts",
     url: "/dashboard/email-accounts",
     icon: Mail,
-  },
-  {
-    title: "Notifications",
-    url: "/dashboard/notifications",
-    icon: Bell,
   },
 ];
 
@@ -122,11 +108,6 @@ const teamNavItems: NavItem[] = [
         url: "/dashboard/team/settings",
       },
     ],
-  },
-  {
-    title: "Billing",
-    url: "/dashboard/billing",
-    icon: CreditCard,
   },
   {
     title: "Settings",
@@ -171,27 +152,16 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-14 justify-center">
-        <div className="flex items-center justify-between gap-2">
-          <TeamSwitcher />
-          <NotificationCenter />
-        </div>
+        <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
+        <NavMain items={consoleNavItems} label="Console" />
         <NavMain items={intelligenceNavItems} label="Intelligence" />
         <NavMain items={memoryNavItems} label="Memory" />
         <NavMain items={discoveryNavItems} label="Discovery" />
         <NavMain items={sourcesNavItems} label="Sources" />
         <NavMain items={teamNavItems} label="Management" />
         {showAdmin && <NavMain items={adminNavItems} label="Administration" />}
-
-        {/* Team Presence Section */}
-        <SidebarSeparator className="my-2" />
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground text-xs">
-            Team
-          </SidebarGroupLabel>
-          <TeamPresencePanel />
-        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

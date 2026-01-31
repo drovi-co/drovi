@@ -339,18 +339,37 @@ async def _merge_contact(
 
         # Add new alias if name is different
         if new_contact.name:
-            await graph.query(
-                """
-                MATCH (c:Contact {id: $id, organizationId: $orgId})
-                WHERE NOT toLower(c.name) = toLower($name)
-                  AND NOT $name IN c.aliases
-                SET c.aliases = CASE
-                    WHEN c.aliases IS NULL THEN [$name]
-                    ELSE c.aliases + [$name]
-                END
-                """,
-                {"id": existing_id, "orgId": organization_id, "name": new_contact.name},
-            )
+            try:
+                await graph.query(
+                    """
+                    MATCH (c:Contact {id: $id, organizationId: $orgId})
+                    WHERE NOT toLower(c.name) = toLower($name)
+                    SET c.aliases = CASE
+                        WHEN c.aliases IS NULL THEN [$name]
+                        ELSE CASE
+                            WHEN $name IN c.aliases THEN c.aliases
+                            ELSE c.aliases + [$name]
+                        END
+                    END
+                    """,
+                    {"id": existing_id, "orgId": organization_id, "name": new_contact.name},
+                )
+            except Exception as alias_err:
+                # If type mismatch (legacy string format), reset to proper list
+                if "Type mismatch" in str(alias_err):
+                    logger.debug(
+                        "Fixing legacy string aliases",
+                        contact_id=existing_id,
+                    )
+                    await graph.query(
+                        """
+                        MATCH (c:Contact {id: $id, organizationId: $orgId})
+                        SET c.aliases = [$name]
+                        """,
+                        {"id": existing_id, "orgId": organization_id, "name": new_contact.name},
+                    )
+                else:
+                    raise
 
         # Update missing email
         if new_contact.email:
@@ -390,25 +409,50 @@ async def _merge_contact(
                 },
             )
 
-        # Track source
+        # Track source - use try/except to handle legacy string-formatted sources
         if new_contact.source_type:
-            await graph.query(
-                """
-                MATCH (c:Contact {id: $id, organizationId: $orgId})
-                SET c.sources = CASE
-                    WHEN c.sources IS NULL THEN [$source]
-                    WHEN NOT $source IN c.sources THEN c.sources + [$source]
-                    ELSE c.sources
-                END,
-                c.lastSeenAt = $now
-                """,
-                {
-                    "id": existing_id,
-                    "orgId": organization_id,
-                    "source": new_contact.source_type,
-                    "now": now,
-                },
-            )
+            try:
+                # Try normal list update first
+                await graph.query(
+                    """
+                    MATCH (c:Contact {id: $id, organizationId: $orgId})
+                    SET c.sources = CASE
+                        WHEN c.sources IS NULL THEN [$source]
+                        ELSE CASE
+                            WHEN $source IN c.sources THEN c.sources
+                            ELSE c.sources + [$source]
+                        END
+                    END,
+                    c.lastSeenAt = $now
+                    """,
+                    {
+                        "id": existing_id,
+                        "orgId": organization_id,
+                        "source": new_contact.source_type,
+                        "now": now,
+                    },
+                )
+            except Exception as source_err:
+                # If type mismatch (legacy string format), reset to proper list
+                if "Type mismatch" in str(source_err):
+                    logger.debug(
+                        "Fixing legacy string sources",
+                        contact_id=existing_id,
+                    )
+                    await graph.query(
+                        """
+                        MATCH (c:Contact {id: $id, organizationId: $orgId})
+                        SET c.sources = [$source], c.lastSeenAt = $now
+                        """,
+                        {
+                            "id": existing_id,
+                            "orgId": organization_id,
+                            "source": new_contact.source_type,
+                            "now": now,
+                        },
+                    )
+                else:
+                    raise
 
         logger.debug(
             "Contact merged",
@@ -435,13 +479,13 @@ async def _create_contact(
     """Create a new contact in the graph."""
     from datetime import datetime
     from uuid import uuid4
-    import json
 
     contact_id = str(uuid4())
     now = datetime.utcnow().isoformat()
 
     # FalkorDB doesn't support $props directly in CREATE
     # We need to expand properties explicitly
+    # Note: Pass actual arrays, not JSON strings
     await graph.query(
         """
         CREATE (c:Contact {
@@ -474,8 +518,8 @@ async def _create_contact(
             "role": contact.role or "",
             "company": contact.company or "",
             "relationship": contact.relationship or "unknown",
-            "aliases": json.dumps(contact.aliases or []),
-            "sources": json.dumps([contact.source_type] if contact.source_type else []),
+            "aliases": contact.aliases or [],
+            "sources": [contact.source_type] if contact.source_type else [],
             "firstSeenAt": now,
             "lastSeenAt": now,
             "createdAt": now,

@@ -4,165 +4,181 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =============================================================================
-   DROVI DESIGN SYSTEM
+   DROVI DESIGN SYSTEM - VERCEL STYLE
    =============================================================================
-   Lavender-first design language inspired by the Drovi logo.
-   Font: Inter
-   Colors: Grey scale + Lavender primary + Semantic colors
+   Clean, minimal black and white design language inspired by Vercel.
+   Font: Geist (falling back to Inter)
+   Colors: Pure black, white, and subtle grays
 */
 
-/* Light mode - All colors derived from Drovi lavender #eae9fe */
+/* Light mode - Pure black and white */
 :root {
-  /* Background colors - Pure white so lavender stands out */
+  /* Background colors - Pure white */
   --background: #ffffff;
-  --foreground: #1a1a2e;
+  --foreground: #000000;
 
   /* Card/Surface colors */
   --card: #ffffff;
-  --card-foreground: #1a1a2e;
+  --card-foreground: #000000;
 
   /* Popover/Dropdown colors */
   --popover: #ffffff;
-  --popover-foreground: #1a1a2e;
+  --popover-foreground: #000000;
 
-  /* Primary - The exact Drovi lavender #eae9fe */
-  --primary: #eae9fe;
-  --primary-hover: #dddcfc;
-  --primary-foreground: #1a1a2e;
+  /* Primary - Pure black (Vercel style) */
+  --primary: #000000;
+  --primary-hover: #171717;
+  --primary-foreground: #ffffff;
 
-  /* Secondary - Deeper lavender for contrast */
-  --secondary: #6c70d6;
-  --secondary-hover: #5b5fc5;
-  --secondary-foreground: #ffffff;
+  /* Secondary - Very light gray */
+  --secondary: #fafafa;
+  --secondary-hover: #f5f5f5;
+  --secondary-foreground: #000000;
 
-  /* Muted - Subtle lavender backgrounds */
-  --muted: #f4f4f8;
-  --muted-foreground: #64648c;
+  /* Muted - Subtle gray backgrounds */
+  --muted: #fafafa;
+  --muted-foreground: #666666;
 
-  /* Accent - The Drovi lavender */
-  --accent: #eae9fe;
-  --accent-foreground: #1a1a2e;
+  /* Accent - Light gray */
+  --accent: #f5f5f5;
+  --accent-foreground: #000000;
 
-  /* Destructive - Red */
-  --destructive: #ef4444;
-  --destructive-hover: #dc2626;
+  /* Destructive - Vercel red */
+  --destructive: #ee0000;
+  --destructive-hover: #cc0000;
   --destructive-foreground: #ffffff;
 
-  /* Border & Input */
-  --border: #e5e5f0;
-  --border-hover: #d5d5e5;
+  /* Success - Vercel green */
+  --success: #0070f3;
+  --success-foreground: #ffffff;
+
+  /* Warning - Vercel amber */
+  --warning: #f5a623;
+  --warning-foreground: #000000;
+
+  /* Border & Input - Subtle gray */
+  --border: #eaeaea;
+  --border-hover: #d4d4d4;
   --input: #ffffff;
-  --input-border: #e5e5f0;
+  --input-border: #eaeaea;
 
-  /* Ring (focus) - Deeper lavender for visibility */
-  --ring: #6c70d6;
+  /* Ring (focus) - Black */
+  --ring: #000000;
 
-  /* Shell - Unified sidebar + header area (Octolane-style flowing design) */
-  --shell: #f5f4ff;
-  --shell-foreground: #1a1a2e;
-  --shell-border: #e8e7f5;
-  --content-radius: 1rem;
+  /* Shell - Light gray unified sidebar + header */
+  --shell: #fafafa;
+  --shell-foreground: #000000;
+  --shell-border: #eaeaea;
+  --content-radius: 0px;
 
-  /* Sidebar - Inherits shell colors for unified look */
-  --sidebar: var(--shell);
-  --sidebar-foreground: var(--shell-foreground);
-  --sidebar-primary: #e8e7f8;
-  --sidebar-primary-foreground: #1a1a2e;
-  --sidebar-accent: #ededfc;
-  --sidebar-accent-foreground: #1a1a2e;
-  --sidebar-border: var(--shell-border);
-  --sidebar-ring: #6c70d6;
+  /* Sidebar - Clean white/gray */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #eaeaea;
+  --sidebar-ring: #000000;
 
-  /* Chart colors - Lavender-based palette */
-  --chart-1: #6c70d6;
-  --chart-2: #8b8fe8;
-  --chart-3: #a5a8f0;
-  --chart-4: #5b5fc5;
-  --chart-5: #4a4eb4;
+  /* Chart colors - Grayscale + accent blue */
+  --chart-1: #000000;
+  --chart-2: #666666;
+  --chart-3: #999999;
+  --chart-4: #0070f3;
+  --chart-5: #00a8ff;
 
-  /* Border radius */
-  --radius: 0.5rem;
+  /* Border radius - Sharp corners (Vercel style) */
+  --radius: 0.375rem;
 
-  /* Shadows */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.08);
-  --shadow-card: 0px 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-dropdown: 0px 4px 12px rgba(0, 0, 0, 0.12);
+  /* Shadows - Subtle and clean */
+  --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Dark mode - All colors derived from Drovi lavender #eae9fe */
+/* Dark mode - Pure black and white inverted */
 .dark {
-  /* Background colors - Deep with strong lavender undertone */
-  --background: #0e0e1a;
-  --foreground: #e8e8f8;
+  /* Background colors - Pure black */
+  --background: #000000;
+  --foreground: #ededed;
 
-  /* Card/Surface colors - Lavender-tinted surfaces */
-  --card: #16162a;
-  --card-foreground: #e8e8f8;
+  /* Card/Surface colors - Near black */
+  --card: #0a0a0a;
+  --card-foreground: #ededed;
 
   /* Popover/Dropdown colors */
-  --popover: #1a1a30;
-  --popover-foreground: #e8e8f8;
+  --popover: #0a0a0a;
+  --popover-foreground: #ededed;
 
-  /* Primary - Visible lavender (more saturated than #eae9fe for dark mode) */
-  --primary: #c8c6f7;
-  --primary-hover: #b5b3f0;
-  --primary-foreground: #0e0e1a;
+  /* Primary - Pure white (inverted) */
+  --primary: #ffffff;
+  --primary-hover: #e5e5e5;
+  --primary-foreground: #000000;
 
-  /* Secondary - Deeper lavender */
-  --secondary: #7b7fd4;
-  --secondary-hover: #6c70c5;
-  --secondary-foreground: #ffffff;
+  /* Secondary - Dark gray */
+  --secondary: #1a1a1a;
+  --secondary-hover: #262626;
+  --secondary-foreground: #ededed;
 
-  /* Muted - Dark lavender surfaces */
-  --muted: #1e1e38;
-  --muted-foreground: #9090b8;
+  /* Muted - Dark gray surfaces */
+  --muted: #171717;
+  --muted-foreground: #888888;
 
-  /* Accent - Lavender accent */
-  --accent: #252545;
-  --accent-foreground: #e8e8f8;
+  /* Accent - Dark gray */
+  --accent: #1a1a1a;
+  --accent-foreground: #ededed;
 
-  /* Destructive - Red */
-  --destructive: #ef4444;
-  --destructive-hover: #f45555;
+  /* Destructive - Vercel red (brighter for dark) */
+  --destructive: #ff4444;
+  --destructive-hover: #ff6666;
   --destructive-foreground: #ffffff;
 
-  /* Border & Input - Lavender-tinted */
-  --border: #2a2a4a;
-  --border-hover: #3a3a5a;
-  --input: #1a1a30;
-  --input-border: #2a2a4a;
+  /* Success - Vercel blue */
+  --success: #0070f3;
+  --success-foreground: #ffffff;
 
-  /* Ring (focus) - Bright lavender */
-  --ring: #9090e0;
+  /* Warning - Vercel amber */
+  --warning: #f5a623;
+  --warning-foreground: #000000;
 
-  /* Shell - Unified sidebar + header area (pure black) */
+  /* Border & Input - Dark gray */
+  --border: #262626;
+  --border-hover: #404040;
+  --input: #0a0a0a;
+  --input-border: #262626;
+
+  /* Ring (focus) - White */
+  --ring: #ffffff;
+
+  /* Shell - Pure black */
   --shell: #000000;
-  --shell-foreground: #ffffff;
-  --shell-border: #1a1a1a;
+  --shell-foreground: #ededed;
+  --shell-border: #262626;
 
-  /* Sidebar - Inherits shell colors for unified look */
-  --sidebar: var(--shell);
-  --sidebar-foreground: var(--shell-foreground);
-  --sidebar-primary: #c8c6f7;
+  /* Sidebar - Pure black */
+  --sidebar: #000000;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #ffffff;
   --sidebar-primary-foreground: #000000;
   --sidebar-accent: #1a1a1a;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: var(--shell-border);
-  --sidebar-ring: #9090e0;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #262626;
+  --sidebar-ring: #ffffff;
 
-  /* Chart colors - Lavender-based palette for dark mode */
-  --chart-1: #c8c6f7;
-  --chart-2: #9090e0;
-  --chart-3: #7b7fd4;
-  --chart-4: #6060b0;
-  --chart-5: #5050a0;
+  /* Chart colors - Inverted grayscale + accent blue */
+  --chart-1: #ffffff;
+  --chart-2: #a3a3a3;
+  --chart-3: #737373;
+  --chart-4: #0070f3;
+  --chart-5: #00a8ff;
 
-  /* Shadows - Deeper for dark mode */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.35);
-  --shadow-card: 0px 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-dropdown: 0px 8px 24px rgba(0, 0, 0, 0.6);
+  /* Shadows - Darker for dark mode */
+  --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
 }
 
 /* =============================================================================
@@ -190,6 +206,10 @@
   --color-destructive: var(--destructive);
   --color-destructive-hover: var(--destructive-hover);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-border-hover: var(--border-hover);
   --color-input: var(--input);
@@ -216,18 +236,20 @@
   --color-shell-foreground: var(--shell-foreground);
   --color-shell-border: var(--shell-border);
 
-  /* Border radius - Linear uses tighter corners */
+  /* Border radius - Vercel uses tighter corners */
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Typography - Inter font stack */
+  /* Typography - JetBrains Mono as primary font */
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
 
-  /* Linear-style spacing scale */
+  --font-mono:
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+
+  /* Vercel-style spacing scale */
   --spacing-px: 1px;
   --spacing-0: 0;
   --spacing-0-5: 0.125rem;
@@ -245,11 +267,11 @@
   --spacing-9: 2.25rem;
   --spacing-10: 2.5rem;
 
-  /* Custom shadows for Linear design */
-  --shadow-button: 0px 1px 2px rgba(0, 0, 0, 0.09);
-  --shadow-button-2: 0px 1px 1px rgba(0, 0, 0, 0.15);
-  --shadow-card: 0px 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-dropdown: 0px 8px 24px rgba(0, 0, 0, 0.4);
+  /* Clean shadows */
+  --shadow-button: var(--shadow-button);
+  --shadow-button-2: var(--shadow-button-2);
+  --shadow-card: var(--shadow-card);
+  --shadow-dropdown: var(--shadow-dropdown);
 }
 
 /* =============================================================================
@@ -262,45 +284,49 @@
   }
 
   html {
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
   }
 
-  /* Typography scale matching Linear */
+  /* Typography scale - Clean and minimal */
   h1 {
-    @apply text-2xl font-semibold tracking-tight;
+    @apply text-3xl font-semibold tracking-tight;
     line-height: 1.2;
   }
 
   h2 {
-    @apply text-xl font-semibold tracking-tight;
+    @apply text-2xl font-semibold tracking-tight;
     line-height: 1.25;
   }
 
   h3 {
-    @apply text-lg font-medium;
+    @apply text-xl font-medium;
     line-height: 1.3;
   }
 
   h4 {
-    @apply text-base font-medium;
+    @apply text-lg font-medium;
   }
 
-  /* Selection color - Drovi lavender #eae9fe */
+  /* Selection color - Vercel blue */
   ::selection {
-    background-color: #eae9fe;
-    color: #1a1a2e;
+    background-color: #0070f3;
+    color: #ffffff;
   }
 
-  /* Scrollbar styling for dark mode */
+  .dark ::selection {
+    background-color: #0070f3;
+    color: #ffffff;
+  }
+
+  /* Scrollbar styling - Minimal */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -320,11 +346,11 @@
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: #2a2a4a;
+    background: #404040;
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a5a;
+    background: #525252;
   }
 }
 
@@ -332,7 +358,7 @@
    COMPONENT UTILITIES
    ============================================================================= */
 
-/* Custom shadow utilities for Linear design */
+/* Custom shadow utilities */
 @utility shadow-button {
   box-shadow: var(--shadow-button);
 }
@@ -375,7 +401,7 @@
   line-height: 1.5;
 }
 
-/* Custom focus ring utility */
+/* Custom focus ring utility - Vercel style */
 @utility focus-ring {
   outline: none;
   --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0
@@ -394,11 +420,11 @@
 @utility hover-transition {
   transition-property:
     color, background-color, border-color, text-decoration-color, fill, stroke;
-  transition-timing-function: ease-in-out;
+  transition-timing-function: ease-out;
   transition-duration: 150ms;
 }
 
-/* Command bar styling */
+/* Command bar styling - Vercel style */
 @utility command-bar {
   background-color: var(--popover);
   border: 1px solid var(--border);
@@ -406,14 +432,15 @@
   box-shadow: var(--shadow-dropdown);
 }
 
-/* Keyboard shortcut styling */
+/* Keyboard shortcut styling - Vercel style */
 @utility kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.125rem 0.375rem;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
+  font-family: var(--font-mono);
   border-radius: 0.25rem;
   background-color: var(--muted);
   color: var(--muted-foreground);

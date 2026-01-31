@@ -38,12 +38,13 @@ interface StatusIconProps
   showLabel?: boolean;
 }
 
+// Vercel-style status colors
 const statusConfig: Record<Status, { label: string; color: string }> = {
-  backlog: { label: "Backlog", color: "#858699" },
-  todo: { label: "Todo", color: "#858699" },
-  in_progress: { label: "In Progress", color: "#F2C94C" },
-  done: { label: "Done", color: "#5E6AD2" },
-  canceled: { label: "Canceled", color: "#858699" },
+  backlog: { label: "Backlog", color: "#a3a3a3" },
+  todo: { label: "Todo", color: "#737373" },
+  in_progress: { label: "In Progress", color: "#0070f3" },
+  done: { label: "Done", color: "#059669" },
+  canceled: { label: "Canceled", color: "#a3a3a3" },
 };
 
 function StatusIcon({

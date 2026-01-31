@@ -63,10 +63,14 @@ async def extract_communication_node(state: IntelligenceState) -> dict:
         tracker = await get_communication_tracker(state.input.organization_id)
 
         # Map email addresses to resolved contact IDs
+        # resolved_contacts is a dict[str, dict] where key is email and value is contact info
         email_to_contact_id = {}
-        for contact in state.contact_context.resolved_contacts:
-            if contact.email:
-                email_to_contact_id[contact.email.lower()] = contact.id
+        for email, contact_info in state.contact_context.resolved_contacts.items():
+            if email and isinstance(contact_info, dict):
+                # Use email as key and get contact_id from the info dict
+                contact_id = contact_info.get("contact_id") or contact_info.get("id")
+                if contact_id:
+                    email_to_contact_id[email.lower()] = contact_id
 
         # Map source type to event type
         source_to_event_type = {
@@ -101,9 +105,11 @@ async def extract_communication_node(state: IntelligenceState) -> dict:
 
             # Determine recipients (all other resolved contacts in the conversation)
             recipient_ids = []
-            for contact in state.contact_context.resolved_contacts:
-                if contact.id != sender_contact_id and contact.email:
-                    recipient_ids.append(contact.id)
+            for email, contact_info in state.contact_context.resolved_contacts.items():
+                if isinstance(contact_info, dict):
+                    contact_id = contact_info.get("contact_id") or contact_info.get("id")
+                    if contact_id and contact_id != sender_contact_id and email:
+                        recipient_ids.append(contact_id)
 
             # If no recipients found, check if user is implicit recipient
             if not recipient_ids and state.input.user_email:

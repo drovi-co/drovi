@@ -17,7 +17,7 @@ const badgeVariants = cva(
   [
     "inline-flex w-fit shrink-0 items-center justify-center gap-1",
     "overflow-hidden whitespace-nowrap",
-    "rounded-full border px-2 py-0.5",
+    "rounded-md border px-2 py-0.5",
     "font-medium text-[11px]",
     "transition-colors duration-150",
     "[&>svg]:pointer-events-none [&>svg]:size-3",
@@ -25,17 +25,17 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        // Default - Primary purple
-        default: ["border-primary/30 bg-primary/10 text-primary"].join(" "),
+        // Default - Neutral gray (Vercel style)
+        default: ["border-border bg-secondary text-foreground"].join(" "),
 
         // Secondary - Subtle grey
         secondary: [
-          "border-border bg-secondary text-secondary-foreground",
+          "border-border bg-secondary text-muted-foreground",
         ].join(" "),
 
-        // Destructive - Red for warnings/errors
+        // Destructive - Vercel red
         destructive: [
-          "border-destructive/30 bg-destructive/10 text-destructive",
+          "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c] dark:border-[#7f1d1d] dark:bg-[#450a0a] dark:text-[#fca5a5]",
         ].join(" "),
 
         // Outline - Border only
@@ -43,18 +43,20 @@ const badgeVariants = cva(
           " "
         ),
 
-        // Success - Green
+        // Success - Vercel teal/green
         success: [
-          "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
+          "border-[#a7f3d0] bg-[#ecfdf5] text-[#047857] dark:border-[#064e3b] dark:bg-[#022c22] dark:text-[#6ee7b7]",
         ].join(" "),
 
-        // Warning - Amber
-        warning: ["border-amber-500/30 bg-amber-500/10 text-amber-500"].join(
-          " "
-        ),
+        // Warning - Vercel amber
+        warning: [
+          "border-[#fde68a] bg-[#fffbeb] text-[#b45309] dark:border-[#78350f] dark:bg-[#451a03] dark:text-[#fcd34d]",
+        ].join(" "),
 
-        // Info - Blue
-        info: ["border-blue-500/30 bg-blue-500/10 text-blue-500"].join(" "),
+        // Info - Vercel blue
+        info: [
+          "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] dark:border-[#1e3a8a] dark:bg-[#172554] dark:text-[#93c5fd]",
+        ].join(" "),
       },
     },
     defaultVariants: {

@@ -9,7 +9,7 @@ import time
 import structlog
 
 from src.llm import get_llm_service, CommitmentExtractionOutput
-from src.llm.prompts import get_commitment_extraction_prompt
+from src.llm.prompts_v2 import get_commitment_extraction_v2_prompt
 from ..state import (
     IntelligenceState,
     ExtractedCommitment,
@@ -62,10 +62,10 @@ async def extract_commitments_node(state: IntelligenceState) -> dict:
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt
-    messages = get_commitment_extraction_prompt(
+    # Build prompt using V2 strict prompts
+    messages = get_commitment_extraction_v2_prompt(
         content=content,
-        claims=claims_dicts,
+        source_type=state.input.source_type,
         user_email=state.input.user_email,
         user_name=state.input.user_name,
     )

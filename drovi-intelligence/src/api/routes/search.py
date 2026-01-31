@@ -22,7 +22,7 @@ class SearchRequest(BaseModel):
     """Request for hybrid search."""
 
     query: str = Field(..., description="Search query")
-    organization_id: str = Field(..., description="Organization ID")
+    organization_id: str | None = Field(default=None, description="Organization ID (optional if using session auth)")
     types: list[str] | None = Field(
         default=None,
         description="Node types to search (commitment, decision, contact, etc.)",
@@ -73,8 +73,13 @@ async def hybrid_search(
 
     Requires `read` scope.
     """
-    # Validate organization_id matches auth context
-    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+    # Use org_id from auth context if not provided in request
+    org_id = request.organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    # Validate organization_id matches auth context (if not internal)
+    if ctx.organization_id != "internal" and request.organization_id and request.organization_id != ctx.organization_id:
         raise HTTPException(
             status_code=403,
             detail="Organization ID mismatch with authenticated key",
@@ -84,7 +89,7 @@ async def hybrid_search(
 
     logger.info(
         "Hybrid search",
-        organization_id=request.organization_id,
+        organization_id=org_id,
         query=request.query[:50],
         types=request.types,
         key_id=ctx.key_id,
@@ -95,7 +100,7 @@ async def hybrid_search(
 
         results = await search.search(
             query=request.query,
-            organization_id=request.organization_id,
+            organization_id=org_id,
             types=request.types,
             source_types=request.source_types,
             time_range=request.time_range,
