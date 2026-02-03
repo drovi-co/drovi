@@ -121,6 +121,8 @@ class NotionConnector(BaseConnector):
                     "GET",
                     f"{NOTION_BASE_URL}/users/me",
                     headers=self._get_headers(access_token),
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -206,6 +208,8 @@ class NotionConnector(BaseConnector):
                     f"{NOTION_BASE_URL}/search",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -276,6 +280,8 @@ class NotionConnector(BaseConnector):
                     f"{NOTION_BASE_URL}/search",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -377,6 +383,8 @@ class NotionConnector(BaseConnector):
                 f"{NOTION_BASE_URL}/blocks/{block_id}/children",
                 headers=self._get_headers(self._access_token),
                 params=params,
+                rate_limit_key=self.connector_type,
+                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()
@@ -430,6 +438,8 @@ class NotionConnector(BaseConnector):
                 f"{NOTION_BASE_URL}/databases/{db_id}/query",
                 headers=self._get_headers(self._access_token),
                 json=params,
+                rate_limit_key=self.connector_type,
+                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()

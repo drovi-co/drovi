@@ -282,6 +282,17 @@ class TestRecordBatch:
 
         assert len(batch.records) == 1
         assert batch.record_count == 1
+        assert record.raw_data_hash is not None
+
+    def test_add_record_type_guard(self):
+        """Test add_record rejects non-Record inputs."""
+        batch = RecordBatch(
+            stream_name="messages",
+            connection_id="conn_123",
+        )
+
+        with pytest.raises(TypeError):
+            batch.add_record({"not": "a-record"})  # type: ignore[arg-type]
 
     def test_add_multiple_records(self):
         """Test adding multiple records."""

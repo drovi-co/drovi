@@ -92,6 +92,8 @@ class GoogleCalendarConnector(BaseConnector):
                     f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"maxResults": 1},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -162,6 +164,8 @@ class GoogleCalendarConnector(BaseConnector):
                     f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -294,6 +298,8 @@ class GoogleCalendarConnector(BaseConnector):
                 f"{GOOGLE_CALENDAR_BASE_URL}/calendars/{calendar_id}/events",
                 headers={"Authorization": f"Bearer {self._access_token}"},
                 params=params,
+                rate_limit_key=f"{self.connector_type}:{connection_id}",
+                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()

@@ -14,7 +14,7 @@ from typing import Any
 import structlog
 
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
-from src.connectors.base.records import Record, RecordBatch
+from src.connectors.base.records import Record, RecordBatch, RecordType, calculate_raw_data_hash
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -265,6 +265,7 @@ class BaseConnector(ABC):
         stream_name: str,
         data: dict[str, Any],
         cursor_value: Any | None = None,
+        record_type: RecordType | None = None,
     ) -> Record:
         """
         Helper to create a Record with connector metadata.
@@ -278,23 +279,33 @@ class BaseConnector(ABC):
         Returns:
             Record instance
         """
-        import hashlib
-        import json
-
+        extracted_at = datetime.utcnow()
         # Generate hash for deduplication
-        raw_data_hash = hashlib.sha256(
-            json.dumps(data, sort_keys=True, default=str).encode()
-        ).hexdigest()[:16]
+        raw_data_hash = calculate_raw_data_hash(data)
+        if cursor_value is None:
+            cursor_value = extracted_at.isoformat()
 
         return Record(
             record_id=record_id,
             source_type=self.connector_type,
             stream_name=stream_name,
             data=data,
+            record_type=record_type or RecordType.MESSAGE,
             cursor_value=cursor_value,
             raw_data_hash=raw_data_hash,
-            extracted_at=datetime.utcnow(),
+            extracted_at=extracted_at,
         )
+
+    def get_rate_limit_key(self, config: ConnectorConfig) -> str:
+        """Get a stable rate-limit key for connector HTTP calls."""
+        return f"{self.connector_type}:{config.connection_id}"
+
+    def get_rate_limit_per_minute(self) -> int | None:
+        """Get the connector's default rate limit per minute."""
+        try:
+            return self.capabilities.default_rate_limit_per_minute
+        except Exception:
+            return None
 
     def create_batch(
         self,

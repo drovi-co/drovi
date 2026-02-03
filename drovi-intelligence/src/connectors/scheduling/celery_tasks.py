@@ -158,15 +158,15 @@ async def _sync_scheduled_connections_async() -> dict[str, Any]:
                     SELECT
                         c.id,
                         c.connector_type,
-                        c.config->>'sync_interval_minutes' as interval_minutes,
+                        c.sync_frequency_minutes as interval_minutes,
                         MAX(sj.completed_at) as last_sync
                     FROM connections c
-                    LEFT JOIN sync_jobs sj ON c.id = sj.connection_id AND sj.status = 'completed'
-                    WHERE c.status = 'active'
-                    GROUP BY c.id
+                    LEFT JOIN sync_job_history sj ON c.id = sj.connection_id AND sj.status = 'completed'
+                    WHERE c.status = 'active' AND c.sync_enabled = TRUE
+                    GROUP BY c.id, c.connector_type, c.sync_frequency_minutes
                     HAVING MAX(sj.completed_at) IS NULL
                         OR MAX(sj.completed_at) < NOW() - INTERVAL '1 minute' *
-                            COALESCE((c.config->>'sync_interval_minutes')::int, 15)
+                            COALESCE(c.sync_frequency_minutes, 15)
                     LIMIT 50
                     """
                 )
@@ -273,7 +273,7 @@ async def _cleanup_old_jobs_async() -> dict[str, Any]:
                 # Delete jobs older than 30 days
                 result = await conn.execute(
                     """
-                    DELETE FROM sync_jobs
+                    DELETE FROM sync_job_history
                     WHERE completed_at < NOW() - INTERVAL '30 days'
                     """
                 )

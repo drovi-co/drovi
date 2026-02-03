@@ -97,6 +97,8 @@ class GoogleDocsConnector(BaseConnector):
                     f"{GOOGLE_DRIVE_BASE_URL}/about",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"fields": "user"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -206,6 +208,8 @@ class GoogleDocsConnector(BaseConnector):
                     f"{GOOGLE_DRIVE_BASE_URL}/files",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -213,7 +217,7 @@ class GoogleDocsConnector(BaseConnector):
                 batch = self.create_batch(stream.stream_name, config.connection_id)
                 for file_data in data.get("files", []):
                     # Fetch content for supported types
-                    doc = await self._fetch_document_content(client, file_data)
+                    doc = await self._fetch_document_content(client, file_data, config)
                     record = self.create_record(
                         record_id=doc.id,
                         stream_name=stream.stream_name,
@@ -242,6 +246,7 @@ class GoogleDocsConnector(BaseConnector):
         self,
         client: httpx.AsyncClient,
         file_data: dict[str, Any],
+        config: ConnectorConfig,
     ) -> GoogleDocument:
         """Fetch document with content."""
         file_id = file_data["id"]
@@ -258,6 +263,8 @@ class GoogleDocsConnector(BaseConnector):
                     f"{GOOGLE_DRIVE_BASE_URL}/files/{file_id}/export",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params={"mimeType": export_mime},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 if response.status_code == 200:
                     content = response.text
@@ -271,7 +278,7 @@ class GoogleDocsConnector(BaseConnector):
         # For Google Docs, also try to get structured content
         if mime_type == self.GOOGLE_DOC_MIME:
             try:
-                structured_content = await self._fetch_docs_content(client, file_id)
+                structured_content = await self._fetch_docs_content(client, file_id, config)
                 if structured_content:
                     content = structured_content
             except Exception as e:
@@ -301,6 +308,7 @@ class GoogleDocsConnector(BaseConnector):
         self,
         client: httpx.AsyncClient,
         doc_id: str,
+        config: ConnectorConfig,
     ) -> str | None:
         """Fetch Google Docs content via Docs API."""
         try:
@@ -309,6 +317,8 @@ class GoogleDocsConnector(BaseConnector):
                 "GET",
                 f"{GOOGLE_DOCS_BASE_URL}/documents/{doc_id}",
                 headers={"Authorization": f"Bearer {self._access_token}"},
+                rate_limit_key=self.get_rate_limit_key(config),
+                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
 
             if response.status_code != 200:

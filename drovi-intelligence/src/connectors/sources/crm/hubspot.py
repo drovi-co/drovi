@@ -121,6 +121,8 @@ class HubSpotConnector(BaseConnector):
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"limit": 1},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -217,6 +219,8 @@ class HubSpotConnector(BaseConnector):
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -292,6 +296,8 @@ class HubSpotConnector(BaseConnector):
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/companies",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -365,6 +371,8 @@ class HubSpotConnector(BaseConnector):
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/deals",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -430,6 +438,8 @@ class HubSpotConnector(BaseConnector):
                     f"{HUBSPOT_BASE_URL}/engagements/v1/engagements/paged",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()

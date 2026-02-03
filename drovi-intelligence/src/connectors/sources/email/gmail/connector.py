@@ -6,6 +6,8 @@ Supports incremental sync via historyId.
 """
 
 import base64
+import asyncio
+import time
 from collections.abc import AsyncIterator
 from datetime import datetime
 from email.utils import parseaddr, parsedate_to_datetime
@@ -58,6 +60,23 @@ class GmailConnector(BaseConnector):
     def __init__(self):
         """Initialize Gmail connector."""
         self._service = None
+        self._rate_limit_lock = asyncio.Lock()
+        self._next_request_time = 0.0
+
+    async def _apply_rate_limit(self) -> None:
+        rate_limit = self.get_rate_limit_per_minute()
+        if not rate_limit:
+            return
+        interval = 60.0 / float(rate_limit)
+        async with self._rate_limit_lock:
+            now = time.monotonic()
+            if now < self._next_request_time:
+                await asyncio.sleep(self._next_request_time - now)
+            self._next_request_time = max(now, self._next_request_time) + interval
+
+    async def _execute(self, request):
+        await self._apply_rate_limit()
+        return request.execute(num_retries=3)
 
     def _get_service(self, config: ConnectorConfig) -> Any:
         """Get or create Gmail API service."""
@@ -83,7 +102,7 @@ class GmailConnector(BaseConnector):
         try:
             service = self._get_service(config)
             # Try to get profile to verify credentials
-            profile = service.users().getProfile(userId="me").execute()
+            profile = await self._execute(service.users().getProfile(userId="me"))
 
             logger.info(
                 "Gmail connection verified",
@@ -193,7 +212,7 @@ class GmailConnector(BaseConnector):
         latest_history_id = None
 
         # Build query for filtering
-        query = config.provider_config.get("query", "")
+        query = config.get_setting("query", "")
         sync_params = config.get_setting("sync_params", {}) or {}
         backfill_start = sync_params.get("backfill_start") or config.backfill_start_date
         backfill_end = sync_params.get("backfill_end")
@@ -217,22 +236,22 @@ class GmailConnector(BaseConnector):
         while True:
             try:
                 # List messages
-                results = service.users().messages().list(
+                results = await self._execute(service.users().messages().list(
                     userId="me",
                     maxResults=stream.batch_size,
                     pageToken=page_token,
                     q=query.strip() if query.strip() else None,
-                ).execute()
+                ))
 
                 messages = results.get("messages", [])
 
                 for msg_ref in messages:
                     # Fetch full message
-                    msg = service.users().messages().get(
+                    msg = await self._execute(service.users().messages().get(
                         userId="me",
                         id=msg_ref["id"],
                         format="full",
-                    ).execute()
+                    ))
 
                     record = self._parse_message(msg, config)
                     batch.add_record(record)
@@ -291,13 +310,13 @@ class GmailConnector(BaseConnector):
         while True:
             try:
                 # Get history since last sync
-                results = service.users().history().list(
+                results = await self._execute(service.users().history().list(
                     userId="me",
                     startHistoryId=start_history_id,
                     historyTypes=history_types,
                     maxResults=100,
                     pageToken=page_token,
-                ).execute()
+                ))
 
                 history = results.get("history", [])
                 new_history_id = results.get("historyId")
@@ -313,11 +332,11 @@ class GmailConnector(BaseConnector):
 
                         # Fetch full message
                         try:
-                            msg = service.users().messages().get(
+                            msg = await self._execute(service.users().messages().get(
                                 userId="me",
                                 id=msg_ref["id"],
                                 format="full",
-                            ).execute()
+                            ))
 
                             record = self._parse_message(msg, config)
                             batch.add_record(record)
@@ -376,21 +395,21 @@ class GmailConnector(BaseConnector):
 
         while True:
             try:
-                results = service.users().threads().list(
+                results = await self._execute(service.users().threads().list(
                     userId="me",
                     maxResults=stream.batch_size,
                     pageToken=page_token,
-                ).execute()
+                ))
 
                 threads = results.get("threads", [])
 
                 for thread_ref in threads:
                     # Fetch full thread
-                    thread = service.users().threads().get(
+                    thread = await self._execute(service.users().threads().get(
                         userId="me",
                         id=thread_ref["id"],
                         format="full",
-                    ).execute()
+                    ))
 
                     record = self._parse_thread(thread, config)
                     batch.add_record(record)
@@ -437,7 +456,7 @@ class GmailConnector(BaseConnector):
         batch = self.create_batch(stream.stream_name, config.connection_id)
 
         try:
-            results = service.users().labels().list(userId="me").execute()
+            results = await self._execute(service.users().labels().list(userId="me"))
             labels = results.get("labels", [])
 
             for label in labels:

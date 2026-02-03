@@ -605,15 +605,18 @@ async def trigger_backfill(
             detail="start_date must be before end_date",
         )
 
+    window_days = request.window_days if "window_days" in request.model_fields_set else None
+    throttle_seconds = request.throttle_seconds if "throttle_seconds" in request.model_fields_set else None
+
     scheduler = get_scheduler()
     job_ids = await scheduler.trigger_backfill_plan(
         connection_id=connection_id,
         organization_id=organization_id,
         start_date=request.start_date,
         end_date=end_date,
-        window_days=request.window_days,
+        window_days=window_days,
         streams=request.streams,
-        throttle_seconds=request.throttle_seconds,
+        throttle_seconds=throttle_seconds,
     )
 
     return {

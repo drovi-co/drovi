@@ -109,6 +109,8 @@ class DocumentConnector(BaseConnector):
                         "HEAD",
                         url,
                         follow_redirects=True,
+                        rate_limit_key=self.get_rate_limit_key(config),
+                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     if response.status_code >= 400:
                         return False, f"URL not accessible: {url}"
@@ -267,6 +269,8 @@ class DocumentConnector(BaseConnector):
                     "GET",
                     url,
                     follow_redirects=True,
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
 

@@ -116,6 +116,8 @@ class OutlookConnector(BaseConnector):
                     "GET",
                     f"{GRAPH_BASE_URL}/me",
                     headers={"Authorization": f"Bearer {access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -191,6 +193,8 @@ class OutlookConnector(BaseConnector):
                         "$skip": skip,
                         "$select": "id,displayName,parentFolderId,childFolderCount,totalItemCount,unreadItemCount",
                     },
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -267,6 +271,8 @@ class OutlookConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -319,6 +325,8 @@ class OutlookConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=f"{self.connector_type}:{connection_id}",
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
