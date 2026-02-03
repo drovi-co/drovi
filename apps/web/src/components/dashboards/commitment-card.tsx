@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { ConfidenceBadge } from "@/components/evidence";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import {
   type TaskAssignee,
   TaskAssigneeDropdown,
@@ -46,6 +46,7 @@ import {
   type SourceType,
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 
 // =============================================================================
 // TYPES
@@ -69,6 +70,7 @@ export interface CommitmentCardData {
   confidence: number;
   isUserVerified?: boolean;
   evidence?: string[];
+  extractedAt?: Date | null;
   debtor?: {
     id: string;
     displayName?: string | null;
@@ -228,6 +230,26 @@ export function CommitmentCard({
   const urgency = getUrgencyLevel(commitment.dueDate, commitment.status);
   const statusBadge = getStatusBadge(commitment.status);
   const hasTaskData = commitment.task && organizationId;
+
+  const quotedText = extractQuotedText(
+    commitment.evidence?.[0],
+    commitment.description ?? commitment.title
+  );
+  const evidencePopover = onShowEvidence
+    ? {
+        id: commitment.id,
+        type: "commitment" as const,
+        title: commitment.title,
+        extractedText: commitment.description ?? commitment.title,
+        quotedText,
+        confidence: commitment.confidence,
+        isUserVerified: commitment.isUserVerified,
+        sourceMessage: extractSourceMessage(commitment.evidence?.[0]),
+        threadId: commitment.sourceThread?.id ?? undefined,
+        extractedAt:
+          commitment.extractedAt ?? commitment.dueDate ?? new Date(),
+      }
+    : null;
 
   // The person responsible or expecting
   const otherPerson =
@@ -391,24 +413,30 @@ export function CommitmentCard({
         <ConfidenceBadge
           confidence={commitment.confidence}
           isUserVerified={commitment.isUserVerified}
-          showDetails={false}
           size="sm"
         />
 
         {/* Show Me - Evidence button */}
-        {onShowEvidence && (
-          <button
-            className="rounded-md p-1.5 transition-colors hover:bg-background"
-            onClick={(e) => {
-              e.stopPropagation();
-              onShowEvidence(commitment.id);
-            }}
-            title="Show evidence"
-            type="button"
-          >
-            <Eye className="h-4 w-4 text-purple-500" />
-          </button>
-        )}
+        {onShowEvidence &&
+          evidencePopover && (
+            <EvidencePopover
+              evidence={evidencePopover}
+              onShowFullEvidence={() => onShowEvidence(commitment.id)}
+              side="left"
+            >
+              <button
+                className="rounded-md p-1.5 transition-colors hover:bg-background"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowEvidence(commitment.id);
+                }}
+                title="Show evidence"
+                type="button"
+              >
+                <Eye className="h-4 w-4 text-purple-500" />
+              </button>
+            </EvidencePopover>
+          )}
 
         {/* Complete button for active commitments */}
         {commitment.status !== "completed" &&

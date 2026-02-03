@@ -35,6 +35,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -44,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Timeline, type TimelineEvent } from "@/components/unified-object/timeline";
 import { useActiveOrganization } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { trpc, useTRPC } from "@/utils/trpc";
@@ -1531,6 +1533,22 @@ function AIResponseView({
   const [expandedCitations, setExpandedCitations] = useState<Set<string>>(
     new Set()
   );
+  const [showWhy, setShowWhy] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
+
+  const timelineEvents: TimelineEvent[] = useMemo(() => {
+    const base = Date.now();
+    return response.citations.map((citation, index) => ({
+      id: citation.id,
+      eventType: "source_added",
+      eventDescription: citation.text,
+      sourceName: citation.source,
+      messageId: citation.threadId,
+      quotedText: citation.text,
+      eventAt: new Date(base - index * 24 * 60 * 60 * 1000),
+      confidence: response.confidence,
+    }));
+  }, [response.citations, response.confidence]);
 
   // Parse answer to find inline citation markers and replace with clickable links
   const renderAnswerWithCitations = () => {
@@ -1594,6 +1612,21 @@ function AIResponseView({
             <ConfidenceBadge confidence={response.confidence} />
           </div>
           {renderAnswerWithCitations()}
+          {response.citations.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowWhy((prev) => !prev)}
+              >
+                {showWhy ? "Hide why" : "Show me why"}
+              </Button>
+              <span className="text-muted-foreground text-xs">
+                {response.citations.length} citation
+                {response.citations.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1640,6 +1673,68 @@ function AIResponseView({
             </div>
           </details>
         </motion.div>
+      )}
+
+      {/* Show me why - Evidence + Timeline */}
+      {showWhy && response.citations.length > 0 && (
+        <div className="ml-14 space-y-4">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+              Evidence
+            </p>
+            <div className="space-y-2">
+              {response.citations.map((citation) => (
+                <div
+                  className="flex items-start justify-between gap-3 rounded-lg border bg-background p-3"
+                  key={citation.id}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {citation.source}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      "{citation.text}"
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onCitationClick(citation.threadId)}
+                    >
+                      View evidence
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        timelineRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      }}
+                    >
+                      View timeline
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="rounded-lg border bg-background p-3"
+            ref={timelineRef}
+          >
+            <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+              Timeline
+            </p>
+            <Timeline
+              events={timelineEvents}
+              onViewSource={(messageId) => onCitationClick(messageId)}
+            />
+          </div>
+        </div>
       )}
 
       {/* Follow-up Questions - More conversational style */}

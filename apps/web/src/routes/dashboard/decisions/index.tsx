@@ -291,6 +291,10 @@ function DecisionsPage() {
         : new Date(d.createdAt),
       confidence: d.overallConfidence ?? 0.8,
       isUserVerified: d.isUserVerified ?? undefined,
+      evidence: details?.extractionContext
+        ? [JSON.stringify(details.extractionContext)]
+        : undefined,
+      extractedAt: new Date(d.createdAt),
       isSuperseded: !!details?.supersededByUioId,
       supersededBy: null,
       owners: decisionMaker
@@ -327,6 +331,7 @@ function DecisionsPage() {
         evidence: details?.extractionContext
           ? [JSON.stringify(details.extractionContext)]
           : undefined,
+        extractedAt: new Date(d.createdAt),
         owners: decisionMaker
           ? [
               {

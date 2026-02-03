@@ -21,7 +21,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ConfidenceBadge } from "@/components/evidence";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import {
   type TaskAssignee,
   TaskAssigneeDropdown,
@@ -45,6 +45,7 @@ import {
   type SourceType,
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 
 // =============================================================================
 // TYPES
@@ -60,6 +61,7 @@ export interface DecisionCardData {
   isUserVerified?: boolean;
   isSuperseded?: boolean;
   evidence?: string[];
+  extractedAt?: Date | null;
   owners?: Array<{
     id: string;
     displayName?: string | null;
@@ -153,6 +155,22 @@ export function DecisionCard({
 }: DecisionCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const hasTaskData = decision.task && organizationId;
+
+  const quotedText = extractQuotedText(decision.evidence?.[0], decision.statement);
+  const evidencePopover = onShowEvidence
+    ? {
+        id: decision.id,
+        type: "decision" as const,
+        title: decision.title,
+        extractedText: decision.statement,
+        quotedText,
+        confidence: decision.confidence,
+        isUserVerified: decision.isUserVerified,
+        sourceMessage: extractSourceMessage(decision.evidence?.[0]),
+        threadId: decision.sourceThread?.id ?? undefined,
+        extractedAt: decision.extractedAt ?? decision.decidedAt ?? new Date(),
+      }
+    : null;
 
   const handleCopyStatement = () => {
     navigator.clipboard.writeText(decision.statement);
@@ -279,24 +297,30 @@ export function DecisionCard({
         <ConfidenceBadge
           confidence={decision.confidence}
           isUserVerified={decision.isUserVerified}
-          showDetails={false}
           size="sm"
         />
 
         {/* Show Me - Evidence button */}
-        {onShowEvidence && (
-          <button
-            className="rounded-md p-1.5 transition-colors hover:bg-background"
-            onClick={(e) => {
-              e.stopPropagation();
-              onShowEvidence(decision.id);
-            }}
-            title="Show evidence"
-            type="button"
-          >
-            <Eye className="h-4 w-4 text-purple-500" />
-          </button>
-        )}
+        {onShowEvidence &&
+          evidencePopover && (
+            <EvidencePopover
+              evidence={evidencePopover}
+              onShowFullEvidence={() => onShowEvidence(decision.id)}
+              side="left"
+            >
+              <button
+                className="rounded-md p-1.5 transition-colors hover:bg-background"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowEvidence(decision.id);
+                }}
+                title="Show evidence"
+                type="button"
+              >
+                <Eye className="h-4 w-4 text-purple-500" />
+              </button>
+            </EvidencePopover>
+          )}
 
         {/* Source thread link */}
         {decision.sourceThread && (

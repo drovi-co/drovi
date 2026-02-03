@@ -411,6 +411,7 @@ function CommitmentsPage() {
         evidence: details?.extractionContext
           ? [JSON.stringify(details.extractionContext)]
           : undefined,
+        extractedAt: new Date(c.createdAt),
         debtor: debtor
           ? {
               id: debtor.id,
@@ -734,8 +735,11 @@ function CommitmentsPage() {
                       dueDate: commitment.dueDate,
                       confidence: commitment.confidence,
                       isUserVerified: commitment.isUserVerified,
+                      evidence: commitment.evidence,
+                      extractedAt: commitment.extractedAt,
                       debtor: commitment.debtor,
                       creditor: commitment.creditor,
+                      sourceThreadId: commitment.sourceThread?.id ?? null,
                       sourceType: commitment.sourceType,
                       daysOverdue: commitment.daysOverdue,
                     }}

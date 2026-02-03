@@ -25,12 +25,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ConfidenceBadge } from "@/components/evidence";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/utils/trpc";
 
@@ -48,6 +49,8 @@ export interface DecisionSearchResult {
   relevanceScore?: number;
   isUserVerified?: boolean;
   isSuperseded?: boolean;
+  evidence?: string[];
+  extractedAt?: Date | null;
   sourceThread?: {
     id: string;
     subject?: string | null;
@@ -282,6 +285,7 @@ export function DecisionMemorySearch({
                         decidedAt: new Date(decision.decidedAt),
                         confidence: decision.relevanceScore ?? 0.5,
                         relevanceScore: decision.relevanceScore,
+                        extractedAt: new Date(decision.decidedAt),
                       }}
                       key={decision.id}
                       onClick={() => onDecisionClick(decision.id)}
@@ -327,6 +331,21 @@ function DecisionResultCard({
   onShowEvidence,
 }: DecisionResultCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const quotedText = extractQuotedText(decision.evidence?.[0], decision.statement);
+  const evidencePopover = onShowEvidence
+    ? {
+        id: decision.id,
+        type: "decision" as const,
+        title: decision.title,
+        extractedText: decision.statement,
+        quotedText,
+        confidence: decision.confidence,
+        isUserVerified: decision.isUserVerified,
+        sourceMessage: extractSourceMessage(decision.evidence?.[0]),
+        threadId: decision.sourceThread?.id ?? undefined,
+        extractedAt: decision.extractedAt ?? decision.decidedAt ?? new Date(),
+      }
+    : null;
 
   return (
     <div
@@ -368,7 +387,6 @@ function DecisionResultCard({
           <ConfidenceBadge
             confidence={decision.confidence}
             isUserVerified={decision.isUserVerified}
-            showDetails={false}
             size="sm"
           />
         </div>
@@ -403,18 +421,24 @@ function DecisionResultCard({
           {/* Actions (on hover) */}
           {isHovered && (
             <div className="flex items-center gap-1">
-              {onShowEvidence && (
-                <Button
-                  className="h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShowEvidence(decision.id);
-                  }}
-                  size="icon"
-                  variant="ghost"
+              {onShowEvidence && evidencePopover && (
+                <EvidencePopover
+                  evidence={evidencePopover}
+                  onShowFullEvidence={() => onShowEvidence(decision.id)}
+                  side="left"
                 >
-                  <Eye className="h-3 w-3 text-purple-500" />
-                </Button>
+                  <Button
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowEvidence(decision.id);
+                    }}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Eye className="h-3 w-3 text-purple-500" />
+                  </Button>
+                </EvidencePopover>
               )}
               {decision.sourceThread && onThreadClick && (
                 <Button

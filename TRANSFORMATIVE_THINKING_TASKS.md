@@ -114,11 +114,11 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Audit log for all risk detections and user actions. Acceptance: audit records link to evidence and user IDs.
 
 **Phase 11 — UX Surfaces That Build Trust**
-- [ ] Evidence popover UI for every intelligence card. Acceptance: one‑click evidence view with highlighted quotes.
-- [ ] Confidence badges visible by default. Acceptance: UIO cards show confidence tiers and reasons.
-- [ ] “Show me why” flow in Ask results. Acceptance: citations link to evidence and timeline views.
-- [ ] Long‑term memory views for relationships and decisions. Acceptance: timeline view spans years with major changes.
-- [ ] Multi‑source compose support for contradiction checks across email/Slack/WhatsApp. Acceptance: compose runs risk checks per source.
+- [x] Evidence popover UI for every intelligence card. Acceptance: one‑click evidence view with highlighted quotes.
+- [x] Confidence badges visible by default. Acceptance: UIO cards show confidence tiers and reasons.
+- [x] “Show me why” flow in Ask results. Acceptance: citations link to evidence and timeline views.
+- [x] Long‑term memory views for relationships and decisions. Acceptance: timeline view spans years with major changes.
+- [x] Multi‑source compose support for contradiction checks across email/Slack/WhatsApp. Acceptance: compose runs risk checks per source.
 
 **Phase 12 — Observability, SLOs, and Reliability**
 - [ ] Implement all Prometheus metrics in docs. Acceptance: Grafana dashboards show ingestion, extraction, and evidence latency.
@@ -128,10 +128,10 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [ ] Load testing for ingestion and extraction. Acceptance: p95 extraction < 30s and UEM persist < 500ms.
 
 **Phase 13 — Security and Compliance**
-- [ ] RLS tests for tenant isolation in Postgres and FalkorDB. Acceptance: cross‑tenant queries are blocked.
-- [ ] Evidence access control checks for signed URL retrieval. Acceptance: unauthorized access fails.
-- [ ] Consent and recording policy enforcement for live sessions. Acceptance: regional rules are honored.
-- [ ] Data retention policies with deletion verification. Acceptance: data purged according to policy.
+- [x] RLS tests for tenant isolation in Postgres and FalkorDB. Acceptance: cross‑tenant queries are blocked.
+- [x] Evidence access control checks for signed URL retrieval. Acceptance: unauthorized access fails.
+- [x] Consent and recording policy enforcement for live sessions. Acceptance: regional rules are honored.
+- [x] Data retention policies with deletion verification. Acceptance: data purged according to policy.
 
 **Phase 14 — End‑to‑End Testing and Release Readiness**
 - [ ] Build a gold dataset for commitments, decisions, risks, tasks, and claims. Acceptance: dataset covers at least 500 diverse samples.

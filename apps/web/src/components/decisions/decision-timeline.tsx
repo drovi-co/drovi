@@ -29,7 +29,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { ConfidenceBadge } from "@/components/evidence";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDecisionUIOs } from "@/hooks/use-uio";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -63,6 +64,9 @@ export interface TimelineDecision {
   isUserVerified?: boolean;
   isSuperseded?: boolean;
   supersededByUioId?: string | null;
+  evidence?: string[];
+  extractedAt?: Date | null;
+  isMajor?: boolean;
   owners?: Array<{
     id: string;
     displayName?: string | null;
@@ -143,6 +147,15 @@ function groupDecisionsByMonth(
   return groups;
 }
 
+function isMajorDecision(decision: TimelineDecision): boolean {
+  return Boolean(
+    decision.isUserVerified ||
+      decision.isSuperseded ||
+      decision.supersededByUioId ||
+      decision.confidence >= 0.9
+  );
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -160,6 +173,7 @@ export function DecisionTimeline({
     new Set([format(new Date(), "yyyy-MM")])
   );
   const [filterTopic, setFilterTopic] = useState<string | undefined>(topicId);
+  const [viewMode, setViewMode] = useState<"all" | "major">("all");
 
   // Fetch decisions using UIO hook
   const { data, isLoading } = useDecisionUIOs({
@@ -192,6 +206,10 @@ export function DecisionTimeline({
         isUserVerified: d.isUserVerified ?? d.userCorrectedTitle != null,
         isSuperseded: Boolean(d.decisionDetails?.supersededByUioId),
         supersededByUioId: d.decisionDetails?.supersededByUioId ?? null,
+        evidence: d.decisionDetails?.extractionContext
+          ? [JSON.stringify(d.decisionDetails.extractionContext)]
+          : undefined,
+        extractedAt: new Date(d.createdAt),
         owners: d.owner
           ? [
               {
@@ -208,12 +226,29 @@ export function DecisionTimeline({
             }
           : null,
         topics: [],
+        isMajor: false,
       }));
   }, [data, includeSuperseded]);
 
-  const groupedDecisions = useMemo(
-    () => groupDecisionsByMonth(allDecisions as TimelineDecision[]),
+  const decisionsWithFlags = useMemo(
+    () =>
+      allDecisions.map((decision) => ({
+        ...decision,
+        isMajor: isMajorDecision(decision),
+      })),
     [allDecisions]
+  );
+
+  const filteredDecisions = useMemo(() => {
+    if (viewMode === "major") {
+      return decisionsWithFlags.filter((d) => d.isMajor);
+    }
+    return decisionsWithFlags;
+  }, [decisionsWithFlags, viewMode]);
+
+  const groupedDecisions = useMemo(
+    () => groupDecisionsByMonth(filteredDecisions as TimelineDecision[]),
+    [filteredDecisions]
   );
 
   const monthKeys = useMemo(
@@ -237,13 +272,27 @@ export function DecisionTimeline({
   // Get available topics for filter
   const allTopics = useMemo(() => {
     const topicMap = new Map<string, { id: string; name: string }>();
-    for (const d of allDecisions) {
+    for (const d of decisionsWithFlags) {
       for (const topic of (d as TimelineDecision).topics ?? []) {
         topicMap.set(topic.id, topic);
       }
     }
     return Array.from(topicMap.values());
-  }, [allDecisions]);
+  }, [decisionsWithFlags]);
+
+  const yearStats = useMemo(() => {
+    const stats = new Map<string, { total: number; major: number }>();
+    for (const decision of decisionsWithFlags) {
+      const year = format(decision.decidedAt, "yyyy");
+      const current = stats.get(year) ?? { total: 0, major: 0 };
+      current.total += 1;
+      if (decision.isMajor) {
+        current.major += 1;
+      }
+      stats.set(year, current);
+    }
+    return stats;
+  }, [decisionsWithFlags]);
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -255,6 +304,23 @@ export function DecisionTimeline({
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-full border bg-muted/50 p-1">
+            <Button
+              className="h-7 rounded-full px-3 text-xs"
+              onClick={() => setViewMode("all")}
+              variant={viewMode === "all" ? "secondary" : "ghost"}
+            >
+              All
+            </Button>
+            <Button
+              className="h-7 rounded-full px-3 text-xs"
+              onClick={() => setViewMode("major")}
+              variant={viewMode === "major" ? "secondary" : "ghost"}
+            >
+              Major changes
+            </Button>
+          </div>
+
           {/* Topic filter */}
           <Select
             onValueChange={(v) => setFilterTopic(v === "all" ? undefined : v)}
@@ -292,64 +358,88 @@ export function DecisionTimeline({
       ) : (
         <ScrollArea className="h-[600px]">
           <div className="space-y-2 pr-4">
-            {monthKeys.map((monthKey) => {
+            {monthKeys.map((monthKey, index) => {
               const decisions = groupedDecisions.get(monthKey) ?? [];
               const isExpanded = expandedMonths.has(monthKey);
               const monthDate = new Date(`${monthKey}-01`);
+              const year = format(monthDate, "yyyy");
+              const previousYear =
+                index > 0
+                  ? format(new Date(`${monthKeys[index - 1]}-01`), "yyyy")
+                  : null;
+              const showYearHeader = year !== previousYear;
+              const stats = yearStats.get(year);
 
               return (
-                <Collapsible
-                  key={monthKey}
-                  onOpenChange={() => toggleMonth(monthKey)}
-                  open={isExpanded}
-                >
-                  {/* Month Header */}
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      className="h-auto w-full justify-between rounded-lg px-4 py-3 hover:bg-accent"
-                      variant="ghost"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-                          <Calendar className="h-4 w-4 text-purple-500" />
-                        </div>
-                        <div className="text-left">
-                          <p className="font-medium">
-                            {format(monthDate, "MMMM yyyy")}
-                          </p>
+                <div key={monthKey}>
+                  {showYearHeader && (
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-base">{year}</p>
                           <p className="text-muted-foreground text-xs">
-                            {decisions.length} decision
-                            {decisions.length !== 1 ? "s" : ""}
+                            {stats?.total ?? 0} decisions •{" "}
+                            {stats?.major ?? 0} major changes
                           </p>
                         </div>
+                        <Badge className="text-[10px]" variant="secondary">
+                          Timeline span
+                        </Badge>
                       </div>
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
-
-                  {/* Month Content */}
-                  <CollapsibleContent>
-                    <div className="relative pt-2 pb-4 pl-8">
-                      {/* Vertical timeline line */}
-                      <div className="absolute top-0 bottom-0 left-[1.125rem] w-0.5 bg-border" />
-
-                      {decisions.map((decision, index) => (
-                        <TimelineDecisionCard
-                          decision={decision}
-                          isLast={index === decisions.length - 1}
-                          key={decision.id}
-                          onClick={() => onDecisionClick(decision.id)}
-                          onShowEvidence={onShowEvidence}
-                          onThreadClick={onThreadClick}
-                        />
-                      ))}
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                  )}
+                  <Collapsible
+                    onOpenChange={() => toggleMonth(monthKey)}
+                    open={isExpanded}
+                  >
+                    {/* Month Header */}
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        className="h-auto w-full justify-between rounded-lg px-4 py-3 hover:bg-accent"
+                        variant="ghost"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
+                            <Calendar className="h-4 w-4 text-purple-500" />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium">
+                              {format(monthDate, "MMMM yyyy")}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {decisions.length} decision
+                              {decisions.length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+
+                    {/* Month Content */}
+                    <CollapsibleContent>
+                      <div className="relative pt-2 pb-4 pl-8">
+                        {/* Vertical timeline line */}
+                        <div className="absolute top-0 bottom-0 left-[1.125rem] w-0.5 bg-border" />
+
+                        {decisions.map((decision, index) => (
+                          <TimelineDecisionCard
+                            decision={decision}
+                            isLast={index === decisions.length - 1}
+                            key={decision.id}
+                            onClick={() => onDecisionClick(decision.id)}
+                            onShowEvidence={onShowEvidence}
+                            onThreadClick={onThreadClick}
+                          />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
               );
             })}
           </div>
@@ -379,6 +469,23 @@ function TimelineDecisionCard({
   onShowEvidence,
 }: TimelineDecisionCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const quotedText = extractQuotedText(
+    decision.evidence?.[0],
+    decision.statement
+  );
+  const evidencePopover = onShowEvidence
+    ? {
+        id: decision.id,
+        type: "decision" as const,
+        title: decision.title,
+        extractedText: decision.statement,
+        quotedText,
+        confidence: decision.confidence,
+        isUserVerified: decision.isUserVerified,
+        sourceMessage: extractSourceMessage(decision.evidence?.[0]),
+        extractedAt: decision.extractedAt ?? decision.decidedAt ?? new Date(),
+      }
+    : null;
 
   return (
     <div
@@ -422,11 +529,15 @@ function TimelineDecisionCard({
                   Superseded
                 </Badge>
               )}
+              {decision.isMajor && (
+                <Badge className="shrink-0 text-[10px]" variant="secondary">
+                  Major change
+                </Badge>
+              )}
             </div>
             <ConfidenceBadge
               confidence={decision.confidence}
               isUserVerified={decision.isUserVerified}
-              showDetails={false}
               size="sm"
             />
           </div>
@@ -487,18 +598,24 @@ function TimelineDecisionCard({
             {/* Actions (on hover) */}
             {isHovered && (
               <div className="flex items-center gap-1">
-                {onShowEvidence && (
-                  <Button
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShowEvidence(decision.id);
-                    }}
-                    size="icon"
-                    variant="ghost"
+                {onShowEvidence && evidencePopover && (
+                  <EvidencePopover
+                    evidence={evidencePopover}
+                    onShowFullEvidence={() => onShowEvidence(decision.id)}
+                    side="left"
                   >
-                    <Eye className="h-3 w-3 text-purple-500" />
-                  </Button>
+                    <Button
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowEvidence(decision.id);
+                      }}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      <Eye className="h-3 w-3 text-purple-500" />
+                    </Button>
+                  </EvidencePopover>
                 )}
                 {decision.sourceThread && onThreadClick && (
                   <Button

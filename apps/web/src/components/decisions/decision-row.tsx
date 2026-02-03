@@ -4,6 +4,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { Copy, Eye, MoreHorizontal } from "lucide-react";
 import type * as React from "react";
 import { toast } from "sonner";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { SourceIcon } from "@/components/inbox/source-icon";
 import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +41,8 @@ export interface DecisionRowData {
   decidedAt: Date;
   confidence: number;
   isUserVerified?: boolean;
+  evidence?: string[];
+  extractedAt?: Date | null;
   isSuperseded?: boolean;
   supersededBy?: {
     id: string;
@@ -109,16 +113,6 @@ function formatDecisionDate(date: Date): string {
   return format(date, "MMM d");
 }
 
-function getConfidenceLevel(confidence: number): "high" | "medium" | "low" {
-  if (confidence >= 0.8) {
-    return "high";
-  }
-  if (confidence >= 0.5) {
-    return "medium";
-  }
-  return "low";
-}
-
 function DecisionRow({
   decision,
   isSelected = false,
@@ -137,10 +131,27 @@ function DecisionRow({
   const firstOwner = decision.owners?.[0];
   const ownerName = getOwnerName(firstOwner);
   const dateDisplay = formatDecisionDate(decision.decidedAt);
-  const confidenceLevel = getConfidenceLevel(decision.confidence);
   const firstTopic = decision.topics?.[0];
 
   const isSuperseded = decision.isSuperseded || !!decision.supersededBy;
+
+  const quotedText = extractQuotedText(
+    decision.evidence?.[0],
+    decision.statement
+  );
+  const evidencePopover = onShowEvidence
+    ? {
+        id: decision.id,
+        type: "decision" as const,
+        title: decision.title,
+        extractedText: decision.statement,
+        quotedText,
+        confidence: decision.confidence,
+        isUserVerified: decision.isUserVerified,
+        sourceMessage: extractSourceMessage(decision.evidence?.[0]),
+        extractedAt: decision.extractedAt ?? decision.decidedAt ?? new Date(),
+      }
+    : null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(decision.statement);
@@ -259,18 +270,12 @@ function DecisionRow({
             )}
           </div>
 
-          {/* Confidence indicator */}
-          <div className="flex w-7 items-center justify-center">
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full",
-                confidenceLevel === "high" && "bg-green-500",
-                confidenceLevel === "medium" && "bg-yellow-500",
-                confidenceLevel === "low" && "bg-red-500",
-                decision.isUserVerified &&
-                  "ring-2 ring-green-400 ring-offset-1 ring-offset-card"
-              )}
-              title={`${Math.round(decision.confidence * 100)}% confidence${decision.isUserVerified ? " (verified)" : ""}`}
+          {/* Confidence badge */}
+          <div className="flex items-center justify-center">
+            <ConfidenceBadge
+              confidence={decision.confidence}
+              isUserVerified={decision.isUserVerified}
+              size="sm"
             />
           </div>
         </div>
@@ -296,23 +301,29 @@ function DecisionRow({
           </button>
 
           {/* Evidence button */}
-          {onShowEvidence && (
-            <button
-              aria-label="Show evidence"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-[4px]",
-                "transition-colors duration-100",
-                "text-purple-500",
-                "hover:bg-accent hover:text-purple-400"
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onShowEvidence();
-              }}
-              type="button"
+          {onShowEvidence && evidencePopover && (
+            <EvidencePopover
+              evidence={evidencePopover}
+              onShowFullEvidence={onShowEvidence}
+              side="left"
             >
-              <Eye className="size-4" />
-            </button>
+              <button
+                aria-label="Show evidence"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-[4px]",
+                  "transition-colors duration-100",
+                  "text-purple-500",
+                  "hover:bg-accent hover:text-purple-400"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowEvidence();
+                }}
+                type="button"
+              >
+                <Eye className="size-4" />
+              </button>
+            </EvidencePopover>
           )}
 
           {/* More menu */}

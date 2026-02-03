@@ -1,8 +1,9 @@
 "use client";
 
 import { format, isPast, isThisWeek, isToday, isTomorrow } from "date-fns";
-import { Check, Clock, MoreHorizontal } from "lucide-react";
+import { Check, Clock, Eye, MoreHorizontal } from "lucide-react";
 import type * as React from "react";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { SourceIcon } from "@/components/inbox/source-icon";
 import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import {
@@ -15,6 +16,7 @@ import {
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +48,8 @@ export interface CommitmentRowData {
   dueDate?: Date | null;
   confidence: number;
   isUserVerified?: boolean;
+  evidence?: string[];
+  extractedAt?: Date | null;
   debtor?: {
     id: string;
     displayName?: string | null;
@@ -56,6 +60,7 @@ export interface CommitmentRowData {
     displayName?: string | null;
     primaryEmail: string;
   } | null;
+  sourceThreadId?: string | null;
   sourceType?: SourceType;
   daysOverdue?: number;
 }
@@ -149,16 +154,6 @@ function formatDueDate(
   return format(date, "MMM d");
 }
 
-function getConfidenceLevel(confidence: number): "high" | "medium" | "low" {
-  if (confidence >= 0.8) {
-    return "high";
-  }
-  if (confidence >= 0.5) {
-    return "medium";
-  }
-  return "low";
-}
-
 /**
  * Clickable cell wrapper with hover state
  */
@@ -226,13 +221,33 @@ function CommitmentRow({
     commitment.dueDate,
     commitment.daysOverdue
   );
-  const confidenceLevel = getConfidenceLevel(commitment.confidence);
-
   const isOverdue =
     commitment.status === "overdue" ||
     (commitment.dueDate && isPast(commitment.dueDate));
   const isCompleted =
     commitment.status === "completed" || commitment.status === "cancelled";
+
+  const quotedText = extractQuotedText(
+    commitment.evidence?.[0],
+    commitment.description ?? commitment.title
+  );
+  const evidencePopover = onShowEvidence
+    ? {
+        id: commitment.id,
+        type: "commitment" as const,
+        title: commitment.title,
+        extractedText: commitment.description ?? commitment.title,
+        quotedText,
+        confidence: commitment.confidence,
+        isUserVerified: commitment.isUserVerified,
+        sourceMessage: extractSourceMessage(commitment.evidence?.[0]),
+        threadId: commitment.sourceThreadId ?? undefined,
+        extractedAt:
+          commitment.extractedAt ??
+          commitment.dueDate ??
+          new Date(),
+      }
+    : null;
 
   return (
     <div
@@ -349,18 +364,12 @@ function CommitmentRow({
             </span>
           </div>
 
-          {/* Confidence indicator */}
-          <div className="flex w-7 items-center justify-center">
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full",
-                confidenceLevel === "high" && "bg-green-500",
-                confidenceLevel === "medium" && "bg-yellow-500",
-                confidenceLevel === "low" && "bg-red-500",
-                commitment.isUserVerified &&
-                  "ring-2 ring-green-400 ring-offset-1 ring-offset-card"
-              )}
-              title={`${Math.round(commitment.confidence * 100)}% confidence${commitment.isUserVerified ? " (verified)" : ""}`}
+          {/* Confidence badge */}
+          <div className="flex items-center justify-center">
+            <ConfidenceBadge
+              confidence={commitment.confidence}
+              isUserVerified={commitment.isUserVerified}
+              size="sm"
             />
           </div>
         </div>
@@ -417,6 +426,32 @@ function CommitmentRow({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+
+          {/* Evidence popover */}
+          {onShowEvidence && evidencePopover && (
+            <EvidencePopover
+              evidence={evidencePopover}
+              onShowFullEvidence={() => onShowEvidence()}
+              side="left"
+            >
+              <button
+                aria-label="Show evidence"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-[4px]",
+                  "transition-colors duration-100",
+                  "text-purple-500",
+                  "hover:bg-accent hover:text-purple-400"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowEvidence();
+                }}
+                type="button"
+              >
+                <Eye className="size-4" />
+              </button>
+            </EvidencePopover>
           )}
 
           {/* More menu */}

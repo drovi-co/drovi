@@ -140,6 +140,32 @@ function DateGroupHeader({ date }: { date: Date }) {
   );
 }
 
+function YearGroupHeader({
+  year,
+  total,
+  major,
+}: {
+  year: string;
+  total: number;
+  major: number;
+}) {
+  return (
+    <div className="sticky top-0 z-10 -mx-4 mb-2 rounded-lg border bg-muted/40 px-4 py-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-sm">{year}</p>
+          <p className="text-muted-foreground text-xs">
+            {total} interactions • {major} major changes
+          </p>
+        </div>
+        <Badge className="text-[10px]" variant="secondary">
+          Long-term memory
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
 // =============================================================================
 // TIMELINE ITEM COMPONENT
 // =============================================================================
@@ -253,6 +279,7 @@ export function RelationshipTimeline({
 }: RelationshipTimelineProps) {
   const trpc = useTRPC();
   const [showAll, setShowAll] = useState(false);
+  const [viewMode, setViewMode] = useState<"all" | "major">("all");
 
   // Fetch threads/conversations with this contact
   const { data: threadsData, isLoading: loadingThreads } = useQuery(
@@ -352,9 +379,47 @@ export function RelationshipTimeline({
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
+    const isMajor = (item: TimelineItem) =>
+      ["decision", "commitment", "document"].includes(item.type);
+
+    if (viewMode === "major") {
+      const byYear = new Map<string, TimelineItem[]>();
+      for (const item of items) {
+        const year = format(new Date(item.timestamp), "yyyy");
+        const list = byYear.get(year) ?? [];
+        list.push(item);
+        byYear.set(year, list);
+      }
+
+      const majorItems: TimelineItem[] = [];
+      for (const [year, yearItems] of byYear) {
+        const sorted = [...yearItems].sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        const newest = sorted[0];
+        const oldest = sorted[sorted.length - 1];
+        const major = sorted.filter(isMajor);
+
+        const unique = new Map<string, TimelineItem>();
+        [newest, oldest, ...major].forEach((item) => {
+          if (item) {
+            unique.set(item.id, item);
+          }
+        });
+        majorItems.push(...unique.values());
+      }
+
+      majorItems.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      return showAll ? majorItems : majorItems.slice(0, 10);
+    }
 
     return showAll ? items : items.slice(0, 10);
-  }, [threadsData, commitmentsData, decisionsData, showAll]);
+  }, [threadsData, commitmentsData, decisionsData, showAll, viewMode]);
 
   // Group items by date
   const groupedItems = useMemo(() => {
@@ -368,6 +433,22 @@ export function RelationshipTimeline({
     }
 
     return groups;
+  }, [timelineItems]);
+
+  const yearStats = useMemo(() => {
+    const stats = new Map<string, { total: number; major: number }>();
+    const isMajor = (item: TimelineItem) =>
+      ["decision", "commitment", "document"].includes(item.type);
+    for (const item of timelineItems) {
+      const year = format(new Date(item.timestamp), "yyyy");
+      const current = stats.get(year) ?? { total: 0, major: 0 };
+      current.total += 1;
+      if (isMajor(item)) {
+        current.major += 1;
+      }
+      stats.set(year, current);
+    }
+    return stats;
   }, [timelineItems]);
 
   if (isLoading) {
@@ -418,12 +499,51 @@ export function RelationshipTimeline({
         <CardDescription>
           {timelineItems.length} interactions across all channels
         </CardDescription>
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex items-center rounded-full border bg-muted/50 p-1">
+            <Button
+              className="h-7 rounded-full px-3 text-xs"
+              onClick={() => setViewMode("all")}
+              variant={viewMode === "all" ? "secondary" : "ghost"}
+            >
+              All
+            </Button>
+            <Button
+              className="h-7 rounded-full px-3 text-xs"
+              onClick={() => setViewMode("major")}
+              variant={viewMode === "major" ? "secondary" : "ghost"}
+            >
+              Major changes
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative">
           {Array.from(groupedItems.entries()).map(
             ([dateKey, items], groupIndex) => (
               <div key={dateKey}>
+                {(() => {
+                  const year = format(new Date(dateKey), "yyyy");
+                  const previousYear =
+                    groupIndex > 0
+                      ? format(
+                          new Date(Array.from(groupedItems.keys())[groupIndex - 1]),
+                          "yyyy"
+                        )
+                      : null;
+                  if (year !== previousYear) {
+                    const stats = yearStats.get(year);
+                    return (
+                      <YearGroupHeader
+                        year={year}
+                        total={stats?.total ?? 0}
+                        major={stats?.major ?? 0}
+                      />
+                    );
+                  }
+                  return null;
+                })()}
                 <DateGroupHeader date={new Date(dateKey)} />
                 {items.map((item, itemIndex) => {
                   const isLastInGroup = itemIndex === items.length - 1;

@@ -56,8 +56,8 @@ const SOURCE_CONFIGS: SourceConfig[] = [
     shortcut: "2",
     color: "text-purple-500",
     bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
-    available: false, // Not yet implemented
-    description: "Post to a channel or DM",
+    available: true,
+    description: "Post to a channel or DM (beta)",
   },
   {
     type: "whatsapp",
@@ -66,8 +66,8 @@ const SOURCE_CONFIGS: SourceConfig[] = [
     shortcut: "3",
     color: "text-green-500",
     bgColor: "bg-green-500/10 hover:bg-green-500/20",
-    available: false, // Not yet implemented
-    description: "Send a WhatsApp message",
+    available: true,
+    description: "Send a WhatsApp message (beta)",
   },
 ];
 

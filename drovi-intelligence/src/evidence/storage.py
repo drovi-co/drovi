@@ -49,6 +49,10 @@ class EvidenceStorage:
     async def create_presigned_url(self, storage_path: str) -> str | None:
         return None
 
+    async def delete(self, storage_path: str) -> bool:
+        """Delete an artifact from storage."""
+        raise NotImplementedError
+
 
 class LocalEvidenceStorage(EvidenceStorage):
     """Local filesystem storage backend."""
@@ -91,6 +95,16 @@ class LocalEvidenceStorage(EvidenceStorage):
     async def read_bytes(self, storage_path: str) -> bytes:
         async with aiofiles.open(storage_path, "rb") as f:
             return await f.read()
+
+    async def delete(self, storage_path: str) -> bool:
+        path = Path(storage_path)
+        try:
+            if path.exists():
+                path.unlink()
+        except Exception as exc:
+            logger.warning("Failed to delete local evidence artifact", path=str(path), error=str(exc))
+            return False
+        return not path.exists()
 
 
 class S3EvidenceStorage(EvidenceStorage):
@@ -199,6 +213,19 @@ class S3EvidenceStorage(EvidenceStorage):
             )
 
         return await anyio.to_thread.run_sync(_presign)
+
+    async def delete(self, storage_path: str) -> bool:
+        import anyio
+
+        def _delete() -> None:
+            self._client.delete_object(Bucket=self.bucket, Key=storage_path)
+
+        try:
+            await anyio.to_thread.run_sync(_delete)
+            return True
+        except Exception as exc:
+            logger.warning("Failed to delete S3 evidence artifact", path=storage_path, error=str(exc))
+            return False
 
 
 _storage_instance: EvidenceStorage | None = None

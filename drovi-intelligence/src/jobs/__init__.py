@@ -19,6 +19,10 @@ from src.jobs.graph_analytics import (
     run_communities_job,
     run_betweenness_job,
 )
+from src.jobs.evidence_retention import (
+    EvidenceRetentionJob,
+    get_retention_job,
+)
 
 __all__ = [
     # Decay job
@@ -34,4 +38,7 @@ __all__ = [
     "run_pagerank_job",
     "run_communities_job",
     "run_betweenness_job",
+    # Evidence retention
+    "EvidenceRetentionJob",
+    "get_retention_job",
 ]

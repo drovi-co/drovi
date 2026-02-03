@@ -30,6 +30,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import type { SourceType } from "./compose-provider";
 
 // =============================================================================
 // TYPES
@@ -63,6 +64,7 @@ export interface ContradictionCheckResult {
 interface ContradictionWarningProps {
   result: ContradictionCheckResult | null;
   isLoading?: boolean;
+  sourceType?: SourceType;
   onDismiss?: () => void;
   onProceedAnyway?: () => void;
   onViewThread?: (threadId: string) => void;
@@ -152,12 +154,14 @@ function getRiskLevelConfig(level: string) {
 export function ContradictionWarning({
   result,
   isLoading = false,
+  sourceType,
   onDismiss,
   onProceedAnyway,
   onViewThread,
   onEditDraft,
 }: ContradictionWarningProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const sourceLabel = sourceType ? sourceType.toUpperCase() : "MESSAGE";
 
   if (isLoading) {
     return (
@@ -167,7 +171,7 @@ export function ContradictionWarning({
           Checking for contradictions...
         </AlertTitle>
         <AlertDescription className="text-purple-700 dark:text-purple-300">
-          Analyzing your draft against{" "}
+          Analyzing your {sourceLabel} draft against{" "}
           {result?.checkedAgainst?.commitments ?? "..."} commitments and{" "}
           {result?.checkedAgainst?.decisions ?? "..."} decisions.
         </AlertDescription>
@@ -188,7 +192,8 @@ export function ContradictionWarning({
           No contradictions detected
         </AlertTitle>
         <AlertDescription className="text-green-700 dark:text-green-300">
-          Checked against {result.checkedAgainst.commitments} commitments and{" "}
+          Checked your {sourceLabel} draft against{" "}
+          {result.checkedAgainst.commitments} commitments and{" "}
           {result.checkedAgainst.decisions} decisions.
         </AlertDescription>
       </Alert>

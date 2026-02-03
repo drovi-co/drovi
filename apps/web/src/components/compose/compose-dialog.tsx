@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/utils/trpc";
 
@@ -39,8 +40,12 @@ import {
   ATTACHMENT_LIMITS,
   type Attachment,
   AttachmentList,
+  formatFileSize,
 } from "./shared/attachment-zone";
 import { StandaloneEmailFields } from "./sources/email-compose";
+import { SOURCE_CONFIGS, SourceIndicator } from "./sources/source-selector";
+import type { SourceType } from "./compose-provider";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // API HELPERS
@@ -179,9 +184,18 @@ export function ComposeDialog({
   const [body, setBody] = useState(initialBody);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [sourceType, setSourceType] = useState<SourceType>("email");
+  const [slackChannel, setSlackChannel] = useState("");
+  const [slackThreadTs, setSlackThreadTs] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [whatsappContact, setWhatsappContact] = useState("");
 
   // Attachment state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  const attachmentLimits = ATTACHMENT_LIMITS[sourceType];
+  const attachmentAccept =
+    attachmentLimits.allowedTypes?.join(",") || "*/*";
 
   // AI Assist state
   const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
@@ -212,6 +226,7 @@ export function ComposeDialog({
       setTo(replyContext.toRecipients);
       setCc(replyContext.ccRecipients);
       setSubject(replyContext.subject ?? "");
+      setSourceType("email");
     }
   }, [replyContext]);
 
@@ -228,6 +243,11 @@ export function ComposeDialog({
           setAttachments([]);
           setDraftId(null);
           setHasUnsavedChanges(false);
+          setSourceType("email");
+          setSlackChannel("");
+          setSlackThreadTs("");
+          setWhatsappPhone("");
+          setWhatsappContact("");
         }
       }, 200);
       return () => clearTimeout(timer);
@@ -246,9 +266,22 @@ export function ComposeDialog({
       to.length > 0 ||
       subject.length > 0 ||
       body.length > 0 ||
-      attachments.length > 0;
+      attachments.length > 0 ||
+      slackChannel.length > 0 ||
+      slackThreadTs.length > 0 ||
+      whatsappPhone.length > 0 ||
+      whatsappContact.length > 0;
     setHasUnsavedChanges(hasContent);
-  }, [to, subject, body, attachments]);
+  }, [
+    to,
+    subject,
+    body,
+    attachments,
+    slackChannel,
+    slackThreadTs,
+    whatsappPhone,
+    whatsappContact,
+  ]);
 
   // Send mutation
   const sendMutation = useMutation({
@@ -327,17 +360,25 @@ export function ComposeDialog({
         return;
       }
 
-      const limits = ATTACHMENT_LIMITS.email;
+      const limits = ATTACHMENT_LIMITS[sourceType];
       const currentTotalSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
       for (const file of Array.from(files)) {
         if (file.size > limits.maxFileSize) {
-          toast.error(`File "${file.name}" exceeds maximum size of 25MB`);
+          toast.error(
+            `File "${file.name}" exceeds maximum size of ${formatFileSize(
+              limits.maxFileSize
+            )}`
+          );
           continue;
         }
 
         if (currentTotalSize + file.size > limits.maxTotalSize) {
-          toast.error("Total attachment size exceeds 50MB limit");
+          toast.error(
+            `Total attachment size exceeds ${formatFileSize(
+              limits.maxTotalSize
+            )} limit`
+          );
           break;
         }
 
@@ -376,7 +417,7 @@ export function ComposeDialog({
         fileInputRef.current.value = "";
       }
     },
-    [attachments]
+    [attachments, sourceType]
   );
 
   // Remove attachment
@@ -391,6 +432,13 @@ export function ComposeDialog({
 
   // The actual send function (called after contradiction check passes)
   const performSend = useCallback(() => {
+    if (sourceType !== "email") {
+      toast.success(
+        `Checks complete. Sending via ${sourceType} is not configured yet.`
+      );
+      return;
+    }
+
     sendMutation.mutate({
       organizationId,
       accountId,
@@ -423,17 +471,34 @@ export function ComposeDialog({
     replyToThreadId,
     replyContext,
     sendMutation,
+    sourceType,
   ]);
 
   // Handle send - first check for contradictions, then send
   const handleSend = useCallback(() => {
-    if (to.length === 0) {
-      toast.error("Please add at least one recipient");
+    if (!body.trim()) {
+      toast.error("Please enter a message");
       return;
     }
 
-    if (!subject.trim()) {
-      toast.error("Please enter a subject");
+    if (sourceType === "email") {
+      if (to.length === 0) {
+        toast.error("Please add at least one recipient");
+        return;
+      }
+      if (!subject.trim()) {
+        toast.error("Please enter a subject");
+        return;
+      }
+    }
+
+    if (sourceType === "slack" && !slackChannel.trim()) {
+      toast.error("Please enter a Slack channel or DM");
+      return;
+    }
+
+    if (sourceType === "whatsapp" && !whatsappPhone.trim()) {
+      toast.error("Please enter a WhatsApp phone number");
       return;
     }
 
@@ -445,9 +510,33 @@ export function ComposeDialog({
       organizationId,
       accountId,
       content: body,
-      subject,
-      recipients: to.map((r) => ({ email: r.email, name: r.name })),
+      subject:
+        sourceType === "email"
+          ? subject
+          : `${sourceType.toUpperCase()} message`,
+      recipients:
+        sourceType === "email"
+          ? to.map((r) => ({ email: r.email, name: r.name }))
+          : [
+              {
+                email:
+                  sourceType === "slack"
+                    ? slackChannel
+                    : whatsappPhone,
+                name:
+                  sourceType === "slack"
+                    ? slackChannel
+                    : whatsappContact,
+              },
+            ],
       threadId: replyToThreadId,
+      sourceType,
+      sourceContext: {
+        slackChannel,
+        slackThreadTs,
+        whatsappPhone,
+        whatsappContact,
+      },
     });
   }, [
     to,
@@ -457,10 +546,19 @@ export function ComposeDialog({
     accountId,
     replyToThreadId,
     checkDraftMutation,
+    sourceType,
+    slackChannel,
+    slackThreadTs,
+    whatsappPhone,
+    whatsappContact,
   ]);
 
   // Handle save draft
   const handleSaveDraft = useCallback(() => {
+    if (sourceType !== "email") {
+      toast.error("Drafts are only supported for email at the moment.");
+      return;
+    }
     saveDraftMutation.mutate({
       organizationId,
       accountId,
@@ -493,6 +591,7 @@ export function ComposeDialog({
     draftId,
     replyToThreadId,
     saveDraftMutation,
+    sourceType,
   ]);
 
   // Handle discard
@@ -563,6 +662,13 @@ export function ComposeDialog({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, aiPopoverOpen, handleSend, handleSaveDraft, handleClose]);
 
+  const bodyPlaceholder =
+    sourceType === "email"
+      ? "Compose your email... (Tip: Hit Cmd+J for AI assistance)"
+      : sourceType === "slack"
+        ? "Write your Slack message... (Tip: Hit Cmd+J for AI assistance)"
+        : "Write your WhatsApp message... (Tip: Hit Cmd+J for AI assistance)";
+
   return (
     <Dialog onOpenChange={handleClose} open={open}>
       <DialogContent
@@ -592,26 +698,108 @@ export function ComposeDialog({
           </div>
         </DialogHeader>
 
-        {/* Email-specific fields (To, Cc, Bcc, Subject) */}
-        <StandaloneEmailFields
-          bcc={bcc}
-          cc={cc}
-          onBccChange={setBcc}
-          onCcChange={setCc}
-          onSubjectChange={setSubject}
-          onToChange={setTo}
-          organizationId={organizationId}
-          showCcBccByDefault={cc.length > 0 || bcc.length > 0}
-          subject={subject}
-          to={to}
-        />
+        {/* Source selection */}
+        <div className="border-b px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            {SOURCE_CONFIGS.map((config) => {
+              const Icon = config.icon;
+              const isSelected = sourceType === config.type;
+              return (
+                <Button
+                  className={cn(
+                    "h-8 gap-1.5",
+                    isSelected && "border border-secondary"
+                  )}
+                  disabled={!config.available}
+                  key={config.type}
+                  onClick={() => setSourceType(config.type)}
+                  size="sm"
+                  variant={isSelected ? "secondary" : "ghost"}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {config.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Source-specific fields */}
+        {sourceType === "email" && (
+          <StandaloneEmailFields
+            bcc={bcc}
+            cc={cc}
+            onBccChange={setBcc}
+            onCcChange={setCc}
+            onSubjectChange={setSubject}
+            onToChange={setTo}
+            organizationId={organizationId}
+            showCcBccByDefault={cc.length > 0 || bcc.length > 0}
+            subject={subject}
+            to={to}
+          />
+        )}
+
+        {sourceType === "slack" && (
+          <div className="border-b px-4 py-3 space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Channel or DM
+              </label>
+              <Input
+                className="mt-1"
+                onChange={(e) => setSlackChannel(e.target.value)}
+                placeholder="#team-updates or @alex"
+                value={slackChannel}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Thread timestamp (optional)
+              </label>
+              <Input
+                className="mt-1"
+                onChange={(e) => setSlackThreadTs(e.target.value)}
+                placeholder="1680123456.7890"
+                value={slackThreadTs}
+              />
+            </div>
+          </div>
+        )}
+
+        {sourceType === "whatsapp" && (
+          <div className="border-b px-4 py-3 space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Phone number
+              </label>
+              <Input
+                className="mt-1"
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+                placeholder="+1 555 123 4567"
+                value={whatsappPhone}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Contact name (optional)
+              </label>
+              <Input
+                className="mt-1"
+                onChange={(e) => setWhatsappContact(e.target.value)}
+                placeholder="Alex Kim"
+                value={whatsappContact}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
           <Textarea
             className="min-h-0 flex-1 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Compose your email... (Tip: Hit Cmd+J for AI assistance)"
+            placeholder={bodyPlaceholder}
             ref={bodyRef}
             value={body}
           />
@@ -622,14 +810,14 @@ export function ComposeDialog({
               attachments={attachments}
               className="mt-3"
               onRemove={handleRemoveAttachment}
-              sourceType="email"
+              sourceType={sourceType}
             />
           )}
         </div>
 
         {/* Hidden file input */}
         <input
-          accept="*/*"
+          accept={attachmentAccept}
           className="hidden"
           multiple
           onChange={handleFileSelect}
@@ -642,6 +830,7 @@ export function ComposeDialog({
           <div className="border-t bg-muted/30 px-4 py-3">
             <ContradictionWarning
               isLoading={isCheckingContradictions}
+              sourceType={sourceType}
               onDismiss={() => {
                 setShowContradictionWarning(false);
                 setContradictionResult(null);
@@ -674,7 +863,7 @@ export function ComposeDialog({
               disabled={
                 sendMutation.isPending ||
                 isCheckingContradictions ||
-                to.length === 0
+                (sourceType === "email" && to.length === 0)
               }
               onClick={handleSend}
             >
@@ -691,12 +880,12 @@ export function ComposeDialog({
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Send
+                  {sourceType === "email" ? "Send" : "Run Checks"}
                 </>
               )}
             </Button>
             <Button
-              disabled={saveDraftMutation.isPending}
+              disabled={saveDraftMutation.isPending || sourceType !== "email"}
               onClick={handleSaveDraft}
               size="sm"
               variant="ghost"
@@ -705,6 +894,10 @@ export function ComposeDialog({
             </Button>
           </div>
           <div className="flex items-center gap-1">
+            <SourceIndicator
+              className="mr-2 hidden sm:flex"
+              source={sourceType}
+            />
             <AIAssistPanel
               body={body}
               onBodyChange={handleBodyChange}
@@ -712,10 +905,16 @@ export function ComposeDialog({
               onSubjectChange={handleSubjectChange}
               open={aiPopoverOpen}
               organizationId={organizationId}
-              recipientName={to[0]?.name ?? to[0]?.email?.split("@")[0]}
+              recipientName={
+                sourceType === "email"
+                  ? to[0]?.name ?? to[0]?.email?.split("@")[0]
+                  : sourceType === "slack"
+                    ? slackChannel
+                    : whatsappContact || whatsappPhone
+              }
               replyToThreadId={replyToThreadId}
-              sourceType="email"
-              subject={subject}
+              sourceType={sourceType}
+              subject={sourceType === "email" ? subject : undefined}
             />
             <Button
               className="h-8 w-8"
