@@ -13,9 +13,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -78,8 +80,8 @@ class WhatsAppConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if WhatsApp credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
-            phone_number_id = config.credentials.get("phone_number_id")
+            access_token = config.get_credential("access_token")
+            phone_number_id = config.get_credential("phone_number_id")
 
             if not access_token:
                 return False, "Missing access_token in credentials"
@@ -87,7 +89,9 @@ class WhatsAppConnector(BaseConnector):
                 return False, "Missing phone_number_id in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{WHATSAPP_GRAPH_URL}/{phone_number_id}",
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
@@ -115,12 +119,12 @@ class WhatsAppConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="messages",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="timestamp",
             ),
             StreamConfig(
                 stream_name="contacts",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
         ]
 
@@ -131,8 +135,8 @@ class WhatsAppConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from WhatsApp."""
-        self._access_token = config.credentials.get("access_token")
-        self._phone_number_id = config.credentials.get("phone_number_id")
+        self._access_token = config.get_credential("access_token")
+        self._phone_number_id = config.get_credential("phone_number_id")
 
         if stream.stream_name == "messages":
             async for batch in self._read_messages(config, stream, state):
@@ -180,21 +184,29 @@ class WhatsAppConnector(BaseConnector):
 
                 rows = await conn.fetch(query, *params)
 
-                messages = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 newest_timestamp = last_timestamp
 
                 for row in rows:
                     message = self._row_to_message(row)
-                    messages.append(self._message_to_record(message))
+                    record = self.create_record(
+                        record_id=message.id,
+                        stream_name=stream.stream_name,
+                        data=self._message_to_record(message),
+                        cursor_value=message.timestamp,
+                    )
+                    record.record_type = RecordType.MESSAGE
+                    batch.add_record(record)
 
                     if not newest_timestamp or row["timestamp"] > newest_timestamp:
                         newest_timestamp = row["timestamp"]
 
-                if messages:
-                    yield RecordBatch(
-                        records=messages,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"timestamp": newest_timestamp} if newest_timestamp else None,
+                        has_more=False,
                     )
+                    yield batch
 
         except Exception as e:
             logger.warning(
@@ -202,7 +214,9 @@ class WhatsAppConnector(BaseConnector):
                 error=str(e),
             )
             # Yield empty batch - messages come via webhooks
-            yield RecordBatch(records=[])
+            batch = self.create_batch(stream.stream_name, config.connection_id)
+            batch.complete(has_more=False)
+            yield batch
 
     async def _read_contacts(
         self,
@@ -225,23 +239,32 @@ class WhatsAppConnector(BaseConnector):
                     self._phone_number_id,
                 )
 
-                contacts = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for row in rows:
                     contact = WhatsAppContact(
                         wa_id=row["wa_id"],
                         profile_name=row.get("profile_name"),
                     )
-                    contacts.append(self._contact_to_record(contact))
+                    record = self.create_record(
+                        record_id=contact.wa_id,
+                        stream_name=stream.stream_name,
+                        data=self._contact_to_record(contact),
+                    )
+                    record.record_type = RecordType.CONTACT
+                    batch.add_record(record)
 
-                if contacts:
-                    yield RecordBatch(records=contacts)
+                if batch.records:
+                    batch.complete(has_more=False)
+                    yield batch
 
         except Exception as e:
             logger.warning(
                 "Could not read WhatsApp contacts from database",
                 error=str(e),
             )
-            yield RecordBatch(records=[])
+            batch = self.create_batch(stream.stream_name, config.connection_id)
+            batch.complete(has_more=False)
+            yield batch
 
     async def process_webhook(
         self,
@@ -324,7 +347,9 @@ class WhatsAppConnector(BaseConnector):
         try:
             async with httpx.AsyncClient() as client:
                 # Get media URL
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{WHATSAPP_GRAPH_URL}/{media_id}",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
@@ -337,7 +362,9 @@ class WhatsAppConnector(BaseConnector):
                     return None
 
                 # Download media
-                media_response = await client.get(
+                media_response = await request_with_retry(
+                    client,
+                    "GET",
                     media_url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )

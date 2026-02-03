@@ -59,9 +59,9 @@ PROVIDER_CONFIGS: dict[Provider, ProviderConfig] = {
         api_key_env="TOGETHER_API_KEY",
         base_url="https://api.together.xyz/v1",
         models={
-            ModelTier.FAST: "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-            ModelTier.BALANCED: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            ModelTier.POWERFUL: "Qwen/Qwen3-235B-A22B-fp8-tput",
+            ModelTier.FAST: "moonshotai/Kimi-K2.5",
+            ModelTier.BALANCED: "moonshotai/Kimi-K2.5",
+            ModelTier.POWERFUL: "moonshotai/Kimi-K2.5",
         },
         rate_limit_rpm=200,
         cost_per_1m_input=0.18,

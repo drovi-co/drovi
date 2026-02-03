@@ -1,0 +1,38 @@
+name: Drovi Intelligence CI
+
+on:
+  push:
+    paths:
+      - "drovi-intelligence/**"
+  pull_request:
+    paths:
+      - "drovi-intelligence/**"
+
+jobs:
+  regression:
+    name: Regression Gate
+    runs-on: ubuntu-latest
+    env:
+      EVAL_API_BASE_URL: ${{ secrets.EVAL_API_BASE_URL }}
+      EVAL_API_KEY: ${{ secrets.EVAL_API_KEY }}
+      EVAL_ORG_ID: ${{ secrets.EVAL_ORG_ID }}
+      EVAL_MIN_F1: "0.6"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e drovi-intelligence
+
+      - name: Run regression eval
+        if: env.EVAL_API_KEY != ''
+        run: |
+          cd drovi-intelligence
+          bash scripts/run_regression_eval.sh

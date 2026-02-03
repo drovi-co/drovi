@@ -1,0 +1,319 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0B13AF3E253C8465FA6F711D /* RecordingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC6DC0456B0F6131F9F40C /* RecordingViewModel.swift */; };
+		1BD019D7C09158C53AB9F944 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58EB067E68CAD90F2A83440C /* Config.swift */; };
+		4131DF2036264FD5DC230398 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BE73C8382AED0C315911D52 /* AudioRecorder.swift */; };
+		87388A502B953901E00CFF25 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75AA0D3E2519CF9635E91573 /* RecordingView.swift */; };
+		979D4483913B955E65DAB22C /* NetworkClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771FC10FF000D59481CDB051 /* NetworkClient.swift */; };
+		C7FCB25D8A67500941F0B3BB /* DroviRecorderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F40B855BCA5644EC3A88E2 /* DroviRecorderApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		20F40B855BCA5644EC3A88E2 /* DroviRecorderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroviRecorderApp.swift; sourceTree = "<group>"; };
+		58EB067E68CAD90F2A83440C /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		6BE73C8382AED0C315911D52 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		6C254E120FCA66108FC9C3C1 /* Fastfile */ = {isa = PBXFileReference; path = Fastfile; sourceTree = "<group>"; };
+		75AA0D3E2519CF9635E91573 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		771FC10FF000D59481CDB051 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
+		9CDC6DC0456B0F6131F9F40C /* RecordingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingViewModel.swift; sourceTree = "<group>"; };
+		F58F47DAF9765483941E18B5 /* DroviRecorderiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DroviRecorderiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FEBE95C8A19FE469EA9464A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		24517E360F60FD05C6015DFB = {
+			isa = PBXGroup;
+			children = (
+				8F720A8B12446018E3E3BA05 /* DroviRecorder */,
+				C563D5E73DDF3DF8DBB60432 /* fastlane */,
+				E0C6680B25C95D07E93A11BB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8F720A8B12446018E3E3BA05 /* DroviRecorder */ = {
+			isa = PBXGroup;
+			children = (
+				6BE73C8382AED0C315911D52 /* AudioRecorder.swift */,
+				58EB067E68CAD90F2A83440C /* Config.swift */,
+				20F40B855BCA5644EC3A88E2 /* DroviRecorderApp.swift */,
+				FEBE95C8A19FE469EA9464A7 /* Info.plist */,
+				771FC10FF000D59481CDB051 /* NetworkClient.swift */,
+				75AA0D3E2519CF9635E91573 /* RecordingView.swift */,
+				9CDC6DC0456B0F6131F9F40C /* RecordingViewModel.swift */,
+				C563D5E73DDF3DF8DBB60432 /* fastlane */,
+			);
+			name = DroviRecorder;
+			path = .;
+			sourceTree = "<group>";
+		};
+		C563D5E73DDF3DF8DBB60432 /* fastlane */ = {
+			isa = PBXGroup;
+			children = (
+				6C254E120FCA66108FC9C3C1 /* Fastfile */,
+			);
+			path = fastlane;
+			sourceTree = "<group>";
+		};
+		E0C6680B25C95D07E93A11BB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F58F47DAF9765483941E18B5 /* DroviRecorderiOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A0B537249394229A25D16AE4 /* DroviRecorderiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A16FC4D4EE16F21C23075EB2 /* Build configuration list for PBXNativeTarget "DroviRecorderiOS" */;
+			buildPhases = (
+				57DE4C30F304E4159EC4FE4A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DroviRecorderiOS;
+			packageProductDependencies = (
+			);
+			productName = DroviRecorderiOS;
+			productReference = F58F47DAF9765483941E18B5 /* DroviRecorderiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DDB88BDACA1A47CB2C3565FE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					A0B537249394229A25D16AE4 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 1A94FEF14ED0F271AAFB0C51 /* Build configuration list for PBXProject "DroviRecorderiOS" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 24517E360F60FD05C6015DFB;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A0B537249394229A25D16AE4 /* DroviRecorderiOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		57DE4C30F304E4159EC4FE4A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4131DF2036264FD5DC230398 /* AudioRecorder.swift in Sources */,
+				1BD019D7C09158C53AB9F944 /* Config.swift in Sources */,
+				C7FCB25D8A67500941F0B3BB /* DroviRecorderApp.swift in Sources */,
+				979D4483913B955E65DAB22C /* NetworkClient.swift in Sources */,
+				87388A502B953901E00CFF25 /* RecordingView.swift in Sources */,
+				0B13AF3E253C8465FA6F711D /* RecordingViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1FECA79C92EBFAA521FE5AC3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DFEB9AFC4D163030DF30BB0F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		EF902BE8DCB0C1C5972E94E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.drovi.recorder.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		FC583769E384817EC439741D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.drovi.recorder.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1A94FEF14ED0F271AAFB0C51 /* Build configuration list for PBXProject "DroviRecorderiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EF902BE8DCB0C1C5972E94E4 /* Debug */,
+				FC583769E384817EC439741D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A16FC4D4EE16F21C23075EB2 /* Build configuration list for PBXNativeTarget "DroviRecorderiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FECA79C92EBFAA521FE5AC3 /* Debug */,
+				DFEB9AFC4D163030DF30BB0F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DDB88BDACA1A47CB2C3565FE /* Project object */;
+}

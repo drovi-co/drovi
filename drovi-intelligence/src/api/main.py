@@ -42,11 +42,13 @@ from src.api.routes import (
     evidence,
     graph,
     health,
+    live_sessions,
     memory,
     monitoring,
     org,
     search,
     sessions,
+    signals,
     stream,
     uios,
     workflows,
@@ -113,9 +115,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await graph_client.initialize_indexes()
     logger.info("FalkorDB connection initialized with indexes")
 
-    # Initialize connector scheduler
-    await init_scheduler()
-    logger.info("Connector scheduler initialized")
+    # Initialize connector scheduler (optional)
+    settings = get_settings()
+    if settings.scheduler_run_in_api:
+        await init_scheduler()
+        logger.info("Connector scheduler initialized")
+    else:
+        logger.info("Connector scheduler disabled in API process")
 
     # Initialize Kafka streaming (if enabled)
     streaming_started = await init_streaming()
@@ -129,7 +135,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     logger.info("Shutting down Drovi Intelligence Backend")
     await shutdown_streaming()
-    await shutdown_scheduler()
+    if get_settings().scheduler_run_in_api:
+        await shutdown_scheduler()
     await close_graph_client()
     await close_db()
 
@@ -195,6 +202,8 @@ app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
 app.include_router(contacts.router, prefix="/api/v1", tags=["Contacts"])
 app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])
+app.include_router(signals.router, prefix="/api/v1", tags=["Signals"])
+app.include_router(live_sessions.router, prefix="/api/v1", tags=["Live Sessions"])
 app.include_router(sessions.router, prefix="/api/v1", tags=["Sessions"])
 app.include_router(changes.router, prefix="/api/v1", tags=["Changes"])
 app.include_router(monitoring.router, prefix="/api/v1", tags=["Monitoring"])

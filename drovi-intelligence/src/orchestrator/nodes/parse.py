@@ -133,6 +133,50 @@ def parse_slack_messages(content: str, user_email: str | None = None, metadata: 
     return messages if messages else [ParsedMessage(id="msg_0", content=content)]
 
 
+def parse_meeting_transcript(content: str) -> list[ParsedMessage]:
+    """
+    Parse meeting/call transcripts in the form:
+    Speaker: sentence...
+    """
+    messages: list[ParsedMessage] = []
+    current_speaker = None
+    current_lines: list[str] = []
+
+    for line in content.splitlines():
+        if ":" in line:
+            parts = line.split(":", 1)
+            speaker = parts[0].strip()
+            text = parts[1].strip()
+            if speaker and text:
+                if current_speaker and current_lines:
+                    messages.append(
+                        ParsedMessage(
+                            id=f"msg_{len(messages)}",
+                            content="\n".join(current_lines),
+                            sender_name=current_speaker,
+                        )
+                    )
+                current_speaker = speaker
+                current_lines = [text]
+                continue
+        if line.strip():
+            current_lines.append(line.strip())
+
+    if current_speaker and current_lines:
+        messages.append(
+            ParsedMessage(
+                id=f"msg_{len(messages)}",
+                content="\n".join(current_lines),
+                sender_name=current_speaker,
+            )
+        )
+
+    if not messages:
+        messages = [ParsedMessage(id="msg_0", content=content)]
+
+    return messages
+
+
 def _parse_calendar_from_text(content: str) -> dict:
     """Extract calendar event details from plain text content.
 
@@ -588,6 +632,8 @@ async def parse_messages_node(state: IntelligenceState) -> dict:
         messages = parse_notion_page(content, user_email, metadata)
     elif source_type == "google_docs":
         messages = parse_google_doc(content, user_email, metadata)
+    elif source_type in ("meeting", "call", "recording"):
+        messages = parse_meeting_transcript(content)
     else:
         # Generic parsing
         messages = parse_generic_content(content, user_email)

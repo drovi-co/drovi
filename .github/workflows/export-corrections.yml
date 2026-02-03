@@ -1,0 +1,14 @@
+name: export-corrections
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 1"
+
+jobs:
+  export:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export correction dataset
+        run: python3 drovi-intelligence/scripts/export_corrections_dataset.py

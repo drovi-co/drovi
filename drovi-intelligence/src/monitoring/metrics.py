@@ -94,6 +94,18 @@ class Metrics:
                 ["connector_type"],
             )
 
+            self.connector_last_success_timestamp_seconds = Gauge(
+                "drovi_connector_last_success_timestamp_seconds",
+                "Unix timestamp of last successful connector sync",
+                ["connector_type"],
+            )
+
+            self.connector_last_error_timestamp_seconds = Gauge(
+                "drovi_connector_last_error_timestamp_seconds",
+                "Unix timestamp of last failed connector sync",
+                ["connector_type"],
+            )
+
             # Graph metrics
             self.graph_operations_total = Counter(
                 "drovi_graph_operations_total",
@@ -171,6 +183,20 @@ class Metrics:
             self.active_event_subscriptions = Gauge(
                 "drovi_active_event_subscriptions",
                 "Number of active event subscriptions",
+            )
+
+            # Unified event model metrics
+            self.uem_events_total = Counter(
+                "drovi_uem_events_total",
+                "Total unified events persisted",
+                ["organization_id", "source_type", "event_type", "status"],
+            )
+
+            self.uem_persist_duration_seconds = Histogram(
+                "drovi_uem_persist_duration_seconds",
+                "Unified event persist duration in seconds",
+                ["event_type"],
+                buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
             )
 
             # Memory/decay metrics
@@ -269,6 +295,30 @@ class Metrics:
                     uio_type=uio_type,
                 ).inc(count)
 
+    def track_uem_event(
+        self,
+        organization_id: str,
+        source_type: str,
+        event_type: str,
+        status: str,
+        duration: float,
+        entity_counts: dict[str, int] | None = None,
+    ) -> None:
+        """Track unified event persistence."""
+        if not self._enabled:
+            return
+
+        self.uem_events_total.labels(
+            organization_id=organization_id,
+            source_type=source_type,
+            event_type=event_type,
+            status=status,
+        ).inc()
+
+        self.uem_persist_duration_seconds.labels(
+            event_type=event_type,
+        ).observe(duration)
+
         if entity_counts:
             for entity_type, count in entity_counts.items():
                 self.entities_extracted_total.labels(
@@ -300,6 +350,16 @@ class Metrics:
             self.records_synced_total.labels(
                 connector_type=connector_type,
             ).inc(records_synced)
+
+        now = time.time()
+        if status == "completed":
+            self.connector_last_success_timestamp_seconds.labels(
+                connector_type=connector_type,
+            ).set(now)
+        elif status == "failed":
+            self.connector_last_error_timestamp_seconds.labels(
+                connector_type=connector_type,
+            ).set(now)
 
     def track_graph_operation(
         self,

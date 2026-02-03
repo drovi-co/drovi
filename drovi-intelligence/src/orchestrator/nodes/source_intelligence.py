@@ -333,6 +333,14 @@ def analyze_source(source_type: str, metadata: dict | None = None) -> SourceInte
         return _analyze_document(metadata, source_type)
     if source_type in ("calendar", "google_calendar"):
         return _analyze_calendar(metadata)
+    if source_type in ("meeting", "call", "recording", "transcript"):
+        return SourceIntelligence(
+            source_type=source_type,
+            category=ContentCategory.HUMAN,
+            should_extract=True,
+            extraction_level="full",
+            reasoning="live session content",
+        )
     if source_type in ("hubspot", "salesforce", "crm"):
         return _analyze_crm(metadata, source_type)
     if source_type in ("s3", "bigquery", "postgresql", "mysql", "mongodb"):

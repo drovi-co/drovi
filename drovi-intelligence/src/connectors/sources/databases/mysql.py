@@ -11,8 +11,9 @@ from typing import Any
 
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -43,7 +44,7 @@ class MySQLConnector(BaseConnector):
         try:
             import aiomysql
 
-            conn_params = self._build_conn_params(config.credentials)
+            conn_params = self._build_conn_params(config)
             conn = await aiomysql.connect(**conn_params)
             async with conn.cursor() as cursor:
                 await cursor.execute("SELECT 1")
@@ -65,12 +66,12 @@ class MySQLConnector(BaseConnector):
         import aiomysql
 
         streams = []
-        conn_params = self._build_conn_params(config.credentials)
+        conn_params = self._build_conn_params(config)
 
         try:
             conn = await aiomysql.connect(**conn_params)
             async with conn.cursor(aiomysql.DictCursor) as cursor:
-                database = config.credentials.get("database")
+                database = config.get_credential("database")
 
                 # Get all tables
                 await cursor.execute(
@@ -108,7 +109,7 @@ class MySQLConnector(BaseConnector):
                     streams.append(
                         StreamConfig(
                             stream_name=table_name,
-                            sync_mode="incremental" if cursor_field else "full_refresh",
+                            sync_mode=SyncMode.INCREMENTAL if cursor_field else SyncMode.FULL_REFRESH,
                             cursor_field=cursor_field,
                         )
                     )
@@ -129,8 +130,8 @@ class MySQLConnector(BaseConnector):
         """Read records from a table."""
         import aiomysql
 
-        conn_params = self._build_conn_params(config.credentials)
-        batch_size = config.settings.get("batch_size", 1000)
+        conn_params = self._build_conn_params(config)
+        batch_size = config.get_setting("batch_size", 1000)
 
         conn = await aiomysql.connect(**conn_params)
 
@@ -140,7 +141,7 @@ class MySQLConnector(BaseConnector):
                 table = f"`{stream.stream_name}`"
                 state_cursor = state.get_cursor(stream.stream_name)
 
-                if stream.sync_mode == "incremental" and stream.cursor_field and state_cursor:
+                if stream.sync_mode == SyncMode.INCREMENTAL and stream.cursor_field and state_cursor:
                     last_value = state_cursor.get(stream.cursor_field)
                     query = f"""
                         SELECT * FROM {table}
@@ -158,7 +159,7 @@ class MySQLConnector(BaseConnector):
                     if not rows:
                         break
 
-                    records = []
+                    batch = self.create_batch(stream.stream_name, config.connection_id)
                     newest_cursor_value = None
 
                     for row in rows:
@@ -171,7 +172,23 @@ class MySQLConnector(BaseConnector):
                             if isinstance(value, datetime):
                                 record[key] = value.isoformat()
 
-                        records.append(record)
+                        record_id = None
+                        if stream.primary_key:
+                            try:
+                                record_id = ":".join(str(record.get(k)) for k in stream.primary_key)
+                            except Exception:
+                                record_id = None
+                        if not record_id:
+                            record_id = str(record.get("id") or record.get("uuid") or record.get("pk") or record.get("ID") or record.get("Id") or record.get("_id") or record.get("_source_table"))
+
+                        rec = self.create_record(
+                            record_id=record_id,
+                            stream_name=stream.stream_name,
+                            data=record,
+                            cursor_value=record.get(stream.cursor_field) if stream.cursor_field else None,
+                        )
+                        rec.record_type = RecordType.CUSTOM
+                        batch.add_record(rec)
 
                         if stream.cursor_field and stream.cursor_field in row:
                             cursor_val = row[stream.cursor_field]
@@ -184,22 +201,21 @@ class MySQLConnector(BaseConnector):
                     if newest_cursor_value and stream.cursor_field:
                         next_cursor = {stream.cursor_field: newest_cursor_value}
 
-                    yield RecordBatch(
-                        records=records,
-                        next_cursor=next_cursor,
-                    )
+                    if batch.records:
+                        batch.complete(next_cursor=next_cursor, has_more=True)
+                        yield batch
 
         finally:
             conn.close()
 
-    def _build_conn_params(self, credentials: dict[str, Any]) -> dict[str, Any]:
+    def _build_conn_params(self, config: ConnectorConfig) -> dict[str, Any]:
         """Build MySQL connection parameters."""
         return {
-            "host": credentials.get("host", "localhost"),
-            "port": credentials.get("port", 3306),
-            "db": credentials.get("database", "mysql"),
-            "user": credentials.get("user", "root"),
-            "password": credentials.get("password", ""),
+            "host": config.get_credential("host", "localhost"),
+            "port": config.get_credential("port", 3306),
+            "db": config.get_credential("database", "mysql"),
+            "user": config.get_credential("user", "root"),
+            "password": config.get_credential("password", ""),
             "charset": "utf8mb4",
         }
 

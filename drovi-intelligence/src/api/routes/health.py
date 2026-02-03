@@ -5,6 +5,8 @@ from datetime import datetime
 import structlog
 from fastapi import APIRouter, Response
 
+from sqlalchemy import text
+
 from src.graph.client import get_graph_client
 from src.db.client import get_db_session
 
@@ -45,7 +47,7 @@ async def readiness_check(response: Response):
     # Check PostgreSQL
     try:
         async with get_db_session() as session:
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
             checks["postgres"] = True
     except Exception as e:
         logger.warning("PostgreSQL health check failed", error=str(e))

@@ -12,9 +12,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -108,12 +110,14 @@ class HubSpotConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if HubSpot credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"limit": 1},
@@ -138,22 +142,22 @@ class HubSpotConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="contacts",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastmodifieddate",
             ),
             StreamConfig(
                 stream_name="companies",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastmodifieddate",
             ),
             StreamConfig(
                 stream_name="deals",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastmodifieddate",
             ),
             StreamConfig(
                 stream_name="engagements",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastUpdated",
             ),
         ]
@@ -165,7 +169,7 @@ class HubSpotConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from a HubSpot stream."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "contacts":
             async for batch in self._read_contacts(config, stream, state):
@@ -207,7 +211,9 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -215,7 +221,7 @@ class HubSpotConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                contacts = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for result in data.get("results", []):
                     props = result.get("properties", {})
                     contact = HubSpotContact(
@@ -233,17 +239,25 @@ class HubSpotConnector(BaseConnector):
                         updated_at=props.get("lastmodifieddate", ""),
                         properties=props,
                     )
-                    contacts.append(self._contact_to_record(contact))
+                    record = self.create_record(
+                        record_id=contact.id,
+                        stream_name=stream.stream_name,
+                        data=self._contact_to_record(contact),
+                        cursor_value=contact.updated_at,
+                    )
+                    record.record_type = RecordType.CONTACT
+                    batch.add_record(record)
 
                 paging = data.get("paging", {})
                 next_link = paging.get("next", {})
                 after = next_link.get("after")
 
-                if contacts:
-                    yield RecordBatch(
-                        records=contacts,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"after": after} if after else None,
+                        has_more=bool(after),
                     )
+                    yield batch
 
                 if not after:
                     break
@@ -272,7 +286,9 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/companies",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -280,7 +296,7 @@ class HubSpotConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                companies = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for result in data.get("results", []):
                     props = result.get("properties", {})
                     company = HubSpotCompany(
@@ -296,17 +312,25 @@ class HubSpotConnector(BaseConnector):
                         updated_at=props.get("lastmodifieddate", ""),
                         properties=props,
                     )
-                    companies.append(self._company_to_record(company))
+                    record = self.create_record(
+                        record_id=company.id,
+                        stream_name=stream.stream_name,
+                        data=self._company_to_record(company),
+                        cursor_value=company.updated_at,
+                    )
+                    record.record_type = RecordType.CUSTOM
+                    batch.add_record(record)
 
                 paging = data.get("paging", {})
                 next_link = paging.get("next", {})
                 after = next_link.get("after")
 
-                if companies:
-                    yield RecordBatch(
-                        records=companies,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"after": after} if after else None,
+                        has_more=bool(after),
                     )
+                    yield batch
 
                 if not after:
                     break
@@ -335,7 +359,9 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{HUBSPOT_BASE_URL}/crm/v3/objects/deals",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -343,7 +369,7 @@ class HubSpotConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                deals = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for result in data.get("results", []):
                     props = result.get("properties", {})
                     amount = props.get("amount")
@@ -359,17 +385,25 @@ class HubSpotConnector(BaseConnector):
                         updated_at=props.get("lastmodifieddate", ""),
                         properties=props,
                     )
-                    deals.append(self._deal_to_record(deal))
+                    record = self.create_record(
+                        record_id=deal.id,
+                        stream_name=stream.stream_name,
+                        data=self._deal_to_record(deal),
+                        cursor_value=deal.updated_at,
+                    )
+                    record.record_type = RecordType.CUSTOM
+                    batch.add_record(record)
 
                 paging = data.get("paging", {})
                 next_link = paging.get("next", {})
                 after = next_link.get("after")
 
-                if deals:
-                    yield RecordBatch(
-                        records=deals,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"after": after} if after else None,
+                        has_more=bool(after),
                     )
+                    yield batch
 
                 if not after:
                     break
@@ -390,7 +424,9 @@ class HubSpotConnector(BaseConnector):
                 if offset:
                     params["offset"] = offset
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{HUBSPOT_BASE_URL}/engagements/v1/engagements/paged",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -398,7 +434,7 @@ class HubSpotConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                engagements = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for result in data.get("results", []):
                     engagement_data = result.get("engagement", {})
                     associations = result.get("associations", {})
@@ -416,16 +452,24 @@ class HubSpotConnector(BaseConnector):
                         },
                         metadata=metadata,
                     )
-                    engagements.append(self._engagement_to_record(engagement))
+                    record = self.create_record(
+                        record_id=engagement.id,
+                        stream_name=stream.stream_name,
+                        data=self._engagement_to_record(engagement),
+                        cursor_value=engagement.timestamp,
+                    )
+                    record.record_type = RecordType.EVENT
+                    batch.add_record(record)
 
                 has_more = data.get("hasMore", False)
                 offset = data.get("offset")
 
-                if engagements:
-                    yield RecordBatch(
-                        records=engagements,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"offset": offset} if has_more else None,
+                        has_more=bool(has_more),
                     )
+                    yield batch
 
                 if not has_more:
                     break

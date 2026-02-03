@@ -13,9 +13,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import Record, RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -104,12 +106,14 @@ class OutlookConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if Outlook credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GRAPH_BASE_URL}/me",
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
@@ -137,11 +141,11 @@ class OutlookConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="folders",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
             StreamConfig(
                 stream_name="messages",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="deltaLink",
             ),
         ]
@@ -153,7 +157,7 @@ class OutlookConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from Outlook."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "folders":
             async for batch in self._read_folders(config, stream, state):
@@ -177,7 +181,9 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while has_more:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GRAPH_BASE_URL}/me/mailFolders",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params={
@@ -189,7 +195,7 @@ class OutlookConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                folders = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for item in data.get("value", []):
                     folder = OutlookFolder(
                         id=item["id"],
@@ -199,10 +205,17 @@ class OutlookConnector(BaseConnector):
                         total_item_count=item.get("totalItemCount", 0),
                         unread_item_count=item.get("unreadItemCount", 0),
                     )
-                    folders.append(self._folder_to_record(folder))
+                    record = self.create_record(
+                        record_id=folder.id,
+                        stream_name=stream.stream_name,
+                        data=self._folder_to_record(folder),
+                    )
+                    record.record_type = RecordType.CUSTOM
+                    batch.add_record(record)
 
-                if folders:
-                    yield RecordBatch(records=folders)
+                if batch.records:
+                    batch.complete(has_more=True)
+                    yield batch
 
                 # Check for more pages
                 next_link = data.get("@odata.nextLink")
@@ -234,12 +247,12 @@ class OutlookConnector(BaseConnector):
             url = delta_link
         else:
             # Get messages from specific folders or all
-            folder_ids = config.settings.get("folder_ids")
+            folder_ids = config.get_setting("folder_ids")
             if folder_ids:
                 # Sync specific folders
                 for folder_id in folder_ids:
                     async for batch in self._read_folder_messages(
-                        folder_id, select_fields
+                        config.connection_id, folder_id, select_fields
                     ):
                         yield batch
                 return
@@ -249,36 +262,47 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                messages = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for item in data.get("value", []):
                     # Skip deleted items in delta response
                     if "@removed" in item:
                         continue
 
                     message = self._parse_message(item)
-                    messages.append(self._message_to_record(message))
+                    record = self.create_record(
+                        record_id=message.id,
+                        stream_name=stream.stream_name,
+                        data=self._message_to_record(message),
+                        cursor_value=message.last_modified_datetime or message.received_datetime,
+                    )
+                    record.record_type = RecordType.MESSAGE
+                    batch.add_record(record)
 
                 # Get next page or delta link
                 next_link = data.get("@odata.nextLink")
                 new_delta_link = data.get("@odata.deltaLink")
 
-                if messages:
-                    yield RecordBatch(
-                        records=messages,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"deltaLink": new_delta_link} if new_delta_link else None,
+                        has_more=bool(next_link),
                     )
+                    yield batch
 
                 url = next_link  # Continue to next page if available
 
     async def _read_folder_messages(
         self,
+        connection_id: str,
         folder_id: str,
         select_fields: str,
     ) -> AsyncIterator[RecordBatch]:
@@ -290,20 +314,30 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                messages = []
+                batch = self.create_batch("messages", connection_id)
                 for item in data.get("value", []):
                     message = self._parse_message(item)
-                    messages.append(self._message_to_record(message))
+                    record = self.create_record(
+                        record_id=message.id,
+                        stream_name="messages",
+                        data=self._message_to_record(message),
+                        cursor_value=message.last_modified_datetime or message.received_datetime,
+                    )
+                    record.record_type = RecordType.MESSAGE
+                    batch.add_record(record)
 
-                if messages:
-                    yield RecordBatch(records=messages)
+                if batch.records:
+                    batch.complete(has_more=bool(data.get("@odata.nextLink")))
+                    yield batch
 
                 url = data.get("@odata.nextLink")
 

@@ -18,9 +18,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -84,12 +86,14 @@ class GoogleDocsConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if Google Drive credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GOOGLE_DRIVE_BASE_URL}/about",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"fields": "user"},
@@ -118,7 +122,7 @@ class GoogleDocsConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="documents",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="modifiedTime",
             ),
         ]
@@ -130,7 +134,7 @@ class GoogleDocsConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from Google Drive."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "documents":
             async for batch in self._read_documents(config, stream, state):
@@ -159,7 +163,7 @@ class GoogleDocsConnector(BaseConnector):
             query_parts.append(f"modifiedTime > '{last_sync_time}'")
 
         # Filter by folder if specified
-        folder_ids = config.settings.get("folder_ids")
+        folder_ids = config.get_setting("folder_ids")
         if folder_ids:
             folder_conditions = " or ".join(
                 f"'{fid}' in parents" for fid in folder_ids
@@ -167,7 +171,7 @@ class GoogleDocsConnector(BaseConnector):
             query_parts.append(f"({folder_conditions})")
 
         # Filter by MIME types if specified
-        mime_types = config.settings.get("mime_types")
+        mime_types = config.get_setting("mime_types")
         if mime_types:
             mime_conditions = " or ".join(
                 f"mimeType = '{mt}'" for mt in mime_types
@@ -196,7 +200,9 @@ class GoogleDocsConnector(BaseConnector):
                 if page_token:
                     params["pageToken"] = page_token
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GOOGLE_DRIVE_BASE_URL}/files",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -204,22 +210,30 @@ class GoogleDocsConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                documents = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for file_data in data.get("files", []):
                     # Fetch content for supported types
                     doc = await self._fetch_document_content(client, file_data)
-                    documents.append(self._document_to_record(doc))
+                    record = self.create_record(
+                        record_id=doc.id,
+                        stream_name=stream.stream_name,
+                        data=self._document_to_record(doc),
+                        cursor_value=doc.modified_time,
+                    )
+                    record.record_type = RecordType.DOCUMENT
+                    batch.add_record(record)
 
                     # Track newest modified time
                     modified_time = file_data.get("modifiedTime")
                     if modified_time and (not newest_time or modified_time > newest_time):
                         newest_time = modified_time
 
-                if documents:
-                    yield RecordBatch(
-                        records=documents,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"modifiedTime": newest_time} if newest_time else None,
+                        has_more=bool(page_token),
                     )
+                    yield batch
 
                 page_token = data.get("nextPageToken")
                 has_more = bool(page_token)
@@ -238,7 +252,9 @@ class GoogleDocsConnector(BaseConnector):
         if mime_type in self.EXPORT_FORMATS:
             export_mime = self.EXPORT_FORMATS[mime_type]
             try:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GOOGLE_DRIVE_BASE_URL}/files/{file_id}/export",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params={"mimeType": export_mime},
@@ -288,7 +304,9 @@ class GoogleDocsConnector(BaseConnector):
     ) -> str | None:
         """Fetch Google Docs content via Docs API."""
         try:
-            response = await client.get(
+            response = await request_with_retry(
+                client,
+                "GET",
                 f"{GOOGLE_DOCS_BASE_URL}/documents/{doc_id}",
                 headers={"Authorization": f"Bearer {self._access_token}"},
             )

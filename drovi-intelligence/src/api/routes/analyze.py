@@ -9,6 +9,8 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -26,7 +28,18 @@ class AnalyzeRequest(BaseModel):
 
     content: str = Field(..., description="Content to analyze")
     source_type: Literal[
-        "email", "slack", "notion", "google_docs", "whatsapp", "calendar", "api", "manual"
+        "email",
+        "slack",
+        "notion",
+        "google_docs",
+        "whatsapp",
+        "calendar",
+        "meeting",
+        "call",
+        "recording",
+        "transcript",
+        "api",
+        "manual",
     ] = Field(default="api")
     source_id: str | None = Field(default=None, description="Optional source identifier")
     organization_id: str = Field(..., description="Organization ID")
@@ -34,6 +47,7 @@ class AnalyzeRequest(BaseModel):
     message_ids: list[str] | None = Field(default=None)
     user_email: str | None = Field(default=None)
     user_name: str | None = Field(default=None)
+    candidate_only: bool = Field(default=False, description="Only persist candidates, skip full synthesis")
 
     # Analysis options
     extract_commitments: bool = Field(default=True)
@@ -99,12 +113,14 @@ async def analyze_content(
                 message_ids=request.message_ids,
                 user_email=request.user_email,
                 user_name=request.user_name,
+                candidate_only=request.candidate_only,
             ),
             routing={
                 "should_extract_commitments": request.extract_commitments,
                 "should_extract_decisions": request.extract_decisions,
                 "should_analyze_risk": request.analyze_risk,
                 "should_deduplicate": request.deduplicate,
+                "candidate_only": request.candidate_only,
             },
         )
 
@@ -122,7 +138,13 @@ async def analyze_content(
         def to_dict_list(items):
             if not items:
                 return []
-            return [item.model_dump() if hasattr(item, "model_dump") else item for item in items]
+            encoded = []
+            for item in items:
+                if hasattr(item, "model_dump"):
+                    encoded.append(item.model_dump(mode="json"))
+                else:
+                    encoded.append(jsonable_encoder(item))
+            return encoded
 
         # Get extracted items
         claims = extracted.get("claims", []) if isinstance(extracted, dict) else getattr(extracted, "claims", [])
@@ -130,7 +152,7 @@ async def analyze_content(
         decisions = extracted.get("decisions", []) if isinstance(extracted, dict) else getattr(extracted, "decisions", [])
         risks = extracted.get("risks", []) if isinstance(extracted, dict) else getattr(extracted, "risks", [])
 
-        return AnalyzeResponse(
+        response = AnalyzeResponse(
             analysis_id=final_state.get("analysis_id", "unknown"),
             success=True,
             claims=to_dict_list(claims),
@@ -141,6 +163,7 @@ async def analyze_content(
             needs_review=confidence.get("needs_review", False) if isinstance(confidence, dict) else getattr(confidence, "needs_review", False),
             processing_time_ms=processing_time,
         )
+        return ORJSONResponse(content=response.model_dump(mode="json"))
 
     except Exception as e:
         logger.error("Analysis failed", error=str(e))

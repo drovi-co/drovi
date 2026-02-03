@@ -347,6 +347,30 @@ export function useUpdateUIO() {
 }
 
 /**
+ * Apply user corrections to a UIO.
+ */
+export function useCorrectUIO() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      organizationId,
+      updates,
+    }: {
+      id: string;
+      organizationId: string;
+      updates: { canonical_title?: string; canonical_description?: string; due_date?: string };
+    }) => {
+      return intelligenceAPI.updateUIO(id, updates, organizationId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    },
+  });
+}
+
+/**
  * Dismiss a UIO (mark as archived).
  */
 export function useDismissUIO() {

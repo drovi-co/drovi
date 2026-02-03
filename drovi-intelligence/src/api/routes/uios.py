@@ -15,6 +15,7 @@ import base64
 import json
 import time
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from typing import Literal
 
 import structlog
@@ -148,6 +149,13 @@ class SupersedeDecisionRequest(BaseModel):
     superseded_by_id: str = Field(..., description="ID of the new decision that supersedes this one")
 
 
+class SupersedeGenericRequest(BaseModel):
+    """Request to mark a UIO as superseded."""
+
+    superseded_by_id: str = Field(..., description="ID of the new UIO that supersedes this one")
+    uio_type: Literal["commitment", "task", "risk"] = Field(..., description="UIO type")
+
+
 # =============================================================================
 # Extended Response Models (Full Contact Resolution)
 # =============================================================================
@@ -178,6 +186,8 @@ class CommitmentDetails(BaseModel):
     condition: str | None = None
     snoozed_until: datetime | None = None
     completed_at: datetime | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
 
 
 class DecisionDetails(BaseModel):
@@ -201,6 +211,8 @@ class TaskDetails(BaseModel):
     completed_at: datetime | None = None
     project: str | None = None
     tags: list[str] | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
 
 
 class RiskDetails(BaseModel):
@@ -210,6 +222,8 @@ class RiskDetails(BaseModel):
     risk_type: str | None = None
     suggested_action: str | None = None
     findings: dict | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
 
 
 class ClaimDetails(BaseModel):
@@ -449,6 +463,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             condition=row_dict.get("condition"),
             snoozed_until=row_dict.get("snoozed_until"),
             completed_at=row_dict.get("commitment_completed_at"),
+            supersedes_uio_id=row_dict.get("commitment_supersedes_uio_id"),
+            superseded_by_uio_id=row_dict.get("commitment_superseded_by_uio_id"),
         )
 
     elif uio_type == "decision":
@@ -497,6 +513,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             completed_at=row_dict.get("task_completed_at"),
             project=row_dict.get("project"),
             tags=row_dict.get("tags"),
+            supersedes_uio_id=row_dict.get("task_supersedes_uio_id"),
+            superseded_by_uio_id=row_dict.get("task_superseded_by_uio_id"),
         )
 
     elif uio_type == "risk":
@@ -505,6 +523,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             risk_type=row_dict.get("risk_type"),
             suggested_action=row_dict.get("risk_suggested_action"),
             findings=row_dict.get("findings"),
+            supersedes_uio_id=row_dict.get("risk_supersedes_uio_id"),
+            superseded_by_uio_id=row_dict.get("risk_superseded_by_uio_id"),
         )
 
     elif uio_type == "claim":
@@ -592,6 +612,8 @@ SELECT
     cd.status as commitment_status, cd.due_date_source,
     cd.is_conditional, cd.condition, cd.snoozed_until,
     cd.completed_at as commitment_completed_at,
+    cd.supersedes_uio_id as commitment_supersedes_uio_id,
+    cd.superseded_by_uio_id as commitment_superseded_by_uio_id,
 
     -- Debtor contact (for commitments)
     dc.id as debtor_id, dc.display_name as debtor_display_name,
@@ -616,6 +638,8 @@ SELECT
     -- Task details
     td.status as task_status, td.priority as task_priority, td.estimated_effort,
     td.completed_at as task_completed_at, td.project, td.tags,
+    td.supersedes_uio_id as task_supersedes_uio_id,
+    td.superseded_by_uio_id as task_superseded_by_uio_id,
 
     -- Assignee contact (for tasks)
     ac.id as assignee_id, ac.display_name as assignee_display_name,
@@ -629,6 +653,8 @@ SELECT
 
     -- Risk details
     rd.severity, rd.risk_type, rd.suggested_action as risk_suggested_action, rd.findings,
+    rd.supersedes_uio_id as risk_supersedes_uio_id,
+    rd.superseded_by_uio_id as risk_superseded_by_uio_id,
 
     -- Claim details
     cld.claim_type, cld.quoted_text as claim_quoted_text, cld.normalized_text,
@@ -693,6 +719,7 @@ async def list_uios_v2(
     type: Literal["commitment", "decision", "risk", "task", "claim", "brief"] | None = None,
     status: Literal["open", "overdue", "completed", "all"] | None = Query(default="open"),
     time_range: Literal["7d", "30d", "90d", "all"] | None = Query(default="7d", alias="range"),
+    as_of: str | None = Query(default=None, description="ISO timestamp for time-slice queries"),
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = None,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
@@ -750,6 +777,14 @@ async def list_uios_v2(
         "all": None,
     }
 
+    # Parse time-slice (bi-temporal) filter
+    as_of_ts: datetime | None = None
+    if as_of:
+        try:
+            as_of_ts = datetime.fromisoformat(as_of)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid as_of timestamp")
+
     # Query from PostgreSQL with full JOINs
     from src.db.client import get_db_session
     from sqlalchemy import text
@@ -777,6 +812,11 @@ async def list_uios_v2(
             if period_start:
                 conditions.append("u.created_at >= :period_start")
                 params["period_start"] = period_start
+
+            if as_of_ts:
+                conditions.append("u.valid_from <= :as_of")
+                conditions.append("(u.valid_to IS NULL OR u.valid_to > :as_of)")
+                params["as_of"] = as_of_ts
 
             if status == "overdue":
                 conditions.append("u.status IN ('draft', 'active', 'in_progress')")
@@ -1904,3 +1944,168 @@ async def supersede_decision(
     except Exception as e:
         logger.error("Failed to supersede decision", uio_id=uio_id, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to supersede decision")
+
+
+@router.post("/{uio_id}/supersede-generic", response_model=UIOResponse)
+async def supersede_generic(
+    uio_id: str,
+    request: SupersedeGenericRequest,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """
+    Mark a commitment/task/risk as superseded by another of the same type.
+    """
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+    from src.graph.client import get_graph_client
+    from src.graph.evolution import MemoryEvolution, SupersessionReason
+    from src.graph.types import GraphNodeType
+
+    org_id = organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    _validate_org_id(ctx, org_id)
+
+    table_map = {
+        "commitment": "uio_commitment_details",
+        "task": "uio_task_details",
+        "risk": "uio_risk_details",
+    }
+    table = table_map.get(request.uio_type)
+    if not table:
+        raise HTTPException(status_code=400, detail="Unsupported uio_type")
+
+    try:
+        async with get_db_session() as session:
+            type_result = await session.execute(
+                text(
+                    """
+                    SELECT id, type FROM unified_intelligence_object
+                    WHERE id IN (:uio_id, :superseded_by_id) AND organization_id = :org_id
+                    """
+                ),
+                {"uio_id": uio_id, "superseded_by_id": request.superseded_by_id, "org_id": org_id},
+            )
+            rows = type_result.fetchall()
+
+            if len(rows) < 2:
+                raise HTTPException(status_code=404, detail="One or both UIOs not found")
+
+            for row in rows:
+                if row.type != request.uio_type:
+                    raise HTTPException(status_code=400, detail="Both UIOs must be same type")
+
+            await session.execute(
+                text(
+                    f"""
+                    UPDATE {table}
+                    SET superseded_by_uio_id = :superseded_by_id,
+                        updated_at = NOW()
+                    WHERE uio_id = :uio_id
+                    """
+                ),
+                {"uio_id": uio_id, "superseded_by_id": request.superseded_by_id},
+            )
+
+            await session.execute(
+                text(
+                    f"""
+                    UPDATE {table}
+                    SET supersedes_uio_id = :uio_id,
+                        updated_at = NOW()
+                    WHERE uio_id = :superseded_by_id
+                    """
+                ),
+                {"uio_id": uio_id, "superseded_by_id": request.superseded_by_id},
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE unified_intelligence_object
+                    SET valid_to = NOW(),
+                        system_to = NOW(),
+                        updated_at = NOW()
+                    WHERE id = :uio_id
+                    """
+                ),
+                {"uio_id": uio_id},
+            )
+
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO unified_object_timeline (
+                        id, unified_object_id,
+                        event_type, event_description,
+                        previous_value, new_value,
+                        source_type, source_id, source_name,
+                        message_id, quoted_text,
+                        triggered_by, confidence, event_at
+                    ) VALUES (
+                        :id, :unified_object_id,
+                        :event_type, :event_description,
+                        :previous_value, :new_value,
+                        :source_type, :source_id, :source_name,
+                        :message_id, :quoted_text,
+                        :triggered_by, :confidence, :event_at
+                    )
+                    """
+                ),
+                {
+                    "id": str(uuid4()),
+                    "unified_object_id": uio_id,
+                    "event_type": "superseded",
+                    "event_description": f"Superseded by {request.uio_type} {request.superseded_by_id}",
+                    "previous_value": None,
+                    "new_value": None,
+                    "source_type": "user",
+                    "source_id": None,
+                    "source_name": None,
+                    "message_id": None,
+                    "quoted_text": None,
+                    "triggered_by": ctx.user_id if hasattr(ctx, "user_id") else "system",
+                    "confidence": None,
+                    "event_at": datetime.now(timezone.utc),
+                },
+            )
+
+            await session.commit()
+
+            # Update graph supersession
+            try:
+                graph = await get_graph_client()
+                evolution = MemoryEvolution(graph)
+                node_map = {
+                    "commitment": GraphNodeType.COMMITMENT,
+                    "task": GraphNodeType.TASK,
+                    "risk": GraphNodeType.RISK,
+                }
+                await evolution.supersede_node(
+                    old_node_id=uio_id,
+                    new_node_id=request.superseded_by_id,
+                    node_type=node_map[request.uio_type],
+                    reason=SupersessionReason.UPDATED,
+                )
+            except Exception:
+                pass
+
+            result = await session.execute(
+                text(
+                    f"""
+                    {FULL_UIO_QUERY}
+                    WHERE u.id = :uio_id AND u.organization_id = :org_id
+                    """
+                ),
+                {"uio_id": uio_id, "org_id": org_id},
+            )
+            row = result.fetchone()
+            return await build_uio_response(row, session)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to supersede UIO", uio_id=uio_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to supersede UIO")

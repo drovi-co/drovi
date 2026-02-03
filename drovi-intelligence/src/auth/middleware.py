@@ -29,6 +29,7 @@ from src.auth.context import AuthContext, AuthMetadata, AuthType, get_scopes_for
 from src.auth.pilot_accounts import verify_jwt
 from src.auth.scopes import has_scope, Scope
 from src.auth.rate_limit import check_rate_limit, RateLimitResult
+from src.db.rls import set_rls_context
 
 logger = structlog.get_logger()
 
@@ -137,6 +138,7 @@ async def get_api_key_context(
                 org_id=token.org_id,
                 path=request.url.path,
             )
+            set_rls_context(token.org_id, is_internal=False)
             return APIKeyContext(
                 organization_id=token.org_id,
                 scopes=["*"],  # Full access for authenticated users
@@ -165,6 +167,7 @@ async def get_api_key_context(
                 path=request.url.path,
             )
 
+            set_rls_context(org_id, is_internal=True)
             return APIKeyContext(
                 organization_id=org_id,
                 scopes=["*"],  # Full access for internal app
@@ -234,6 +237,7 @@ async def get_api_key_context(
         scopes=key_info.scopes,
     )
 
+    set_rls_context(key_info.organization_id, is_internal=False)
     return APIKeyContext(
         organization_id=key_info.organization_id,
         scopes=key_info.scopes,
@@ -295,6 +299,7 @@ async def get_auth_context(
                 path=request.url.path,
             )
 
+            set_rls_context(token.org_id, is_internal=False)
             return AuthContext(
                 organization_id=token.org_id,
                 auth_subject_id=f"user_{token.sub}",
@@ -336,6 +341,7 @@ async def get_auth_context(
                 path=request.url.path,
             )
 
+            set_rls_context(org_id, is_internal=True)
             return AuthContext(
                 organization_id=org_id,
                 auth_subject_id="service_internal",
@@ -408,6 +414,7 @@ async def get_auth_context(
         scopes=key_info.scopes,
     )
 
+    set_rls_context(key_info.organization_id, is_internal=False)
     return AuthContext(
         organization_id=key_info.organization_id,
         auth_subject_id=f"key_{key_info.id}",

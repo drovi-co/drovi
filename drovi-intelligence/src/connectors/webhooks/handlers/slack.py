@@ -10,6 +10,8 @@ from typing import Any
 
 import structlog
 
+from src.connectors.webhooks.inbox import enqueue_webhook_event
+
 logger = structlog.get_logger()
 
 
@@ -226,16 +228,38 @@ class SlackWebhookHandler:
                 )
                 return
 
-            # Queue incremental sync job
-            await scheduler.trigger_sync_by_id(
+            organization_id = await self._get_org_id_for_connection(connection_id)
+            if not organization_id:
+                logger.warning(
+                    "No organization found for Slack connection",
+                    connection_id=connection_id,
+                )
+                return
+
+            sync_params = {"channel_id": channel_id, "since_ts": since_ts}
+
+            from src.streaming import is_streaming_enabled
+
+            await enqueue_webhook_event(
+                provider="slack",
                 connection_id=connection_id,
+                organization_id=organization_id,
+                event_type="slack.message",
+                payload={"team_id": team_id, "channel_id": channel_id, "since_ts": since_ts},
+                sync_params=sync_params,
                 streams=["messages"],
-                incremental=True,
-                sync_params={
-                    "channel_id": channel_id,
-                    "since_ts": since_ts,
-                },
+                event_id=f"{team_id}:{channel_id}:{since_ts}" if since_ts else f"{team_id}:{channel_id}",
             )
+
+            # Queue incremental sync job only if Kafka is disabled
+            if not is_streaming_enabled():
+                await scheduler.trigger_sync_by_id(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    streams=["messages"],
+                    full_refresh=False,
+                    sync_params=sync_params,
+                )
 
             logger.info(
                 "Incremental sync queued for Slack channel",
@@ -322,6 +346,26 @@ class SlackWebhookHandler:
             logger.error(
                 "Failed to find connection for Slack team",
                 team_id=team_id,
+                error=str(e),
+            )
+            return None
+
+    async def _get_org_id_for_connection(self, connection_id: str) -> str | None:
+        """Fetch organization_id for a connection."""
+        from src.db.client import get_db_pool
+
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT organization_id FROM connections WHERE id = $1",
+                    connection_id,
+                )
+                return row["organization_id"] if row else None
+        except Exception as e:
+            logger.error(
+                "Failed to fetch organization for connection",
+                connection_id=connection_id,
                 error=str(e),
             )
             return None

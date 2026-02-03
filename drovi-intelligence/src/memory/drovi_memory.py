@@ -452,6 +452,54 @@ class DroviMemory:
 
         return results
 
+    async def search_uios_as_of(
+        self,
+        query: str,
+        as_of_date: datetime | None = None,
+        uio_types: list[str] | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """
+        Search UIO nodes in the graph with optional bi-temporal filtering.
+        """
+        graph = await self._get_graph()
+
+        type_filter = ""
+        if uio_types:
+            type_labels = ":".join([t.capitalize() for t in uio_types])
+            type_filter = f":{type_labels}"
+
+        valid_filter = ""
+        params = {
+            "orgId": self.organization_id,
+            "query": query,
+            "limit": limit,
+        }
+        if as_of_date:
+            valid_filter = "AND u.validFrom <= $asOfDate AND (u.validTo IS NULL OR u.validTo > $asOfDate)"
+            params["asOfDate"] = as_of_date.isoformat()
+
+        result = await graph.query(
+            f"""
+            MATCH (u:UIO{type_filter})
+            WHERE u.organizationId = $orgId
+              {valid_filter}
+              AND (
+                COALESCE(u.title, '') CONTAINS $query OR
+                COALESCE(u.description, '') CONTAINS $query OR
+                COALESCE(u.summary, '') CONTAINS $query OR
+                COALESCE(u.statement, '') CONTAINS $query OR
+                COALESCE(u.rationale, '') CONTAINS $query
+              )
+            RETURN u
+            ORDER BY u.updatedAt DESC
+            LIMIT $limit
+            """,
+            params,
+        )
+
+        return result
+
     async def get_contact_timeline(
         self,
         contact_id: str,

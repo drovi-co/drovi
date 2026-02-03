@@ -25,6 +25,7 @@ from src.config import get_settings
 from src.streaming.kafka_consumer import DroviKafkaConsumer
 from src.streaming.kafka_producer import get_kafka_producer
 from src.streaming.falkordb_sink import get_falkordb_sink
+from src.db.rls import rls_context
 
 # Configure structured logging
 structlog.configure(
@@ -89,6 +90,9 @@ class KafkaWorker:
             sasl_password=self.settings.kafka_sasl_password,
             auto_offset_reset=self.settings.kafka_auto_offset_reset,
             enable_auto_commit=self.settings.kafka_enable_auto_commit,
+            worker_concurrency=self.settings.kafka_worker_concurrency,
+            queue_maxsize=self.settings.kafka_queue_maxsize,
+            topic_priorities=self.settings.kafka_topic_priorities,
         )
 
         await self._consumer.connect()
@@ -140,11 +144,10 @@ class KafkaWorker:
 
         Triggers the intelligence extraction pipeline.
         """
-        payload = message.get("payload", {})
-        organization_id = payload.get("organization_id")
-        source_type = payload.get("source_type")
-        event_type = payload.get("event_type")
-        raw_payload = payload.get("payload", {})
+        organization_id = message.get("organization_id")
+        source_type = message.get("source_type")
+        event_type = message.get("event_type")
+        raw_payload = message.get("payload", {})
 
         logger.info(
             "Processing raw event",
@@ -154,15 +157,22 @@ class KafkaWorker:
         )
 
         try:
+            if event_type == "connector.webhook":
+                from src.connectors.webhooks.processor import process_connector_webhook_event
+
+                await process_connector_webhook_event(raw_payload)
+                return
+
             # Import orchestrator lazily to avoid circular imports
             from src.orchestrator.run import run_analysis
 
-            # Run intelligence extraction
-            result = await run_analysis(
-                organization_id=organization_id,
-                content=raw_payload,
-                source_type=source_type,
-            )
+            # Run intelligence extraction scoped to org
+            with rls_context(organization_id, is_internal=True):
+                result = await run_analysis(
+                    organization_id=organization_id,
+                    content=raw_payload,
+                    source_type=source_type,
+                )
 
             if result and result.get("uios"):
                 logger.info(
@@ -206,13 +216,14 @@ class KafkaWorker:
         )
 
         try:
-            # Write to FalkorDB
-            await self._sink.write_intelligence(
-                intelligence_type=intelligence_type,
-                intelligence_id=intelligence_id,
-                organization_id=organization_id,
-                data=data,
-            )
+            with rls_context(organization_id, is_internal=True):
+                # Write to FalkorDB
+                await self._sink.write_intelligence(
+                    intelligence_type=intelligence_type,
+                    intelligence_id=intelligence_id,
+                    organization_id=organization_id,
+                    data=data,
+                )
 
             # Publish graph change notification
             await self._producer.produce_graph_change(

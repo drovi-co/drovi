@@ -72,6 +72,20 @@ async def persist_raw(state: IntelligenceState) -> dict:
     return await persist_raw_content_node(state)
 
 
+async def retrieve_context(state: IntelligenceState) -> dict:
+    """Retrieve memory context from prior UIOs."""
+    from .nodes.retrieve_context import retrieve_context_node
+
+    return await retrieve_context_node(state)
+
+
+async def summarize_long_content(state: IntelligenceState) -> dict:
+    """Summarize long content into extraction-focused chunks."""
+    from .nodes.summarize_long_content import summarize_long_content_node
+
+    return await summarize_long_content_node(state)
+
+
 async def resolve_contacts_early(state: IntelligenceState) -> dict:
     """Pre-resolve contacts before extraction for rich relationship context."""
     from .nodes.resolve_contacts_early import resolve_contacts_early_node
@@ -126,6 +140,25 @@ async def detect_risks(state: IntelligenceState) -> dict:
     from .nodes.detect_risks import detect_risks_node
 
     return await detect_risks_node(state)
+
+async def verify_extractions(state: IntelligenceState) -> dict:
+    """Verify commitments/decisions against source text."""
+    from .nodes.verify_extractions import verify_extractions_node
+
+    return await verify_extractions_node(state)
+
+
+async def calibrate_confidence(state: IntelligenceState) -> dict:
+    """Calibrate confidence after verification."""
+    from .nodes.calibrate_confidence import calibrate_confidence_node
+
+    return await calibrate_confidence_node(state)
+
+async def persist_candidates(state: IntelligenceState) -> dict:
+    """Persist extracted candidates for fast retrieval."""
+    from .nodes.persist_candidates import persist_candidates_node
+
+    return await persist_candidates_node(state)
 
 
 async def entity_resolution(state: IntelligenceState) -> dict:
@@ -290,7 +323,7 @@ def after_commitments(
 
 def after_decisions(
     state: IntelligenceState,
-) -> Literal["extract_tasks", "detect_risks", "deduplicate", "finalize"]:
+) -> Literal["extract_tasks", "detect_risks", "verify_extractions", "finalize"]:
     """Route after decisions extraction."""
     if state.routing.skip_remaining_nodes:
         return "finalize"
@@ -303,14 +336,14 @@ def after_decisions(
         return "detect_risks"
 
     if state.routing.should_deduplicate:
-        return "deduplicate"
+        return "verify_extractions"
 
     return "finalize"
 
 
 def after_tasks(
     state: IntelligenceState,
-) -> Literal["detect_risks", "entity_resolution", "deduplicate", "finalize"]:
+) -> Literal["detect_risks", "verify_extractions", "finalize"]:
     """Route after task extraction."""
     if state.routing.skip_remaining_nodes:
         return "finalize"
@@ -318,13 +351,28 @@ def after_tasks(
     if state.routing.should_analyze_risk and state.classification.has_risks:
         return "detect_risks"
 
-    # Entity resolution after risks
-    return "entity_resolution"
+    return "verify_extractions"
 
 
-def after_risks(state: IntelligenceState) -> Literal["entity_resolution", "deduplicate", "persist"]:
+def after_risks(state: IntelligenceState) -> Literal["verify_extractions"]:
     """Route after risk detection."""
-    # Entity resolution before deduplication
+    return "verify_extractions"
+
+
+def after_verification(state: IntelligenceState) -> Literal["calibrate_confidence"]:
+    """Route after verification."""
+    return "calibrate_confidence"
+
+
+def after_calibration(state: IntelligenceState) -> Literal["persist_candidates"]:
+    """Route after confidence calibration."""
+    return "persist_candidates"
+
+
+def after_persist_candidates(state: IntelligenceState) -> Literal["entity_resolution", "finalize"]:
+    """Route after candidate persistence."""
+    if state.input.candidate_only or state.routing.candidate_only:
+        return "finalize"
     return "entity_resolution"
 
 
@@ -415,6 +463,8 @@ def create_intelligence_graph() -> StateGraph:
     8. extract_decisions - Extract decisions (if applicable)
     9. extract_tasks - Extract tasks from commitments
     10. detect_risks - Detect risks in extracted content
+    10b. verify_extractions - Verify commitments/decisions against source text
+    10c. calibrate_confidence - Normalize confidence after verification
 
     PHASE 3 - POST-PROCESSING:
     11. entity_resolution - Resolve and merge entities across sources
@@ -440,6 +490,8 @@ def create_intelligence_graph() -> StateGraph:
     # Add all other nodes
     workflow.add_node("parse_messages", parse_messages)
     workflow.add_node("persist_raw", persist_raw)  # Raw content layer (Phase 1 - Deeper Graph)
+    workflow.add_node("summarize_long_content", summarize_long_content)
+    workflow.add_node("retrieve_context", retrieve_context)
     workflow.add_node("resolve_contacts_early", resolve_contacts_early)
     workflow.add_node("classify", classify)
     workflow.add_node("pattern_match", pattern_match)
@@ -448,6 +500,9 @@ def create_intelligence_graph() -> StateGraph:
     workflow.add_node("extract_decisions", extract_decisions)
     workflow.add_node("extract_tasks", extract_tasks)
     workflow.add_node("detect_risks", detect_risks)
+    workflow.add_node("verify_extractions", verify_extractions)
+    workflow.add_node("calibrate_confidence", calibrate_confidence)
+    workflow.add_node("persist_candidates", persist_candidates)
     workflow.add_node("entity_resolution", entity_resolution)
     workflow.add_node("extract_relationships", extract_relationships)
     workflow.add_node("extract_communication", extract_communication)  # Communication graph (Phase 2)
@@ -484,7 +539,9 @@ def create_intelligence_graph() -> StateGraph:
     # PHASE 1: Parsing
     # parse_messages -> persist_raw -> resolve_contacts_early -> classify (always)
     workflow.add_edge("parse_messages", "persist_raw")
-    workflow.add_edge("persist_raw", "resolve_contacts_early")
+    workflow.add_edge("persist_raw", "summarize_long_content")
+    workflow.add_edge("summarize_long_content", "retrieve_context")
+    workflow.add_edge("retrieve_context", "resolve_contacts_early")
     workflow.add_edge("resolve_contacts_early", "classify")
 
     # classify -> pattern_match OR finalize (conditional)
@@ -529,7 +586,7 @@ def create_intelligence_graph() -> StateGraph:
         {
             "extract_tasks": "extract_tasks",
             "detect_risks": "detect_risks",
-            "deduplicate": "deduplicate",
+            "verify_extractions": "verify_extractions",
             "finalize": "finalize",
         },
     )
@@ -540,8 +597,7 @@ def create_intelligence_graph() -> StateGraph:
         after_tasks,
         {
             "detect_risks": "detect_risks",
-            "entity_resolution": "entity_resolution",
-            "deduplicate": "deduplicate",
+            "verify_extractions": "verify_extractions",
             "finalize": "finalize",
         },
     )
@@ -551,9 +607,32 @@ def create_intelligence_graph() -> StateGraph:
         "detect_risks",
         after_risks,
         {
+            "verify_extractions": "verify_extractions",
+        },
+    )
+
+    workflow.add_conditional_edges(
+        "verify_extractions",
+        after_verification,
+        {
+            "calibrate_confidence": "calibrate_confidence",
+        },
+    )
+
+    workflow.add_conditional_edges(
+        "calibrate_confidence",
+        after_calibration,
+        {
+            "persist_candidates": "persist_candidates",
+        },
+    )
+
+    workflow.add_conditional_edges(
+        "persist_candidates",
+        after_persist_candidates,
+        {
             "entity_resolution": "entity_resolution",
-            "deduplicate": "deduplicate",
-            "persist": "persist",
+            "finalize": "finalize",
         },
     )
 
@@ -645,6 +724,7 @@ async def run_intelligence_extraction(
     user_email: str | None = None,
     user_name: str | None = None,
     metadata: dict | None = None,
+    candidate_only: bool = False,
 ) -> IntelligenceState:
     """
     Run the intelligence extraction pipeline on content.
@@ -678,6 +758,7 @@ async def run_intelligence_extraction(
         user_email=user_email,
         user_name=user_name,
         metadata=metadata,
+        candidate_only=candidate_only,
     )
 
     initial_state = IntelligenceState(input=initial_input)

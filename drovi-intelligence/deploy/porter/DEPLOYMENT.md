@@ -99,6 +99,26 @@ porter addon create msk drovi-kafka \
   --storage 100
 ```
 
+### Evidence Storage (S3 or MinIO)
+Use **S3** for production. For cost-effective staging, use **MinIO**.
+
+S3 (recommended):
+```bash
+porter addon create s3 drovi-evidence --bucket-name drovi-evidence-prod
+```
+
+MinIO (staging):
+```bash
+porter app create minio \
+  --image minio/minio:latest \
+  --type worker \
+  --port 9000 \
+  --internal \
+  --cpu 500m \
+  --memory 1Gi \
+  --command \"server /data --console-address :9001\"
+```
+
 After MSK is created, create topics:
 ```bash
 # Get MSK connection info
@@ -147,10 +167,18 @@ porter app create drovi-api \
 # Set environment variables
 porter app env set drovi-api \
   KAFKA_ENABLED=true \
+  KAFKA_RUN_PROCESSOR_IN_API=false \
   LOG_LEVEL=INFO \
   LOG_FORMAT=json \
+  FALKORDB_APPLY_DEFAULT_FULLTEXT=true \
   FALKORDB_HOST=falkordb \
-  FALKORDB_PORT=6379
+  FALKORDB_PORT=6379 \
+  EVIDENCE_STORAGE_BACKEND=s3 \
+  EVIDENCE_S3_BUCKET=drovi-evidence-prod \
+  EVIDENCE_S3_PREFIX=drovi-evidence \
+  EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS=3600 \
+  EVIDENCE_S3_SSE=aws:kms \
+  EVIDENCE_S3_KMS_KEY_ID=alias/drovi-evidence
 
 # Link addons
 porter app addon-link drovi-api drovi-postgres DATABASE_URL
@@ -171,8 +199,15 @@ porter app env set drovi-worker \
   KAFKA_ENABLED=true \
   LOG_LEVEL=INFO \
   LOG_FORMAT=json \
+  FALKORDB_APPLY_DEFAULT_FULLTEXT=true \
   FALKORDB_HOST=falkordb \
-  FALKORDB_PORT=6379
+  FALKORDB_PORT=6379 \
+  EVIDENCE_STORAGE_BACKEND=s3 \
+  EVIDENCE_S3_BUCKET=drovi-evidence-prod \
+  EVIDENCE_S3_PREFIX=drovi-evidence \
+  EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS=3600 \
+  EVIDENCE_S3_SSE=aws:kms \
+  EVIDENCE_S3_KMS_KEY_ID=alias/drovi-evidence
 
 porter app addon-link drovi-worker drovi-postgres DATABASE_URL
 porter app addon-link drovi-worker drovi-redis REDIS_URL
@@ -219,6 +254,7 @@ curl https://drovi-api-xxx.porter.run/api/v1/stream/health
 | `DATABASE_URL` | PostgreSQL connection string | RDS addon |
 | `REDIS_URL` | Redis connection string | ElastiCache addon |
 | `KAFKA_ENABLED` | Enable Kafka streaming | Set to `true` |
+| `KAFKA_RUN_PROCESSOR_IN_API` | Start StreamProcessor in API | `false` (worker handles processing) |
 | `KAFKA_BOOTSTRAP_SERVERS` | MSK bootstrap servers | MSK addon |
 | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` for MSK | Manual |
 | `KAFKA_SASL_MECHANISM` | `SCRAM-SHA-512` for MSK | Manual |
@@ -226,6 +262,16 @@ curl https://drovi-api-xxx.porter.run/api/v1/stream/health
 | `KAFKA_SASL_PASSWORD` | MSK SASL password | MSK addon |
 | `FALKORDB_HOST` | FalkorDB service name | `falkordb` |
 | `FALKORDB_PORT` | FalkorDB port | `6379` |
+| `FALKORDB_APPLY_DEFAULT_FULLTEXT` | Apply default fulltext/vector indexes | `true` |
+| `FALKORDB_INDEX_STATEMENTS` | Custom index statements (JSON list) | Secret |
+| `EVIDENCE_REQUIRE_KMS` | Enforce SSE-KMS for evidence | `true` |
+| `EVIDENCE_S3_KMS_KEY_MAP` | JSON map of org_id -> KMS key | Secret |
+| `EVIDENCE_S3_OBJECT_LOCK` | Enable object lock (WORM) | `true` |
+| `EVIDENCE_DEFAULT_RETENTION_DAYS` | Default evidence retention | `365` |
+| `DLP_ENABLED` | Enable DLP redaction | `true` |
+| `DLP_REDACT` | Redact sensitive data | `true` |
+| `STREAMING_QUEUE_SIZE` | Live stream queue size | `256` |
+| `STREAMING_WORKER_CONCURRENCY` | Stream worker concurrency | `2` |
 | `TOGETHER_API_KEY` | Together.ai API key | Secret |
 | `OPENAI_API_KEY` | OpenAI API key | Secret |
 | `DROVI_INTERNAL_SERVICE_TOKEN` | Internal service auth | Secret |
@@ -307,6 +353,26 @@ print('FalkorDB connected!')
 ```bash
 # Run migrations
 porter app exec drovi-api -- alembic upgrade head
+```
+
+## Autoscaling (Production)
+Enable autoscaling for API and worker services based on CPU.
+
+```bash
+porter app autoscale set drovi-api --min 2 --max 12 --cpu 60
+porter app autoscale set drovi-worker --min 2 --max 10 --cpu 60
+```
+
+## Observability
+- Scrape `/metrics` with Prometheus or Porter metrics dashboard.
+- Ship logs to Datadog, Loki, or CloudWatch.
+- Enable Langfuse for LLM tracing.
+
+Recommended env vars:
+```bash
+porter app env set drovi-api \
+  LOG_LEVEL=INFO \
+  LOG_FORMAT=json
 ```
 
 ## Cleanup

@@ -4,11 +4,13 @@ Gmail Webhook Handler
 Processes incoming Gmail push notifications and triggers incremental syncs.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Any
 
 import structlog
+
+from src.connectors.webhooks.inbox import enqueue_webhook_event
 
 logger = structlog.get_logger()
 
@@ -105,16 +107,41 @@ class GmailWebhookHandler:
                 )
                 return
 
-            # Queue incremental sync job
-            await scheduler.trigger_sync_by_id(
+            organization_id = await self._get_org_id_for_connection(connection_id)
+            if not organization_id:
+                logger.warning(
+                    "No organization found for Gmail connection",
+                    connection_id=connection_id,
+                )
+                return
+
+            sync_params = {
+                "start_history_id": last_history_id or notification.history_id,
+                "history_types": ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"],
+            }
+
+            from src.streaming import is_streaming_enabled
+
+            await enqueue_webhook_event(
+                provider="gmail",
                 connection_id=connection_id,
+                organization_id=organization_id,
+                event_type="gmail.history",
+                payload=asdict(notification),
+                sync_params=sync_params,
                 streams=["messages"],
-                incremental=True,
-                sync_params={
-                    "start_history_id": last_history_id or notification.history_id,
-                    "history_types": ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"],
-                },
+                event_id=str(notification.history_id),
             )
+
+            # Queue incremental sync job only if Kafka is disabled
+            if not is_streaming_enabled():
+                await scheduler.trigger_sync_by_id(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    streams=["messages"],
+                    full_refresh=False,
+                    sync_params=sync_params,
+                )
 
             logger.info(
                 "Incremental sync queued for Gmail",
@@ -178,7 +205,7 @@ class GmailWebhookHandler:
             async with pool.acquire() as conn:
                 row = await conn.fetchrow(
                     """
-                    SELECT state->>'history_id' as history_id
+                    SELECT cursor_state->>'historyId' as history_id
                     FROM sync_states
                     WHERE connection_id = $1
                     AND stream_name = 'messages'
@@ -192,6 +219,26 @@ class GmailWebhookHandler:
         except Exception as e:
             logger.error(
                 "Failed to get last history ID",
+                connection_id=connection_id,
+                error=str(e),
+            )
+            return None
+
+    async def _get_org_id_for_connection(self, connection_id: str) -> str | None:
+        """Fetch organization_id for a connection."""
+        from src.db.client import get_db_pool
+
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT organization_id FROM connections WHERE id = $1",
+                    connection_id,
+                )
+                return row["organization_id"] if row else None
+        except Exception as e:
+            logger.error(
+                "Failed to fetch organization for connection",
                 connection_id=connection_id,
                 error=str(e),
             )
@@ -212,13 +259,13 @@ class GmailWebhookHandler:
             async with pool.acquire() as conn:
                 await conn.execute(
                     """
-                    INSERT INTO sync_states (id, connection_id, stream_name, state, last_sync_at)
-                    VALUES (gen_random_uuid(), $1, 'messages', jsonb_build_object('history_id', $2::text), NOW())
+                    INSERT INTO sync_states (id, connection_id, stream_name, cursor_state, last_sync_started_at)
+                    VALUES (gen_random_uuid(), $1, 'messages', jsonb_build_object('historyId', $2::text), NOW())
                     ON CONFLICT (connection_id, stream_name)
                     DO UPDATE SET
-                        state = sync_states.state || jsonb_build_object('history_id', $2::text),
-                        last_sync_at = NOW()
-                    """,
+                        cursor_state = sync_states.cursor_state || jsonb_build_object('historyId', $2::text),
+                        last_sync_started_at = NOW()
+                """,
                     connection_id,
                     str(history_id),
                 )
@@ -379,14 +426,14 @@ class GmailWatchManager:
                         c.id as connection_id,
                         c.config->>'email_address' as email_address,
                         c.config->>'topic_name' as topic_name,
-                        ss.state->>'watch_expiration' as watch_expiration
+                        ss.cursor_state->>'watch_expiration' as watch_expiration
                     FROM connections c
                     LEFT JOIN sync_states ss ON c.id = ss.connection_id AND ss.stream_name = 'watch'
                     WHERE c.connector_type = 'gmail'
                     AND c.status = 'active'
                     AND (
-                        ss.state->>'watch_expiration' IS NULL
-                        OR (ss.state->>'watch_expiration')::bigint < $1
+                        ss.cursor_state->>'watch_expiration' IS NULL
+                        OR (ss.cursor_state->>'watch_expiration')::bigint < $1
                     )
                     """,
                     int(expiry_threshold.timestamp() * 1000),
@@ -405,18 +452,18 @@ class GmailWatchManager:
                     async with pool.acquire() as conn:
                         await conn.execute(
                             """
-                            INSERT INTO sync_states (id, connection_id, stream_name, state, last_sync_at)
+                            INSERT INTO sync_states (id, connection_id, stream_name, cursor_state, last_sync_started_at)
                             VALUES (gen_random_uuid(), $1, 'watch', jsonb_build_object(
                                 'watch_expiration', $2,
                                 'history_id', $3
                             ), NOW())
                             ON CONFLICT (connection_id, stream_name)
                             DO UPDATE SET
-                                state = jsonb_build_object(
+                                cursor_state = jsonb_build_object(
                                     'watch_expiration', $2,
                                     'history_id', $3
                                 ),
-                                last_sync_at = NOW()
+                                last_sync_started_at = NOW()
                             """,
                             row["connection_id"],
                             watch_response.get("expiration"),

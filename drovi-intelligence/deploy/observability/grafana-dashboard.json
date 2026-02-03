@@ -1,0 +1,53 @@
+{
+  "title": "Drovi Intelligence Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "API Latency p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "UEM Persist p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_uem_persist_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM Errors",
+      "targets": [
+        {
+          "expr": "sum(rate(drovi_llm_requests_total{status=\"error\"}[5m]))",
+          "legendFormat": "errors"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Extraction Duration p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_extraction_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    }
+  ]
+}

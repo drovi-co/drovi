@@ -17,6 +17,8 @@ class RecordType(str, Enum):
     MESSAGE = "message"        # Email, Slack message, etc.
     DOCUMENT = "document"      # Notion page, Google Doc, etc.
     EVENT = "event"            # Calendar event, meeting
+    TRANSCRIPT = "transcript"  # Transcript segment or full transcript
+    AUDIO = "audio"            # Audio recording or chunk
     CONTACT = "contact"        # CRM contact, person
     FILE = "file"              # Attachment, file metadata
     CONVERSATION = "conversation"  # Thread, channel, chat
@@ -243,6 +245,40 @@ class UnifiedEvent(BaseModel):
     # Links
     meeting_url: str | None = None
     calendar_url: str | None = None
+
+    # Provenance
+    raw_data_hash: str | None = None
+    extracted_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        """Pydantic config."""
+        extra = "allow"
+
+
+class UnifiedTranscript(BaseModel):
+    """
+    Canonical transcript schema for meetings and calls.
+    """
+
+    # Identity
+    id: str
+    source_type: str
+    source_id: str
+    connection_id: str
+    organization_id: str
+
+    # Session info
+    session_id: str
+    session_type: str  # meeting, call, recording
+    title: str | None = None
+
+    # Content
+    text: str
+    speaker_label: str | None = None
+    speaker_contact_id: str | None = None
+    start_ms: int | None = None
+    end_ms: int | None = None
+    confidence: float | None = None
 
     # Provenance
     raw_data_hash: str | None = None

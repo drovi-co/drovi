@@ -13,13 +13,17 @@ The resolution engine provides:
 """
 
 from datetime import datetime
+import json
+import re
 from typing import Literal
 from uuid import uuid4
 
 import structlog
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from src.graph.client import DroviGraph, get_graph_client
+from src.db.client import get_db_session
 from .types import (
     IdentityType,
     IdentitySource,
@@ -96,6 +100,28 @@ class UnifiedIdentityGraph:
         """Initialize with graph client."""
         self.graph = graph
 
+    # ---------------------------------------------------------------------
+    # Utility helpers
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_name(value: str | None) -> str:
+        if not value:
+            return ""
+        cleaned = re.sub(r"[^a-zA-Z0-9\\s]", " ", value.lower())
+        cleaned = re.sub(r"\\s+", " ", cleaned).strip()
+        return cleaned
+
+    @staticmethod
+    def _token_overlap(a: str, b: str) -> float:
+        if not a or not b:
+            return 0.0
+        tokens_a = set(a.split())
+        tokens_b = set(b.split())
+        if not tokens_a or not tokens_b:
+            return 0.0
+        return len(tokens_a & tokens_b) / max(len(tokens_a), len(tokens_b))
+
     async def resolve_identifier(
         self,
         identifier_type: IdentityType | str,
@@ -129,7 +155,30 @@ class UnifiedIdentityGraph:
             org=organization_id,
         )
 
-        # 1. Try exact match in identity table (via graph)
+        # 1. Try exact match in identity table (database)
+        contact_id = await self._find_identity_in_db(
+            organization_id, identifier_type, identifier_value
+        )
+
+        if contact_id:
+            contact = await self._load_contact(contact_id, organization_id)
+            if contact:
+                logger.debug("Found exact identity match in DB", contact_id=contact_id)
+                return ResolvedIdentity(
+                    contact_id=contact_id,
+                    contact=contact,
+                    match_type="exact",
+                    confidence=1.0,
+                    matched_identities=[
+                        Identity(
+                            identity_type=identifier_type,
+                            identity_value=identifier_value,
+                            confidence=1.0,
+                        )
+                    ],
+                )
+
+        # 2. Try exact match in identity table (via graph)
         contact_id = await self._find_identity_in_graph(
             organization_id, identifier_type, identifier_value
         )
@@ -152,7 +201,7 @@ class UnifiedIdentityGraph:
                     ],
                 )
 
-        # 2. Try direct contact field match
+        # 3. Try direct contact field match
         contact_id = await self._find_contact_by_field(
             organization_id, identifier_type, identifier_value
         )
@@ -188,7 +237,7 @@ class UnifiedIdentityGraph:
                     ],
                 )
 
-        # 3. Try probabilistic matching for emails (can infer from name/domain)
+        # 4. Try probabilistic matching for emails (can infer from name/domain)
         if identifier_type == IdentityType.EMAIL:
             probabilistic_match = await self._probabilistic_match(
                 organization_id, identifier_type, identifier_value
@@ -217,7 +266,7 @@ class UnifiedIdentityGraph:
                         ],
                     )
 
-        # 4. Create new contact if requested
+        # 5. Create new contact if requested
         if create_if_missing:
             new_contact = await self._create_contact_from_identity(
                 organization_id=organization_id,
@@ -268,6 +317,14 @@ class UnifiedIdentityGraph:
         try:
             identity_id = str(uuid4())
             now = datetime.utcnow().isoformat()
+
+            db_linked = await self._upsert_identity_in_db(
+                contact_id=contact_id,
+                identity=identity,
+                organization_id=organization_id,
+            )
+            if not db_linked:
+                return False
 
             # Create Identity node and relationship
             await self.graph.query(
@@ -320,6 +377,137 @@ class UnifiedIdentityGraph:
                     contact_id=contact_id,
                     error=str(e),
                 )
+            return False
+
+    async def _find_identity_in_db(
+        self,
+        organization_id: str,
+        identity_type: IdentityType,
+        identity_value: str,
+    ) -> str | None:
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT contact_id
+                        FROM contact_identity
+                        WHERE organization_id = :org_id
+                          AND identity_type = :identity_type
+                          AND identity_value = :identity_value
+                        """
+                    ),
+                    {
+                        "org_id": organization_id,
+                        "identity_type": identity_type.value,
+                        "identity_value": identity_value,
+                    },
+                )
+                row = result.fetchone()
+                if row:
+                    return row[0]
+        except Exception as e:
+            logger.warning("Identity DB lookup failed", error=str(e))
+        return None
+
+    async def _upsert_identity_in_db(
+        self,
+        contact_id: str,
+        identity: Identity,
+        organization_id: str,
+    ) -> bool:
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT contact_id, is_verified
+                        FROM contact_identity
+                        WHERE organization_id = :org_id
+                          AND identity_type = :identity_type
+                          AND identity_value = :identity_value
+                        """
+                    ),
+                    {
+                        "org_id": organization_id,
+                        "identity_type": identity.identity_type.value,
+                        "identity_value": identity.identity_value,
+                    },
+                )
+                row = result.fetchone()
+                now = datetime.utcnow()
+                if row:
+                    existing_contact_id, is_verified = row
+                    if existing_contact_id != contact_id:
+                        logger.warning(
+                            "Identity already linked to a different contact",
+                            identity_type=identity.identity_type.value,
+                            identity_value=identity.identity_value,
+                            existing_contact_id=existing_contact_id,
+                            requested_contact_id=contact_id,
+                        )
+                        return False
+
+                    await session.execute(
+                        text(
+                            """
+                            UPDATE contact_identity
+                            SET confidence = GREATEST(confidence, :confidence),
+                                is_verified = (is_verified OR :is_verified),
+                                source = COALESCE(:source, source),
+                                source_account_id = COALESCE(:source_account_id, source_account_id),
+                                last_seen_at = :last_seen_at,
+                                updated_at = NOW()
+                            WHERE organization_id = :org_id
+                              AND identity_type = :identity_type
+                              AND identity_value = :identity_value
+                            """
+                        ),
+                        {
+                            "confidence": identity.confidence,
+                            "is_verified": identity.is_verified,
+                            "source": identity.source.value if identity.source else None,
+                            "source_account_id": identity.source_account_id,
+                            "last_seen_at": identity.last_seen_at or now,
+                            "org_id": organization_id,
+                            "identity_type": identity.identity_type.value,
+                            "identity_value": identity.identity_value,
+                        },
+                    )
+                    return True
+
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO contact_identity (
+                            id, organization_id, contact_id, identity_type,
+                            identity_value, confidence, is_verified,
+                            source, source_account_id, last_seen_at,
+                            created_at, updated_at
+                        ) VALUES (
+                            :id, :org_id, :contact_id, :identity_type,
+                            :identity_value, :confidence, :is_verified,
+                            :source, :source_account_id, :last_seen_at,
+                            NOW(), NOW()
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "org_id": organization_id,
+                        "contact_id": contact_id,
+                        "identity_type": identity.identity_type.value,
+                        "identity_value": identity.identity_value,
+                        "confidence": identity.confidence,
+                        "is_verified": identity.is_verified,
+                        "source": identity.source.value if identity.source else None,
+                        "source_account_id": identity.source_account_id,
+                        "last_seen_at": identity.last_seen_at or now,
+                    },
+                )
+                return True
+        except Exception as e:
+            logger.warning("Failed to upsert identity in DB", error=str(e))
             return False
 
     async def suggest_merges(
@@ -449,6 +637,328 @@ class UnifiedIdentityGraph:
         except Exception as e:
             logger.error("Failed to find merge suggestions", error=str(e))
             return []
+
+    async def merge_contacts(
+        self,
+        organization_id: str,
+        source_contact_id: str,
+        target_contact_id: str,
+        performed_by: str | None = None,
+        reason: str | None = None,
+    ) -> bool:
+        """
+        Merge a source contact into a target contact.
+
+        Updates DB records, identity links, and graph relationships.
+        """
+        if source_contact_id == target_contact_id:
+            return False
+
+        now = datetime.utcnow()
+        async with get_db_session() as session:
+            source_row = await session.execute(
+                text(
+                    """
+                    SELECT * FROM contact
+                    WHERE id = :id AND organization_id = :org_id
+                    """
+                ),
+                {"id": source_contact_id, "org_id": organization_id},
+            )
+            target_row = await session.execute(
+                text(
+                    """
+                    SELECT * FROM contact
+                    WHERE id = :id AND organization_id = :org_id
+                    """
+                ),
+                {"id": target_contact_id, "org_id": organization_id},
+            )
+
+            source = source_row.mappings().first()
+            target = target_row.mappings().first()
+            if not source or not target:
+                return False
+
+            def _coalesce(a, b):
+                return a if a not in (None, "", []) else b
+
+            merged_emails = list(
+                {e for e in (target.get("emails") or []) + (source.get("emails") or []) if e}
+            )
+            for email in [target.get("primary_email"), source.get("primary_email")]:
+                if email and email not in merged_emails:
+                    merged_emails.append(email)
+
+            total_messages = (target.get("total_messages") or 0) + (source.get("total_messages") or 0)
+            total_threads = (target.get("total_threads") or 0) + (source.get("total_threads") or 0)
+            messages_sent = (target.get("messages_sent") or 0) + (source.get("messages_sent") or 0)
+            messages_received = (target.get("messages_received") or 0) + (source.get("messages_received") or 0)
+
+            def _weighted_avg(a, b):
+                if a is None and b is None:
+                    return None
+                if a is None:
+                    return b
+                if b is None:
+                    return a
+                weight_a = max(target.get("total_messages") or 1, 1)
+                weight_b = max(source.get("total_messages") or 1, 1)
+                return (a * weight_a + b * weight_b) / (weight_a + weight_b)
+
+            first_interaction = min(
+                [d for d in [target.get("first_interaction_at"), source.get("first_interaction_at")] if d],
+                default=target.get("first_interaction_at") or source.get("first_interaction_at"),
+            )
+            last_interaction = max(
+                [d for d in [target.get("last_interaction_at"), source.get("last_interaction_at")] if d],
+                default=target.get("last_interaction_at") or source.get("last_interaction_at"),
+            )
+
+            merged_tags = list(
+                {t for t in (target.get("tags") or []) + (source.get("tags") or []) if t}
+            )
+            merged_communities = list(
+                {c for c in (target.get("community_ids") or []) + (source.get("community_ids") or []) if c}
+            )
+
+            target_metadata = target.get("metadata") or {}
+            merged_from = target_metadata.get("merged_from", [])
+            if isinstance(merged_from, str):
+                merged_from = [merged_from]
+            if source_contact_id not in merged_from:
+                merged_from.append(source_contact_id)
+
+            updated_metadata = {
+                **target_metadata,
+                "merged_from": merged_from,
+                "merge_reason": reason,
+                "merged_at": now.isoformat(),
+                "merged_by": performed_by,
+            }
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE contact
+                    SET primary_email = :primary_email,
+                        emails = :emails,
+                        display_name = COALESCE(:display_name, display_name),
+                        first_name = COALESCE(:first_name, first_name),
+                        last_name = COALESCE(:last_name, last_name),
+                        company = COALESCE(:company, company),
+                        title = COALESCE(:title, title),
+                        department = COALESCE(:department, department),
+                        phone = COALESCE(:phone, phone),
+                        linkedin_url = COALESCE(:linkedin_url, linkedin_url),
+                        avatar_url = COALESCE(:avatar_url, avatar_url),
+                        total_threads = :total_threads,
+                        total_messages = :total_messages,
+                        messages_sent = :messages_sent,
+                        messages_received = :messages_received,
+                        sentiment_score = :sentiment_score,
+                        importance_score = :importance_score,
+                        health_score = :health_score,
+                        engagement_score = :engagement_score,
+                        first_interaction_at = :first_interaction_at,
+                        last_interaction_at = :last_interaction_at,
+                        tags = :tags,
+                        community_ids = :community_ids,
+                        metadata = :metadata::jsonb,
+                        updated_at = NOW()
+                    WHERE id = :target_id
+                      AND organization_id = :org_id
+                    """
+                ),
+                {
+                    "primary_email": _coalesce(target.get("primary_email"), source.get("primary_email")),
+                    "emails": merged_emails,
+                    "display_name": _coalesce(target.get("display_name"), source.get("display_name")),
+                    "first_name": _coalesce(target.get("first_name"), source.get("first_name")),
+                    "last_name": _coalesce(target.get("last_name"), source.get("last_name")),
+                    "company": _coalesce(target.get("company"), source.get("company")),
+                    "title": _coalesce(target.get("title"), source.get("title")),
+                    "department": _coalesce(target.get("department"), source.get("department")),
+                    "phone": _coalesce(target.get("phone"), source.get("phone")),
+                    "linkedin_url": _coalesce(target.get("linkedin_url"), source.get("linkedin_url")),
+                    "avatar_url": _coalesce(target.get("avatar_url"), source.get("avatar_url")),
+                    "total_threads": total_threads,
+                    "total_messages": total_messages,
+                    "messages_sent": messages_sent,
+                    "messages_received": messages_received,
+                    "sentiment_score": _weighted_avg(target.get("sentiment_score"), source.get("sentiment_score")),
+                    "importance_score": _weighted_avg(target.get("importance_score"), source.get("importance_score")),
+                    "health_score": _weighted_avg(target.get("health_score"), source.get("health_score")),
+                    "engagement_score": _weighted_avg(target.get("engagement_score"), source.get("engagement_score")),
+                    "first_interaction_at": first_interaction,
+                    "last_interaction_at": last_interaction,
+                    "tags": merged_tags,
+                    "community_ids": merged_communities,
+                    "metadata": json.dumps(updated_metadata),
+                    "target_id": target_contact_id,
+                    "org_id": organization_id,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE contact
+                    SET metadata = jsonb_set(
+                            COALESCE(metadata, '{}'::jsonb),
+                            '{merged_into}',
+                            to_jsonb(:target_id::text),
+                            true
+                        ),
+                        updated_at = NOW()
+                    WHERE id = :source_id
+                      AND organization_id = :org_id
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                    "org_id": organization_id,
+                },
+            )
+
+            # Re-point identities and participant mappings
+            await session.execute(
+                text(
+                    """
+                    UPDATE contact_identity
+                    SET contact_id = :target_id,
+                        updated_at = NOW()
+                    WHERE organization_id = :org_id
+                      AND contact_id = :source_id
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                    "org_id": organization_id,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE participant
+                    SET contact_id = :target_id,
+                        updated_at = NOW()
+                    WHERE contact_id = :source_id
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                },
+            )
+
+            # Update UIO references
+            await session.execute(
+                text(
+                    """
+                    UPDATE unified_intelligence_object
+                    SET owner_contact_id = :target_id,
+                        participant_contact_ids = array_replace(participant_contact_ids, :source_id, :target_id),
+                        updated_at = NOW()
+                    WHERE organization_id = :org_id
+                      AND (owner_contact_id = :source_id OR :source_id = ANY(participant_contact_ids))
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                    "org_id": organization_id,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE uio_commitment_details
+                    SET debtor_contact_id = CASE WHEN debtor_contact_id = :source_id THEN :target_id ELSE debtor_contact_id END,
+                        creditor_contact_id = CASE WHEN creditor_contact_id = :source_id THEN :target_id ELSE creditor_contact_id END,
+                        updated_at = NOW()
+                    WHERE debtor_contact_id = :source_id OR creditor_contact_id = :source_id
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE uio_decision_details
+                    SET decision_maker_contact_id = CASE WHEN decision_maker_contact_id = :source_id THEN :target_id ELSE decision_maker_contact_id END,
+                        stakeholder_contact_ids = array_replace(stakeholder_contact_ids, :source_id, :target_id),
+                        updated_at = NOW()
+                    WHERE decision_maker_contact_id = :source_id OR :source_id = ANY(stakeholder_contact_ids)
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE uio_task_details
+                    SET assignee_contact_id = CASE WHEN assignee_contact_id = :source_id THEN :target_id ELSE assignee_contact_id END,
+                        created_by_contact_id = CASE WHEN created_by_contact_id = :source_id THEN :target_id ELSE created_by_contact_id END,
+                        updated_at = NOW()
+                    WHERE assignee_contact_id = :source_id OR created_by_contact_id = :source_id
+                    """
+                ),
+                {
+                    "target_id": target_contact_id,
+                    "source_id": source_contact_id,
+                },
+            )
+
+        # Update graph
+        try:
+            await self.graph.query(
+                """
+                MATCH (source:Contact {id: $sourceId, organizationId: $orgId})
+                MATCH (target:Contact {id: $targetId, organizationId: $orgId})
+                SET source.mergedInto = $targetId,
+                    source.mergedAt = $now
+                CREATE (target)-[:MERGED_FROM {createdAt: $now}]->(source)
+                """,
+                {
+                    "sourceId": source_contact_id,
+                    "targetId": target_contact_id,
+                    "orgId": organization_id,
+                    "now": now.isoformat(),
+                },
+            )
+
+            await self.graph.query(
+                """
+                MATCH (source:Contact {id: $sourceId, organizationId: $orgId})-[r:HAS_IDENTITY]->(i:Identity)
+                MATCH (target:Contact {id: $targetId, organizationId: $orgId})
+                DELETE r
+                CREATE (target)-[:HAS_IDENTITY {createdAt: $now}]->(i)
+                SET i.contactId = $targetId, i.updatedAt = $now
+                """,
+                {
+                    "sourceId": source_contact_id,
+                    "targetId": target_contact_id,
+                    "orgId": organization_id,
+                    "now": now.isoformat(),
+                },
+            )
+        except Exception as e:
+            logger.warning("Graph merge failed", error=str(e))
+
+        return True
 
     async def build_contact_context(
         self,
@@ -603,52 +1113,80 @@ class UnifiedIdentityGraph:
             local_part, domain = identifier_value.split("@")
 
             # Try to infer name from local part
-            # john.doe@example.com -> "John Doe"
-            # johndoe@example.com -> "Johndoe"
             name_parts = local_part.replace("_", ".").replace("-", ".").split(".")
             inferred_name = " ".join(p.capitalize() for p in name_parts if p)
+            normalized_inferred = self._normalize_name(inferred_name)
 
-            if not inferred_name or len(inferred_name) < 3:
+            if not normalized_inferred or len(normalized_inferred) < 3:
                 return None
 
-            # Search for contacts with similar name and same domain
+            # Graph scan for same-domain contacts with similar name
             result = await self.graph.query(
                 """
                 MATCH (c:Contact {organizationId: $orgId})
                 WHERE c.email IS NOT NULL
                   AND split(c.email, '@')[1] = $domain
                   AND c.name IS NOT NULL
-                WITH c,
-                     CASE
-                         WHEN toLower(c.name) = toLower($inferredName) THEN 1.0
-                         WHEN toLower(c.name) CONTAINS toLower($inferredName) THEN 0.8
-                         WHEN toLower($inferredName) CONTAINS toLower(c.name) THEN 0.7
-                         ELSE 0.0
-                     END as nameScore
-                WHERE nameScore > 0.5
-                RETURN c.id as contactId, c.name as name, c.email as email, nameScore
-                ORDER BY nameScore DESC
-                LIMIT 1
+                RETURN c.id as contactId, c.name as name, c.email as email
+                LIMIT 25
                 """,
                 {
                     "orgId": organization_id,
                     "domain": domain,
-                    "inferredName": inferred_name,
                 },
             )
 
-            if result:
-                # Calculate confidence based on match quality
-                name_score = result[0].get("nameScore", 0)
-                # Domain match + name match = high confidence
-                confidence = 0.5 + (name_score * 0.4)
+            best_match = None
+            best_score = 0.0
+            for row in result or []:
+                candidate_name = self._normalize_name(row.get("name"))
+                score = self._token_overlap(normalized_inferred, candidate_name)
+                if score > best_score:
+                    best_score = score
+                    best_match = row
 
+            # Fall back to Postgres contact table for richer fields
+            if not best_match or best_score < 0.6:
+                async with get_db_session() as session:
+                    rows = await session.execute(
+                        text(
+                            """
+                            SELECT id, display_name, first_name, last_name, primary_email, company
+                            FROM contact
+                            WHERE organization_id = :org_id
+                              AND primary_email LIKE :domain
+                            LIMIT 50
+                            """
+                        ),
+                        {
+                            "org_id": organization_id,
+                            "domain": f"%@{domain}",
+                        },
+                    )
+                    for row in rows.fetchall():
+                        display = row.display_name or ""
+                        candidate_name = self._normalize_name(
+                            " ".join([row.first_name or "", row.last_name or ""]).strip()
+                        )
+                        if not candidate_name and display:
+                            candidate_name = self._normalize_name(display)
+                        score = self._token_overlap(normalized_inferred, candidate_name)
+                        if score > best_score:
+                            best_score = score
+                            best_match = {
+                                "contactId": row.id,
+                                "name": display or candidate_name,
+                                "email": row.primary_email,
+                            }
+
+            if best_match and best_score >= 0.6:
+                confidence = 0.45 + (best_score * 0.5)
                 return IdentityMatch(
-                    contact_id=result[0]["contactId"],
+                    contact_id=best_match["contactId"],
                     identity_type=identity_type,
                     identity_value=identifier_value,
                     confidence=confidence,
-                    match_source=f"probabilistic:domain+name({name_score:.0%})",
+                    match_source=f"probabilistic:domain+name({best_score:.0%})",
                 )
 
             return None

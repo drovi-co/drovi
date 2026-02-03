@@ -24,14 +24,19 @@ REQUIRED_TABLES = [
     "event_records",
     "webhook_subscriptions",
     "webhook_deliveries",
+    "connector_webhook_inbox",
+    "connector_webhook_outbox",
     # Contact table
     "contact",
+    "contact_identity",
     # UIO core tables
     "unified_intelligence_object",
     "unified_object_source",
     "unified_object_timeline",
     "unified_object_embedding",
     "deduplication_candidate",
+    "signal_candidate",
+    "unified_event",
     # UIO extension tables
     "uio_commitment_details",
     "uio_decision_details",
@@ -46,6 +51,10 @@ REQUIRED_TABLES = [
     "participant",
     "attachment",
     "related_conversation",
+    # Live session evidence tables
+    "live_session",
+    "transcript_segment",
+    "evidence_artifact",
 ]
 
 # Required PostgreSQL extensions

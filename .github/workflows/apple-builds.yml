@@ -1,0 +1,29 @@
+name: Apple Builds
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode projects
+        run: bash scripts/generate_apple_projects.sh
+      - name: Build macOS app
+        run: bash scripts/build_macos.sh
+
+  ios-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode projects
+        run: bash scripts/generate_apple_projects.sh
+      - name: Build iOS app
+        run: bash scripts/build_ios.sh

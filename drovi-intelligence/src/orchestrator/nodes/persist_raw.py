@@ -10,7 +10,9 @@ This ensures source evidence is queryable from both systems.
 
 import json
 import time
-from datetime import datetime, timezone
+import hashlib
+import re
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 import structlog
@@ -18,6 +20,7 @@ import structlog
 from ..state import IntelligenceState, NodeTiming, ParsedMessage
 from src.graph.types import RawMessageNode, ThreadContextNode, SourceType
 from src.db import get_db_pool
+from src.monitoring import get_metrics
 
 logger = structlog.get_logger()
 
@@ -36,6 +39,121 @@ def serialize_for_graph(value):
     if isinstance(value, datetime):
         return value.isoformat()
     return value
+
+
+def _normalize_title(title: str | None) -> str:
+    if not title:
+        return ""
+    cleaned = title.strip().lower()
+    cleaned = re.sub(r"^(re:|fw:|fwd:)\s*", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"[^\w\s\-]", "", cleaned)
+    return cleaned
+
+
+async def _link_related_conversations(
+    conn,
+    organization_id: str,
+    conversation_id: str,
+    title: str | None,
+    participant_emails: list[str],
+    first_message_at: datetime,
+    last_message_at: datetime,
+    now: datetime,
+) -> None:
+    """Heuristic linking for related conversations across sources."""
+    normalized_title = _normalize_title(title)
+    if not normalized_title and not participant_emails:
+        return
+
+    since = now - timedelta(days=7)
+    rows = await conn.fetch(
+        """
+        SELECT c.id, c.title, c.participant_ids, c.first_message_at, c.last_message_at
+        FROM conversation c
+        JOIN source_account s ON c.source_account_id = s.id
+        WHERE s.organization_id = $1
+          AND c.id <> $2
+          AND c.last_message_at >= $3
+        ORDER BY c.last_message_at DESC
+        LIMIT 50
+        """,
+        organization_id,
+        conversation_id,
+        since,
+    )
+
+    if not rows:
+        return
+
+    for row in rows:
+        candidate_title = row["title"]
+        candidate_norm = _normalize_title(candidate_title)
+        candidate_participants = set(row["participant_ids"] or [])
+        participant_overlap = bool(candidate_participants.intersection(participant_emails))
+
+        relation_type = None
+        confidence = 0.0
+        match_reason = None
+
+        if normalized_title and candidate_norm and normalized_title == candidate_norm:
+            relation_type = "duplicate"
+            confidence = 0.85 if participant_overlap else 0.7
+            match_reason = "normalized_title_match"
+        elif participant_overlap:
+            relation_type = "follow_up"
+            confidence = 0.6
+            match_reason = "participant_overlap"
+
+        if not relation_type:
+            continue
+
+        related_id = row["id"]
+        await conn.execute(
+            """
+            INSERT INTO related_conversation (
+                id, conversation_id, related_conversation_id,
+                relation_type, confidence, match_reason,
+                is_auto_detected, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3,
+                $4, $5, $6,
+                true, $7, $7
+            )
+            ON CONFLICT (conversation_id, related_conversation_id, relation_type)
+            DO NOTHING
+            """,
+            str(uuid4()),
+            conversation_id,
+            related_id,
+            relation_type,
+            confidence,
+            match_reason,
+            now,
+        )
+
+        await conn.execute(
+            """
+            INSERT INTO related_conversation (
+                id, conversation_id, related_conversation_id,
+                relation_type, confidence, match_reason,
+                is_auto_detected, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3,
+                $4, $5, $6,
+                true, $7, $7
+            )
+            ON CONFLICT (conversation_id, related_conversation_id, relation_type)
+            DO NOTHING
+            """,
+            str(uuid4()),
+            related_id,
+            conversation_id,
+            relation_type,
+            confidence,
+            match_reason,
+            now,
+        )
 
 
 async def persist_to_postgresql(
@@ -69,6 +187,9 @@ async def persist_to_postgresql(
                 "slack": "channel",
                 "whatsapp": "chat",
                 "calendar": "event",
+                "meeting": "meeting",
+                "call": "chat",
+                "recording": "recording",
                 "notion": "page",
                 "google_docs": "document",
                 "api": "other",
@@ -143,6 +264,17 @@ async def persist_to_postgresql(
                     message_count=len(state.messages),
                 )
 
+                await _link_related_conversations(
+                    conn,
+                    organization_id=state.input.organization_id,
+                    conversation_id=conversation_db_id,
+                    title=title,
+                    participant_emails=participant_emails,
+                    first_message_at=first_message_at,
+                    last_message_at=last_message_at,
+                    now=now,
+                )
+
             # Create message records
             for i, message in enumerate(state.messages):
                 message_db_id = str(uuid4())
@@ -215,7 +347,6 @@ async def persist_to_postgresql(
                         )
 
             return conversation_db_id, message_db_ids
-
     except Exception as e:
         logger.error(
             "Failed to persist to PostgreSQL",
@@ -223,6 +354,238 @@ async def persist_to_postgresql(
             analysis_id=state.analysis_id,
         )
         return None, []
+
+
+def _event_type_for_source(source_type: str) -> str:
+    mapping = {
+        "email": "message",
+        "slack": "message",
+        "whatsapp": "message",
+        "calendar": "meeting",
+        "meeting": "meeting",
+        "call": "call",
+        "recording": "recording",
+        "transcript": "transcript",
+        "notion": "document",
+        "google_docs": "document",
+        "api": "note",
+        "manual": "note",
+    }
+    return mapping.get(source_type, "other")
+
+
+def _hash_event(content: str, source_fingerprint: str) -> str:
+    payload = f"{source_fingerprint}::{content}".encode("utf-8", errors="ignore")
+    return hashlib.sha256(payload).hexdigest()
+
+
+async def persist_unified_events(
+    state: IntelligenceState,
+    now: datetime,
+) -> int:
+    """Persist unified event records (UEM) for raw inputs."""
+    metrics = get_metrics()
+    if not state.input.organization_id:
+        return 0
+
+    event_type = _event_type_for_source(state.input.source_type)
+    pool = await get_db_pool()
+    persisted = 0
+
+    async with pool.acquire() as conn:
+        if state.messages:
+            for i, message in enumerate(state.messages):
+                start = time.time()
+                message_id = message.id or f"{state.input.conversation_id}_{i}"
+                source_fingerprint = "|".join(
+                    [
+                        state.input.source_type or "",
+                        state.input.source_id or "",
+                        state.input.conversation_id or "",
+                        message_id or "",
+                    ]
+                )
+                content = message.content or ""
+                content_hash = _hash_event(content, source_fingerprint)
+                participants = []
+                if message.sender_email or message.sender_name:
+                    participants.append({
+                        "email": message.sender_email,
+                        "name": message.sender_name,
+                        "role": "sender",
+                    })
+                if state.input.user_email:
+                    participants.append({
+                        "email": state.input.user_email,
+                        "name": state.input.user_name,
+                        "role": "user",
+                    })
+
+                try:
+                    exists = await conn.fetchrow(
+                        """
+                        SELECT 1 FROM unified_event
+                        WHERE organization_id = $1 AND content_hash = $2
+                        """,
+                        state.input.organization_id,
+                        content_hash,
+                    )
+                    if exists:
+                        metrics.track_uem_event(
+                            state.input.organization_id,
+                            state.input.source_type,
+                            event_type,
+                            "duplicate",
+                            time.time() - start,
+                        )
+                        continue
+
+                    await conn.execute(
+                        """
+                        INSERT INTO unified_event (
+                            id, organization_id, source_type, source_id,
+                            source_account_id, conversation_id, message_id,
+                            event_type, content_text, content_json,
+                            participants, metadata, content_hash,
+                            captured_at, received_at, evidence_artifact_id
+                        ) VALUES (
+                            $1, $2, $3, $4,
+                            $5, $6, $7,
+                            $8, $9, $10,
+                            $11, $12, $13,
+                            $14, $15, $16
+                        )
+                        ON CONFLICT (organization_id, content_hash) DO NOTHING
+                        """,
+                        str(uuid4()),
+                        state.input.organization_id,
+                        state.input.source_type,
+                        state.input.source_id,
+                        state.input.source_account_id,
+                        state.input.conversation_id,
+                        message_id,
+                        event_type,
+                        content,
+                        json.dumps({
+                            "sender_email": message.sender_email,
+                            "sender_name": message.sender_name,
+                            "message_index": i,
+                        }),
+                        json.dumps(participants),
+                        json.dumps(state.input.metadata or {}),
+                        content_hash,
+                        message.sent_at or now,
+                        now,
+                        None,
+                    )
+                    persisted += 1
+                    metrics.track_uem_event(
+                        state.input.organization_id,
+                        state.input.source_type,
+                        event_type,
+                        "ok",
+                        time.time() - start,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to persist unified event",
+                        error=str(exc),
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+                    metrics.track_uem_event(
+                        state.input.organization_id,
+                        state.input.source_type,
+                        event_type,
+                        "error",
+                        time.time() - start,
+                    )
+        else:
+            start = time.time()
+            source_fingerprint = "|".join(
+                [
+                    state.input.source_type or "",
+                    state.input.source_id or "",
+                    state.input.conversation_id or "",
+                ]
+            )
+            content = state.input.content or ""
+            content_hash = _hash_event(content, source_fingerprint)
+            try:
+                exists = await conn.fetchrow(
+                    """
+                    SELECT 1 FROM unified_event
+                    WHERE organization_id = $1 AND content_hash = $2
+                    """,
+                    state.input.organization_id,
+                    content_hash,
+                )
+                if not exists:
+                    await conn.execute(
+                        """
+                        INSERT INTO unified_event (
+                            id, organization_id, source_type, source_id,
+                            source_account_id, conversation_id, message_id,
+                            event_type, content_text, content_json,
+                            participants, metadata, content_hash,
+                            captured_at, received_at, evidence_artifact_id
+                        ) VALUES (
+                            $1, $2, $3, $4,
+                            $5, $6, $7,
+                            $8, $9, $10,
+                            $11, $12, $13,
+                            $14, $15, $16
+                        )
+                        ON CONFLICT (organization_id, content_hash) DO NOTHING
+                        """,
+                        str(uuid4()),
+                        state.input.organization_id,
+                        state.input.source_type,
+                        state.input.source_id,
+                        state.input.source_account_id,
+                        state.input.conversation_id,
+                        None,
+                        event_type,
+                        content,
+                        json.dumps({"content": content}),
+                        json.dumps([]),
+                        json.dumps(state.input.metadata or {}),
+                        content_hash,
+                        now,
+                        now,
+                        None,
+                    )
+                    persisted += 1
+                    metrics.track_uem_event(
+                        state.input.organization_id,
+                        state.input.source_type,
+                        event_type,
+                        "ok",
+                        time.time() - start,
+                    )
+                else:
+                    metrics.track_uem_event(
+                        state.input.organization_id,
+                        state.input.source_type,
+                        event_type,
+                        "duplicate",
+                        time.time() - start,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to persist unified event",
+                    error=str(exc),
+                    conversation_id=state.input.conversation_id,
+                )
+                metrics.track_uem_event(
+                    state.input.organization_id,
+                    state.input.source_type,
+                    event_type,
+                    "error",
+                    time.time() - start,
+                )
+
+    return persisted
 
 
 async def persist_raw_content_node(state: IntelligenceState) -> dict:
@@ -270,6 +633,21 @@ async def persist_raw_content_node(state: IntelligenceState) -> dict:
     except Exception as e:
         logger.warning(
             "PostgreSQL persistence failed (non-fatal)",
+            error=str(e),
+            analysis_id=state.analysis_id,
+        )
+
+    # Persist Unified Event Model (UEM) records
+    try:
+        uem_count = await persist_unified_events(state, now)
+        logger.info(
+            "Unified event persistence complete",
+            analysis_id=state.analysis_id,
+            event_count=uem_count,
+        )
+    except Exception as e:
+        logger.warning(
+            "Unified event persistence failed (non-fatal)",
             error=str(e),
             analysis_id=state.analysis_id,
         )

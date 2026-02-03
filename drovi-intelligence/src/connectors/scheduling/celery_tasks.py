@@ -29,6 +29,7 @@ def run_async(coro):
 def sync_connection(
     self,
     connection_id: str,
+    organization_id: str | None = None,
     streams: list[str] | None = None,
     full_refresh: bool = False,
 ) -> dict[str, Any]:
@@ -44,19 +45,22 @@ def sync_connection(
         Sync result summary
     """
     return run_async(_sync_connection_async(
-        self, connection_id, streams, full_refresh
+        self, connection_id, organization_id, streams, full_refresh
     ))
 
 
 async def _sync_connection_async(
     task,
     connection_id: str,
+    organization_id: str | None,
     streams: list[str] | None,
     full_refresh: bool,
 ) -> dict[str, Any]:
     """Async implementation of sync_connection."""
     from src.connectors.scheduling.scheduler import get_scheduler
+    from src.connectors.connection_service import get_connection_config
     from src.db.client import get_db_pool
+    from src.db.rls import rls_context
 
     logger.info(
         "Starting connection sync",
@@ -69,42 +73,25 @@ async def _sync_connection_async(
     start_time = datetime.utcnow()
 
     try:
-        # Get connection config from database
-        pool = await get_db_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT id, organization_id, connector_type, name, config
-                FROM connections
-                WHERE id = $1 AND status = 'active'
-                """,
-                connection_id,
-            )
+        # Get connection config from database (RLS-scoped, decrypted tokens)
+        with rls_context(organization_id, is_internal=True):
+            config = await get_connection_config(connection_id, organization_id or "")
 
-            if not row:
-                return {
-                    "status": "failed",
-                    "error": f"Connection not found: {connection_id}",
-                }
+        if not config:
+            return {
+                "status": "failed",
+                "error": f"Connection not found: {connection_id}",
+            }
 
         # Use scheduler to execute sync
         scheduler = get_scheduler()
-        from src.connectors.base.config import ConnectorConfig
 
-        config = ConnectorConfig(
-            connection_id=row["id"],
-            organization_id=row["organization_id"],
-            connector_type=row["connector_type"],
-            name=row["name"],
-            credentials=row["config"].get("credentials", {}),
-            settings=row["config"].get("settings", {}),
-        )
-
-        job = await scheduler.trigger_sync(
-            config=config,
-            streams=streams,
-            full_refresh=full_refresh,
-        )
+        with rls_context(config.organization_id, is_internal=True):
+            job = await scheduler.trigger_sync(
+                config=config,
+                streams=streams,
+                full_refresh=full_refresh,
+            )
 
         # Wait for job completion (with timeout)
         timeout = 3600  # 1 hour
@@ -159,28 +146,30 @@ def sync_scheduled_connections() -> dict[str, Any]:
 async def _sync_scheduled_connections_async() -> dict[str, Any]:
     """Async implementation of sync_scheduled_connections."""
     from src.db.client import get_db_pool
+    from src.db.rls import rls_context
 
     try:
-        pool = await get_db_pool()
-        async with pool.acquire() as conn:
-            # Get connections due for sync
-            rows = await conn.fetch(
-                """
-                SELECT
-                    c.id,
-                    c.connector_type,
-                    c.config->>'sync_interval_minutes' as interval_minutes,
-                    MAX(sj.completed_at) as last_sync
-                FROM connections c
-                LEFT JOIN sync_jobs sj ON c.id = sj.connection_id AND sj.status = 'completed'
-                WHERE c.status = 'active'
-                GROUP BY c.id
-                HAVING MAX(sj.completed_at) IS NULL
-                    OR MAX(sj.completed_at) < NOW() - INTERVAL '1 minute' *
-                        COALESCE((c.config->>'sync_interval_minutes')::int, 15)
-                LIMIT 50
-                """
-            )
+        with rls_context(None, is_internal=True):
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                # Get connections due for sync
+                rows = await conn.fetch(
+                    """
+                    SELECT
+                        c.id,
+                        c.connector_type,
+                        c.config->>'sync_interval_minutes' as interval_minutes,
+                        MAX(sj.completed_at) as last_sync
+                    FROM connections c
+                    LEFT JOIN sync_jobs sj ON c.id = sj.connection_id AND sj.status = 'completed'
+                    WHERE c.status = 'active'
+                    GROUP BY c.id
+                    HAVING MAX(sj.completed_at) IS NULL
+                        OR MAX(sj.completed_at) < NOW() - INTERVAL '1 minute' *
+                            COALESCE((c.config->>'sync_interval_minutes')::int, 15)
+                    LIMIT 50
+                    """
+                )
 
         queued = 0
         for row in rows:
@@ -214,10 +203,12 @@ def refresh_expiring_tokens() -> dict[str, Any]:
 async def _refresh_expiring_tokens_async() -> dict[str, Any]:
     """Async implementation of refresh_expiring_tokens."""
     from src.connectors.auth.token_manager import get_token_manager
+    from src.db.rls import rls_context
 
     try:
-        token_manager = await get_token_manager()
-        refreshed = await token_manager.refresh_expiring_tokens()
+        with rls_context(None, is_internal=True):
+            token_manager = await get_token_manager()
+            refreshed = await token_manager.refresh_expiring_tokens()
 
         logger.info(
             "Refreshed expiring tokens",
@@ -242,10 +233,12 @@ def compute_memory_decay() -> dict[str, Any]:
 async def _compute_memory_decay_async() -> dict[str, Any]:
     """Async implementation of compute_memory_decay."""
     from src.jobs.decay import get_decay_job
+    from src.db.rls import rls_context
 
     try:
-        decay_job = await get_decay_job()
-        result = await decay_job.run()
+        with rls_context(None, is_internal=True):
+            decay_job = await get_decay_job()
+            result = await decay_job.run()
 
         logger.info(
             "Memory decay computation completed",
@@ -271,17 +264,19 @@ def cleanup_old_jobs() -> dict[str, Any]:
 async def _cleanup_old_jobs_async() -> dict[str, Any]:
     """Async implementation of cleanup_old_jobs."""
     from src.db.client import get_db_pool
+    from src.db.rls import rls_context
 
     try:
-        pool = await get_db_pool()
-        async with pool.acquire() as conn:
-            # Delete jobs older than 30 days
-            result = await conn.execute(
-                """
-                DELETE FROM sync_jobs
-                WHERE completed_at < NOW() - INTERVAL '30 days'
-                """
-            )
+        with rls_context(None, is_internal=True):
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                # Delete jobs older than 30 days
+                result = await conn.execute(
+                    """
+                    DELETE FROM sync_jobs
+                    WHERE completed_at < NOW() - INTERVAL '30 days'
+                    """
+                )
 
         deleted = int(result.split()[-1]) if result else 0
 
@@ -485,6 +480,22 @@ async def _cleanup_event_records_async(days: int) -> dict[str, Any]:
 
     except Exception as e:
         logger.error("Failed to cleanup event records", error=str(e))
+        return {"error": str(e)}
+
+
+@celery_app.task(name="src.candidates.process_signal_candidates")
+def process_signal_candidates(limit: int = 200) -> dict[str, Any]:
+    """Process pending signal candidates in the background."""
+    return run_async(_process_signal_candidates_async(limit))
+
+
+async def _process_signal_candidates_async(limit: int) -> dict[str, Any]:
+    from src.candidates.processor import process_signal_candidates as _process
+
+    try:
+        return await _process(limit=limit)
+    except Exception as e:
+        logger.error("Failed to process signal candidates", error=str(e))
         return {"error": str(e)}
 
 

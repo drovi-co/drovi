@@ -136,6 +136,7 @@ class DroviGraph:
     async def initialize_indexes(self) -> None:
         """Create all required indexes for the intelligence platform."""
         logger.info("Initializing FalkorDB indexes")
+        settings = get_settings()
 
         # Regular indexes
         indexes = [
@@ -158,6 +159,20 @@ class DroviGraph:
             "CREATE INDEX ON :Conversation(sourceId)",
             "CREATE INDEX ON :Message(id)",
             "CREATE INDEX ON :Message(organizationId)",
+            # Live sessions / recordings
+            "CREATE INDEX ON :MeetingSession(id)",
+            "CREATE INDEX ON :MeetingSession(organizationId)",
+            "CREATE INDEX ON :MeetingSession(sourceId)",
+            "CREATE INDEX ON :CallSession(id)",
+            "CREATE INDEX ON :CallSession(organizationId)",
+            "CREATE INDEX ON :CallSession(sourceId)",
+            "CREATE INDEX ON :Recording(id)",
+            "CREATE INDEX ON :Recording(organizationId)",
+            "CREATE INDEX ON :Recording(sourceId)",
+            "CREATE INDEX ON :TranscriptSegment(id)",
+            "CREATE INDEX ON :TranscriptSegment(organizationId)",
+            "CREATE INDEX ON :TranscriptSegment(sessionId)",
+            "CREATE INDEX ON :TranscriptSegment(startMs)",
             # Task/Claim
             "CREATE INDEX ON :Task(id)",
             "CREATE INDEX ON :Task(organizationId)",
@@ -211,6 +226,18 @@ class DroviGraph:
         # Full-text indexes for keyword search
         await self._create_fulltext_indexes()
 
+        # Default fulltext/vector indexes (best-effort)
+        if settings.falkordb_apply_default_fulltext:
+            from src.graph.indexes import DEFAULT_FULLTEXT_INDEXES, DEFAULT_VECTOR_INDEXES
+            if await self._falkordb_supports_indexes():
+                await self._apply_custom_indexes(DEFAULT_FULLTEXT_INDEXES)
+            if await self._falkordb_supports_indexes():
+                await self._apply_custom_indexes(DEFAULT_VECTOR_INDEXES)
+
+        # Custom index statements for production
+        if settings.falkordb_index_statements:
+            await self._apply_custom_indexes(settings.falkordb_index_statements)
+
         logger.info("FalkorDB indexes initialized")
 
     async def _create_vector_indexes(self) -> None:
@@ -220,10 +247,8 @@ class DroviGraph:
         Note: FalkorDB vector index support requires specific configuration.
         Vector search falls back to brute-force if indexes aren't available.
         """
-        # FalkorDB uses a different syntax for vector indexes
-        # For now, we log that vector indexes should be created manually if needed
         logger.info(
-            "Vector indexes: FalkorDB requires manual setup for optimal vector search. "
+            "Vector indexes: default statements will be applied if enabled. "
             "Basic functionality works without vector indexes."
         )
 
@@ -234,11 +259,30 @@ class DroviGraph:
         Note: FalkorDB fulltext search uses different syntax than Neo4j.
         Basic string matching still works without fulltext indexes.
         """
-        # FalkorDB uses RediSearch for fulltext, which has different syntax
         logger.info(
-            "Fulltext indexes: FalkorDB uses RediSearch syntax. "
+            "Fulltext indexes: default statements will be applied if enabled. "
             "Basic functionality works without fulltext indexes."
         )
+
+    async def _apply_custom_indexes(self, statements: list[str]) -> None:
+        """Apply custom FalkorDB index statements (best-effort)."""
+        for stmt in statements:
+            try:
+                await self.query(stmt)
+                logger.info("Applied custom FalkorDB index", statement=stmt)
+            except Exception as exc:
+                logger.warning("Failed to apply custom FalkorDB index", error=str(exc), statement=stmt)
+
+    async def _falkordb_supports_indexes(self) -> bool:
+        try:
+            await self.query("CALL db.indexes()")
+            return True
+        except Exception:
+            try:
+                await self.query("CALL db.idx.list()")
+                return True
+            except Exception:
+                return False
 
     async def create_vector_index(
         self,
@@ -404,9 +448,11 @@ class DroviGraph:
             List of matching nodes with scores
         """
         try:
-            # FalkorDB vector query: 4 arguments - label, property, k, vector
+            # FalkorDB vector query: label, property, k, vecf32([..])
+            # Some FalkorDB versions reject param-bound vectors, so inline the vector literal.
+            vector_literal = ",".join(f"{v:.6f}" for v in embedding)
             query = f"""
-            CALL db.idx.vector.queryNodes('{label}', 'embedding', $k, vecf32($embedding))
+            CALL db.idx.vector.queryNodes('{label}', 'embedding', $k, vecf32([{vector_literal}]))
             YIELD node, score
             WHERE node.organizationId = $orgId
             RETURN node, score
@@ -414,7 +460,7 @@ class DroviGraph:
             """
             return await self.query(
                 query,
-                {"k": k, "embedding": embedding, "orgId": organization_id},
+                {"k": k, "orgId": organization_id},
             )
         except Exception as e:
             # Vector index may not exist or no embeddings in data

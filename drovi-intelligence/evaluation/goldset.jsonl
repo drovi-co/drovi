@@ -1,0 +1,100 @@
+{"id": "eval-1", "content": "We decided to go with Stripe. I'll send the proposal by Friday.", "expected": {"decisions": ["go with stripe"], "commitments": ["send the proposal by friday"]}}
+{"id": "eval-2", "content": "Can you schedule a call with Alex next week?", "expected": {"commitments": ["schedule a call with alex next week"], "decisions": []}}
+{"id": "eval-3", "content": "We agreed to delay the launch until March 15 due to QA issues.", "expected": {"decisions": ["delay the launch until march 15"], "commitments": []}}
+{"id": "eval-4", "content": "Let's approve the new pricing. I will update the website today.", "expected": {"decisions": ["approve the new pricing"], "commitments": ["update the website today"]}}
+{"id": "eval-5", "content": "We are going to sunset the legacy API by July 1. Please notify all partners.", "expected": {"decisions": ["sunset the legacy api by july 1"], "commitments": ["notify all partners"]}}
+{"id": "eval-6", "content": "I will follow up with the legal team tomorrow morning.", "expected": {"decisions": [], "commitments": ["follow up with the legal team tomorrow morning"]}}
+{"id": "eval-7", "content": "We decided to run the pilot in two phases.", "expected": {"decisions": ["run the pilot in two phases"], "commitments": []}}
+{"id": "eval-8", "content": "Let's move forward with the hiring plan. I'll send the job description tonight.", "expected": {"decisions": ["move forward with the hiring plan"], "commitments": ["send the job description tonight"]}}
+{"id": "eval-9", "content": "We agreed not to ship the feature this week.", "expected": {"decisions": ["not ship the feature this week"], "commitments": []}}
+{"id": "eval-10", "content": "I can deliver the revised deck by EOD.", "expected": {"decisions": [], "commitments": ["deliver the revised deck by eod"]}}
+{"id": "eval-11", "content": "Decision: migrate to the new data warehouse. I will update the migration plan.", "expected": {"decisions": ["migrate to the new data warehouse"], "commitments": ["update the migration plan"]}}
+{"id": "eval-12", "content": "We chose HubSpot as the CRM. I'll set up the initial pipeline stages.", "expected": {"decisions": ["choose hubspot as the crm"], "commitments": ["set up the initial pipeline stages"]}}
+{"id": "eval-13", "content": "Let's postpone the campaign until Q3.", "expected": {"decisions": ["postpone the campaign until q3"], "commitments": []}}
+{"id": "eval-14", "content": "I will send the contract to procurement for review.", "expected": {"decisions": [], "commitments": ["send the contract to procurement for review"]}}
+{"id": "eval-15", "content": "We decided to prioritize the enterprise segment. I'll update the roadmap.", "expected": {"decisions": ["prioritize the enterprise segment"], "commitments": ["update the roadmap"]}}
+{"id": "eval-16", "content": "We approved the budget increase. I will inform finance.", "expected": {"decisions": ["approve the budget increase"], "commitments": ["inform finance"]}}
+{"id": "eval-17", "content": "Let's switch to weekly check-ins. I'll create a recurring calendar invite.", "expected": {"decisions": ["switch to weekly check-ins"], "commitments": ["create a recurring calendar invite"]}}
+{"id": "eval-18", "content": "We agreed to stop supporting the beta users after April 30.", "expected": {"decisions": ["stop supporting the beta users after april 30"], "commitments": []}}
+{"id": "eval-19", "content": "I'll prepare the customer update email.", "expected": {"decisions": [], "commitments": ["prepare the customer update email"]}}
+{"id": "eval-20", "content": "Decision: use a hybrid sales motion for mid-market.", "expected": {"decisions": ["use a hybrid sales motion for mid-market"], "commitments": []}}
+{"id": "eval-21", "content": "We decided to renegotiate the vendor contract. I'll schedule a meeting.", "expected": {"decisions": ["renegotiate the vendor contract"], "commitments": ["schedule a meeting"]}}
+{"id": "eval-22", "content": "Let's archive the outdated docs. I will handle it today.", "expected": {"decisions": ["archive the outdated docs"], "commitments": ["handle it today"]}}
+{"id": "eval-23", "content": "We decided to drop the free tier. I'll draft the announcement.", "expected": {"decisions": ["drop the free tier"], "commitments": ["draft the announcement"]}}
+{"id": "eval-24", "content": "I'll send a summary to the team after the call.", "expected": {"decisions": [], "commitments": ["send a summary to the team after the call"]}}
+{"id": "eval-25", "content": "We agreed to move the deadline to May 10.", "expected": {"decisions": ["move the deadline to may 10"], "commitments": []}}
+{"id": "eval-26", "content": "Let's proceed with the security audit. I will engage the vendor.", "expected": {"decisions": ["proceed with the security audit"], "commitments": ["engage the vendor"]}}
+{"id": "eval-27", "content": "We decided to adopt OAuth for all integrations.", "expected": {"decisions": ["adopt oauth for all integrations"], "commitments": []}}
+{"id": "eval-28", "content": "I will finalize the quarterly report by Friday.", "expected": {"decisions": [], "commitments": ["finalize the quarterly report by friday"]}}
+{"id": "eval-29", "content": "We agreed to merge the two product lines.", "expected": {"decisions": ["merge the two product lines"], "commitments": []}}
+{"id": "eval-30", "content": "Let's approve the design changes. I'll update the Figma file.", "expected": {"decisions": ["approve the design changes"], "commitments": ["update the figma file"]}}
+{"id": "eval-31", "content": "We decided to move the database to AWS. I'll start the migration checklist.", "expected": {"decisions": ["move the database to aws"], "commitments": ["start the migration checklist"]}}
+{"id": "eval-32", "content": "I'll follow up with the customer about renewal next Tuesday.", "expected": {"decisions": [], "commitments": ["follow up with the customer about renewal next tuesday"]}}
+{"id": "eval-33", "content": "We decided to cancel the partnership.", "expected": {"decisions": ["cancel the partnership"], "commitments": []}}
+{"id": "eval-34", "content": "Let's roll back the release. I will notify support.", "expected": {"decisions": ["roll back the release"], "commitments": ["notify support"]}}
+{"id": "eval-35", "content": "We agreed to shift all analytics to the new schema.", "expected": {"decisions": ["shift all analytics to the new schema"], "commitments": []}}
+{"id": "eval-36", "content": "I will prepare the onboarding checklist.", "expected": {"decisions": [], "commitments": ["prepare the onboarding checklist"]}}
+{"id": "eval-37", "content": "We decided to adopt a 2-week sprint cycle.", "expected": {"decisions": ["adopt a 2-week sprint cycle"], "commitments": []}}
+{"id": "eval-38", "content": "Let's approve the incident response policy. I'll circulate it.", "expected": {"decisions": ["approve the incident response policy"], "commitments": ["circulate it"]}}
+{"id": "eval-39", "content": "We decided to open-source the SDK.", "expected": {"decisions": ["open-source the sdk"], "commitments": []}}
+{"id": "eval-40", "content": "I'll send the invoice to accounting.", "expected": {"decisions": [], "commitments": ["send the invoice to accounting"]}}
+{"id": "eval-41", "content": "We agreed to expand support hours starting June 1.", "expected": {"decisions": ["expand support hours starting june 1"], "commitments": []}}
+{"id": "eval-42", "content": "Decision: deprecate the v1 endpoint by end of quarter. I'll update docs.", "expected": {"decisions": ["deprecate the v1 endpoint by end of quarter"], "commitments": ["update docs"]}}
+{"id": "eval-43", "content": "We decided to partner with Acme. I'll draft the LOI.", "expected": {"decisions": ["partner with acme"], "commitments": ["draft the loi"]}}
+{"id": "eval-44", "content": "We decided to freeze hiring for Q2.", "expected": {"decisions": ["freeze hiring for q2"], "commitments": []}}
+{"id": "eval-45", "content": "I'll compile the security questionnaire responses by Monday.", "expected": {"decisions": [], "commitments": ["compile the security questionnaire responses by monday"]}}
+{"id": "eval-46", "content": "We agreed to consolidate the dashboards into one view.", "expected": {"decisions": ["consolidate the dashboards into one view"], "commitments": []}}
+{"id": "eval-47", "content": "Let's approve the vendor contract. I will send it for signature.", "expected": {"decisions": ["approve the vendor contract"], "commitments": ["send it for signature"]}}
+{"id": "eval-48", "content": "We decided to move support to Zendesk.", "expected": {"decisions": ["move support to zendesk"], "commitments": []}}
+{"id": "eval-49", "content": "I'll create the onboarding email sequence tomorrow.", "expected": {"decisions": [], "commitments": ["create the onboarding email sequence tomorrow"]}}
+{"id": "eval-50", "content": "We agreed to exit the EU market this year.", "expected": {"decisions": ["exit the eu market this year"], "commitments": []}}
+{"id": "eval-51", "content": "Let's postpone the rollout to this Friday because of compliance gap.", "expected": {"decisions": ["postpone the rollout to this friday"], "commitments": []}}
+{"id": "eval-52", "content": "We decided to move to Notion. I'll share the onboarding doc by this Friday.", "expected": {"decisions": ["move to notion"], "commitments": ["share the onboarding doc by this friday"]}}
+{"id": "eval-53", "content": "Let's postpone the rollout to Friday because of scope creep.", "expected": {"decisions": ["postpone the rollout to friday"], "commitments": []}}
+{"id": "eval-54", "content": "We should flag the risk of budget overrun on the Notion migration.", "expected": {"decisions": [], "commitments": [], "risks": ["budget overrun"]}}
+{"id": "eval-55", "content": "We decided to move to Notion. I'll publish the postmortem by tomorrow.", "expected": {"decisions": ["move to notion"], "commitments": ["publish the postmortem by tomorrow"]}}
+{"id": "eval-56", "content": "Let's postpone the rollout to March 15 because of compliance gap.", "expected": {"decisions": ["postpone the rollout to march 15"], "commitments": []}}
+{"id": "eval-57", "content": "We should flag the risk of scope creep on the Notion migration.", "expected": {"decisions": [], "commitments": [], "risks": ["scope creep"]}}
+{"id": "eval-58", "content": "Can you confirm the pricing by April 2?", "expected": {"decisions": [], "commitments": ["confirm the pricing by april 2"]}}
+{"id": "eval-59", "content": "We should flag the risk of scope creep on the Stripe migration.", "expected": {"decisions": [], "commitments": [], "risks": ["scope creep"]}}
+{"id": "eval-60", "content": "Can you schedule the kickoff by April 2?", "expected": {"decisions": [], "commitments": ["schedule the kickoff by april 2"]}}
+{"id": "eval-61", "content": "Can you deliver the draft by Friday?", "expected": {"decisions": [], "commitments": ["deliver the draft by friday"]}}
+{"id": "eval-62", "content": "We should flag the risk of scope creep on the HubSpot migration.", "expected": {"decisions": [], "commitments": [], "risks": ["scope creep"]}}
+{"id": "eval-63", "content": "Let's postpone the rollout to this Friday because of compliance gap.", "expected": {"decisions": ["postpone the rollout to this friday"], "commitments": []}}
+{"id": "eval-64", "content": "We decided to move to Jira. I'll confirm the pricing by next Tuesday.", "expected": {"decisions": ["move to jira"], "commitments": ["confirm the pricing by next tuesday"]}}
+{"id": "eval-65", "content": "We should flag the risk of customer churn on the Salesforce migration.", "expected": {"decisions": [], "commitments": [], "risks": ["customer churn"]}}
+{"id": "eval-66", "content": "We decided to move to Asana. I'll set up the workspace by this Friday.", "expected": {"decisions": ["move to asana"], "commitments": ["set up the workspace by this friday"]}}
+{"id": "eval-67", "content": "We should flag the risk of compliance gap on the Notion migration.", "expected": {"decisions": [], "commitments": [], "risks": ["compliance gap"]}}
+{"id": "eval-68", "content": "Can you deliver the draft by next Tuesday?", "expected": {"decisions": [], "commitments": ["deliver the draft by next tuesday"]}}
+{"id": "eval-69", "content": "Let's postpone the rollout to end of month because of customer churn.", "expected": {"decisions": ["postpone the rollout to end of month"], "commitments": []}}
+{"id": "eval-70", "content": "Can you share the onboarding doc by next Tuesday?", "expected": {"decisions": [], "commitments": ["share the onboarding doc by next tuesday"]}}
+{"id": "eval-71", "content": "Let's postpone the rollout to March 15 because of budget overrun.", "expected": {"decisions": ["postpone the rollout to march 15"], "commitments": []}}
+{"id": "eval-72", "content": "We decided to move to Linear. I'll deliver the draft by April 2.", "expected": {"decisions": ["move to linear"], "commitments": ["deliver the draft by april 2"]}}
+{"id": "eval-73", "content": "We decided to move to Salesforce. I'll share the onboarding doc by April 2.", "expected": {"decisions": ["move to salesforce"], "commitments": ["share the onboarding doc by april 2"]}}
+{"id": "eval-74", "content": "Can you ship the beta build by tomorrow?", "expected": {"decisions": [], "commitments": ["ship the beta build by tomorrow"]}}
+{"id": "eval-75", "content": "Can you deliver the draft by this Friday?", "expected": {"decisions": [], "commitments": ["deliver the draft by this friday"]}}
+{"id": "eval-76", "content": "Let's postpone the rollout to March 15 because of customer churn.", "expected": {"decisions": ["postpone the rollout to march 15"], "commitments": []}}
+{"id": "eval-77", "content": "Let's postpone the rollout to this Friday because of compliance gap.", "expected": {"decisions": ["postpone the rollout to this friday"], "commitments": []}}
+{"id": "eval-78", "content": "Let's postpone the rollout to April 2 because of security review delay.", "expected": {"decisions": ["postpone the rollout to april 2"], "commitments": []}}
+{"id": "eval-79", "content": "We decided to move to Salesforce. I'll confirm the pricing by April 2.", "expected": {"decisions": ["move to salesforce"], "commitments": ["confirm the pricing by april 2"]}}
+{"id": "eval-80", "content": "Can you publish the postmortem by Friday?", "expected": {"decisions": [], "commitments": ["publish the postmortem by friday"]}}
+{"id": "eval-81", "content": "We decided to move to Asana. I'll set up the workspace by Friday.", "expected": {"decisions": ["move to asana"], "commitments": ["set up the workspace by friday"]}}
+{"id": "eval-82", "content": "Let's postpone the rollout to April 2 because of scope creep.", "expected": {"decisions": ["postpone the rollout to april 2"], "commitments": []}}
+{"id": "eval-83", "content": "Can you publish the postmortem by tomorrow?", "expected": {"decisions": [], "commitments": ["publish the postmortem by tomorrow"]}}
+{"id": "eval-84", "content": "Can you set up the workspace by tomorrow?", "expected": {"decisions": [], "commitments": ["set up the workspace by tomorrow"]}}
+{"id": "eval-85", "content": "We should flag the risk of security review delay on the Zendesk migration.", "expected": {"decisions": [], "commitments": [], "risks": ["security review delay"]}}
+{"id": "eval-86", "content": "Can you set up the workspace by next Tuesday?", "expected": {"decisions": [], "commitments": ["set up the workspace by next tuesday"]}}
+{"id": "eval-87", "content": "We decided to move to Stripe. I'll set up the workspace by tomorrow.", "expected": {"decisions": ["move to stripe"], "commitments": ["set up the workspace by tomorrow"]}}
+{"id": "eval-88", "content": "We decided to move to HubSpot. I'll send the proposal by next Tuesday.", "expected": {"decisions": ["move to hubspot"], "commitments": ["send the proposal by next tuesday"]}}
+{"id": "eval-89", "content": "Can you deliver the draft by tomorrow?", "expected": {"decisions": [], "commitments": ["deliver the draft by tomorrow"]}}
+{"id": "eval-90", "content": "We should flag the risk of budget overrun on the Linear migration.", "expected": {"decisions": [], "commitments": [], "risks": ["budget overrun"]}}
+{"id": "eval-91", "content": "Let's postpone the rollout to April 2 because of customer churn.", "expected": {"decisions": ["postpone the rollout to april 2"], "commitments": []}}
+{"id": "eval-92", "content": "Can you deliver the draft by this Friday?", "expected": {"decisions": [], "commitments": ["deliver the draft by this friday"]}}
+{"id": "eval-93", "content": "We decided to move to Zendesk. I'll ship the beta build by end of month.", "expected": {"decisions": ["move to zendesk"], "commitments": ["ship the beta build by end of month"]}}
+{"id": "eval-94", "content": "We decided to move to Stripe. I'll ship the beta build by this Friday.", "expected": {"decisions": ["move to stripe"], "commitments": ["ship the beta build by this friday"]}}
+{"id": "eval-95", "content": "We should flag the risk of security review delay on the Notion migration.", "expected": {"decisions": [], "commitments": [], "risks": ["security review delay"]}}
+{"id": "eval-96", "content": "We should flag the risk of compliance gap on the Salesforce migration.", "expected": {"decisions": [], "commitments": [], "risks": ["compliance gap"]}}
+{"id": "eval-97", "content": "We decided to move to Notion. I'll deliver the draft by end of month.", "expected": {"decisions": ["move to notion"], "commitments": ["deliver the draft by end of month"]}}
+{"id": "eval-98", "content": "Let's postpone the rollout to Friday because of budget overrun.", "expected": {"decisions": ["postpone the rollout to friday"], "commitments": []}}
+{"id": "eval-99", "content": "We should flag the risk of budget overrun on the Zendesk migration.", "expected": {"decisions": [], "commitments": [], "risks": ["budget overrun"]}}
+{"id": "eval-100", "content": "We should flag the risk of scope creep on the Stripe migration.", "expected": {"decisions": [], "commitments": [], "risks": ["scope creep"]}}

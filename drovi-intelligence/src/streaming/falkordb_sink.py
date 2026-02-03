@@ -510,6 +510,7 @@ class StreamProcessor:
         self._producer = None
         self._consumer = None
         self._sink = None
+        self._consumer_task: asyncio.Task | None = None
         self._running = False
 
     async def start(self) -> None:
@@ -537,9 +538,9 @@ class StreamProcessor:
             self._handle_intelligence,
         )
 
-        # Start consumer
+        # Start consumer loop in the background to avoid blocking app startup
         self._running = True
-        await self._consumer.start()
+        self._consumer_task = asyncio.create_task(self._consumer.start())
 
     async def stop(self) -> None:
         """Stop the stream processing pipeline."""
@@ -547,6 +548,14 @@ class StreamProcessor:
 
         if self._consumer:
             await self._consumer.stop()
+
+        if self._consumer_task:
+            self._consumer_task.cancel()
+            try:
+                await self._consumer_task
+            except asyncio.CancelledError:
+                pass
+            self._consumer_task = None
 
         if self._sink:
             await self._sink.flush()

@@ -69,7 +69,18 @@ class AnalysisInput(BaseModel):
     organization_id: str
     content: str
     source_type: Literal[
-        "email", "slack", "notion", "google_docs", "whatsapp", "calendar", "api", "manual"
+        "email",
+        "slack",
+        "notion",
+        "google_docs",
+        "whatsapp",
+        "calendar",
+        "meeting",
+        "call",
+        "recording",
+        "transcript",
+        "api",
+        "manual",
     ] = "api"
     source_id: str | None = None
     source_account_id: str | None = None
@@ -77,6 +88,7 @@ class AnalysisInput(BaseModel):
     message_ids: list[str] | None = None
     user_email: str | None = None
     user_name: str | None = None
+    candidate_only: bool = False
     metadata: dict | None = Field(
         default=None,
         description="Source-specific metadata (e.g., calendar event details, attendees, organizer)"
@@ -401,6 +413,7 @@ class Routing(BaseModel):
     should_deduplicate: bool = True
     escalate_to_human: bool = False
     skip_remaining_nodes: bool = False
+    candidate_only: bool = False
 
 
 # =============================================================================
@@ -587,6 +600,9 @@ class IntelligenceState(BaseModel):
 
     # Pre-resolved contact context (populated by resolve_contacts_early node)
     contact_context: ContactContextData = Field(default_factory=ContactContextData)
+
+    # Memory context (recent UIOs / conversation-linked UIOs)
+    memory_context: dict = Field(default_factory=dict)
 
     # Classification
     classification: Classification = Field(default_factory=Classification)

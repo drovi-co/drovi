@@ -11,8 +11,9 @@ from typing import Any
 
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -44,7 +45,7 @@ class PostgresConnector(BaseConnector):
         try:
             import asyncpg
 
-            dsn = self._build_dsn(config.credentials)
+            dsn = self._build_dsn(config)
             conn = await asyncpg.connect(dsn)
             await conn.execute("SELECT 1")
             await conn.close()
@@ -65,13 +66,13 @@ class PostgresConnector(BaseConnector):
         import asyncpg
 
         streams = []
-        dsn = self._build_dsn(config.credentials)
+        dsn = self._build_dsn(config)
 
         try:
             conn = await asyncpg.connect(dsn)
 
             # Get all tables in the schema
-            schema = config.settings.get("schema", "public")
+            schema = config.get_setting("schema", "public")
             rows = await conn.fetch(
                 """
                 SELECT table_name
@@ -114,7 +115,7 @@ class PostgresConnector(BaseConnector):
                 streams.append(
                     StreamConfig(
                         stream_name=table_name,
-                        sync_mode="incremental" if cursor_field else "full_refresh",
+                        sync_mode=SyncMode.INCREMENTAL if cursor_field else SyncMode.FULL_REFRESH,
                         cursor_field=cursor_field,
                     )
                 )
@@ -135,9 +136,9 @@ class PostgresConnector(BaseConnector):
         """Read records from a table."""
         import asyncpg
 
-        dsn = self._build_dsn(config.credentials)
-        schema = config.settings.get("schema", "public")
-        batch_size = config.settings.get("batch_size", 1000)
+        dsn = self._build_dsn(config)
+        schema = config.get_setting("schema", "public")
+        batch_size = config.get_setting("batch_size", 1000)
 
         conn = await asyncpg.connect(dsn)
 
@@ -146,7 +147,7 @@ class PostgresConnector(BaseConnector):
             table = f'"{schema}"."{stream.stream_name}"'
             cursor = state.get_cursor(stream.stream_name)
 
-            if stream.sync_mode == "incremental" and stream.cursor_field and cursor:
+            if stream.sync_mode == SyncMode.INCREMENTAL and stream.cursor_field and cursor:
                 last_value = cursor.get(stream.cursor_field)
                 query = f"""
                     SELECT * FROM {table}
@@ -171,14 +172,30 @@ class PostgresConnector(BaseConnector):
                     if not rows:
                         break
 
-                    records = []
+                    batch = self.create_batch(stream.stream_name, config.connection_id)
                     newest_cursor_value = None
 
                     for row in rows:
                         record = dict(row)
                         record["_source_table"] = stream.stream_name
                         record["_extracted_at"] = datetime.utcnow().isoformat()
-                        records.append(record)
+                        record_id = None
+                        if stream.primary_key:
+                            try:
+                                record_id = ":".join(str(record.get(k)) for k in stream.primary_key)
+                            except Exception:
+                                record_id = None
+                        if not record_id:
+                            record_id = str(record.get("id") or record.get("uuid") or record.get("pk") or record.get("ID") or record.get("Id") or record.get("_id") or record.get("_source_table"))
+
+                        rec = self.create_record(
+                            record_id=record_id,
+                            stream_name=stream.stream_name,
+                            data=record,
+                            cursor_value=record.get(stream.cursor_field) if stream.cursor_field else None,
+                        )
+                        rec.record_type = RecordType.CUSTOM
+                        batch.add_record(rec)
 
                         # Track cursor value
                         if stream.cursor_field and stream.cursor_field in record:
@@ -192,21 +209,20 @@ class PostgresConnector(BaseConnector):
                     if newest_cursor_value and stream.cursor_field:
                         next_cursor = {stream.cursor_field: newest_cursor_value}
 
-                    yield RecordBatch(
-                        records=records,
-                        next_cursor=next_cursor,
-                    )
+                    if batch.records:
+                        batch.complete(next_cursor=next_cursor, has_more=True)
+                        yield batch
 
         finally:
             await conn.close()
 
-    def _build_dsn(self, credentials: dict[str, Any]) -> str:
+    def _build_dsn(self, config: ConnectorConfig) -> str:
         """Build PostgreSQL connection string."""
-        host = credentials.get("host", "localhost")
-        port = credentials.get("port", 5432)
-        database = credentials.get("database", "postgres")
-        user = credentials.get("user", "postgres")
-        password = credentials.get("password", "")
+        host = config.get_credential("host", "localhost")
+        port = config.get_credential("port", 5432)
+        database = config.get_credential("database", "postgres")
+        user = config.get_credential("user", "postgres")
+        password = config.get_credential("password", "")
 
         return f"postgresql://{user}:{password}@{host}:{port}/{database}"
 

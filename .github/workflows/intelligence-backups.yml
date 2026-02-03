@@ -1,0 +1,37 @@
+name: intelligence-backups
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  backup-and-verify:
+    runs-on: self-hosted
+    env:
+      BACKUP_DIR: ./backups
+      RESTORE_VERIFY: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure backup dir
+        run: mkdir -p "$BACKUP_DIR"
+
+      - name: Run Postgres backup
+        run: bash drovi-intelligence/scripts/backup_postgres.sh
+
+      - name: Run FalkorDB backup
+        run: bash drovi-intelligence/scripts/backup_falkordb.sh
+
+      - name: Run MinIO backup
+        run: bash drovi-intelligence/scripts/backup_minio.sh
+
+      - name: Restore verification (Postgres)
+        if: env.RESTORE_VERIFY == 'true'
+        run: |
+          latest=$(ls -t "$BACKUP_DIR"/postgres_*.sql.gz | head -n 1)
+          if [ -z "$latest" ]; then
+            echo "No Postgres backup found."
+            exit 1
+          fi
+          bash drovi-intelligence/scripts/restore_postgres.sh "$latest"

@@ -14,8 +14,9 @@ import json
 
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -71,12 +72,12 @@ class S3Connector(BaseConnector):
             import aioboto3
 
             session = aioboto3.Session(
-                aws_access_key_id=config.credentials.get("aws_access_key_id"),
-                aws_secret_access_key=config.credentials.get("aws_secret_access_key"),
-                region_name=config.credentials.get("region", "us-east-1"),
+                aws_access_key_id=config.get_credential("aws_access_key_id"),
+                aws_secret_access_key=config.get_credential("aws_secret_access_key"),
+                region_name=config.get_credential("region", "us-east-1"),
             )
 
-            bucket = config.settings.get("bucket")
+            bucket = config.get_setting("bucket")
             if not bucket:
                 return False, "No bucket specified in settings"
 
@@ -102,7 +103,7 @@ class S3Connector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="objects",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="last_modified",
             ),
         ]
@@ -117,14 +118,14 @@ class S3Connector(BaseConnector):
         import aioboto3
 
         session = aioboto3.Session(
-            aws_access_key_id=config.credentials.get("aws_access_key_id"),
-            aws_secret_access_key=config.credentials.get("aws_secret_access_key"),
-            region_name=config.credentials.get("region", "us-east-1"),
+            aws_access_key_id=config.get_credential("aws_access_key_id"),
+            aws_secret_access_key=config.get_credential("aws_secret_access_key"),
+            region_name=config.get_credential("region", "us-east-1"),
         )
 
-        bucket = config.settings.get("bucket")
-        prefix = config.settings.get("prefix", "")
-        file_formats = config.settings.get("file_formats", list(self.SUPPORTED_FORMATS.keys()))
+        bucket = config.get_setting("bucket")
+        prefix = config.get_setting("prefix", "")
+        file_formats = config.get_setting("file_formats", list(self.SUPPORTED_FORMATS.keys()))
 
         cursor = state.get_cursor(stream.stream_name)
         last_modified = None
@@ -138,7 +139,7 @@ class S3Connector(BaseConnector):
 
             async for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
                 objects = page.get("Contents", [])
-                records = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 newest_modified = last_modified
 
                 for obj in objects:
@@ -160,12 +161,25 @@ class S3Connector(BaseConnector):
                             client, bucket, key, extension
                         )
 
-                        for record in content_records:
+                        for idx, record in enumerate(content_records):
                             record["_s3_key"] = key
                             record["_s3_bucket"] = bucket
                             record["_s3_last_modified"] = obj_modified.isoformat()
                             record["_extracted_at"] = datetime.utcnow().isoformat()
-                            records.append(record)
+                            record_id = str(
+                                record.get("id")
+                                or record.get("uuid")
+                                or record.get("pk")
+                                or f"{key}:{idx}"
+                            )
+                            rec = self.create_record(
+                                record_id=record_id,
+                                stream_name=stream.stream_name,
+                                data=record,
+                                cursor_value=obj_modified.isoformat(),
+                            )
+                            rec.record_type = RecordType.FILE
+                            batch.add_record(rec)
 
                         # Track newest modified
                         if not newest_modified or obj_modified > newest_modified:
@@ -179,15 +193,13 @@ class S3Connector(BaseConnector):
                             error=str(e),
                         )
 
-                if records:
+                if batch.records:
                     next_cursor = None
                     if newest_modified:
                         next_cursor = {"last_modified": newest_modified.isoformat()}
 
-                    yield RecordBatch(
-                        records=records,
-                        next_cursor=next_cursor,
-                    )
+                    batch.complete(next_cursor=next_cursor, has_more=True)
+                    yield batch
 
     async def _read_file(
         self,

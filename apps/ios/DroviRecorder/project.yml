@@ -1,0 +1,23 @@
+name: DroviRecorderiOS
+options:
+  bundleIdPrefix: app.drovi
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: app.drovi.recorder.ios
+    CODE_SIGN_STYLE: Automatic
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    SWIFT_VERSION: "5.9"
+targets:
+  DroviRecorderiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - README.md
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Drovi Recorder
+        NSMicrophoneUsageDescription: "Drovi needs microphone access to record meetings."

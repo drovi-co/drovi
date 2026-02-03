@@ -131,7 +131,10 @@ class ContactContext(BaseModel):
 
     def get_contact_by_slack_id(self, slack_id: str) -> ResolvedContact | None:
         """Get resolved contact by Slack ID."""
-        return self.resolved_contacts.get(f"slack:{slack_id}")
+        return (
+            self.resolved_contacts.get(f"slack_id:{slack_id}")
+            or self.resolved_contacts.get(f"slack:{slack_id}")
+        )
 
     def get_contact_by_phone(self, phone: str) -> ResolvedContact | None:
         """Get resolved contact by phone number."""

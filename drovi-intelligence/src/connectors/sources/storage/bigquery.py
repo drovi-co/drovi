@@ -11,8 +11,9 @@ from typing import Any
 
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -45,8 +46,8 @@ class BigQueryConnector(BaseConnector):
             from google.cloud import bigquery
             from google.oauth2 import service_account
 
-            credentials_json = config.credentials.get("service_account_json")
-            project_id = config.credentials.get("project_id")
+            credentials_json = config.get_credential("service_account_json")
+            project_id = config.get_credential("project_id")
 
             if not credentials_json:
                 return False, "Missing service_account_json in credentials"
@@ -79,9 +80,9 @@ class BigQueryConnector(BaseConnector):
         from google.oauth2 import service_account
 
         streams = []
-        credentials_json = config.credentials.get("service_account_json")
-        project_id = config.credentials.get("project_id")
-        dataset_id = config.settings.get("dataset_id")
+        credentials_json = config.get_credential("service_account_json")
+        project_id = config.get_credential("project_id")
+        dataset_id = config.get_setting("dataset_id")
 
         try:
             credentials = service_account.Credentials.from_service_account_info(
@@ -120,7 +121,7 @@ class BigQueryConnector(BaseConnector):
                     streams.append(
                         StreamConfig(
                             stream_name=f"{dataset.dataset_id}.{table.table_id}",
-                            sync_mode="incremental" if cursor_field else "full_refresh",
+                            sync_mode=SyncMode.INCREMENTAL if cursor_field else SyncMode.FULL_REFRESH,
                             cursor_field=cursor_field,
                         )
                     )
@@ -140,9 +141,9 @@ class BigQueryConnector(BaseConnector):
         from google.cloud import bigquery
         from google.oauth2 import service_account
 
-        credentials_json = config.credentials.get("service_account_json")
-        project_id = config.credentials.get("project_id")
-        batch_size = config.settings.get("batch_size", 10000)
+        credentials_json = config.get_credential("service_account_json")
+        project_id = config.get_credential("project_id")
+        batch_size = config.get_setting("batch_size", 10000)
 
         credentials = service_account.Credentials.from_service_account_info(
             credentials_json
@@ -154,7 +155,7 @@ class BigQueryConnector(BaseConnector):
         if len(parts) == 2:
             dataset_id, table_id = parts
         else:
-            dataset_id = config.settings.get("dataset_id", "default")
+            dataset_id = config.get_setting("dataset_id", "default")
             table_id = stream.stream_name
 
         table_ref = f"`{project_id}.{dataset_id}.{table_id}`"
@@ -162,7 +163,7 @@ class BigQueryConnector(BaseConnector):
         # Build query
         cursor = state.get_cursor(stream.stream_name)
 
-        if stream.sync_mode == "incremental" and stream.cursor_field and cursor:
+        if stream.sync_mode == SyncMode.INCREMENTAL and stream.cursor_field and cursor:
             last_value = cursor.get(stream.cursor_field)
             query = f"""
                 SELECT *
@@ -182,7 +183,7 @@ class BigQueryConnector(BaseConnector):
         # Execute query
         query_job = client.query(query, job_config=job_config)
 
-        records = []
+        batch = self.create_batch(stream.stream_name, config.connection_id)
         newest_cursor_value = None
 
         for row in query_job:
@@ -195,7 +196,30 @@ class BigQueryConnector(BaseConnector):
                 if isinstance(value, datetime):
                     record[key] = value.isoformat()
 
-            records.append(record)
+            record_id = None
+            if stream.primary_key:
+                try:
+                    record_id = ":".join(str(record.get(k)) for k in stream.primary_key)
+                except Exception:
+                    record_id = None
+            if not record_id:
+                record_id = str(
+                    record.get("id")
+                    or record.get("uuid")
+                    or record.get("pk")
+                    or record.get("ID")
+                    or record.get("Id")
+                    or record.get("_source_table")
+                )
+
+            rec = self.create_record(
+                record_id=record_id,
+                stream_name=stream.stream_name,
+                data=record,
+                cursor_value=record.get(stream.cursor_field) if stream.cursor_field else None,
+            )
+            rec.record_type = RecordType.CUSTOM
+            batch.add_record(rec)
 
             # Track cursor value
             if stream.cursor_field and stream.cursor_field in row:
@@ -205,27 +229,23 @@ class BigQueryConnector(BaseConnector):
                 newest_cursor_value = cursor_val
 
             # Yield batch
-            if len(records) >= batch_size:
+            if len(batch.records) >= batch_size:
                 next_cursor = None
                 if newest_cursor_value and stream.cursor_field:
                     next_cursor = {stream.cursor_field: newest_cursor_value}
 
-                yield RecordBatch(
-                    records=records,
-                    next_cursor=next_cursor,
-                )
-                records = []
+                batch.complete(next_cursor=next_cursor, has_more=True)
+                yield batch
+                batch = self.create_batch(stream.stream_name, config.connection_id)
 
         # Yield remaining records
-        if records:
+        if batch.records:
             next_cursor = None
             if newest_cursor_value and stream.cursor_field:
                 next_cursor = {stream.cursor_field: newest_cursor_value}
 
-            yield RecordBatch(
-                records=records,
-                next_cursor=next_cursor,
-            )
+            batch.complete(next_cursor=next_cursor, has_more=False)
+            yield batch
 
     async def execute_query(
         self,
@@ -236,9 +256,9 @@ class BigQueryConnector(BaseConnector):
         from google.cloud import bigquery
         from google.oauth2 import service_account
 
-        credentials_json = config.credentials.get("service_account_json")
-        project_id = config.credentials.get("project_id")
-        batch_size = config.settings.get("batch_size", 10000)
+        credentials_json = config.get_credential("service_account_json")
+        project_id = config.get_credential("project_id")
+        batch_size = config.get_setting("batch_size", 10000)
 
         credentials = service_account.Credentials.from_service_account_info(
             credentials_json
@@ -247,7 +267,7 @@ class BigQueryConnector(BaseConnector):
 
         query_job = client.query(query)
 
-        records = []
+        batch = self.create_batch("query", config.connection_id)
         for row in query_job:
             record = dict(row)
             record["_extracted_at"] = datetime.utcnow().isoformat()
@@ -256,14 +276,23 @@ class BigQueryConnector(BaseConnector):
                 if isinstance(value, datetime):
                     record[key] = value.isoformat()
 
-            records.append(record)
+            record_id = str(record.get("id") or record.get("uuid") or record.get("pk") or record.get("ID") or record.get("Id") or record.get("_extracted_at"))
+            rec = self.create_record(
+                record_id=record_id,
+                stream_name="query",
+                data=record,
+            )
+            rec.record_type = RecordType.CUSTOM
+            batch.add_record(rec)
 
-            if len(records) >= batch_size:
-                yield RecordBatch(records=records)
-                records = []
+            if len(batch.records) >= batch_size:
+                batch.complete(has_more=True)
+                yield batch
+                batch = self.create_batch("query", config.connection_id)
 
-        if records:
-            yield RecordBatch(records=records)
+        if batch.records:
+            batch.complete(has_more=False)
+            yield batch
 
 
 # Register connector

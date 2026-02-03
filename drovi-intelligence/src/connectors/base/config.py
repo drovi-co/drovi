@@ -138,6 +138,45 @@ class ConnectorConfig(BaseModel):
                 return stream
         return None
 
+    def get_credential(self, key: str, default: Any | None = None) -> Any | None:
+        """
+        Get a credential value with backwards-compatible fallbacks.
+
+        Looks in provider_config.credentials first, then maps common keys from auth.
+        """
+        credentials = self.provider_config.get("credentials", {})
+        if key in credentials:
+            return credentials.get(key)
+
+        # Map common auth fields
+        if key == "access_token":
+            return self.auth.access_token or default
+        if key == "refresh_token":
+            return self.auth.refresh_token or default
+        if key == "api_key":
+            return self.auth.api_key or default
+        if key == "api_secret":
+            return self.auth.api_secret or default
+        if key == "username":
+            return self.auth.username or default
+        if key == "password":
+            return self.auth.password or default
+
+        return default
+
+    def get_setting(self, key: str, default: Any | None = None) -> Any | None:
+        """
+        Get a provider setting with backwards-compatible fallbacks.
+
+        Looks in provider_config.settings first, then provider_config directly.
+        """
+        settings = self.provider_config.get("settings", {})
+        if key in settings:
+            return settings.get(key)
+        if key in self.provider_config:
+            return self.provider_config.get(key)
+        return default
+
     @property
     def is_authenticated(self) -> bool:
         """Check if connection has valid authentication."""

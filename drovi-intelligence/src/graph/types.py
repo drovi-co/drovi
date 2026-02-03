@@ -16,6 +16,10 @@ class SourceType(str, Enum):
     GOOGLE_DOCS = "google_docs"
     WHATSAPP = "whatsapp"
     CALENDAR = "calendar"
+    MEETING = "meeting"
+    CALL = "call"
+    RECORDING = "recording"
+    TRANSCRIPT = "transcript"
     GITHUB = "github"
     LINEAR = "linear"
     JIRA = "jira"
@@ -58,6 +62,7 @@ class GraphNodeType(str, Enum):
     UIO = "UIO"
     COMMITMENT = "Commitment"
     DECISION = "Decision"
+    RISK = "Risk"
     TOPIC = "Topic"
     PROJECT = "Project"
 
@@ -92,6 +97,12 @@ class GraphNodeType(str, Enum):
     RAW_MESSAGE = "RawMessage"  # Raw message content for full-text search
     THREAD_CONTEXT = "ThreadContext"  # Thread/conversation aggregation
     COMMUNICATION_EVENT = "CommunicationEvent"  # Communication pattern tracking
+
+    # Live Sessions
+    MEETING_SESSION = "MeetingSession"
+    CALL_SESSION = "CallSession"
+    TRANSCRIPT_SEGMENT = "TranscriptSegment"
+    RECORDING = "Recording"
 
 
 class GraphRelationshipType(str, Enum):
@@ -158,6 +169,11 @@ class GraphRelationshipType(str, Enum):
     IMPACTS = "IMPACTS"  # Decision -> Commitment
     THREATENS = "THREATENS"  # Risk -> Decision/Commitment
     FULFILLS = "FULFILLS"  # Task -> Commitment
+
+    # Live session relationships
+    IN_SESSION = "IN_SESSION"  # TranscriptSegment -> MeetingSession/CallSession
+    SPOKEN_BY = "SPOKEN_BY"  # TranscriptSegment -> Contact
+    PARTICIPATED_IN_SESSION = "PARTICIPATED_IN_SESSION"  # Contact -> Session
 
 
 # ============================================================================

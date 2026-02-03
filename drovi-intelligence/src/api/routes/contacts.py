@@ -21,6 +21,8 @@ from sqlalchemy import text
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
 from src.db.client import get_db_session
+from src.identity import get_identity_graph
+from src.identity.types import Identity, IdentityType
 
 logger = structlog.get_logger()
 
@@ -132,6 +134,47 @@ class ContactStatsResponse(BaseModel):
     internal_count: int = 0
     new_this_week: int = 0
     avg_health_score: float | None = None
+
+
+class ContactIdentityLinkRequest(BaseModel):
+    """Request to link an identity to a contact."""
+
+    identity_type: str = Field(..., description="Identity type (email, phone, slack_id, etc.)")
+    identity_value: str = Field(..., description="Identity value")
+    confidence: float = Field(1.0, ge=0.0, le=1.0)
+    is_verified: bool = False
+
+
+class ContactIdentityRecord(BaseModel):
+    """Linked identity details."""
+
+    id: str
+    identity_type: str
+    identity_value: str
+    confidence: float
+    is_verified: bool
+    source: str | None = None
+    source_account_id: str | None = None
+    last_seen_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ContactMergeSuggestion(BaseModel):
+    contact_a_id: str
+    contact_a_name: str | None = None
+    contact_a_email: str | None = None
+    contact_b_id: str
+    contact_b_name: str | None = None
+    contact_b_email: str | None = None
+    confidence: float
+    match_reasons: list[str] = []
+
+
+class ContactMergeRequest(BaseModel):
+    source_contact_id: str
+    target_contact_id: str
+    reason: str | None = None
 
 
 class ToggleVipRequest(BaseModel):
@@ -627,3 +670,232 @@ async def generate_meeting_brief(
             pending_decisions=decisions,
             generated_at=datetime.now(timezone.utc),
         )
+
+
+@router.get("/{contact_id}/identities", response_model=list[ContactIdentityRecord])
+async def list_contact_identities(
+    contact_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """List linked identities for a contact."""
+    _validate_org_id(ctx, organization_id)
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, identity_type, identity_value, confidence, is_verified,
+                       source, source_account_id, last_seen_at, created_at, updated_at
+                FROM contact_identity
+                WHERE organization_id = :org_id AND contact_id = :contact_id
+                ORDER BY created_at DESC
+                """
+            ),
+            {"org_id": organization_id, "contact_id": contact_id},
+        )
+        rows = result.fetchall()
+        return [
+            ContactIdentityRecord(
+                id=row.id,
+                identity_type=row.identity_type,
+                identity_value=row.identity_value,
+                confidence=row.confidence,
+                is_verified=row.is_verified,
+                source=row.source,
+                source_account_id=row.source_account_id,
+                last_seen_at=row.last_seen_at,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+            for row in rows
+        ]
+
+
+@router.post("/{contact_id}/identities", response_model=ContactIdentityRecord)
+async def link_contact_identity(
+    contact_id: str,
+    request: ContactIdentityLinkRequest,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """Link a new identity to a contact (manual override)."""
+    _validate_org_id(ctx, organization_id)
+
+    try:
+        identity_type = IdentityType(request.identity_type)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid identity_type")
+
+    identity_graph = await get_identity_graph()
+    success = await identity_graph.link_identity(
+        contact_id=contact_id,
+        identity=Identity(
+            identity_type=identity_type,
+            identity_value=request.identity_value,
+            confidence=request.confidence,
+            is_verified=request.is_verified,
+        ),
+        organization_id=organization_id,
+    )
+
+    if not success:
+        raise HTTPException(status_code=409, detail="Identity already linked elsewhere")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, identity_type, identity_value, confidence, is_verified,
+                       source, source_account_id, last_seen_at, created_at, updated_at
+                FROM contact_identity
+                WHERE organization_id = :org_id
+                  AND contact_id = :contact_id
+                  AND identity_type = :identity_type
+                  AND identity_value = :identity_value
+                """
+            ),
+            {
+                "org_id": organization_id,
+                "contact_id": contact_id,
+                "identity_type": identity_type.value,
+                "identity_value": request.identity_value,
+            },
+        )
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=500, detail="Identity not persisted")
+
+        return ContactIdentityRecord(
+            id=row.id,
+            identity_type=row.identity_type,
+            identity_value=row.identity_value,
+            confidence=row.confidence,
+            is_verified=row.is_verified,
+            source=row.source,
+            source_account_id=row.source_account_id,
+            last_seen_at=row.last_seen_at,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+
+@router.get("/merge-suggestions", response_model=list[ContactMergeSuggestion])
+async def list_merge_suggestions(
+    organization_id: str | None = None,
+    min_confidence: float = Query(0.7, ge=0.0, le=1.0),
+    limit: int = Query(50, ge=1, le=200),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """List suggested contact merges."""
+    org_id = organization_id or ctx.organization_id
+    if not org_id:
+        raise HTTPException(status_code=400, detail="organization_id is required")
+    _validate_org_id(ctx, org_id)
+
+    identity_graph = await get_identity_graph()
+    suggestions = await identity_graph.suggest_merges(
+        organization_id=org_id,
+        min_confidence=min_confidence,
+        limit=limit,
+    )
+
+    return [
+        ContactMergeSuggestion(
+            contact_a_id=s.contact_a_id,
+            contact_a_name=s.contact_a_name,
+            contact_a_email=s.contact_a_email,
+            contact_b_id=s.contact_b_id,
+            contact_b_name=s.contact_b_name,
+            contact_b_email=s.contact_b_email,
+            confidence=s.confidence,
+            match_reasons=s.match_reasons,
+        )
+        for s in suggestions
+    ]
+
+
+@router.post("/merge")
+async def merge_contacts(
+    request: ContactMergeRequest,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """Merge a source contact into a target contact."""
+    org_id = organization_id or ctx.organization_id
+    if not org_id:
+        raise HTTPException(status_code=400, detail="organization_id is required")
+    _validate_org_id(ctx, org_id)
+
+    identity_graph = await get_identity_graph()
+    merged = await identity_graph.merge_contacts(
+        organization_id=org_id,
+        source_contact_id=request.source_contact_id,
+        target_contact_id=request.target_contact_id,
+        performed_by=ctx.user_id if hasattr(ctx, "user_id") else None,
+        reason=request.reason,
+    )
+
+    if not merged:
+        raise HTTPException(status_code=400, detail="Contact merge failed")
+
+    return {"success": True}
+
+
+@router.get("/identities/audit", response_model=list[ContactIdentityRecord])
+async def export_identity_audit(
+    organization_id: str | None = None,
+    contact_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Export identity audit trail for an org or a specific contact."""
+    org_id = organization_id or ctx.organization_id
+    if not org_id:
+        raise HTTPException(status_code=400, detail="organization_id is required")
+    _validate_org_id(ctx, org_id)
+
+    async with get_db_session() as session:
+        if contact_id:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT id, identity_type, identity_value, confidence, is_verified,
+                           source, source_account_id, last_seen_at, created_at, updated_at
+                    FROM contact_identity
+                    WHERE organization_id = :org_id
+                      AND contact_id = :contact_id
+                    ORDER BY updated_at DESC
+                    """
+                ),
+                {"org_id": org_id, "contact_id": contact_id},
+            )
+        else:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT id, identity_type, identity_value, confidence, is_verified,
+                           source, source_account_id, last_seen_at, created_at, updated_at
+                    FROM contact_identity
+                    WHERE organization_id = :org_id
+                    ORDER BY updated_at DESC
+                    """
+                ),
+                {"org_id": org_id},
+            )
+        rows = result.fetchall()
+
+    return [
+        ContactIdentityRecord(
+            id=row.id,
+            identity_type=row.identity_type,
+            identity_value=row.identity_value,
+            confidence=row.confidence,
+            is_verified=row.is_verified,
+            source=row.source,
+            source_account_id=row.source_account_id,
+            last_seen_at=row.last_seen_at,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]

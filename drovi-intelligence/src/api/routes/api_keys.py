@@ -24,6 +24,7 @@ from src.auth.api_key import (
     revoke_api_key,
 )
 from src.auth.scopes import Scope, get_default_scopes, get_all_scopes
+from src.audit.log import record_audit_event
 
 
 router = APIRouter(prefix="/api-keys", tags=["API Keys"])
@@ -153,8 +154,17 @@ async def create_key(
         is_test=request.is_test,
     )
 
+    await record_audit_event(
+        organization_id=ctx.organization_id,
+        action="api_key_created",
+        actor_type="api_key",
+        actor_id=ctx.key_id,
+        resource_type="api_key",
+        resource_id=str(key_id),
+    )
+
     return CreateAPIKeyResponse(
-        id=key_id,
+        id=str(key_id),
         key=full_key,
         key_prefix=full_key[:8],
         name=request.name,
@@ -180,7 +190,7 @@ async def list_keys(
 
     items = [
         APIKeyInfo(
-            id=k["id"],
+            id=str(k["id"]),
             key_prefix=k["key_prefix"],
             name=k["name"],
             scopes=k["scopes"],

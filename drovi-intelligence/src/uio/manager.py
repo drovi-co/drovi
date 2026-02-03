@@ -22,6 +22,7 @@ This manager provides:
 """
 
 from datetime import datetime
+import json
 from typing import Literal
 from uuid import uuid4
 
@@ -30,8 +31,11 @@ from sqlalchemy import text
 
 from src.db import get_db_session
 from src.graph.client import get_graph_client
+from src.graph.evolution import MemoryEvolution, SupersessionReason
+from src.graph.types import GraphNodeType
 from src.memory.graphiti_memory import get_graphiti_memory
 from src.orchestrator.state import UIOStatus
+from src.db.client import get_db_session
 
 from .schemas import (
     BriefDetailsCreate,
@@ -277,6 +281,7 @@ class UIOManager:
                         priority, status,
                         is_conditional, condition,
                         completed_at, completed_via, snoozed_until,
+                        supersedes_uio_id, superseded_by_uio_id,
                         extraction_context,
                         created_at, updated_at
                     ) VALUES (
@@ -286,6 +291,7 @@ class UIOManager:
                         :priority, :status,
                         :is_conditional, :condition,
                         :completed_at, :completed_via, :snoozed_until,
+                        :supersedes_uio_id, :superseded_by_uio_id,
                         :extraction_context::jsonb,
                         :created_at, :updated_at
                     )
@@ -305,14 +311,39 @@ class UIOManager:
                     "completed_at": request.details.completed_at,
                     "completed_via": request.details.completed_via,
                     "snoozed_until": request.details.snoozed_until,
+                    "supersedes_uio_id": request.details.supersedes_uio_id,
+                    "superseded_by_uio_id": request.details.superseded_by_uio_id,
                     "extraction_context": extraction_context_json,
                     "created_at": now,
                     "updated_at": now,
                 },
             )
 
+            if request.details.supersedes_uio_id:
+                await self._mark_superseded_uio(
+                    session=session,
+                    supersedes_uio_id=request.details.supersedes_uio_id,
+                    new_uio_id=uio_id,
+                    uio_type="commitment",
+                    source=request.source,
+                    confidence=request.base.overall_confidence,
+                    now=now,
+                )
+
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
+
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="commitment",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
 
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
@@ -329,6 +360,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Commitment UIO created", uio_id=uio_id)
@@ -431,8 +464,31 @@ class UIOManager:
                 },
             )
 
+            if request.details.supersedes_uio_id:
+                await self._mark_superseded_uio(
+                    session=session,
+                    supersedes_uio_id=request.details.supersedes_uio_id,
+                    new_uio_id=uio_id,
+                    uio_type="decision",
+                    source=request.source,
+                    confidence=request.base.overall_confidence,
+                    now=now,
+                )
+
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
+
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="decision",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
 
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
@@ -447,6 +503,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Decision UIO created", uio_id=uio_id)
@@ -537,6 +595,18 @@ class UIOManager:
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
 
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="claim",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
+
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
             uio_id=uio_id,
@@ -549,6 +619,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Claim UIO created", uio_id=uio_id)
@@ -618,6 +690,7 @@ class UIOManager:
                         depends_on_uio_ids, blocks_uio_ids,
                         parent_task_uio_id, commitment_uio_id,
                         project, tags, user_overrides,
+                        supersedes_uio_id, superseded_by_uio_id,
                         created_at, updated_at
                     ) VALUES (
                         :id, :uio_id,
@@ -627,6 +700,7 @@ class UIOManager:
                         :depends_on_uio_ids, :blocks_uio_ids,
                         :parent_task_uio_id, :commitment_uio_id,
                         :project, :tags, :user_overrides::jsonb,
+                        :supersedes_uio_id, :superseded_by_uio_id,
                         :created_at, :updated_at
                     )
                 """),
@@ -646,13 +720,38 @@ class UIOManager:
                     "project": request.details.project,
                     "tags": request.details.tags,
                     "user_overrides": user_overrides_json,
+                    "supersedes_uio_id": request.details.supersedes_uio_id,
+                    "superseded_by_uio_id": request.details.superseded_by_uio_id,
                     "created_at": now,
                     "updated_at": now,
                 },
             )
 
+            if request.details.supersedes_uio_id:
+                await self._mark_superseded_uio(
+                    session=session,
+                    supersedes_uio_id=request.details.supersedes_uio_id,
+                    new_uio_id=uio_id,
+                    uio_type="task",
+                    source=request.source,
+                    confidence=request.base.overall_confidence,
+                    now=now,
+                )
+
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
+
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="task",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
 
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
@@ -668,6 +767,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Task UIO created", uio_id=uio_id)
@@ -734,12 +835,14 @@ class UIOManager:
                         risk_type, severity,
                         related_commitment_uio_ids, related_decision_uio_ids,
                         suggested_action, findings, extraction_context,
+                        supersedes_uio_id, superseded_by_uio_id,
                         created_at, updated_at
                     ) VALUES (
                         :id, :uio_id,
                         :risk_type, :severity,
                         :related_commitment_uio_ids, :related_decision_uio_ids,
                         :suggested_action, :findings::jsonb, :extraction_context::jsonb,
+                        :supersedes_uio_id, :superseded_by_uio_id,
                         :created_at, :updated_at
                     )
                 """),
@@ -753,13 +856,38 @@ class UIOManager:
                     "suggested_action": request.details.suggested_action,
                     "findings": findings_json,
                     "extraction_context": extraction_context_json,
+                    "supersedes_uio_id": request.details.supersedes_uio_id,
+                    "superseded_by_uio_id": request.details.superseded_by_uio_id,
                     "created_at": now,
                     "updated_at": now,
                 },
             )
 
+            if request.details.supersedes_uio_id:
+                await self._mark_superseded_uio(
+                    session=session,
+                    supersedes_uio_id=request.details.supersedes_uio_id,
+                    new_uio_id=uio_id,
+                    uio_type="risk",
+                    source=request.source,
+                    confidence=request.base.overall_confidence,
+                    now=now,
+                )
+
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
+
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="risk",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
 
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
@@ -774,6 +902,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Risk UIO created", uio_id=uio_id)
@@ -868,6 +998,18 @@ class UIOManager:
             # 3. Create source linkage
             await self._create_source_linkage(session, uio_id, request.source, now)
 
+            # 4. Record timeline creation event
+            await self._record_uio_timeline(
+                session,
+                uio_id=uio_id,
+                uio_type="brief",
+                title=request.base.canonical_title,
+                description=request.base.canonical_description,
+                source=request.source,
+                confidence=request.base.overall_confidence,
+                now=now,
+            )
+
         # 4. Sync to FalkorDB
         await self._sync_to_falkordb(
             uio_id=uio_id,
@@ -883,6 +1025,8 @@ class UIOManager:
             },
             source_type=request.source.source_type,
             confidence=request.source.confidence,
+            valid_from=now,
+            system_from=now,
         )
 
         logger.info("Brief UIO created", uio_id=uio_id)
@@ -931,6 +1075,150 @@ class UIOManager:
             },
         )
 
+    async def _record_uio_timeline(
+        self,
+        session,
+        uio_id: str,
+        uio_type: str,
+        title: str | None,
+        description: str | None,
+        source: SourceContext,
+        confidence: float | None,
+        now: datetime,
+    ) -> None:
+        """Record a creation event in the UIO timeline."""
+        new_value = {
+            "type": uio_type,
+            "title": title,
+            "description": description,
+        }
+        await session.execute(
+            text(
+                """
+                INSERT INTO unified_object_timeline (
+                    id, unified_object_id,
+                    event_type, event_description,
+                    previous_value, new_value,
+                    source_type, source_id, source_name,
+                    message_id, quoted_text,
+                    triggered_by, confidence, event_at
+                ) VALUES (
+                    :id, :unified_object_id,
+                    :event_type, :event_description,
+                    :previous_value, :new_value,
+                    :source_type, :source_id, :source_name,
+                    :message_id, :quoted_text,
+                    :triggered_by, :confidence, :event_at
+                )
+                """
+            ),
+            {
+                "id": str(uuid4()),
+                "unified_object_id": uio_id,
+                "event_type": "created",
+                "event_description": f"Created {uio_type} from {source.source_type}",
+                "previous_value": None,
+                "new_value": json.dumps(new_value),
+                "source_type": source.source_type,
+                "source_id": source.conversation_id,
+                "source_name": None,
+                "message_id": source.message_id,
+                "quoted_text": source.quoted_text,
+                "triggered_by": "system",
+                "confidence": confidence,
+                "event_at": now,
+            },
+        )
+
+    async def _mark_superseded_uio(
+        self,
+        session,
+        supersedes_uio_id: str,
+        new_uio_id: str,
+        uio_type: str,
+        source: SourceContext,
+        confidence: float | None,
+        now: datetime,
+    ) -> None:
+        """Mark a UIO as superseded in Postgres + Graph."""
+        await session.execute(
+            text(
+                """
+                UPDATE unified_intelligence_object
+                SET valid_to = :now,
+                    system_to = :now,
+                    updated_at = :now
+                WHERE id = :supersedes_id
+                  AND organization_id = :org_id
+                """
+            ),
+            {
+                "now": now,
+                "supersedes_id": supersedes_uio_id,
+                "org_id": self.organization_id,
+            },
+        )
+
+        await session.execute(
+            text(
+                """
+                INSERT INTO unified_object_timeline (
+                    id, unified_object_id,
+                    event_type, event_description,
+                    previous_value, new_value,
+                    source_type, source_id, source_name,
+                    message_id, quoted_text,
+                    triggered_by, confidence, event_at
+                ) VALUES (
+                    :id, :unified_object_id,
+                    :event_type, :event_description,
+                    :previous_value, :new_value,
+                    :source_type, :source_id, :source_name,
+                    :message_id, :quoted_text,
+                    :triggered_by, :confidence, :event_at
+                )
+                """
+            ),
+            {
+                "id": str(uuid4()),
+                "unified_object_id": supersedes_uio_id,
+                "event_type": "superseded",
+                "event_description": f"Superseded by {uio_type} {new_uio_id}",
+                "previous_value": None,
+                "new_value": None,
+                "source_type": source.source_type,
+                "source_id": source.conversation_id,
+                "source_name": None,
+                "message_id": source.message_id,
+                "quoted_text": source.quoted_text,
+                "triggered_by": new_uio_id,
+                "confidence": confidence,
+                "event_at": now,
+            },
+        )
+
+        try:
+            graph = await self._get_graph()
+            evolution = MemoryEvolution(graph)
+            node_type_map = {
+                "commitment": GraphNodeType.COMMITMENT,
+                "decision": GraphNodeType.DECISION,
+                "task": GraphNodeType.TASK,
+                "risk": GraphNodeType.RISK,
+                "claim": GraphNodeType.CLAIM,
+                "brief": GraphNodeType.UIO,
+            }
+            node_type = node_type_map.get(uio_type, GraphNodeType.UIO)
+            await evolution.supersede_node(
+                old_node_id=supersedes_uio_id,
+                new_node_id=new_uio_id,
+                node_type=node_type,
+                reason=SupersessionReason.UPDATED,
+                metadata={"sourceType": source.source_type},
+            )
+        except Exception as exc:
+            logger.warning("Graph supersession failed", error=str(exc))
+
     async def _sync_to_falkordb(
         self,
         uio_id: str,
@@ -938,6 +1226,10 @@ class UIOManager:
         data: dict,
         source_type: str,
         confidence: float,
+        valid_from: datetime | None = None,
+        valid_to: datetime | None = None,
+        system_from: datetime | None = None,
+        system_to: datetime | None = None,
     ) -> None:
         """Sync a UIO to FalkorDB."""
         try:
@@ -949,6 +1241,10 @@ class UIOManager:
                 "status": UIOStatus.ACTIVE.value,
                 "createdAt": datetime.utcnow().isoformat(),
                 "updatedAt": datetime.utcnow().isoformat(),
+                "validFrom": (valid_from or datetime.utcnow()).isoformat(),
+                "validTo": valid_to.isoformat() if valid_to else None,
+                "systemFrom": (system_from or datetime.utcnow()).isoformat(),
+                "systemTo": system_to.isoformat() if system_to else None,
                 "sourceType": source_type,
                 "confidence": confidence,
                 "needsReview": False,
@@ -1085,6 +1381,64 @@ class UIOManager:
                 to_status=new_status.value,
             )
 
+            # Update PostgreSQL + timeline
+            async with get_db_session() as session:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE unified_intelligence_object
+                        SET status = :status,
+                            updated_at = :now
+                        WHERE id = :id
+                          AND organization_id = :org_id
+                        """
+                    ),
+                    {
+                        "status": new_status.value,
+                        "now": now,
+                        "id": uio_id,
+                        "org_id": self.organization_id,
+                    },
+                )
+
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO unified_object_timeline (
+                            id, unified_object_id,
+                            event_type, event_description,
+                            previous_value, new_value,
+                            source_type, source_id, source_name,
+                            message_id, quoted_text,
+                            triggered_by, confidence, event_at
+                        ) VALUES (
+                            :id, :unified_object_id,
+                            :event_type, :event_description,
+                            :previous_value, :new_value,
+                            :source_type, :source_id, :source_name,
+                            :message_id, :quoted_text,
+                            :triggered_by, :confidence, :event_at
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "unified_object_id": uio_id,
+                        "event_type": "status_changed",
+                        "event_description": f"Status changed from {current_status.value} to {new_status.value}",
+                        "previous_value": json.dumps({"status": current_status.value}),
+                        "new_value": json.dumps({"status": new_status.value}),
+                        "source_type": "system",
+                        "source_id": None,
+                        "source_name": None,
+                        "message_id": None,
+                        "quoted_text": None,
+                        "triggered_by": user_id or "system",
+                        "confidence": None,
+                        "event_at": now,
+                    },
+                )
+
             # Create status change episode in memory
             try:
                 memory = await self._get_memory()
@@ -1213,6 +1567,77 @@ class UIOManager:
                 uio_id=uio_id,
                 corrected_fields=list(corrections.keys()),
             )
+
+            # Apply correction to PostgreSQL (best-effort for core fields)
+            core_updates = {}
+            if "canonical_title" in corrections:
+                core_updates["canonical_title"] = corrections["canonical_title"]
+                core_updates["user_corrected_title"] = corrections["canonical_title"]
+            if "canonical_description" in corrections:
+                core_updates["canonical_description"] = corrections["canonical_description"]
+            if "due_date" in corrections:
+                core_updates["due_date"] = corrections["due_date"]
+                core_updates["due_date_last_updated_at"] = now
+                core_updates["due_date_last_updated_source_id"] = "user"
+            if core_updates:
+                core_updates["updated_at"] = now
+                core_updates["is_user_verified"] = True
+
+                async with get_db_session() as session:
+                    set_clause = ", ".join(f"{key} = :{key}" for key in core_updates.keys())
+                    await session.execute(
+                        text(
+                            f"""
+                            UPDATE unified_intelligence_object
+                            SET {set_clause}
+                            WHERE id = :id
+                              AND organization_id = :org_id
+                            """
+                        ),
+                        {
+                            **core_updates,
+                            "id": uio_id,
+                            "org_id": self.organization_id,
+                        },
+                    )
+
+                    await session.execute(
+                        text(
+                            """
+                            INSERT INTO unified_object_timeline (
+                                id, unified_object_id,
+                                event_type, event_description,
+                                previous_value, new_value,
+                                source_type, source_id, source_name,
+                                message_id, quoted_text,
+                                triggered_by, confidence, event_at
+                            ) VALUES (
+                                :id, :unified_object_id,
+                                :event_type, :event_description,
+                                :previous_value, :new_value,
+                                :source_type, :source_id, :source_name,
+                                :message_id, :quoted_text,
+                                :triggered_by, :confidence, :event_at
+                            )
+                            """
+                        ),
+                        {
+                            "id": str(uuid4()),
+                            "unified_object_id": uio_id,
+                            "event_type": "corrected",
+                            "event_description": "User correction applied",
+                            "previous_value": json.dumps(original_extraction) if original_extraction else None,
+                            "new_value": json.dumps(corrections),
+                            "source_type": "user",
+                            "source_id": None,
+                            "source_name": None,
+                            "message_id": None,
+                            "quoted_text": None,
+                            "triggered_by": user_id,
+                            "confidence": None,
+                            "event_at": now,
+                        },
+                    )
 
             return True
 

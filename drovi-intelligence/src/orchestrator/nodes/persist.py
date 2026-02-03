@@ -16,8 +16,10 @@ from ..state import (
     IntelligenceState,
     Output,
     NodeTiming,
+    ExtractedTask,
 )
-from src.graph.types import ConfidenceTier, get_confidence_tier
+from src.graph.types import ConfidenceTier, get_confidence_tier, GraphNodeType, GraphRelationshipType
+from src.search.embeddings import generate_embedding, EmbeddingError
 
 logger = structlog.get_logger()
 
@@ -56,6 +58,67 @@ def utc_now():
     This function returns the current UTC time without timezone info.
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _resolve_session_node_type(source_type: str | None) -> GraphNodeType | None:
+    if source_type == "meeting":
+        return GraphNodeType.MEETING_SESSION
+    if source_type == "call":
+        return GraphNodeType.CALL_SESSION
+    if source_type == "recording":
+        return GraphNodeType.RECORDING
+    return None
+
+
+async def _link_uio_to_session(
+    graph,
+    state: IntelligenceState,
+    uio_label: str,
+    uio_id: str,
+) -> None:
+    session_id = state.input.source_id or state.input.conversation_id
+    session_node = _resolve_session_node_type(state.input.source_type)
+    if not session_id or not session_node:
+        return
+
+    await graph.query(
+        f"""
+        MATCH (u:{uio_label} {{id: $uio_id, organizationId: $org_id}})
+        MATCH (s:{session_node.value} {{id: $session_id}})
+        MERGE (u)-[:{GraphRelationshipType.EXTRACTED_FROM.value}]->(s)
+        """,
+        {
+            "uio_id": uio_id,
+            "org_id": state.input.organization_id,
+            "session_id": session_id,
+        },
+    )
+
+
+async def _set_graph_embedding(
+    graph,
+    state: IntelligenceState,
+    node_label: str,
+    node_id: str,
+    text: str,
+) -> None:
+    if not text or not text.strip():
+        return
+    try:
+        embedding = await generate_embedding(text)
+    except EmbeddingError:
+        return
+    await graph.query(
+        f"""
+        MATCH (n:{node_label} {{id: $id, organizationId: $org_id}})
+        SET n.embedding = vecf32($embedding)
+        """,
+        {
+            "id": node_id,
+            "org_id": state.input.organization_id,
+            "embedding": embedding,
+        },
+    )
 
 
 def to_naive_utc(dt):
@@ -631,6 +694,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "createdAt": now.isoformat(),
                     },
                 )
+                await _link_uio_to_session(graph, state, "Commitment", uio_id)
+                await _set_graph_embedding(
+                    graph,
+                    state,
+                    "Commitment",
+                    uio_id,
+                    f"{commitment.title or ''} {commitment.description or ''}".strip(),
+                )
 
                 # Create task if commitment has a due date
                 if commitment.due_date:
@@ -912,6 +983,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "createdAt": now.isoformat(),
                     },
                 )
+                await _link_uio_to_session(graph, state, "Decision", uio_id)
+                await _set_graph_embedding(
+                    graph,
+                    state,
+                    "Decision",
+                    uio_id,
+                    f"{decision.title or ''} {decision.statement or ''}".strip(),
+                )
 
                 logger.debug(
                     "Created decision",
@@ -1184,6 +1263,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "createdAt": now.isoformat(),
                         },
                     )
+                    await _link_uio_to_session(graph, state, "Risk", uio_id)
+                    await _set_graph_embedding(
+                        graph,
+                        state,
+                        "Risk",
+                        uio_id,
+                        f"{risk.title or ''} {risk.description or ''}".strip(),
+                    )
 
                     uios_created.append({
                         "id": uio_id,
@@ -1213,9 +1300,16 @@ async def persist_node(state: IntelligenceState) -> dict:
         decision_titles = {d.title.lower().strip() for d in state.extracted.decisions if d.title}
         decision_statements = {d.statement.lower().strip() for d in state.extracted.decisions if d.statement}
 
-        def is_duplicate_task(task_title: str) -> bool:
+        def _has_explicit_task_marker(task: ExtractedTask) -> bool:
+            quoted = (task.quoted_text or "").strip().lower()
+            return quoted.startswith(("task:", "todo:", "action:", "action item:", "follow up:"))
+
+        def is_duplicate_task(task_title: str, task: ExtractedTask) -> bool:
             """Check if a task duplicates a commitment or decision."""
             if not task_title:
+                return False
+            if _has_explicit_task_marker(task):
+                # Explicit tasks should be persisted even if similar to commitments/decisions.
                 return False
             title_lower = task_title.lower().strip()
 
@@ -1246,9 +1340,10 @@ async def persist_node(state: IntelligenceState) -> dict:
             return False
 
         async with get_db_session() as session:
+            task_graph_entries: list[dict] = []
             for task in tasks_to_persist:
                 # Skip tasks that duplicate commitments or decisions
-                if is_duplicate_task(task.title):
+                if is_duplicate_task(task.title, task):
                     logger.debug(
                         "Skipping duplicate task",
                         task_title=task.title,
@@ -1473,8 +1568,68 @@ async def persist_node(state: IntelligenceState) -> dict:
                 )
 
                 tasks_created.append({"id": uio_id, "title": task.title})
+                task_graph_entries.append(
+                    {
+                        "id": uio_id,
+                        "title": task.title,
+                        "description": task.description,
+                        "status": task_status,
+                        "priority": task_priority,
+                        "due_date": task.due_date,
+                        "assignee_contact_id": assignee_contact_id,
+                        "created_by_contact_id": created_by_contact_id,
+                        "confidence": task.confidence,
+                    }
+                )
 
             await session.commit()
+
+        for task_entry in task_graph_entries:
+            await graph.query(
+                """
+                CREATE (t:Task {
+                    id: $id,
+                    organizationId: $orgId,
+                    title: $title,
+                    description: $description,
+                    status: $status,
+                    priority: $priority,
+                    dueDate: $dueDate,
+                    assigneeContactId: $assigneeContactId,
+                    createdByContactId: $createdByContactId,
+                    confidence: $confidence,
+                    createdAt: $createdAt
+                })
+                RETURN t
+                """,
+                {
+                    "id": task_entry["id"],
+                    "orgId": state.input.organization_id,
+                    "title": serialize_for_graph(task_entry["title"]),
+                    "description": serialize_for_graph(task_entry["description"]),
+                    "status": serialize_for_graph(task_entry["status"]),
+                    "priority": serialize_for_graph(task_entry["priority"]),
+                    "dueDate": to_naive_utc(task_entry["due_date"]).isoformat()
+                    if task_entry["due_date"]
+                    else "",
+                    "assigneeContactId": serialize_for_graph(
+                        task_entry["assignee_contact_id"]
+                    ),
+                    "createdByContactId": serialize_for_graph(
+                        task_entry["created_by_contact_id"]
+                    ),
+                    "confidence": task_entry["confidence"],
+                    "createdAt": utc_now().isoformat(),
+                },
+            )
+            await _link_uio_to_session(graph, state, "Task", task_entry["id"])
+            await _set_graph_embedding(
+                graph,
+                state,
+                "Task",
+                task_entry["id"],
+                f"{task_entry['title'] or ''} {task_entry['description'] or ''}".strip(),
+            )
 
         # Persist claims to PostgreSQL (filtered by confidence)
         # Apply intra-batch deduplication for claims
@@ -1512,6 +1667,7 @@ async def persist_node(state: IntelligenceState) -> dict:
 
         claims_created = []
         async with get_db_session() as session:
+            claim_graph_entries: list[dict] = []
             for claim in claims_to_persist:
                 # Check for existing claim with same content (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
@@ -1695,8 +1851,53 @@ async def persist_node(state: IntelligenceState) -> dict:
                 )
 
                 claims_created.append({"id": uio_id, "type": claim.type})
+                claim_graph_entries.append(
+                    {
+                        "id": uio_id,
+                        "type": claim.type,
+                        "content": claim.content,
+                        "quoted_text": getattr(claim, "quoted_text", None),
+                        "confidence": claim.confidence,
+                        "importance": getattr(claim, "importance", "medium"),
+                    }
+                )
 
             await session.commit()
+
+        for claim_entry in claim_graph_entries:
+            await graph.query(
+                """
+                CREATE (cl:Claim {
+                    id: $id,
+                    organizationId: $orgId,
+                    type: $type,
+                    content: $content,
+                    quotedText: $quotedText,
+                    confidence: $confidence,
+                    importance: $importance,
+                    createdAt: $createdAt
+                })
+                RETURN cl
+                """,
+                {
+                    "id": claim_entry["id"],
+                    "orgId": state.input.organization_id,
+                    "type": serialize_for_graph(claim_entry["type"]),
+                    "content": serialize_for_graph(claim_entry["content"]),
+                    "quotedText": serialize_for_graph(claim_entry["quoted_text"]),
+                    "confidence": claim_entry["confidence"],
+                    "importance": serialize_for_graph(claim_entry["importance"]),
+                    "createdAt": utc_now().isoformat(),
+                },
+            )
+            await _link_uio_to_session(graph, state, "Claim", claim_entry["id"])
+            await _set_graph_embedding(
+                graph,
+                state,
+                "Claim",
+                claim_entry["id"],
+                claim_entry["content"] or "",
+            )
 
         # Persist contacts to PostgreSQL (sync with graph)
         contacts_created = []

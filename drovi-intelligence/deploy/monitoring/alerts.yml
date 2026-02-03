@@ -1,0 +1,35 @@
+groups:
+  - name: drovi-intelligence-slo
+    rules:
+      - alert: DroviAPIHighLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "Drovi API p95 latency > 1.5s"
+          description: "Investigate API latency regression or dependency saturation."
+      - alert: DroviAPIErrorRateHigh
+        expr: sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Drovi API error rate > 2%"
+          description: "Check app logs, DB health, and downstream service status."
+      - alert: DroviStreamingBackpressure
+        expr: rate(drovi_streaming_backpressure_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Streaming backpressure detected"
+          description: "Increase streaming worker concurrency or queue size."
+      - alert: DroviConnectorStaleSync
+        expr: max by (connector_type) (time() - drovi_connector_last_success_timestamp_seconds) > 3600
+        for: 15m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Connector sync stale for {{ $labels.connector_type }}"
+          description: "No successful sync in > 1h. Check connector health and rate limits."

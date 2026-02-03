@@ -165,6 +165,9 @@ class GmailConnector(BaseConnector):
         if state:
             cursor = state.get_cursor(stream.stream_name)
             history_id = cursor.get("historyId")
+        sync_params = config.get_setting("sync_params", {}) or {}
+        if sync_params.get("start_history_id"):
+            history_id = sync_params.get("start_history_id")
 
         if history_id and stream.sync_mode == SyncMode.INCREMENTAL:
             # Incremental sync using history API
@@ -191,8 +194,25 @@ class GmailConnector(BaseConnector):
 
         # Build query for filtering
         query = config.provider_config.get("query", "")
-        if config.backfill_start_date:
-            query += f" after:{config.backfill_start_date.strftime('%Y/%m/%d')}"
+        sync_params = config.get_setting("sync_params", {}) or {}
+        backfill_start = sync_params.get("backfill_start") or config.backfill_start_date
+        backfill_end = sync_params.get("backfill_end")
+        if backfill_start:
+            if isinstance(backfill_start, str):
+                try:
+                    backfill_start = datetime.fromisoformat(backfill_start)
+                except ValueError:
+                    backfill_start = None
+            if backfill_start:
+                query += f" after:{backfill_start.strftime('%Y/%m/%d')}"
+        if backfill_end:
+            if isinstance(backfill_end, str):
+                try:
+                    backfill_end = datetime.fromisoformat(backfill_end)
+                except ValueError:
+                    backfill_end = None
+            if backfill_end:
+                query += f" before:{backfill_end.strftime('%Y/%m/%d')}"
 
         while True:
             try:
@@ -265,6 +285,8 @@ class GmailConnector(BaseConnector):
         batch = self.create_batch(stream.stream_name, config.connection_id)
         page_token = None
         latest_history_id = start_history_id
+        sync_params = config.get_setting("sync_params", {}) or {}
+        history_types = sync_params.get("history_types") or ["messageAdded"]
 
         while True:
             try:
@@ -272,7 +294,7 @@ class GmailConnector(BaseConnector):
                 results = service.users().history().list(
                     userId="me",
                     startHistoryId=start_history_id,
-                    historyTypes=["messageAdded"],
+                    historyTypes=history_types,
                     maxResults=100,
                     pageToken=page_token,
                 ).execute()

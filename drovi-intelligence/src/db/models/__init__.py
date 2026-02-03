@@ -11,6 +11,10 @@ from src.db.models.webhooks import (
     WebhookSubscription,
     WebhookDelivery,
 )
+from src.db.models.connector_webhooks import (
+    ConnectorWebhookInbox,
+    ConnectorWebhookOutbox,
+)
 from src.db.models.events import (
     EventRecord,
 )
@@ -29,6 +33,8 @@ __all__ = [
     "SyncJobHistory",
     "WebhookSubscription",
     "WebhookDelivery",
+    "ConnectorWebhookInbox",
+    "ConnectorWebhookOutbox",
     "EventRecord",
     "Organization",
     "User",

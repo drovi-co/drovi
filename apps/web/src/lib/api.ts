@@ -616,6 +616,24 @@ export const intelligenceAPI = {
   },
 
   /**
+   * Apply user corrections to a UIO
+   */
+  async updateUIO(
+    uioId: string,
+    updates: { canonical_title?: string; canonical_description?: string; due_date?: string },
+    organizationId: string
+  ): Promise<UIO> {
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}?organization_id=${organizationId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }
+    );
+    return transformUIO(raw);
+  },
+
+  /**
    * Verify a UIO (mark as user-confirmed)
    */
   async verify(uioId: string): Promise<UIO> {
@@ -1221,6 +1239,30 @@ export interface MeetingBrief {
   generatedAt: string;
 }
 
+export interface ContactIdentityRecord {
+  id: string;
+  identityType: string;
+  identityValue: string;
+  confidence: number;
+  isVerified: boolean;
+  source: string | null;
+  sourceAccountId: string | null;
+  lastSeenAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ContactMergeSuggestion {
+  contactAId: string;
+  contactAName: string | null;
+  contactAEmail: string | null;
+  contactBId: string;
+  contactBName: string | null;
+  contactBEmail: string | null;
+  confidence: number;
+  matchReasons: string[];
+}
+
 function transformContactSummary(raw: Record<string, unknown>): ContactSummary {
   return {
     id: raw.id as string,
@@ -1433,6 +1475,74 @@ export const contactsAPI = {
       { method: "POST" }
     );
     return transformMeetingBrief(raw);
+  },
+
+  async listMergeSuggestions(params: {
+    organizationId: string;
+    minConfidence?: number;
+    limit?: number;
+  }): Promise<ContactMergeSuggestion[]> {
+    const searchParams = new URLSearchParams({
+      organization_id: params.organizationId,
+      min_confidence: String(params.minConfidence ?? 0.7),
+      limit: String(params.limit ?? 50),
+    });
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/contacts/merge-suggestions?${searchParams.toString()}`
+    );
+    return raw.map((item) => ({
+      contactAId: item.contact_a_id as string,
+      contactAName: (item.contact_a_name as string) ?? null,
+      contactAEmail: (item.contact_a_email as string) ?? null,
+      contactBId: item.contact_b_id as string,
+      contactBName: (item.contact_b_name as string) ?? null,
+      contactBEmail: (item.contact_b_email as string) ?? null,
+      confidence: item.confidence as number,
+      matchReasons: (item.match_reasons as string[]) ?? [],
+    }));
+  },
+
+  async mergeContacts(params: {
+    organizationId: string;
+    sourceContactId: string;
+    targetContactId: string;
+    reason?: string;
+  }): Promise<{ success: boolean }> {
+    return apiFetch<{ success: boolean }>(`/contacts/merge?organization_id=${params.organizationId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        source_contact_id: params.sourceContactId,
+        target_contact_id: params.targetContactId,
+        reason: params.reason,
+      }),
+    });
+  },
+
+  async exportIdentityAudit(params: {
+    organizationId: string;
+    contactId?: string;
+  }): Promise<ContactIdentityRecord[]> {
+    const searchParams = new URLSearchParams({
+      organization_id: params.organizationId,
+    });
+    if (params.contactId) {
+      searchParams.set("contact_id", params.contactId);
+    }
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/contacts/identities/audit?${searchParams.toString()}`
+    );
+    return raw.map((item) => ({
+      id: item.id as string,
+      identityType: item.identity_type as string,
+      identityValue: item.identity_value as string,
+      confidence: item.confidence as number,
+      isVerified: (item.is_verified as boolean) ?? false,
+      source: (item.source as string) ?? null,
+      sourceAccountId: (item.source_account_id as string) ?? null,
+      lastSeenAt: (item.last_seen_at as string) ?? null,
+      createdAt: (item.created_at as string) ?? null,
+      updatedAt: (item.updated_at as string) ?? null,
+    }));
   },
 };
 

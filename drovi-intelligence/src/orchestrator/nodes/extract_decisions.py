@@ -68,6 +68,7 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
         source_type=state.input.source_type,
         user_email=state.input.user_email,
         user_name=state.input.user_name,
+        memory_context=state.memory_context,
     )
 
     try:
@@ -79,8 +80,34 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
             node_name="extract_decisions",
         )
 
+        def is_decision_candidate(decision_obj: ExtractedDecision) -> bool:
+            text = (decision_obj.statement or decision_obj.title or "").strip().lower()
+            if not text:
+                return False
+            if text.startswith(("task:", "todo:", "action:", "action item:", "follow up:")):
+                return False
+            decision_markers = (
+                "decision:",
+                "decided",
+                "approved",
+                "approve",
+                "agreed",
+                "greenlight",
+                "selected",
+                "chosen",
+                "we decided",
+                "we agreed",
+                "approved to",
+            )
+            if any(marker in text for marker in decision_markers):
+                return True
+            # Default: treat "will/should/need to" as commitments/tasks unless explicit decision marker
+            if " will " in text or text.startswith("we will") or " need to " in text or " should " in text:
+                return False
+            return False
+
         # Convert to state decision objects
-        decisions = []
+        decisions: list[ExtractedDecision] = []
         for decision in output.decisions:
             # Link to claim if specified
             claim_id = None
@@ -104,11 +131,13 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
                 claim_id=claim_id,
             ))
 
+        filtered_decisions = [d for d in decisions if is_decision_candidate(d)]
+
         # Update extracted intelligence
         extracted = ExtractedIntelligence(
             claims=state.extracted.claims,
             commitments=state.extracted.commitments,
-            decisions=decisions,
+            decisions=filtered_decisions,
             topics=state.extracted.topics,
             risks=state.extracted.risks,
         )
@@ -116,8 +145,9 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
         logger.info(
             "Decisions extracted",
             analysis_id=state.analysis_id,
-            decision_count=len(decisions),
-            statuses=[d.status for d in decisions],
+            decision_count=len(filtered_decisions),
+            filtered_out=len(decisions) - len(filtered_decisions),
+            statuses=[d.status for d in filtered_decisions],
         )
 
         # Record LLM call
@@ -135,7 +165,11 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
         )
 
         # Update confidence
-        avg_confidence = sum(d.confidence for d in decisions) / len(decisions) if decisions else 0.0
+        avg_confidence = (
+            sum(d.confidence for d in filtered_decisions) / len(filtered_decisions)
+            if filtered_decisions
+            else 0.0
+        )
 
         return {
             "extracted": extracted,

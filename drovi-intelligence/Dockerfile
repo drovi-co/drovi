@@ -5,6 +5,14 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
+# System deps for audio + scientific libs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install UV
 RUN pip install uv
 
@@ -19,15 +27,25 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Runtime deps for audio decoding
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
 COPY src/ ./src/
+COPY alembic.ini ./alembic.ini
+COPY alembic/ ./alembic/
+COPY scripts/ ./scripts/
+COPY deploy/ ./deploy/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app"
+ENV PYTHONPATH="/app/.venv/lib/python3.12/site-packages:/app"
 ENV PYTHONUNBUFFERED=1
 
 # Expose port
@@ -35,7 +53,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
+    CMD python - <<'PY'\nimport sys\nimport urllib.request\ntry:\n    with urllib.request.urlopen('http://localhost:8000/health', timeout=2) as r:\n        sys.exit(0 if r.status == 200 else 1)\nexcept Exception:\n    sys.exit(1)\nPY
 
 # Run with Uvicorn
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

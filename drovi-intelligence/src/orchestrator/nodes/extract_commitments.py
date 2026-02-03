@@ -68,6 +68,8 @@ async def extract_commitments_node(state: IntelligenceState) -> dict:
         source_type=state.input.source_type,
         user_email=state.input.user_email,
         user_name=state.input.user_name,
+        contact_context=state.contact_context.resolved_contacts if state.contact_context else None,
+        memory_context=state.memory_context,
     )
 
     try:

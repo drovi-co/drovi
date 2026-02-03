@@ -1,0 +1,2 @@
+{"index": 1, "source_type": "email", "analysis_id": "f0aca6d3-3a82-4089-818c-4e94b225db02", "commitments": 1, "decisions": 0, "risks": 0, "claims": 0, "confidence": 0.38, "needs_review": true}
+{"index": 2, "source_type": "slack", "analysis_id": "9b0a815a-da85-4533-9cae-9bcf20eefd2a", "commitments": 1, "decisions": 0, "risks": 1, "claims": 0, "confidence": 0.3515, "needs_review": true}

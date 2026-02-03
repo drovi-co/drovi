@@ -15,10 +15,10 @@ import asyncio
 import json
 import os
 import time
-from typing import Any, TypeVar
+from typing import Any, TypeVar, get_origin
 
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from src.config import get_settings
 
@@ -576,6 +576,91 @@ Respond ONLY with the JSON object, no additional text."""
                 "content": f"You are an AI assistant that responds with structured JSON.{schema_instruction}",
             })
 
+        def _coerce_list(value: Any) -> Any:
+            if not isinstance(value, str):
+                return value
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("```"):
+                raw = raw.strip("`").strip()
+                if raw.lower().startswith("json"):
+                    raw = raw[4:].strip()
+            raw = raw.lstrip(" :\n\t")
+            # Try direct JSON parse
+            try:
+                return json.loads(raw)
+            except Exception:
+                pass
+            # Try to extract a JSON list from the string
+            start = raw.find("[")
+            end = raw.rfind("]")
+            if start != -1 and end != -1 and end > start:
+                candidate = raw[start : end + 1]
+                try:
+                    return json.loads(candidate)
+                except Exception:
+                    return value
+            if start != -1 and end == -1:
+                # Missing closing bracket; try to close after last object
+                obj_end = raw.rfind("}")
+                if obj_end != -1 and obj_end > start:
+                    candidate = raw[start : obj_end + 1] + "]"
+                    try:
+                        return json.loads(candidate)
+                    except Exception:
+                        return []
+            # Try to extract a JSON object and wrap it as a list
+            obj_start = raw.find("{")
+            obj_end = raw.rfind("}")
+            if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+                candidate = raw[obj_start : obj_end + 1]
+                try:
+                    return [json.loads(candidate)]
+                except Exception:
+                    return []
+            return value
+
+        def _extract_json_from_text(text: str) -> Any:
+            raw = text.strip()
+            if not raw:
+                return {}
+            if raw.startswith("```"):
+                raw = raw.strip("`").strip()
+                if raw.lower().startswith("json"):
+                    raw = raw[4:].strip()
+            # Prefer full object or array
+            obj_start = raw.find("{")
+            obj_end = raw.rfind("}")
+            arr_start = raw.find("[")
+            arr_end = raw.rfind("]")
+            candidates = []
+            if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+                candidates.append(raw[obj_start : obj_end + 1])
+            if arr_start != -1 and arr_end != -1 and arr_end > arr_start:
+                candidates.append(raw[arr_start : arr_end + 1])
+            for candidate in candidates:
+                try:
+                    return json.loads(candidate)
+                except Exception:
+                    continue
+            # Fallback to direct parse
+            try:
+                return json.loads(raw)
+            except Exception:
+                return {}
+
+        def _repair_parsed(parsed: Any) -> Any:
+            if not isinstance(parsed, dict):
+                return parsed
+            for field_name, field in output_schema.model_fields.items():
+                if field_name not in parsed:
+                    continue
+                origin = get_origin(field.annotation)
+                if origin is list:
+                    parsed[field_name] = _coerce_list(parsed[field_name])
+            return parsed
+
         try:
             result, call = await self.router.complete_with_fallback(
                 messages=modified_messages,
@@ -592,8 +677,28 @@ Respond ONLY with the JSON object, no additional text."""
             else:
                 parsed = result
 
-            validated = output_schema.model_validate(parsed)
-            return validated, call
+            try:
+                validated = output_schema.model_validate(parsed)
+                return validated, call
+            except ValidationError:
+                repaired = _repair_parsed(parsed)
+                try:
+                    validated = output_schema.model_validate(repaired)
+                    return validated, call
+                except ValidationError:
+                    # Fallback: non-JSON response, extract JSON from text
+                    fallback_text, fallback_call = await self.router.complete_with_fallback(
+                        messages=modified_messages,
+                        model_tier=model_tier,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        requires_json=False,
+                        node_name=f"{node_name}_fallback",
+                    )
+                    extracted = _extract_json_from_text(str(fallback_text))
+                    repaired = _repair_parsed(extracted)
+                    validated = output_schema.model_validate(repaired)
+                    return validated, fallback_call
 
         except json.JSONDecodeError as e:
             logger.error("LLM returned invalid JSON", error=str(e))

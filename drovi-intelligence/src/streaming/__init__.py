@@ -67,6 +67,11 @@ async def init_streaming() -> bool:
     if not settings.kafka_enabled:
         logger.info("Kafka streaming disabled (KAFKA_ENABLED=false)")
         return False
+    if not settings.kafka_run_processor_in_api:
+        logger.info(
+            "Kafka stream processor disabled for API (KAFKA_RUN_PROCESSOR_IN_API=false)"
+        )
+        return False
 
     try:
         _stream_processor = StreamProcessor()

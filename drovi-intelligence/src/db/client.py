@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from src.config import get_settings
+from src.db.rls import get_rls_context, is_rls_internal
+from sqlalchemy import text
 
 logger = structlog.get_logger()
 
@@ -82,6 +84,17 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
     session = _session_factory()
     try:
+        org_id = get_rls_context()
+        is_internal = is_rls_internal()
+        if org_id:
+            await session.execute(
+                text("SELECT set_config('app.organization_id', :org_id, true)"),
+                {"org_id": org_id},
+            )
+        if is_internal:
+            await session.execute(
+                text("SELECT set_config('app.is_internal', 'true', true)")
+            )
         yield session
         await session.commit()
     except Exception:
@@ -108,8 +121,48 @@ async def get_db_pool():
         settings = get_settings()
         # Convert SQLAlchemy URL to asyncpg format
         db_url = str(settings.database_url).replace("postgresql+asyncpg://", "postgresql://")
-        _pool = await asyncpg.create_pool(db_url)
+        raw_pool = await asyncpg.create_pool(db_url)
+        _pool = _RLSAwarePool(raw_pool)
     return _pool
+
+
+class _RLSAwarePool:
+    """Proxy wrapper that sets RLS context on acquired connections."""
+
+    def __init__(self, pool):
+        self._pool = pool
+
+    def acquire(self):
+        return _RLSConnectionContext(self._pool.acquire())
+
+    def __getattr__(self, name):
+        return getattr(self._pool, name)
+
+
+class _RLSConnectionContext:
+    """Context manager that sets app.organization_id for RLS."""
+
+    def __init__(self, acquire_cm):
+        self._acquire_cm = acquire_cm
+        self._conn = None
+
+    async def __aenter__(self):
+        self._conn = await self._acquire_cm.__aenter__()
+        org_id = get_rls_context()
+        is_internal = is_rls_internal()
+        if org_id:
+            await self._conn.execute(
+                "SELECT set_config('app.organization_id', $1, true)",
+                org_id,
+            )
+        if is_internal:
+            await self._conn.execute(
+                "SELECT set_config('app.is_internal', 'true', true)"
+            )
+        return self._conn
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return await self._acquire_cm.__aexit__(exc_type, exc, tb)
 
 
 async def close_db_pool():

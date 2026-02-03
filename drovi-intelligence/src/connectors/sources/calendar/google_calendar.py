@@ -12,9 +12,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -79,12 +81,14 @@ class GoogleCalendarConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if Google Calendar credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"maxResults": 1},
@@ -109,11 +113,11 @@ class GoogleCalendarConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="calendars",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
             StreamConfig(
                 stream_name="events",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="updated",
             ),
         ]
@@ -125,7 +129,7 @@ class GoogleCalendarConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from a Calendar stream."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "calendars":
             async for batch in self._read_calendars(config, stream, state):
@@ -152,7 +156,9 @@ class GoogleCalendarConnector(BaseConnector):
                 if page_token:
                     params["pageToken"] = page_token
 
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
@@ -160,7 +166,7 @@ class GoogleCalendarConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                calendars = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for item in data.get("items", []):
                     calendar = Calendar(
                         id=item["id"],
@@ -172,10 +178,17 @@ class GoogleCalendarConnector(BaseConnector):
                         background_color=item.get("backgroundColor"),
                         foreground_color=item.get("foregroundColor"),
                     )
-                    calendars.append(self._calendar_to_record(calendar))
+                    record = self.create_record(
+                        record_id=calendar.id,
+                        stream_name=stream.stream_name,
+                        data=self._calendar_to_record(calendar),
+                    )
+                    record.record_type = RecordType.CUSTOM
+                    batch.add_record(record)
 
-                if calendars:
-                    yield RecordBatch(records=calendars)
+                if batch.records:
+                    batch.complete(has_more=bool(data.get("nextPageToken")))
+                    yield batch
 
                 page_token = data.get("nextPageToken")
                 has_more = bool(page_token)
@@ -191,14 +204,37 @@ class GoogleCalendarConnector(BaseConnector):
         last_sync_time = cursor.get("updated") if cursor else None
 
         # Get list of calendars to sync
-        calendars_to_sync = config.settings.get("calendar_ids")
+        calendars_to_sync = config.get_setting("calendar_ids")
         if not calendars_to_sync:
             # Default to primary calendar
             calendars_to_sync = ["primary"]
 
         # Sync window - default to 90 days in past and future
-        time_min = (datetime.utcnow() - timedelta(days=90)).isoformat() + "Z"
-        time_max = (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
+        sync_params = config.get_setting("sync_params", {}) or {}
+        backfill_start = sync_params.get("backfill_start")
+        backfill_end = sync_params.get("backfill_end")
+
+        if backfill_start:
+            if isinstance(backfill_start, str):
+                try:
+                    backfill_start = datetime.fromisoformat(backfill_start)
+                except ValueError:
+                    backfill_start = None
+        if backfill_end:
+            if isinstance(backfill_end, str):
+                try:
+                    backfill_end = datetime.fromisoformat(backfill_end)
+                except ValueError:
+                    backfill_end = None
+
+        if backfill_start or backfill_end:
+            start_dt = backfill_start or (datetime.utcnow() - timedelta(days=90))
+            end_dt = backfill_end or (datetime.utcnow() + timedelta(days=90))
+            time_min = start_dt.isoformat() + "Z"
+            time_max = end_dt.isoformat() + "Z"
+        else:
+            time_min = (datetime.utcnow() - timedelta(days=90)).isoformat() + "Z"
+            time_max = (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
 
         newest_update = last_sync_time
 
@@ -206,6 +242,7 @@ class GoogleCalendarConnector(BaseConnector):
             for calendar_id in calendars_to_sync:
                 async for batch in self._read_calendar_events(
                     client,
+                    config.connection_id,
                     calendar_id,
                     time_min,
                     time_max,
@@ -215,20 +252,20 @@ class GoogleCalendarConnector(BaseConnector):
 
                     # Track newest update time
                     for record in batch.records:
-                        updated = record.get("updated")
+                        updated = record.data.get("updated") if hasattr(record, "data") else None
                         if updated and (not newest_update or updated > newest_update):
                             newest_update = updated
 
         # Final batch with updated cursor
         if newest_update and newest_update != last_sync_time:
-            yield RecordBatch(
-                records=[],
-                next_cursor={"updated": newest_update},
-            )
+            batch = self.create_batch(stream.stream_name, config.connection_id)
+            batch.complete(next_cursor={"updated": newest_update}, has_more=False)
+            yield batch
 
     async def _read_calendar_events(
         self,
         client: httpx.AsyncClient,
+        connection_id: str,
         calendar_id: str,
         time_min: str,
         time_max: str,
@@ -251,7 +288,9 @@ class GoogleCalendarConnector(BaseConnector):
             if updated_min:
                 params["updatedMin"] = updated_min
 
-            response = await client.get(
+            response = await request_with_retry(
+                client,
+                "GET",
                 f"{GOOGLE_CALENDAR_BASE_URL}/calendars/{calendar_id}/events",
                 headers={"Authorization": f"Bearer {self._access_token}"},
                 params=params,
@@ -259,14 +298,22 @@ class GoogleCalendarConnector(BaseConnector):
             response.raise_for_status()
             data = response.json()
 
-            events = []
+            batch = self.create_batch("events", connection_id)
             for item in data.get("items", []):
                 event = self._parse_event(item, calendar_id)
                 if event:
-                    events.append(self._event_to_record(event))
+                    record = self.create_record(
+                        record_id=event.id,
+                        stream_name="events",
+                        data=self._event_to_record(event),
+                        cursor_value=event.updated,
+                    )
+                    record.record_type = RecordType.EVENT
+                    batch.add_record(record)
 
-            if events:
-                yield RecordBatch(records=events)
+            if batch.records:
+                batch.complete(has_more=bool(data.get("nextPageToken")))
+                yield batch
 
             page_token = data.get("nextPageToken")
             has_more = bool(page_token)

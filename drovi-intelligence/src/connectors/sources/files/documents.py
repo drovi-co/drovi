@@ -24,9 +24,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -88,8 +90,8 @@ class DocumentConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if document sources are accessible."""
         try:
-            source_paths = config.settings.get("source_paths", [])
-            source_urls = config.settings.get("source_urls", [])
+            source_paths = config.get_setting("source_paths", [])
+            source_urls = config.get_setting("source_urls", [])
 
             if not source_paths and not source_urls:
                 return False, "No source_paths or source_urls configured"
@@ -102,7 +104,12 @@ class DocumentConnector(BaseConnector):
             # Check URLs are reachable
             for url in source_urls[:1]:  # Just check first URL
                 async with httpx.AsyncClient() as client:
-                    response = await client.head(url, follow_redirects=True)
+                    response = await request_with_retry(
+                        client,
+                        "HEAD",
+                        url,
+                        follow_redirects=True,
+                    )
                     if response.status_code >= 400:
                         return False, f"URL not accessible: {url}"
 
@@ -119,7 +126,7 @@ class DocumentConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="documents",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
         ]
 
@@ -143,11 +150,11 @@ class DocumentConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read and extract content from documents."""
-        source_paths = config.settings.get("source_paths", [])
-        source_urls = config.settings.get("source_urls", [])
-        recursive = config.settings.get("recursive", True)
+        source_paths = config.get_setting("source_paths", [])
+        source_urls = config.get_setting("source_urls", [])
+        recursive = config.get_setting("recursive", True)
 
-        documents = []
+        batch = self.create_batch(stream.stream_name, config.connection_id)
 
         # Process local paths
         for source_path in source_paths:
@@ -155,26 +162,46 @@ class DocumentConnector(BaseConnector):
             if path.is_file():
                 doc = await self._process_file(path)
                 if doc:
-                    documents.append(self._document_to_record(doc))
+                    record = self.create_record(
+                        record_id=doc.id,
+                        stream_name=stream.stream_name,
+                        data=self._document_to_record(doc),
+                    )
+                    record.record_type = RecordType.DOCUMENT
+                    batch.add_record(record)
             elif path.is_dir():
                 for file_path in self._iterate_files(path, recursive):
                     doc = await self._process_file(file_path)
                     if doc:
-                        documents.append(self._document_to_record(doc))
+                        record = self.create_record(
+                            record_id=doc.id,
+                            stream_name=stream.stream_name,
+                            data=self._document_to_record(doc),
+                        )
+                        record.record_type = RecordType.DOCUMENT
+                        batch.add_record(record)
 
                     # Batch every 50 documents
-                    if len(documents) >= 50:
-                        yield RecordBatch(records=documents)
-                        documents = []
+                    if len(batch.records) >= 50:
+                        batch.complete(has_more=True)
+                        yield batch
+                        batch = self.create_batch(stream.stream_name, config.connection_id)
 
         # Process URLs
         for url in source_urls:
             doc = await self._process_url(url)
             if doc:
-                documents.append(self._document_to_record(doc))
+                record = self.create_record(
+                    record_id=doc.id,
+                    stream_name=stream.stream_name,
+                    data=self._document_to_record(doc),
+                )
+                record.record_type = RecordType.DOCUMENT
+                batch.add_record(record)
 
-        if documents:
-            yield RecordBatch(records=documents)
+        if batch.records:
+            batch.complete(has_more=False)
+            yield batch
 
     def _iterate_files(
         self,
@@ -235,7 +262,12 @@ class DocumentConnector(BaseConnector):
         """Download and process a document from URL."""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, follow_redirects=True)
+                response = await request_with_retry(
+                    client,
+                    "GET",
+                    url,
+                    follow_redirects=True,
+                )
                 response.raise_for_status()
 
                 # Determine file type from URL or content-type

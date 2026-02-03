@@ -47,6 +47,14 @@ class TimelineRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=500)
 
 
+class MemoryUIOSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query")
+    organization_id: str = Field(..., description="Organization ID")
+    uio_types: list[str] | None = Field(default=None, description="Filter by UIO types")
+    as_of_date: datetime | None = Field(default=None, description="Search as of this date")
+    limit: int = Field(default=50, ge=1, le=200)
+
+
 @router.post("/memory/search")
 async def search_memory(
     request: MemorySearchRequest,
@@ -129,6 +137,35 @@ async def search_cross_source(
 
     except Exception as e:
         logger.error("Cross-source search failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/search/uios")
+async def search_uios(
+    request: MemoryUIOSearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """
+    Search UIO nodes with optional bi-temporal filtering.
+    """
+    _validate_org_id(ctx, request.organization_id)
+    try:
+        memory = await get_memory(request.organization_id)
+        results = await memory.search_uios_as_of(
+            query=request.query,
+            as_of_date=request.as_of_date,
+            uio_types=request.uio_types,
+            limit=request.limit,
+        )
+
+        return {
+            "success": True,
+            "results": results,
+            "count": len(results),
+            "as_of_date": request.as_of_date.isoformat() if request.as_of_date else None,
+        }
+    except Exception as e:
+        logger.error("UIO memory search failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

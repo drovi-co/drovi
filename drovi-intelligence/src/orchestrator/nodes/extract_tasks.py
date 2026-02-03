@@ -94,6 +94,7 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
         commitments=commitments_dicts,
         decisions=decisions_dicts,
         source_type=state.input.source_type,
+        memory_context=state.memory_context,
     )
 
     try:

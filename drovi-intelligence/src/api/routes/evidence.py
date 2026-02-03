@@ -69,7 +69,16 @@ class EvidenceSnippetResponse(BaseModel):
     """Snippet mode response (< 1KB)."""
 
     id: str
-    source_type: Literal["email", "slack", "calendar", "document", "manual"]
+    source_type: Literal[
+        "email",
+        "slack",
+        "calendar",
+        "meeting",
+        "call",
+        "recording",
+        "document",
+        "manual",
+    ]
     source_id: str | None = None
     sender: ContactInfo | None = None
     recipients: list[ContactInfo] = Field(default_factory=list)

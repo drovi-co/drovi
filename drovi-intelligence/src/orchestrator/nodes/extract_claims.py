@@ -58,6 +58,7 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
         content=content,
         source_type=state.input.source_type,
         user_email=state.input.user_email,
+        memory_context=state.memory_context,
     )
 
     try:

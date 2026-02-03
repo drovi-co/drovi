@@ -66,23 +66,21 @@ async def enrich_contacts_node(state: IntelligenceState) -> dict:
         if hasattr(task, "created_by_contact_id") and task.created_by_contact_id:
             contact_ids.add(task.created_by_contact_id)
 
-    # Also get contacts from the resolved_contacts list if available
-    if state.resolved_contacts:
-        for contact in state.resolved_contacts:
-            if hasattr(contact, "id") and contact.id:
-                contact_ids.add(contact.id)
+    # Also get contacts from the pre-resolved contact context if available
+    if state.contact_context and state.contact_context.resolved_contacts:
+        for contact in state.contact_context.resolved_contacts.values():
+            contact_id = contact.get("id") if isinstance(contact, dict) else None
+            if contact_id:
+                contact_ids.add(contact_id)
 
     # Remove any None values
     contact_ids.discard(None)  # type: ignore
 
     if not contact_ids:
         logger.info("No contacts to enrich", analysis_id=state.analysis_id)
-        duration_ms = int((time.time() - start_time) * 1000)
-        state.trace.timings.append(
-            NodeTiming(
-                node="enrich_contacts",
-                duration_ms=duration_ms,
-            )
+        state.trace.node_timings["enrich_contacts"] = NodeTiming(
+            started_at=start_time,
+            completed_at=time.time(),
         )
         return {"trace": state.trace}
 
@@ -122,12 +120,9 @@ async def enrich_contacts_node(state: IntelligenceState) -> dict:
             contact_count=len(contact_ids),
         )
 
-    duration_ms = int((time.time() - start_time) * 1000)
-    state.trace.timings.append(
-        NodeTiming(
-            node="enrich_contacts",
-            duration_ms=duration_ms,
-        )
+    state.trace.node_timings["enrich_contacts"] = NodeTiming(
+        started_at=start_time,
+        completed_at=time.time(),
     )
 
     return {"trace": state.trace}

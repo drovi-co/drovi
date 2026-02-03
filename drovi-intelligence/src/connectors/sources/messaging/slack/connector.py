@@ -162,8 +162,12 @@ class SlackConnector(BaseConnector):
         """Read messages from all channels."""
         client = self._get_client(config)
 
-        # First, get all channels
+        # First, get all channels (or a specific channel if webhook-triggered)
+        sync_params = config.get_setting("sync_params", {}) or {}
+        channel_filter = sync_params.get("channel_id")
         channels = await self._get_all_channels(client)
+        if channel_filter:
+            channels = [c for c in channels if c.get("id") == channel_filter]
 
         # Get cursor from state
         channel_cursors = {}
@@ -173,12 +177,31 @@ class SlackConnector(BaseConnector):
 
         latest_cursors = dict(channel_cursors)
 
+        def to_slack_ts(value: str | float | int | None) -> str | None:
+            if value is None:
+                return None
+            if isinstance(value, (int, float)):
+                return str(value)
+            if isinstance(value, str):
+                try:
+                    dt = datetime.fromisoformat(value)
+                    return str(dt.timestamp())
+                except Exception:
+                    return value
+            return None
+
+        backfill_start = sync_params.get("backfill_start")
+        backfill_end = sync_params.get("backfill_end")
+        backfill_oldest = to_slack_ts(backfill_start)
+        backfill_latest = to_slack_ts(backfill_end)
+
         for channel in channels:
             channel_id = channel["id"]
             channel_name = channel.get("name", channel_id)
 
             # Get last timestamp for this channel
-            oldest_ts = channel_cursors.get(channel_id)
+            oldest_ts = sync_params.get("since_ts") or backfill_oldest or channel_cursors.get(channel_id)
+            latest_ts = backfill_latest
 
             logger.info(
                 "Syncing Slack channel",
@@ -187,7 +210,7 @@ class SlackConnector(BaseConnector):
             )
 
             async for batch in self._read_channel_messages(
-                client, config, stream, channel, oldest_ts
+                client, config, stream, channel, oldest_ts, latest_ts
             ):
                 # Update latest cursor for this channel
                 if batch.records:
@@ -230,6 +253,7 @@ class SlackConnector(BaseConnector):
         stream: StreamConfig,
         channel: dict,
         oldest_ts: str | None = None,
+        latest_ts: str | None = None,
     ) -> AsyncIterator[RecordBatch]:
         """Read messages from a single channel."""
         batch = self.create_batch(stream.stream_name, config.connection_id)
@@ -247,6 +271,8 @@ class SlackConnector(BaseConnector):
                     kwargs["cursor"] = cursor
                 if oldest_ts:
                     kwargs["oldest"] = oldest_ts
+                if latest_ts:
+                    kwargs["latest"] = latest_ts
 
                 response = await client.conversations_history(**kwargs)
 

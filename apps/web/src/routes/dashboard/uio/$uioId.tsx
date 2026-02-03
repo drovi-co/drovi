@@ -27,7 +27,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CommentThread } from "@/components/collaboration";
@@ -51,7 +51,7 @@ import {
   Timeline,
   type TimelineEvent,
 } from "@/components/unified-object/timeline";
-import { useUIO, useUpdateUIO } from "@/hooks/use-uio";
+import { useCorrectUIO, useUIO, useUpdateUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -162,8 +162,15 @@ function UIODetailPage() {
     enabled: !!uioId,
   });
 
+  useEffect(() => {
+    if (uioData?.title) {
+      setCorrectedTitle(uioData.title);
+    }
+  }, [uioData?.title]);
+
   // Update mutation using the Python API
   const updateMutationFn = useUpdateUIO();
+  const correctionMutation = useCorrectUIO();
   const updateMutation = {
     mutate: (data: { status?: string }) => {
       if (data.status) {
@@ -191,9 +198,27 @@ function UIODetailPage() {
       setEditingTitle(false);
       return;
     }
-    // Title updates would need backend support - for now just close editing
-    setEditingTitle(false);
-    toast.info("Title editing requires backend support");
+    if (!organizationId) {
+      toast.error("Organization not available");
+      return;
+    }
+    correctionMutation.mutate(
+      {
+        id: uioId,
+        organizationId,
+        updates: { canonical_title: correctedTitle.trim() },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Title updated");
+          refetch();
+          setEditingTitle(false);
+        },
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : "Failed to update");
+        },
+      }
+    );
   };
 
   // Handle status change

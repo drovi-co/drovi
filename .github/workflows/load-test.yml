@@ -1,0 +1,12 @@
+name: load-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  load-test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run load test
+        run: python drovi-intelligence/scripts/load_test.py

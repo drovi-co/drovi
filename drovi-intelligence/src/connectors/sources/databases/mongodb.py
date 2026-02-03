@@ -11,8 +11,9 @@ from typing import Any
 
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 
 logger = structlog.get_logger()
@@ -43,7 +44,7 @@ class MongoDBConnector(BaseConnector):
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
 
-            uri = self._build_uri(config.credentials)
+            uri = self._build_uri(config)
             client = AsyncIOMotorClient(uri)
 
             # Ping the database
@@ -65,11 +66,11 @@ class MongoDBConnector(BaseConnector):
         from motor.motor_asyncio import AsyncIOMotorClient
 
         streams = []
-        uri = self._build_uri(config.credentials)
+        uri = self._build_uri(config)
 
         try:
             client = AsyncIOMotorClient(uri)
-            database = config.credentials.get("database", "test")
+            database = config.get_credential("database", "test")
             db = client[database]
 
             # Get all collections
@@ -98,7 +99,7 @@ class MongoDBConnector(BaseConnector):
                 streams.append(
                     StreamConfig(
                         stream_name=name,
-                        sync_mode="incremental",
+                        sync_mode=SyncMode.INCREMENTAL,
                         cursor_field=cursor_field,
                     )
                 )
@@ -118,9 +119,9 @@ class MongoDBConnector(BaseConnector):
         from bson import ObjectId
         from motor.motor_asyncio import AsyncIOMotorClient
 
-        uri = self._build_uri(config.credentials)
-        database = config.credentials.get("database", "test")
-        batch_size = config.settings.get("batch_size", 1000)
+        uri = self._build_uri(config)
+        database = config.get_credential("database", "test")
+        batch_size = config.get_setting("batch_size", 1000)
 
         client = AsyncIOMotorClient(uri)
         db = client[database]
@@ -147,14 +148,22 @@ class MongoDBConnector(BaseConnector):
             # Query with cursor
             cursor = collection.find(query).sort(sort_field, 1).batch_size(batch_size)
 
-            records = []
+            batch = self.create_batch(stream.stream_name, config.connection_id)
             newest_cursor_value = None
 
             async for doc in cursor:
                 record = self._serialize_document(doc)
                 record["_source_collection"] = stream.stream_name
                 record["_extracted_at"] = datetime.utcnow().isoformat()
-                records.append(record)
+                record_id = str(record.get("_id") or record.get("id") or record.get("uuid") or record.get("_source_collection"))
+                rec = self.create_record(
+                    record_id=record_id,
+                    stream_name=stream.stream_name,
+                    data=record,
+                    cursor_value=record.get(stream.cursor_field) if stream.cursor_field else None,
+                )
+                rec.record_type = RecordType.CUSTOM
+                batch.add_record(rec)
 
                 # Track cursor value
                 if stream.cursor_field and stream.cursor_field in doc:
@@ -165,42 +174,39 @@ class MongoDBConnector(BaseConnector):
                         newest_cursor_value = newest_cursor_value.isoformat()
 
                 # Yield batch
-                if len(records) >= batch_size:
+                if len(batch.records) >= batch_size:
                     next_cursor = None
                     if newest_cursor_value and stream.cursor_field:
                         next_cursor = {stream.cursor_field: newest_cursor_value}
 
-                    yield RecordBatch(
-                        records=records,
-                        next_cursor=next_cursor,
-                    )
-                    records = []
+                    batch.complete(next_cursor=next_cursor, has_more=True)
+                    yield batch
+                    batch = self.create_batch(stream.stream_name, config.connection_id)
 
             # Yield remaining records
-            if records:
+            if batch.records:
                 next_cursor = None
                 if newest_cursor_value and stream.cursor_field:
                     next_cursor = {stream.cursor_field: newest_cursor_value}
 
-                yield RecordBatch(
-                    records=records,
-                    next_cursor=next_cursor,
-                )
+                batch.complete(next_cursor=next_cursor, has_more=False)
+                yield batch
 
         finally:
             client.close()
 
-    def _build_uri(self, credentials: dict[str, Any]) -> str:
+    def _build_uri(self, config: ConnectorConfig) -> str:
         """Build MongoDB connection URI."""
         # Check for full URI
-        if "uri" in credentials:
-            return credentials["uri"]
+        uri = config.get_credential("uri")
+        if uri:
+            return uri
 
-        host = credentials.get("host", "localhost")
-        port = credentials.get("port", 27017)
-        user = credentials.get("user")
-        password = credentials.get("password")
-        auth_source = credentials.get("auth_source", "admin")
+        host = config.get_credential("host", "localhost")
+        port = config.get_credential("port", 27017)
+        user = config.get_credential("user")
+        password = config.get_credential("password")
+        auth_source = config.get_credential("auth_source", "admin")
 
         if user and password:
             return f"mongodb://{user}:{password}@{host}:{port}/?authSource={auth_source}"

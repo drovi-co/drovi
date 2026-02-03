@@ -11,6 +11,8 @@ from typing import Any
 
 import structlog
 
+from src.connectors.webhooks.inbox import enqueue_webhook_event
+
 logger = structlog.get_logger()
 
 
@@ -290,16 +292,37 @@ class TeamsWebhookHandler:
                 )
                 return
 
-            # Queue incremental sync job
-            await scheduler.trigger_sync_by_id(
+            organization_id = await self._get_org_id_for_connection(connection_id)
+            if not organization_id:
+                logger.warning(
+                    "No organization found for Teams connection",
+                    connection_id=connection_id,
+                )
+                return
+
+            sync_params = {"team_id": team_id, "channel_id": channel_id}
+
+            from src.streaming import is_streaming_enabled
+
+            await enqueue_webhook_event(
+                provider="teams",
                 connection_id=connection_id,
+                organization_id=organization_id,
+                event_type="teams.channel_message",
+                payload={"tenant_id": tenant_id, "team_id": team_id, "channel_id": channel_id},
+                sync_params=sync_params,
                 streams=["channel_messages"],
-                incremental=True,
-                sync_params={
-                    "team_id": team_id,
-                    "channel_id": channel_id,
-                },
+                event_id=f"{tenant_id}:{team_id}:{channel_id}",
             )
+
+            if not is_streaming_enabled():
+                await scheduler.trigger_sync_by_id(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    streams=["channel_messages"],
+                    full_refresh=False,
+                    sync_params=sync_params,
+                )
 
             logger.info(
                 "Incremental sync queued for Teams channel",
@@ -339,14 +362,37 @@ class TeamsWebhookHandler:
                 )
                 return
 
-            await scheduler.trigger_sync_by_id(
+            organization_id = await self._get_org_id_for_connection(connection_id)
+            if not organization_id:
+                logger.warning(
+                    "No organization found for Teams connection",
+                    connection_id=connection_id,
+                )
+                return
+
+            sync_params = {"chat_id": chat_id}
+
+            from src.streaming import is_streaming_enabled
+
+            await enqueue_webhook_event(
+                provider="teams",
                 connection_id=connection_id,
+                organization_id=organization_id,
+                event_type="teams.chat_message",
+                payload={"tenant_id": tenant_id, "chat_id": chat_id},
+                sync_params=sync_params,
                 streams=["chat_messages"],
-                incremental=True,
-                sync_params={
-                    "chat_id": chat_id,
-                },
+                event_id=f"{tenant_id}:{chat_id}",
             )
+
+            if not is_streaming_enabled():
+                await scheduler.trigger_sync_by_id(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    streams=["chat_messages"],
+                    full_refresh=False,
+                    sync_params=sync_params,
+                )
 
             logger.info(
                 "Incremental sync queued for Teams chat",
@@ -385,11 +431,28 @@ class TeamsWebhookHandler:
             connection_id = await self._find_connection_for_tenant(tenant_id)
 
             if connection_id:
-                await scheduler.trigger_sync_by_id(
-                    connection_id=connection_id,
-                    streams=["channels"],
-                    incremental=False,  # Full refresh for channels
-                )
+                organization_id = await self._get_org_id_for_connection(connection_id)
+                if organization_id:
+                    from src.streaming import is_streaming_enabled
+
+                    await enqueue_webhook_event(
+                        provider="teams",
+                        connection_id=connection_id,
+                        organization_id=organization_id,
+                        event_type="teams.refresh_channels",
+                        payload={"tenant_id": tenant_id, "team_id": team_id},
+                        sync_params={"team_id": team_id},
+                        streams=["channels"],
+                        event_id=f"{tenant_id}:{team_id}:refresh_channels",
+                    )
+
+                    if not is_streaming_enabled():
+                        await scheduler.trigger_sync_by_id(
+                            connection_id=connection_id,
+                            organization_id=organization_id,
+                            streams=["channels"],
+                            full_refresh=True,  # Full refresh for channels
+                        )
         except Exception as e:
             logger.error("Failed to refresh Teams channels", error=str(e))
 
@@ -409,11 +472,28 @@ class TeamsWebhookHandler:
             connection_id = await self._find_connection_for_tenant(tenant_id)
 
             if connection_id:
-                await scheduler.trigger_sync_by_id(
-                    connection_id=connection_id,
-                    streams=["chats"],
-                    incremental=False,
-                )
+                organization_id = await self._get_org_id_for_connection(connection_id)
+                if organization_id:
+                    from src.streaming import is_streaming_enabled
+
+                    await enqueue_webhook_event(
+                        provider="teams",
+                        connection_id=connection_id,
+                        organization_id=organization_id,
+                        event_type="teams.refresh_chats",
+                        payload={"tenant_id": tenant_id},
+                        sync_params={},
+                        streams=["chats"],
+                        event_id=f"{tenant_id}:refresh_chats",
+                    )
+
+                    if not is_streaming_enabled():
+                        await scheduler.trigger_sync_by_id(
+                            connection_id=connection_id,
+                            organization_id=organization_id,
+                            streams=["chats"],
+                            full_refresh=True,
+                        )
         except Exception as e:
             logger.error("Failed to refresh Teams chats", error=str(e))
 
@@ -424,6 +504,26 @@ class TeamsWebhookHandler:
         Looks up the connection by tenant_id in the database.
         """
         if not tenant_id:
+            return None
+
+    async def _get_org_id_for_connection(self, connection_id: str) -> str | None:
+        """Fetch organization_id for a connection."""
+        from src.db.client import get_db_pool
+
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT organization_id FROM connections WHERE id = $1",
+                    connection_id,
+                )
+                return row["organization_id"] if row else None
+        except Exception as e:
+            logger.error(
+                "Failed to fetch organization for connection",
+                connection_id=connection_id,
+                error=str(e),
+            )
             return None
 
         from src.db.client import get_db_pool

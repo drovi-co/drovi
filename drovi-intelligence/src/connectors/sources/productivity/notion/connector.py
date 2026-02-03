@@ -13,9 +13,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -109,12 +111,14 @@ class NotionConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if Notion credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{NOTION_BASE_URL}/users/me",
                     headers=self._get_headers(access_token),
                 )
@@ -143,12 +147,12 @@ class NotionConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="pages",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="last_edited_time",
             ),
             StreamConfig(
                 stream_name="databases",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="last_edited_time",
             ),
         ]
@@ -160,7 +164,7 @@ class NotionConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from a Notion stream."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "pages":
             async for batch in self._read_pages(config, stream, state):
@@ -196,7 +200,9 @@ class NotionConnector(BaseConnector):
                 if start_cursor:
                     filter_params["start_cursor"] = start_cursor
 
-                response = await client.post(
+                response = await request_with_retry(
+                    client,
+                    "POST",
                     f"{NOTION_BASE_URL}/search",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
@@ -204,7 +210,7 @@ class NotionConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                pages = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 newest_time = last_sync_time
 
                 for result in data.get("results", []):
@@ -217,17 +223,25 @@ class NotionConnector(BaseConnector):
 
                     # Fetch full page content
                     page = await self._fetch_page_content(client, result)
-                    pages.append(self._page_to_record(page))
+                    record = self.create_record(
+                        record_id=page.id,
+                        stream_name=stream.stream_name,
+                        data=self._page_to_record(page),
+                        cursor_value=page.last_edited_time,
+                    )
+                    record.record_type = RecordType.DOCUMENT
+                    batch.add_record(record)
 
                     # Track newest time
                     if not newest_time or page_edited > newest_time:
                         newest_time = page_edited
 
-                if pages:
-                    yield RecordBatch(
-                        records=pages,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"last_edited_time": newest_time} if newest_time else None,
+                        has_more=bool(data.get("has_more", False)),
                     )
+                    yield batch
 
                 has_more = has_more and data.get("has_more", False)
                 start_cursor = data.get("next_cursor")
@@ -256,7 +270,9 @@ class NotionConnector(BaseConnector):
                 if start_cursor:
                     filter_params["start_cursor"] = start_cursor
 
-                response = await client.post(
+                response = await request_with_retry(
+                    client,
+                    "POST",
                     f"{NOTION_BASE_URL}/search",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
@@ -264,7 +280,7 @@ class NotionConnector(BaseConnector):
                 response.raise_for_status()
                 data = response.json()
 
-                databases = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 newest_time = last_sync_time
 
                 for result in data.get("results", []):
@@ -276,16 +292,24 @@ class NotionConnector(BaseConnector):
 
                     # Fetch database with rows
                     db = await self._fetch_database_rows(client, result)
-                    databases.append(self._database_to_record(db))
+                    record = self.create_record(
+                        record_id=db.id,
+                        stream_name=stream.stream_name,
+                        data=self._database_to_record(db),
+                        cursor_value=db.last_edited_time,
+                    )
+                    record.record_type = RecordType.DOCUMENT
+                    batch.add_record(record)
 
                     if not newest_time or db_edited > newest_time:
                         newest_time = db_edited
 
-                if databases:
-                    yield RecordBatch(
-                        records=databases,
+                if batch.records:
+                    batch.complete(
                         next_cursor={"last_edited_time": newest_time} if newest_time else None,
+                        has_more=bool(data.get("has_more", False)),
                     )
+                    yield batch
 
                 has_more = has_more and data.get("has_more", False)
                 start_cursor = data.get("next_cursor")
@@ -347,7 +371,9 @@ class NotionConnector(BaseConnector):
             if start_cursor:
                 params["start_cursor"] = start_cursor
 
-            response = await client.get(
+            response = await request_with_retry(
+                client,
+                "GET",
                 f"{NOTION_BASE_URL}/blocks/{block_id}/children",
                 headers=self._get_headers(self._access_token),
                 params=params,
@@ -398,7 +424,9 @@ class NotionConnector(BaseConnector):
             if start_cursor:
                 params["start_cursor"] = start_cursor
 
-            response = await client.post(
+            response = await request_with_retry(
+                client,
+                "POST",
                 f"{NOTION_BASE_URL}/databases/{db_id}/query",
                 headers=self._get_headers(self._access_token),
                 json=params,

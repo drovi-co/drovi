@@ -36,6 +36,7 @@ import { Route as DashboardAiRouteImport } from './routes/dashboard/ai'
 import { Route as AdminWaitlistRouteImport } from './routes/admin/waitlist'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizations'
+import { Route as AdminIdentityMergeRouteImport } from './routes/admin/identity-merge'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as DashboardTodayIndexRouteImport } from './routes/dashboard/today/index'
 import { Route as DashboardTeamIndexRouteImport } from './routes/dashboard/team/index'
@@ -200,6 +201,11 @@ const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   path: '/organizations',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminIdentityMergeRoute = AdminIdentityMergeRouteImport.update({
+  id: '/identity-merge',
+  path: '/identity-merge',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/success': typeof SuccessRoute
   '/verify-2fa': typeof Verify2faRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/identity-merge': typeof AdminIdentityMergeRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
@@ -410,6 +417,7 @@ export interface FileRoutesByTo {
   '/success': typeof SuccessRoute
   '/verify-2fa': typeof Verify2faRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/identity-merge': typeof AdminIdentityMergeRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   '/success': typeof SuccessRoute
   '/verify-2fa': typeof Verify2faRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/identity-merge': typeof AdminIdentityMergeRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
@@ -525,6 +534,7 @@ export interface FileRouteTypes {
     | '/success'
     | '/verify-2fa'
     | '/admin/audit'
+    | '/admin/identity-merge'
     | '/admin/organizations'
     | '/admin/users'
     | '/admin/waitlist'
@@ -579,6 +589,7 @@ export interface FileRouteTypes {
     | '/success'
     | '/verify-2fa'
     | '/admin/audit'
+    | '/admin/identity-merge'
     | '/admin/organizations'
     | '/admin/users'
     | '/admin/waitlist'
@@ -635,6 +646,7 @@ export interface FileRouteTypes {
     | '/success'
     | '/verify-2fa'
     | '/admin/audit'
+    | '/admin/identity-merge'
     | '/admin/organizations'
     | '/admin/users'
     | '/admin/waitlist'
@@ -889,6 +901,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganizationsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/identity-merge': {
+      id: '/admin/identity-merge'
+      path: '/identity-merge'
+      fullPath: '/admin/identity-merge'
+      preLoaderRoute: typeof AdminIdentityMergeRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/audit': {
       id: '/admin/audit'
       path: '/audit'
@@ -1083,6 +1102,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
+  AdminIdentityMergeRoute: typeof AdminIdentityMergeRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWaitlistRoute: typeof AdminWaitlistRoute
@@ -1091,6 +1111,7 @@ interface AdminRouteRouteChildren {
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
+  AdminIdentityMergeRoute: AdminIdentityMergeRoute,
   AdminOrganizationsRoute: AdminOrganizationsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminWaitlistRoute: AdminWaitlistRoute,

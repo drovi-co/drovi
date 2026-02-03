@@ -180,7 +180,18 @@ class SourceContext(BaseModel):
     """Context about where intelligence was extracted from."""
 
     source_type: Literal[
-        "email", "slack", "calendar", "whatsapp", "notion", "google_docs", "api", "manual"
+        "email",
+        "slack",
+        "calendar",
+        "whatsapp",
+        "notion",
+        "google_docs",
+        "meeting",
+        "call",
+        "recording",
+        "transcript",
+        "api",
+        "manual",
     ]
     source_account_id: str | None = None
     conversation_id: str | None = None
@@ -250,6 +261,8 @@ class CommitmentDetailsCreate(BaseModel):
     completed_at: datetime | None = None
     completed_via: Literal["user_action", "detected", "auto"] | None = None
     snoozed_until: datetime | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
     extraction_context: CommitmentExtractionContext | None = None
 
 
@@ -347,6 +360,8 @@ class TaskDetailsCreate(BaseModel):
     blocks_uio_ids: list[str] = Field(default_factory=list)
     parent_task_uio_id: str | None = None
     commitment_uio_id: str | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
     project: str | None = None
     tags: list[str] = Field(default_factory=list)
     user_overrides: TaskUserOverrides | None = None
@@ -384,6 +399,8 @@ class RiskDetailsCreate(BaseModel):
     related_decision_uio_ids: list[str] = Field(default_factory=list)
     suggested_action: str | None = None
     findings: RiskFindings | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
     extraction_context: RiskExtractionContext | None = None
 
 

@@ -13,6 +13,56 @@ Use these prompts to eliminate garbage extractions like:
 - Social actions ("Accept LinkedIn invitation")
 """
 
+from typing import Any
+
+
+def _format_memory_context(memory_context: dict | None) -> str | None:
+    if not memory_context:
+        return None
+
+    def _summarize(uios: list[dict]) -> list[str]:
+        lines = []
+        for uio in uios[:5]:
+            title = uio.get("title") or "Untitled"
+            uio_type = uio.get("type") or "unknown"
+            status = uio.get("status") or "unknown"
+            lines.append(f"- [{uio_type}/{status}] {title}")
+        return lines
+
+    parts = []
+    recent = memory_context.get("recent_uios") or []
+    convo = memory_context.get("conversation_uios") or []
+    if convo:
+        parts.append("Conversation-linked UIOs:\n" + "\n".join(_summarize(convo)))
+    if recent:
+        parts.append("Recent UIOs:\n" + "\n".join(_summarize(recent)))
+
+    if not parts:
+        return None
+    return "\n\n".join(parts)
+
+
+def _source_specific_guidance(source_type: str) -> str:
+    source = (source_type or "").lower()
+    if source in {"meeting", "call", "recording"}:
+        return (
+            "Source guidance: spoken transcript. Extract only explicit commitments/decisions "
+            "and avoid inferring intent from tentative language."
+        )
+    if source in {"slack", "whatsapp"}:
+        return (
+            "Source guidance: short chat messages. Prefer explicit commitments/decisions; "
+            "avoid casual statements."
+        )
+    if source in {"calendar"}:
+        return "Source guidance: calendar/event metadata. Be conservative with commitments."
+    if source in {"notion", "google_docs", "documents"}:
+        return (
+            "Source guidance: document content. Extract explicit commitments/decisions/tasks; "
+            "avoid summarizing general context."
+        )
+    return "Source guidance: extract only explicit commitments/decisions/tasks."
+
 # =============================================================================
 # COMMITMENT EXTRACTION - STRICT
 # =============================================================================
@@ -103,6 +153,7 @@ def get_commitment_extraction_v2_prompt(
     user_email: str | None = None,
     user_name: str | None = None,
     contact_context: dict | None = None,
+    memory_context: dict | None = None,
 ) -> list[dict]:
     """Build strict commitment extraction prompt."""
     context_parts = []
@@ -113,6 +164,7 @@ def get_commitment_extraction_v2_prompt(
         context_parts.append(f"User name: {user_name}")
 
     context_parts.append(f"Source type: {source_type}")
+    context_parts.append(_source_specific_guidance(source_type))
 
     # Add contact context if available
     if contact_context:
@@ -120,6 +172,10 @@ def get_commitment_extraction_v2_prompt(
         for email, info in list(contact_context.items())[:5]:
             if isinstance(info, dict):
                 context_parts.append(f"  - {email}: {info.get('display_name', '')} ({info.get('company', '')})")
+
+    memory_str = _format_memory_context(memory_context)
+    if memory_str:
+        context_parts.append(f"Memory context:\n{memory_str}")
 
     context_str = "\n".join(context_parts)
 
@@ -237,6 +293,7 @@ def get_decision_extraction_v2_prompt(
     source_type: str,
     user_email: str | None = None,
     user_name: str | None = None,
+    memory_context: dict | None = None,
 ) -> list[dict]:
     """Build strict decision extraction prompt."""
     context_parts = []
@@ -247,6 +304,10 @@ def get_decision_extraction_v2_prompt(
         context_parts.append(f"User name: {user_name}")
 
     context_parts.append(f"Source type: {source_type}")
+    context_parts.append(_source_specific_guidance(source_type))
+    memory_str = _format_memory_context(memory_context)
+    if memory_str:
+        context_parts.append(f"Memory context:\n{memory_str}")
     context_str = "\n".join(context_parts)
 
     return [
@@ -383,6 +444,7 @@ def get_claim_extraction_v2_prompt(
     content: str,
     source_type: str,
     user_email: str | None = None,
+    memory_context: dict | None = None,
 ) -> list[dict]:
     """Build strict claim extraction prompt."""
     context_parts = []
@@ -391,6 +453,10 @@ def get_claim_extraction_v2_prompt(
         context_parts.append(f"User email: {user_email}")
 
     context_parts.append(f"Source type: {source_type}")
+    context_parts.append(_source_specific_guidance(source_type))
+    memory_str = _format_memory_context(memory_context)
+    if memory_str:
+        context_parts.append(f"Memory context:\n{memory_str}")
     context_str = "\n".join(context_parts)
 
     return [
@@ -497,7 +563,7 @@ def get_contact_extraction_v2_prompt(
     metadata: dict | None = None,
 ) -> list[dict]:
     """Build strict contact extraction prompt."""
-    context_parts = [f"Source type: {source_type}"]
+    context_parts = [f"Source type: {source_type}", _source_specific_guidance(source_type)]
 
     # Add sender/recipient info from metadata
     if metadata:
@@ -678,6 +744,7 @@ def get_task_extraction_v2_prompt(
     commitments: list[dict] | None = None,
     decisions: list[dict] | None = None,
     source_type: str = "email",
+    memory_context: dict | None = None,
 ) -> list[dict]:
     """Build strict task extraction prompt."""
     context_parts = []
@@ -693,6 +760,11 @@ def get_task_extraction_v2_prompt(
         context_parts.append("\\nDecisions found:")
         for d in decisions[:5]:
             context_parts.append(f"  - {d.get('title', d.get('content', ''))}")
+
+    memory_str = _format_memory_context(memory_context)
+    if memory_str:
+        context_parts.append("\\nMemory context:")
+        context_parts.append(memory_str)
 
     context_str = "\\n".join(context_parts)
 
@@ -798,9 +870,10 @@ def get_risk_detection_v2_prompt(
     commitments: list[dict] | None = None,
     decisions: list[dict] | None = None,
     source_type: str = "email",
+    memory_context: dict | None = None,
 ) -> list[dict]:
     """Build strict risk detection prompt."""
-    context_parts = [f"Source type: {source_type}"]
+    context_parts = [f"Source type: {source_type}", _source_specific_guidance(source_type)]
 
     if commitments:
         context_parts.append("\nCommitments to analyze for risks:")
@@ -816,6 +889,11 @@ def get_risk_detection_v2_prompt(
             title = d.get('title', '')
             status = d.get('status', 'made')
             context_parts.append(f"  - {title} (status: {status})")
+
+    memory_str = _format_memory_context(memory_context)
+    if memory_str:
+        context_parts.append("\nMemory context:")
+        context_parts.append(memory_str)
 
     context_str = "\n".join(context_parts)
 

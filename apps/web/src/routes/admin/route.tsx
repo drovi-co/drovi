@@ -36,6 +36,7 @@ const adminTabs = [
   { to: "/admin/users", label: "Users" },
   { to: "/admin/organizations", label: "Organizations" },
   { to: "/admin/audit", label: "Audit Logs" },
+  { to: "/admin/identity-merge", label: "Identity Merge" },
 ] as const;
 
 function getBreadcrumbs(pathname: string) {
@@ -51,6 +52,8 @@ function getBreadcrumbs(pathname: string) {
     breadcrumbs.push({ label: "Organizations" });
   } else if (pathname === "/admin/audit") {
     breadcrumbs.push({ label: "Audit Logs" });
+  } else if (pathname === "/admin/identity-merge") {
+    breadcrumbs.push({ label: "Identity Merge" });
   }
 
   return breadcrumbs;

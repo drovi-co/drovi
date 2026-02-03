@@ -1,0 +1,7 @@
+platform :mac do
+  desc "Build macOS app"
+  lane :build do
+    sh "bash /Users/jeremyscatigna/project-memory/scripts/generate_apple_projects.sh"
+    sh "bash /Users/jeremyscatigna/project-memory/scripts/build_macos.sh"
+  end
+end

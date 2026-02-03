@@ -13,9 +13,11 @@ from typing import Any
 import httpx
 import structlog
 
-from src.connectors.base.config import ConnectorConfig, StreamConfig
+from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.http import request_with_retry
 
 logger = structlog.get_logger()
 
@@ -92,12 +94,14 @@ class TeamsConnector(BaseConnector):
     ) -> tuple[bool, str | None]:
         """Check if Teams credentials are valid."""
         try:
-            access_token = config.credentials.get("access_token")
+            access_token = config.get_credential("access_token")
             if not access_token:
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     f"{GRAPH_BASE_URL}/me/joinedTeams",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"$top": 1},
@@ -122,25 +126,25 @@ class TeamsConnector(BaseConnector):
         return [
             StreamConfig(
                 stream_name="teams",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
             StreamConfig(
                 stream_name="channels",
-                sync_mode="full_refresh",
+                sync_mode=SyncMode.FULL_REFRESH,
             ),
             StreamConfig(
                 stream_name="channel_messages",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastModifiedDateTime",
             ),
             StreamConfig(
                 stream_name="chats",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastUpdatedDateTime",
             ),
             StreamConfig(
                 stream_name="chat_messages",
-                sync_mode="incremental",
+                sync_mode=SyncMode.INCREMENTAL,
                 cursor_field="lastModifiedDateTime",
             ),
         ]
@@ -152,7 +156,7 @@ class TeamsConnector(BaseConnector):
         state: ConnectorState,
     ) -> AsyncIterator[RecordBatch]:
         """Read records from Teams."""
-        self._access_token = config.credentials.get("access_token")
+        self._access_token = config.get_credential("access_token")
 
         if stream.stream_name == "teams":
             async for batch in self._read_teams(config, stream, state):
@@ -183,16 +187,21 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                teams = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for item in data.get("value", []):
-                    teams.append({
+                    record = self.create_record(
+                        record_id=item["id"],
+                        stream_name=stream.stream_name,
+                        data={
                         "id": item["id"],
                         "type": "teams_team",
                         "display_name": item.get("displayName"),
@@ -200,10 +209,14 @@ class TeamsConnector(BaseConnector):
                         "visibility": item.get("visibility"),
                         "web_url": item.get("webUrl"),
                         "extracted_at": datetime.utcnow().isoformat(),
-                    })
+                        },
+                    )
+                    record.record_type = RecordType.CONVERSATION
+                    batch.add_record(record)
 
-                if teams:
-                    yield RecordBatch(records=teams)
+                if batch.records:
+                    batch.complete(has_more=bool(data.get("@odata.nextLink")))
+                    yield batch
 
                 url = data.get("@odata.nextLink")
 
@@ -220,7 +233,9 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
@@ -235,14 +250,16 @@ class TeamsConnector(BaseConnector):
                 channel_url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels"
 
                 while channel_url:
-                    response = await client.get(
+                    response = await request_with_retry(
+                        client,
+                        "GET",
                         channel_url,
                         headers={"Authorization": f"Bearer {self._access_token}"},
                     )
                     response.raise_for_status()
                     data = response.json()
 
-                    channels = []
+                    batch = self.create_batch(stream.stream_name, config.connection_id)
                     for item in data.get("value", []):
                         channel = TeamsChannel(
                             id=item["id"],
@@ -253,10 +270,17 @@ class TeamsConnector(BaseConnector):
                             web_url=item.get("webUrl"),
                             created_datetime=item.get("createdDateTime"),
                         )
-                        channels.append(self._channel_to_record(channel))
+                        record = self.create_record(
+                            record_id=channel.id,
+                            stream_name=stream.stream_name,
+                            data=self._channel_to_record(channel),
+                        )
+                        record.record_type = RecordType.CONVERSATION
+                        batch.add_record(record)
 
-                    if channels:
-                        yield RecordBatch(records=channels)
+                    if batch.records:
+                        batch.complete(has_more=bool(data.get("@odata.nextLink")))
+                        yield batch
 
                     channel_url = data.get("@odata.nextLink")
 
@@ -269,9 +293,12 @@ class TeamsConnector(BaseConnector):
         """Read messages from channels."""
         cursor = state.get_cursor(stream.stream_name)
         delta_links = cursor.get("delta_links", {}) if cursor else {}
+        sync_params = config.get_setting("sync_params", {}) or {}
 
         # Get team IDs to sync
-        team_ids = config.settings.get("team_ids")
+        team_ids = config.get_setting("team_ids")
+        if sync_params.get("team_id"):
+            team_ids = [sync_params.get("team_id")]
         if not team_ids:
             # Get all joined teams
             team_ids = await self._get_joined_team_ids()
@@ -280,6 +307,8 @@ class TeamsConnector(BaseConnector):
             for team_id in team_ids:
                 # Get channels for this team
                 channel_ids = await self._get_channel_ids(client, team_id)
+                if sync_params.get("channel_id"):
+                    channel_ids = [sync_params.get("channel_id")]
 
                 for channel_id in channel_ids:
                     delta_key = f"{team_id}_{channel_id}"
@@ -291,30 +320,40 @@ class TeamsConnector(BaseConnector):
                         url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels/{channel_id}/messages/delta"
 
                     while url:
-                        response = await client.get(
+                        response = await request_with_retry(
+                            client,
+                            "GET",
                             url,
                             headers={"Authorization": f"Bearer {self._access_token}"},
                         )
                         response.raise_for_status()
                         data = response.json()
 
-                        messages = []
+                        batch = self.create_batch(stream.stream_name, config.connection_id)
                         for item in data.get("value", []):
                             if "@removed" in item:
                                 continue
                             message = self._parse_message(item, channel_id=channel_id, team_id=team_id)
-                            messages.append(self._message_to_record(message))
+                            record = self.create_record(
+                                record_id=message.id,
+                                stream_name=stream.stream_name,
+                                data=self._message_to_record(message),
+                                cursor_value=message.last_modified_datetime or message.created_datetime,
+                            )
+                            record.record_type = RecordType.MESSAGE
+                            batch.add_record(record)
 
                         # Store delta link
                         new_delta_link = data.get("@odata.deltaLink")
                         if new_delta_link:
                             delta_links[delta_key] = new_delta_link
 
-                        if messages:
-                            yield RecordBatch(
-                                records=messages,
+                        if batch.records:
+                            batch.complete(
                                 next_cursor={"delta_links": delta_links},
+                                has_more=bool(data.get("@odata.nextLink")),
                             )
+                            yield batch
 
                         url = data.get("@odata.nextLink")
 
@@ -329,14 +368,16 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                chats = []
+                batch = self.create_batch(stream.stream_name, config.connection_id)
                 for item in data.get("value", []):
                     chat = TeamsChat(
                         id=item["id"],
@@ -354,10 +395,17 @@ class TeamsConnector(BaseConnector):
                         ],
                         web_url=item.get("webUrl"),
                     )
-                    chats.append(self._chat_to_record(chat))
+                    record = self.create_record(
+                        record_id=chat.id,
+                        stream_name=stream.stream_name,
+                        data=self._chat_to_record(chat),
+                    )
+                    record.record_type = RecordType.CONVERSATION
+                    batch.add_record(record)
 
-                if chats:
-                    yield RecordBatch(records=chats)
+                if batch.records:
+                    batch.complete(has_more=bool(data.get("@odata.nextLink")))
+                    yield batch
 
                 url = data.get("@odata.nextLink")
 
@@ -370,9 +418,12 @@ class TeamsConnector(BaseConnector):
         """Read messages from chats."""
         cursor = state.get_cursor(stream.stream_name)
         delta_links = cursor.get("delta_links", {}) if cursor else {}
+        sync_params = config.get_setting("sync_params", {}) or {}
 
         # Get chat IDs
-        chat_ids = config.settings.get("chat_ids")
+        chat_ids = config.get_setting("chat_ids")
+        if sync_params.get("chat_id"):
+            chat_ids = [sync_params.get("chat_id")]
         if not chat_ids:
             chat_ids = await self._get_chat_ids()
 
@@ -384,29 +435,39 @@ class TeamsConnector(BaseConnector):
                     url = f"{GRAPH_BASE_URL}/me/chats/{chat_id}/messages/delta"
 
                 while url:
-                    response = await client.get(
+                    response = await request_with_retry(
+                        client,
+                        "GET",
                         url,
                         headers={"Authorization": f"Bearer {self._access_token}"},
                     )
                     response.raise_for_status()
                     data = response.json()
 
-                    messages = []
+                    batch = self.create_batch(stream.stream_name, config.connection_id)
                     for item in data.get("value", []):
                         if "@removed" in item:
                             continue
                         message = self._parse_message(item, chat_id=chat_id)
-                        messages.append(self._message_to_record(message))
+                        record = self.create_record(
+                            record_id=message.id,
+                            stream_name=stream.stream_name,
+                            data=self._message_to_record(message),
+                            cursor_value=message.last_modified_datetime or message.created_datetime,
+                        )
+                        record.record_type = RecordType.MESSAGE
+                        batch.add_record(record)
 
                     new_delta_link = data.get("@odata.deltaLink")
                     if new_delta_link:
                         delta_links[chat_id] = new_delta_link
 
-                    if messages:
-                        yield RecordBatch(
-                            records=messages,
+                    if batch.records:
+                        batch.complete(
                             next_cursor={"delta_links": delta_links},
+                            has_more=bool(data.get("@odata.nextLink")),
                         )
+                        yield batch
 
                     url = data.get("@odata.nextLink")
 
@@ -417,7 +478,9 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )
@@ -438,7 +501,9 @@ class TeamsConnector(BaseConnector):
         url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels"
 
         while url:
-            response = await client.get(
+            response = await request_with_retry(
+                client,
+                "GET",
                 url,
                 headers={"Authorization": f"Bearer {self._access_token}"},
             )
@@ -456,7 +521,9 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await client.get(
+                response = await request_with_retry(
+                    client,
+                    "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
                 )

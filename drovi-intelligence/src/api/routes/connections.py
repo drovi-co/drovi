@@ -106,6 +106,27 @@ class SyncRequest(BaseModel):
     )
 
 
+class BackfillRequest(BaseModel):
+    """Request to trigger a backfill."""
+
+    start_date: datetime = Field(..., description="Backfill start date (ISO 8601)")
+    end_date: datetime | None = Field(
+        default=None,
+        description="Backfill end date (ISO 8601). Defaults to now.",
+    )
+    window_days: int = Field(default=7, ge=1, le=90, description="Window size in days")
+    streams: list[str] | None = Field(
+        default=None,
+        description="Specific streams to backfill. If None, backfill all enabled streams.",
+    )
+    throttle_seconds: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=30.0,
+        description="Delay between backfill windows to respect rate limits",
+    )
+
+
 class SyncStatusResponse(BaseModel):
     """Sync status response."""
 
@@ -538,6 +559,66 @@ async def trigger_sync(
     return {
         "connection_id": connection_id,
         "sync_job_id": job.job_id,
+        "status": "queued",
+    }
+
+
+@router.post("/{connection_id}/backfill")
+async def trigger_backfill(
+    connection_id: str,
+    request: BackfillRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """
+    Trigger a windowed backfill for a connection.
+
+    Requires `write` scope.
+    """
+    from sqlalchemy import select
+    from src.db.client import get_db_session
+    from src.db.models.connections import Connection
+    from src.connectors.scheduling.scheduler import get_scheduler
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Connection).where(Connection.id == connection_id)
+        )
+        connection = result.scalar_one_or_none()
+
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+
+        if connection.status != "active":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Connection is not active (status: {connection.status})",
+            )
+
+        organization_id = connection.organization_id
+
+    _validate_org_id(ctx, organization_id)
+
+    end_date = request.end_date
+    if end_date and request.start_date >= end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be before end_date",
+        )
+
+    scheduler = get_scheduler()
+    job_ids = await scheduler.trigger_backfill_plan(
+        connection_id=connection_id,
+        organization_id=organization_id,
+        start_date=request.start_date,
+        end_date=end_date,
+        window_days=request.window_days,
+        streams=request.streams,
+        throttle_seconds=request.throttle_seconds,
+    )
+
+    return {
+        "connection_id": connection_id,
+        "backfill_jobs": job_ids,
         "status": "queued",
     }
 

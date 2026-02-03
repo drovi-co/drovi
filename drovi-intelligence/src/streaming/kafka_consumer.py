@@ -54,6 +54,9 @@ class DroviKafkaConsumer:
         sasl_password: str | None = None,
         auto_offset_reset: str = "earliest",
         enable_auto_commit: bool = False,
+        worker_concurrency: int = 4,
+        queue_maxsize: int = 1000,
+        topic_priorities: dict[str, int] | None = None,
     ):
         """Initialize Kafka consumer."""
         self.bootstrap_servers = bootstrap_servers
@@ -65,10 +68,17 @@ class DroviKafkaConsumer:
         self.sasl_password = sasl_password
         self.auto_offset_reset = auto_offset_reset
         self.enable_auto_commit = enable_auto_commit
+        self.worker_concurrency = max(1, worker_concurrency)
+        self.queue_maxsize = max(100, queue_maxsize)
+        self.topic_priorities = topic_priorities or {}
         self._consumer = None
         self._running = False
         self._handlers: dict[str, Callable] = {}
         self._default_handler: Callable | None = None
+        self._queue: asyncio.PriorityQueue | None = None
+        self._workers: list[asyncio.Task] = []
+        self._counter = 0
+        self._paused = False
 
     async def connect(self) -> None:
         """Initialize the Kafka consumer connection."""
@@ -165,11 +175,17 @@ class DroviKafkaConsumer:
 
         self._running = True
         logger.info("Starting Kafka consumer loop")
+        self._queue = asyncio.PriorityQueue(maxsize=self.queue_maxsize)
+        self._workers = [
+            asyncio.create_task(self._worker_loop(index))
+            for index in range(self.worker_concurrency)
+        ]
 
         try:
             while self._running:
                 # Poll for messages
-                msg = self._consumer.poll(timeout=1.0)
+                # confluent-kafka poll is blocking; offload to a thread to keep the loop responsive
+                msg = await asyncio.to_thread(self._consumer.poll, timeout=1.0)
 
                 if msg is None:
                     continue
@@ -183,19 +199,71 @@ class DroviKafkaConsumer:
                     logger.error("Consumer error", error=msg.error())
                     continue
 
-                # Process the message
-                await self._process_message(msg)
+                # Backpressure: pause when queue is saturated
+                if self._queue and self._queue.qsize() >= int(self.queue_maxsize * 0.8):
+                    if not self._paused:
+                        assignment = self._consumer.assignment()
+                        if assignment:
+                            self._consumer.pause(assignment)
+                            self._paused = True
+                            logger.warning("Kafka consumer paused due to backpressure")
+
+                if self._queue:
+                    await self._enqueue_message(msg)
+
+                # Resume when queue drains
+                if self._paused and self._queue and self._queue.qsize() <= int(self.queue_maxsize * 0.4):
+                    assignment = self._consumer.assignment()
+                    if assignment:
+                        self._consumer.resume(assignment)
+                        self._paused = False
+                        logger.info("Kafka consumer resumed")
 
         except Exception as e:
             logger.error("Consumer loop error", error=str(e))
             raise
         finally:
             self._running = False
+            await self._stop_workers()
 
     async def stop(self) -> None:
         """Stop the consumer loop gracefully."""
         self._running = False
         logger.info("Stopping Kafka consumer")
+        await self._stop_workers()
+
+    async def _stop_workers(self) -> None:
+        if self._workers:
+            for task in self._workers:
+                task.cancel()
+            await asyncio.gather(*self._workers, return_exceptions=True)
+            self._workers = []
+
+    async def _enqueue_message(self, msg) -> None:
+        """Place message on the priority queue."""
+        if not self._queue:
+            await self._process_message(msg)
+            return
+        topic = msg.topic()
+        priority = self.topic_priorities.get(topic, 10)
+        self._counter += 1
+        await self._queue.put((priority, self._counter, msg))
+
+    async def _worker_loop(self, index: int) -> None:
+        """Worker loop that processes queued messages."""
+        if not self._queue:
+            return
+        while self._running:
+            try:
+                _, _, msg = await self._queue.get()
+                await self._process_message(msg)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Kafka worker error", worker=index, error=str(e))
+            finally:
+                if self._queue:
+                    self._queue.task_done()
 
     async def _process_message(self, msg) -> None:
         """Process a single Kafka message."""
@@ -310,7 +378,9 @@ class DroviKafkaConsumer:
                 break
 
             remaining = timeout - elapsed
-            msg = self._consumer.poll(timeout=min(1.0, remaining))
+            msg = await asyncio.to_thread(
+                self._consumer.poll, timeout=min(1.0, remaining)
+            )
 
             if msg is None:
                 continue
@@ -360,6 +430,9 @@ async def get_kafka_consumer(
             sasl_password=settings.kafka_sasl_password,
             auto_offset_reset=settings.kafka_auto_offset_reset,
             enable_auto_commit=settings.kafka_enable_auto_commit,
+            worker_concurrency=settings.kafka_worker_concurrency,
+            queue_maxsize=settings.kafka_queue_maxsize,
+            topic_priorities=settings.kafka_topic_priorities,
         )
         await _kafka_consumer.connect()
 

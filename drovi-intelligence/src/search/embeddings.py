@@ -7,10 +7,12 @@ and caching for the Drovi Intelligence Platform.
 
 import asyncio
 import hashlib
-from functools import lru_cache
 from typing import Literal
 
 import structlog
+
+from src.config import get_settings
+from src.llm import get_llm_service
 
 logger = structlog.get_logger()
 
@@ -44,9 +46,13 @@ class EmbeddingService:
 
     def __init__(
         self,
-        model_provider: Literal["openai", "openai-large", "cohere", "voyage"] = "openai",
+        model_provider: Literal["openai", "openai-large", "cohere", "voyage"] | None = None,
+        model_name: str | None = None,
     ):
-        self.model = EMBEDDING_MODELS.get(model_provider, EMBEDDING_MODELS["openai"])
+        settings = get_settings()
+        self.model = model_name or settings.embedding_model
+        if model_provider:
+            self.model = EMBEDDING_MODELS.get(model_provider, self.model)
         self.dimension = EMBEDDING_DIM.get(self.model, 1536)
         self._cache: dict[str, list[float]] = {}
         self._cache_max_size = 10000
@@ -78,20 +84,33 @@ class EmbeddingService:
             logger.debug("Embedding cache hit", cache_key=cache_key[:8])
             return self._cache[cache_key]
 
-        # Generate embedding
+        # Generate embedding via LLM service (preferred)
         try:
-            import litellm
+            llm = get_llm_service()
+            embedding = (await llm.embed([text], model=self.model))[0]
+        except Exception as exc:
+            logger.warning("LLM embedding failed, falling back to LiteLLM", error=str(exc))
+            try:
+                import litellm
 
-            response = await litellm.aembedding(
-                model=self.model,
-                input=text,
-            )
+                response = await litellm.aembedding(
+                    model=self.model,
+                    input=text,
+                )
 
-            # Extract embedding from response
-            if hasattr(response, "data") and len(response.data) > 0:
-                embedding = response.data[0]["embedding"]
-            else:
-                raise EmbeddingError(f"Unexpected response format: {response}")
+                # Extract embedding from response
+                if hasattr(response, "data") and len(response.data) > 0:
+                    embedding = response.data[0]["embedding"]
+                else:
+                    raise EmbeddingError(f"Unexpected response format: {response}")
+            except Exception as inner:
+                logger.error(
+                    "Embedding generation failed",
+                    model=self.model,
+                    error=str(inner),
+                    text_length=len(text),
+                )
+                raise EmbeddingError(f"Embedding generation failed: {inner}") from inner
 
             # Validate dimension
             if len(embedding) != self.dimension:
@@ -118,15 +137,6 @@ class EmbeddingService:
             )
 
             return embedding
-
-        except Exception as e:
-            logger.error(
-                "Embedding generation failed",
-                model=self.model,
-                error=str(e),
-                text_length=len(text),
-            )
-            raise EmbeddingError(f"Embedding generation failed: {e}") from e
 
     async def generate_embeddings_batch(
         self,
@@ -178,31 +188,46 @@ class EmbeddingService:
         # Generate embeddings for uncached texts in batches
         if texts_to_embed:
             try:
-                import litellm
-
+                llm = get_llm_service()
                 for batch_start in range(0, len(texts_to_embed), batch_size):
                     batch = texts_to_embed[batch_start : batch_start + batch_size]
                     batch_texts = [text for _, text in batch]
+                    batch_embeddings = await llm.embed(batch_texts, model=self.model)
 
-                    response = await litellm.aembedding(
-                        model=self.model,
-                        input=batch_texts,
-                    )
-
-                    # Process response
-                    for j, item in enumerate(response.data):
+                    for j, embedding in enumerate(batch_embeddings):
                         original_idx = batch[j][0]
-                        embedding = item["embedding"]
                         cached_results[original_idx] = embedding
 
-                        # Cache
                         cache_key = self._cache_key(batch[j][1])
                         if len(self._cache) < self._cache_max_size:
                             self._cache[cache_key] = embedding
 
-            except Exception as e:
-                logger.error("Batch embedding failed", error=str(e))
-                raise EmbeddingError(f"Batch embedding failed: {e}") from e
+            except Exception as exc:
+                logger.warning("LLM batch embedding failed, falling back to LiteLLM", error=str(exc))
+                try:
+                    import litellm
+
+                    for batch_start in range(0, len(texts_to_embed), batch_size):
+                        batch = texts_to_embed[batch_start : batch_start + batch_size]
+                        batch_texts = [text for _, text in batch]
+
+                        response = await litellm.aembedding(
+                            model=self.model,
+                            input=batch_texts,
+                        )
+
+                        for j, item in enumerate(response.data):
+                            original_idx = batch[j][0]
+                            embedding = item["embedding"]
+                            cached_results[original_idx] = embedding
+
+                            cache_key = self._cache_key(batch[j][1])
+                            if len(self._cache) < self._cache_max_size:
+                                self._cache[cache_key] = embedding
+
+                except Exception as inner:
+                    logger.error("Batch embedding failed", error=str(inner))
+                    raise EmbeddingError(f"Batch embedding failed: {inner}") from inner
 
         # Build result in original order
         results: list[list[float]] = []
