@@ -110,32 +110,40 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
     logger.info("PostgreSQL connection initialized")
 
-    # Initialize FalkorDB connection
-    graph_client = await get_graph_client()
-    await graph_client.initialize_indexes()
-    logger.info("FalkorDB connection initialized with indexes")
+    # Initialize FalkorDB connection (skip for tests)
+    if settings.environment == "test":
+        logger.info("Skipping FalkorDB initialization in test environment")
+    else:
+        graph_client = await get_graph_client()
+        await graph_client.initialize_indexes()
+        logger.info("FalkorDB connection initialized with indexes")
 
     # Initialize connector scheduler (optional)
     settings = get_settings()
-    if settings.scheduler_run_in_api:
+    if settings.environment == "test":
+        logger.info("Skipping connector scheduler in test environment")
+    elif settings.scheduler_run_in_api:
         await init_scheduler()
         logger.info("Connector scheduler initialized")
     else:
         logger.info("Connector scheduler disabled in API process")
 
     # Initialize Kafka streaming (if enabled)
-    streaming_started = await init_streaming()
-    if streaming_started:
-        logger.info("Kafka streaming infrastructure initialized")
+    if settings.environment == "test":
+        logger.info("Skipping Kafka streaming in test environment")
     else:
-        logger.info("Running without Kafka streaming (disabled or unavailable)")
+        streaming_started = await init_streaming()
+        if streaming_started:
+            logger.info("Kafka streaming infrastructure initialized")
+        else:
+            logger.info("Running without Kafka streaming (disabled or unavailable)")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Drovi Intelligence Backend")
     await shutdown_streaming()
-    if get_settings().scheduler_run_in_api:
+    if get_settings().scheduler_run_in_api and get_settings().environment != "test":
         await shutdown_scheduler()
     await close_graph_client()
     await close_db()
@@ -155,11 +163,12 @@ app = FastAPI(
 settings = get_settings()
 
 # Rate limiting (applied first to reject early)
-app.add_middleware(
-    RateLimitMiddleware,
-    requests_per_minute=100,
-    burst_limit=20,
-)
+if settings.environment != "test":
+    app.add_middleware(
+        RateLimitMiddleware,
+        requests_per_minute=100,
+        burst_limit=20,
+    )
 
 # Request ID tracking
 app.add_middleware(RequestIDMiddleware)

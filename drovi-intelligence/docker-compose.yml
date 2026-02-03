@@ -100,6 +100,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
       SCHEDULER_RUN_IN_API: "false"
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: 6379
@@ -143,6 +144,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: 6379
       FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"

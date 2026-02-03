@@ -164,17 +164,15 @@ class TestCheckConnection:
             "mail": "john@example.com",
         }
 
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.get = AsyncMock(return_value=mock_response)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
-
+        with patch(
+            "src.connectors.sources.email.outlook.connector.request_with_retry",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
             success, error = await connector.check_connection(outlook_config)
 
-            assert success is True
-            assert error is None
+        assert success is True
+        assert error is None
 
     @pytest.mark.asyncio
     async def test_check_connection_failure(self, outlook_config):
@@ -187,17 +185,15 @@ class TestCheckConnection:
         mock_response = MagicMock()
         mock_response.status_code = 401
 
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.get = AsyncMock(return_value=mock_response)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
-
+        with patch(
+            "src.connectors.sources.email.outlook.connector.request_with_retry",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
             success, error = await connector.check_connection(outlook_config)
 
-            assert success is False
-            assert "Invalid or expired access token" in error
+        assert success is False
+        assert "Invalid or expired access token" in error
 
     @pytest.mark.asyncio
     async def test_check_connection_missing_token(self):

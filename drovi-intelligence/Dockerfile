@@ -19,8 +19,8 @@ RUN pip install uv
 # Copy dependency files and README
 COPY pyproject.toml README.md ./
 
-# Create virtual environment and install dependencies
-RUN uv venv && uv pip install .
+# Create virtual environment and install dependencies (include dev deps for tests)
+RUN uv venv && uv pip install ".[dev]"
 
 # Production image
 FROM python:3.12-slim
@@ -42,6 +42,8 @@ COPY alembic.ini ./alembic.ini
 COPY alembic/ ./alembic/
 COPY scripts/ ./scripts/
 COPY deploy/ ./deploy/
+COPY tests/ ./tests/
+COPY evaluation/ ./evaluation/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"

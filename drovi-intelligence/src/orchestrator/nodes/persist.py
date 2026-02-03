@@ -786,7 +786,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                message_id = _resolve_message_id(state, getattr(commitment, "quoted_text", None))
+                message_id = getattr(commitment, "source_message_id", None) or _resolve_message_id(
+                    state, getattr(commitment, "quoted_text", None)
+                )
                 # Check if should merge (from vector search deduplication)
                 merge_candidate = merge_lookup.get(commitment.id)
 
@@ -839,13 +841,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 INSERT INTO unified_object_source (
                                     id, unified_object_id, source_type,
                                     source_account_id, role,
-                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                    segment_hash, extracted_title,
                                     confidence, added_at, source_timestamp,
                                     detection_method, created_at
                                 ) VALUES (
                                     :id, :uio_id, :source_type,
                                     :source_account_id, 'confirmation',
-                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                    :segment_hash, :title,
                                     :confidence, :now, :source_timestamp,
                                     'llm_extraction', :now
                                 )
@@ -858,6 +862,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "conversation_id": state.input.conversation_id,
                                 "message_id": message_id,
                                 "quoted_text": getattr(commitment, "quoted_text", None),
+                                "quoted_text_start": getattr(commitment, "quoted_text_start", None),
+                                "quoted_text_end": getattr(commitment, "quoted_text_end", None),
                                 "segment_hash": build_segment_hash(getattr(commitment, "quoted_text", "") or "")
                                 if _has_evidence(getattr(commitment, "quoted_text", None))
                                 else None,
@@ -867,6 +873,46 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "source_timestamp": now,
                             },
                         )
+
+                        for span in getattr(commitment, "supporting_evidence", []) or []:
+                            support_id = str(uuid4())
+                            await session.execute(
+                                text("""
+                                    INSERT INTO unified_object_source (
+                                        id, unified_object_id, source_type,
+                                        source_account_id, role,
+                                        conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                        segment_hash, extracted_title,
+                                        confidence, added_at, source_timestamp,
+                                        detection_method, created_at
+                                    ) VALUES (
+                                        :id, :uio_id, :source_type,
+                                        :source_account_id, 'supporting',
+                                        :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                        :segment_hash, :title,
+                                        :confidence, :now, :source_timestamp,
+                                        'llm_extraction', :now
+                                    )
+                                """),
+                                {
+                                    "id": support_id,
+                                    "uio_id": existing_uio_id,
+                                    "source_type": state.input.source_type or "email",
+                                    "source_account_id": state.input.source_account_id,
+                                    "conversation_id": state.input.conversation_id,
+                                    "message_id": getattr(span, "source_message_id", None),
+                                    "quoted_text": getattr(span, "quoted_text", None),
+                                    "quoted_text_start": getattr(span, "quoted_text_start", None),
+                                    "quoted_text_end": getattr(span, "quoted_text_end", None),
+                                    "segment_hash": build_segment_hash(getattr(span, "quoted_text", "") or "")
+                                    if _has_evidence(getattr(span, "quoted_text", None))
+                                    else None,
+                                    "title": commitment.title,
+                                    "confidence": commitment.confidence,
+                                    "now": now,
+                                    "source_timestamp": now,
+                                },
+                            )
 
                         await _audit_uio_source(
                             organization_id=state.input.organization_id,
@@ -969,7 +1015,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "reasoning": getattr(commitment, "reasoning", None),
                     "quotedText": getattr(commitment, "quoted_text", None),
                     "commitmentType": getattr(commitment, "commitment_type", None),
-                    "modelUsed": "sonnet",
+                    "modelUsed": getattr(commitment, "model_used", None),
+                    "modelTier": getattr(commitment, "model_tier", None),
+                    "evidenceCount": 1 + len(getattr(commitment, "supporting_evidence", []) or []),
+                    "confidenceReasoning": getattr(commitment, "confidence_reasoning", None),
                     "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
 
@@ -1029,7 +1078,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, unified_object_id, source_type,
                             source_account_id, role,
                             conversation_id, message_id,
-                            quoted_text, segment_hash, extracted_title,
+                            quoted_text, quoted_text_start, quoted_text_end,
+                            segment_hash, extracted_title,
                             extracted_due_date,
                             confidence, added_at, source_timestamp,
                             detection_method,
@@ -1038,7 +1088,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
                             :conversation_id, :message_id,
-                            :quoted_text, :segment_hash, :title,
+                            :quoted_text, :quoted_text_start, :quoted_text_end,
+                            :segment_hash, :title,
                             :due_date,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction',
@@ -1053,6 +1104,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "conversation_id": state.input.conversation_id,
                         "message_id": message_id,
                         "quoted_text": getattr(commitment, "quoted_text", None),
+                        "quoted_text_start": getattr(commitment, "quoted_text_start", None),
+                        "quoted_text_end": getattr(commitment, "quoted_text_end", None),
                         "segment_hash": build_segment_hash(getattr(commitment, "quoted_text", "") or "")
                         if _has_evidence(getattr(commitment, "quoted_text", None))
                         else None,
@@ -1063,6 +1116,53 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_timestamp": now,
                     },
                 )
+
+                for span in getattr(commitment, "supporting_evidence", []) or []:
+                    support_id = str(uuid4())
+                    await session.execute(
+                        text("""
+                            INSERT INTO unified_object_source (
+                                id, unified_object_id, source_type,
+                                source_account_id, role,
+                                conversation_id, message_id,
+                                quoted_text, quoted_text_start, quoted_text_end,
+                                segment_hash, extracted_title,
+                                extracted_due_date,
+                                confidence, added_at, source_timestamp,
+                                detection_method,
+                                created_at
+                            ) VALUES (
+                                :id, :uio_id, :source_type,
+                                :source_account_id, 'supporting',
+                                :conversation_id, :message_id,
+                                :quoted_text, :quoted_text_start, :quoted_text_end,
+                                :segment_hash, :title,
+                                :due_date,
+                                :confidence, :now, :source_timestamp,
+                                'llm_extraction',
+                                :now
+                            )
+                        """),
+                        {
+                            "id": support_id,
+                            "uio_id": uio_id,
+                            "source_type": state.input.source_type or "email",
+                            "source_account_id": state.input.source_account_id,
+                            "conversation_id": state.input.conversation_id,
+                            "message_id": getattr(span, "source_message_id", None),
+                            "quoted_text": getattr(span, "quoted_text", None),
+                            "quoted_text_start": getattr(span, "quoted_text_start", None),
+                            "quoted_text_end": getattr(span, "quoted_text_end", None),
+                            "segment_hash": build_segment_hash(getattr(span, "quoted_text", "") or "")
+                            if _has_evidence(getattr(span, "quoted_text", None))
+                            else None,
+                            "title": commitment.title,
+                            "due_date": to_naive_utc(commitment.due_date),
+                            "confidence": commitment.confidence,
+                            "now": now,
+                            "source_timestamp": now,
+                        },
+                    )
 
                 await _audit_uio_source(
                     organization_id=state.input.organization_id,
@@ -1190,7 +1290,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                message_id = _resolve_message_id(state, getattr(decision, "quoted_text", None))
+                message_id = getattr(decision, "source_message_id", None) or _resolve_message_id(
+                    state, getattr(decision, "quoted_text", None)
+                )
                 merge_candidate = merge_lookup.get(decision.id)
 
                 if merge_candidate:
@@ -1240,13 +1342,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 INSERT INTO unified_object_source (
                                     id, unified_object_id, source_type,
                                     source_account_id, role,
-                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                    segment_hash, extracted_title,
                                     confidence, added_at, source_timestamp,
                                     detection_method, created_at
                                 ) VALUES (
                                     :id, :uio_id, :source_type,
                                     :source_account_id, 'confirmation',
-                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                    :segment_hash, :title,
                                     :confidence, :now, :source_timestamp,
                                     'llm_extraction', :now
                                 )
@@ -1259,6 +1363,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "conversation_id": state.input.conversation_id,
                                 "message_id": message_id,
                                 "quoted_text": getattr(decision, "quoted_text", None),
+                                "quoted_text_start": getattr(decision, "quoted_text_start", None),
+                                "quoted_text_end": getattr(decision, "quoted_text_end", None),
                                 "segment_hash": build_segment_hash(getattr(decision, "quoted_text", "") or "")
                                 if _has_evidence(getattr(decision, "quoted_text", None))
                                 else None,
@@ -1268,6 +1374,46 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "source_timestamp": now,
                             },
                         )
+
+                        for span in getattr(decision, "supporting_evidence", []) or []:
+                            support_id = str(uuid4())
+                            await session.execute(
+                                text("""
+                                    INSERT INTO unified_object_source (
+                                        id, unified_object_id, source_type,
+                                        source_account_id, role,
+                                        conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                        segment_hash, extracted_title,
+                                        confidence, added_at, source_timestamp,
+                                        detection_method, created_at
+                                    ) VALUES (
+                                        :id, :uio_id, :source_type,
+                                        :source_account_id, 'supporting',
+                                        :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                        :segment_hash, :title,
+                                        :confidence, :now, :source_timestamp,
+                                        'llm_extraction', :now
+                                    )
+                                """),
+                                {
+                                    "id": support_id,
+                                    "uio_id": existing_uio_id,
+                                    "source_type": state.input.source_type or "email",
+                                    "source_account_id": state.input.source_account_id,
+                                    "conversation_id": state.input.conversation_id,
+                                    "message_id": getattr(span, "source_message_id", None),
+                                    "quoted_text": getattr(span, "quoted_text", None),
+                                    "quoted_text_start": getattr(span, "quoted_text_start", None),
+                                    "quoted_text_end": getattr(span, "quoted_text_end", None),
+                                    "segment_hash": build_segment_hash(getattr(span, "quoted_text", "") or "")
+                                    if _has_evidence(getattr(span, "quoted_text", None))
+                                    else None,
+                                    "title": decision.title,
+                                    "confidence": decision.confidence,
+                                    "now": now,
+                                    "source_timestamp": now,
+                                },
+                            )
 
                         # Create timeline event for source confirmation
                         await create_timeline_event(
@@ -1334,7 +1480,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                 extraction_context = {
                     "reasoning": getattr(decision, "reasoning", None),
                     "quotedText": getattr(decision, "quoted_text", None),
-                    "modelUsed": "sonnet",
+                    "modelUsed": getattr(decision, "model_used", None),
+                    "modelTier": getattr(decision, "model_tier", None),
+                    "evidenceCount": 1 + len(getattr(decision, "supporting_evidence", []) or []),
+                    "confidenceReasoning": getattr(decision, "confidence_reasoning", None),
                     "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
 
@@ -1388,7 +1537,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, unified_object_id, source_type,
                             source_account_id, role,
                             conversation_id, message_id,
-                            quoted_text, segment_hash, extracted_title,
+                            quoted_text, quoted_text_start, quoted_text_end,
+                            segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method,
                             created_at
@@ -1396,7 +1546,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
                             :conversation_id, :message_id,
-                            :quoted_text, :segment_hash, :title,
+                            :quoted_text, :quoted_text_start, :quoted_text_end,
+                            :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction',
                             :now
@@ -1410,6 +1561,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "conversation_id": state.input.conversation_id,
                         "message_id": message_id,
                         "quoted_text": getattr(decision, "quoted_text", None),
+                        "quoted_text_start": getattr(decision, "quoted_text_start", None),
+                        "quoted_text_end": getattr(decision, "quoted_text_end", None),
                         "segment_hash": build_segment_hash(getattr(decision, "quoted_text", "") or "")
                         if _has_evidence(getattr(decision, "quoted_text", None))
                         else None,
@@ -1419,6 +1572,50 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_timestamp": now,
                     },
                 )
+
+                for span in getattr(decision, "supporting_evidence", []) or []:
+                    support_id = str(uuid4())
+                    await session.execute(
+                        text("""
+                            INSERT INTO unified_object_source (
+                                id, unified_object_id, source_type,
+                                source_account_id, role,
+                                conversation_id, message_id,
+                                quoted_text, quoted_text_start, quoted_text_end,
+                                segment_hash, extracted_title,
+                                confidence, added_at, source_timestamp,
+                                detection_method,
+                                created_at
+                            ) VALUES (
+                                :id, :uio_id, :source_type,
+                                :source_account_id, 'supporting',
+                                :conversation_id, :message_id,
+                                :quoted_text, :quoted_text_start, :quoted_text_end,
+                                :segment_hash, :title,
+                                :confidence, :now, :source_timestamp,
+                                'llm_extraction',
+                                :now
+                            )
+                        """),
+                        {
+                            "id": support_id,
+                            "uio_id": uio_id,
+                            "source_type": state.input.source_type or "email",
+                            "source_account_id": state.input.source_account_id,
+                            "conversation_id": state.input.conversation_id,
+                            "message_id": getattr(span, "source_message_id", None),
+                            "quoted_text": getattr(span, "quoted_text", None),
+                            "quoted_text_start": getattr(span, "quoted_text_start", None),
+                            "quoted_text_end": getattr(span, "quoted_text_end", None),
+                            "segment_hash": build_segment_hash(getattr(span, "quoted_text", "") or "")
+                            if _has_evidence(getattr(span, "quoted_text", None))
+                            else None,
+                            "title": decision.title,
+                            "confidence": decision.confidence,
+                            "now": now,
+                            "source_timestamp": now,
+                        },
+                    )
 
                 await _audit_uio_source(
                     organization_id=state.input.organization_id,
@@ -1544,7 +1741,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                message_id = _resolve_message_id(state, getattr(risk, "quoted_text", None))
+                message_id = getattr(risk, "source_message_id", None) or _resolve_message_id(
+                    state, getattr(risk, "quoted_text", None)
+                )
                 # Check for existing risk UIO with same title (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
                     session,
@@ -1569,13 +1768,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 INSERT INTO unified_object_source (
                                     id, unified_object_id, source_type,
                                     source_account_id, role,
-                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                    segment_hash, extracted_title,
                                     confidence, added_at, source_timestamp,
                                     detection_method, created_at
                                 ) VALUES (
                                     :id, :uio_id, :source_type,
                                     :source_account_id, 'confirmation',
-                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                    :segment_hash, :title,
                                     :confidence, :now, :source_timestamp,
                                     'llm_extraction', :now
                                 )
@@ -1588,6 +1789,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "conversation_id": state.input.conversation_id,
                                 "message_id": message_id,
                                 "quoted_text": getattr(risk, "quoted_text", None),
+                                "quoted_text_start": getattr(risk, "quoted_text_start", None),
+                                "quoted_text_end": getattr(risk, "quoted_text_end", None),
                                 "segment_hash": build_segment_hash(getattr(risk, "quoted_text", "") or "")
                                 if _has_evidence(getattr(risk, "quoted_text", None))
                                 else None,
@@ -1706,7 +1909,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                     extraction_context = {
                         "reasoning": risk.reasoning,
                         "quotedText": risk.quoted_text,
-                        "modelUsed": "sonnet",
+                        "modelUsed": getattr(risk, "model_used", None),
+                        "modelTier": getattr(risk, "model_tier", None),
+                        "evidenceCount": 1 if risk.quoted_text else 0,
+                        "confidenceReasoning": getattr(risk, "confidence_reasoning", None),
                     }
                     await session.execute(
                         text("""
@@ -1743,13 +1949,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                segment_hash, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'origin',
-                                :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                :segment_hash, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -1762,6 +1970,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "conversation_id": state.input.conversation_id,
                             "message_id": message_id,
                             "quoted_text": risk.quoted_text,
+                            "quoted_text_start": getattr(risk, "quoted_text_start", None),
+                            "quoted_text_end": getattr(risk, "quoted_text_end", None),
                             "segment_hash": build_segment_hash(risk.quoted_text or "")
                             if _has_evidence(risk.quoted_text)
                             else None,
@@ -1961,7 +2171,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                message_id = _resolve_message_id(state, getattr(task, "quoted_text", None))
+                message_id = getattr(task, "source_message_id", None) or _resolve_message_id(
+                    state, getattr(task, "quoted_text", None)
+                )
 
                 # Check for existing task UIO with same title (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
@@ -1987,13 +2199,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 INSERT INTO unified_object_source (
                                     id, unified_object_id, source_type,
                                     source_account_id, role,
-                                    conversation_id, quoted_text, segment_hash, extracted_title,
+                                    conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                    segment_hash, extracted_title,
                                     confidence, added_at, source_timestamp,
                                     detection_method, created_at
                                 ) VALUES (
                                     :id, :uio_id, :source_type,
                                     :source_account_id, 'confirmation',
-                                    :conversation_id, :quoted_text, :segment_hash, :title,
+                                    :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                    :segment_hash, :title,
                                     :confidence, :now, :source_timestamp,
                                     'llm_extraction', :now
                                 )
@@ -2004,7 +2218,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 "source_type": state.input.source_type or "email",
                                 "source_account_id": state.input.source_account_id,
                                 "conversation_id": state.input.conversation_id,
+                                "message_id": message_id,
                                 "quoted_text": getattr(task, "quoted_text", None),
+                                "quoted_text_start": getattr(task, "quoted_text_start", None),
+                                "quoted_text_end": getattr(task, "quoted_text_end", None),
                                 "segment_hash": build_segment_hash(getattr(task, "quoted_text", "") or "")
                                 if _has_evidence(getattr(task, "quoted_text", None))
                                 else None,
@@ -2115,6 +2332,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                 if task_status == "done" and hasattr(task, "completed_at"):
                     completed_at = to_naive_utc(task.completed_at)
 
+                extraction_context = {
+                    "reasoning": getattr(task, "reasoning", None),
+                    "quotedText": getattr(task, "quoted_text", None),
+                    "modelUsed": getattr(task, "model_used", None),
+                    "modelTier": getattr(task, "model_tier", None),
+                    "evidenceCount": 1 if getattr(task, "quoted_text", None) else 0,
+                    "confidenceReasoning": getattr(task, "confidence_reasoning", None),
+                }
+
                 # Resolve assignee and created_by contact IDs from emails
                 assignee_contact_id = await resolve_contact_id_by_email(
                     session, state.input.organization_id, getattr(task, "assignee_email", None)
@@ -2130,6 +2356,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             assignee_contact_id, created_by_contact_id,
                             estimated_effort, completed_at,
                             project, tags,
+                            extraction_context,
                             supersedes_uio_id, superseded_by_uio_id,
                             created_at, updated_at
                         ) VALUES (
@@ -2137,6 +2364,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :assignee_contact_id, :created_by_contact_id,
                             :estimated_effort, :completed_at,
                             :project, :tags,
+                            :extraction_context,
                             :supersedes_uio_id, :superseded_by_uio_id,
                             :now, :now
                         )
@@ -2152,6 +2380,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "completed_at": completed_at,
                         "project": getattr(task, "project", None),
                         "tags": getattr(task, "tags", []) or [],
+                        "extraction_context": json.dumps(extraction_context),
                         "supersedes_uio_id": supersedes_uio_id,
                         "superseded_by_uio_id": None,
                         "now": now,
@@ -2165,13 +2394,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                         INSERT INTO unified_object_source (
                             id, unified_object_id, source_type,
                             source_account_id, role,
-                            conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                            conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                            segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method, created_at
                         ) VALUES (
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
-                            :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                            :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                            :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction', :now
                         )
@@ -2184,6 +2415,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "conversation_id": state.input.conversation_id,
                         "message_id": message_id,
                         "quoted_text": getattr(task, "quoted_text", None),
+                        "quoted_text_start": getattr(task, "quoted_text_start", None),
+                        "quoted_text_end": getattr(task, "quoted_text_end", None),
                         "segment_hash": build_segment_hash(getattr(task, "quoted_text", "") or "")
                         if _has_evidence(getattr(task, "quoted_text", None))
                         else None,
@@ -2361,7 +2594,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                message_id = _resolve_message_id(state, getattr(claim, "quoted_text", None))
+                message_id = getattr(claim, "source_message_id", None) or _resolve_message_id(
+                    state, getattr(claim, "quoted_text", None)
+                )
                 # Check for existing claim with same content (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
                     session,
@@ -2379,13 +2614,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, segment_hash, extracted_title,
+                                conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                                segment_hash, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :segment_hash, :title,
+                                :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                                :segment_hash, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -2396,7 +2633,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": message_id,
                             "quoted_text": getattr(claim, "quoted_text", claim.content[:500] if claim.content else None),
+                            "quoted_text_start": getattr(claim, "quoted_text_start", None),
+                            "quoted_text_end": getattr(claim, "quoted_text_end", None),
                             "segment_hash": build_segment_hash(getattr(claim, "quoted_text", "") or "")
                             if _has_evidence(getattr(claim, "quoted_text", None))
                             else None,
@@ -2481,7 +2721,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                 extraction_context = {
                     "entities": getattr(claim, "entities", []),
                     "temporalReferences": getattr(claim, "temporal_references", []),
-                    "modelUsed": "sonnet",
+                    "modelUsed": getattr(claim, "model_used", None),
+                    "modelTier": getattr(claim, "model_tier", None),
+                    "evidenceCount": 1 if getattr(claim, "quoted_text", None) else 0,
+                    "confidenceReasoning": getattr(claim, "confidence_reasoning", None),
                     "confidenceTier": confidence_tier,  # Tiered confidence system
                 }
                 await session.execute(
@@ -2517,13 +2760,15 @@ async def persist_node(state: IntelligenceState) -> dict:
                         INSERT INTO unified_object_source (
                             id, unified_object_id, source_type,
                             source_account_id, role,
-                            conversation_id, quoted_text, segment_hash, extracted_title,
+                            conversation_id, message_id, quoted_text, quoted_text_start, quoted_text_end,
+                            segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method, created_at
                         ) VALUES (
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
-                            :conversation_id, :quoted_text, :segment_hash, :title,
+                            :conversation_id, :message_id, :quoted_text, :quoted_text_start, :quoted_text_end,
+                            :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction', :now
                         )
@@ -2534,7 +2779,10 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_type": state.input.source_type or "email",
                         "source_account_id": state.input.source_account_id,
                         "conversation_id": state.input.conversation_id,
+                        "message_id": message_id,
                         "quoted_text": getattr(claim, "quoted_text", claim.content[:500] if claim.content else None),
+                        "quoted_text_start": getattr(claim, "quoted_text_start", None),
+                        "quoted_text_end": getattr(claim, "quoted_text_end", None),
                         "segment_hash": build_segment_hash(getattr(claim, "quoted_text", "") or "")
                         if _has_evidence(getattr(claim, "quoted_text", None))
                         else None,
@@ -2756,6 +3004,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         text("""
                             INSERT INTO uio_brief_details (
                                 id, uio_id, summary,
+                                why_this_matters, what_changed,
                                 suggested_action, action_reasoning,
                                 open_loops, priority_tier,
                                 urgency_score, importance_score, sentiment_score,
@@ -2763,6 +3012,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 created_at, updated_at
                             ) VALUES (
                                 :id, :uio_id, :summary,
+                                :why_this_matters, :what_changed,
                                 :suggested_action, :action_reasoning,
                                 :open_loops, :priority_tier,
                                 :urgency_score, :importance_score, :sentiment_score,
@@ -2774,6 +3024,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "id": brief_details_id,
                             "uio_id": brief_uio_id,
                             "summary": state.brief.brief_summary,
+                            "why_this_matters": getattr(state.brief, "why_this_matters", None),
+                            "what_changed": getattr(state.brief, "what_changed", None),
                             "suggested_action": brief_action,
                             "action_reasoning": state.brief.suggested_action_reason,
                             "open_loops": json.dumps(open_loops),

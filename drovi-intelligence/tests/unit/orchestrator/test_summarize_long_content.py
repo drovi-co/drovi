@@ -27,14 +27,15 @@ async def test_summarize_long_content_updates_trace():
         llm_factory.return_value = mock_llm
         result = await summarize_long_content_node(state)
 
-    assert "messages" in result
+    assert "cleaned_content" in result
     chunk_size = 4000
     expected_chunks = [
         long_text[i:i + chunk_size]
         for i in range(0, len(long_text), chunk_size)
     ]
     expected_summary = "\n\n".join(["summary"] * len(expected_chunks))
-    assert result["messages"][0].content == expected_summary
+    assert result["cleaned_content"]["summary"] == expected_summary
+    assert state.messages[0].content == long_text
 
     trace = result.get("trace")
     assert trace is not None

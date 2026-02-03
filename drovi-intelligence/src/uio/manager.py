@@ -703,6 +703,11 @@ class UIOManager:
             user_overrides_json = None
             if request.details.user_overrides:
                 user_overrides_json = json.dumps(request.details.user_overrides.model_dump())
+            extraction_context_json = None
+            if request.details.extraction_context:
+                extraction_context_json = json.dumps(
+                    request.details.extraction_context.model_dump()
+                )
 
             await session.execute(
                 text("""
@@ -713,7 +718,7 @@ class UIOManager:
                         estimated_effort, completed_at,
                         depends_on_uio_ids, blocks_uio_ids,
                         parent_task_uio_id, commitment_uio_id,
-                        project, tags, user_overrides,
+                        project, tags, user_overrides, extraction_context,
                         supersedes_uio_id, superseded_by_uio_id,
                         created_at, updated_at
                     ) VALUES (
@@ -723,7 +728,7 @@ class UIOManager:
                         :estimated_effort, :completed_at,
                         :depends_on_uio_ids, :blocks_uio_ids,
                         :parent_task_uio_id, :commitment_uio_id,
-                        :project, :tags, :user_overrides::jsonb,
+                        :project, :tags, :user_overrides::jsonb, :extraction_context::jsonb,
                         :supersedes_uio_id, :superseded_by_uio_id,
                         :created_at, :updated_at
                     )
@@ -744,6 +749,7 @@ class UIOManager:
                     "project": request.details.project,
                     "tags": request.details.tags,
                     "user_overrides": user_overrides_json,
+                    "extraction_context": extraction_context_json,
                     "supersedes_uio_id": request.details.supersedes_uio_id,
                     "superseded_by_uio_id": request.details.superseded_by_uio_id,
                     "created_at": now,
@@ -999,14 +1005,16 @@ class UIOManager:
                 text("""
                     INSERT INTO uio_brief_details (
                         id, uio_id,
-                        summary, suggested_action, action_reasoning,
+                        summary, why_this_matters, what_changed,
+                        suggested_action, action_reasoning,
                         open_loops, priority_tier,
                         urgency_score, importance_score, sentiment_score,
                         intent_classification, conversation_id,
                         created_at, updated_at
                     ) VALUES (
                         :id, :uio_id,
-                        :summary, :suggested_action, :action_reasoning,
+                        :summary, :why_this_matters, :what_changed,
+                        :suggested_action, :action_reasoning,
                         :open_loops::jsonb, :priority_tier,
                         :urgency_score, :importance_score, :sentiment_score,
                         :intent_classification, :conversation_id,
@@ -1017,6 +1025,8 @@ class UIOManager:
                     "id": str(uuid4()),
                     "uio_id": uio_id,
                     "summary": request.details.summary,
+                    "why_this_matters": request.details.why_this_matters,
+                    "what_changed": request.details.what_changed,
                     "suggested_action": request.details.suggested_action.value,
                     "action_reasoning": request.details.action_reasoning,
                     "open_loops": open_loops_json,

@@ -8,7 +8,18 @@ Run this script to test the API endpoints after starting the server.
 import asyncio
 import httpx
 import json
+import os
 import sys
+import pytest
+
+
+if not os.getenv("RUN_INTEGRATION_TESTS"):
+    pytest.skip(
+        "Integration tests require RUN_INTEGRATION_TESTS=1 and a running API.",
+        allow_module_level=True,
+    )
+
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
 BASE_URL = "http://localhost:8000"

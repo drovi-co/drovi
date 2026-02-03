@@ -12,6 +12,25 @@ from pydantic import BaseModel, Field
 
 
 # =============================================================================
+# Evidence Span Schema
+# =============================================================================
+
+
+class EvidenceSpanSchema(BaseModel):
+    """Schema for supporting evidence spans."""
+
+    quoted_text: str = Field(description="Exact supporting quote")
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
+    )
+
+
+# =============================================================================
 # Classification Schema
 # =============================================================================
 
@@ -93,6 +112,14 @@ class ExtractedClaimSchema(BaseModel):
 
     quoted_text: str = Field(
         description="The exact text from the source that supports this claim"
+    )
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
     )
 
     confidence: float = Field(
@@ -206,6 +233,14 @@ class ExtractedCommitmentSchema(BaseModel):
     quoted_text: str = Field(
         description="The exact text that shows this commitment"
     )
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
+    )
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -214,6 +249,10 @@ class ExtractedCommitmentSchema(BaseModel):
     reasoning: str | None = Field(
         default=None,
         description="Why this was identified as a commitment"
+    )
+    supporting_quotes: list[EvidenceSpanSchema] = Field(
+        default_factory=list,
+        description="Additional quoted spans that support this commitment (from other messages)"
     )
 
     # Link to claim
@@ -287,6 +326,14 @@ class ExtractedDecisionSchema(BaseModel):
     quoted_text: str = Field(
         description="The exact text showing this decision"
     )
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
+    )
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -295,6 +342,10 @@ class ExtractedDecisionSchema(BaseModel):
     reasoning: str | None = Field(
         default=None,
         description="Why this was identified as a decision"
+    )
+    supporting_quotes: list[EvidenceSpanSchema] = Field(
+        default_factory=list,
+        description="Additional quoted spans that support this decision (from other messages)"
     )
 
     # Link to claim
@@ -356,6 +407,14 @@ class DetectedRiskSchema(BaseModel):
     quoted_text: str | None = Field(
         default=None,
         description="Text supporting this risk detection"
+    )
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
     )
     confidence: float = Field(
         ge=0.0,
@@ -481,6 +540,14 @@ class ExtractedTaskSchema(BaseModel):
     # Evidence
     quoted_text: str = Field(
         description="The exact text that indicates this task"
+    )
+    quoted_text_start: int | None = Field(
+        default=None,
+        description="0-based start index of quoted_text within CONTENT"
+    )
+    quoted_text_end: int | None = Field(
+        default=None,
+        description="0-based end index of quoted_text within CONTENT"
     )
     confidence: float = Field(
         ge=0.0,

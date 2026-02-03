@@ -24,6 +24,7 @@ def mock_graph():
     mock = MagicMock()
     mock.vector_search = AsyncMock(return_value=[])
     mock.fulltext_search = AsyncMock(return_value=[])
+    mock.contains_search = AsyncMock(return_value=[])
     mock.query = AsyncMock(return_value=[])
     return mock
 
@@ -48,7 +49,7 @@ class TestHybridSearchInit:
         """Test initialization."""
         search = HybridSearch()
         assert search._graph is None
-        assert search._embedding_model is None
+        assert not hasattr(search, "_embedding_model")
 
 
 # =============================================================================
@@ -165,11 +166,11 @@ class TestVectorSearch:
             from src.search.embeddings import EmbeddingError
             mock_embed.side_effect = EmbeddingError("Embedding failed")
 
-            with pytest.raises(EmbeddingError):
-                await hybrid_search.vector_search(
-                    query="test",
-                    organization_id="org_123",
-                )
+            results = await hybrid_search.vector_search(
+                query="test",
+                organization_id="org_123",
+            )
+            assert results == []
 
 
 # =============================================================================

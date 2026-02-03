@@ -46,20 +46,25 @@ def _source_specific_guidance(source_type: str) -> str:
     source = (source_type or "").lower()
     if source in {"meeting", "call", "recording"}:
         return (
-            "Source guidance: spoken transcript. Extract only explicit commitments/decisions "
-            "and avoid inferring intent from tentative language."
+            "Source guidance: spoken transcript. Prefer explicit statements and attributed speakers. "
+            "Avoid inferring intent from tentative language or brainstorming."
         )
     if source in {"slack", "whatsapp"}:
         return (
-            "Source guidance: short chat messages. Prefer explicit commitments/decisions; "
-            "avoid casual statements."
+            "Source guidance: short chat messages. Treat emojis and reactions as non-evidence. "
+            "Prefer explicit commitments/decisions; avoid casual statements or jokes."
+        )
+    if source in {"email"}:
+        return (
+            "Source guidance: email thread. Ignore quoted replies, signatures, and footer boilerplate. "
+            "Prefer the newest message content."
         )
     if source in {"calendar"}:
         return "Source guidance: calendar/event metadata. Be conservative with commitments."
     if source in {"notion", "google_docs", "documents"}:
         return (
-            "Source guidance: document content. Extract explicit commitments/decisions/tasks; "
-            "avoid summarizing general context."
+            "Source guidance: document content. Extract explicit commitments/decisions/tasks from "
+            "section text; avoid summarizing general context or headings."
         )
     return "Source guidance: extract only explicit commitments/decisions/tasks."
 
@@ -142,6 +147,9 @@ For each commitment found:
 - priority: low/medium/high/urgent
 - confidence: Must be >= 0.8
 - quoted_text: Exact supporting quote
+- quoted_text_start: 0-based start index of quoted_text within CONTENT
+- quoted_text_end: 0-based end index of quoted_text within CONTENT
+- supporting_quotes: Additional evidence spans if this commitment is confirmed elsewhere
 - reasoning: Why this is a real commitment
 
 Remember: Most emails contain ZERO real commitments. An empty result is often correct."""
@@ -195,6 +203,7 @@ Return ONLY commitments with confidence >= 0.8 that have:
 1. A specific WHO (person, not company)
 2. A specific WHAT (actionable thing)
 3. A WHEN (deadline or timeframe)
+4. Include quoted_text_start and quoted_text_end for each commitment
 
 If there are no real commitments, return an empty array [].
 Most newsletters and automated emails have ZERO real commitments."""},
@@ -284,6 +293,9 @@ For each decision:
 - stakeholders: Who is affected
 - confidence: Must be >= 0.8
 - quoted_text: Exact supporting quote
+- quoted_text_start: 0-based start index of quoted_text within CONTENT
+- quoted_text_end: 0-based end index of quoted_text within CONTENT
+- supporting_quotes: Additional evidence spans if this decision is confirmed elsewhere
 
 Remember: CTAs like "Accept invitation" are NOT decisions. An empty result is often correct."""
 
@@ -326,6 +338,7 @@ Return ONLY decisions with confidence >= 0.8 that are:
 1. EXPLICIT choices (not considerations or preferences)
 2. MADE (past tense, finalized)
 3. ACTIONABLE (real business impact)
+4. Include quoted_text_start and quoted_text_end for each decision
 
 If there are no real decisions, return an empty array [].
 CTAs like "Accept invitation" or "Click to confirm" are NOT decisions."""},
@@ -434,6 +447,8 @@ For each claim:
 - type: fact/reference/deadline/price/contact_info
 - content: The claim statement
 - quoted_text: Exact supporting quote
+- quoted_text_start: 0-based start index of quoted_text within CONTENT
+- quoted_text_end: 0-based end index of quoted_text within CONTENT
 - confidence: Must be >= 0.8
 - importance: low/medium/high
 
@@ -475,6 +490,7 @@ Return ONLY claims with confidence >= 0.8 that are:
 1. VERIFIABLE (could be fact-checked)
 2. SUBSTANTIVE (meaningful information)
 3. NOT footer/signature/legal content
+4. Include quoted_text_start and quoted_text_end for each claim
 
 If there are no real claims, return an empty array [].
 Addresses, legal disclaimers, and marketing superlatives are NOT claims."""},
@@ -736,7 +752,8 @@ DO NOT extract these:
 1. **Confidence >= 0.8** - Only high-confidence tasks
 2. **Return empty []** if no real tasks found
 3. **Link to source** - Reference the commitment/decision it comes from
-4. **Be specific** - Generic tasks are probably not real tasks"""
+4. **Be specific** - Generic tasks are probably not real tasks
+5. **Provide quote spans** - Include quoted_text_start and quoted_text_end for each task"""
 
 
 def get_task_extraction_v2_prompt(
@@ -784,6 +801,7 @@ Return ONLY tasks with confidence >= 0.8 that are:
 1. SPECIFIC and ACTIONABLE
 2. Have a clear assignee
 3. Derived from commitments or explicit requests
+4. Include quoted_text_start and quoted_text_end for each task
 
 If there are no real tasks, return an empty array []."""},
     ]
@@ -862,7 +880,8 @@ DO NOT flag these as risks:
 2. **Return empty []** if no real risks found
 3. **Link to source** - Reference the commitment/decision at risk
 4. **Suggest mitigation** - Each risk should have actionable mitigation
-5. **Most emails have ZERO risks** - Don't invent problems"""
+5. **Most emails have ZERO risks** - Don't invent problems
+6. **Provide quote spans** - Include quoted_text_start and quoted_text_end for each risk evidence span"""
 
 
 def get_risk_detection_v2_prompt(
@@ -913,6 +932,7 @@ Return ONLY risks with confidence >= 0.75 that:
 1. Are SPECIFIC and ACTIONABLE
 2. Have MATERIAL business impact
 3. Are linked to specific commitments or decisions
+4. Include quoted_text_start and quoted_text_end for each risk
 
 If there are no real risks, return an empty array [].
 Marketing emails and newsletters typically have ZERO risks."""},

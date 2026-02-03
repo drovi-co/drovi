@@ -75,6 +75,7 @@ class MockCommitment:
     is_conditional: bool = False
     condition: Optional[str] = None
     quoted_text: str = "Default quoted text"
+    supporting_quotes: list = field(default_factory=list)
     confidence: float = 0.8
     reasoning: str = "Found commitment"
     claim_index: Optional[int] = None
@@ -95,6 +96,7 @@ class MockDecision:
     stakeholders: list = field(default_factory=list)
     rationale: Optional[str] = None
     quoted_text: Optional[str] = None
+    supporting_quotes: list = field(default_factory=list)
     confidence: float = 0.8
 
 
@@ -504,9 +506,9 @@ class TestConfidenceAggregation:
             mock_service.complete_structured.return_value = (
                 MockCommitmentExtractionOutput(
                     commitments=[
-                        MockCommitment(confidence=0.9),
-                        MockCommitment(confidence=0.8),
-                        MockCommitment(confidence=0.7),
+                        MockCommitment(title="Commitment A", quoted_text="Commitment A", confidence=0.9),
+                        MockCommitment(title="Commitment B", quoted_text="Commitment B", confidence=0.8),
+                        MockCommitment(title="Commitment C", quoted_text="Commitment C", confidence=0.7),
                     ]
                 ),
                 MockLLMCall(),

@@ -18,6 +18,12 @@ from ..state import (
     NodeTiming,
     LLMCall,
 )
+from src.orchestrator.utils.extraction import (
+    build_extraction_chunks,
+    find_quote_span,
+    merge_by_key,
+    normalize_key,
+)
 
 logger = structlog.get_logger()
 
@@ -49,113 +55,133 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
     state.trace.current_node = "extract_tasks"
     state.trace.nodes.append("extract_tasks")
 
-    # Combine all message content
-    content = "\n\n".join([msg.content for msg in state.messages])
-
-    # Prepare commitments context for the prompt
-    commitments_dicts = [
-        {
-            "title": c.title,
-            "description": c.description,
-            "direction": c.direction,
-            "debtor_name": c.debtor_name,
-            "creditor_name": c.creditor_name,
-            "due_date_text": c.due_date_text,
-            "priority": c.priority,
-        }
-        for c in state.extracted.commitments
-    ]
-
-    # Prepare decisions context (to avoid creating tasks that restate decisions)
-    decisions_dicts = [
-        {
-            "title": d.title,
-            "statement": d.statement,
-        }
-        for d in state.extracted.decisions
-    ]
-
-    # Prepare claims context
-    claims_dicts = [
-        {
-            "type": c.type,
-            "content": c.content,
-            "quoted_text": c.quoted_text,
-        }
-        for c in state.extracted.claims
-    ]
+    chunks = build_extraction_chunks(state.messages, max_chunk_chars=4000, overlap=200)
+    if not chunks:
+        return {}
 
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt using V2 strict prompts
-    messages = get_task_extraction_v2_prompt(
-        content=content,
-        commitments=commitments_dicts,
-        decisions=decisions_dicts,
-        source_type=state.input.source_type,
-        memory_context=state.memory_context,
-    )
-
     try:
-        # Make LLM call with structured output
-        output, llm_call = await llm.complete_structured(
-            messages=messages,
-            output_schema=TaskExtractionOutput,
-            model_tier="balanced",
-            node_name="extract_tasks",
-        )
+        tasks: list[ExtractedTask] = []
+        llm_calls: list[LLMCall] = []
 
-        # Convert to state task objects
-        tasks = []
-        for i, task in enumerate(output.tasks):
-            # Link to commitment if specified
-            commitment_id = None
-            if task.commitment_index is not None and task.commitment_index < len(state.extracted.commitments):
-                commitment_id = state.extracted.commitments[task.commitment_index].id
+        commitments_dicts = [
+            {
+                "title": c.title,
+                "description": c.description,
+                "direction": c.direction,
+                "debtor_name": c.debtor_name,
+                "creditor_name": c.creditor_name,
+                "due_date_text": c.due_date_text,
+                "priority": c.priority,
+            }
+            for c in state.extracted.commitments
+        ]
 
-            # Build depends_on list (task IDs from this extraction)
-            depends_on = []
-            for dep_idx in task.depends_on_task_indices:
-                if dep_idx < i and dep_idx < len(tasks):
-                    depends_on.append(tasks[dep_idx].id)
+        decisions_dicts = [
+            {
+                "title": d.title,
+                "statement": d.statement,
+            }
+            for d in state.extracted.decisions
+        ]
 
-            # Build blocks list (task IDs from this extraction)
-            blocks = []
-            for block_idx in task.blocks_task_indices:
-                if block_idx < i and block_idx < len(tasks):
-                    blocks.append(tasks[block_idx].id)
+        for chunk in chunks:
+            messages = get_task_extraction_v2_prompt(
+                content=chunk.content,
+                commitments=commitments_dicts,
+                decisions=decisions_dicts,
+                source_type=state.input.source_type,
+                memory_context=state.memory_context,
+            )
 
-            # Get parent task ID if this is a subtask
-            parent_task_id = None
-            if task.is_subtask and task.parent_task_index is not None:
-                if task.parent_task_index < i and task.parent_task_index < len(tasks):
-                    parent_task_id = tasks[task.parent_task_index].id
+            output, llm_call = await llm.complete_structured(
+                messages=messages,
+                output_schema=TaskExtractionOutput,
+                model_tier="balanced",
+                node_name="extract_tasks",
+            )
 
-            tasks.append(ExtractedTask(
-                title=task.title,
-                description=task.description,
-                status=task.status,
-                priority=task.priority,
-                assignee_name=task.assignee_name,
-                assignee_email=task.assignee_email,
-                assignee_is_user=task.assignee_is_user,
-                created_by_name=task.created_by_name,
-                created_by_email=task.created_by_email,
-                due_date=task.due_date,
-                due_date_text=task.due_date_text,
-                due_date_confidence=task.due_date_confidence,
-                estimated_effort=task.estimated_effort,
-                depends_on=depends_on,
-                blocks=blocks,
-                commitment_id=commitment_id,
-                parent_task_id=parent_task_id,
-                project=task.project,
-                tags=task.tags,
-                quoted_text=task.quoted_text,
-                confidence=task.confidence,
-                reasoning=task.reasoning,
+            llm_calls.append(LLMCall(
+                node="extract_tasks",
+                model=llm_call.model,
+                prompt_tokens=llm_call.prompt_tokens,
+                completion_tokens=llm_call.completion_tokens,
+                duration_ms=llm_call.duration_ms,
             ))
+
+            chunk_tasks: list[ExtractedTask] = []
+            for i, task in enumerate(output.tasks):
+                commitment_id = None
+                if task.commitment_index is not None and task.commitment_index < len(state.extracted.commitments):
+                    commitment_id = state.extracted.commitments[task.commitment_index].id
+
+                depends_on = []
+                for dep_idx in task.depends_on_task_indices:
+                    if dep_idx < i and dep_idx < len(chunk_tasks):
+                        depends_on.append(chunk_tasks[dep_idx].id)
+
+                blocks = []
+                for block_idx in task.blocks_task_indices:
+                    if block_idx < i and block_idx < len(chunk_tasks):
+                        blocks.append(chunk_tasks[block_idx].id)
+
+                parent_task_id = None
+                if task.is_subtask and task.parent_task_index is not None:
+                    if task.parent_task_index < i and task.parent_task_index < len(chunk_tasks):
+                        parent_task_id = chunk_tasks[task.parent_task_index].id
+
+                start, end = find_quote_span(chunk.content, task.quoted_text)
+                adjusted_start = (start + chunk.chunk_start) if start is not None else None
+                adjusted_end = (end + chunk.chunk_start) if end is not None else None
+
+                chunk_tasks.append(ExtractedTask(
+                    title=task.title,
+                    description=task.description,
+                    status=task.status,
+                    priority=task.priority,
+                    assignee_name=task.assignee_name,
+                    assignee_email=task.assignee_email,
+                    assignee_is_user=task.assignee_is_user,
+                    created_by_name=task.created_by_name,
+                    created_by_email=task.created_by_email,
+                    due_date=task.due_date,
+                    due_date_text=task.due_date_text,
+                    due_date_confidence=task.due_date_confidence,
+                    estimated_effort=task.estimated_effort,
+                    depends_on=depends_on,
+                    blocks=blocks,
+                    commitment_id=commitment_id,
+                    parent_task_id=parent_task_id,
+                    project=task.project,
+                    tags=task.tags,
+                    quoted_text=task.quoted_text,
+                    quoted_text_start=adjusted_start,
+                    quoted_text_end=adjusted_end,
+                    confidence=task.confidence,
+                    reasoning=task.reasoning,
+                    source_message_id=chunk.message_id,
+                    model_tier="balanced",
+                    model_used=llm_call.model,
+                ))
+
+            tasks.extend(chunk_tasks)
+
+        def _merge_tasks(left: ExtractedTask, right: ExtractedTask) -> ExtractedTask:
+            primary = left if left.confidence >= right.confidence else right
+            secondary = right if primary is left else left
+            if not primary.quoted_text and secondary.quoted_text:
+                primary.quoted_text = secondary.quoted_text
+                primary.quoted_text_start = secondary.quoted_text_start
+                primary.quoted_text_end = secondary.quoted_text_end
+            return primary
+
+        tasks = merge_by_key(
+            tasks,
+            key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
+            merge_fn=_merge_tasks,
+        )
 
         # Update subtask_ids for parent tasks
         for task in tasks:
@@ -185,15 +211,6 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
             high_priority=sum(1 for t in tasks if t.priority in ("high", "urgent")),
         )
 
-        # Record LLM call
-        trace_llm_call = LLMCall(
-            node="extract_tasks",
-            model=llm_call.model,
-            prompt_tokens=llm_call.prompt_tokens,
-            completion_tokens=llm_call.completion_tokens,
-            duration_ms=llm_call.duration_ms,
-        )
-
         node_timing = NodeTiming(
             started_at=start_time,
             completed_at=time.time(),
@@ -218,7 +235,7 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
                     **state.trace.node_timings,
                     "extract_tasks": node_timing,
                 },
-                "llm_calls": state.trace.llm_calls + [trace_llm_call],
+                "llm_calls": state.trace.llm_calls + llm_calls,
             },
         }
 

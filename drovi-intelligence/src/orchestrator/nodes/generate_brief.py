@@ -40,6 +40,12 @@ class BriefOutput(BaseModel):
         "Line 2: What's the current status/context? "
         "Line 3: What action is needed (if any)?"
     )
+    why_this_matters: str = Field(
+        description="Why this matters in one to two sentences (business impact and urgency)."
+    )
+    what_changed: str = Field(
+        description="What's new since the last brief. If no prior brief, say 'First brief.'"
+    )
 
     # Suggested action
     suggested_action: Literal[
@@ -75,6 +81,7 @@ def get_brief_prompt(
     decisions_count: int,
     commitments: list[dict] | None = None,
     user_email: str | None = None,
+    previous_brief_summary: str | None = None,
 ) -> list[dict]:
     """Build the prompt for brief generation."""
 
@@ -119,6 +126,8 @@ IMPORTANT: There are commitments with deadlines that the user owes. This should 
 - Multiple commitments with deadlines = likely URGENT
 """
 
+    previous_summary_text = previous_brief_summary or "None"
+
     system_prompt = f"""You are an expert at summarizing email threads and conversations for busy professionals.
 
 Your task is to generate a concise, actionable brief that helps the user quickly understand:
@@ -134,6 +143,7 @@ Context from analysis:
 - Importance score: {importance:.2f}
 - Commitments found: {commitments_count}
 - Decisions found: {decisions_count}
+Previous brief summary: {previous_summary_text}
 {commitment_context}
 
 Guidelines:
@@ -142,6 +152,7 @@ Guidelines:
 - If action is needed, be clear about what and by when
 - Detect any "open loops" - unanswered questions or pending items
 - Consider urgency + importance + commitments to determine priority tier
+- Provide "why_this_matters" (business impact/urgency) and "what_changed" vs the previous brief
 {urgency_boost}
 Priority tier guidelines:
 - urgent: Needs immediate attention (today), high stakes, or multiple imminent deadlines
@@ -197,6 +208,30 @@ async def generate_brief_node(state: IntelligenceState) -> dict:
     if not content.strip():
         content = state.input.content
 
+    previous_brief_summary: str | None = None
+    try:
+        from src.db.client import get_db_session
+        from sqlalchemy import text
+
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT summary
+                    FROM uio_brief_details
+                    WHERE conversation_id = :conversation_id
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"conversation_id": state.input.conversation_id},
+            )
+            row = result.fetchone()
+            if row:
+                previous_brief_summary = row[0]
+    except Exception as exc:
+        logger.warning("Failed to load previous brief summary", error=str(exc))
+
     # Get LLM service
     llm = get_llm_service()
 
@@ -226,6 +261,7 @@ async def generate_brief_node(state: IntelligenceState) -> dict:
         decisions_count=len(state.extracted.decisions),
         commitments=commitments_for_prompt,
         user_email=state.input.user_email,
+        previous_brief_summary=previous_brief_summary,
     )
 
     try:
@@ -263,6 +299,8 @@ async def generate_brief_node(state: IntelligenceState) -> dict:
         return {
             "brief": {
                 "brief_summary": output.brief_summary,
+                "why_this_matters": output.why_this_matters,
+                "what_changed": output.what_changed,
                 "suggested_action": output.suggested_action,
                 "suggested_action_reason": output.suggested_action_reason,
                 "open_loops": [loop.model_dump() for loop in output.open_loops],
@@ -310,6 +348,8 @@ def _build_skip_response(state: IntelligenceState, start_time: float, reason: st
     return {
         "brief": {
             "brief_summary": None,
+            "why_this_matters": None,
+            "what_changed": None,
             "suggested_action": "none",
             "suggested_action_reason": reason,
             "open_loops": [],

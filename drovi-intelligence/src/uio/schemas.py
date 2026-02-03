@@ -197,8 +197,8 @@ class SourceContext(BaseModel):
     conversation_id: str | None = None
     message_id: str | None = None
     quoted_text: str | None = None
-    quoted_text_start: str | None = None
-    quoted_text_end: str | None = None
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     segment_hash: str | None = None
     confidence: float = 0.5
 
@@ -245,6 +245,9 @@ class CommitmentExtractionContext(BaseModel):
     quoted_text: str | None = None
     commitment_type: Literal["promise", "request"] | None = None
     model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    confidence_reasoning: str | None = None
 
 
 class CommitmentDetailsCreate(BaseModel):
@@ -288,6 +291,9 @@ class DecisionExtractionContext(BaseModel):
     reasoning: str | None = None
     quoted_text: str | None = None
     model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    confidence_reasoning: str | None = None
 
 
 class DecisionDetailsCreate(BaseModel):
@@ -318,6 +324,9 @@ class ClaimExtractionContext(BaseModel):
     temporal_references: list[str] = Field(default_factory=list)
     related_claim_ids: list[str] = Field(default_factory=list)
     model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    confidence_reasoning: str | None = None
 
 
 class ClaimDetailsCreate(BaseModel):
@@ -325,8 +334,8 @@ class ClaimDetailsCreate(BaseModel):
 
     claim_type: ClaimType
     quoted_text: str | None = None
-    quoted_text_start: str | None = None
-    quoted_text_end: str | None = None
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     normalized_text: str | None = None
     importance: ClaimImportance = ClaimImportance.MEDIUM
     source_message_index: str | None = None
@@ -348,6 +357,17 @@ class TaskUserOverrides(BaseModel):
     status: str | None = None
 
 
+class TaskExtractionContext(BaseModel):
+    """LLM extraction context for tasks."""
+
+    reasoning: str | None = None
+    quoted_text: str | None = None
+    model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    confidence_reasoning: str | None = None
+
+
 class TaskDetailsCreate(BaseModel):
     """Schema for creating task details."""
 
@@ -366,6 +386,7 @@ class TaskDetailsCreate(BaseModel):
     project: str | None = None
     tags: list[str] = Field(default_factory=list)
     user_overrides: TaskUserOverrides | None = None
+    extraction_context: TaskExtractionContext | None = None
 
 
 # =============================================================================
@@ -389,6 +410,9 @@ class RiskExtractionContext(BaseModel):
     reasoning: str | None = None
     quoted_text: str | None = None
     model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    confidence_reasoning: str | None = None
 
 
 class RiskDetailsCreate(BaseModel):
@@ -422,6 +446,8 @@ class BriefDetailsCreate(BaseModel):
     """Schema for creating brief details."""
 
     summary: str
+    why_this_matters: str | None = None
+    what_changed: str | None = None
     suggested_action: BriefAction
     action_reasoning: str | None = None
     open_loops: list[OpenLoop] = Field(default_factory=list)

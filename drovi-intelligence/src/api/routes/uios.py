@@ -240,6 +240,8 @@ class BriefDetails(BaseModel):
 
     priority_tier: str | None = None  # urgent, high, medium, low
     summary: str | None = None
+    why_this_matters: str | None = None
+    what_changed: str | None = None
     suggested_action: str | None = None
     action_reasoning: str | None = None
     urgency_score: float | None = None
@@ -254,6 +256,8 @@ class SourceInfo(BaseModel):
     source_type: str | None = None  # gmail, slack, outlook, etc.
     source_timestamp: datetime | None = None
     quoted_text: str | None = None
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     segment_hash: str | None = None
     conversation_id: str | None = None
     message_id: str | None = None
@@ -274,6 +278,7 @@ class UIOResponse(BaseModel):
     # Confidence
     overall_confidence: float | None = None
     confidence_tier: Literal["high", "medium", "low"]
+    confidence_reasoning: str | None = None
     is_user_verified: bool = False
     is_user_dismissed: bool = False
 
@@ -402,6 +407,17 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
+def _parse_extraction_context(value) -> dict:
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return {}
+
+
 async def build_uio_response(row, session=None) -> UIOResponse:
     """Build a complete UIOResponse from a database row."""
     row_dict = _row_to_dict(row)
@@ -409,6 +425,7 @@ async def build_uio_response(row, session=None) -> UIOResponse:
     # Core fields
     uio_type = row_dict.get("type", "commitment")
     confidence = row_dict.get("overall_confidence") or 0.0
+    confidence_reasoning = None
 
     # Build owner contact
     owner = None
@@ -467,6 +484,10 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             supersedes_uio_id=row_dict.get("commitment_supersedes_uio_id"),
             superseded_by_uio_id=row_dict.get("commitment_superseded_by_uio_id"),
         )
+        commitment_context = _parse_extraction_context(
+            row_dict.get("commitment_extraction_context")
+        )
+        confidence_reasoning = commitment_context.get("confidenceReasoning")
 
     elif uio_type == "decision":
         if row_dict.get("decision_maker_id"):
@@ -487,6 +508,10 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             superseded_by_uio_id=row_dict.get("superseded_by_uio_id"),
             impact_areas=row_dict.get("impact_areas"),
         )
+        decision_context = _parse_extraction_context(
+            row_dict.get("decision_extraction_context")
+        )
+        confidence_reasoning = decision_context.get("confidenceReasoning")
 
     elif uio_type == "task":
         if row_dict.get("assignee_id"):
@@ -517,6 +542,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             supersedes_uio_id=row_dict.get("task_supersedes_uio_id"),
             superseded_by_uio_id=row_dict.get("task_superseded_by_uio_id"),
         )
+        task_context = _parse_extraction_context(row_dict.get("task_extraction_context"))
+        confidence_reasoning = task_context.get("confidenceReasoning")
 
     elif uio_type == "risk":
         risk_details = RiskDetails(
@@ -527,6 +554,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             supersedes_uio_id=row_dict.get("risk_supersedes_uio_id"),
             superseded_by_uio_id=row_dict.get("risk_superseded_by_uio_id"),
         )
+        risk_context = _parse_extraction_context(row_dict.get("risk_extraction_context"))
+        confidence_reasoning = risk_context.get("confidenceReasoning")
 
     elif uio_type == "claim":
         claim_details = ClaimDetails(
@@ -535,11 +564,15 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             normalized_text=row_dict.get("normalized_text"),
             importance=row_dict.get("claim_importance"),
         )
+        claim_context = _parse_extraction_context(row_dict.get("claim_extraction_context"))
+        confidence_reasoning = claim_context.get("confidenceReasoning")
 
     elif uio_type == "brief":
         brief_details = BriefDetails(
             priority_tier=row_dict.get("priority_tier"),
             summary=row_dict.get("brief_summary"),
+            why_this_matters=row_dict.get("why_this_matters"),
+            what_changed=row_dict.get("what_changed"),
             suggested_action=row_dict.get("brief_suggested_action"),
             action_reasoning=row_dict.get("action_reasoning"),
             urgency_score=row_dict.get("urgency_score"),
@@ -556,6 +589,8 @@ async def build_uio_response(row, session=None) -> UIOResponse:
                 source_type=row_dict.get("source_type"),
                 source_timestamp=row_dict.get("source_timestamp"),
                 quoted_text=row_dict.get("source_quoted_text"),
+                quoted_text_start=row_dict.get("source_quoted_text_start"),
+                quoted_text_end=row_dict.get("source_quoted_text_end"),
                 segment_hash=row_dict.get("source_segment_hash"),
                 conversation_id=row_dict.get("conversation_id"),
                 message_id=row_dict.get("message_id"),
@@ -572,6 +607,7 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         status=row_dict.get("status") or "active",
         overall_confidence=confidence,
         confidence_tier=confidence_to_tier(confidence),
+        confidence_reasoning=confidence_reasoning,
         is_user_verified=row_dict.get("is_user_verified") or False,
         is_user_dismissed=row_dict.get("is_user_dismissed") or False,
         due_date=row_dict.get("due_date"),
@@ -616,6 +652,7 @@ SELECT
     cd.completed_at as commitment_completed_at,
     cd.supersedes_uio_id as commitment_supersedes_uio_id,
     cd.superseded_by_uio_id as commitment_superseded_by_uio_id,
+    cd.extraction_context as commitment_extraction_context,
 
     -- Debtor contact (for commitments)
     dc.id as debtor_id, dc.display_name as debtor_display_name,
@@ -631,6 +668,7 @@ SELECT
     dd.statement, dd.rationale, dd.decided_at,
     dd.status as decision_status, dd.supersedes_uio_id, dd.superseded_by_uio_id,
     dd.impact_areas,
+    dd.extraction_context as decision_extraction_context,
 
     -- Decision maker contact
     dmc.id as decision_maker_id, dmc.display_name as decision_maker_display_name,
@@ -642,6 +680,7 @@ SELECT
     td.completed_at as task_completed_at, td.project, td.tags,
     td.supersedes_uio_id as task_supersedes_uio_id,
     td.superseded_by_uio_id as task_superseded_by_uio_id,
+    td.extraction_context as task_extraction_context,
 
     -- Assignee contact (for tasks)
     ac.id as assignee_id, ac.display_name as assignee_display_name,
@@ -657,19 +696,23 @@ SELECT
     rd.severity, rd.risk_type, rd.suggested_action as risk_suggested_action, rd.findings,
     rd.supersedes_uio_id as risk_supersedes_uio_id,
     rd.superseded_by_uio_id as risk_superseded_by_uio_id,
+    rd.extraction_context as risk_extraction_context,
 
     -- Claim details
     cld.claim_type, cld.quoted_text as claim_quoted_text, cld.normalized_text,
     cld.importance as claim_importance,
+    cld.extraction_context as claim_extraction_context,
 
     -- Brief details
     bd.priority_tier, bd.summary as brief_summary, bd.suggested_action as brief_suggested_action,
     bd.action_reasoning, bd.urgency_score, bd.importance_score as brief_importance_score,
     bd.intent_classification,
+    bd.why_this_matters, bd.what_changed,
 
     -- Source (first evidence)
     uos.id as source_id, uos.source_type, uos.source_timestamp,
-    uos.quoted_text as source_quoted_text, uos.segment_hash as source_segment_hash,
+    uos.quoted_text as source_quoted_text, uos.quoted_text_start as source_quoted_text_start,
+    uos.quoted_text_end as source_quoted_text_end, uos.segment_hash as source_segment_hash,
     uos.conversation_id, uos.message_id,
     uos.role as source_role
 

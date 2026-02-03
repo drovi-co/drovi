@@ -145,6 +145,9 @@ class TestCreateKeyEndpoint:
             "src.api.routes.api_keys.create_api_key",
             new_callable=AsyncMock,
             return_value=("sk_live_abcd1234", "key_new123"),
+        ), patch(
+            "src.api.routes.api_keys.record_audit_event",
+            new_callable=AsyncMock,
         ):
             response = await create_key(request, admin_context)
 
@@ -165,6 +168,9 @@ class TestCreateKeyEndpoint:
             "src.api.routes.api_keys.create_api_key",
             new_callable=AsyncMock,
             return_value=("sk_live_xyz", "key_xyz"),
+        ), patch(
+            "src.api.routes.api_keys.record_audit_event",
+            new_callable=AsyncMock,
         ):
             response = await create_key(request, admin_context)
 
@@ -219,7 +225,10 @@ class TestCreateKeyEndpoint:
             "src.api.routes.api_keys.create_api_key",
             new_callable=AsyncMock,
             return_value=("sk_test_testkey123", "key_test"),
-        ) as mock_create:
+        ) as mock_create, patch(
+            "src.api.routes.api_keys.record_audit_event",
+            new_callable=AsyncMock,
+        ):
             response = await create_key(request, admin_context)
 
             mock_create.assert_called_once()

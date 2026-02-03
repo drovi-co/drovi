@@ -106,6 +106,16 @@ class ParsedMessage(BaseModel):
     is_from_user: bool = False
 
 
+class EvidenceSpan(BaseModel):
+    """Evidence span tied to a specific source message."""
+
+    quoted_text: str
+    source_message_id: str | None = None
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
+    confidence: float | None = None
+
+
 # =============================================================================
 # Extracted Types
 # =============================================================================
@@ -121,9 +131,14 @@ class ExtractedClaim(BaseModel):
     ]
     content: str
     quoted_text: str
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     confidence: float
     source_message_id: str | None = None
     importance: Literal["low", "medium", "high"] = "medium"
+    model_tier: str | None = None
+    model_used: str | None = None
+    confidence_reasoning: str | None = None
 
 
 class ExtractedCommitment(BaseModel):
@@ -155,8 +170,15 @@ class ExtractedCommitment(BaseModel):
 
     # Evidence
     quoted_text: str
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     confidence: float
     reasoning: str | None = None
+    supporting_evidence: list[EvidenceSpan] = Field(default_factory=list)
+    source_message_id: str | None = None
+    model_tier: str | None = None
+    model_used: str | None = None
+    confidence_reasoning: str | None = None
 
     # Linked claim
     claim_id: str | None = None
@@ -185,8 +207,15 @@ class ExtractedDecision(BaseModel):
 
     # Evidence
     quoted_text: str
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     confidence: float
     reasoning: str | None = None
+    supporting_evidence: list[EvidenceSpan] = Field(default_factory=list)
+    source_message_id: str | None = None
+    model_tier: str | None = None
+    model_used: str | None = None
+    confidence_reasoning: str | None = None
 
     # Linked claim
     claim_id: str | None = None
@@ -214,8 +243,14 @@ class DetectedRisk(BaseModel):
 
     # Evidence
     quoted_text: str | None = None
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     confidence: float
     reasoning: str | None = None
+    source_message_id: str | None = None
+    model_tier: str | None = None
+    model_used: str | None = None
+    confidence_reasoning: str | None = None
 
 
 class ExtractedTopic(BaseModel):
@@ -268,11 +303,16 @@ class ExtractedTask(BaseModel):
 
     # Evidence
     quoted_text: str
+    quoted_text_start: int | None = None
+    quoted_text_end: int | None = None
     confidence: float
     reasoning: str | None = None
 
     # Source tracking
     source_message_id: str | None = None
+    model_tier: str | None = None
+    model_used: str | None = None
+    confidence_reasoning: str | None = None
 
 
 class ExtractedContact(BaseModel):
@@ -414,6 +454,8 @@ class Routing(BaseModel):
     escalate_to_human: bool = False
     skip_remaining_nodes: bool = False
     candidate_only: bool = False
+    priority_tier: Literal["urgent", "high", "medium", "low"] = "medium"
+    priority_score: float = 0.0
 
 
 # =============================================================================
@@ -446,6 +488,8 @@ class Brief(BaseModel):
     """Generated brief summary for the conversation."""
 
     brief_summary: str | None = None  # 3-line contextual brief
+    why_this_matters: str | None = None
+    what_changed: str | None = None
     suggested_action: str | None = None  # respond, review, delegate, etc.
     suggested_action_reason: str | None = None
     open_loops: list[dict] = Field(default_factory=list)  # Unanswered questions

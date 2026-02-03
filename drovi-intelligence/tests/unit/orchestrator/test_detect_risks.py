@@ -451,8 +451,8 @@ class TestDetectRisksNode:
             mock_service.complete_structured.return_value = (
                 MockRiskDetectionOutput(
                     risks=[
-                        MockRisk(confidence=0.9),
-                        MockRisk(confidence=0.7),
+                        MockRisk(title="Risk A", confidence=0.9),
+                        MockRisk(title="Risk B", confidence=0.7),
                     ]
                 ),
                 MockLLMCall(),
@@ -563,10 +563,10 @@ class TestDetectRisksNode:
             mock_service.complete_structured.return_value = (
                 MockRiskDetectionOutput(
                     risks=[
-                        MockRisk(severity="low"),
-                        MockRisk(severity="medium"),
-                        MockRisk(severity="high"),
-                        MockRisk(severity="critical"),
+                        MockRisk(title="Risk low", severity="low"),
+                        MockRisk(title="Risk medium", severity="medium"),
+                        MockRisk(title="Risk high", severity="high"),
+                        MockRisk(title="Risk critical", severity="critical"),
                     ]
                 ),
                 MockLLMCall(),

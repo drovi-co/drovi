@@ -493,6 +493,15 @@ class LLMService:
             providers=[p.value for p in self.router.providers],
         )
 
+    def _tier_sequence(self, model_tier: str) -> list[str]:
+        if model_tier == "fast":
+            return ["fast", "balanced", "powerful"]
+        if model_tier == "balanced":
+            return ["balanced", "powerful", "fast"]
+        if model_tier == "powerful":
+            return ["powerful", "balanced"]
+        return [model_tier]
+
     async def complete(
         self,
         messages: list[dict[str, str]],
@@ -514,15 +523,22 @@ class LLMService:
         Returns:
             Tuple of (response text, LLMCall trace)
         """
-        result, call = await self.router.complete_with_fallback(
-            messages=messages,
-            model_tier=model_tier,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            requires_json=False,
-            node_name=node_name,
-        )
-        return str(result), call
+        errors: list[str] = []
+        for tier in self._tier_sequence(model_tier):
+            try:
+                result, call = await self.router.complete_with_fallback(
+                    messages=messages,
+                    model_tier=tier,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    requires_json=False,
+                    node_name=node_name,
+                )
+                return str(result), call
+            except AllProvidersFailedError as exc:
+                errors.append(f"{tier}: {exc}")
+                continue
+        raise AllProvidersFailedError("; ".join(errors))
 
     async def complete_structured(
         self,
@@ -662,14 +678,26 @@ Respond ONLY with the JSON object, no additional text."""
             return parsed
 
         try:
-            result, call = await self.router.complete_with_fallback(
-                messages=modified_messages,
-                model_tier=model_tier,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                requires_json=True,
-                node_name=node_name,
-            )
+            result = None
+            call: LLMCall | None = None
+            errors: list[str] = []
+            for tier in self._tier_sequence(model_tier):
+                try:
+                    result, call = await self.router.complete_with_fallback(
+                        messages=modified_messages,
+                        model_tier=tier,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        requires_json=True,
+                        node_name=node_name,
+                    )
+                    break
+                except AllProvidersFailedError as exc:
+                    errors.append(f"{tier}: {exc}")
+                    continue
+
+            if result is None or call is None:
+                raise AllProvidersFailedError("; ".join(errors))
 
             # Validate with Pydantic
             if isinstance(result, str):

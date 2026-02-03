@@ -54,7 +54,7 @@ async def classify_node(state: IntelligenceState) -> dict:
         output, llm_call = await llm.complete_structured(
             messages=messages,
             output_schema=ClassificationOutput,
-            model_tier="balanced",  # Use balanced model - classification gates entire pipeline
+            model_tier="fast",  # Use lightweight tier for routing decisions
             node_name="classify",
         )
 
@@ -75,6 +75,16 @@ async def classify_node(state: IntelligenceState) -> dict:
             reasoning=output.reasoning,
         )
 
+        priority_score = max(0.0, min(1.0, (output.urgency * 0.6) + (output.importance * 0.4)))
+        if priority_score >= 0.8:
+            priority_tier = "urgent"
+        elif priority_score >= 0.6:
+            priority_tier = "high"
+        elif priority_score >= 0.3:
+            priority_tier = "medium"
+        else:
+            priority_tier = "low"
+
         # Determine routing based on classification
         routing = Routing(
             should_extract_commitments=output.has_commitments,
@@ -83,6 +93,8 @@ async def classify_node(state: IntelligenceState) -> dict:
             should_deduplicate=True,  # Always deduplicate
             escalate_to_human=output.confidence < 0.3,
             skip_remaining_nodes=not output.has_intelligence,
+            priority_tier=priority_tier,
+            priority_score=priority_score,
         )
 
         logger.info(
@@ -145,6 +157,8 @@ async def classify_node(state: IntelligenceState) -> dict:
             ),
             "routing": Routing(
                 escalate_to_human=True,
+                priority_tier="medium",
+                priority_score=0.0,
             ),
             "trace": {
                 **state.trace.model_dump(),

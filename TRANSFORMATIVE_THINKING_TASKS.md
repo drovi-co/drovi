@@ -63,18 +63,18 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Memory evolution logs written to UIO timeline. Acceptance: each update adds a timeline record.
 
 **Phase 5 — Extraction Quality and Verification**
-- [ ] Implement Pass 1 lightweight classifier for routing and prioritization. Acceptance: classifier determines extraction path and priority tier for every input.
-- [ ] Implement Pass 2 extractor LLM with structured output and quote spans. Acceptance: extractor returns structured JSON with quoted spans for all high‑stakes items.
-- [ ] Implement Pass 3 verifier LLM to reject unsupported items and rescale confidence. Acceptance: verifier reduces confidence or rejects unsupported items with logged reasons.
-- [ ] Add source‑specific prompts for email, Slack, meetings, docs. Acceptance: prompt routing matches source type.
-- [ ] Add extraction verification for tasks, risks, and claims. Acceptance: verifier rejects unsupported items.
-- [ ] Add cross‑message evidence for commitments and decisions. Acceptance: items can link to multiple evidence segments.
-- [ ] Calibrate confidence using evidence weight, model tier, and source reliability. Acceptance: confidence distribution remains stable across sources.
-- [ ] Add long‑content chunking and merging. Acceptance: large docs produce consolidated outputs with de‑duped evidence.
-- [ ] Add model fallback routing with circuit breaker. Acceptance: extraction proceeds if primary model fails.
-- [ ] Output “Why this matters” and “What changed since last time” in every brief. Acceptance: briefs include rationale and delta sections.
-- [ ] Provide “Confidence Reasoning” for every UIO. Acceptance: confidence includes signal sources and adjustments.
-- [ ] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
+- [x] Implement Pass 1 lightweight classifier for routing and prioritization. Acceptance: classifier determines extraction path and priority tier for every input.
+- [x] Implement Pass 2 extractor LLM with structured output and quote spans. Acceptance: extractor returns structured JSON with quoted spans for all high‑stakes items.
+- [x] Implement Pass 3 verifier LLM to reject unsupported items and rescale confidence. Acceptance: verifier reduces confidence or rejects unsupported items with logged reasons.
+- [x] Add source‑specific prompts for email, Slack, meetings, docs. Acceptance: prompt routing matches source type.
+- [x] Add extraction verification for tasks, risks, and claims. Acceptance: verifier rejects unsupported items.
+- [x] Add cross‑message evidence for commitments and decisions. Acceptance: items can link to multiple evidence segments.
+- [x] Calibrate confidence using evidence weight, model tier, and source reliability. Acceptance: confidence distribution remains stable across sources.
+- [x] Add long‑content chunking and merging. Acceptance: large docs produce consolidated outputs with de‑duped evidence.
+- [x] Add model fallback routing with circuit breaker. Acceptance: extraction proceeds if primary model fails.
+- [x] Output “Why this matters” and “What changed since last time” in every brief. Acceptance: briefs include rationale and delta sections.
+- [x] Provide “Confidence Reasoning” for every UIO. Acceptance: confidence includes signal sources and adjustments.
+- [x] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
 
 **Phase 6 — Memory Graph 2.0**
 - [ ] Choose a single memory backbone and formalize adapters. Acceptance: only one canonical memory API is used by pipeline.

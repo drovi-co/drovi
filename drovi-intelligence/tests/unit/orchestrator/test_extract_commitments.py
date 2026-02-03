@@ -38,13 +38,14 @@ class MockCommitment:
     creditor_name: Optional[str] = None
     creditor_email: Optional[str] = None
     creditor_is_user: bool = False
-    due_date: Optional[str] = None
+    due_date: Optional[datetime] = None
     due_date_text: Optional[str] = None
     due_date_confidence: float = 0.0
     due_date_is_explicit: bool = False
     is_conditional: bool = False
     condition: Optional[str] = None
     quoted_text: str = "Default quoted text"  # Required field, not optional
+    supporting_quotes: list = field(default_factory=list)
     confidence: float = 0.8
     reasoning: str = "Found commitment in text"
     claim_index: Optional[int] = None
@@ -224,7 +225,7 @@ class TestExtractCommitmentsNode:
                     commitments=[
                         MockCommitment(
                             title="Complete task",
-                            due_date="2024-01-20",
+                            due_date=datetime(2024, 1, 20),
                             due_date_text="January 20th",
                             due_date_confidence=0.9,
                             due_date_is_explicit=True,
@@ -486,8 +487,8 @@ class TestExtractCommitmentsNode:
             mock_service.complete_structured.return_value = (
                 MockCommitmentExtractionOutput(
                     commitments=[
-                        MockCommitment(confidence=0.9),
-                        MockCommitment(confidence=0.7),
+                        MockCommitment(title="Commitment A", quoted_text="Commitment A", confidence=0.9),
+                        MockCommitment(title="Commitment B", quoted_text="Commitment B", confidence=0.7),
                     ]
                 ),
                 MockLLMCall(),

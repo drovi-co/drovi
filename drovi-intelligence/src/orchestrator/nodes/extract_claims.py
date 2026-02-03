@@ -18,6 +18,12 @@ from ..state import (
     NodeTiming,
     LLMCall,
 )
+from src.orchestrator.utils.extraction import (
+    build_extraction_chunks,
+    find_quote_span,
+    merge_by_key,
+    normalize_key,
+)
 
 logger = structlog.get_logger()
 
@@ -47,8 +53,9 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
     state.trace.current_node = "extract_claims"
     state.trace.nodes.append("extract_claims")
 
-    # Combine all message content
-    content = "\n\n".join([msg.content for msg in state.messages])
+    chunks = build_extraction_chunks(state.messages, max_chunk_chars=4000, overlap=200)
+    if not chunks:
+        return {}
 
     # Get LLM service
     llm = get_llm_service()
@@ -62,30 +69,64 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
     )
 
     try:
-        # Make LLM call with structured output
-        output, llm_call = await llm.complete_structured(
-            messages=messages,
-            output_schema=ClaimExtractionOutput,
-            model_tier="balanced",
-            node_name="extract_claims",
-        )
-
-        # Convert to state claim objects
         claims = []
-        for i, claim in enumerate(output.claims):
-            # Link to source message if possible
-            source_msg_id = None
-            if claim.source_message_index is not None and claim.source_message_index < len(state.messages):
-                source_msg_id = state.messages[claim.source_message_index].id
+        llm_calls: list[LLMCall] = []
 
-            claims.append(ExtractedClaim(
-                type=claim.type,
-                content=claim.content,
-                quoted_text=claim.quoted_text,
-                confidence=claim.confidence,
-                source_message_id=source_msg_id,
-                importance=claim.importance,
+        for chunk in chunks:
+            messages = get_claim_extraction_v2_prompt(
+                content=chunk.content,
+                source_type=state.input.source_type,
+                user_email=state.input.user_email,
+                memory_context=state.memory_context,
+            )
+
+            output, llm_call = await llm.complete_structured(
+                messages=messages,
+                output_schema=ClaimExtractionOutput,
+                model_tier="balanced",
+                node_name="extract_claims",
+            )
+
+            llm_calls.append(LLMCall(
+                node="extract_claims",
+                model=llm_call.model,
+                prompt_tokens=llm_call.prompt_tokens,
+                completion_tokens=llm_call.completion_tokens,
+                duration_ms=llm_call.duration_ms,
             ))
+
+            for claim in output.claims:
+                start, end = find_quote_span(chunk.content, claim.quoted_text)
+                adjusted_start = (start + chunk.chunk_start) if start is not None else None
+                adjusted_end = (end + chunk.chunk_start) if end is not None else None
+
+                claims.append(ExtractedClaim(
+                    type=claim.type,
+                    content=claim.content,
+                    quoted_text=claim.quoted_text,
+                    quoted_text_start=adjusted_start,
+                    quoted_text_end=adjusted_end,
+                    confidence=claim.confidence,
+                    source_message_id=chunk.message_id,
+                    importance=claim.importance,
+                    model_tier="balanced",
+                    model_used=llm_call.model,
+                ))
+
+        def _merge_claims(left: ExtractedClaim, right: ExtractedClaim) -> ExtractedClaim:
+            primary = left if left.confidence >= right.confidence else right
+            secondary = right if primary is left else left
+            if not primary.quoted_text and secondary.quoted_text:
+                primary.quoted_text = secondary.quoted_text
+                primary.quoted_text_start = secondary.quoted_text_start
+                primary.quoted_text_end = secondary.quoted_text_end
+            return primary
+
+        claims = merge_by_key(
+            claims,
+            key_fn=lambda item: normalize_key(item.content) or normalize_key(item.quoted_text),
+            merge_fn=_merge_claims,
+        )
 
         # Extract topics from claims
         topics = []
@@ -109,15 +150,6 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
             analysis_id=state.analysis_id,
             claim_count=len(claims),
             claim_types=[c.type for c in claims],
-        )
-
-        # Record LLM call
-        trace_llm_call = LLMCall(
-            node="extract_claims",
-            model=llm_call.model,
-            prompt_tokens=llm_call.prompt_tokens,
-            completion_tokens=llm_call.completion_tokens,
-            duration_ms=llm_call.duration_ms,
         )
 
         node_timing = NodeTiming(
@@ -144,7 +176,7 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
                     **state.trace.node_timings,
                     "extract_claims": node_timing,
                 },
-                "llm_calls": state.trace.llm_calls + [trace_llm_call],
+                "llm_calls": state.trace.llm_calls + llm_calls,
             },
         }
 

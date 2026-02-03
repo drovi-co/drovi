@@ -17,6 +17,12 @@ from ..state import (
     NodeTiming,
     LLMCall,
 )
+from src.orchestrator.utils.extraction import (
+    build_extraction_chunks,
+    find_quote_span,
+    merge_by_key,
+    normalize_key,
+)
 
 logger = structlog.get_logger()
 
@@ -47,8 +53,9 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
     state.trace.current_node = "detect_risks"
     state.trace.nodes.append("detect_risks")
 
-    # Combine all message content
-    content = "\n\n".join([msg.content for msg in state.messages])
+    chunks = build_extraction_chunks(state.messages, max_chunk_chars=4000, overlap=200)
+    if not chunks:
+        return {}
 
     # Prepare context for the prompt
     commitments_dicts = [
@@ -76,55 +83,86 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
     # Get LLM service
     llm = get_llm_service()
 
-    # Build prompt using V2 strict prompts
-    messages = get_risk_detection_v2_prompt(
-        content=content,
-        commitments=commitments_dicts,
-        decisions=decisions_dicts,
-        source_type=state.input.source_type,
-        memory_context=state.memory_context,
-    )
-
     try:
-        # Make LLM call with structured output
-        output, llm_call = await llm.complete_structured(
-            messages=messages,
-            output_schema=RiskDetectionOutput,
-            model_tier="balanced",
-            node_name="detect_risks",
-        )
+        risks: list[DetectedRisk] = []
+        llm_calls: list[LLMCall] = []
 
-        # Convert to state risk objects
-        risks = []
-        for risk in output.risks:
-            # Build related items references
-            related_to = []
+        for chunk in chunks:
+            messages = get_risk_detection_v2_prompt(
+                content=chunk.content,
+                commitments=commitments_dicts,
+                decisions=decisions_dicts,
+                source_type=state.input.source_type,
+                memory_context=state.memory_context,
+            )
 
-            for idx in risk.related_commitment_indices:
-                if idx < len(state.extracted.commitments):
-                    related_to.append({
-                        "type": "commitment",
-                        "reference": state.extracted.commitments[idx].id,
-                    })
+            output, llm_call = await llm.complete_structured(
+                messages=messages,
+                output_schema=RiskDetectionOutput,
+                model_tier="balanced",
+                node_name="detect_risks",
+            )
 
-            for idx in risk.related_decision_indices:
-                if idx < len(state.extracted.decisions):
-                    related_to.append({
-                        "type": "decision",
-                        "reference": state.extracted.decisions[idx].id,
-                    })
-
-            risks.append(DetectedRisk(
-                type=risk.type,
-                title=risk.title,
-                description=risk.description,
-                severity=risk.severity,
-                related_to=related_to,
-                suggested_action=risk.suggested_action,
-                quoted_text=risk.quoted_text,
-                confidence=risk.confidence,
-                reasoning=risk.reasoning,
+            llm_calls.append(LLMCall(
+                node="detect_risks",
+                model=llm_call.model,
+                prompt_tokens=llm_call.prompt_tokens,
+                completion_tokens=llm_call.completion_tokens,
+                duration_ms=llm_call.duration_ms,
             ))
+
+            for risk in output.risks:
+                related_to = []
+
+                for idx in risk.related_commitment_indices:
+                    if idx < len(state.extracted.commitments):
+                        related_to.append({
+                            "type": "commitment",
+                            "reference": state.extracted.commitments[idx].id,
+                        })
+
+                for idx in risk.related_decision_indices:
+                    if idx < len(state.extracted.decisions):
+                        related_to.append({
+                            "type": "decision",
+                            "reference": state.extracted.decisions[idx].id,
+                        })
+
+                start, end = find_quote_span(chunk.content, risk.quoted_text or "")
+                adjusted_start = (start + chunk.chunk_start) if start is not None else None
+                adjusted_end = (end + chunk.chunk_start) if end is not None else None
+
+                risks.append(DetectedRisk(
+                    type=risk.type,
+                    title=risk.title,
+                    description=risk.description,
+                    severity=risk.severity,
+                    related_to=related_to,
+                    suggested_action=risk.suggested_action,
+                    quoted_text=risk.quoted_text,
+                    quoted_text_start=adjusted_start,
+                    quoted_text_end=adjusted_end,
+                    confidence=risk.confidence,
+                    reasoning=risk.reasoning,
+                    source_message_id=chunk.message_id,
+                    model_tier="balanced",
+                    model_used=llm_call.model,
+                ))
+
+        def _merge_risks(left: DetectedRisk, right: DetectedRisk) -> DetectedRisk:
+            primary = left if left.confidence >= right.confidence else right
+            secondary = right if primary is left else left
+            if not primary.quoted_text and secondary.quoted_text:
+                primary.quoted_text = secondary.quoted_text
+                primary.quoted_text_start = secondary.quoted_text_start
+                primary.quoted_text_end = secondary.quoted_text_end
+            return primary
+
+        risks = merge_by_key(
+            risks,
+            key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
+            merge_fn=_merge_risks,
+        )
 
         # Update extracted intelligence
         extracted = ExtractedIntelligence(
@@ -141,15 +179,6 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
             risk_count=len(risks),
             severities=[r.severity for r in risks],
             types=[r.type for r in risks],
-        )
-
-        # Record LLM call
-        trace_llm_call = LLMCall(
-            node="detect_risks",
-            model=llm_call.model,
-            prompt_tokens=llm_call.prompt_tokens,
-            completion_tokens=llm_call.completion_tokens,
-            duration_ms=llm_call.duration_ms,
         )
 
         node_timing = NodeTiming(
@@ -181,7 +210,7 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
                     **state.trace.node_timings,
                     "detect_risks": node_timing,
                 },
-                "llm_calls": state.trace.llm_calls + [trace_llm_call],
+                "llm_calls": state.trace.llm_calls + llm_calls,
             },
         }
 

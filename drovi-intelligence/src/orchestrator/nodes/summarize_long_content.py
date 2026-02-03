@@ -9,7 +9,7 @@ import time
 import structlog
 
 from src.llm import get_llm_service
-from src.orchestrator.state import IntelligenceState, ParsedMessage, NodeTiming
+from src.orchestrator.state import IntelligenceState, NodeTiming
 
 logger = structlog.get_logger()
 
@@ -68,14 +68,6 @@ async def summarize_long_content_node(state: IntelligenceState) -> dict:
     if not summarized:
         return {}
 
-    state.messages = [
-        ParsedMessage(
-            id="summary_0",
-            content=summarized,
-            is_from_user=False,
-        )
-    ]
-
     node_timing = NodeTiming(
         started_at=start_time,
         completed_at=time.time(),
@@ -85,7 +77,14 @@ async def summarize_long_content_node(state: IntelligenceState) -> dict:
     updated_trace.current_node = "summarize_long_content"
     updated_trace.node_timings["summarize_long_content"] = node_timing
 
+    cleaned_content = state.cleaned_content or {}
+    cleaned_content.update({
+        "summary": summarized,
+        "summary_chunks": len(chunks),
+        "summary_length": len(summarized),
+    })
+
     return {
-        "messages": state.messages,
+        "cleaned_content": cleaned_content,
         "trace": updated_trace,
     }
