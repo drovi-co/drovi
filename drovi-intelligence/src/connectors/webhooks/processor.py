@@ -19,10 +19,22 @@ async def process_connector_webhook_event(payload: dict[str, Any]) -> None:
     """
     Process a connector webhook event from Kafka and trigger a sync.
     """
-    connection_id = payload.get("connection_id")
-    organization_id = payload.get("organization_id")
-    sync_params = payload.get("sync_params") or {}
-    streams = payload.get("streams") or []
+    event_payload = payload
+    if (
+        "connection_id" not in event_payload
+        and isinstance(event_payload.get("payload"), dict)
+        and event_payload["payload"].get("connection_id")
+    ):
+        event_payload = event_payload["payload"]
+
+    connection_id = event_payload.get("connection_id")
+    organization_id = event_payload.get("organization_id")
+    sync_params = event_payload.get("sync_params") or {}
+    streams = event_payload.get("streams") or []
+    full_refresh = event_payload.get("full_refresh")
+    if full_refresh is None and "incremental" in event_payload:
+        full_refresh = not bool(event_payload.get("incremental"))
+    full_refresh = bool(full_refresh) if full_refresh is not None else False
 
     if not connection_id or not organization_id:
         logger.warning("Webhook event missing connection/org", payload=payload)
@@ -34,7 +46,7 @@ async def process_connector_webhook_event(payload: dict[str, Any]) -> None:
         connection_id=connection_id,
         organization_id=organization_id,
         streams=streams or None,
-        full_refresh=False,
+        full_refresh=full_refresh,
         job_type=SyncJobType.WEBHOOK,
         sync_params=sync_params,
     )

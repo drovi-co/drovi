@@ -5,6 +5,7 @@ Convert connector Records into pipeline-ready content + metadata.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from src.connectors.base.config import ConnectorConfig
@@ -23,6 +24,25 @@ class NormalizedRecord:
     user_email: str | None = None
     user_name: str | None = None
     subject: str | None = None
+
+
+def _build_base_metadata(record: Record) -> dict[str, Any]:
+    extracted_at = record.extracted_at
+    extracted_at_value: str | None = None
+    if isinstance(extracted_at, datetime):
+        extracted_at_value = extracted_at.isoformat()
+    elif extracted_at is not None:
+        extracted_at_value = str(extracted_at)
+
+    return {
+        "record_id": record.record_id,
+        "stream_name": record.stream_name,
+        "record_type": record.record_type.value if hasattr(record, "record_type") else None,
+        "source_type": record.source_type,
+        "cursor_value": record.cursor_value,
+        "raw_data_hash": record.raw_data_hash,
+        "extracted_at": extracted_at_value,
+    }
 
 
 def _fallback_content(record: Record) -> tuple[str, str | None]:
@@ -56,6 +76,75 @@ def _fallback_content(record: Record) -> tuple[str, str | None]:
     return content, subject or None
 
 
+def _document_content(record: Record) -> tuple[str, str | None]:
+    data = record.data if isinstance(record.data, dict) else {}
+    title = (
+        data.get("title")
+        or data.get("name")
+        or data.get("subject")
+        or data.get("summary")
+        or ""
+    )
+    body_text = (
+        data.get("content_text")
+        or data.get("content")
+        or data.get("body_text")
+        or data.get("text")
+        or ""
+    )
+
+    parts = []
+    if title:
+        parts.append(f"Title: {title}")
+    if body_text:
+        parts.append(body_text)
+    content = "\n\n".join(parts).strip()
+    return content, title or None
+
+
+def _event_content(record: Record) -> tuple[str, str | None]:
+    data = record.data if isinstance(record.data, dict) else {}
+    title = (
+        data.get("summary")
+        or data.get("title")
+        or data.get("subject")
+        or data.get("name")
+        or ""
+    )
+    description = (
+        data.get("description")
+        or data.get("body")
+        or data.get("notes")
+        or ""
+    )
+    start_time = (
+        data.get("start_time")
+        or data.get("start")
+        or data.get("startDateTime")
+        or data.get("start_date")
+    )
+    end_time = (
+        data.get("end_time")
+        or data.get("end")
+        or data.get("endDateTime")
+        or data.get("end_date")
+    )
+
+    parts = []
+    if title:
+        parts.append(f"Event: {title}")
+    if description:
+        parts.append(description)
+    if start_time or end_time:
+        if start_time and end_time:
+            parts.append(f"Time: {start_time} → {end_time}")
+        else:
+            parts.append(f"Time: {start_time or end_time}")
+
+    content = "\n\n".join(parts).strip()
+    return content, title or None
+
+
 def normalize_record_for_pipeline(
     record: Record,
     connector: BaseConnector,
@@ -66,6 +155,7 @@ def normalize_record_for_pipeline(
     Normalize a Record into content + metadata for the intelligence pipeline.
     """
     data = record.data if isinstance(record.data, dict) else {}
+    base_metadata = _build_base_metadata(record)
 
     if record.record_type == RecordType.MESSAGE and hasattr(connector, "to_unified_message"):
         try:
@@ -79,6 +169,7 @@ def normalize_record_for_pipeline(
                 parts.append(body_text)
             content = "\n\n".join(parts).strip()
             metadata = {
+                **base_metadata,
                 "source_record_type": record.record_type.value,
                 "raw": data,
                 "subject": subject,
@@ -87,7 +178,7 @@ def normalize_record_for_pipeline(
             return NormalizedRecord(
                 content=content,
                 metadata=metadata,
-                source_type=default_source_type or getattr(unified, "source_type", "api"),
+                source_type=default_source_type or getattr(unified, "source_type", record.source_type),
                 conversation_id=getattr(unified, "conversation_id", None),
                 user_email=getattr(unified, "sender_email", None),
                 user_name=getattr(unified, "sender_name", None),
@@ -97,8 +188,49 @@ def normalize_record_for_pipeline(
             # Fall back to generic content if normalization fails.
             pass
 
+    if record.record_type == RecordType.DOCUMENT:
+        content, subject = _document_content(record)
+        metadata = {
+            **base_metadata,
+            "source_record_type": record.record_type.value,
+            "raw": data,
+            "subject": subject,
+        }
+        return NormalizedRecord(
+            content=content,
+            metadata=metadata,
+            source_type=default_source_type or record.source_type,
+            user_email=data.get("owner_email") or data.get("author_email"),
+            user_name=data.get("owner_name") or data.get("author_name"),
+            subject=subject,
+        )
+
+    if record.record_type == RecordType.EVENT:
+        content, subject = _event_content(record)
+        organizer_email = data.get("organizer_email")
+        organizer_name = data.get("organizer_name")
+        organizer = data.get("organizer")
+        if isinstance(organizer, dict):
+            organizer_email = organizer_email or organizer.get("email")
+            organizer_name = organizer_name or organizer.get("display_name") or organizer.get("name")
+        metadata = {
+            **base_metadata,
+            "source_record_type": record.record_type.value,
+            "raw": data,
+            "subject": subject,
+        }
+        return NormalizedRecord(
+            content=content,
+            metadata=metadata,
+            source_type=default_source_type or record.source_type,
+            user_email=organizer_email,
+            user_name=organizer_name,
+            subject=subject,
+        )
+
     content, subject = _fallback_content(record)
     metadata = {
+        **base_metadata,
         "source_record_type": record.record_type.value if hasattr(record, "record_type") else None,
         "raw": data,
         "subject": subject,
@@ -114,7 +246,7 @@ def normalize_record_for_pipeline(
     return NormalizedRecord(
         content=content,
         metadata=metadata,
-        source_type=default_source_type,
+        source_type=default_source_type or record.source_type,
         conversation_id=conversation_id,
         user_email=data.get("sender_email") or data.get("from"),
         user_name=data.get("sender_name") or data.get("from_name"),

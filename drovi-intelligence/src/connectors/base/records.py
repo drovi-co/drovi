@@ -11,6 +11,15 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+def calculate_raw_data_hash(data: Any) -> str:
+    """Calculate a stable hash for raw record data."""
+    import hashlib
+    import json
+
+    payload = json.dumps(data, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
 class RecordType(str, Enum):
     """Types of records that can be extracted."""
 
@@ -92,6 +101,10 @@ class RecordBatch(BaseModel):
 
     def add_record(self, record: Record) -> None:
         """Add a record to the batch."""
+        if not isinstance(record, Record):
+            raise TypeError(f"RecordBatch.add_record expects Record, got {type(record)}")
+        if not record.raw_data_hash:
+            record.raw_data_hash = calculate_raw_data_hash(record.data)
         self.records.append(record)
         self.record_count = len(self.records)
 

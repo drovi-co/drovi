@@ -339,6 +339,16 @@ class TestBaseConnector:
         # Same data should produce same hash
         assert record1.raw_data_hash == record2.raw_data_hash
 
+    def test_create_record_sets_cursor_default(self, mock_connector):
+        """Test create_record populates cursor_value when omitted."""
+        record = mock_connector.create_record(
+            record_id="rec_cursor",
+            stream_name="messages",
+            data={"content": "Hello"},
+        )
+
+        assert record.cursor_value is not None
+
     def test_create_batch(self, mock_connector):
         """Test create_batch helper generates valid batch."""
         batch = mock_connector.create_batch("messages", "conn_123")

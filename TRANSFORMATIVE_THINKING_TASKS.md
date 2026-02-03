@@ -81,16 +81,16 @@ These are the exact items you called out, now represented as concrete, trackable
 - [x] Implement a single evidence retrieval API endpoint with access control. Acceptance: user can fetch evidence artifact metadata and signed URLs.
 
 **Phase 2 — Connector Normalization and State Durability**
-- [ ] Standardize `ConnectorConfig` usage across all connectors. Acceptance: `auth` and `provider_config` are the only supported config paths.
-- [ ] Update all connectors to emit `Record` objects. Acceptance: no connector returns raw dicts in `RecordBatch.records`.
-- [ ] Populate `record_type`, `cursor_value`, and `raw_data_hash` for all connectors. Acceptance: ingestion logs show non‑null fields across providers.
-- [ ] Add canonical normalization for messages, docs, and events. Acceptance: `normalize_record_for_pipeline` produces consistent `NormalizedRecord` for all connector types.
-- [ ] Implement DB‑backed connector state repository for incremental cursors. Acceptance: state persists across restarts and backfill resumes correctly.
-- [ ] Replace in‑memory scheduler state with persisted `sync_states`. Acceptance: scheduler resumes from DB on boot.
-- [ ] Fix webhook handler parameter mismatches (`sync_params`, `incremental`). Acceptance: webhook sync triggers operate with partial parameters.
-- [ ] Implement idempotent webhook inbox/outbox with dedupe keys. Acceptance: duplicate webhooks do not trigger repeated syncs.
-- [ ] Add rate‑limit and retry middleware for connector HTTP calls. Acceptance: 429/5xx retries are logged and bounded.
-- [ ] Add per‑provider backfill windowing and throttles. Acceptance: backfill runs in windows and respects API limits.
+- [x] Standardize `ConnectorConfig` usage across all connectors. Acceptance: `auth` and `provider_config` are the only supported config paths.
+- [x] Update all connectors to emit `Record` objects. Acceptance: no connector returns raw dicts in `RecordBatch.records`.
+- [x] Populate `record_type`, `cursor_value`, and `raw_data_hash` for all connectors. Acceptance: ingestion logs show non‑null fields across providers.
+- [x] Add canonical normalization for messages, docs, and events. Acceptance: `normalize_record_for_pipeline` produces consistent `NormalizedRecord` for all connector types.
+- [x] Implement DB‑backed connector state repository for incremental cursors. Acceptance: state persists across restarts and backfill resumes correctly.
+- [x] Replace in‑memory scheduler state with persisted `sync_states`. Acceptance: scheduler resumes from DB on boot.
+- [x] Fix webhook handler parameter mismatches (`sync_params`, `incremental`). Acceptance: webhook sync triggers operate with partial parameters.
+- [x] Implement idempotent webhook inbox/outbox with dedupe keys. Acceptance: duplicate webhooks do not trigger repeated syncs.
+- [x] Add rate‑limit and retry middleware for connector HTTP calls. Acceptance: 429/5xx retries are logged and bounded.
+- [x] Add per‑provider backfill windowing and throttles. Acceptance: backfill runs in windows and respects API limits.
 
 **Phase 3 — Ingestion Fabric and Streaming Reliability**
 - [ ] Kafka topics for `raw.connector.events`, `normalized.records`, `intelligence.pipeline.input`, `graph.changes`. Acceptance: events flow through all topics in staging.

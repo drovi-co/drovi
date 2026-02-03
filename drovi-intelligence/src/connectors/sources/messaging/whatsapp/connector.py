@@ -94,6 +94,8 @@ class WhatsAppConnector(BaseConnector):
                     "GET",
                     f"{WHATSAPP_GRAPH_URL}/{phone_number_id}",
                     headers={"Authorization": f"Bearer {access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -352,6 +354,8 @@ class WhatsAppConnector(BaseConnector):
                     "GET",
                     f"{WHATSAPP_GRAPH_URL}/{media_id}",
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.connector_type,
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 media_data = response.json()
@@ -367,6 +371,8 @@ class WhatsAppConnector(BaseConnector):
                     "GET",
                     media_url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.connector_type,
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 media_response.raise_for_status()
 

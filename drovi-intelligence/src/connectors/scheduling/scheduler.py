@@ -153,9 +153,6 @@ class ConnectorScheduler:
         self._sync_callback: Callable[[SyncJob], Coroutine[Any, Any, SyncJobResult]] | None = None
         self._lock_conn = None
 
-        # State storage (in-memory for now, should be persisted)
-        self._connection_states: dict[str, ConnectorState] = {}
-
     async def start(self) -> None:
         """Start the scheduler."""
         if not self._scheduler.running:
@@ -419,9 +416,9 @@ class ConnectorScheduler:
         organization_id: str,
         start_date: datetime,
         end_date: datetime | None = None,
-        window_days: int = 7,
+        window_days: int | None = None,
         streams: list[str] | None = None,
-        throttle_seconds: float = 1.0,
+        throttle_seconds: float | None = None,
     ) -> list[str]:
         """
         Run a windowed backfill plan sequentially.

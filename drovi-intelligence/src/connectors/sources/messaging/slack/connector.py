@@ -68,6 +68,41 @@ class SlackConnector(BaseConnector):
         self._client: AsyncWebClient | None = None
         self._user_cache: dict[str, dict] = {}
 
+    async def _call_slack(self, func, *args, **kwargs) -> dict[str, Any]:
+        """Call Slack API with retry/backoff for rate limits and transient errors."""
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return await func(*args, **kwargs)
+            except SlackApiError as e:
+                status = getattr(e.response, "status_code", None)
+                retry_after = None
+                if hasattr(e.response, "headers"):
+                    retry_after = e.response.headers.get("Retry-After")
+
+                if status == 429 and attempt < max_attempts:
+                    delay = float(retry_after or 1.0)
+                    logger.warning(
+                        "Slack rate limited, retrying",
+                        attempt=attempt,
+                        delay=delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                if status and status >= 500 and attempt < max_attempts:
+                    delay = min(5.0, 1.0 + attempt)
+                    logger.warning(
+                        "Slack transient error, retrying",
+                        attempt=attempt,
+                        delay=delay,
+                        status=status,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                raise
+
     def _get_client(self, config: ConnectorConfig) -> AsyncWebClient:
         """Get or create Slack client."""
         if self._client:
@@ -83,7 +118,7 @@ class SlackConnector(BaseConnector):
         """Verify Slack credentials are valid."""
         try:
             client = self._get_client(config)
-            response = await client.auth_test()
+            response = await self._call_slack(client.auth_test)
 
             if response["ok"]:
                 logger.info(
@@ -230,7 +265,8 @@ class SlackConnector(BaseConnector):
         cursor = None
 
         while True:
-            response = await client.conversations_list(
+            response = await self._call_slack(
+                client.conversations_list,
                 types="public_channel,private_channel,mpim,im",
                 limit=200,
                 cursor=cursor,
@@ -274,7 +310,7 @@ class SlackConnector(BaseConnector):
                 if latest_ts:
                     kwargs["latest"] = latest_ts
 
-                response = await client.conversations_history(**kwargs)
+                response = await self._call_slack(client.conversations_history, **kwargs)
 
                 if not response["ok"]:
                     logger.error(
@@ -398,7 +434,7 @@ class SlackConnector(BaseConnector):
             return self._user_cache[user_id]
 
         try:
-            response = await client.users_info(user=user_id)
+            response = await self._call_slack(client.users_info, user=user_id)
             if response["ok"]:
                 user = response.get("user", {})
                 self._user_cache[user_id] = user
@@ -459,7 +495,7 @@ class SlackConnector(BaseConnector):
 
         while True:
             try:
-                response = await client.users_list(limit=200, cursor=cursor)
+                response = await self._call_slack(client.users_list, limit=200, cursor=cursor)
 
                 if not response["ok"]:
                     break

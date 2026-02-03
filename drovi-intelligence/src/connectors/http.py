@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
+from dataclasses import dataclass, field
 from typing import Iterable
 
 import httpx
@@ -19,6 +21,39 @@ logger = structlog.get_logger()
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 
 
+@dataclass
+class _RateLimiter:
+    rate_per_minute: int
+    next_allowed: float = 0.0
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    async def wait(self) -> None:
+        if self.rate_per_minute <= 0:
+            return
+        interval = 60.0 / float(self.rate_per_minute)
+        async with self.lock:
+            now = time.monotonic()
+            if now < self.next_allowed:
+                await asyncio.sleep(self.next_allowed - now)
+            self.next_allowed = max(now, self.next_allowed) + interval
+
+
+_rate_limiters: dict[str, _RateLimiter] = {}
+
+
+async def _apply_rate_limit(
+    key: str | None,
+    rate_limit_per_minute: int | None,
+) -> None:
+    if not key or not rate_limit_per_minute:
+        return
+    limiter = _rate_limiters.get(key)
+    if not limiter:
+        limiter = _RateLimiter(rate_per_minute=rate_limit_per_minute)
+        _rate_limiters[key] = limiter
+    await limiter.wait()
+
+
 async def request_with_retry(
     client: httpx.AsyncClient,
     method: str,
@@ -28,6 +63,8 @@ async def request_with_retry(
     retry_statuses: Iterable[int] | None = None,
     base_backoff: float = 0.5,
     max_backoff: float = 8.0,
+    rate_limit_key: str | None = None,
+    rate_limit_per_minute: int | None = None,
     **kwargs,
 ) -> httpx.Response:
     """
@@ -39,6 +76,7 @@ async def request_with_retry(
     while True:
         attempt += 1
         try:
+            await _apply_rate_limit(rate_limit_key, rate_limit_per_minute)
             response = await client.request(method, url, **kwargs)
 
             if response.status_code in retry_statuses and attempt < max_attempts:

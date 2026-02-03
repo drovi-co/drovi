@@ -105,6 +105,8 @@ class TeamsConnector(BaseConnector):
                     f"{GRAPH_BASE_URL}/me/joinedTeams",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"$top": 1},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -192,6 +194,8 @@ class TeamsConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -238,6 +242,8 @@ class TeamsConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -255,6 +261,8 @@ class TeamsConnector(BaseConnector):
                         "GET",
                         channel_url,
                         headers={"Authorization": f"Bearer {self._access_token}"},
+                        rate_limit_key=self.get_rate_limit_key(config),
+                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -325,6 +333,8 @@ class TeamsConnector(BaseConnector):
                             "GET",
                             url,
                             headers={"Authorization": f"Bearer {self._access_token}"},
+                            rate_limit_key=self.get_rate_limit_key(config),
+                            rate_limit_per_minute=self.get_rate_limit_per_minute(),
                         )
                         response.raise_for_status()
                         data = response.json()
@@ -373,6 +383,8 @@ class TeamsConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.get_rate_limit_key(config),
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -440,6 +452,8 @@ class TeamsConnector(BaseConnector):
                         "GET",
                         url,
                         headers={"Authorization": f"Bearer {self._access_token}"},
+                        rate_limit_key=self.get_rate_limit_key(config),
+                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -483,6 +497,8 @@ class TeamsConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.connector_type,
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -506,6 +522,8 @@ class TeamsConnector(BaseConnector):
                 "GET",
                 url,
                 headers={"Authorization": f"Bearer {self._access_token}"},
+                rate_limit_key=self.connector_type,
+                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()
@@ -526,6 +544,8 @@ class TeamsConnector(BaseConnector):
                     "GET",
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
+                    rate_limit_key=self.connector_type,
+                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
