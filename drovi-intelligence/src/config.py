@@ -200,6 +200,9 @@ class Settings(BaseSettings):
     auto_approval_threshold: float = Field(default=0.85)
     human_review_threshold: float = Field(default=0.5)
 
+    # Memory backend
+    memory_backend: Literal["falkordb", "graphiti"] = Field(default="falkordb")
+
 
 @lru_cache
 def get_settings() -> Settings:

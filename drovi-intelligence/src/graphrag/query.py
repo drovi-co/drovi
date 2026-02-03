@@ -22,7 +22,7 @@ from typing import Any
 import structlog
 
 from src.config import get_settings
-from src.graph.client import get_graph_client, DroviGraph
+from src.memory import MemoryService, get_memory_service
 
 logger = structlog.get_logger()
 
@@ -52,63 +52,75 @@ QUERY_TEMPLATES = {
     "open_commitments": """
         MATCH (c:Commitment {organizationId: $orgId})
         WHERE c.status IN ['active', 'pending', 'at_risk']
-        AND (c.validTo IS NULL OR c.validTo > $now)
         RETURN c.id as id, c.title as title, c.status as status,
                c.debtorEmail as owner, c.dueDate as due_date,
-               c.confidenceTier as confidence
+               c.confidenceTier as confidence,
+               c.validFrom as valid_from, c.validTo as valid_to,
+               c.systemFrom as system_from, c.systemTo as system_to,
+               c.createdAt as created_at, c.updatedAt as updated_at
         ORDER BY c.createdAt DESC
         LIMIT 20
     """,
     "commitments_filtered": """
         MATCH (c:Commitment {organizationId: $orgId})
         WHERE c.status IN ['active', 'pending', 'at_risk']
-          AND (c.validTo IS NULL OR c.validTo > $now)
           AND (toLower(c.title) CONTAINS toLower($search)
                OR toLower(c.description) CONTAINS toLower($search))
         RETURN c.id as id, c.title as title, c.status as status,
                c.debtorEmail as owner, c.dueDate as due_date,
-               c.confidenceTier as confidence
+               c.confidenceTier as confidence,
+               c.validFrom as valid_from, c.validTo as valid_to,
+               c.systemFrom as system_from, c.systemTo as system_to,
+               c.createdAt as created_at, c.updatedAt as updated_at
         ORDER BY c.createdAt DESC
         LIMIT 20
     """,
     "recent_decisions": """
         MATCH (d:Decision {organizationId: $orgId})
-        WHERE d.validTo IS NULL
         RETURN d.id as id, d.title as title, d.outcome as outcome,
                d.madeBy as made_by, d.rationale as rationale,
-               d.createdAt as decided_at
+               d.createdAt as decided_at,
+               d.validFrom as valid_from, d.validTo as valid_to,
+               d.systemFrom as system_from, d.systemTo as system_to,
+               d.updatedAt as updated_at
         ORDER BY d.createdAt DESC
         LIMIT 10
     """,
     "decisions_filtered": """
         MATCH (d:Decision {organizationId: $orgId})
-        WHERE d.validTo IS NULL
-          AND (toLower(d.title) CONTAINS toLower($search)
-               OR toLower(d.rationale) CONTAINS toLower($search)
-               OR toLower(d.outcome) CONTAINS toLower($search))
+        WHERE toLower(d.title) CONTAINS toLower($search)
+           OR toLower(d.rationale) CONTAINS toLower($search)
+           OR toLower(d.outcome) CONTAINS toLower($search)
         RETURN d.id as id, d.title as title, d.outcome as outcome,
                d.madeBy as made_by, d.rationale as rationale,
-               d.createdAt as decided_at
+               d.createdAt as decided_at,
+               d.validFrom as valid_from, d.validTo as valid_to,
+               d.systemFrom as system_from, d.systemTo as system_to,
+               d.updatedAt as updated_at
         ORDER BY d.createdAt DESC
         LIMIT 10
     """,
     "active_risks": """
         MATCH (r:Risk {organizationId: $orgId})
-        WHERE r.validTo IS NULL OR r.validTo > $now
         RETURN r.id as id, r.title as title, r.severity as severity,
                r.likelihood as likelihood, r.impact as impact,
-               r.mitigations as mitigations, r.status as status
+               r.mitigations as mitigations, r.status as status,
+               r.validFrom as valid_from, r.validTo as valid_to,
+               r.systemFrom as system_from, r.systemTo as system_to,
+               r.createdAt as created_at, r.updatedAt as updated_at
         ORDER BY r.severity DESC, r.createdAt DESC
         LIMIT 10
     """,
     "risks_filtered": """
         MATCH (r:Risk {organizationId: $orgId})
-        WHERE (r.validTo IS NULL OR r.validTo > $now)
-          AND (toLower(r.title) CONTAINS toLower($search)
-               OR toLower(r.impact) CONTAINS toLower($search))
+        WHERE toLower(r.title) CONTAINS toLower($search)
+           OR toLower(r.impact) CONTAINS toLower($search)
         RETURN r.id as id, r.title as title, r.severity as severity,
                r.likelihood as likelihood, r.impact as impact,
-               r.mitigations as mitigations, r.status as status
+               r.mitigations as mitigations, r.status as status,
+               r.validFrom as valid_from, r.validTo as valid_to,
+               r.systemFrom as system_from, r.systemTo as system_to,
+               r.createdAt as created_at, r.updatedAt as updated_at
         ORDER BY r.severity DESC, r.createdAt DESC
         LIMIT 10
     """,
@@ -186,22 +198,28 @@ QUERY_TEMPLATES = {
     """,
     "commitments_at_risk": """
         MATCH (r:Risk {organizationId: $orgId})-[:THREATENS]->(c:Commitment {organizationId: $orgId})
-        WHERE (r.validTo IS NULL OR r.validTo > $now)
-          AND c.status IN ['active', 'pending', 'at_risk']
+        WHERE c.status IN ['active', 'pending', 'at_risk']
         RETURN c.id as commitment_id, c.title as commitment_title, c.status as commitment_status,
                c.dueDate as due_date, c.debtorEmail as owner,
+               c.validFrom as commitment_valid_from, c.validTo as commitment_valid_to,
+               c.systemFrom as commitment_system_from, c.systemTo as commitment_system_to,
                r.id as risk_id, r.title as risk_title, r.severity as risk_severity,
-               r.impact as risk_impact
+               r.impact as risk_impact,
+               r.validFrom as risk_valid_from, r.validTo as risk_valid_to,
+               r.systemFrom as risk_system_from, r.systemTo as risk_system_to
         ORDER BY r.severity DESC
         LIMIT 20
     """,
     "urgent_issues": """
         MATCH (n {organizationId: $orgId})
-        WHERE (n:Risk AND n.severity IN ['high', 'critical'] AND (n.validTo IS NULL OR n.validTo > $now))
-           OR (n:Commitment AND n.status = 'at_risk' AND (n.validTo IS NULL OR n.validTo > $now))
+        WHERE (n:Risk AND n.severity IN ['high', 'critical'])
+           OR (n:Commitment AND n.status = 'at_risk')
         RETURN labels(n)[0] as issue_type, n.id as id, n.title as title,
                n.severity as severity, n.status as status,
-               n.impact as impact, n.dueDate as due_date
+               n.impact as impact, n.dueDate as due_date,
+               n.validFrom as valid_from, n.validTo as valid_to,
+               n.systemFrom as system_from, n.systemTo as system_to,
+               n.createdAt as created_at, n.updatedAt as updated_at
         ORDER BY n.severity DESC, n.createdAt DESC
         LIMIT 20
     """,
@@ -324,13 +342,13 @@ class DroviGraphRAG:
     """
 
     def __init__(self):
-        self._graph: DroviGraph | None = None
         self._llm_client = None
+        self._memory_services: dict[str, Any] = {}
 
-    async def _get_graph(self) -> DroviGraph:
-        if self._graph is None:
-            self._graph = await get_graph_client()
-        return self._graph
+    async def _get_memory_service(self, organization_id: str):
+        if organization_id not in self._memory_services:
+            self._memory_services[organization_id] = await get_memory_service(organization_id)
+        return self._memory_services[organization_id]
 
     async def _get_llm_client(self):
         if self._llm_client is None:
@@ -613,16 +631,37 @@ class DroviGraphRAG:
             graph_results = await self._fallback_chain(question, organization_id)
             fallback_used = bool(graph_results)
 
-        # Step 5: Synthesize response
+        # Step 5: Temporal consistency + decay
+        temporal_context = self._apply_temporal_consistency(graph_results)
+        current_results = temporal_context["current"]
+        historical_results = temporal_context["historical"]
+        future_results = temporal_context["future"]
+
+        # Deprioritize stale items via decay
+        current_results = MemoryService.apply_temporal_decay(current_results)
+        historical_results = MemoryService.apply_temporal_decay(historical_results)
+
+        # Prefer current results for synthesis; fall back to historical if none
+        synthesis_results = current_results if current_results else (historical_results or graph_results)
+
+        temporal_note = self._format_temporal_note(temporal_context["summary"])
+
+        # Step 6: Synthesize response
         answer = await self._synthesize_response(
             question=question,
             intent=intent,
-            results=graph_results,
+            results=synthesis_results,
             include_evidence=include_evidence,
+            temporal_note=temporal_note,
         )
 
-        # Step 6: Extract sources
-        sources = self._extract_sources(graph_results) if include_evidence and graph_results else []
+        # Step 7: Extract sources (include historical context for auditability)
+        sources_input = synthesis_results
+        if historical_results:
+            sources_input = synthesis_results + historical_results
+        if future_results:
+            sources_input = sources_input + future_results
+        sources = self._extract_sources(sources_input) if include_evidence and sources_input else []
 
         duration = (utc_now() - start_time).total_seconds()
 
@@ -646,7 +685,7 @@ class DroviGraphRAG:
             "intent": intent,
             "sources": sources,
             "cypher_query": QUERY_TEMPLATES.get(template_key),
-            "results_count": len(graph_results),
+            "results_count": len(synthesis_results),
             "duration_seconds": duration,
             "timestamp": utc_now().isoformat(),
         }
@@ -661,7 +700,7 @@ class DroviGraphRAG:
         max_results: int = 20,
     ) -> list[dict[str, Any]]:
         """Execute a single template query."""
-        graph = await self._get_graph()
+        memory = await self._get_memory_service(organization_id)
         template_key = self._get_template_key(
             intent,
             has_topic=topic_filter is not None,
@@ -679,7 +718,7 @@ class DroviGraphRAG:
         }
 
         try:
-            results = await graph.query(query, params)
+            results = await memory.graph_query(query, params)
             return results or []
         except Exception as e:
             logger.error("Graph query failed", intent=intent, template=template_key, error=str(e))
@@ -746,6 +785,125 @@ class DroviGraphRAG:
 
         return []
 
+    # =========================================================================
+    # Temporal Consistency + Decay
+    # =========================================================================
+
+    def _parse_datetime(self, value: Any) -> datetime | None:
+        if isinstance(value, datetime):
+            return value.replace(tzinfo=None)
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                return None
+        return None
+
+    def _collect_temporal_candidates(self, result: dict[str, Any]) -> dict[str, list[datetime]]:
+        valid_froms: list[datetime] = []
+        valid_tos: list[datetime] = []
+        system_froms: list[datetime] = []
+        system_tos: list[datetime] = []
+
+        for key, value in result.items():
+            key_lower = key.lower()
+            parsed = self._parse_datetime(value)
+            if not parsed:
+                continue
+
+            if "valid_from" in key_lower or "validfrom" in key_lower:
+                valid_froms.append(parsed)
+            elif "valid_to" in key_lower or "validto" in key_lower:
+                valid_tos.append(parsed)
+            elif "system_from" in key_lower or "systemfrom" in key_lower:
+                system_froms.append(parsed)
+            elif "system_to" in key_lower or "systemto" in key_lower:
+                system_tos.append(parsed)
+
+        return {
+            "valid_froms": valid_froms,
+            "valid_tos": valid_tos,
+            "system_froms": system_froms,
+            "system_tos": system_tos,
+        }
+
+    def _determine_temporal_status(
+        self,
+        result: dict[str, Any],
+        now: datetime,
+    ) -> tuple[str, datetime | None]:
+        candidates = self._collect_temporal_candidates(result)
+        valid_froms = candidates["valid_froms"]
+        valid_tos = candidates["valid_tos"]
+        system_froms = candidates["system_froms"]
+        system_tos = candidates["system_tos"]
+
+        froms = valid_froms or system_froms
+        tos = valid_tos or system_tos
+
+        if froms and any(dt > now for dt in froms):
+            return "future", None
+        if tos and any(dt <= now for dt in tos):
+            best_superseded = max((dt for dt in tos if dt <= now), default=None)
+            return "historical", best_superseded
+        if not froms and not tos:
+            return "unknown", None
+        return "current", None
+
+    def _apply_temporal_consistency(self, results: list[dict[str, Any]]) -> dict[str, Any]:
+        now = utc_now()
+        current: list[dict[str, Any]] = []
+        historical: list[dict[str, Any]] = []
+        future: list[dict[str, Any]] = []
+        last_superseded_at: datetime | None = None
+
+        for result in results:
+            status, superseded_at = self._determine_temporal_status(result, now)
+            result["temporal_status"] = status
+            if superseded_at:
+                result["temporal_superseded_at"] = superseded_at.isoformat()
+                if last_superseded_at is None or superseded_at > last_superseded_at:
+                    last_superseded_at = superseded_at
+
+            if status == "historical":
+                historical.append(result)
+            elif status == "future":
+                future.append(result)
+            else:
+                current.append(result)
+
+        summary = {
+            "current_count": len(current),
+            "historical_count": len(historical),
+            "future_count": len(future),
+            "last_superseded_at": last_superseded_at,
+        }
+
+        return {
+            "current": current,
+            "historical": historical,
+            "future": future,
+            "summary": summary,
+        }
+
+    def _format_temporal_note(self, summary: dict[str, Any]) -> str | None:
+        historical_count = summary.get("historical_count", 0)
+        future_count = summary.get("future_count", 0)
+        last_superseded_at = summary.get("last_superseded_at")
+
+        notes = []
+        if historical_count:
+            if isinstance(last_superseded_at, datetime):
+                notes.append(
+                    f"Note: {historical_count} related items were superseded (latest on {last_superseded_at.date().isoformat()})."
+                )
+            else:
+                notes.append(f"Note: {historical_count} related items were superseded in the past.")
+        if future_count:
+            notes.append(f"Note: {future_count} items appear to take effect in the future.")
+
+        return " ".join(notes) if notes else None
+
     async def _dynamic_cypher_query(
         self,
         question: str,
@@ -780,13 +938,13 @@ class DroviGraphRAG:
                 logger.warning("Dynamic Cypher rejected: contains write operations", cypher=cypher[:100])
                 return []
 
-            graph = await self._get_graph()
+            memory = await self._get_memory_service(organization_id)
             params = {
                 "orgId": organization_id,
                 "now": utc_now().isoformat(),
                 "search": "",
             }
-            return await graph.query(cypher, params) or []
+            return await memory.graph_query(cypher, params) or []
 
         except Exception as e:
             logger.warning("Dynamic Cypher generation failed", error=str(e))
@@ -798,7 +956,7 @@ class DroviGraphRAG:
         organization_id: str,
     ) -> list[dict[str, Any]]:
         """Search across multiple node types using fulltext as final fallback."""
-        graph = await self._get_graph()
+        memory = await self._get_memory_service(organization_id)
         search_terms = self._extract_search_terms(question)
         search_text = " ".join(search_terms[:3]) if search_terms else question[:50]
 
@@ -807,12 +965,7 @@ class DroviGraphRAG:
 
         for label in labels_to_search:
             try:
-                results = await graph.fulltext_search(
-                    label=label,
-                    query_text=search_text,
-                    organization_id=organization_id,
-                    limit=5,
-                )
+                results = await memory.fulltext_search(label=label, query_text=search_text, limit=5)
                 for r in results:
                     node = r.get("node", r)
                     if isinstance(node, dict):
@@ -833,6 +986,7 @@ class DroviGraphRAG:
         intent: str,
         results: list[dict[str, Any]],
         include_evidence: bool,
+        temporal_note: str | None = None,
     ) -> str:
         """Synthesize a natural language response from graph results."""
         if not results:
@@ -841,10 +995,10 @@ class DroviGraphRAG:
         # Try LLM synthesis
         llm = await self._get_llm_client()
         if llm:
-            return await self._llm_synthesize(question, intent, results, llm)
+            return await self._llm_synthesize(question, intent, results, llm, temporal_note)
 
         # Fallback to template synthesis
-        return self._template_synthesize(intent, results, include_evidence)
+        return self._template_synthesize(intent, results, include_evidence, temporal_note)
 
     async def _llm_synthesize(
         self,
@@ -852,15 +1006,18 @@ class DroviGraphRAG:
         intent: str,
         results: list[dict[str, Any]],
         llm: Any,
+        temporal_note: str | None,
     ) -> str:
         """Use LLM for rich response synthesis."""
         settings = get_settings()
 
         results_json = json.dumps(results[:15], indent=2, default=str)
+        temporal_context = temporal_note or "No superseded or future-dated items detected."
 
         user_prompt = f"""Question: {question}
 
 Intent: {intent}
+Temporal context: {temporal_context}
 Results ({len(results)} total):
 {results_json}
 
@@ -886,52 +1043,65 @@ Provide a structured, insightful answer based on these results."""
         intent: str,
         results: list[dict[str, Any]],
         include_evidence: bool,
+        temporal_note: str | None,
     ) -> str:
         """Template-based response synthesis (fallback)."""
         if intent == "influential":
             names = [r.get("name", r.get("email", "Unknown")) for r in results[:5]]
-            return f"The most influential people in your network are: {', '.join(names)}. Rankings are based on PageRank analysis of communication patterns."
+            response = f"The most influential people in your network are: {', '.join(names)}. Rankings are based on PageRank analysis of communication patterns."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "commitments":
             count = len(results)
             at_risk = sum(1 for r in results if r.get("status") == "at_risk")
-            return f"Found {count} open commitments. {at_risk} are currently at risk and may need attention."
+            response = f"Found {count} open commitments. {at_risk} are currently at risk and may need attention."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "decisions":
             recent = results[:3]
             if recent:
                 titles = [r.get("title", "Untitled") for r in recent]
-                return f"Recent decisions include: {'; '.join(titles)}."
-            return "No recent decisions found."
+                response = f"Recent decisions include: {'; '.join(titles)}."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No recent decisions found."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "risks":
             high_severity = [r for r in results if r.get("severity") in ("high", "critical")]
-            return f"Found {len(results)} active risks. {len(high_severity)} are high severity and require immediate attention."
+            response = f"Found {len(results)} active risks. {len(high_severity)} are high severity and require immediate attention."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "relationships":
             if results:
                 contact = results[0].get("contact_name", "This contact")
                 comm_count = sum(r.get("message_count", 0) or 0 for r in results)
-                return f"{contact} has communicated {comm_count} times with {len(results)} other contacts."
-            return "No communication relationships found matching your query."
+                response = f"{contact} has communicated {comm_count} times with {len(results)} other contacts."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No communication relationships found matching your query."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "top_communicators":
             if results:
                 top = results[:3]
                 lines = [f"- {r.get('name', '?')} ({r.get('total_messages', 0)} messages, {r.get('relationship_count', 0)} connections)" for r in top]
-                return f"Top communicators in your network:\n" + "\n".join(lines)
-            return "No communication data found."
+                response = f"Top communicators in your network:\n" + "\n".join(lines)
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No communication data found."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "clusters":
             cluster_count = len(results)
             largest = results[0].get("size", 0) if results else 0
-            return f"Detected {cluster_count} communication clusters. The largest has {largest} members."
+            response = f"Detected {cluster_count} communication clusters. The largest has {largest} members."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "bridges":
             if results:
                 names = [r.get("name", r.get("email", "Unknown")) for r in results[:3]]
-                return f"Key bridge connectors: {', '.join(names)}. They connect different groups and are valuable for introductions."
-            return "No significant bridge connectors identified yet."
+                response = f"Key bridge connectors: {', '.join(names)}. They connect different groups and are valuable for introductions."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No significant bridge connectors identified yet."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "customer":
             if results:
@@ -941,33 +1111,42 @@ Provide a structured, insightful answer based on these results."""
                 commitments = r.get("commitments", 0)
                 connections = r.get("connections", 0)
                 influence = r.get("influence", 0)
-                return f"{name} from {company}: {commitments} commitments, {connections} connections, influence score {influence or 0:.2f}."
-            return "No matching contact found."
+                response = f"{name} from {company}: {commitments} commitments, {connections} connections, influence score {influence or 0:.2f}."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No matching contact found."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "entity":
             if results:
                 company = results[0].get("company", "Unknown")
                 count = len(results)
                 names = [r.get("name", "?") for r in results[:5]]
-                return f"Found {count} contacts at {company}: {', '.join(names)}."
-            return "No matching company or entity found."
+                response = f"Found {count} contacts at {company}: {', '.join(names)}."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No matching company or entity found."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "cross_entity":
             if results:
                 count = len(results)
-                return f"Found {count} cross-entity relationships. " + \
+                response = f"Found {count} cross-entity relationships. " + \
                        "; ".join(f"{r.get('risk_title', '?')} threatens {r.get('commitment_title', '?')}" for r in results[:3])
-            return "No cross-entity relationships found."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No cross-entity relationships found."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
         if intent == "urgent_issues":
             if results:
                 count = len(results)
                 types = set(r.get("issue_type", "unknown") for r in results)
-                return f"Found {count} issues needing attention ({', '.join(types)}): " + \
+                response = f"Found {count} issues needing attention ({', '.join(types)}): " + \
                        "; ".join(f"[{r.get('issue_type', '?')}] {r.get('title', '?')}" for r in results[:5])
-            return "No urgent issues identified."
+                return f"{response} {temporal_note}".strip() if temporal_note else response
+            response = "No urgent issues identified."
+            return f"{response} {temporal_note}".strip() if temporal_note else response
 
-        return f"Found {len(results)} results matching your query."
+        response = f"Found {len(results)} results matching your query."
+        return f"{response} {temporal_note}".strip() if temporal_note else response
 
     def _generate_no_results_response(self, intent: str) -> str:
         """Generate a response when no results are found."""
@@ -1046,6 +1225,10 @@ Provide a structured, insightful answer based on these results."""
                 source["severity"] = r["severity"]
             if r.get("status") or r.get("commitment_status"):
                 source["status"] = r.get("status") or r.get("commitment_status")
+            if r.get("temporal_status"):
+                source["temporal_status"] = r.get("temporal_status")
+            if r.get("temporal_superseded_at"):
+                source["temporal_superseded_at"] = r.get("temporal_superseded_at")
 
             # Only add if meaningful
             if source.get("id") or source.get("name"):

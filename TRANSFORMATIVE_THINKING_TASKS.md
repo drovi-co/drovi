@@ -77,11 +77,11 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
 
 **Phase 6 — Memory Graph 2.0**
-- [ ] Choose a single memory backbone and formalize adapters. Acceptance: only one canonical memory API is used by pipeline.
-- [ ] Add time‑slice query API endpoints. Acceptance: queries return historical truth at a given timestamp.
-- [ ] Implement “Decision Trails” and “Commitment Trails.” Acceptance: API returns ordered evolution timeline.
-- [ ] Add entity and relationship decay rules. Acceptance: stale info is deprioritized in retrieval.
-- [ ] Add temporal consistency checks in GraphRAG queries. Acceptance: answers cite current truth and note past superseded info.
+- [x] Choose a single memory backbone and formalize adapters. Acceptance: only one canonical memory API is used by pipeline.
+- [x] Add time‑slice query API endpoints. Acceptance: queries return historical truth at a given timestamp.
+- [x] Implement “Decision Trails” and “Commitment Trails.” Acceptance: API returns ordered evolution timeline.
+- [x] Add entity and relationship decay rules. Acceptance: stale info is deprioritized in retrieval.
+- [x] Add temporal consistency checks in GraphRAG queries. Acceptance: answers cite current truth and note past superseded info.
 
 **Phase 7 — Retrieval and Ask Experience**
 - [ ] Improve hybrid retrieval fusion with weighted ranks. Acceptance: search relevance improves on gold set.

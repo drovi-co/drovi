@@ -5,6 +5,7 @@ Temporal and bi-temporal memory queries inspired by Graphiti.
 """
 
 from datetime import datetime
+from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
-from src.memory.drovi_memory import get_memory
+from src.memory import MemoryService, get_memory_service
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -55,6 +56,48 @@ class MemoryUIOSearchRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=200)
 
 
+class TimeSliceRequest(BaseModel):
+    """Request for bi-temporal time-slice queries."""
+
+    organization_id: str = Field(..., description="Organization ID")
+    as_of: datetime = Field(..., description="Point in time to query")
+    mode: Literal["truth", "knowledge", "both"] = Field(
+        default="truth",
+        description="Filter mode: truth (valid_from/to), knowledge (system_from/to), or both",
+    )
+    uio_types: list[str] | None = Field(default=None, description="Filter by UIO types")
+    status: str | None = Field(default=None, description="Filter by UIO status")
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class TrailEvent(BaseModel):
+    event_type: str
+    event_description: str
+    previous_value: dict | None = None
+    new_value: dict | None = None
+    source_type: str | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    message_id: str | None = None
+    quoted_text: str | None = None
+    triggered_by: str | None = None
+    confidence: float | None = None
+    event_at: str | None = None
+
+
+class TrailResponse(BaseModel):
+    uio_id: str
+    uio_type: str
+    status: str | None = None
+    title: str | None = None
+    description: str | None = None
+    valid_from: str | None = None
+    valid_to: str | None = None
+    system_from: str | None = None
+    system_to: str | None = None
+    events: list[TrailEvent] = Field(default_factory=list)
+
+
 @router.post("/memory/search")
 async def search_memory(
     request: MemorySearchRequest,
@@ -76,7 +119,7 @@ async def search_memory(
     )
 
     try:
-        memory = await get_memory(request.organization_id)
+        memory = await get_memory_service(request.organization_id)
 
         if request.as_of_date:
             results = await memory.search_as_of(
@@ -91,6 +134,8 @@ async def search_memory(
                 source_types=request.source_types,
                 limit=request.limit,
             )
+
+        results = MemoryService.apply_temporal_decay(results)
 
         return {
             "success": True,
@@ -124,11 +169,13 @@ async def search_cross_source(
     )
 
     try:
-        memory = await get_memory(request.organization_id)
+        memory = await get_memory_service(request.organization_id)
         results = await memory.search_across_sources(
             query=request.query,
             limit=request.limit,
         )
+        for source_type, items in list(results.items()):
+            results[source_type] = MemoryService.apply_temporal_decay(items)
 
         return {
             "success": True,
@@ -150,13 +197,14 @@ async def search_uios(
     """
     _validate_org_id(ctx, request.organization_id)
     try:
-        memory = await get_memory(request.organization_id)
+        memory = await get_memory_service(request.organization_id)
         results = await memory.search_uios_as_of(
             query=request.query,
             as_of_date=request.as_of_date,
             uio_types=request.uio_types,
             limit=request.limit,
         )
+        results = MemoryService.apply_temporal_decay(results)
 
         return {
             "success": True,
@@ -194,7 +242,7 @@ async def get_timeline(
     )
 
     try:
-        memory = await get_memory(request.organization_id)
+        memory = await get_memory_service(request.organization_id)
 
         if request.entity_id:
             episodes = await memory.get_entity_timeline(request.entity_id)
@@ -215,6 +263,70 @@ async def get_timeline(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/memory/time-slice")
+async def time_slice_uios(
+    request: TimeSliceRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """
+    Query UIOs as-of a specific timestamp (bi-temporal time slice).
+    """
+    _validate_org_id(ctx, request.organization_id)
+    try:
+        memory = await get_memory_service(request.organization_id)
+        results = await memory.time_slice_uios(
+            as_of=request.as_of,
+            mode=request.mode,
+            uio_types=request.uio_types,
+            status=request.status,
+            limit=request.limit,
+        )
+        return {
+            "success": True,
+            "as_of": request.as_of.isoformat(),
+            "mode": request.mode,
+            "results": results,
+            "count": len(results),
+        }
+    except Exception as e:
+        logger.error("Time-slice query failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/memory/trails/commitments/{commitment_id}", response_model=TrailResponse)
+async def get_commitment_trail(
+    commitment_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """
+    Get an audit-grade commitment trail (timeline of changes + evidence).
+    """
+    _validate_org_id(ctx, organization_id)
+    memory = await get_memory_service(organization_id)
+    trail = await memory.get_commitment_trail(commitment_id)
+    if not trail:
+        raise HTTPException(status_code=404, detail="Commitment not found")
+    return TrailResponse(**trail)
+
+
+@router.get("/memory/trails/decisions/{decision_id}", response_model=TrailResponse)
+async def get_decision_trail(
+    decision_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """
+    Get an audit-grade decision trail (timeline of changes + evidence).
+    """
+    _validate_org_id(ctx, organization_id)
+    memory = await get_memory_service(organization_id)
+    trail = await memory.get_decision_trail(decision_id)
+    if not trail:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    return TrailResponse(**trail)
+
+
 @router.get("/memory/recent")
 async def get_recent_episodes(
     organization_id: str,
@@ -228,7 +340,7 @@ async def get_recent_episodes(
     """
     _validate_org_id(ctx, organization_id)
     try:
-        memory = await get_memory(organization_id)
+        memory = await get_memory_service(organization_id)
         episodes = await memory.get_recent_episodes(limit)
 
         return {
