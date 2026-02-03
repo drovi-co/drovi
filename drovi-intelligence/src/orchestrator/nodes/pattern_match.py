@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from ..state import (
     IntelligenceState,
     NodeTiming,
+    PatternMatchInfo,
 )
 
 logger = structlog.get_logger()
@@ -141,6 +142,38 @@ async def pattern_match_node(state: IntelligenceState) -> dict:
         )
         # Don't fail the pipeline
 
+    # Update routing priority if patterns matched
+    routing_update = state.routing
+    if result.confidence_boost > 0:
+        boosted_score = min(1.0, routing_update.priority_score + result.confidence_boost)
+        routing_update = routing_update.model_copy()
+        routing_update.priority_score = max(routing_update.priority_score, boosted_score)
+        if routing_update.priority_score >= 0.8:
+            routing_update.priority_tier = "urgent"
+        elif routing_update.priority_score >= 0.6:
+            routing_update.priority_tier = "high"
+        elif routing_update.priority_score >= 0.3:
+            routing_update.priority_tier = "medium"
+        else:
+            routing_update.priority_tier = "low"
+
+    matched_patterns = [
+        PatternMatchInfo(
+            pattern_id=match.pattern_id,
+            pattern_name=match.pattern_name,
+            description=match.description,
+            semantic_score=match.semantic_score,
+            structural_match=match.structural_match,
+            salient_features=match.salient_features,
+            typical_expectations=match.typical_expectations,
+            suggested_action=match.suggested_action,
+            plausible_goals=match.plausible_goals,
+            confidence_boost=match.confidence_boost,
+            domain=match.domain,
+        )
+        for match in result.matched_patterns
+    ]
+
     # Update trace
     elapsed = time.time() - start_time
     updated_trace = state.trace.model_copy()
@@ -153,8 +186,9 @@ async def pattern_match_node(state: IntelligenceState) -> dict:
 
     return {
         "trace": updated_trace,
-        "matched_patterns": result.matched_patterns,
+        "matched_patterns": matched_patterns,
         "pattern_confidence_boost": result.confidence_boost,
+        "routing": routing_update,
     }
 
 

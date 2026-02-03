@@ -10,6 +10,7 @@ import structlog
 
 from src.llm import get_llm_service, ClaimExtractionOutput
 from src.llm.prompts_v2 import get_claim_extraction_v2_prompt
+from src.personalization import get_org_profile
 from ..state import (
     IntelligenceState,
     ExtractedClaim,
@@ -59,14 +60,7 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
 
     # Get LLM service
     llm = get_llm_service()
-
-    # Build prompt using V2 strict prompts
-    messages = get_claim_extraction_v2_prompt(
-        content=content,
-        source_type=state.input.source_type,
-        user_email=state.input.user_email,
-        memory_context=state.memory_context,
-    )
+    org_profile = await get_org_profile(state.input.organization_id)
 
     try:
         claims = []
@@ -78,6 +72,7 @@ async def extract_claims_node(state: IntelligenceState) -> dict:
                 source_type=state.input.source_type,
                 user_email=state.input.user_email,
                 memory_context=state.memory_context,
+                org_profile=org_profile.model_dump() if org_profile else None,
             )
 
             output, llm_call = await llm.complete_structured(

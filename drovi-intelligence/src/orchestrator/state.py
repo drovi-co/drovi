@@ -440,6 +440,27 @@ class Confidence(BaseModel):
 
 
 # =============================================================================
+# Pattern Matching
+# =============================================================================
+
+
+class PatternMatchInfo(BaseModel):
+    """Summary of a matched recognition pattern."""
+
+    pattern_id: str
+    pattern_name: str
+    description: str | None = None
+    semantic_score: float = 0.0
+    structural_match: bool = False
+    salient_features: list[str] = Field(default_factory=list)
+    typical_expectations: list[str] = Field(default_factory=list)
+    suggested_action: str | None = None
+    plausible_goals: list[str] = Field(default_factory=list)
+    confidence_boost: float = 0.0
+    domain: str | None = None
+
+
+# =============================================================================
 # Routing
 # =============================================================================
 
@@ -650,6 +671,10 @@ class IntelligenceState(BaseModel):
 
     # Classification
     classification: Classification = Field(default_factory=Classification)
+
+    # Pattern matching (Klein RPD)
+    matched_patterns: list[PatternMatchInfo] = Field(default_factory=list)
+    pattern_confidence_boost: float = 0.0
 
     # Brief (thread summary)
     brief: Brief = Field(default_factory=Brief)

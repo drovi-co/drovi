@@ -32,6 +32,7 @@ from sqlalchemy import text
 from src.db import get_db_session
 from src.graph.client import get_graph_client
 from src.graph.evolution import MemoryEvolution, SupersessionReason
+from src.finetuning.feedback_pipeline import record_uio_correction, maybe_trigger_finetune
 from src.graph.types import GraphNodeType
 from src.memory.graphiti_memory import get_graphiti_memory
 from src.orchestrator.state import UIOStatus
@@ -1415,7 +1416,7 @@ class UIOManager:
             set_clause, set_params = graph.build_set_clause("u", update_props)
             await graph.query(
                 f"""
-                MATCH (u:UIO {{id: $id, organizationId: $orgId}})
+                MATCH (u {{id: $id, organizationId: $orgId}})
                 SET {set_clause}
                 """,
                 {"id": uio_id, "orgId": self.organization_id, **set_params},
@@ -1557,8 +1558,8 @@ class UIOManager:
         # Get current UIO data
         result = await graph.query(
             """
-            MATCH (u:UIO {id: $id, organizationId: $orgId})
-            RETURN properties(u) as props
+            MATCH (u {id: $id, organizationId: $orgId})
+            RETURN labels(u) as labels, properties(u) as props
             """,
             {"id": uio_id, "orgId": self.organization_id},
         )
@@ -1571,6 +1572,8 @@ class UIOManager:
             return False
 
         current_props = result[0].get("props", {})
+        labels = result[0].get("labels") or []
+        current_props["labels"] = labels
         now = datetime.utcnow()
 
         # Store original if not already corrected
@@ -1685,6 +1688,23 @@ class UIOManager:
                             "event_at": now,
                         },
                     )
+
+            try:
+                task_type = await record_uio_correction(
+                    organization_id=self.organization_id,
+                    uio_id=uio_id,
+                    corrections=corrections,
+                    user_id=user_id,
+                    props=current_props,
+                )
+                if task_type:
+                    await maybe_trigger_finetune(task_type)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to record correction for training",
+                    uio_id=uio_id,
+                    error=str(exc),
+                )
 
             return True
 

@@ -40,12 +40,15 @@ from src.api.routes import (
     customer,
     events,
     evidence,
+    guardrails,
     graph,
     health,
     live_sessions,
     memory,
     monitoring,
     org,
+    patterns,
+    personalization,
     search,
     sessions,
     signals,
@@ -222,6 +225,9 @@ app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"]
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(org.router, prefix="/api/v1", tags=["Organization Management"])
+app.include_router(patterns.router, prefix="/api/v1", tags=["Patterns"])
+app.include_router(personalization.router, prefix="/api/v1", tags=["Personalization"])
+app.include_router(guardrails.router, prefix="/api/v1", tags=["Guardrails"])
 
 
 @app.get("/")

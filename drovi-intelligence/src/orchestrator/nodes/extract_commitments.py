@@ -10,6 +10,7 @@ import structlog
 
 from src.llm import get_llm_service, CommitmentExtractionOutput
 from src.llm.prompts_v2 import get_commitment_extraction_v2_prompt
+from src.personalization import get_org_profile
 from ..state import (
     IntelligenceState,
     ExtractedCommitment,
@@ -72,6 +73,7 @@ async def extract_commitments_node(state: IntelligenceState) -> dict:
 
     # Get LLM service
     llm = get_llm_service()
+    org_profile = await get_org_profile(state.input.organization_id)
 
     try:
         commitments: list[ExtractedCommitment] = []
@@ -85,6 +87,7 @@ async def extract_commitments_node(state: IntelligenceState) -> dict:
                 user_name=state.input.user_name,
                 contact_context=state.contact_context.resolved_contacts if state.contact_context else None,
                 memory_context=state.memory_context,
+                org_profile=org_profile.model_dump() if org_profile else None,
             )
 
             output, llm_call = await llm.complete_structured(

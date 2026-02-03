@@ -42,6 +42,39 @@ def _format_memory_context(memory_context: dict | None) -> str | None:
     return "\n\n".join(parts)
 
 
+def _format_org_profile_context(org_profile: dict | None) -> str | None:
+    if not org_profile:
+        return None
+
+    def _get(key: str) -> Any:
+        if isinstance(org_profile, dict):
+            return org_profile.get(key)
+        return getattr(org_profile, key, None)
+
+    parts = []
+    preferred_language = _get("preferred_language")
+    if preferred_language:
+        parts.append(f"Preferred language: {preferred_language}")
+
+    jargon_terms = _get("jargon_terms") or []
+    if jargon_terms:
+        parts.append(f"Jargon terms: {', '.join(jargon_terms[:8])}")
+
+    roles = _get("roles") or []
+    if roles:
+        parts.append(f"Roles: {', '.join(roles[:8])}")
+
+    projects = _get("project_names") or []
+    if projects:
+        parts.append(f"Projects: {', '.join(projects[:8])}")
+
+    domain_terms = _get("domain_terms") or []
+    if domain_terms:
+        parts.append(f"Domain terms: {', '.join(domain_terms[:8])}")
+
+    return "\n".join(parts) if parts else None
+
+
 def _source_specific_guidance(source_type: str) -> str:
     source = (source_type or "").lower()
     if source in {"meeting", "call", "recording"}:
@@ -162,6 +195,7 @@ def get_commitment_extraction_v2_prompt(
     user_name: str | None = None,
     contact_context: dict | None = None,
     memory_context: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict commitment extraction prompt."""
     context_parts = []
@@ -184,6 +218,10 @@ def get_commitment_extraction_v2_prompt(
     memory_str = _format_memory_context(memory_context)
     if memory_str:
         context_parts.append(f"Memory context:\n{memory_str}")
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append(f"Organization context:\n{org_context}")
 
     context_str = "\n".join(context_parts)
 
@@ -306,6 +344,7 @@ def get_decision_extraction_v2_prompt(
     user_email: str | None = None,
     user_name: str | None = None,
     memory_context: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict decision extraction prompt."""
     context_parts = []
@@ -320,6 +359,10 @@ def get_decision_extraction_v2_prompt(
     memory_str = _format_memory_context(memory_context)
     if memory_str:
         context_parts.append(f"Memory context:\n{memory_str}")
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append(f"Organization context:\n{org_context}")
     context_str = "\n".join(context_parts)
 
     return [
@@ -460,6 +503,7 @@ def get_claim_extraction_v2_prompt(
     source_type: str,
     user_email: str | None = None,
     memory_context: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict claim extraction prompt."""
     context_parts = []
@@ -472,6 +516,10 @@ def get_claim_extraction_v2_prompt(
     memory_str = _format_memory_context(memory_context)
     if memory_str:
         context_parts.append(f"Memory context:\n{memory_str}")
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append(f"Organization context:\n{org_context}")
     context_str = "\n".join(context_parts)
 
     return [
@@ -577,6 +625,7 @@ def get_contact_extraction_v2_prompt(
     content: str,
     source_type: str,
     metadata: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict contact extraction prompt."""
     context_parts = [f"Source type: {source_type}", _source_specific_guidance(source_type)]
@@ -589,6 +638,10 @@ def get_contact_extraction_v2_prompt(
             context_parts.append(f"To: {metadata.get('to')}")
         if metadata.get("cc"):
             context_parts.append(f"CC: {metadata.get('cc')}")
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append(f"Organization context:\n{org_context}")
 
     context_str = "\n".join(context_parts)
 
@@ -762,6 +815,7 @@ def get_task_extraction_v2_prompt(
     decisions: list[dict] | None = None,
     source_type: str = "email",
     memory_context: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict task extraction prompt."""
     context_parts = []
@@ -782,6 +836,11 @@ def get_task_extraction_v2_prompt(
     if memory_str:
         context_parts.append("\\nMemory context:")
         context_parts.append(memory_str)
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append("\\nOrganization context:")
+        context_parts.append(org_context)
 
     context_str = "\\n".join(context_parts)
 
@@ -890,6 +949,7 @@ def get_risk_detection_v2_prompt(
     decisions: list[dict] | None = None,
     source_type: str = "email",
     memory_context: dict | None = None,
+    org_profile: dict | None = None,
 ) -> list[dict]:
     """Build strict risk detection prompt."""
     context_parts = [f"Source type: {source_type}", _source_specific_guidance(source_type)]
@@ -913,6 +973,11 @@ def get_risk_detection_v2_prompt(
     if memory_str:
         context_parts.append("\nMemory context:")
         context_parts.append(memory_str)
+
+    org_context = _format_org_profile_context(org_profile)
+    if org_context:
+        context_parts.append("\nOrganization context:")
+        context_parts.append(org_context)
 
     context_str = "\n".join(context_parts)
 

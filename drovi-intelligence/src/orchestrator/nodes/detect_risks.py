@@ -10,6 +10,7 @@ import structlog
 
 from src.llm import get_llm_service, RiskDetectionOutput
 from src.llm.prompts_v2 import get_risk_detection_v2_prompt
+from src.personalization import get_org_profile
 from ..state import (
     IntelligenceState,
     DetectedRisk,
@@ -82,6 +83,7 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
 
     # Get LLM service
     llm = get_llm_service()
+    org_profile = await get_org_profile(state.input.organization_id)
 
     try:
         risks: list[DetectedRisk] = []
@@ -94,6 +96,7 @@ async def detect_risks_node(state: IntelligenceState) -> dict:
                 decisions=decisions_dicts,
                 source_type=state.input.source_type,
                 memory_context=state.memory_context,
+                org_profile=org_profile.model_dump() if org_profile else None,
             )
 
             output, llm_call = await llm.complete_structured(

@@ -14,6 +14,7 @@ from .anonymizer import PIIAnonymizer
 from .collector import TrainingDataCollector
 from .dataset_builder import DatasetBuilder
 from .evaluator import ModelEvaluator, compare_models
+from .feedback_pipeline import record_uio_correction, maybe_trigger_finetune
 from .registry import DeploymentManager, ModelRegistry, ModelVersion
 from .schemas import (
     DataQuality,
@@ -41,4 +42,6 @@ __all__ = [
     "compare_models",
     "ModelRegistry",
     "DeploymentManager",
+    "record_uio_correction",
+    "maybe_trigger_finetune",
 ]

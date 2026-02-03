@@ -92,12 +92,12 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Cache per‑conversation context to keep extraction under 300ms. Acceptance: repeated thread extractions hit cache and meet latency targets.
 
 **Phase 8 — Active Learning + Pattern Intelligence**
-- [ ] Convert all user corrections into labeled training data. Acceptance: corrections are exported in a structured dataset with labels and evidence.
-- [ ] Build a feedback‑to‑model pipeline that updates prompts and supports optional fine‑tuning. Acceptance: pipeline can replay corrections into updated extraction configs.
-- [ ] Personalize extraction per org (language, jargon, roles, project names). Acceptance: per‑org prompt/context rules improve precision on eval sets.
-- [ ] Auto‑discover patterns via embedding clustering of commitments/decisions. Acceptance: pattern candidates are generated automatically with stats.
-- [ ] Let users promote clusters into patterns with expected actions and confidence boosts. Acceptance: UI/API supports promotion and pattern lifecycle.
-- [ ] Use patterns as a fast‑path for high‑precision extraction and prioritization. Acceptance: pattern match boosts confidence and routing decisions.
+- [x] Convert all user corrections into labeled training data. Acceptance: corrections are exported in a structured dataset with labels and evidence.
+- [x] Build a feedback‑to‑model pipeline that updates prompts and supports optional fine‑tuning. Acceptance: pipeline can replay corrections into updated extraction configs.
+- [x] Personalize extraction per org (language, jargon, roles, project names). Acceptance: per‑org prompt/context rules improve precision on eval sets.
+- [x] Auto‑discover patterns via embedding clustering of commitments/decisions. Acceptance: pattern candidates are generated automatically with stats.
+- [x] Let users promote clusters into patterns with expected actions and confidence boosts. Acceptance: UI/API supports promotion and pattern lifecycle.
+- [x] Use patterns as a fast‑path for high‑precision extraction and prioritization. Acceptance: pattern match boosts confidence and routing decisions.
 
 **Phase 9 — Multimodal Intelligence**
 - [ ] Process attachments, PDFs, slides, and images with OCR + layout awareness. Acceptance: extracted content is indexed and evidence‑linked.
@@ -106,41 +106,41 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [ ] Add “closest matches” fallback when no direct results exist. Acceptance: Ask endpoint returns helpful alternatives.
 - [ ] Add RAM‑layer user profile retrieval and caching. Acceptance: default context included in responses under 400ms.
 
-**Phase 8 — Risk, Policy, and Pre‑Send Guardrails**
-- [ ] Pre‑send contradiction check API for compose flows. Acceptance: conflicts appear before send with evidence links.
-- [ ] PII detection pipeline for outgoing drafts. Acceptance: sensitive data warnings appear reliably.
-- [ ] Fraud and impersonation heuristics for inbound messages. Acceptance: risk alerts generated with scores.
-- [ ] Policy rule engine for enterprise compliance. Acceptance: rules can block or require approval.
-- [ ] Audit log for all risk detections and user actions. Acceptance: audit records link to evidence and user IDs.
+**Phase 10 — Risk, Policy, and Pre‑Send Guardrails**
+- [x] Pre‑send contradiction check API for compose flows. Acceptance: conflicts appear before send with evidence links.
+- [x] PII detection pipeline for outgoing drafts. Acceptance: sensitive data warnings appear reliably.
+- [x] Fraud and impersonation heuristics for inbound messages. Acceptance: risk alerts generated with scores.
+- [x] Policy rule engine for enterprise compliance. Acceptance: rules can block or require approval.
+- [x] Audit log for all risk detections and user actions. Acceptance: audit records link to evidence and user IDs.
 
-**Phase 9 — UX Surfaces That Build Trust**
+**Phase 11 — UX Surfaces That Build Trust**
 - [ ] Evidence popover UI for every intelligence card. Acceptance: one‑click evidence view with highlighted quotes.
 - [ ] Confidence badges visible by default. Acceptance: UIO cards show confidence tiers and reasons.
 - [ ] “Show me why” flow in Ask results. Acceptance: citations link to evidence and timeline views.
 - [ ] Long‑term memory views for relationships and decisions. Acceptance: timeline view spans years with major changes.
 - [ ] Multi‑source compose support for contradiction checks across email/Slack/WhatsApp. Acceptance: compose runs risk checks per source.
 
-**Phase 10 — Observability, SLOs, and Reliability**
+**Phase 12 — Observability, SLOs, and Reliability**
 - [ ] Implement all Prometheus metrics in docs. Acceptance: Grafana dashboards show ingestion, extraction, and evidence latency.
 - [ ] SLO burn alerts configured for 1h and 6h windows. Acceptance: alerts trigger in staging when thresholds exceeded.
 - [ ] Kafka consumer lag monitoring. Acceptance: alerts fire for sustained lag.
 - [ ] Daily backup verification and weekly restore drills. Acceptance: restores pass in staging and logs retained.
 - [ ] Load testing for ingestion and extraction. Acceptance: p95 extraction < 30s and UEM persist < 500ms.
 
-**Phase 11 — Security and Compliance**
+**Phase 13 — Security and Compliance**
 - [ ] RLS tests for tenant isolation in Postgres and FalkorDB. Acceptance: cross‑tenant queries are blocked.
 - [ ] Evidence access control checks for signed URL retrieval. Acceptance: unauthorized access fails.
 - [ ] Consent and recording policy enforcement for live sessions. Acceptance: regional rules are honored.
 - [ ] Data retention policies with deletion verification. Acceptance: data purged according to policy.
 
-**Phase 12 — End‑to‑End Testing and Release Readiness**
+**Phase 14 — End‑to‑End Testing and Release Readiness**
 - [ ] Build a gold dataset for commitments, decisions, risks, tasks, and claims. Acceptance: dataset covers at least 500 diverse samples.
 - [ ] Implement automated eval harness with precision/recall and hallucination metrics. Acceptance: regressions block CI.
 - [ ] Add integration tests for connectors, UEM, and pipeline. Acceptance: CI passes on core ingestion paths.
 - [ ] Add chaos tests for partial failures (LLM provider down, Kafka lag). Acceptance: pipeline degrades gracefully.
 - [ ] Run an internal pilot and collect correction data. Acceptance: correction rate trends downward after tuning.
 
-**Phase 13 — Demo‑Ready “Wow” Features**
+**Phase 15 — Demo‑Ready “Wow” Features**
 - [ ] Decision Radar real‑time detection with confirmation prompt. Acceptance: live sessions flag decision points.
 - [ ] Commitment auto‑closure based on evidence. Acceptance: commitments close when fulfillment detected.
 - [ ] Organizational blindspot detection reports. Acceptance: blindspot report generated weekly.

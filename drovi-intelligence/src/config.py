@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     collect_training_data: bool = Field(default=True)
     training_data_sample_rate: float = Field(default=0.1)
     training_data_path: str = Field(default="training_data")
+    feedback_finetune_enabled: bool = Field(default=False)
+    feedback_finetune_min_samples: int = Field(default=50)
 
     # TypeScript Backend
     ts_backend_url: str = Field(default="http://localhost:3000")
@@ -102,6 +104,11 @@ class Settings(BaseSettings):
     dlp_mask_char: str = Field(default="█")
     dlp_allow_emails: bool = Field(default=False)
     dlp_allow_phone_numbers: bool = Field(default=False)
+    guardrails_use_llm: bool = Field(default=True)
+    guardrails_max_candidates: int = Field(default=5)
+    policy_rules_json: str | None = Field(default=None)
+    policy_rules_path: str | None = Field(default=None)
+    policy_default_rules_enabled: bool = Field(default=True)
 
     # ASR (Whisper)
     whisper_model_size: str = Field(default="base")

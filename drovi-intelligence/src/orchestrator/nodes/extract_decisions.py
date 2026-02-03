@@ -10,6 +10,7 @@ import structlog
 
 from src.llm import get_llm_service, DecisionExtractionOutput
 from src.llm.prompts_v2 import get_decision_extraction_v2_prompt
+from src.personalization import get_org_profile
 from ..state import (
     IntelligenceState,
     ExtractedDecision,
@@ -72,6 +73,7 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
 
     # Get LLM service
     llm = get_llm_service()
+    org_profile = await get_org_profile(state.input.organization_id)
 
     try:
         decisions: list[ExtractedDecision] = []
@@ -110,6 +112,7 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
                 user_email=state.input.user_email,
                 user_name=state.input.user_name,
                 memory_context=state.memory_context,
+                org_profile=org_profile.model_dump() if org_profile else None,
             )
 
             output, llm_call = await llm.complete_structured(

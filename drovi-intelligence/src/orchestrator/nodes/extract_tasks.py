@@ -11,6 +11,7 @@ import structlog
 
 from src.llm import get_llm_service, TaskExtractionOutput
 from src.llm.prompts_v2 import get_task_extraction_v2_prompt
+from src.personalization import get_org_profile
 from ..state import (
     IntelligenceState,
     ExtractedTask,
@@ -61,6 +62,7 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
 
     # Get LLM service
     llm = get_llm_service()
+    org_profile = await get_org_profile(state.input.organization_id)
 
     try:
         tasks: list[ExtractedTask] = []
@@ -94,6 +96,7 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
                 decisions=decisions_dicts,
                 source_type=state.input.source_type,
                 memory_context=state.memory_context,
+                org_profile=org_profile.model_dump() if org_profile else None,
             )
 
             output, llm_call = await llm.complete_structured(

@@ -645,6 +645,29 @@ async def persist_node(state: IntelligenceState) -> dict:
             }
         }
 
+    def _apply_pattern_boost(items, boost: float) -> None:
+        if not items or boost <= 0:
+            return
+        for item in items:
+            try:
+                current = item.confidence or 0.0
+                item.confidence = min(1.0, current + boost)
+                if hasattr(item, "confidence_reasoning"):
+                    existing = getattr(item, "confidence_reasoning") or ""
+                    note = f"Pattern boost +{boost:.2f}"
+                    item.confidence_reasoning = f"{existing} {note}".strip() if existing else note
+            except Exception:
+                continue
+
+    # Apply pattern confidence boost (fast-path precision)
+    boost = state.pattern_confidence_boost or 0.0
+    if boost > 0:
+        _apply_pattern_boost(state.extracted.commitments, boost)
+        _apply_pattern_boost(state.extracted.decisions, boost)
+        _apply_pattern_boost(state.extracted.claims, boost)
+        _apply_pattern_boost(state.extracted.tasks, boost)
+        _apply_pattern_boost(state.extracted.risks, boost)
+
     # Tiered confidence tracking - NO filtering, ALL items are persisted
     tier_stats = {
         "commitments": {"high": 0, "medium": 0, "low": 0, "speculative": 0},
