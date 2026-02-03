@@ -628,12 +628,12 @@ async def content_zones_node(state: IntelligenceState) -> dict:
     )
 
     # Create updated input with cleaned content
-    updated_input = state.input.model_copy()
-    # Store original and set cleaned
     original_content = state.input.content
+    updated_input = state.input.model_copy(update={"content": cleaned.primary_content})
 
     return {
         "trace": updated_trace,
+        "input": updated_input,
         "cleaned_content": {
             "content": cleaned.primary_content,
             "original_content": original_content,

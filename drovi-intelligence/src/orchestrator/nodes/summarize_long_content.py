@@ -77,9 +77,15 @@ async def summarize_long_content_node(state: IntelligenceState) -> dict:
     ]
 
     node_timing = NodeTiming(
-        node="summarize_long_content",
-        duration_ms=(time.time() - start_time) * 1000,
+        started_at=start_time,
+        completed_at=time.time(),
     )
-    state.trace.timings.append(node_timing)
 
-    return {"messages": state.messages}
+    updated_trace = state.trace.model_copy()
+    updated_trace.current_node = "summarize_long_content"
+    updated_trace.node_timings["summarize_long_content"] = node_timing
+
+    return {
+        "messages": state.messages,
+        "trace": updated_trace,
+    }

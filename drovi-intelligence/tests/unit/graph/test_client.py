@@ -505,7 +505,7 @@ class TestVectorSearch:
 
         await graph_client.connect()
         result = await graph_client.vector_search(
-            label="Contact",
+            label="Commitment",
             embedding=[0.1] * 1536,
             organization_id="org_123",
             k=10,
@@ -522,7 +522,7 @@ class TestVectorSearch:
 
         await graph_client.connect()
         result = await graph_client.vector_search(
-            label="Contact",
+            label="Commitment",
             embedding=[0.1] * 1536,
             organization_id="org_123",
             k=10,
@@ -780,6 +780,50 @@ class TestIndexManagement:
             label="Contact",
             properties=["name", "email"],
         )
+
+
+# =============================================================================
+# Vector Search Guard Tests
+# =============================================================================
+
+
+class TestVectorSearchGuards:
+    """Tests for vector search guardrails."""
+
+    @pytest.mark.asyncio
+    async def test_vector_search_skips_non_embedded_label(self, graph_client):
+        """Vector search should skip labels without embeddings."""
+        graph_client.query = AsyncMock()
+
+        result = await graph_client.vector_search(
+            label="Contact",
+            embedding=[0.1, 0.2, 0.3],
+            organization_id="org_test",
+            k=5,
+        )
+
+        assert result == []
+        graph_client.query.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_vector_search_skips_dimension_mismatch(self, graph_client, monkeypatch):
+        """Vector search should skip if embedding dimension mismatches expected size."""
+        graph_client.query = AsyncMock()
+
+        monkeypatch.setattr(
+            "src.search.embeddings.get_embedding_dimension",
+            lambda *_args, **_kwargs: 2,
+        )
+
+        result = await graph_client.vector_search(
+            label="UIO",
+            embedding=[0.1, 0.2, 0.3],
+            organization_id="org_test",
+            k=5,
+        )
+
+        assert result == []
+        graph_client.query.assert_not_called()
 
 
 # =============================================================================

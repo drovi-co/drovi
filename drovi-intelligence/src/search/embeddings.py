@@ -53,7 +53,7 @@ class EmbeddingService:
         self.model = model_name or settings.embedding_model
         if model_provider:
             self.model = EMBEDDING_MODELS.get(model_provider, self.model)
-        self.dimension = EMBEDDING_DIM.get(self.model, 1536)
+        self.dimension = get_embedding_dimension(self.model)
         self._cache: dict[str, list[float]] = {}
         self._cache_max_size = 10000
 
@@ -114,10 +114,14 @@ class EmbeddingService:
 
             # Validate dimension
             if len(embedding) != self.dimension:
-                logger.warning(
-                    "Unexpected embedding dimension",
+                logger.error(
+                    "Embedding dimension mismatch",
                     expected=self.dimension,
                     got=len(embedding),
+                    model=self.model,
+                )
+                raise EmbeddingError(
+                    f"Embedding dimension mismatch: expected {self.dimension}, got {len(embedding)}"
                 )
 
             # Cache result
@@ -288,6 +292,13 @@ class EmbeddingError(Exception):
     """Error during embedding generation."""
 
     pass
+
+
+def get_embedding_dimension(model_name: str | None = None) -> int:
+    """Return the expected embedding dimension for the active model."""
+    settings = get_settings()
+    model = model_name or settings.embedding_model
+    return EMBEDDING_DIM.get(model, settings.embedding_dimension)
 
 
 # =============================================================================

@@ -259,6 +259,15 @@ def route_after_source_intelligence(
     return determine_route(state)
 
 
+def route_after_pipeline_router(
+    state: IntelligenceState,
+) -> Literal["skip", "minimal", "structured", "full"]:
+    """Route based on pipeline_router decision."""
+    from .nodes.pipeline_router import route_by_extraction_level
+
+    return route_by_extraction_level(state)
+
+
 def should_extract(state: IntelligenceState) -> Literal["pattern_match", "finalize"]:
     """Determine if we should proceed with extraction."""
     if state.routing.skip_remaining_nodes:
@@ -273,6 +282,15 @@ def should_extract(state: IntelligenceState) -> Literal["pattern_match", "finali
 def after_pattern_match(state: IntelligenceState) -> Literal["extract_claims"]:
     """Route after pattern matching to extraction."""
     return "extract_claims"
+
+
+def after_persist_raw(
+    state: IntelligenceState,
+) -> Literal["summarize_long_content", "finalize"]:
+    """Stop early when the pipeline route is skip."""
+    if state.pipeline_route == "skip":
+        return "finalize"
+    return "summarize_long_content"
 
 
 def after_claims(
@@ -485,6 +503,7 @@ def create_intelligence_graph() -> StateGraph:
 
     # Add source triage nodes (PHASE 0 - run BEFORE any LLM calls)
     workflow.add_node("source_intelligence", source_intelligence)
+    workflow.add_node("pipeline_router", pipeline_router)
     workflow.add_node("content_zones", content_zones)
 
     # Add all other nodes
@@ -522,13 +541,15 @@ def create_intelligence_graph() -> StateGraph:
     # Define edges
 
     # PHASE 0: Source Triage (eliminates garbage BEFORE LLM calls)
-    # source_intelligence -> skip OR minimal OR full extraction path
+    # source_intelligence -> pipeline_router -> skip/minimal/structured/full path
+    workflow.add_edge("source_intelligence", "pipeline_router")
     workflow.add_conditional_edges(
-        "source_intelligence",
-        route_after_source_intelligence,
+        "pipeline_router",
+        route_after_pipeline_router,
         {
-            "skip": "finalize",  # Skip extraction entirely (newsletters, automated)
+            "skip": "parse_messages",  # Persist UEM, skip LLM extraction
             "minimal": "parse_messages",  # Minimal extraction (transactional)
+            "structured": "parse_messages",  # Structured sources (calendar) reuse parsing for now
             "full": "content_zones",  # Full extraction (human content)
         },
     )
@@ -539,7 +560,14 @@ def create_intelligence_graph() -> StateGraph:
     # PHASE 1: Parsing
     # parse_messages -> persist_raw -> resolve_contacts_early -> classify (always)
     workflow.add_edge("parse_messages", "persist_raw")
-    workflow.add_edge("persist_raw", "summarize_long_content")
+    workflow.add_conditional_edges(
+        "persist_raw",
+        after_persist_raw,
+        {
+            "summarize_long_content": "summarize_long_content",
+            "finalize": "finalize",
+        },
+    )
     workflow.add_edge("summarize_long_content", "retrieve_context")
     workflow.add_edge("retrieve_context", "resolve_contacts_early")
     workflow.add_edge("resolve_contacts_early", "classify")

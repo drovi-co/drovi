@@ -61,24 +61,24 @@ These are the exact items you called out, now represented as concrete, trackable
 - [ ] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
 
 **Phase 0 — Correctness and Consistency (Immediate, Must‑Fix Bugs)**
-- [ ] Wire `content_zones` output into parsing so cleaned content is actually used. Acceptance: `parse_messages` consumes cleaned content; unit test verifies signatures and quoted replies are removed.
-- [ ] Activate `pipeline_router` in the LangGraph flow or delete the dead node. Acceptance: routing logic is exercised in at least one test case and metrics show skip/minimal/full branching.
-- [ ] Fix `summarize_long_content` trace data to use `Trace.node_timings` and the correct `NodeTiming` schema. Acceptance: trace serialization passes with no validation errors for long content.
-- [ ] Fix dedup parsing to use `match["node"]["id"]` instead of `match["id"]`. Acceptance: dedup merges are triggered in a test where existing UIOs are similar.
-- [ ] Fix Kafka worker import to call the real orchestrator entrypoint. Acceptance: worker can process a raw event and produce intelligence without crashing.
-- [ ] Enforce embedding dimension alignment with vector indexes. Acceptance: embeddings stored match index dimensions and vector search returns results for new items.
-- [ ] Add a guard that prevents vector search on labels without embeddings. Acceptance: no runtime errors when embeddings are missing and logs show graceful degradation.
-- [ ] Add regression tests for source triage routing paths (`skip`, `minimal`, `full`). Acceptance: tests validate pipeline routing from `source_intelligence`.
+- [x] Wire `content_zones` output into parsing so cleaned content is actually used. Acceptance: `parse_messages` consumes cleaned content; unit test verifies signatures and quoted replies are removed.
+- [x] Activate `pipeline_router` in the LangGraph flow or delete the dead node. Acceptance: routing logic is exercised in at least one test case and metrics show skip/minimal/full branching.
+- [x] Fix `summarize_long_content` trace data to use `Trace.node_timings` and the correct `NodeTiming` schema. Acceptance: trace serialization passes with no validation errors for long content.
+- [x] Fix dedup parsing to use `match["node"]["id"]` instead of `match["id"]`. Acceptance: dedup merges are triggered in a test where existing UIOs are similar.
+- [x] Fix Kafka worker import to call the real orchestrator entrypoint. Acceptance: worker can process a raw event and produce intelligence without crashing.
+- [x] Enforce embedding dimension alignment with vector indexes. Acceptance: embeddings stored match index dimensions and vector search returns results for new items.
+- [x] Add a guard that prevents vector search on labels without embeddings. Acceptance: no runtime errors when embeddings are missing and logs show graceful degradation.
+- [x] Add regression tests for source triage routing paths (`skip`, `minimal`, `full`). Acceptance: tests validate pipeline routing from `source_intelligence`.
 
 **Phase 1 — UEM as Canonical Source + Evidence Store**
-- [ ] Make `unified_event` the canonical ingest record for all sources. Acceptance: every connector ingestion path writes to `unified_event` with content hash and org scope.
-- [ ] Add a required evidence link for commitments, decisions, and risks. Acceptance: persistence rejects high‑stakes UIOs without evidence references.
-- [ ] Implement evidence hash validation on ingestion. Acceptance: duplicate `content_hash` is ignored per org.
-- [ ] Standardize evidence storage metadata fields. Acceptance: evidence records include source, timestamps, hash, and storage URI.
-- [ ] Wire evidence store to object lock and retention settings. Acceptance: retention policy can be verified via config and test run in MinIO.
-- [ ] Add evidence audit log entries for all UIO creation and updates. Acceptance: timeline entries link to evidence IDs.
-- [ ] Add `unified_event` to API read paths for evidence in UI and GraphRAG. Acceptance: read endpoints can serve evidence directly from UEM.
-- [ ] Implement a single evidence retrieval API endpoint with access control. Acceptance: user can fetch evidence artifact metadata and signed URLs.
+- [x] Make `unified_event` the canonical ingest record for all sources. Acceptance: every connector ingestion path writes to `unified_event` with content hash and org scope.
+- [x] Add a required evidence link for commitments, decisions, and risks. Acceptance: persistence rejects high‑stakes UIOs without evidence references.
+- [x] Implement evidence hash validation on ingestion. Acceptance: duplicate `content_hash` is ignored per org.
+- [x] Standardize evidence storage metadata fields. Acceptance: evidence records include source, timestamps, hash, and storage URI.
+- [x] Wire evidence store to object lock and retention settings. Acceptance: retention policy can be verified via config and test run in MinIO.
+- [x] Add evidence audit log entries for all UIO creation and updates. Acceptance: timeline entries link to evidence IDs.
+- [x] Add `unified_event` to API read paths for evidence in UI and GraphRAG. Acceptance: read endpoints can serve evidence directly from UEM.
+- [x] Implement a single evidence retrieval API endpoint with access control. Acceptance: user can fetch evidence artifact metadata and signed URLs.
 
 **Phase 2 — Connector Normalization and State Durability**
 - [ ] Standardize `ConnectorConfig` usage across all connectors. Acceptance: `auth` and `provider_config` are the only supported config paths.

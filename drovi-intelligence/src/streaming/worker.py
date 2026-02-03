@@ -164,25 +164,37 @@ class KafkaWorker:
                 return
 
             # Import orchestrator lazily to avoid circular imports
-            from src.orchestrator.run import run_analysis
+            from src.orchestrator.graph import run_intelligence_extraction
 
             # Run intelligence extraction scoped to org
             with rls_context(organization_id, is_internal=True):
-                result = await run_analysis(
-                    organization_id=organization_id,
-                    content=raw_payload,
-                    source_type=source_type,
-                )
+                content = raw_payload
+                if not isinstance(raw_payload, str):
+                    content = raw_payload.get("content") or raw_payload.get("text") or raw_payload.get("body")
+                    if not content:
+                        import json
+                        content = json.dumps(raw_payload, default=str)
 
-            if result and result.get("uios"):
+                result_state = await run_intelligence_extraction(
+                    organization_id=organization_id,
+                    content=content,
+                    source_type=source_type or "api",
+                )
+                result = result_state.output.model_dump() if result_state else {}
+
+            uios = []
+            if result:
+                uios = result.get("uios") or result.get("uios_created") or []
+
+            if uios:
                 logger.info(
                     "Intelligence extracted",
                     organization_id=organization_id,
-                    uio_count=len(result.get("uios", [])),
+                    uio_count=len(uios),
                 )
 
                 # Produce intelligence events for each extracted UIO
-                for uio in result.get("uios", []):
+                for uio in uios:
                     await self._producer.produce_intelligence(
                         organization_id=organization_id,
                         intelligence_type=uio.get("type", "unknown"),

@@ -9,7 +9,6 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 from uuid import uuid4
 import json
-import hashlib
 
 import structlog
 from sqlalchemy import text
@@ -18,6 +17,11 @@ from src.db.client import get_db_session
 from src.evidence.storage import get_evidence_storage
 from src.evidence.audit import record_evidence_audit
 from src.config import get_settings
+from src.ingestion.unified_event import (
+    build_content_hash,
+    build_source_fingerprint,
+    build_uem_metadata,
+)
 from src.transcription.whisper import transcribe_audio_bytes, TranscriptSegment
 from src.transcription.diarization import diarize_audio_bytes, DiarizationSegment
 from src.graph.client import get_graph_client
@@ -168,10 +172,9 @@ async def add_transcript_segment(
 
         try:
             org_id = await organization_id_from_session(session_id)
-            source_fingerprint = f"transcript|{session_id}|{segment_id}"
-            content_hash = hashlib.sha256(
-                f"{source_fingerprint}::{text_value}".encode("utf-8", errors="ignore")
-            ).hexdigest()
+            source_fingerprint = build_source_fingerprint("transcript", session_id, segment_id)
+            content_hash = build_content_hash(text_value, source_fingerprint)
+            uem_metadata = build_uem_metadata({}, source_fingerprint, content_hash, now, now)
             await session.execute(
                 text(
                     """
@@ -211,7 +214,7 @@ async def add_transcript_segment(
                         }
                     ),
                     "participants": json.dumps([]),
-                    "metadata": json.dumps({}),
+                    "metadata": json.dumps(uem_metadata),
                     "content_hash": content_hash,
                     "captured_at": now,
                     "received_at": now,
@@ -327,19 +330,39 @@ async def store_audio_chunk(
         immutable=immutable,
     )
 
+    created_at = utc_now()
+    storage_uri = None
+    if stored.storage_backend == "s3":
+        bucket = settings.evidence_s3_bucket or ""
+        storage_uri = f"s3://{bucket}/{stored.storage_path}" if bucket else f"s3://{stored.storage_path}"
+    else:
+        storage_uri = f"file://{stored.storage_path}"
+
+    metadata = {
+        "source_type": "live_session",
+        "source_id": session_id,
+        "storage_backend": stored.storage_backend,
+        "storage_path": stored.storage_path,
+        "storage_uri": storage_uri,
+        "sha256": stored.sha256,
+        "created_at": created_at.isoformat(),
+    }
+    if retention_until:
+        metadata["retention_until"] = retention_until.isoformat()
+
     async with get_db_session() as session:
         await session.execute(
             text(
                 """
                 INSERT INTO evidence_artifact (
-                    id, organization_id, session_id, artifact_type,
+                    id, organization_id, session_id, source_type, source_id, artifact_type,
                     mime_type, storage_backend, storage_path,
-                    byte_size, sha256, created_at,
+                    byte_size, sha256, metadata, created_at,
                     immutable, legal_hold, retention_until
                 ) VALUES (
-                    :id, :org_id, :session_id, :artifact_type,
+                    :id, :org_id, :session_id, :source_type, :source_id, :artifact_type,
                     :mime_type, :storage_backend, :storage_path,
-                    :byte_size, :sha256, :created_at,
+                    :byte_size, :sha256, :metadata, :created_at,
                     :immutable, :legal_hold, :retention_until
                 )
                 """
@@ -348,13 +371,16 @@ async def store_audio_chunk(
                 "id": artifact_id,
                 "org_id": organization_id,
                 "session_id": session_id,
+                "source_type": "live_session",
+                "source_id": session_id,
                 "artifact_type": "audio_chunk",
                 "mime_type": mime_type,
                 "storage_backend": stored.storage_backend,
                 "storage_path": stored.storage_path,
                 "byte_size": stored.byte_size,
                 "sha256": stored.sha256,
-                "created_at": utc_now(),
+                "metadata": json.dumps(metadata),
+                "created_at": created_at,
                 "immutable": immutable,
                 "legal_hold": settings.evidence_legal_hold_by_default,
                 "retention_until": retention_until,

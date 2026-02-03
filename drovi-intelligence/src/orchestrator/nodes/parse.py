@@ -644,6 +644,17 @@ async def parse_messages_node(state: IntelligenceState) -> dict:
         message_count=len(messages),
     )
 
+    # Prefer upstream message IDs when provided (preserve source linkage)
+    if state.input.message_ids:
+        provided_ids = list(state.input.message_ids)
+        if len(provided_ids) == len(messages):
+            for message, message_id in zip(messages, provided_ids):
+                message.id = message_id
+        elif len(provided_ids) == 1:
+            base_id = provided_ids[0]
+            for idx, message in enumerate(messages):
+                message.id = base_id if idx == 0 else f"{base_id}_{idx}"
+
     # Record timing
     node_timing = NodeTiming(
         started_at=start_time,

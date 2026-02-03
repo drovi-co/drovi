@@ -74,15 +74,23 @@ async def deduplicate_node(state: IntelligenceState) -> dict:
                 )
 
                 for match in similar:
-                    if match.get("score", 0) > 0.85:  # High similarity threshold
+                    score = match.get("score", 0)
+                    node = match.get("node") if isinstance(match, dict) else None
+                    existing_id = None
+                    if isinstance(node, dict):
+                        existing_id = node.get("id")
+                    else:
+                        existing_id = match.get("id") if isinstance(match, dict) else None
+
+                    if score > 0.85:  # High similarity threshold
                         merge_candidates.append(MergeCandidate(
                             new_item_id=commitment.id,
-                            existing_uio_id=match.get("id", ""),
-                            similarity=match.get("score", 0),
-                            should_merge=match.get("score", 0) > 0.92,
+                            existing_uio_id=existing_id or "",
+                            similarity=score,
+                            should_merge=score > 0.92,
                         ))
-                        if match.get("id"):
-                            existing_uio_ids.append(match["id"])
+                        if existing_id:
+                            existing_uio_ids.append(existing_id)
 
             except EmbeddingError as e:
                 logger.warning(
@@ -111,15 +119,23 @@ async def deduplicate_node(state: IntelligenceState) -> dict:
                 )
 
                 for match in similar:
-                    if match.get("score", 0) > 0.85:
+                    score = match.get("score", 0)
+                    node = match.get("node") if isinstance(match, dict) else None
+                    existing_id = None
+                    if isinstance(node, dict):
+                        existing_id = node.get("id")
+                    else:
+                        existing_id = match.get("id") if isinstance(match, dict) else None
+
+                    if score > 0.85:
                         merge_candidates.append(MergeCandidate(
                             new_item_id=decision.id,
-                            existing_uio_id=match.get("id", ""),
-                            similarity=match.get("score", 0),
-                            should_merge=match.get("score", 0) > 0.92,
+                            existing_uio_id=existing_id or "",
+                            similarity=score,
+                            should_merge=score > 0.92,
                         ))
-                        if match.get("id"):
-                            existing_uio_ids.append(match["id"])
+                        if existing_id:
+                            existing_uio_ids.append(existing_id)
 
             except EmbeddingError as e:
                 logger.warning(
