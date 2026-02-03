@@ -50,6 +50,7 @@ async def flush_webhook_outbox(limit: int = 100) -> int:
                 event_type="connector.webhook",
                 payload=payload,
                 source_id=str(payload.get("inbox_id") or outbox_id),
+                priority="urgent",
             )
 
             async with pool.acquire() as conn:

@@ -5,9 +5,11 @@ Produces events to Kafka topics for real-time processing.
 Supports batching, compression, and delivery guarantees.
 
 Topics:
-- drovi-raw-events: Raw webhook events (immediate write)
+- raw.connector.events: Raw connector events (immediate write)
+- normalized.records: Normalized records for pipeline input
+- intelligence.pipeline.input: Pipeline input for extraction
 - drovi-intelligence: Extracted intelligence objects
-- drovi-graph-changes: Graph change notifications
+- graph.changes: Graph change notifications
 """
 
 import asyncio
@@ -179,7 +181,11 @@ class DroviKafkaProducer:
         # Convert headers to Kafka format
         kafka_headers = []
         if headers:
-            kafka_headers = [(k, v.encode("utf-8")) for k, v in headers.items()]
+            kafka_headers = [
+                (k, v.encode("utf-8"))
+                for k, v in headers.items()
+                if v is not None
+            ]
 
         if self._producer:
             # Create delivery future if waiting
@@ -221,6 +227,7 @@ class DroviKafkaProducer:
         event_type: str,
         payload: dict[str, Any],
         source_id: str | None = None,
+        priority: str | int | None = None,
     ) -> str:
         """
         Produce a raw event from a webhook or connector.
@@ -255,6 +262,7 @@ class DroviKafkaProducer:
                 "organization_id": organization_id,
                 "source_type": source_type,
                 "event_type": event_type,
+                "priority": str(priority) if priority is not None else None,
             },
         )
 
@@ -316,6 +324,46 @@ class DroviKafkaProducer:
             organization_id=organization_id,
         )
 
+        return msg_id
+
+    async def produce_normalized_record(
+        self,
+        organization_id: str,
+        record_id: str,
+        data: dict[str, Any],
+        priority: str | int | None = None,
+    ) -> str:
+        """Produce a normalized record event."""
+        settings = get_settings()
+        msg_id = await self.produce(
+            topic=settings.kafka_topic_normalized_records,
+            value=data,
+            key=f"{organization_id}:{record_id}",
+            headers={
+                "organization_id": organization_id,
+                "priority": str(priority) if priority is not None else None,
+            },
+        )
+        return msg_id
+
+    async def produce_pipeline_input(
+        self,
+        organization_id: str,
+        pipeline_id: str,
+        data: dict[str, Any],
+        priority: str | int | None = None,
+    ) -> str:
+        """Produce an intelligence pipeline input event."""
+        settings = get_settings()
+        msg_id = await self.produce(
+            topic=settings.kafka_topic_pipeline_input,
+            value=data,
+            key=f"{organization_id}:{pipeline_id}",
+            headers={
+                "organization_id": organization_id,
+                "priority": str(priority) if priority is not None else None,
+            },
+        )
         return msg_id
 
     async def produce_graph_change(

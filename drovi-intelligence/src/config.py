@@ -169,16 +169,20 @@ class Settings(BaseSettings):
     kafka_queue_maxsize: int = Field(default=1000)
     kafka_topic_priorities: dict[str, int] = Field(
         default_factory=lambda: {
-            "drovi-raw-events": 0,
-            "drovi-intelligence": 1,
-            "drovi-graph-changes": 2,
+            "raw.connector.events": 0,
+            "normalized.records": 1,
+            "intelligence.pipeline.input": 2,
+            "drovi-intelligence": 3,
+            "graph.changes": 4,
         }
     )
 
     # Kafka Topics
-    kafka_topic_raw_events: str = Field(default="drovi-raw-events")
+    kafka_topic_raw_events: str = Field(default="raw.connector.events")
+    kafka_topic_normalized_records: str = Field(default="normalized.records")
+    kafka_topic_pipeline_input: str = Field(default="intelligence.pipeline.input")
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
-    kafka_topic_graph_changes: str = Field(default="drovi-graph-changes")
+    kafka_topic_graph_changes: str = Field(default="graph.changes")
 
     # Streaming gateway
     streaming_queue_size: int = Field(default=256)

@@ -132,6 +132,7 @@ async def enqueue_webhook_event(
                     "outbox_id": outbox_id,
                 },
                 source_id=inbox_id,
+                priority="urgent",
             )
             published = True
         except Exception as e:

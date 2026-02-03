@@ -93,13 +93,13 @@ These are the exact items you called out, now represented as concrete, trackable
 - [x] Add per‑provider backfill windowing and throttles. Acceptance: backfill runs in windows and respects API limits.
 
 **Phase 3 — Ingestion Fabric and Streaming Reliability**
-- [ ] Kafka topics for `raw.connector.events`, `normalized.records`, `intelligence.pipeline.input`, `graph.changes`. Acceptance: events flow through all topics in staging.
-- [ ] Normalization workers to convert provider payloads to canonical formats. Acceptance: normalized events persist and are usable by pipeline.
-- [ ] Enrichment workers to attach participant context and identity resolution. Acceptance: identity resolution success rate logged per batch.
-- [ ] Live session streaming API hardening. Acceptance: chunk ingestion to transcript in under 5s median.
-- [ ] Incremental intelligence updates for partial transcripts. Acceptance: partial summaries update and converge to final UIOs.
-- [ ] Priority queueing by source and VIP status. Acceptance: webhook events preempt backfill jobs.
-- [ ] Idempotent ingestion by `content_hash` and source IDs. Acceptance: no duplicate UEM entries under replay.
+- [x] Kafka topics for `raw.connector.events`, `normalized.records`, `intelligence.pipeline.input`, `graph.changes`. Acceptance: events flow through all topics in staging.
+- [x] Normalization workers to convert provider payloads to canonical formats. Acceptance: normalized events persist and are usable by pipeline.
+- [x] Enrichment workers to attach participant context and identity resolution. Acceptance: identity resolution success rate logged per batch.
+- [x] Live session streaming API hardening. Acceptance: chunk ingestion to transcript in under 5s median.
+- [x] Incremental intelligence updates for partial transcripts. Acceptance: partial summaries update and converge to final UIOs.
+- [x] Priority queueing by source and VIP status. Acceptance: webhook events preempt backfill jobs.
+- [x] Idempotent ingestion by `content_hash` and source IDs. Acceptance: no duplicate UEM entries under replay.
 
 **Phase 4 — Signal Capture vs Truth Engine**
 - [ ] Enforce candidate‑first persistence for all UIO types. Acceptance: pipeline persists `signal_candidate` before final UIO.
