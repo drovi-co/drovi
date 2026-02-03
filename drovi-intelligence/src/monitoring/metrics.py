@@ -199,6 +199,25 @@ class Metrics:
                 buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
             )
 
+            # Identity resolution metrics
+            self.identity_resolution_attempts_total = Counter(
+                "drovi_identity_resolution_attempts_total",
+                "Total identity resolution attempts",
+                ["organization_id", "source_type"],
+            )
+
+            self.identity_resolution_success_total = Counter(
+                "drovi_identity_resolution_success_total",
+                "Total identity resolution successes",
+                ["organization_id", "source_type"],
+            )
+
+            self.transcript_ingest_duration_seconds = Histogram(
+                "drovi_transcript_ingest_duration_seconds",
+                "Transcript segment ingest duration in seconds",
+                buckets=[0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10],
+            )
+
             # Memory/decay metrics
             self.memory_decay_runs_total = Counter(
                 "drovi_memory_decay_runs_total",

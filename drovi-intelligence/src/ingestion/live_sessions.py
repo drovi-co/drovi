@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 from uuid import uuid4
 import json
+import time
 
 import structlog
 from sqlalchemy import text
@@ -22,6 +23,9 @@ from src.ingestion.unified_event import (
     build_source_fingerprint,
     build_uem_metadata,
 )
+from src.ingestion.priority import compute_ingest_priority
+from src.streaming.ingestion_pipeline import PipelineInputEvent
+from src.monitoring import get_metrics
 from src.transcription.whisper import transcribe_audio_bytes, TranscriptSegment
 from src.transcription.diarization import diarize_audio_bytes, DiarizationSegment
 from src.graph.client import get_graph_client
@@ -140,9 +144,12 @@ async def add_transcript_segment(
     text_value: str,
     confidence: float | None = None,
     speaker_contact_id: str | None = None,
+    publish_pipeline: bool = False,
+    candidate_only: bool = True,
 ) -> str:
     segment_id = str(uuid4())
     now = utc_now()
+    start_time = time.time()
 
     async with get_db_session() as session:
         await session.execute(
@@ -225,6 +232,13 @@ async def add_transcript_segment(
             logger.warning("Failed to persist transcript UEM event", error=str(exc))
 
     try:
+        metrics = get_metrics()
+        duration = time.time() - start_time
+        metrics.transcript_ingest_duration_seconds.observe(duration)
+    except Exception:
+        pass
+
+    try:
         from src.config import get_settings
         from src.streaming.kafka_producer import get_kafka_producer
 
@@ -248,6 +262,65 @@ async def add_transcript_segment(
             )
     except Exception as exc:
         logger.warning("Failed to publish transcript change event", error=str(exc))
+
+    if publish_pipeline:
+        try:
+            from src.config import get_settings
+            from src.streaming.kafka_producer import get_kafka_producer
+
+            settings = get_settings()
+            if settings.kafka_enabled:
+                producer = await get_kafka_producer()
+                org_id = await organization_id_from_session(session_id)
+                source_type = "transcript"
+                source_fingerprint = build_source_fingerprint(
+                    source_type,
+                    session_id,
+                    session_id,
+                    segment_id,
+                )
+                content_hash = build_content_hash(text_value, source_fingerprint)
+                ingest = {
+                    "content_hash": content_hash,
+                    "source_fingerprint": source_fingerprint,
+                    "priority": compute_ingest_priority(
+                        source_type=source_type,
+                        job_type="webhook",
+                        explicit_priority="high",
+                    ),
+                    "job_type": "live_session",
+                }
+                pipeline_event = PipelineInputEvent(
+                    pipeline_id=str(uuid4()),
+                    organization_id=org_id,
+                    source_type=source_type,
+                    source_id=session_id,
+                    content=text_value,
+                    metadata={
+                        "session_id": session_id,
+                        "speaker_label": speaker_label,
+                        "start_ms": start_ms,
+                        "end_ms": end_ms,
+                        "confidence": confidence,
+                        "transcript_segment_id": segment_id,
+                    },
+                    conversation_id=session_id,
+                    message_ids=[segment_id],
+                    user_email=None,
+                    user_name=speaker_label,
+                    candidate_only=candidate_only,
+                    is_partial=candidate_only,
+                    ingest=ingest,
+                    enrichment={},
+                )
+                await producer.produce_pipeline_input(
+                    organization_id=org_id,
+                    pipeline_id=pipeline_event.pipeline_id,
+                    data=pipeline_event.to_payload(),
+                    priority=ingest.get("priority"),
+                )
+        except Exception as exc:
+            logger.warning("Failed to publish transcript pipeline input", error=str(exc))
 
     try:
         graph = await get_graph_client()
@@ -432,6 +505,7 @@ async def transcribe_audio_to_segments(
         from src.identity.speaker_resolution import resolve_speaker_contact_id
         from src.compliance.dlp import sanitize_text
 
+        settings = get_settings()
         for segment in transcribe_audio_bytes(audio_bytes, language=language, suffix=file_suffix):
             speaker_label = None
             if diarization_segments:
@@ -448,9 +522,11 @@ async def transcribe_audio_to_segments(
                 end_ms=segment.end_ms,
                 text_value=sanitized_text,
                 confidence=segment.confidence,
+                publish_pipeline=bool(run_intelligence and settings.kafka_enabled),
+                candidate_only=True,
             )
             segment_ids.append(segment_id)
-            if run_intelligence and sanitized_text.strip():
+            if run_intelligence and sanitized_text.strip() and not settings.kafka_enabled:
                 from src.orchestrator.graph import compile_intelligence_graph
                 from src.orchestrator.state import AnalysisInput, IntelligenceState
 
@@ -462,6 +538,7 @@ async def transcribe_audio_to_segments(
                         source_type="transcript",
                         source_id=session_id,
                         conversation_id=session_id,
+                        candidate_only=True,
                     )
                 )
                 try:

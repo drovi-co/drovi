@@ -500,8 +500,8 @@ class StreamProcessor:
 
     Orchestrates:
     1. Kafka consumer for raw events
-    2. Intelligence extraction
-    3. FalkorDB persistence
+    2. Normalization and enrichment
+    3. Intelligence extraction
     4. Change notification publishing
     """
 
@@ -509,7 +509,6 @@ class StreamProcessor:
         """Initialize the stream processor."""
         self._producer = None
         self._consumer = None
-        self._sink = None
         self._consumer_task: asyncio.Task | None = None
         self._running = False
 
@@ -524,9 +523,9 @@ class StreamProcessor:
         self._producer = await get_kafka_producer()
         self._consumer = await get_kafka_consumer([
             settings.kafka_topic_raw_events,
-            settings.kafka_topic_intelligence,
+            settings.kafka_topic_normalized_records,
+            settings.kafka_topic_pipeline_input,
         ])
-        self._sink = await get_falkordb_sink()
 
         # Register handlers
         self._consumer.register_handler(
@@ -534,8 +533,12 @@ class StreamProcessor:
             self._handle_raw_event,
         )
         self._consumer.register_handler(
-            settings.kafka_topic_intelligence,
-            self._handle_intelligence,
+            settings.kafka_topic_normalized_records,
+            self._handle_normalized_record,
+        )
+        self._consumer.register_handler(
+            settings.kafka_topic_pipeline_input,
+            self._handle_pipeline_input,
         )
 
         # Start consumer loop in the background to avoid blocking app startup
@@ -557,42 +560,134 @@ class StreamProcessor:
                 pass
             self._consumer_task = None
 
-        if self._sink:
-            await self._sink.flush()
-
     async def _handle_raw_event(self, message: dict[str, Any]) -> None:
         """Handle a raw event from Kafka."""
+        from src.streaming.ingestion_pipeline import normalize_raw_event_payload
+
+        payload = message.get("payload", {})
+        event_type = payload.get("event_type")
+
+        if event_type == "connector.webhook":
+            from src.connectors.webhooks.processor import process_connector_webhook_event
+
+            await process_connector_webhook_event(payload)
+            return
+
+        normalized_event = normalize_raw_event_payload(payload)
+        if not normalized_event:
+            return
+
+        await self._producer.produce_normalized_record(
+            organization_id=normalized_event.organization_id,
+            record_id=normalized_event.normalized_id,
+            data=normalized_event.to_payload(),
+            priority=normalized_event.ingest.get("priority"),
+        )
+
+    async def _handle_normalized_record(self, message: dict[str, Any]) -> None:
+        """Enrich normalized records and enqueue pipeline input."""
+        from src.streaming.ingestion_pipeline import (
+            NormalizedRecordEvent,
+            enrich_normalized_payload,
+        )
+
+        payload = message.get("payload", {})
+        normalized_event = NormalizedRecordEvent(**payload)
+        pipeline_event = await enrich_normalized_payload(normalized_event)
+        await self._producer.produce_pipeline_input(
+            organization_id=pipeline_event.organization_id,
+            pipeline_id=pipeline_event.pipeline_id,
+            data=pipeline_event.to_payload(),
+            priority=pipeline_event.ingest.get("priority"),
+        )
+
+    async def _handle_pipeline_input(self, message: dict[str, Any]) -> None:
+        """Run intelligence extraction for pipeline input."""
+        from src.orchestrator.graph import run_intelligence_extraction
+        from src.db.rls import rls_context
+        from src.monitoring import get_metrics
+        from src.db import get_db_pool
+        from datetime import datetime
+
         payload = message.get("payload", {})
         organization_id = payload.get("organization_id")
-        source_type = payload.get("source_type")
+        source_type = payload.get("source_type") or "api"
+        content = payload.get("content") or ""
+        ingest = payload.get("ingest") or {}
 
-        logger.debug(
-            "Processing raw event",
-            organization_id=organization_id,
-            source_type=source_type,
-        )
+        if not organization_id or not content:
+            logger.warning("Pipeline input missing required fields", payload=payload)
+            return
 
-        # Raw events trigger the orchestrator pipeline
-        # This is a placeholder - in production, this would call the orchestrator
+        content_hash = ingest.get("content_hash")
+        if content_hash:
+            try:
+                pool = await get_db_pool()
+                async with pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        """
+                        SELECT 1 FROM unified_event
+                        WHERE organization_id = $1 AND content_hash = $2
+                        """,
+                        organization_id,
+                        content_hash,
+                    )
+                if row:
+                    logger.info(
+                        "Skipping duplicate pipeline input",
+                        organization_id=organization_id,
+                        content_hash=content_hash,
+                    )
+                    return
+            except Exception:
+                pass
 
-    async def _handle_intelligence(self, message: dict[str, Any]) -> None:
-        """Handle extracted intelligence from Kafka."""
-        payload = message.get("payload", {})
-        intelligence_type = payload.get("intelligence_type")
-        intelligence_id = payload.get("intelligence_id")
-        organization_id = payload.get("organization_id")
-        data = payload.get("data", {})
-
-        logger.debug(
-            "Processing intelligence",
-            intelligence_type=intelligence_type,
-            intelligence_id=intelligence_id,
-        )
-
-        # Write to FalkorDB
-        await self._sink.write_intelligence(
-            intelligence_type=intelligence_type,
-            intelligence_id=intelligence_id,
-            organization_id=organization_id,
-            data=data,
-        )
+        metrics = get_metrics()
+        started_at = datetime.utcnow()
+        try:
+            with rls_context(organization_id, is_internal=True):
+                result_state = await run_intelligence_extraction(
+                    organization_id=organization_id,
+                    content=content,
+                    source_type=source_type,
+                    source_id=payload.get("source_id"),
+                    source_account_id=payload.get("connection_id"),
+                    conversation_id=payload.get("conversation_id"),
+                    message_ids=payload.get("message_ids"),
+                    user_email=payload.get("user_email"),
+                    user_name=payload.get("user_name"),
+                    metadata=payload.get("metadata"),
+                    candidate_only=bool(payload.get("candidate_only") or payload.get("is_partial")),
+                )
+            duration = (datetime.utcnow() - started_at).total_seconds()
+            output = result_state.output.model_dump() if result_state else {}
+            uios = output.get("uios") or output.get("uios_created") or []
+            metrics.track_extraction(
+                organization_id=organization_id,
+                source_type=source_type,
+                status="ok",
+                duration=duration,
+            )
+            for uio in uios:
+                await self._producer.produce_intelligence(
+                    organization_id=organization_id,
+                    intelligence_type=uio.get("type", "unknown"),
+                    intelligence_id=uio.get("id"),
+                    data=uio,
+                )
+                await self._producer.produce_graph_change(
+                    organization_id=organization_id,
+                    change_type="created",
+                    node_type=uio.get("type", "unknown").title(),
+                    node_id=uio.get("id"),
+                    properties=uio,
+                )
+        except Exception as exc:
+            duration = (datetime.utcnow() - started_at).total_seconds()
+            metrics.track_extraction(
+                organization_id=organization_id,
+                source_type=source_type,
+                status="error",
+                duration=duration,
+            )
+            logger.error("Pipeline input failed", error=str(exc))

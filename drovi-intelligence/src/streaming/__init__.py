@@ -11,9 +11,10 @@ Components:
 - StreamProcessor: Orchestrates the full streaming pipeline
 
 Topics:
-- drovi-raw-events: Raw webhook events from connectors
-- drovi-intelligence: Extracted intelligence (UIOs, commitments, etc.)
-- drovi-graph-changes: Graph change notifications for real-time subscriptions
+- raw.connector.events: Raw webhook/connector events
+- normalized.records: Canonical normalized records
+- intelligence.pipeline.input: Pipeline input events
+- graph.changes: Graph change notifications for real-time subscriptions
 
 Usage:
     # In main.py lifespan:
@@ -81,7 +82,8 @@ async def init_streaming() -> bool:
             bootstrap_servers=settings.kafka_bootstrap_servers,
             topics=[
                 settings.kafka_topic_raw_events,
-                settings.kafka_topic_intelligence,
+                settings.kafka_topic_normalized_records,
+                settings.kafka_topic_pipeline_input,
                 settings.kafka_topic_graph_changes,
             ],
         )

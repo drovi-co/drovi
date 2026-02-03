@@ -518,7 +518,7 @@ Ingest a raw event from external connectors (TypeScript backend).
 
 This endpoint is the primary entry point for the intelligence pipeline:
 1. Event is received from connector (email, Slack, Linear, etc.)
-2. Event is produced to Kafka `drovi-raw-events` topic
+2. Event is produced to Kafka `raw.connector.events` topic
 3. Intelligence extraction pipeline picks it up for processing
 4. Extracted intelligence is written to FalkorDB
 

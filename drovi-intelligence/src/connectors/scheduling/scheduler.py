@@ -761,8 +761,10 @@ class ConnectorScheduler:
         """
         from src.orchestrator.graph import run_intelligence_extraction
         from src.connectors.sync_events import emit_sync_progress
-
         from src.connectors.normalization import normalize_record_for_pipeline
+        from src.config import get_settings
+        from src.streaming import get_kafka_producer
+        from src.ingestion.priority import compute_ingest_priority
 
         start_time = datetime.utcnow()
         records_synced = 0
@@ -814,6 +816,10 @@ class ConnectorScheduler:
             streams = await connector.discover_streams(config)
 
         # Sync each stream
+        settings = get_settings()
+        kafka_enabled = settings.kafka_enabled
+        producer = await get_kafka_producer() if kafka_enabled else None
+
         for stream in streams:
             try:
                 state.mark_sync_started(stream.stream_name)
@@ -836,7 +842,6 @@ class ConnectorScheduler:
                     # Process each record through intelligence pipeline
                     for record in batch.records:
                         try:
-                            # Map connector type to source type
                             source_type_map = {
                                 "gmail": "email",
                                 "outlook": "email",
@@ -855,46 +860,68 @@ class ConnectorScheduler:
                             }
                             source_type = source_type_map.get(job.connector_type, "api")
 
-                            normalized = normalize_record_for_pipeline(
-                                record=record,
-                                connector=connector,
-                                config=config,
-                                default_source_type=source_type,
-                            )
-                            content = normalized.content
-
-                            if content.strip():
-                                # Map connector type to source type
-                                pipeline_metadata = {
-                                    "from": record.data.get("sender_email", "") if isinstance(record.data, dict) else "",
-                                    "subject": record.data.get("subject", "") if isinstance(record.data, dict) else "",
-                                    "headers": record.data.get("headers", {}) if isinstance(record.data, dict) else {},
-                                    "body": record.data.get("body_text") if isinstance(record.data, dict) else "",
-                                    **normalized.metadata,
-                                }
-
-                                # Run intelligence extraction
-                                await run_intelligence_extraction(
-                                    content=content,
-                                    organization_id=config.organization_id,
-                                    source_type=normalized.source_type,
-                                    source_id=record.record_id,
-                                    source_account_id=config.connection_id,
-                                    conversation_id=normalized.conversation_id,
-                                    message_ids=[record.record_id],
-                                    user_email=normalized.user_email,
-                                    user_name=normalized.user_name,
-                                    metadata=pipeline_metadata,
+                            if kafka_enabled and producer:
+                                priority = compute_ingest_priority(
+                                    source_type=source_type,
+                                    job_type=job.job_type.value,
                                 )
-
+                                await producer.produce_raw_event(
+                                    organization_id=config.organization_id,
+                                    source_type=source_type,
+                                    event_type="connector.record",
+                                    payload={
+                                        "record": record.model_dump(),
+                                        "connector_type": job.connector_type,
+                                        "connection_id": config.connection_id,
+                                        "job_type": job.job_type.value,
+                                        "provider_config": config.provider_config or {},
+                                    },
+                                    source_id=record.record_id,
+                                    priority=priority,
+                                )
                                 logger.debug(
-                                    "Record processed through intelligence pipeline",
+                                    "Record enqueued to Kafka pipeline",
                                     record_id=record.record_id,
                                     source_type=job.connector_type,
                                 )
+                            else:
+                                normalized = normalize_record_for_pipeline(
+                                    record=record,
+                                    connector=connector,
+                                    config=config,
+                                    default_source_type=source_type,
+                                )
+                                content = normalized.content
+
+                                if content.strip():
+                                    pipeline_metadata = {
+                                        "from": record.data.get("sender_email", "") if isinstance(record.data, dict) else "",
+                                        "subject": record.data.get("subject", "") if isinstance(record.data, dict) else "",
+                                        "headers": record.data.get("headers", {}) if isinstance(record.data, dict) else {},
+                                        "body": record.data.get("body_text") if isinstance(record.data, dict) else "",
+                                        **normalized.metadata,
+                                    }
+
+                                    await run_intelligence_extraction(
+                                        content=content,
+                                        organization_id=config.organization_id,
+                                        source_type=normalized.source_type,
+                                        source_id=record.record_id,
+                                        source_account_id=config.connection_id,
+                                        conversation_id=normalized.conversation_id,
+                                        message_ids=[record.record_id],
+                                        user_email=normalized.user_email,
+                                        user_name=normalized.user_name,
+                                        metadata=pipeline_metadata,
+                                    )
+
+                                    logger.debug(
+                                        "Record processed through intelligence pipeline",
+                                        record_id=record.record_id,
+                                        source_type=job.connector_type,
+                                    )
 
                         except Exception as extraction_error:
-                            # Log but don't fail the whole sync for one record
                             logger.warning(
                                 "Failed to extract intelligence from record",
                                 record_id=record.record_id,
@@ -957,6 +984,12 @@ class ConnectorScheduler:
                     last_sync_completed_at=datetime.utcnow(),
                 )
                 streams_failed.append(stream.stream_name)
+
+        if producer:
+            try:
+                await producer.flush()
+            except Exception:
+                pass
 
         duration = (datetime.utcnow() - start_time).total_seconds()
         status = SyncJobStatus.COMPLETED if not streams_failed else SyncJobStatus.FAILED

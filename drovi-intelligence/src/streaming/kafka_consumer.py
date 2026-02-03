@@ -5,8 +5,9 @@ Consumes events from Kafka topics for real-time processing.
 Supports consumer groups, offset management, and graceful shutdown.
 
 Processes:
-- Raw events → Intelligence extraction pipeline
-- Intelligence → FalkorDB persistence
+- Raw connector events → Normalization
+- Normalized records → Enrichment
+- Pipeline input → Intelligence extraction
 - Graph changes → SSE broadcast
 """
 
@@ -19,6 +20,7 @@ from typing import Any
 import structlog
 
 from src.config import get_settings
+from src.ingestion.priority import parse_priority_value
 
 logger = structlog.get_logger()
 
@@ -245,9 +247,31 @@ class DroviKafkaConsumer:
             await self._process_message(msg)
             return
         topic = msg.topic()
-        priority = self.topic_priorities.get(topic, 10)
+        priority = self._resolve_priority(msg, topic)
         self._counter += 1
         await self._queue.put((priority, self._counter, msg))
+
+    def _resolve_priority(self, msg, topic: str) -> int:
+        """Resolve priority from headers or topic defaults (lower = higher priority)."""
+        default_priority = self.topic_priorities.get(topic, 10)
+        try:
+            headers = {}
+            if msg.headers():
+                headers = {
+                    h[0]: h[1].decode("utf-8") if h[1] else None
+                    for h in msg.headers()
+                }
+            header_value = (
+                headers.get("priority")
+                or headers.get("priority_class")
+                or headers.get("ingest_priority")
+            )
+            parsed = parse_priority_value(header_value)
+            if parsed is not None:
+                return parsed
+        except Exception:
+            return default_priority
+        return default_priority
 
     async def _worker_loop(self, index: int) -> None:
         """Worker loop that processes queued messages."""
@@ -417,7 +441,8 @@ async def get_kafka_consumer(
         settings = get_settings()
         default_topics = [
             settings.kafka_topic_raw_events,
-            settings.kafka_topic_intelligence,
+            settings.kafka_topic_normalized_records,
+            settings.kafka_topic_pipeline_input,
             settings.kafka_topic_graph_changes,
         ]
         _kafka_consumer = DroviKafkaConsumer(

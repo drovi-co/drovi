@@ -7,6 +7,7 @@ Handles live meeting/call ingestion, transcript segments, and audio chunks.
 from __future__ import annotations
 
 from typing import Any, Literal
+from uuid import uuid4
 
 import structlog
 import asyncio
@@ -166,6 +167,7 @@ async def ingest_transcript_segment(
         )
 
     sanitized_text, _redactions = sanitize_text(request.text)
+    settings = get_settings()
     segment_id = await add_transcript_segment(
         session_id=session_id,
         speaker_label=request.speaker_label,
@@ -174,9 +176,11 @@ async def ingest_transcript_segment(
         text_value=sanitized_text,
         confidence=request.confidence,
         speaker_contact_id=speaker_contact_id,
+        publish_pipeline=bool(request.run_intelligence and settings.kafka_enabled),
+        candidate_only=True,
     )
 
-    if request.run_intelligence and sanitized_text.strip():
+    if request.run_intelligence and sanitized_text.strip() and not settings.kafka_enabled:
         graph = compile_intelligence_graph()
         initial_state = IntelligenceState(
             input=AnalysisInput(
@@ -185,6 +189,7 @@ async def ingest_transcript_segment(
                 source_type="meeting",
                 source_id=session_id,
                 conversation_id=session_id,
+                candidate_only=True,
             )
         )
         try:
@@ -264,7 +269,55 @@ async def end_live_session(
         resource_id=session_id,
     )
 
-    if request.run_intelligence and transcript_text.strip():
+    settings = get_settings()
+    if request.run_intelligence and transcript_text.strip() and settings.kafka_enabled:
+        try:
+            from src.streaming.kafka_producer import get_kafka_producer
+            from src.ingestion.unified_event import build_content_hash, build_source_fingerprint
+            from src.ingestion.priority import compute_ingest_priority
+            from src.streaming.ingestion_pipeline import PipelineInputEvent
+
+            producer = await get_kafka_producer()
+            source_type = request.source_type
+            source_id = request.source_id or session_id
+            fingerprint = build_source_fingerprint(source_type, source_id, session_id, session_id)
+            content_hash = build_content_hash(transcript_text, fingerprint)
+            ingest = {
+                "content_hash": content_hash,
+                "source_fingerprint": fingerprint,
+                "priority": compute_ingest_priority(
+                    source_type=source_type,
+                    job_type="on_demand",
+                    explicit_priority="high",
+                ),
+                "job_type": "live_session",
+            }
+            pipeline_event = PipelineInputEvent(
+                pipeline_id=str(uuid4()),
+                organization_id=request.organization_id,
+                source_type=source_type,
+                source_id=source_id,
+                content=transcript_text,
+                metadata={"session_id": session_id, "final_transcript": True},
+                conversation_id=session_id,
+                message_ids=[session_id],
+                user_email=None,
+                user_name=None,
+                candidate_only=False,
+                is_partial=False,
+                ingest=ingest,
+                enrichment={},
+            )
+            await producer.produce_pipeline_input(
+                organization_id=request.organization_id,
+                pipeline_id=pipeline_event.pipeline_id,
+                data=pipeline_event.to_payload(),
+                priority=ingest.get("priority"),
+            )
+        except Exception as exc:
+            logger.error("Failed to enqueue transcript pipeline input", error=str(exc))
+
+    if request.run_intelligence and transcript_text.strip() and not settings.kafka_enabled:
         graph = compile_intelligence_graph()
         initial_state = IntelligenceState(
             input=AnalysisInput(
@@ -376,6 +429,7 @@ async def stream_live_session(ws: WebSocket, session_id: str):
                     start_ms = payload.get("start_ms")
                     end_ms = payload.get("end_ms")
                     confidence = payload.get("confidence")
+                    run_intelligence = bool(payload.get("run_intelligence"))
                     await add_transcript_segment(
                         session_id=session_id,
                         speaker_label=speaker_label,
@@ -383,6 +437,8 @@ async def stream_live_session(ws: WebSocket, session_id: str):
                         end_ms=end_ms,
                         text_value=text_value,
                         confidence=confidence,
+                        publish_pipeline=bool(run_intelligence and settings.kafka_enabled),
+                        candidate_only=True,
                     )
                 elif msg_type == "audio":
                     import base64
