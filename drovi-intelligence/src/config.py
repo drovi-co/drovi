@@ -183,6 +183,7 @@ class Settings(BaseSettings):
     kafka_topic_pipeline_input: str = Field(default="intelligence.pipeline.input")
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
     kafka_topic_graph_changes: str = Field(default="graph.changes")
+    kafka_raw_event_mode: Literal["full", "webhook_only", "disabled"] = Field(default="full")
 
     # Streaming gateway
     streaming_queue_size: int = Field(default=256)

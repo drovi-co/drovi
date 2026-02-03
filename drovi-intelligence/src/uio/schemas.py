@@ -199,6 +199,7 @@ class SourceContext(BaseModel):
     quoted_text: str | None = None
     quoted_text_start: str | None = None
     quoted_text_end: str | None = None
+    segment_hash: str | None = None
     confidence: float = 0.5
 
 

@@ -140,6 +140,7 @@ async def persist_candidates_node(state: IntelligenceState) -> dict:
     )
 
     return {
+        "candidates_persisted": True,
         "trace": {
             **state.trace.model_dump(),
             "node_timings": {

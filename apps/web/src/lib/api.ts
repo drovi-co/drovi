@@ -113,6 +113,7 @@ export interface SourceInfo {
   sourceType: string | null;
   sourceTimestamp: string | null;
   quotedText: string | null;
+  segmentHash: string | null;
   conversationId: string | null;
   messageId: string | null;
   role: string | null;
@@ -263,6 +264,7 @@ function transformSourceInfo(raw: Record<string, unknown>): SourceInfo {
     sourceType: (raw.source_type as string | null) ?? null,
     sourceTimestamp: (raw.source_timestamp as string | null) ?? null,
     quotedText: (raw.quoted_text as string | null) ?? null,
+    segmentHash: (raw.segment_hash as string | null) ?? null,
     conversationId: (raw.conversation_id as string | null) ?? null,
     messageId: (raw.message_id as string | null) ?? null,
     role: (raw.role as string | null) ?? null,

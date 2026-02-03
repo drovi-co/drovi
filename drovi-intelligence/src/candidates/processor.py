@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from src.db.client import get_db_session
 from src.db.rls import rls_context
+from src.ingestion.unified_event import build_segment_hash
 from src.identity import get_identity_graph
 from src.identity.types import IdentityType
 from src.uio.manager import UIOManager
@@ -81,6 +82,29 @@ def _similarity(a_tokens: set[str], b_tokens: set[str]) -> float:
     return len(a_tokens & b_tokens) / max(len(a_tokens), len(b_tokens))
 
 
+def _evidence_strength(candidate: dict) -> float:
+    text = (candidate.get("evidence_text") or "").strip()
+    if not text:
+        return 0.0
+    length_score = min(len(text) / 200.0, 1.0)
+    return length_score
+
+
+def _candidate_sort_key(candidate: dict) -> tuple[float, float, datetime]:
+    return (
+        _evidence_strength(candidate),
+        candidate.get("confidence") or 0.0,
+        candidate.get("created_at") or datetime.min,
+    )
+
+
+def _apply_cluster_confidence(primary: dict, cluster: list[dict]) -> None:
+    base_confidence = primary.get("confidence") or 0.5
+    evidence_count = sum(1 for item in cluster if _evidence_strength(item) > 0.0)
+    boost = 0.05 * max(0, len(cluster) - 1) + 0.03 * max(0, evidence_count - 1)
+    primary["confidence"] = min(1.0, base_confidence + boost)
+
+
 async def _resolve_contact_id(org_id: str, email: str | None) -> str | None:
     if not email:
         return None
@@ -95,12 +119,14 @@ async def _resolve_contact_id(org_id: str, email: str | None) -> str | None:
 
 
 async def _build_source_context(candidate: dict) -> SourceContext:
+    quoted_text = candidate.get("evidence_text")
     return SourceContext(
         source_type=candidate.get("source_type") or "api",
         source_account_id=None,
         conversation_id=candidate.get("conversation_id"),
         message_id=candidate.get("source_message_id"),
-        quoted_text=candidate.get("evidence_text"),
+        quoted_text=quoted_text,
+        segment_hash=build_segment_hash(quoted_text) if quoted_text else None,
         confidence=candidate.get("confidence") or 0.5,
     )
 
@@ -293,18 +319,10 @@ async def process_signal_candidates(limit: int = 200) -> dict[str, int]:
         clusters.extend([c["candidates"] for c in bucket_clusters])
 
     for cluster in clusters:
-        cluster_sorted = sorted(
-            cluster,
-            key=lambda item: (
-                item.get("confidence") or 0.0,
-                item.get("created_at") or datetime.min,
-            ),
-            reverse=True,
-        )
+        cluster_sorted = sorted(cluster, key=_candidate_sort_key, reverse=True)
         primary = cluster_sorted[0]
         if len(cluster_sorted) > 1:
-            base_confidence = primary.get("confidence") or 0.5
-            primary["confidence"] = min(1.0, base_confidence + 0.05 * (len(cluster_sorted) - 1))
+            _apply_cluster_confidence(primary, cluster_sorted)
         org_id = primary["organization_id"]
 
         try:

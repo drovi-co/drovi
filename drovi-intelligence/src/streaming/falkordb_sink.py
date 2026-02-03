@@ -521,17 +521,20 @@ class StreamProcessor:
 
         # Initialize components
         self._producer = await get_kafka_producer()
-        self._consumer = await get_kafka_consumer([
-            settings.kafka_topic_raw_events,
+        topics = [
             settings.kafka_topic_normalized_records,
             settings.kafka_topic_pipeline_input,
-        ])
+        ]
+        if settings.kafka_raw_event_mode != "disabled":
+            topics.insert(0, settings.kafka_topic_raw_events)
+        self._consumer = await get_kafka_consumer(topics)
 
         # Register handlers
-        self._consumer.register_handler(
-            settings.kafka_topic_raw_events,
-            self._handle_raw_event,
-        )
+        if settings.kafka_raw_event_mode != "disabled":
+            self._consumer.register_handler(
+                settings.kafka_topic_raw_events,
+                self._handle_raw_event,
+            )
         self._consumer.register_handler(
             settings.kafka_topic_normalized_records,
             self._handle_normalized_record,
@@ -566,6 +569,10 @@ class StreamProcessor:
 
         payload = message.get("payload", {})
         event_type = payload.get("event_type")
+        settings = get_settings()
+
+        if settings.kafka_raw_event_mode == "webhook_only" and event_type != "connector.webhook":
+            return
 
         if event_type == "connector.webhook":
             from src.connectors.webhooks.processor import process_connector_webhook_event

@@ -259,22 +259,18 @@ function UIODetailPage() {
   const TypeIcon = typeConfig.icon;
   const displayTitle = uioData.title;
 
-  // Evidence sources (would need to be fetched separately if available)
-  const evidenceSources: EvidenceSource[] = uioData.evidence_id
-    ? [
-        {
-          id: uioData.evidence_id,
-          sourceType: "email",
-          role: "origin" as const,
-          quotedText: uioData.description || "",
-          extractedTitle: uioData.title,
-          confidence: uioData.confidence || 0.8,
-          sourceTimestamp: uioData.extracted_at ? new Date(uioData.extracted_at) : null,
-          conversationId: null,
-          messageId: null,
-        },
-      ]
-    : [];
+  const evidenceSources: EvidenceSource[] = (uioData.sources ?? []).map((source) => ({
+    id: source.id,
+    sourceType: source.sourceType ?? "unknown",
+    role: (source.role as EvidenceSource["role"]) ?? "origin",
+    quotedText: source.quotedText ?? null,
+    segmentHash: source.segmentHash ?? null,
+    extractedTitle: uioData.title,
+    confidence: uioData.overallConfidence ?? uioData.confidence ?? 0.8,
+    sourceTimestamp: source.sourceTimestamp ? new Date(source.sourceTimestamp) : null,
+    conversationId: source.conversationId ?? null,
+    messageId: source.messageId ?? null,
+  }));
 
   // Timeline events (simplified based on available data)
   const timelineEvents: TimelineEvent[] = uioData.created_at

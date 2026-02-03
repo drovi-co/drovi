@@ -254,6 +254,7 @@ class SourceInfo(BaseModel):
     source_type: str | None = None  # gmail, slack, outlook, etc.
     source_timestamp: datetime | None = None
     quoted_text: str | None = None
+    segment_hash: str | None = None
     conversation_id: str | None = None
     message_id: str | None = None
     role: str | None = None
@@ -555,6 +556,7 @@ async def build_uio_response(row, session=None) -> UIOResponse:
                 source_type=row_dict.get("source_type"),
                 source_timestamp=row_dict.get("source_timestamp"),
                 quoted_text=row_dict.get("source_quoted_text"),
+                segment_hash=row_dict.get("source_segment_hash"),
                 conversation_id=row_dict.get("conversation_id"),
                 message_id=row_dict.get("message_id"),
                 role=row_dict.get("source_role"),
@@ -667,7 +669,8 @@ SELECT
 
     -- Source (first evidence)
     uos.id as source_id, uos.source_type, uos.source_timestamp,
-    uos.quoted_text as source_quoted_text, uos.conversation_id, uos.message_id,
+    uos.quoted_text as source_quoted_text, uos.segment_hash as source_segment_hash,
+    uos.conversation_id, uos.message_id,
     uos.role as source_role
 
 FROM unified_intelligence_object u

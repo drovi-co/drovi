@@ -162,7 +162,7 @@ async def detect_contradictions_node(state: IntelligenceState) -> dict:
             },
         },
         # Store contradiction pairs for the persist node to create relationships
-        "_contradiction_pairs": contradiction_pairs,
+        "contradiction_pairs": contradiction_pairs,
     }
 
 

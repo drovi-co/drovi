@@ -24,6 +24,12 @@ def build_content_hash(content: str, source_fingerprint: str) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def build_segment_hash(text: str) -> str:
+    """Hash evidence text for segment-level linking."""
+    payload = text.strip().encode("utf-8", errors="ignore")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def build_uem_metadata(
     base_metadata: dict[str, Any] | None,
     source_fingerprint: str,

@@ -6,60 +6,6 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [~] In progress
 - [x] Done
 
-**Explicit Transformative Tracks (Required)**  
-These are the exact items you called out, now represented as concrete, trackable tasks.
-
-**1) Evidence‑Anchored Extraction (Zero‑Hallucination Goal)**
-- [ ] Introduce evidence nodes that bind every extracted item to a precise quoted span or segment hash. Acceptance: every UIO has at least one evidence link with `quoted_text` or `segment_hash`.
-- [ ] Enforce “No Evidence → No Persist” for decisions, commitments, and risks. Acceptance: pipeline rejects or downgrades any high‑stakes item without evidence.
-- [ ] Show evidence inline in APIs and UI surfaces. Acceptance: UIO responses include evidence metadata and UI renders evidence with one click.
-
-**2) Multi‑Pass Extraction + Verification Stack**
-- [ ] Implement Pass 1 lightweight classifier for routing and prioritization. Acceptance: classifier determines extraction path and priority tier for every input.
-- [ ] Implement Pass 2 extractor LLM with structured output and quote spans. Acceptance: extractor returns structured JSON with quoted spans for all high‑stakes items.
-- [ ] Implement Pass 3 verifier LLM to reject unsupported items and rescale confidence. Acceptance: verifier reduces confidence or rejects unsupported items with logged reasons.
-- [ ] Implement Pass 4 contradiction detector with temporal reasoning. Acceptance: contradictions generate risks and links to historical evidence.
-
-**3) Temporal Knowledge Graph as First‑Class Primitive**
-- [ ] Enforce `validFrom`/`validTo` on every UIO and relationship. Acceptance: no graph nodes/edges are persisted without temporal fields.
-- [ ] Add “knowledge timeline” queries for any entity/topic. Acceptance: API supports `as_of` queries and returns time‑bounded truth.
-- [ ] Build “Decision Trails” and “Commitment Trails” for audit‑grade memory. Acceptance: ordered timeline endpoints exist with evidence links.
-
-**4) Active Learning Loop**
-- [ ] Convert all user corrections into labeled training data. Acceptance: corrections are exported in a structured dataset with labels and evidence.
-- [ ] Build a feedback‑to‑model pipeline that updates prompts and supports optional fine‑tuning. Acceptance: pipeline can replay corrections into updated extraction configs.
-- [ ] Personalize extraction per org (language, jargon, roles, project names). Acceptance: per‑org prompt/context rules improve precision on eval sets.
-
-**5) Pattern Intelligence (Klein RPD + Clustering)**
-- [ ] Auto‑discover patterns via embedding clustering of commitments/decisions. Acceptance: pattern candidates are generated automatically with stats.
-- [ ] Let users promote clusters into patterns with expected actions and confidence boosts. Acceptance: UI/API supports promotion and pattern lifecycle.
-- [ ] Use patterns as a fast‑path for high‑precision extraction and prioritization. Acceptance: pattern match boosts confidence and routing decisions.
-
-**6) Dynamic Context Retrieval for Extraction**
-- [ ] Replace “last 90 days UIOs” with hybrid retrieval (graph + vector + temporal memory). Acceptance: context retrieval shows relevant entities across time.
-- [ ] Retrieve only high‑relevance context (topic + participant + time proximity). Acceptance: context size is bounded and relevance‑ranked.
-- [ ] Cache per‑conversation context to keep extraction under 300ms. Acceptance: repeated thread extractions hit cache and meet latency targets.
-
-**7) Unified Memory Layer (Reduce Fragmentation)**
-- [ ] Choose one memory backbone (Graphiti or FalkorDB‑native). Acceptance: one canonical memory API is used everywhere.
-- [ ] Eliminate duplicated pathways (DroviMemory vs Graphiti vs LlamaIndex). Acceptance: deprecations are complete and adapters are in place.
-- [ ] Consolidate to a single Memory API used by pipeline, GraphRAG, and UI. Acceptance: all memory calls go through one interface.
-
-**8) High‑Throughput Ingestion Engine**
-- [ ] Introduce a dedicated ingestion worker using Go for connector throughput. Acceptance: Go ingestion worker processes records at target throughput.
-- [ ] Use Kafka as the canonical event log; pipeline consumes events, not connector calls. Acceptance: connectors publish to Kafka and pipeline reads only from Kafka.
-- [ ] Implement automatic replay + idempotent ingestion by content hash + source IDs. Acceptance: replays do not duplicate UEM entries.
-
-**9) Multimodal Intelligence**
-- [ ] Process attachments, PDFs, slides, and images with OCR + layout awareness. Acceptance: extracted content is indexed and evidence‑linked.
-- [ ] Meeting audio: diarization + speaker resolution with evidence‑level timestamps. Acceptance: transcript segments include speaker IDs and timestamps.
-- [ ] Link every transcript segment to UIOs it supports. Acceptance: each UIO references specific transcript segments.
-
-**10) Trust + Explainability as Product Feature**
-- [ ] Output “Why this matters” and “What changed since last time” in every brief. Acceptance: briefs include rationale and delta sections.
-- [ ] Provide “Confidence Reasoning” for every UIO. Acceptance: confidence includes signal sources and adjustments.
-- [ ] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
-
 **Phase 0 — Correctness and Consistency (Immediate, Must‑Fix Bugs)**
 - [x] Wire `content_zones` output into parsing so cleaned content is actually used. Acceptance: `parse_messages` consumes cleaned content; unit test verifies signatures and quoted replies are removed.
 - [x] Activate `pipeline_router` in the LangGraph flow or delete the dead node. Acceptance: routing logic is exercised in at least one test case and metrics show skip/minimal/full branching.
@@ -101,21 +47,34 @@ These are the exact items you called out, now represented as concrete, trackable
 - [x] Priority queueing by source and VIP status. Acceptance: webhook events preempt backfill jobs.
 - [x] Idempotent ingestion by `content_hash` and source IDs. Acceptance: no duplicate UEM entries under replay.
 
+**Phase 3.5 — High‑Throughput Ingestion + Missed Track Items**
+- [x] Introduce a dedicated ingestion worker using Go for connector throughput. Acceptance: Go ingestion worker processes records at target throughput.
+- [x] Use Kafka as the canonical event log; pipeline consumes events, not connector calls. Acceptance: connectors publish to Kafka and pipeline reads only from Kafka.
+- [x] Implement automatic replay + idempotent ingestion by content hash + source IDs. Acceptance: replays do not duplicate UEM entries.
+- [x] Introduce evidence nodes that bind every extracted item to a precise quoted span or segment hash. Acceptance: every UIO has at least one evidence link with `quoted_text` or `segment_hash`.
+- [x] Show evidence inline in APIs and UI surfaces. Acceptance: UIO responses include evidence metadata and UI renders evidence with one click.
+
 **Phase 4 — Signal Capture vs Truth Engine**
-- [ ] Enforce candidate‑first persistence for all UIO types. Acceptance: pipeline persists `signal_candidate` before final UIO.
-- [ ] Evidence‑weighted candidate clustering. Acceptance: clustering merges similar candidates with higher evidence counts.
-- [ ] Bi‑temporal fields for all UIOs and relationships. Acceptance: `valid_from`, `valid_to`, `system_from`, `system_to` populated.
-- [ ] Supersession logic for commitments, tasks, and risks. Acceptance: superseded items show links and `valid_to` set.
-- [ ] Contradiction detection integrated into truth engine. Acceptance: contradictions generate `Risk` with evidence and relationships.
-- [ ] Memory evolution logs written to UIO timeline. Acceptance: each update adds a timeline record.
+- [x] Enforce candidate‑first persistence for all UIO types. Acceptance: pipeline persists `signal_candidate` before final UIO.
+- [x] Evidence‑weighted candidate clustering. Acceptance: clustering merges similar candidates with higher evidence counts.
+- [x] Bi‑temporal fields for all UIOs and relationships. Acceptance: `valid_from`, `valid_to`, `system_from`, `system_to` populated.
+- [x] Supersession logic for commitments, tasks, and risks. Acceptance: superseded items show links and `valid_to` set.
+- [x] Contradiction detection integrated into truth engine. Acceptance: contradictions generate `Risk` with evidence and relationships.
+- [x] Memory evolution logs written to UIO timeline. Acceptance: each update adds a timeline record.
 
 **Phase 5 — Extraction Quality and Verification**
+- [ ] Implement Pass 1 lightweight classifier for routing and prioritization. Acceptance: classifier determines extraction path and priority tier for every input.
+- [ ] Implement Pass 2 extractor LLM with structured output and quote spans. Acceptance: extractor returns structured JSON with quoted spans for all high‑stakes items.
+- [ ] Implement Pass 3 verifier LLM to reject unsupported items and rescale confidence. Acceptance: verifier reduces confidence or rejects unsupported items with logged reasons.
 - [ ] Add source‑specific prompts for email, Slack, meetings, docs. Acceptance: prompt routing matches source type.
 - [ ] Add extraction verification for tasks, risks, and claims. Acceptance: verifier rejects unsupported items.
 - [ ] Add cross‑message evidence for commitments and decisions. Acceptance: items can link to multiple evidence segments.
 - [ ] Calibrate confidence using evidence weight, model tier, and source reliability. Acceptance: confidence distribution remains stable across sources.
 - [ ] Add long‑content chunking and merging. Acceptance: large docs produce consolidated outputs with de‑duped evidence.
 - [ ] Add model fallback routing with circuit breaker. Acceptance: extraction proceeds if primary model fails.
+- [ ] Output “Why this matters” and “What changed since last time” in every brief. Acceptance: briefs include rationale and delta sections.
+- [ ] Provide “Confidence Reasoning” for every UIO. Acceptance: confidence includes signal sources and adjustments.
+- [ ] Use a formal confidence calibration model (not just source weights). Acceptance: calibration uses evidence, model tier, and historical accuracy.
 
 **Phase 6 — Memory Graph 2.0**
 - [ ] Choose a single memory backbone and formalize adapters. Acceptance: only one canonical memory API is used by pipeline.
@@ -128,6 +87,22 @@ These are the exact items you called out, now represented as concrete, trackable
 - [ ] Improve hybrid retrieval fusion with weighted ranks. Acceptance: search relevance improves on gold set.
 - [ ] Add “explain why” citations in Ask responses. Acceptance: answers show evidence and timeline references.
 - [ ] Add follow‑up conversational queries with context memory. Acceptance: follow‑ups resolve pronouns and references.
+- [ ] Replace “last 90 days UIOs” with hybrid retrieval (graph + vector + temporal memory). Acceptance: context retrieval shows relevant entities across time.
+- [ ] Retrieve only high‑relevance context (topic + participant + time proximity). Acceptance: context size is bounded and relevance‑ranked.
+- [ ] Cache per‑conversation context to keep extraction under 300ms. Acceptance: repeated thread extractions hit cache and meet latency targets.
+
+**Phase 8 — Active Learning + Pattern Intelligence**
+- [ ] Convert all user corrections into labeled training data. Acceptance: corrections are exported in a structured dataset with labels and evidence.
+- [ ] Build a feedback‑to‑model pipeline that updates prompts and supports optional fine‑tuning. Acceptance: pipeline can replay corrections into updated extraction configs.
+- [ ] Personalize extraction per org (language, jargon, roles, project names). Acceptance: per‑org prompt/context rules improve precision on eval sets.
+- [ ] Auto‑discover patterns via embedding clustering of commitments/decisions. Acceptance: pattern candidates are generated automatically with stats.
+- [ ] Let users promote clusters into patterns with expected actions and confidence boosts. Acceptance: UI/API supports promotion and pattern lifecycle.
+- [ ] Use patterns as a fast‑path for high‑precision extraction and prioritization. Acceptance: pattern match boosts confidence and routing decisions.
+
+**Phase 9 — Multimodal Intelligence**
+- [ ] Process attachments, PDFs, slides, and images with OCR + layout awareness. Acceptance: extracted content is indexed and evidence‑linked.
+- [ ] Meeting audio: diarization + speaker resolution with evidence‑level timestamps. Acceptance: transcript segments include speaker IDs and timestamps.
+- [ ] Link every transcript segment to UIOs it supports. Acceptance: each UIO references specific transcript segments.
 - [ ] Add “closest matches” fallback when no direct results exist. Acceptance: Ask endpoint returns helpful alternatives.
 - [ ] Add RAM‑layer user profile retrieval and caching. Acceptance: default context included in responses under 400ms.
 

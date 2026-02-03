@@ -629,6 +629,12 @@ class IntelligenceState(BaseModel):
     # Deduplication
     deduplication: Deduplication = Field(default_factory=Deduplication)
 
+    # Candidate persistence guard
+    candidates_persisted: bool = False
+
+    # Contradiction pairs (new vs existing UIOs)
+    contradiction_pairs: list[dict] = Field(default_factory=list)
+
     # Output
     output: Output = Field(default_factory=Output)
 

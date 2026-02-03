@@ -21,6 +21,7 @@ from ..state import (
 from src.graph.types import ConfidenceTier, get_confidence_tier, GraphNodeType, GraphRelationshipType
 from src.search.embeddings import generate_embedding, EmbeddingError
 from src.evidence.audit import record_evidence_audit
+from src.ingestion.unified_event import build_segment_hash
 
 logger = structlog.get_logger()
 
@@ -84,6 +85,56 @@ def _resolve_message_id(state: IntelligenceState, quoted_text: str | None) -> st
     return state.messages[0].id if state.messages else None
 
 
+def _temporal_fields(now: datetime) -> dict[str, datetime | None]:
+    """Return temporal fields for UIO persistence."""
+    return {
+        "valid_from": now,
+        "valid_to": None,
+        "system_from": now,
+        "system_to": None,
+    }
+
+
+def _temporal_graph_props(now: datetime) -> dict[str, str]:
+    """Return temporal fields for graph nodes/relationships."""
+    iso_now = now.isoformat()
+    return {
+        "validFrom": iso_now,
+        "validTo": "",
+        "systemFrom": iso_now,
+        "systemTo": "",
+    }
+
+
+def _temporal_relationship_props(now: datetime) -> dict[str, str]:
+    """Return temporal fields for graph relationships."""
+    iso_now = now.isoformat()
+    return {
+        "validFrom": iso_now,
+        "validTo": "",
+        "systemFrom": iso_now,
+        "systemTo": "",
+        "createdAt": iso_now,
+        "updatedAt": iso_now,
+    }
+
+
+def _normalize_compare_value(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    if isinstance(value, str):
+        return value.strip().lower()
+    if isinstance(value, list):
+        return sorted([str(item).strip().lower() for item in value])
+    return value
+
+
+def _values_differ(a, b) -> bool:
+    return _normalize_compare_value(a) != _normalize_compare_value(b)
+
+
 async def _audit_uio_source(
     organization_id: str,
     evidence_id: str,
@@ -133,12 +184,19 @@ async def _link_uio_to_session(
         f"""
         MATCH (u:{uio_label} {{id: $uio_id, organizationId: $org_id}})
         MATCH (s:{session_node.value} {{id: $session_id}})
-        MERGE (u)-[:{GraphRelationshipType.EXTRACTED_FROM.value}]->(s)
+        MERGE (u)-[r:{GraphRelationshipType.EXTRACTED_FROM.value}]->(s)
+        ON CREATE SET r.validFrom = $valid_from,
+                      r.validTo = $valid_to,
+                      r.systemFrom = $system_from,
+                      r.systemTo = $system_to,
+                      r.createdAt = $created_at,
+                      r.updatedAt = $updated_at
         """,
         {
             "uio_id": uio_id,
             "org_id": state.input.organization_id,
             "session_id": session_id,
+            **_temporal_relationship_props(utc_now()),
         },
     )
 
@@ -304,6 +362,227 @@ async def find_existing_uio(session, org_id: str, uio_type: str, title: str) -> 
     return row[0] if row else None
 
 
+async def _should_supersede_commitment(session, existing_uio_id: str, commitment) -> bool:
+    result = await session.execute(
+        text("""
+            SELECT u.canonical_description, u.due_date,
+                   cd.direction, cd.priority
+            FROM unified_intelligence_object u
+            LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
+            WHERE u.id = :uio_id
+        """),
+        {"uio_id": existing_uio_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return False
+    return any([
+        _values_differ(row.canonical_description, commitment.description or ""),
+        _values_differ(row.due_date, to_naive_utc(commitment.due_date)),
+        _values_differ(row.direction, commitment.direction),
+        _values_differ(row.priority, commitment.priority),
+    ])
+
+
+async def _should_supersede_decision(session, existing_uio_id: str, decision) -> bool:
+    result = await session.execute(
+        text("""
+            SELECT u.canonical_description,
+                   dd.statement, dd.rationale, dd.status
+            FROM unified_intelligence_object u
+            LEFT JOIN uio_decision_details dd ON u.id = dd.uio_id
+            WHERE u.id = :uio_id
+        """),
+        {"uio_id": existing_uio_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return False
+    return any([
+        _values_differ(row.statement, decision.statement),
+        _values_differ(row.rationale, decision.rationale or ""),
+        _values_differ(row.status, decision.status),
+    ])
+
+
+async def _should_supersede_task(session, existing_uio_id: str, task) -> bool:
+    result = await session.execute(
+        text("""
+            SELECT u.canonical_description, u.due_date,
+                   td.status, td.priority, td.project, td.tags
+            FROM unified_intelligence_object u
+            LEFT JOIN uio_task_details td ON u.id = td.uio_id
+            WHERE u.id = :uio_id
+        """),
+        {"uio_id": existing_uio_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return False
+    return any([
+        _values_differ(row.canonical_description, task.description or ""),
+        _values_differ(row.due_date, to_naive_utc(task.due_date)),
+        _values_differ(row.status, task.status),
+        _values_differ(row.priority, task.priority),
+        _values_differ(row.project, getattr(task, "project", None)),
+        _values_differ(row.tags, getattr(task, "tags", None) or []),
+    ])
+
+
+async def _should_supersede_risk(session, existing_uio_id: str, risk) -> bool:
+    result = await session.execute(
+        text("""
+            SELECT u.canonical_description,
+                   rd.severity, rd.risk_type, rd.suggested_action
+            FROM unified_intelligence_object u
+            LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id
+            WHERE u.id = :uio_id
+        """),
+        {"uio_id": existing_uio_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return False
+    return any([
+        _values_differ(row.canonical_description, risk.description or ""),
+        _values_differ(row.severity, risk.severity),
+        _values_differ(row.risk_type, risk.type),
+        _values_differ(row.suggested_action, risk.suggested_action),
+    ])
+
+
+async def _apply_supersession(
+    session,
+    graph,
+    *,
+    now: datetime,
+    organization_id: str,
+    existing_uio_id: str,
+    new_uio_id: str,
+    uio_type: str,
+    evidence_id: str | None,
+    source_type: str | None,
+    conversation_id: str | None,
+    message_id: str | None,
+) -> None:
+    detail_table = {
+        "commitment": "uio_commitment_details",
+        "decision": "uio_decision_details",
+        "task": "uio_task_details",
+        "risk": "uio_risk_details",
+    }.get(uio_type)
+
+    await session.execute(
+        text("""
+            UPDATE unified_intelligence_object
+            SET valid_to = :now,
+                system_to = :now,
+                last_updated_at = :now,
+                updated_at = :now
+            WHERE id = :existing_id
+        """),
+        {
+            "now": now,
+            "existing_id": existing_uio_id,
+        },
+    )
+
+    if detail_table:
+        await session.execute(
+            text(f"""
+                UPDATE {detail_table}
+                SET superseded_by_uio_id = :new_id
+                WHERE uio_id = :existing_id
+            """),
+            {
+                "new_id": new_uio_id,
+                "existing_id": existing_uio_id,
+            },
+        )
+        await session.execute(
+            text(f"""
+                UPDATE {detail_table}
+                SET supersedes_uio_id = :existing_id
+                WHERE uio_id = :new_id
+            """),
+            {
+                "existing_id": existing_uio_id,
+                "new_id": new_uio_id,
+            },
+        )
+
+    await create_timeline_event(
+        session=session,
+        uio_id=existing_uio_id,
+        event_type="superseded",
+        event_description=f"Superseded by {uio_type} {new_uio_id}",
+        source_type=source_type,
+        source_id=conversation_id,
+        quoted_text=None,
+        evidence_id=evidence_id,
+        new_value={"superseded_by": new_uio_id},
+        confidence=None,
+        triggered_by="system",
+    )
+    await create_timeline_event(
+        session=session,
+        uio_id=new_uio_id,
+        event_type="supersedes",
+        event_description=f"Supersedes {uio_type} {existing_uio_id}",
+        source_type=source_type,
+        source_id=conversation_id,
+        quoted_text=None,
+        evidence_id=evidence_id,
+        new_value={"supersedes": existing_uio_id},
+        confidence=None,
+        triggered_by="system",
+    )
+
+    try:
+        relationship_props = _temporal_relationship_props(now)
+        await graph.query(
+            f"""
+            MATCH (old {{id: $existing_id, organizationId: $org_id}})
+            SET old.validTo = $valid_to,
+                old.systemTo = $system_to,
+                old.updatedAt = $updated_at
+            """,
+            {
+                "existing_id": existing_uio_id,
+                "org_id": organization_id,
+                "valid_to": relationship_props["validFrom"],
+                "system_to": relationship_props["systemFrom"],
+                "updated_at": relationship_props["updatedAt"],
+            },
+        )
+        await graph.query(
+            f"""
+            MATCH (new {{id: $new_id, organizationId: $org_id}})
+            MATCH (old {{id: $existing_id, organizationId: $org_id}})
+            MERGE (new)-[r:{GraphRelationshipType.SUPERSEDES.value}]->(old)
+            ON CREATE SET r.validFrom = $valid_from,
+                          r.validTo = $valid_to,
+                          r.systemFrom = $system_from,
+                          r.systemTo = $system_to,
+                          r.createdAt = $created_at,
+                          r.updatedAt = $updated_at
+            """,
+            {
+                "new_id": new_uio_id,
+                "existing_id": existing_uio_id,
+                "org_id": organization_id,
+                "valid_from": relationship_props["validFrom"],
+                "valid_to": relationship_props["validTo"],
+                "system_from": relationship_props["systemFrom"],
+                "system_to": relationship_props["systemTo"],
+                "created_at": relationship_props["createdAt"],
+                "updated_at": relationship_props["updatedAt"],
+            },
+        )
+    except Exception as exc:
+        logger.warning("Failed to update graph supersession", error=str(exc))
+
+
 async def persist_node(state: IntelligenceState) -> dict:
     """
     Persist extracted intelligence to databases.
@@ -337,6 +616,34 @@ async def persist_node(state: IntelligenceState) -> dict:
     tasks_created: list[dict] = []
     claims_created: list[dict] = []
     contacts_created: list[dict] = []
+    created_uio_by_extracted_id: dict[str, dict] = {}
+
+    if not state.candidates_persisted and (
+        state.extracted.commitments
+        or state.extracted.decisions
+        or state.extracted.tasks
+        or state.extracted.claims
+        or state.extracted.risks
+    ):
+        logger.error(
+            "Candidates not persisted; skipping final UIO persistence",
+            analysis_id=state.analysis_id,
+        )
+        state.trace.errors.append("persist: candidates_not_persisted")
+        node_timing = NodeTiming(
+            started_at=start_time,
+            completed_at=time.time(),
+        )
+        return {
+            "trace": {
+                **state.trace.model_dump(),
+                "current_node": "persist",
+                "node_timings": {
+                    **state.trace.node_timings,
+                    "persist": node_timing,
+                },
+            }
+        }
 
     # Tiered confidence tracking - NO filtering, ALL items are persisted
     tier_stats = {
@@ -505,103 +812,114 @@ async def persist_node(state: IntelligenceState) -> dict:
                     commitment.title,
                 )
 
+                supersedes_uio_id = None
                 if existing_uio_id:
-                    # Found existing UIO - add as additional source, don't create duplicate
-                    uios_merged.append({
-                        "sourceId": commitment.id,
-                        "targetId": existing_uio_id,
-                    })
-                    logger.info(
-                        "Skipping duplicate commitment (PostgreSQL match)",
-                        title=commitment.title,
-                        existing_uio_id=existing_uio_id,
+                    should_supersede = await _should_supersede_commitment(
+                        session,
+                        existing_uio_id,
+                        commitment,
                     )
+                    if not should_supersede:
+                        # Found existing UIO - add as additional source, don't create duplicate
+                        uios_merged.append({
+                            "sourceId": commitment.id,
+                            "targetId": existing_uio_id,
+                        })
+                        logger.info(
+                            "Skipping duplicate commitment (PostgreSQL match)",
+                            title=commitment.title,
+                            existing_uio_id=existing_uio_id,
+                        )
 
-                    # Add this conversation as an additional source for the existing UIO
-                    now = utc_now()
-                    source_id = str(uuid4())
-                    await session.execute(
-                        text("""
-                            INSERT INTO unified_object_source (
-                                id, unified_object_id, source_type,
-                                source_account_id, role,
-                                conversation_id, message_id, quoted_text, extracted_title,
-                                confidence, added_at, source_timestamp,
-                                detection_method, created_at
-                            ) VALUES (
-                                :id, :uio_id, :source_type,
-                                :source_account_id, 'confirmation',
-                                :conversation_id, :message_id, :quoted_text, :title,
-                                :confidence, :now, :source_timestamp,
-                                'llm_extraction', :now
-                            )
-                        """),
-                        {
-                            "id": source_id,
-                            "uio_id": existing_uio_id,
-                            "source_type": state.input.source_type or "email",
-                            "source_account_id": state.input.source_account_id,
-                            "conversation_id": state.input.conversation_id,
-                            "message_id": message_id,
-                            "quoted_text": getattr(commitment, "quoted_text", None),
-                            "title": commitment.title,
-                            "confidence": commitment.confidence,
-                            "now": now,
-                            "source_timestamp": now,
-                        },
-                    )
+                        # Add this conversation as an additional source for the existing UIO
+                        now = utc_now()
+                        source_id = str(uuid4())
+                        await session.execute(
+                            text("""
+                                INSERT INTO unified_object_source (
+                                    id, unified_object_id, source_type,
+                                    source_account_id, role,
+                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    confidence, added_at, source_timestamp,
+                                    detection_method, created_at
+                                ) VALUES (
+                                    :id, :uio_id, :source_type,
+                                    :source_account_id, 'confirmation',
+                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :confidence, :now, :source_timestamp,
+                                    'llm_extraction', :now
+                                )
+                            """),
+                            {
+                                "id": source_id,
+                                "uio_id": existing_uio_id,
+                                "source_type": state.input.source_type or "email",
+                                "source_account_id": state.input.source_account_id,
+                                "conversation_id": state.input.conversation_id,
+                                "message_id": message_id,
+                                "quoted_text": getattr(commitment, "quoted_text", None),
+                                "segment_hash": build_segment_hash(getattr(commitment, "quoted_text", "") or "")
+                                if _has_evidence(getattr(commitment, "quoted_text", None))
+                                else None,
+                                "title": commitment.title,
+                                "confidence": commitment.confidence,
+                                "now": now,
+                                "source_timestamp": now,
+                            },
+                        )
 
-                    await _audit_uio_source(
-                        organization_id=state.input.organization_id,
-                        evidence_id=source_id,
-                        uio_id=existing_uio_id,
-                        uio_type="risk",
-                        action="uio_source_added",
-                        conversation_id=state.input.conversation_id,
-                        message_id=message_id,
-                    )
+                        await _audit_uio_source(
+                            organization_id=state.input.organization_id,
+                            evidence_id=source_id,
+                            uio_id=existing_uio_id,
+                            uio_type="risk",
+                            action="uio_source_added",
+                            conversation_id=state.input.conversation_id,
+                            message_id=message_id,
+                        )
 
-                    await _audit_uio_source(
-                        organization_id=state.input.organization_id,
-                        evidence_id=source_id,
-                        uio_id=existing_uio_id,
-                        uio_type="decision",
-                        action="uio_source_added",
-                        conversation_id=state.input.conversation_id,
-                        message_id=message_id,
-                    )
+                        await _audit_uio_source(
+                            organization_id=state.input.organization_id,
+                            evidence_id=source_id,
+                            uio_id=existing_uio_id,
+                            uio_type="decision",
+                            action="uio_source_added",
+                            conversation_id=state.input.conversation_id,
+                            message_id=message_id,
+                        )
 
-                    await _audit_uio_source(
-                        organization_id=state.input.organization_id,
-                        evidence_id=source_id,
-                        uio_id=existing_uio_id,
-                        uio_type="commitment",
-                        action="uio_source_added",
-                        conversation_id=state.input.conversation_id,
-                        message_id=message_id,
-                    )
+                        await _audit_uio_source(
+                            organization_id=state.input.organization_id,
+                            evidence_id=source_id,
+                            uio_id=existing_uio_id,
+                            uio_type="commitment",
+                            action="uio_source_added",
+                            conversation_id=state.input.conversation_id,
+                            message_id=message_id,
+                        )
 
-                    # Create timeline event for source confirmation
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=existing_uio_id,
-                        event_type="source_added",
-                        event_description=f"Commitment confirmed from {state.input.source_type or 'email'}: {commitment.title}",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=getattr(commitment, "quoted_text", None),
-                        evidence_id=source_id,
-                        new_value={
-                            "title": commitment.title,
-                            "confidence": commitment.confidence,
-                            "source": state.input.source_type or "email",
-                        },
-                        confidence=commitment.confidence,
-                        triggered_by="system",
-                    )
+                        # Create timeline event for source confirmation
+                        await create_timeline_event(
+                            session=session,
+                            uio_id=existing_uio_id,
+                            event_type="source_added",
+                            event_description=f"Commitment confirmed from {state.input.source_type or 'email'}: {commitment.title}",
+                            source_type=state.input.source_type or "email",
+                            source_id=state.input.conversation_id,
+                            quoted_text=getattr(commitment, "quoted_text", None),
+                            evidence_id=source_id,
+                            new_value={
+                                "title": commitment.title,
+                                "confidence": commitment.confidence,
+                                "source": state.input.source_type or "email",
+                            },
+                            confidence=commitment.confidence,
+                            triggered_by="system",
+                        )
 
-                    await session.commit()
-                    continue
+                        await session.commit()
+                        continue
+                    supersedes_uio_id = existing_uio_id
 
                 # Create new UIO
                 uio_id = str(uuid4())
@@ -620,12 +938,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                             canonical_title, canonical_description,
                             due_date, due_date_confidence,
                             overall_confidence, first_seen_at, last_updated_at,
+                            valid_from, valid_to, system_from, system_to,
                             created_at, updated_at
                         ) VALUES (
                             :id, :org_id, 'commitment', 'active',
                             :title, :description,
                             :due_date, :due_date_confidence,
                             :confidence, :now, :now,
+                            :valid_from, :valid_to, :system_from, :system_to,
                             :now, :now
                         )
                     """),
@@ -638,6 +958,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "due_date_confidence": commitment.confidence if commitment.due_date else None,
                         "confidence": commitment.confidence,
                         "now": now,
+                        **_temporal_fields(now),
                     },
                 )
 
@@ -668,6 +989,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             due_date_source, due_date_original_text,
                             priority, status,
                             is_conditional, condition,
+                            supersedes_uio_id, superseded_by_uio_id,
                             extraction_context,
                             created_at, updated_at
                         ) VALUES (
@@ -676,6 +998,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :due_date_source, :due_date_text,
                             :priority, 'pending',
                             :is_conditional, :condition,
+                            :supersedes_uio_id, :superseded_by_uio_id,
                             :extraction_context,
                             :now, :now
                         )
@@ -691,6 +1014,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "priority": commitment.priority or "medium",
                         "is_conditional": getattr(commitment, "is_conditional", False),
                         "condition": getattr(commitment, "condition", None),
+                        "supersedes_uio_id": supersedes_uio_id,
+                        "superseded_by_uio_id": None,
                         "extraction_context": json.dumps(extraction_context),
                         "now": now,
                     },
@@ -704,7 +1029,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, unified_object_id, source_type,
                             source_account_id, role,
                             conversation_id, message_id,
-                            quoted_text, extracted_title,
+                            quoted_text, segment_hash, extracted_title,
                             extracted_due_date,
                             confidence, added_at, source_timestamp,
                             detection_method,
@@ -713,7 +1038,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
                             :conversation_id, :message_id,
-                            :quoted_text, :title,
+                            :quoted_text, :segment_hash, :title,
                             :due_date,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction',
@@ -728,6 +1053,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "conversation_id": state.input.conversation_id,
                         "message_id": message_id,
                         "quoted_text": getattr(commitment, "quoted_text", None),
+                        "segment_hash": build_segment_hash(getattr(commitment, "quoted_text", "") or "")
+                        if _has_evidence(getattr(commitment, "quoted_text", None))
+                        else None,
                         "title": commitment.title,
                         "due_date": to_naive_utc(commitment.due_date),
                         "confidence": commitment.confidence,
@@ -745,6 +1073,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     conversation_id=state.input.conversation_id,
                     message_id=message_id,
                 )
+
+                created_uio_by_extracted_id[commitment.id] = {
+                    "uio_id": uio_id,
+                    "type": "commitment",
+                    "evidence_id": source_id,
+                }
 
                 # Create timeline event for UIO creation
                 await create_timeline_event(
@@ -768,6 +1102,21 @@ async def persist_node(state: IntelligenceState) -> dict:
                     triggered_by="system",
                 )
 
+                if supersedes_uio_id:
+                    await _apply_supersession(
+                        session,
+                        graph,
+                        now=now,
+                        organization_id=state.input.organization_id,
+                        existing_uio_id=supersedes_uio_id,
+                        new_uio_id=uio_id,
+                        uio_type="commitment",
+                        evidence_id=source_id,
+                        source_type=state.input.source_type or "email",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
                 await session.commit()
 
                 # Create graph node
@@ -784,7 +1133,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                         status: 'active',
                         confidence: $confidence,
                         confidenceTier: $confidenceTier,
-                        createdAt: $createdAt
+                        createdAt: $createdAt,
+                        updatedAt: $createdAt,
+                        validFrom: $validFrom,
+                        validTo: $validTo,
+                        systemFrom: $systemFrom,
+                        systemTo: $systemTo
                     })
                     RETURN c
                     """,
@@ -798,6 +1152,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "confidence": commitment.confidence,
                         "confidenceTier": graph_confidence_tier,
                         "createdAt": now.isoformat(),
+                        **_temporal_graph_props(now),
                     },
                 )
                 await _link_uio_to_session(graph, state, "Commitment", uio_id)
@@ -858,73 +1213,84 @@ async def persist_node(state: IntelligenceState) -> dict:
                     decision.title,
                 )
 
+                supersedes_uio_id = None
                 if existing_uio_id:
-                    # Found existing UIO - add as additional source
-                    uios_merged.append({
-                        "sourceId": decision.id,
-                        "targetId": existing_uio_id,
-                    })
-                    logger.info(
-                        "Skipping duplicate decision (PostgreSQL match)",
-                        title=decision.title,
-                        existing_uio_id=existing_uio_id,
+                    should_supersede = await _should_supersede_decision(
+                        session,
+                        existing_uio_id,
+                        decision,
                     )
+                    if not should_supersede:
+                        # Found existing UIO - add as additional source
+                        uios_merged.append({
+                            "sourceId": decision.id,
+                            "targetId": existing_uio_id,
+                        })
+                        logger.info(
+                            "Skipping duplicate decision (PostgreSQL match)",
+                            title=decision.title,
+                            existing_uio_id=existing_uio_id,
+                        )
 
-                    # Add this conversation as an additional source
-                    now = utc_now()
-                    source_id = str(uuid4())
-                    await session.execute(
-                        text("""
-                            INSERT INTO unified_object_source (
-                                id, unified_object_id, source_type,
-                                source_account_id, role,
-                                conversation_id, message_id, quoted_text, extracted_title,
-                                confidence, added_at, source_timestamp,
-                                detection_method, created_at
-                            ) VALUES (
-                                :id, :uio_id, :source_type,
-                                :source_account_id, 'confirmation',
-                                :conversation_id, :message_id, :quoted_text, :title,
-                                :confidence, :now, :source_timestamp,
-                                'llm_extraction', :now
-                            )
-                        """),
-                        {
-                            "id": source_id,
-                            "uio_id": existing_uio_id,
-                            "source_type": state.input.source_type or "email",
-                            "source_account_id": state.input.source_account_id,
-                            "conversation_id": state.input.conversation_id,
-                            "message_id": message_id,
-                            "quoted_text": getattr(decision, "quoted_text", None),
-                            "title": decision.title,
-                            "confidence": decision.confidence,
-                            "now": now,
-                            "source_timestamp": now,
-                        },
-                    )
+                        # Add this conversation as an additional source
+                        now = utc_now()
+                        source_id = str(uuid4())
+                        await session.execute(
+                            text("""
+                                INSERT INTO unified_object_source (
+                                    id, unified_object_id, source_type,
+                                    source_account_id, role,
+                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    confidence, added_at, source_timestamp,
+                                    detection_method, created_at
+                                ) VALUES (
+                                    :id, :uio_id, :source_type,
+                                    :source_account_id, 'confirmation',
+                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :confidence, :now, :source_timestamp,
+                                    'llm_extraction', :now
+                                )
+                            """),
+                            {
+                                "id": source_id,
+                                "uio_id": existing_uio_id,
+                                "source_type": state.input.source_type or "email",
+                                "source_account_id": state.input.source_account_id,
+                                "conversation_id": state.input.conversation_id,
+                                "message_id": message_id,
+                                "quoted_text": getattr(decision, "quoted_text", None),
+                                "segment_hash": build_segment_hash(getattr(decision, "quoted_text", "") or "")
+                                if _has_evidence(getattr(decision, "quoted_text", None))
+                                else None,
+                                "title": decision.title,
+                                "confidence": decision.confidence,
+                                "now": now,
+                                "source_timestamp": now,
+                            },
+                        )
 
-                    # Create timeline event for source confirmation
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=existing_uio_id,
-                        event_type="source_added",
-                        event_description=f"Decision confirmed from {state.input.source_type or 'email'}: {decision.title}",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=getattr(decision, "quoted_text", None),
-                        evidence_id=source_id,
-                        new_value={
-                            "title": decision.title,
-                            "confidence": decision.confidence,
-                            "source": state.input.source_type or "email",
-                        },
-                        confidence=decision.confidence,
-                        triggered_by="system",
-                    )
+                        # Create timeline event for source confirmation
+                        await create_timeline_event(
+                            session=session,
+                            uio_id=existing_uio_id,
+                            event_type="source_added",
+                            event_description=f"Decision confirmed from {state.input.source_type or 'email'}: {decision.title}",
+                            source_type=state.input.source_type or "email",
+                            source_id=state.input.conversation_id,
+                            quoted_text=getattr(decision, "quoted_text", None),
+                            evidence_id=source_id,
+                            new_value={
+                                "title": decision.title,
+                                "confidence": decision.confidence,
+                                "source": state.input.source_type or "email",
+                            },
+                            confidence=decision.confidence,
+                            triggered_by="system",
+                        )
 
-                    await session.commit()
-                    continue
+                        await session.commit()
+                        continue
+                    supersedes_uio_id = existing_uio_id
 
                 uio_id = str(uuid4())
                 now = utc_now()
@@ -941,11 +1307,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, organization_id, type, status,
                             canonical_title, canonical_description,
                             overall_confidence, first_seen_at, last_updated_at,
+                            valid_from, valid_to, system_from, system_to,
                             created_at, updated_at
                         ) VALUES (
                             :id, :org_id, 'decision', 'active',
                             :title, :description,
                             :confidence, :now, :now,
+                            :valid_from, :valid_to, :system_from, :system_to,
                             :now, :now
                         )
                     """),
@@ -956,6 +1324,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "description": f"{decision.statement}\n\nRationale: {decision.rationale or 'N/A'}",
                         "confidence": decision.confidence,
                         "now": now,
+                        **_temporal_fields(now),
                     },
                 )
 
@@ -981,6 +1350,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             decision_maker_contact_id,
                             alternatives, stakeholder_contact_ids, impact_areas,
                             status, decided_at,
+                            supersedes_uio_id, superseded_by_uio_id,
                             extraction_context,
                             created_at, updated_at
                         ) VALUES (
@@ -988,6 +1358,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :decision_maker_contact_id,
                             :alternatives, :stakeholders, :impact_areas,
                             'made', :decided_at,
+                            :supersedes_uio_id, :superseded_by_uio_id,
                             :extraction_context,
                             :now, :now
                         )
@@ -1002,6 +1373,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "stakeholders": getattr(decision, "stakeholders", []) or [],
                         "impact_areas": getattr(decision, "implications", []) or [],
                         "decided_at": now,
+                        "supersedes_uio_id": supersedes_uio_id,
+                        "superseded_by_uio_id": None,
                         "extraction_context": json.dumps(extraction_context),
                         "now": now,
                     },
@@ -1015,7 +1388,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, unified_object_id, source_type,
                             source_account_id, role,
                             conversation_id, message_id,
-                            quoted_text, extracted_title,
+                            quoted_text, segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method,
                             created_at
@@ -1023,7 +1396,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
                             :conversation_id, :message_id,
-                            :quoted_text, :title,
+                            :quoted_text, :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction',
                             :now
@@ -1037,6 +1410,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "conversation_id": state.input.conversation_id,
                         "message_id": message_id,
                         "quoted_text": getattr(decision, "quoted_text", None),
+                        "segment_hash": build_segment_hash(getattr(decision, "quoted_text", "") or "")
+                        if _has_evidence(getattr(decision, "quoted_text", None))
+                        else None,
                         "title": decision.title,
                         "confidence": decision.confidence,
                         "now": now,
@@ -1053,6 +1429,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     conversation_id=state.input.conversation_id,
                     message_id=message_id,
                 )
+
+                created_uio_by_extracted_id[decision.id] = {
+                    "uio_id": uio_id,
+                    "type": "decision",
+                    "evidence_id": source_id,
+                }
 
                 # Create timeline event for UIO creation
                 await create_timeline_event(
@@ -1074,6 +1456,21 @@ async def persist_node(state: IntelligenceState) -> dict:
                     triggered_by="system",
                 )
 
+                if supersedes_uio_id:
+                    await _apply_supersession(
+                        session,
+                        graph,
+                        now=now,
+                        organization_id=state.input.organization_id,
+                        existing_uio_id=supersedes_uio_id,
+                        new_uio_id=uio_id,
+                        uio_type="decision",
+                        evidence_id=source_id,
+                        source_type=state.input.source_type or "email",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
                 await session.commit()
 
                 # Create graph node
@@ -1092,7 +1489,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                         implications: $implications,
                         confidence: $confidence,
                         confidenceTier: $confidenceTier,
-                        createdAt: $createdAt
+                        createdAt: $createdAt,
+                        updatedAt: $createdAt,
+                        validFrom: $validFrom,
+                        validTo: $validTo,
+                        systemFrom: $systemFrom,
+                        systemTo: $systemTo
                     })
                     RETURN d
                     """,
@@ -1109,6 +1511,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "confidence": decision.confidence,
                         "confidenceTier": graph_confidence_tier,
                         "createdAt": now.isoformat(),
+                        **_temporal_graph_props(now),
                     },
                 )
                 await _link_uio_to_session(graph, state, "Decision", uio_id)
@@ -1150,67 +1553,78 @@ async def persist_node(state: IntelligenceState) -> dict:
                     risk.title,
                 )
 
+                supersedes_uio_id = None
                 if existing_uio_id:
-                    # Found existing risk - add as confirmation source
-                    now = utc_now()
-                    source_id = str(uuid4())
-                    await session.execute(
-                        text("""
-                            INSERT INTO unified_object_source (
-                                id, unified_object_id, source_type,
-                                source_account_id, role,
-                                conversation_id, message_id, quoted_text, extracted_title,
-                                confidence, added_at, source_timestamp,
-                                detection_method, created_at
-                            ) VALUES (
-                                :id, :uio_id, :source_type,
-                                :source_account_id, 'confirmation',
-                                :conversation_id, :message_id, :quoted_text, :title,
-                                :confidence, :now, :source_timestamp,
-                                'llm_extraction', :now
-                            )
-                        """),
-                        {
-                            "id": source_id,
-                            "uio_id": existing_uio_id,
-                            "source_type": state.input.source_type or "email",
-                            "source_account_id": state.input.source_account_id,
-                            "conversation_id": state.input.conversation_id,
-                            "message_id": message_id,
-                            "quoted_text": getattr(risk, "quoted_text", None),
-                            "title": risk.title,
-                            "confidence": risk.confidence,
-                            "now": now,
-                            "source_timestamp": now,
-                        },
+                    should_supersede = await _should_supersede_risk(
+                        session,
+                        existing_uio_id,
+                        risk,
                     )
+                    if not should_supersede:
+                        # Found existing risk - add as confirmation source
+                        now = utc_now()
+                        source_id = str(uuid4())
+                        await session.execute(
+                            text("""
+                                INSERT INTO unified_object_source (
+                                    id, unified_object_id, source_type,
+                                    source_account_id, role,
+                                    conversation_id, message_id, quoted_text, segment_hash, extracted_title,
+                                    confidence, added_at, source_timestamp,
+                                    detection_method, created_at
+                                ) VALUES (
+                                    :id, :uio_id, :source_type,
+                                    :source_account_id, 'confirmation',
+                                    :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
+                                    :confidence, :now, :source_timestamp,
+                                    'llm_extraction', :now
+                                )
+                            """),
+                            {
+                                "id": source_id,
+                                "uio_id": existing_uio_id,
+                                "source_type": state.input.source_type or "email",
+                                "source_account_id": state.input.source_account_id,
+                                "conversation_id": state.input.conversation_id,
+                                "message_id": message_id,
+                                "quoted_text": getattr(risk, "quoted_text", None),
+                                "segment_hash": build_segment_hash(getattr(risk, "quoted_text", "") or "")
+                                if _has_evidence(getattr(risk, "quoted_text", None))
+                                else None,
+                                "title": risk.title,
+                                "confidence": risk.confidence,
+                                "now": now,
+                                "source_timestamp": now,
+                            },
+                        )
 
-                    # Create timeline event for confirmation
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=existing_uio_id,
-                        event_type="source_added",
-                        event_description=f"Risk confirmed from {state.input.source_type or 'email'}: {risk.title}",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=getattr(risk, "quoted_text", None),
-                        evidence_id=source_id,
-                        new_value={
-                            "title": risk.title,
-                            "severity": risk.severity,
-                            "source": state.input.source_type or "email",
-                        },
-                        confidence=risk.confidence,
-                        triggered_by="system",
-                    )
+                        # Create timeline event for confirmation
+                        await create_timeline_event(
+                            session=session,
+                            uio_id=existing_uio_id,
+                            event_type="source_added",
+                            event_description=f"Risk confirmed from {state.input.source_type or 'email'}: {risk.title}",
+                            source_type=state.input.source_type or "email",
+                            source_id=state.input.conversation_id,
+                            quoted_text=getattr(risk, "quoted_text", None),
+                            evidence_id=source_id,
+                            new_value={
+                                "title": risk.title,
+                                "severity": risk.severity,
+                                "source": state.input.source_type or "email",
+                            },
+                            confidence=risk.confidence,
+                            triggered_by="system",
+                        )
 
-                    await session.commit()
-                    logger.info(
-                        "Skipping duplicate risk (PostgreSQL match)",
-                        title=risk.title,
-                        existing_uio_id=existing_uio_id,
-                    )
-                    continue
+                        await session.commit()
+                        logger.info(
+                            "Skipping duplicate risk (PostgreSQL match)",
+                            title=risk.title,
+                            existing_uio_id=existing_uio_id,
+                        )
+                        continue
+                    supersedes_uio_id = existing_uio_id
 
                 risk_id = str(uuid4())
                 uio_id = str(uuid4())
@@ -1224,11 +1638,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 id, organization_id, type, status,
                                 canonical_title, canonical_description,
                                 overall_confidence, first_seen_at, last_updated_at,
+                                valid_from, valid_to, system_from, system_to,
                                 created_at, updated_at
                             ) VALUES (
                                 :id, :org_id, 'risk', 'active',
                                 :title, :description,
                                 :confidence, :now, :now,
+                                :valid_from, :valid_to, :system_from, :system_to,
                                 :now, :now
                             )
                         """),
@@ -1239,6 +1655,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "description": risk.description or "",
                             "confidence": risk.confidence,
                             "now": now,
+                            **_temporal_fields(now),
                         },
                     )
 
@@ -1293,27 +1710,31 @@ async def persist_node(state: IntelligenceState) -> dict:
                     }
                     await session.execute(
                         text("""
-                            INSERT INTO uio_risk_details (
-                                id, uio_id, risk_type, severity,
-                                suggested_action, findings, extraction_context,
-                                created_at, updated_at
-                            ) VALUES (
-                                :id, :uio_id, :risk_type, :severity,
-                                :suggested_action, :findings, :extraction_context,
-                                :now, :now
-                            )
-                        """),
-                        {
-                            "id": risk_details_id,
-                            "uio_id": uio_id,
-                            "risk_type": risk_type_value,
-                            "severity": risk_severity,
-                            "suggested_action": risk.suggested_action,
-                            "findings": json.dumps(findings),
-                            "extraction_context": json.dumps(extraction_context),
-                            "now": now,
-                        },
-                    )
+                        INSERT INTO uio_risk_details (
+                            id, uio_id, risk_type, severity,
+                            suggested_action, findings, extraction_context,
+                            supersedes_uio_id, superseded_by_uio_id,
+                            created_at, updated_at
+                        ) VALUES (
+                            :id, :uio_id, :risk_type, :severity,
+                            :suggested_action, :findings, :extraction_context,
+                            :supersedes_uio_id, :superseded_by_uio_id,
+                            :now, :now
+                        )
+                    """),
+                    {
+                        "id": risk_details_id,
+                        "uio_id": uio_id,
+                        "risk_type": risk_type_value,
+                        "severity": risk_severity,
+                        "suggested_action": risk.suggested_action,
+                        "findings": json.dumps(findings),
+                        "extraction_context": json.dumps(extraction_context),
+                        "supersedes_uio_id": supersedes_uio_id,
+                        "superseded_by_uio_id": None,
+                        "now": now,
+                    },
+                )
 
                     # Link risk UIO to source conversation
                     risk_source_id = str(uuid4())
@@ -1322,13 +1743,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, message_id, quoted_text, extracted_title,
+                                conversation_id, message_id, quoted_text, segment_hash, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'origin',
-                                :conversation_id, :message_id, :quoted_text, :title,
+                                :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -1341,6 +1762,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "conversation_id": state.input.conversation_id,
                             "message_id": message_id,
                             "quoted_text": risk.quoted_text,
+                            "segment_hash": build_segment_hash(risk.quoted_text or "")
+                            if _has_evidence(risk.quoted_text)
+                            else None,
                             "title": risk.title,
                             "confidence": risk.confidence,
                             "now": now,
@@ -1357,6 +1781,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                         conversation_id=state.input.conversation_id,
                         message_id=message_id,
                     )
+
+                    created_uio_by_extracted_id[risk.id] = {
+                        "uio_id": uio_id,
+                        "type": "risk",
+                        "evidence_id": risk_source_id,
+                    }
 
                     # Create timeline event for risk creation
                     await create_timeline_event(
@@ -1378,6 +1808,21 @@ async def persist_node(state: IntelligenceState) -> dict:
                         triggered_by="system",
                     )
 
+                    if supersedes_uio_id:
+                        await _apply_supersession(
+                            session,
+                            graph,
+                            now=now,
+                            organization_id=state.input.organization_id,
+                            existing_uio_id=supersedes_uio_id,
+                            new_uio_id=uio_id,
+                            uio_type="risk",
+                            evidence_id=risk_source_id,
+                            source_type=state.input.source_type or "email",
+                            conversation_id=state.input.conversation_id,
+                            message_id=message_id,
+                        )
+
                     await session.commit()
 
                     # Also create graph node
@@ -1395,7 +1840,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                             quotedText: $quotedText,
                             confidence: $confidence,
                             reasoning: $reasoning,
-                            createdAt: $createdAt
+                            createdAt: $createdAt,
+                            updatedAt: $createdAt,
+                            validFrom: $validFrom,
+                            validTo: $validTo,
+                            systemFrom: $systemFrom,
+                            systemTo: $systemTo
                         })
                         RETURN r
                         """,
@@ -1412,6 +1862,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "confidence": risk.confidence,
                             "reasoning": serialize_for_graph(risk.reasoning),
                             "createdAt": now.isoformat(),
+                            **_temporal_graph_props(now),
                         },
                     )
                     await _link_uio_to_session(graph, state, "Risk", uio_id)
@@ -1502,6 +1953,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
+                if not _has_evidence(getattr(task, "quoted_text", None)):
+                    logger.info(
+                        "Skipping task without evidence",
+                        title=task.title,
+                        analysis_id=state.analysis_id,
+                    )
+                    continue
+
                 message_id = _resolve_message_id(state, getattr(task, "quoted_text", None))
 
                 # Check for existing task UIO with same title (PostgreSQL fallback)
@@ -1512,76 +1971,87 @@ async def persist_node(state: IntelligenceState) -> dict:
                     task.title,
                 )
 
+                supersedes_uio_id = None
                 if existing_uio_id:
-                    # Found existing task - add as confirmation source
-                    now = utc_now()
-                    source_id = str(uuid4())
-                    await session.execute(
-                        text("""
-                            INSERT INTO unified_object_source (
-                                id, unified_object_id, source_type,
-                                source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
-                                confidence, added_at, source_timestamp,
-                                detection_method, created_at
-                            ) VALUES (
-                                :id, :uio_id, :source_type,
-                                :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :title,
-                                :confidence, :now, :source_timestamp,
-                                'llm_extraction', :now
-                            )
-                        """),
-                        {
-                            "id": source_id,
-                            "uio_id": existing_uio_id,
-                            "source_type": state.input.source_type or "email",
-                            "source_account_id": state.input.source_account_id,
-                            "conversation_id": state.input.conversation_id,
-                            "quoted_text": getattr(task, "quoted_text", None),
-                            "title": task.title,
-                            "confidence": getattr(task, "confidence", 0.9),
-                            "now": now,
-                            "source_timestamp": now,
-                        },
+                    should_supersede = await _should_supersede_task(
+                        session,
+                        existing_uio_id,
+                        task,
                     )
+                    if not should_supersede:
+                        # Found existing task - add as confirmation source
+                        now = utc_now()
+                        source_id = str(uuid4())
+                        await session.execute(
+                            text("""
+                                INSERT INTO unified_object_source (
+                                    id, unified_object_id, source_type,
+                                    source_account_id, role,
+                                    conversation_id, quoted_text, segment_hash, extracted_title,
+                                    confidence, added_at, source_timestamp,
+                                    detection_method, created_at
+                                ) VALUES (
+                                    :id, :uio_id, :source_type,
+                                    :source_account_id, 'confirmation',
+                                    :conversation_id, :quoted_text, :segment_hash, :title,
+                                    :confidence, :now, :source_timestamp,
+                                    'llm_extraction', :now
+                                )
+                            """),
+                            {
+                                "id": source_id,
+                                "uio_id": existing_uio_id,
+                                "source_type": state.input.source_type or "email",
+                                "source_account_id": state.input.source_account_id,
+                                "conversation_id": state.input.conversation_id,
+                                "quoted_text": getattr(task, "quoted_text", None),
+                                "segment_hash": build_segment_hash(getattr(task, "quoted_text", "") or "")
+                                if _has_evidence(getattr(task, "quoted_text", None))
+                                else None,
+                                "title": task.title,
+                                "confidence": getattr(task, "confidence", 0.9),
+                                "now": now,
+                                "source_timestamp": now,
+                            },
+                        )
 
-                    await _audit_uio_source(
-                        organization_id=state.input.organization_id,
-                        evidence_id=source_id,
-                        uio_id=existing_uio_id,
-                        uio_type="task",
-                        action="uio_source_added",
-                        conversation_id=state.input.conversation_id,
-                        message_id=message_id,
-                    )
+                        await _audit_uio_source(
+                            organization_id=state.input.organization_id,
+                            evidence_id=source_id,
+                            uio_id=existing_uio_id,
+                            uio_type="task",
+                            action="uio_source_added",
+                            conversation_id=state.input.conversation_id,
+                            message_id=message_id,
+                        )
 
-                    # Create timeline event for confirmation
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=existing_uio_id,
-                        event_type="source_added",
-                        event_description=f"Task confirmed from {state.input.source_type or 'email'}: {task.title}",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=getattr(task, "quoted_text", None),
-                        evidence_id=source_id,
-                        new_value={
-                            "title": task.title,
-                            "status": task.status,
-                            "source": state.input.source_type or "email",
-                        },
-                        confidence=getattr(task, "confidence", 0.9),
-                        triggered_by="system",
-                    )
+                        # Create timeline event for confirmation
+                        await create_timeline_event(
+                            session=session,
+                            uio_id=existing_uio_id,
+                            event_type="source_added",
+                            event_description=f"Task confirmed from {state.input.source_type or 'email'}: {task.title}",
+                            source_type=state.input.source_type or "email",
+                            source_id=state.input.conversation_id,
+                            quoted_text=getattr(task, "quoted_text", None),
+                            evidence_id=source_id,
+                            new_value={
+                                "title": task.title,
+                                "status": task.status,
+                                "source": state.input.source_type or "email",
+                            },
+                            confidence=getattr(task, "confidence", 0.9),
+                            triggered_by="system",
+                        )
 
-                    await session.commit()
-                    logger.info(
-                        "Skipping duplicate task (PostgreSQL match)",
-                        title=task.title,
-                        existing_uio_id=existing_uio_id,
-                    )
-                    continue
+                        await session.commit()
+                        logger.info(
+                            "Skipping duplicate task (PostgreSQL match)",
+                            title=task.title,
+                            existing_uio_id=existing_uio_id,
+                        )
+                        continue
+                    supersedes_uio_id = existing_uio_id
 
                 uio_id = str(uuid4())
                 now = utc_now()
@@ -1594,12 +2064,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                             canonical_title, canonical_description,
                             due_date, overall_confidence,
                             first_seen_at, last_updated_at,
+                            valid_from, valid_to, system_from, system_to,
                             created_at, updated_at
                         ) VALUES (
                             :id, :org_id, 'task', 'active',
                             :title, :description,
                             :due_date, 0.9,
                             :now, :now,
+                            :valid_from, :valid_to, :system_from, :system_to,
                             :now, :now
                         )
                     """),
@@ -1610,6 +2082,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "description": task.description or "",
                         "due_date": to_naive_utc(task.due_date),
                         "now": now,
+                        **_temporal_fields(now),
                     },
                 )
 
@@ -1657,12 +2130,14 @@ async def persist_node(state: IntelligenceState) -> dict:
                             assignee_contact_id, created_by_contact_id,
                             estimated_effort, completed_at,
                             project, tags,
+                            supersedes_uio_id, superseded_by_uio_id,
                             created_at, updated_at
                         ) VALUES (
                             :id, :uio_id, :status, :priority,
                             :assignee_contact_id, :created_by_contact_id,
                             :estimated_effort, :completed_at,
                             :project, :tags,
+                            :supersedes_uio_id, :superseded_by_uio_id,
                             :now, :now
                         )
                     """),
@@ -1677,6 +2152,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "completed_at": completed_at,
                         "project": getattr(task, "project", None),
                         "tags": getattr(task, "tags", []) or [],
+                        "supersedes_uio_id": supersedes_uio_id,
+                        "superseded_by_uio_id": None,
                         "now": now,
                     },
                 )
@@ -1688,13 +2165,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                         INSERT INTO unified_object_source (
                             id, unified_object_id, source_type,
                             source_account_id, role,
-                            conversation_id, extracted_title,
+                            conversation_id, message_id, quoted_text, segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method, created_at
                         ) VALUES (
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
-                            :conversation_id, :title,
+                            :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction', :now
                         )
@@ -1705,6 +2182,11 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_type": state.input.source_type or "email",
                         "source_account_id": state.input.source_account_id,
                         "conversation_id": state.input.conversation_id,
+                        "message_id": message_id,
+                        "quoted_text": getattr(task, "quoted_text", None),
+                        "segment_hash": build_segment_hash(getattr(task, "quoted_text", "") or "")
+                        if _has_evidence(getattr(task, "quoted_text", None))
+                        else None,
                         "title": task.title,
                         "confidence": task.confidence,
                         "now": now,
@@ -1721,6 +2203,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     conversation_id=state.input.conversation_id,
                     message_id=message_id,
                 )
+
+                created_uio_by_extracted_id[task.id] = {
+                    "uio_id": uio_id,
+                    "type": "task",
+                    "evidence_id": task_source_id,
+                }
 
                 # Create timeline event for task creation
                 await create_timeline_event(
@@ -1741,6 +2229,21 @@ async def persist_node(state: IntelligenceState) -> dict:
                     confidence=task.confidence,
                     triggered_by="system",
                 )
+
+                if supersedes_uio_id:
+                    await _apply_supersession(
+                        session,
+                        graph,
+                        now=now,
+                        organization_id=state.input.organization_id,
+                        existing_uio_id=supersedes_uio_id,
+                        new_uio_id=uio_id,
+                        uio_type="task",
+                        evidence_id=task_source_id,
+                        source_type=state.input.source_type or "email",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
 
                 tasks_created.append({"id": uio_id, "title": task.title})
                 task_graph_entries.append(
@@ -1773,7 +2276,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     assigneeContactId: $assigneeContactId,
                     createdByContactId: $createdByContactId,
                     confidence: $confidence,
-                    createdAt: $createdAt
+                    createdAt: $createdAt,
+                    updatedAt: $createdAt,
+                    validFrom: $validFrom,
+                    validTo: $validTo,
+                    systemFrom: $systemFrom,
+                    systemTo: $systemTo
                 })
                 RETURN t
                 """,
@@ -1795,6 +2303,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     ),
                     "confidence": task_entry["confidence"],
                     "createdAt": utc_now().isoformat(),
+                    **_temporal_graph_props(utc_now()),
                 },
             )
             await _link_uio_to_session(graph, state, "Task", task_entry["id"])
@@ -1844,6 +2353,14 @@ async def persist_node(state: IntelligenceState) -> dict:
         async with get_db_session() as session:
             claim_graph_entries: list[dict] = []
             for claim in claims_to_persist:
+                if not _has_evidence(getattr(claim, "quoted_text", None)):
+                    logger.info(
+                        "Skipping claim without evidence",
+                        content=claim.content[:50] if claim.content else None,
+                        analysis_id=state.analysis_id,
+                    )
+                    continue
+
                 message_id = _resolve_message_id(state, getattr(claim, "quoted_text", None))
                 # Check for existing claim with same content (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
@@ -1862,13 +2379,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
+                                conversation_id, quoted_text, segment_hash, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :title,
+                                :conversation_id, :quoted_text, :segment_hash, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -1880,6 +2397,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
                             "quoted_text": getattr(claim, "quoted_text", claim.content[:500] if claim.content else None),
+                            "segment_hash": build_segment_hash(getattr(claim, "quoted_text", "") or "")
+                            if _has_evidence(getattr(claim, "quoted_text", None))
+                            else None,
                             "title": claim.content[:200] if claim.content else None,
                             "confidence": claim.confidence,
                             "now": now,
@@ -1934,11 +2454,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             id, organization_id, type, status,
                             canonical_title, canonical_description,
                             overall_confidence, first_seen_at, last_updated_at,
+                            valid_from, valid_to, system_from, system_to,
                             created_at, updated_at
                         ) VALUES (
                             :id, :org_id, 'claim', 'active',
                             :title, :description,
                             :confidence, :now, :now,
+                            :valid_from, :valid_to, :system_from, :system_to,
                             :now, :now
                         )
                     """),
@@ -1949,6 +2471,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "description": claim.content or "",
                         "confidence": claim.confidence,
                         "now": now,
+                        **_temporal_fields(now),
                     },
                 )
 
@@ -1994,13 +2517,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                         INSERT INTO unified_object_source (
                             id, unified_object_id, source_type,
                             source_account_id, role,
-                            conversation_id, quoted_text, extracted_title,
+                            conversation_id, quoted_text, segment_hash, extracted_title,
                             confidence, added_at, source_timestamp,
                             detection_method, created_at
                         ) VALUES (
                             :id, :uio_id, :source_type,
                             :source_account_id, 'origin',
-                            :conversation_id, :quoted_text, :title,
+                            :conversation_id, :quoted_text, :segment_hash, :title,
                             :confidence, :now, :source_timestamp,
                             'llm_extraction', :now
                         )
@@ -2012,6 +2535,9 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_account_id": state.input.source_account_id,
                         "conversation_id": state.input.conversation_id,
                         "quoted_text": getattr(claim, "quoted_text", claim.content[:500] if claim.content else None),
+                        "segment_hash": build_segment_hash(getattr(claim, "quoted_text", "") or "")
+                        if _has_evidence(getattr(claim, "quoted_text", None))
+                        else None,
                         "title": claim.content[:200] if claim.content else None,
                         "confidence": claim.confidence,
                         "now": now,
@@ -2028,6 +2554,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     conversation_id=state.input.conversation_id,
                     message_id=message_id,
                 )
+
+                created_uio_by_extracted_id[claim.id] = {
+                    "uio_id": uio_id,
+                    "type": "claim",
+                    "evidence_id": source_id,
+                }
 
                 # Create timeline event for claim creation
                 await create_timeline_event(
@@ -2073,7 +2605,12 @@ async def persist_node(state: IntelligenceState) -> dict:
                     quotedText: $quotedText,
                     confidence: $confidence,
                     importance: $importance,
-                    createdAt: $createdAt
+                    createdAt: $createdAt,
+                    updatedAt: $createdAt,
+                    validFrom: $validFrom,
+                    validTo: $validTo,
+                    systemFrom: $systemFrom,
+                    systemTo: $systemTo
                 })
                 RETURN cl
                 """,
@@ -2086,6 +2623,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     "confidence": claim_entry["confidence"],
                     "importance": serialize_for_graph(claim_entry["importance"]),
                     "createdAt": utc_now().isoformat(),
+                    **_temporal_graph_props(utc_now()),
                 },
             )
             await _link_uio_to_session(graph, state, "Claim", claim_entry["id"])
@@ -2148,11 +2686,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                                 id, organization_id, type, status,
                                 canonical_title, canonical_description,
                                 overall_confidence, first_seen_at, last_updated_at,
+                                valid_from, valid_to, system_from, system_to,
                                 created_at, updated_at
                             ) VALUES (
                                 :id, :org_id, 'brief', 'active',
                                 :title, :description,
                                 :confidence, :now, :now,
+                                :valid_from, :valid_to, :system_from, :system_to,
                                 :now, :now
                             )
                         """),
@@ -2163,6 +2703,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "description": state.brief.brief_summary,
                             "confidence": 0.9,
                             "now": now,
+                            **_temporal_fields(now),
                         },
                     )
 
@@ -2253,13 +2794,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, extracted_title,
+                                conversation_id, message_id, quoted_text, segment_hash, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'origin',
-                                :conversation_id, :title,
+                                :conversation_id, :message_id, :quoted_text, :segment_hash, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -2270,6 +2811,11 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": _resolve_message_id(state, None),
+                            "quoted_text": (state.input.content[:500] if state.input.content else None),
+                            "segment_hash": build_segment_hash(state.input.content[:500])
+                            if state.input.content
+                            else None,
                             "title": state.brief.brief_summary[:200] if state.brief.brief_summary else None,
                             "confidence": 0.9,  # Briefs are generally high confidence
                             "now": now,
@@ -2388,14 +2934,25 @@ async def persist_node(state: IntelligenceState) -> dict:
                             MATCH (sender:Contact {email: $senderEmail, organizationId: $orgId})
                             MATCH (receiver:Contact {email: $receiverEmail, organizationId: $orgId})
                             MERGE (sender)-[r:COMMUNICATES_WITH]->(receiver)
-                            ON CREATE SET r.firstContact = $now, r.messageCount = 1
-                            ON MATCH SET r.lastContact = $now, r.messageCount = r.messageCount + 1
+                            ON CREATE SET r.firstContact = $now,
+                                          r.lastContact = $now,
+                                          r.messageCount = 1,
+                                          r.validFrom = $valid_from,
+                                          r.validTo = $valid_to,
+                                          r.systemFrom = $system_from,
+                                          r.systemTo = $system_to,
+                                          r.createdAt = $created_at,
+                                          r.updatedAt = $updated_at
+                            ON MATCH SET r.lastContact = $now,
+                                         r.messageCount = r.messageCount + 1,
+                                         r.updatedAt = $updated_at
                             """,
                             {
                                 "senderEmail": sender_email,
                                 "receiverEmail": contact.email,
                                 "orgId": state.input.organization_id,
                                 "now": now.isoformat(),
+                                **_temporal_relationship_props(now),
                             },
                         )
 
@@ -2410,7 +2967,11 @@ async def persist_node(state: IntelligenceState) -> dict:
                 sourceType: $sourceType,
                 sourceId: $sourceId,
                 analysisId: $analysisId,
-                createdAt: $createdAt
+                createdAt: $createdAt,
+                validFrom: $validFrom,
+                validTo: $validTo,
+                systemFrom: $systemFrom,
+                systemTo: $systemTo
             })
             RETURN e
             """,
@@ -2421,6 +2982,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                 "sourceId": serialize_for_graph(state.input.source_id),
                 "analysisId": serialize_for_graph(state.analysis_id),
                 "createdAt": episode_now.isoformat(),
+                **_temporal_graph_props(episode_now),
             },
         )
 
@@ -2430,13 +2992,144 @@ async def persist_node(state: IntelligenceState) -> dict:
                 """
                 MATCH (e:Episode {id: $episodeId})
                 MATCH (u {id: $uioId})
-                CREATE (e)-[:EXTRACTED]->(u)
+                CREATE (e)-[r:EXTRACTED]->(u)
+                SET r.validFrom = $valid_from,
+                    r.validTo = $valid_to,
+                    r.systemFrom = $system_from,
+                    r.systemTo = $system_to,
+                    r.createdAt = $created_at,
+                    r.updatedAt = $updated_at
                 """,
                 {
                     "episodeId": episode_id,
                     "uioId": uio["id"],
+                    **_temporal_relationship_props(utc_now()),
                 },
             )
+
+        # Persist contradiction relationships and flags
+        if state.contradiction_pairs:
+            supersession_types = {
+                "explicit_negation",
+                "policy_change",
+                "reversal",
+                "supersedes",
+            }
+            async with get_db_session() as session:
+                now = utc_now()
+                for pair in state.contradiction_pairs:
+                    mapping = created_uio_by_extracted_id.get(pair.get("new_id"))
+                    if not mapping:
+                        continue
+                    new_uio_id = mapping["uio_id"]
+                    existing_uio_id = pair.get("existing_id")
+                    if not existing_uio_id:
+                        continue
+
+                    contradiction_type = pair.get("contradiction_type", "content_conflict")
+                    severity = pair.get("severity", "medium")
+                    evidence_id = mapping.get("evidence_id")
+
+                    await session.execute(
+                        text("""
+                            UPDATE unified_intelligence_object
+                            SET contradicts_existing = true,
+                                last_updated_at = :now,
+                                updated_at = :now
+                            WHERE id = :new_id
+                        """),
+                        {
+                            "now": now,
+                            "new_id": new_uio_id,
+                        },
+                    )
+
+                    await create_timeline_event(
+                        session=session,
+                        uio_id=new_uio_id,
+                        event_type="contradiction_detected",
+                        event_description=f"Contradicts {existing_uio_id} ({contradiction_type})",
+                        source_type=state.input.source_type or "email",
+                        source_id=state.input.conversation_id,
+                        quoted_text=None,
+                        evidence_id=evidence_id,
+                        new_value={
+                            "existing_id": existing_uio_id,
+                            "type": contradiction_type,
+                            "severity": severity,
+                        },
+                        confidence=None,
+                        triggered_by="system",
+                    )
+                    await create_timeline_event(
+                        session=session,
+                        uio_id=existing_uio_id,
+                        event_type="contradicted_by",
+                        event_description=f"Contradicted by {new_uio_id} ({contradiction_type})",
+                        source_type=state.input.source_type or "email",
+                        source_id=state.input.conversation_id,
+                        quoted_text=None,
+                        evidence_id=evidence_id,
+                        new_value={
+                            "new_id": new_uio_id,
+                            "type": contradiction_type,
+                            "severity": severity,
+                        },
+                        confidence=None,
+                        triggered_by="system",
+                    )
+
+                    try:
+                        rel_props = _temporal_relationship_props(now)
+                        await graph.query(
+                            f"""
+                            MATCH (n {{id: $new_id, organizationId: $org_id}})
+                            MATCH (e {{id: $existing_id, organizationId: $org_id}})
+                            MERGE (n)-[r:{GraphRelationshipType.CONTRADICTS.value}]->(e)
+                            ON CREATE SET r.contradictionType = $contradiction_type,
+                                          r.severity = $severity,
+                                          r.evidenceId = $evidence_id,
+                                          r.validFrom = $valid_from,
+                                          r.validTo = $valid_to,
+                                          r.systemFrom = $system_from,
+                                          r.systemTo = $system_to,
+                                          r.createdAt = $created_at,
+                                          r.updatedAt = $updated_at
+                            """,
+                            {
+                                "new_id": new_uio_id,
+                                "existing_id": existing_uio_id,
+                                "org_id": state.input.organization_id,
+                                "contradiction_type": contradiction_type,
+                                "severity": severity,
+                                "evidence_id": evidence_id,
+                                "valid_from": rel_props["validFrom"],
+                                "valid_to": rel_props["validTo"],
+                                "system_from": rel_props["systemFrom"],
+                                "system_to": rel_props["systemTo"],
+                                "created_at": rel_props["createdAt"],
+                                "updated_at": rel_props["updatedAt"],
+                            },
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to create contradiction relationship", error=str(exc))
+
+                    if contradiction_type in supersession_types:
+                        await _apply_supersession(
+                            session,
+                            graph,
+                            now=now,
+                            organization_id=state.input.organization_id,
+                            existing_uio_id=existing_uio_id,
+                            new_uio_id=new_uio_id,
+                            uio_type=mapping.get("type", "decision"),
+                            evidence_id=evidence_id,
+                            source_type=state.input.source_type or "email",
+                            conversation_id=state.input.conversation_id,
+                            message_id=None,
+                        )
+
+                await session.commit()
 
         logger.info(
             "Intelligence persisted",

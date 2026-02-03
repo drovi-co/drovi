@@ -80,14 +80,17 @@ class KafkaWorker:
         self._producer = await get_kafka_producer()
 
         # Initialize consumer
+        topics = [
+            self.settings.kafka_topic_normalized_records,
+            self.settings.kafka_topic_pipeline_input,
+        ]
+        if self.settings.kafka_raw_event_mode != "disabled":
+            topics.insert(0, self.settings.kafka_topic_raw_events)
+
         self._consumer = DroviKafkaConsumer(
             bootstrap_servers=self.settings.kafka_bootstrap_servers,
             group_id=f"{self.settings.kafka_consumer_group_id}-worker",
-            topics=[
-                self.settings.kafka_topic_raw_events,
-                self.settings.kafka_topic_normalized_records,
-                self.settings.kafka_topic_pipeline_input,
-            ],
+            topics=topics,
             security_protocol=self.settings.kafka_security_protocol,
             sasl_mechanism=self.settings.kafka_sasl_mechanism,
             sasl_username=self.settings.kafka_sasl_username,
@@ -102,10 +105,11 @@ class KafkaWorker:
         await self._consumer.connect()
 
         # Register handlers
-        self._consumer.register_handler(
-            self.settings.kafka_topic_raw_events,
-            self._handle_raw_event,
-        )
+        if self.settings.kafka_raw_event_mode != "disabled":
+            self._consumer.register_handler(
+                self.settings.kafka_topic_raw_events,
+                self._handle_raw_event,
+            )
         self._consumer.register_handler(
             self.settings.kafka_topic_normalized_records,
             self._handle_normalized_record,
@@ -147,6 +151,9 @@ class KafkaWorker:
         payload = message.get("payload", {})
         event_type = payload.get("event_type")
         organization_id = payload.get("organization_id")
+
+        if self.settings.kafka_raw_event_mode == "webhook_only" and event_type != "connector.webhook":
+            return
 
         if event_type == "connector.webhook":
             from src.connectors.webhooks.processor import process_connector_webhook_event

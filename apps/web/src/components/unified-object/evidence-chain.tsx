@@ -34,6 +34,7 @@ export interface EvidenceSource {
   sourceType: string;
   role: "origin" | "update" | "confirmation" | "context";
   quotedText?: string | null;
+  segmentHash?: string | null;
   extractedTitle?: string | null;
   confidence: number;
   sourceTimestamp?: Date | null;
@@ -170,6 +171,18 @@ function EvidenceItem({
           <p className="line-clamp-3 text-muted-foreground text-xs italic">
             "{source.quotedText}"
           </p>
+        </div>
+      )}
+
+      {source.segmentHash && (
+        <div className="text-muted-foreground text-xs">
+          <span className="mr-1 font-medium">Segment hash:</span>
+          <span
+            className="inline-block max-w-full truncate align-bottom font-mono"
+            title={source.segmentHash}
+          >
+            {source.segmentHash}
+          </span>
         </div>
       )}
 

@@ -235,6 +235,7 @@ class UIOManager:
                         owner_contact_id, participant_contact_ids,
                         overall_confidence, first_seen_at, last_updated_at,
                         is_user_verified, is_user_dismissed,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'commitment', :status,
@@ -243,6 +244,7 @@ class UIOManager:
                         :owner_contact_id, :participant_contact_ids,
                         :overall_confidence, :first_seen_at, :last_updated_at,
                         :is_user_verified, :is_user_dismissed,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -261,6 +263,10 @@ class UIOManager:
                     "last_updated_at": request.base.last_updated_at,
                     "is_user_verified": request.base.is_user_verified,
                     "is_user_dismissed": request.base.is_user_dismissed,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -390,12 +396,14 @@ class UIOManager:
                         canonical_title, canonical_description,
                         owner_contact_id, participant_contact_ids,
                         overall_confidence, first_seen_at, last_updated_at,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'decision', :status,
                         :canonical_title, :canonical_description,
                         :owner_contact_id, :participant_contact_ids,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -410,6 +418,10 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -532,11 +544,13 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'claim', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -549,6 +563,10 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -649,12 +667,14 @@ class UIOManager:
                         canonical_title, canonical_description,
                         due_date, owner_contact_id,
                         overall_confidence, first_seen_at, last_updated_at,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'task', :status,
                         :canonical_title, :canonical_description,
                         :due_date, :owner_contact_id,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -669,6 +689,10 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -796,11 +820,13 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'risk', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -813,6 +839,10 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -931,11 +961,13 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'brief', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
                 """),
@@ -948,6 +980,10 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "valid_from": now,
+                    "valid_to": None,
+                    "system_from": now,
+                    "system_to": None,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -1046,14 +1082,14 @@ class UIOManager:
                     id, unified_object_id,
                     source_type, source_account_id,
                     role, conversation_id, message_id,
-                    quoted_text, quoted_text_start, quoted_text_end,
+                    quoted_text, quoted_text_start, quoted_text_end, segment_hash,
                     confidence, added_at, source_timestamp,
                     created_at
                 ) VALUES (
                     :id, :unified_object_id,
                     :source_type, :source_account_id,
                     'origin', :conversation_id, :message_id,
-                    :quoted_text, :quoted_text_start, :quoted_text_end,
+                    :quoted_text, :quoted_text_start, :quoted_text_end, :segment_hash,
                     :confidence, :added_at, :source_timestamp,
                     :created_at
                 )
@@ -1068,6 +1104,7 @@ class UIOManager:
                 "quoted_text": source.quoted_text,
                 "quoted_text_start": source.quoted_text_start,
                 "quoted_text_end": source.quoted_text_end,
+                "segment_hash": source.segment_hash,
                 "confidence": source.confidence,
                 "added_at": now,
                 "source_timestamp": now,
