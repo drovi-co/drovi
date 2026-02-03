@@ -13,6 +13,7 @@ Processes:
 
 import asyncio
 import json
+import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -21,6 +22,7 @@ import structlog
 
 from src.config import get_settings
 from src.ingestion.priority import parse_priority_value
+from src.monitoring.metrics import get_metrics
 
 logger = structlog.get_logger()
 
@@ -59,6 +61,7 @@ class DroviKafkaConsumer:
         worker_concurrency: int = 4,
         queue_maxsize: int = 1000,
         topic_priorities: dict[str, int] | None = None,
+        lag_report_interval_seconds: int = 30,
     ):
         """Initialize Kafka consumer."""
         self.bootstrap_servers = bootstrap_servers
@@ -81,6 +84,9 @@ class DroviKafkaConsumer:
         self._workers: list[asyncio.Task] = []
         self._counter = 0
         self._paused = False
+        self._metrics = get_metrics()
+        self._lag_report_interval_seconds = max(5, lag_report_interval_seconds)
+        self._last_lag_report = 0.0
 
     async def connect(self) -> None:
         """Initialize the Kafka consumer connection."""
@@ -188,6 +194,19 @@ class DroviKafkaConsumer:
                 # Poll for messages
                 # confluent-kafka poll is blocking; offload to a thread to keep the loop responsive
                 msg = await asyncio.to_thread(self._consumer.poll, timeout=1.0)
+                poll_ts = time.time()
+                self._metrics.set_kafka_last_poll(self.group_id, poll_ts)
+
+                if self._queue:
+                    self._metrics.set_kafka_queue_depth(self.group_id, self._queue.qsize())
+                self._metrics.set_kafka_paused(self.group_id, self._paused)
+
+                if (
+                    poll_ts - self._last_lag_report
+                    >= self._lag_report_interval_seconds
+                ):
+                    await self._report_consumer_lag()
+                    self._last_lag_report = poll_ts
 
                 if msg is None:
                     continue
@@ -208,6 +227,7 @@ class DroviKafkaConsumer:
                         if assignment:
                             self._consumer.pause(assignment)
                             self._paused = True
+                            self._metrics.set_kafka_paused(self.group_id, True)
                             logger.warning("Kafka consumer paused due to backpressure")
 
                 if self._queue:
@@ -219,6 +239,7 @@ class DroviKafkaConsumer:
                     if assignment:
                         self._consumer.resume(assignment)
                         self._paused = False
+                        self._metrics.set_kafka_paused(self.group_id, False)
                         logger.info("Kafka consumer resumed")
 
         except Exception as e:
@@ -405,6 +426,8 @@ class DroviKafkaConsumer:
             msg = await asyncio.to_thread(
                 self._consumer.poll, timeout=min(1.0, remaining)
             )
+            poll_ts = time.time()
+            self._metrics.set_kafka_last_poll(self.group_id, poll_ts)
 
             if msg is None:
                 continue
@@ -429,6 +452,33 @@ class DroviKafkaConsumer:
             self._consumer.commit(asynchronous=False)
 
         return messages
+
+    async def _report_consumer_lag(self) -> None:
+        """Report Kafka consumer lag metrics."""
+        if not self._consumer or not self._metrics.enabled:
+            return
+        try:
+            assignment = await asyncio.to_thread(self._consumer.assignment)
+            if not assignment:
+                return
+            positions = await asyncio.to_thread(self._consumer.position, assignment)
+            for tp in positions:
+                if tp.offset is None or tp.offset < 0:
+                    continue
+                low, high = await asyncio.to_thread(
+                    self._consumer.get_watermark_offsets,
+                    tp,
+                    timeout=1.0,
+                )
+                lag = max(high - tp.offset, 0)
+                self._metrics.set_kafka_consumer_lag(
+                    self.group_id,
+                    tp.topic,
+                    tp.partition,
+                    lag,
+                )
+        except Exception as exc:
+            logger.warning("Kafka consumer lag report failed", error=str(exc))
 
 
 async def get_kafka_consumer(
@@ -458,6 +508,7 @@ async def get_kafka_consumer(
             worker_concurrency=settings.kafka_worker_concurrency,
             queue_maxsize=settings.kafka_queue_maxsize,
             topic_priorities=settings.kafka_topic_priorities,
+            lag_report_interval_seconds=settings.kafka_lag_report_interval_seconds,
         )
         await _kafka_consumer.connect()
 

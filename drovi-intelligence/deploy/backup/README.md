@@ -23,9 +23,9 @@ bash scripts/backup_minio.sh
 ```
 
 ## Runbook
-1. Verify backups nightly.
-2. Test restores weekly in staging.
+1. Verify backups nightly with `scripts/verify_backups.sh`.
+2. Test restores weekly in staging (Postgres restore).
 3. Document RTO/RPO targets and verify in quarterly DR drills.
 
 ## GitHub Actions
-- `intelligence-backups.yml` runs nightly backup + restore verification.
+- `intelligence-backups.yml` runs nightly backups + verification and weekly restore drills.

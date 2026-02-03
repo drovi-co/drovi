@@ -174,6 +174,7 @@ class Settings(BaseSettings):
     kafka_ssl_ca_location: str | None = Field(default=None)  # Path to CA cert if needed
     kafka_worker_concurrency: int = Field(default=4)
     kafka_queue_maxsize: int = Field(default=1000)
+    kafka_lag_report_interval_seconds: int = Field(default=30)
     kafka_topic_priorities: dict[str, int] = Field(
         default_factory=lambda: {
             "raw.connector.events": 0,

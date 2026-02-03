@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * *"
+    - cron: "0 4 * * 1"
 
 jobs:
   backup-and-verify:
     runs-on: self-hosted
     env:
       BACKUP_DIR: ./backups
-      RESTORE_VERIFY: "false"
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +26,11 @@ jobs:
       - name: Run MinIO backup
         run: bash drovi-intelligence/scripts/backup_minio.sh
 
+      - name: Verify backups
+        run: bash drovi-intelligence/scripts/verify_backups.sh
+
       - name: Restore verification (Postgres)
-        if: env.RESTORE_VERIFY == 'true'
+        if: github.event_name == 'schedule' && github.event.schedule == '0 4 * * 1'
         run: |
           latest=$(ls -t "$BACKUP_DIR"/postgres_*.sql.gz | head -n 1)
           if [ -z "$latest" ]; then

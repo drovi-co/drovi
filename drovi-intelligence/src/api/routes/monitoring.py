@@ -268,6 +268,7 @@ Returns metrics in Prometheus exposition format for scraping.
 - `drovi_search_requests_total`: Search request counts
 - `drovi_events_published_total`: Event publication counts
 - And more...
+See `deploy/observability/README.md` for the full metrics catalog.
 
 **Usage:**
 Add this endpoint to your Prometheus scrape config:

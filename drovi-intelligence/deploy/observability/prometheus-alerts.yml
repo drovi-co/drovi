@@ -14,6 +14,34 @@ groups:
           summary: "High 5xx error rate"
           description: "HTTP 5xx error rate > 5% for 10m"
 
+      - alert: DroviAPIErrorBudgetBurn1h
+        expr: |
+          (
+            sum(rate(drovi_http_requests_total{status_code=~"5.."}[1h]))
+            /
+            sum(rate(drovi_http_requests_total[1h]))
+          ) / 0.001 > 14.4
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error budget burn fast (1h)"
+          description: "99.9% SLO error budget is burning too fast over 1h window."
+
+      - alert: DroviAPIErrorBudgetBurn6h
+        expr: |
+          (
+            sum(rate(drovi_http_requests_total{status_code=~"5.."}[6h]))
+            /
+            sum(rate(drovi_http_requests_total[6h]))
+          ) / 0.001 > 6
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error budget burn (6h)"
+          description: "99.9% SLO error budget burning over 6h window."
+
       - alert: DroviHighLatencyP95
         expr: |
           histogram_quantile(
@@ -62,3 +90,13 @@ groups:
         annotations:
           summary: "UEM persist latency high"
           description: "p95 UEM persist > 500ms for 10m"
+
+      - alert: DroviKafkaConsumerLagHigh
+        expr: |
+          max_over_time(drovi_kafka_consumer_lag[10m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag high"
+          description: "Kafka lag exceeded 1000 messages for 10m. Investigate consumer throughput."

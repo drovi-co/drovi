@@ -8,9 +8,13 @@
 - Connector freshness: successful sync within 1h for active connectors
 
 ## Metrics
-- `http_requests_total` and `http_request_duration_seconds_bucket`
+- `drovi_http_requests_total` and `drovi_http_request_duration_seconds_bucket`
 - `drovi_streaming_backpressure_total` (custom counter)
+- `drovi_streaming_latency_seconds`
 - `drovi_evidence_latency_seconds`
+- `drovi_uem_persist_duration_seconds_bucket`
+- `drovi_extraction_duration_seconds_bucket`
+- `drovi_kafka_consumer_lag`
 - `drovi_connector_last_success_timestamp_seconds`
 
 ## Alerting
@@ -25,4 +29,7 @@ Recommended panels:
 - Connector freshness by connector_type
 
 ## SLO Burn Alerts
-Configure 1h and 6h burn alerts at 2x and 5x of error budget.
+Configure 1h and 6h burn alerts on the 99.9% availability error budget (0.1%):
+- 1h burn fast: `error_rate / 0.001 > 14.4`
+- 6h burn: `error_rate / 0.001 > 6`
+These align with fast/slow multi-window alerting for availability SLOs.

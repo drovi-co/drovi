@@ -2,7 +2,7 @@ groups:
   - name: drovi-intelligence-slo
     rules:
       - alert: DroviAPIHighLatencyP95
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        expr: histogram_quantile(0.95, sum(rate(drovi_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
         for: 10m
         labels:
           severity: page
@@ -10,13 +10,39 @@ groups:
           summary: "Drovi API p95 latency > 1.5s"
           description: "Investigate API latency regression or dependency saturation."
       - alert: DroviAPIErrorRateHigh
-        expr: sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) > 0.02
+        expr: sum(rate(drovi_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(drovi_http_requests_total[5m])) > 0.02
         for: 5m
         labels:
           severity: page
         annotations:
           summary: "Drovi API error rate > 2%"
           description: "Check app logs, DB health, and downstream service status."
+      - alert: DroviAPIErrorBudgetBurn1h
+        expr: |
+          (
+            sum(rate(drovi_http_requests_total{status_code=~"5.."}[1h]))
+            /
+            sum(rate(drovi_http_requests_total[1h]))
+          ) / 0.001 > 14.4
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: "Drovi API error budget burn fast (1h)"
+          description: "99.9% availability SLO error budget burning too fast."
+      - alert: DroviAPIErrorBudgetBurn6h
+        expr: |
+          (
+            sum(rate(drovi_http_requests_total{status_code=~"5.."}[6h]))
+            /
+            sum(rate(drovi_http_requests_total[6h]))
+          ) / 0.001 > 6
+        for: 30m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Drovi API error budget burn (6h)"
+          description: "Sustained availability degradation over 6h window."
       - alert: DroviStreamingBackpressure
         expr: rate(drovi_streaming_backpressure_total[5m]) > 0
         for: 2m
@@ -33,3 +59,11 @@ groups:
         annotations:
           summary: "Connector sync stale for {{ $labels.connector_type }}"
           description: "No successful sync in > 1h. Check connector health and rate limits."
+      - alert: DroviKafkaConsumerLagHigh
+        expr: max_over_time(drovi_kafka_consumer_lag[10m]) > 1000
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Kafka consumer lag high"
+          description: "Kafka lag exceeded 1000 messages for 10m. Investigate consumer throughput."

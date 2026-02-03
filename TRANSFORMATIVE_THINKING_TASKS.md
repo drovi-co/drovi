@@ -121,11 +121,11 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Multi‑source compose support for contradiction checks across email/Slack/WhatsApp. Acceptance: compose runs risk checks per source.
 
 **Phase 12 — Observability, SLOs, and Reliability**
-- [ ] Implement all Prometheus metrics in docs. Acceptance: Grafana dashboards show ingestion, extraction, and evidence latency.
-- [ ] SLO burn alerts configured for 1h and 6h windows. Acceptance: alerts trigger in staging when thresholds exceeded.
-- [ ] Kafka consumer lag monitoring. Acceptance: alerts fire for sustained lag.
-- [ ] Daily backup verification and weekly restore drills. Acceptance: restores pass in staging and logs retained.
-- [ ] Load testing for ingestion and extraction. Acceptance: p95 extraction < 30s and UEM persist < 500ms.
+- [x] Implement all Prometheus metrics in docs. Acceptance: Grafana dashboards show ingestion, extraction, and evidence latency.
+- [x] SLO burn alerts configured for 1h and 6h windows. Acceptance: alerts trigger in staging when thresholds exceeded.
+- [x] Kafka consumer lag monitoring. Acceptance: alerts fire for sustained lag.
+- [x] Daily backup verification and weekly restore drills. Acceptance: restores pass in staging and logs retained.
+- [x] Load testing for ingestion and extraction. Acceptance: p95 extraction < 30s and UEM persist < 500ms.
 
 **Phase 13 — Security and Compliance**
 - [x] RLS tests for tenant isolation in Postgres and FalkorDB. Acceptance: cross‑tenant queries are blocked.
@@ -145,6 +145,7 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [ ] Commitment auto‑closure based on evidence. Acceptance: commitments close when fulfillment detected.
 - [ ] Organizational blindspot detection reports. Acceptance: blindspot report generated weekly.
 - [ ] Executive weekly memory brief. Acceptance: automated brief surfaces key decisions and risks.
+- [ ] Executive daily brief. Who did what yesterday, what happened and how?
 
 **Completion Definition**
 - Evidence‑first UEM ingestion for all sources is live.

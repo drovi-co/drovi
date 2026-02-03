@@ -14,7 +14,12 @@
           "legendFormat": "p95"
         }
       ],
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "timeseries",
@@ -25,7 +30,12 @@
           "legendFormat": "p95"
         }
       ],
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "timeseries",
@@ -36,7 +46,12 @@
           "legendFormat": "errors"
         }
       ],
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "timeseries",
@@ -47,7 +62,60 @@
           "legendFormat": "p95"
         }
       ],
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Evidence Latency p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_evidence_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka Consumer Lag",
+      "targets": [
+        {
+          "expr": "max by (topic, partition) (drovi_kafka_consumer_lag)",
+          "legendFormat": "{{topic}}-{{partition}}"
+        }
+      ],
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka Queue Depth",
+      "targets": [
+        {
+          "expr": "drovi_kafka_consumer_queue_depth",
+          "legendFormat": "{{group_id}}"
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      }
     }
   ]
 }

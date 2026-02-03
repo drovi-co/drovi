@@ -6,7 +6,15 @@ on:
 jobs:
   load-test:
     runs-on: self-hosted
+    env:
+      LOAD_API_BASE_URL: ${{ secrets.LOAD_API_BASE_URL }}
+      LOAD_API_KEY: ${{ secrets.LOAD_API_KEY }}
+      LOAD_ORG_ID: ${{ secrets.LOAD_ORG_ID }}
+      LOAD_CONCURRENCY: "5"
+      LOAD_REQUESTS: "50"
+      LOAD_MAX_P95_SECONDS: "30"
+      LOAD_MAX_UEM_P95_SECONDS: "0.5"
     steps:
       - uses: actions/checkout@v4
       - name: Run load test
-        run: python drovi-intelligence/scripts/load_test.py
+        run: python3 drovi-intelligence/scripts/load_test.py

@@ -185,6 +185,31 @@ class Metrics:
                 "Number of active event subscriptions",
             )
 
+            # Kafka consumer metrics
+            self.kafka_consumer_lag = Gauge(
+                "drovi_kafka_consumer_lag",
+                "Kafka consumer lag by topic/partition",
+                ["group_id", "topic", "partition"],
+            )
+
+            self.kafka_consumer_queue_depth = Gauge(
+                "drovi_kafka_consumer_queue_depth",
+                "Kafka consumer in-memory queue depth",
+                ["group_id"],
+            )
+
+            self.kafka_consumer_paused = Gauge(
+                "drovi_kafka_consumer_paused",
+                "Kafka consumer paused state (1=paused)",
+                ["group_id"],
+            )
+
+            self.kafka_consumer_last_poll_timestamp_seconds = Gauge(
+                "drovi_kafka_consumer_last_poll_timestamp_seconds",
+                "Unix timestamp of last Kafka poll",
+                ["group_id"],
+            )
+
             # Unified event model metrics
             self.uem_events_total = Counter(
                 "drovi_uem_events_total",
@@ -464,6 +489,50 @@ class Metrics:
         self.events_published_total.labels(
             event_type=event_type,
         ).inc()
+
+    def set_kafka_consumer_lag(
+        self,
+        group_id: str,
+        topic: str,
+        partition: int,
+        lag: float,
+    ) -> None:
+        """Set Kafka consumer lag gauge."""
+        if not self._enabled:
+            return
+
+        self.kafka_consumer_lag.labels(
+            group_id=group_id,
+            topic=topic,
+            partition=str(partition),
+        ).set(max(lag, 0))
+
+    def set_kafka_queue_depth(self, group_id: str, depth: int) -> None:
+        """Set Kafka queue depth gauge."""
+        if not self._enabled:
+            return
+
+        self.kafka_consumer_queue_depth.labels(
+            group_id=group_id,
+        ).set(max(depth, 0))
+
+    def set_kafka_paused(self, group_id: str, paused: bool) -> None:
+        """Set Kafka paused gauge."""
+        if not self._enabled:
+            return
+
+        self.kafka_consumer_paused.labels(
+            group_id=group_id,
+        ).set(1 if paused else 0)
+
+    def set_kafka_last_poll(self, group_id: str, timestamp: float) -> None:
+        """Set Kafka last poll timestamp gauge."""
+        if not self._enabled:
+            return
+
+        self.kafka_consumer_last_poll_timestamp_seconds.labels(
+            group_id=group_id,
+        ).set(timestamp)
 
     def set_graph_stats(
         self,
