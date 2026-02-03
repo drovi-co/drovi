@@ -84,12 +84,12 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Add temporal consistency checks in GraphRAG queries. Acceptance: answers cite current truth and note past superseded info.
 
 **Phase 7 — Retrieval and Ask Experience**
-- [ ] Improve hybrid retrieval fusion with weighted ranks. Acceptance: search relevance improves on gold set.
-- [ ] Add “explain why” citations in Ask responses. Acceptance: answers show evidence and timeline references.
-- [ ] Add follow‑up conversational queries with context memory. Acceptance: follow‑ups resolve pronouns and references.
-- [ ] Replace “last 90 days UIOs” with hybrid retrieval (graph + vector + temporal memory). Acceptance: context retrieval shows relevant entities across time.
-- [ ] Retrieve only high‑relevance context (topic + participant + time proximity). Acceptance: context size is bounded and relevance‑ranked.
-- [ ] Cache per‑conversation context to keep extraction under 300ms. Acceptance: repeated thread extractions hit cache and meet latency targets.
+- [x] Improve hybrid retrieval fusion with weighted ranks. Acceptance: search relevance improves on gold set.
+- [x] Add “explain why” citations in Ask responses. Acceptance: answers show evidence and timeline references.
+- [x] Add follow‑up conversational queries with context memory. Acceptance: follow‑ups resolve pronouns and references.
+- [x] Replace “last 90 days UIOs” with hybrid retrieval (graph + vector + temporal memory). Acceptance: context retrieval shows relevant entities across time.
+- [x] Retrieve only high‑relevance context (topic + participant + time proximity). Acceptance: context size is bounded and relevance‑ranked.
+- [x] Cache per‑conversation context to keep extraction under 300ms. Acceptance: repeated thread extractions hit cache and meet latency targets.
 
 **Phase 8 — Active Learning + Pattern Intelligence**
 - [ ] Convert all user corrections into labeled training data. Acceptance: corrections are exported in a structured dataset with labels and evidence.

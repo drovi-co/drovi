@@ -3,7 +3,9 @@ Unit tests for the canonical MemoryService.
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 
@@ -64,3 +66,57 @@ class TestMemoryServiceDecay:
 
         assert ordered[0]["id"] == "new"
         assert ordered[0]["decay_score"] >= ordered[1]["decay_score"]
+
+
+class TestMemoryServiceEvidence:
+    @pytest.mark.asyncio
+    async def test_get_uio_evidence_groups_by_uio(self):
+        session = AsyncMock()
+        rows = MagicMock()
+        rows.fetchall.return_value = [
+            SimpleNamespace(
+                evidence_id="e1",
+                uio_id="u1",
+                source_type="email",
+                source_account_id=None,
+                conversation_id="c1",
+                message_id="m1",
+                quoted_text="quote",
+                source_timestamp=datetime(2024, 1, 1),
+            ),
+            SimpleNamespace(
+                evidence_id="e2",
+                uio_id="u1",
+                source_type="slack",
+                source_account_id=None,
+                conversation_id="c1",
+                message_id="m2",
+                quoted_text="quote 2",
+                source_timestamp=datetime(2024, 1, 2),
+            ),
+            SimpleNamespace(
+                evidence_id="e3",
+                uio_id="u2",
+                source_type="email",
+                source_account_id=None,
+                conversation_id="c2",
+                message_id="m3",
+                quoted_text="quote 3",
+                source_timestamp=datetime(2024, 1, 3),
+            ),
+        ]
+        session.execute.return_value = rows
+
+        @asynccontextmanager
+        async def fake_session():
+            yield session
+
+        memory = MemoryService("org_1", FalkorMemoryBackend("org_1"))
+        with patch("src.memory.service.get_db_session", fake_session):
+            evidence = await memory.get_uio_evidence(["u1", "u2"], limit_per_uio=2)
+
+        assert "u1" in evidence
+        assert "u2" in evidence
+        assert len(evidence["u1"]) == 2
+        assert evidence["u1"][0]["evidence_id"] == "e1"
+        assert evidence["u2"][0]["evidence_id"] == "e3"

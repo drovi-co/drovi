@@ -607,6 +607,30 @@ class TestGraphContextExpansion:
 
 
 # =============================================================================
+# Fusion Scoring Tests
+# =============================================================================
+
+
+class TestHybridFusion:
+    """Tests for hybrid fusion weighting."""
+
+    def test_rrf_weighting_prefers_higher_weight(self, hybrid_search):
+        """Higher-weight list should dominate for equal ranks."""
+        list_a = [{"id": "item_a", "score": 0.9}]
+        list_b = [{"id": "item_b", "score": 0.9}]
+
+        combined = hybrid_search._reciprocal_rank_fusion_multi(
+            [list_a, list_b],
+            ["vector", "fulltext"],
+            limit=2,
+            k=1,
+            weights={"vector": 0.2, "fulltext": 2.0},
+        )
+
+        assert combined[0]["id"] == "item_b"
+
+
+# =============================================================================
 # Graph-Aware Search Tests
 # =============================================================================
 

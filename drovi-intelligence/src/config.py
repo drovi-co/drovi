@@ -199,9 +199,17 @@ class Settings(BaseSettings):
     orchestrator_timeout_seconds: int = Field(default=60)
     auto_approval_threshold: float = Field(default=0.85)
     human_review_threshold: float = Field(default=0.5)
+    context_cache_enabled: bool = Field(default=True)
+    context_cache_ttl_seconds: int = Field(default=900)
 
     # Memory backend
     memory_backend: Literal["falkordb", "graphiti"] = Field(default="falkordb")
+
+    # Hybrid Search
+    hybrid_rrf_k: int = Field(default=60)
+    hybrid_weight_vector: float = Field(default=1.0)
+    hybrid_weight_fulltext: float = Field(default=0.85)
+    hybrid_weight_contains: float = Field(default=0.55)
 
 
 @lru_cache

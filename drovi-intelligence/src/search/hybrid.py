@@ -15,6 +15,7 @@ import asyncio
 
 import structlog
 
+from src.config import get_settings
 from src.graph.client import get_graph_client
 from src.search.embeddings import EmbeddingError, generate_embedding
 
@@ -36,6 +37,13 @@ class HybridSearch:
 
     def __init__(self):
         self._graph = None
+        settings = get_settings()
+        self._rrf_k = settings.hybrid_rrf_k
+        self._rrf_weights = {
+            "vector": settings.hybrid_weight_vector,
+            "fulltext": settings.hybrid_weight_fulltext,
+            "contains": settings.hybrid_weight_contains,
+        }
 
     async def _get_graph(self):
         """Lazy load graph client."""
@@ -94,6 +102,8 @@ class HybridSearch:
             [vector_results, fulltext_results, contains_results],
             ["vector", "fulltext", "contains"],
             limit,
+            k=self._rrf_k,
+            weights=self._rrf_weights,
         )
 
         # Apply additional filters
@@ -301,6 +311,7 @@ class HybridSearch:
         list_names: list[str],
         limit: int,
         k: int = 60,
+        weights: dict[str, float] | None = None,
     ) -> list[dict]:
         """
         Combine results from N ranked lists using Reciprocal Rank Fusion.
@@ -311,6 +322,9 @@ class HybridSearch:
 
         for list_idx, result_list in enumerate(result_lists):
             list_name = list_names[list_idx] if list_idx < len(list_names) else f"list_{list_idx}"
+            weight = 1.0
+            if weights:
+                weight = weights.get(list_name, 1.0)
             for rank, result in enumerate(result_list):
                 result_id = result.get("id")
                 if not result_id:
@@ -323,7 +337,7 @@ class HybridSearch:
                         "scores": {},
                     }
 
-                results_map[result_id]["rrf_score"] += 1 / (k + rank + 1)
+                results_map[result_id]["rrf_score"] += weight / (k + rank + 1)
                 results_map[result_id]["scores"][list_name] = result.get("score", 0)
 
         # Determine match source

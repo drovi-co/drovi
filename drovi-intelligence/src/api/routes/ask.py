@@ -18,6 +18,7 @@ Examples:
 import asyncio
 import json
 import time
+import re
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Literal
 
@@ -29,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from src.graphrag import query_graph
 from src.auth.pilot_accounts import verify_jwt
+from src.agents import get_session_manager
 
 logger = structlog.get_logger()
 
@@ -48,6 +50,56 @@ ask_total_latency = Histogram(
     ["organization_id", "mode"],
     buckets=[0.5, 1.0, 2.0, 3.0, 5.0, 10.0],
 )
+
+FOLLOWUP_PRONOUNS = {
+    "he", "she", "they", "them", "his", "her", "their",
+    "it", "its", "this", "that", "these", "those",
+    "there", "here", "him", "hers",
+}
+
+
+def _is_followup_question(question: str) -> bool:
+    tokens = re.findall(r"[a-z']+", question.lower())
+    if len(tokens) <= 6:
+        return True
+    return any(token in FOLLOWUP_PRONOUNS for token in tokens)
+
+
+def _extract_source_names(sources: list[dict[str, Any]]) -> list[str]:
+    names: list[str] = []
+    for source in sources:
+        name = source.get("name") or source.get("title")
+        if name and name not in names:
+            names.append(name)
+        if len(names) >= 5:
+            break
+    return names
+
+
+async def _augment_question_with_session(
+    question: str,
+    session,
+) -> tuple[str, bool]:
+    if not session:
+        return question, False
+    if not _is_followup_question(question):
+        return question, False
+
+    recent_queries = session.context.get_recent_queries(1)
+    recent_names = session.metadata.get("recent_entity_names") or []
+
+    context_lines = []
+    if recent_names:
+        context_lines.append(f"Recently discussed: {', '.join(recent_names[:5])}.")
+    if recent_queries:
+        context_lines.append(f"Previous question: {recent_queries[0]}")
+
+    if not context_lines:
+        return question, False
+
+    context_hint = "Context: " + " ".join(context_lines) + " Resolve pronouns accordingly."
+    augmented = f"{context_hint}\n\nQuestion: {question}"
+    return augmented, True
 
 
 def utc_now() -> datetime:
@@ -72,6 +124,10 @@ class AskRequest(BaseModel):
     organization_id: str = Field(
         ...,
         description="Organization ID to query",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Optional session ID for follow-up context",
     )
     include_evidence: bool = Field(
         default=True,
@@ -104,6 +160,14 @@ class AskResponse(BaseModel):
     )
     timestamp: str = Field(
         description="Response timestamp",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Session ID for follow-up queries",
+    )
+    context_used: bool = Field(
+        default=False,
+        description="Whether prior session context was used to interpret the question",
     )
 
 
@@ -164,12 +228,43 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
         organization_id=request.organization_id,
     )
 
+    session = None
+    context_used = False
+
     try:
+        session_manager = await get_session_manager()
+        session = await session_manager.get_or_create_session(
+            request.session_id,
+            request.organization_id,
+        )
+    except Exception as exc:
+        logger.warning("Ask session unavailable", error=str(exc))
+
+    try:
+        augmented_question, context_used = await _augment_question_with_session(
+            request.question,
+            session,
+        )
+
         result = await query_graph(
-            question=request.question,
+            question=augmented_question,
             organization_id=request.organization_id,
             include_evidence=request.include_evidence,
         )
+
+        if session:
+            session.add_interaction(
+                request.question,
+                result.get("answer", ""),
+                metadata={"intent": result.get("intent")},
+            )
+            session.context.add_search_results(result.get("sources", []), request.question)
+            session.metadata["recent_entity_names"] = _extract_source_names(result.get("sources", []))
+            session.metadata["last_intent"] = result.get("intent")
+            await session_manager.update_session(session)
+
+        result["session_id"] = session.session_id if session else None
+        result["context_used"] = context_used
 
         return AskResponse(**result)
 
@@ -196,6 +291,10 @@ async def ask_get(
         ...,
         description="Organization ID",
     ),
+    session_id: str | None = Query(
+        default=None,
+        description="Optional session ID for follow-up context",
+    ),
     include_evidence: bool = Query(
         default=True,
         description="Include source citations",
@@ -216,6 +315,7 @@ async def ask_get(
         AskRequest(
             question=question,
             organization_id=organization_id,
+            session_id=session_id,
             include_evidence=include_evidence,
         )
     )
@@ -395,6 +495,7 @@ class AskStreamRequest(BaseModel):
 
     organization_id: str = Field(..., description="Organization ID")
     query: str = Field(..., min_length=3, max_length=1000, description="Natural language query")
+    session_id: str | None = Field(default=None, description="Optional session ID for follow-up context")
     mode: Literal["truth", "truth+reasoning"] = Field(
         default="truth+reasoning",
         description="Response mode: truth only or truth + streaming reasoning",
@@ -429,11 +530,15 @@ class TruthEvent(BaseModel):
     query_understood: str
     results: list[TruthResult]
     citations: list[Citation]
+    session_id: str | None = None
+    context_used: bool = False
 
 
 async def _retrieve_truth(
     organization_id: str,
     query: str,
+    session_id: str | None = None,
+    context_used: bool = False,
 ) -> tuple[TruthEvent, list[dict]]:
     """
     Phase A: Retrieve structured truth from graph (< 200ms target).
@@ -483,6 +588,8 @@ async def _retrieve_truth(
             query_understood=result.get("intent", "general query"),
             results=results,
             citations=citations,
+            session_id=session_id,
+            context_used=context_used,
         )
 
         latency = time.time() - start
@@ -504,6 +611,8 @@ async def _retrieve_truth(
             query_understood="query processing",
             results=[],
             citations=[],
+            session_id=session_id,
+            context_used=context_used,
         ), []
 
 
@@ -589,12 +698,31 @@ async def _ask_stream_generator(
     """
     start_time = time.time()
     total_tokens = 0
+    session = None
+    context_used = False
+    session_manager = None
 
     try:
+        session_manager = await get_session_manager()
+        session = await session_manager.get_or_create_session(
+            request.session_id,
+            request.organization_id,
+        )
+    except Exception as exc:
+        logger.warning("Ask stream session unavailable", error=str(exc))
+
+    try:
+        augmented_query, context_used = await _augment_question_with_session(
+            request.query,
+            session,
+        )
+
         # Phase A: Truth (< 200ms target)
         truth, raw_results = await _retrieve_truth(
             organization_id=request.organization_id,
-            query=request.query,
+            query=augmented_query,
+            session_id=session.session_id if session else None,
+            context_used=context_used,
         )
 
         yield _sse_event("truth", truth.model_dump())
@@ -621,6 +749,17 @@ async def _ask_stream_generator(
             reasoning_buffer += token
             total_tokens += 1
             yield _sse_event("token", {"token": token})
+
+        if session and session_manager:
+            session.add_interaction(
+                request.query,
+                reasoning_buffer,
+                metadata={"intent": truth.query_understood},
+            )
+            session.context.add_search_results(raw_results or [], request.query)
+            session.metadata["recent_entity_names"] = _extract_source_names(raw_results or [])
+            session.metadata["last_intent"] = truth.query_understood
+            await session_manager.update_session(session)
 
         # Done
         latency_ms = (time.time() - start_time) * 1000

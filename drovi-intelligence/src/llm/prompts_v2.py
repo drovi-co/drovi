@@ -35,7 +35,7 @@ def _format_memory_context(memory_context: dict | None) -> str | None:
     if convo:
         parts.append("Conversation-linked UIOs:\n" + "\n".join(_summarize(convo)))
     if recent:
-        parts.append("Recent UIOs:\n" + "\n".join(_summarize(recent)))
+        parts.append("Relevant UIOs:\n" + "\n".join(_summarize(recent)))
 
     if not parts:
         return None

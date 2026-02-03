@@ -9,6 +9,7 @@ behind a single, consistent interface used by pipeline, GraphRAG, and UI.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
@@ -396,6 +397,59 @@ class MemoryService:
         if trail and trail.get("uio_type") != "commitment":
             logger.warning("Commitment trail requested for non-commitment UIO", uio_id=commitment_id)
         return trail
+
+    async def get_uio_evidence(
+        self,
+        uio_ids: list[str],
+        limit_per_uio: int = 3,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Return evidence rows for the given UIO IDs (most recent first)."""
+        if not uio_ids:
+            return {}
+
+        set_rls_context(self.organization_id, is_internal=True)
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT
+                            s.id AS evidence_id,
+                            s.unified_object_id AS uio_id,
+                            s.source_type,
+                            s.source_account_id,
+                            s.conversation_id,
+                            s.message_id,
+                            s.quoted_text,
+                            s.source_timestamp
+                        FROM unified_object_source s
+                        WHERE s.unified_object_id = ANY(:uio_ids)
+                        ORDER BY s.unified_object_id, s.source_timestamp DESC NULLS LAST
+                        """
+                    ),
+                    {"uio_ids": uio_ids},
+                )
+                rows = result.fetchall()
+        finally:
+            set_rls_context(None, is_internal=False)
+
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            if len(grouped[row.uio_id]) >= limit_per_uio:
+                continue
+            grouped[row.uio_id].append(
+                {
+                    "evidence_id": row.evidence_id,
+                    "source_type": row.source_type,
+                    "source_account_id": row.source_account_id,
+                    "conversation_id": row.conversation_id,
+                    "message_id": row.message_id,
+                    "quoted_text": row.quoted_text,
+                    "source_timestamp": row.source_timestamp.isoformat() if row.source_timestamp else None,
+                }
+            )
+
+        return grouped
 
     # ---------------------------------------------------------------------
     # Temporal decay utilities

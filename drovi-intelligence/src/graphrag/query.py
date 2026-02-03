@@ -631,6 +631,10 @@ class DroviGraphRAG:
             graph_results = await self._fallback_chain(question, organization_id)
             fallback_used = bool(graph_results)
 
+        # Step 4.5: Enrich with evidence citations (if available)
+        if include_evidence and graph_results:
+            await self._attach_evidence(graph_results, organization_id)
+
         # Step 5: Temporal consistency + decay
         temporal_context = self._apply_temporal_consistency(graph_results)
         current_results = temporal_context["current"]
@@ -689,6 +693,62 @@ class DroviGraphRAG:
             "duration_seconds": duration,
             "timestamp": utc_now().isoformat(),
         }
+
+    async def _attach_evidence(
+        self,
+        results: list[dict[str, Any]],
+        organization_id: str,
+    ) -> None:
+        """Attach evidence metadata to result rows when available."""
+        uio_ids = self._collect_uio_ids(results)
+        if not uio_ids:
+            return
+
+        memory = await self._get_memory_service(organization_id)
+        try:
+            evidence_map = await memory.get_uio_evidence(uio_ids)
+        except Exception as exc:
+            logger.warning("Failed to fetch evidence for GraphRAG results", error=str(exc))
+            return
+
+        for result in results:
+            uio_id = self._extract_uio_id(result)
+            if not uio_id:
+                continue
+            evidence_list = evidence_map.get(uio_id) or []
+            if not evidence_list:
+                continue
+            result["evidence"] = evidence_list
+            primary = evidence_list[0]
+            result["evidence_id"] = primary.get("evidence_id")
+            result["snippet"] = self._truncate_snippet(primary.get("quoted_text"))
+            result["source_type"] = primary.get("source_type")
+            result["date"] = primary.get("source_timestamp")
+
+    @staticmethod
+    def _truncate_snippet(text: str | None, max_len: int = 200) -> str | None:
+        if not text:
+            return None
+        cleaned = text.strip().replace("\n", " ")
+        return cleaned[:max_len] + ("…" if len(cleaned) > max_len else "")
+
+    @staticmethod
+    def _collect_uio_ids(results: list[dict[str, Any]]) -> list[str]:
+        ids: set[str] = set()
+        for result in results:
+            for key in ("id", "commitment_id", "decision_id", "risk_id"):
+                value = result.get(key)
+                if value:
+                    ids.add(str(value))
+        return list(ids)
+
+    @staticmethod
+    def _extract_uio_id(result: dict[str, Any]) -> str | None:
+        for key in ("id", "commitment_id", "decision_id", "risk_id"):
+            value = result.get(key)
+            if value:
+                return str(value)
+        return None
 
     async def _execute_graph_query(
         self,
@@ -1229,6 +1289,27 @@ Provide a structured, insightful answer based on these results."""
                 source["temporal_status"] = r.get("temporal_status")
             if r.get("temporal_superseded_at"):
                 source["temporal_superseded_at"] = r.get("temporal_superseded_at")
+            if r.get("evidence_id"):
+                source["evidence_id"] = r.get("evidence_id")
+            if r.get("snippet"):
+                source["snippet"] = r.get("snippet")
+            if r.get("source_type"):
+                source["source_type"] = r.get("source_type")
+            if r.get("date"):
+                source["date"] = r.get("date")
+
+            valid_from = r.get("valid_from") or r.get("validFrom")
+            valid_to = r.get("valid_to") or r.get("validTo")
+            system_from = r.get("system_from") or r.get("systemFrom")
+            system_to = r.get("system_to") or r.get("systemTo")
+            if valid_from:
+                source["valid_from"] = valid_from
+            if valid_to:
+                source["valid_to"] = valid_to
+            if system_from:
+                source["system_from"] = system_from
+            if system_to:
+                source["system_to"] = system_to
 
             # Only add if meaningful
             if source.get("id") or source.get("name"):
