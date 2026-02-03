@@ -421,8 +421,22 @@ class MemoryService:
                             s.conversation_id,
                             s.message_id,
                             s.quoted_text,
-                            s.source_timestamp
+                            s.source_timestamp,
+                            ts.start_ms,
+                            ts.end_ms,
+                            ts.speaker_label,
+                            ts.speaker_contact_id,
+                            ls.started_at AS session_started_at,
+                            CASE
+                                WHEN s.source_type = 'transcript'
+                                 AND ls.started_at IS NOT NULL
+                                 AND ts.start_ms IS NOT NULL
+                                THEN ls.started_at + (ts.start_ms || ' milliseconds')::interval
+                                ELSE s.source_timestamp
+                            END AS evidence_timestamp
                         FROM unified_object_source s
+                        LEFT JOIN transcript_segment ts ON ts.id = s.message_id
+                        LEFT JOIN live_session ls ON ls.id = s.conversation_id
                         WHERE s.unified_object_id = ANY(:uio_ids)
                         ORDER BY s.unified_object_id, s.source_timestamp DESC NULLS LAST
                         """
@@ -437,6 +451,7 @@ class MemoryService:
         for row in rows:
             if len(grouped[row.uio_id]) >= limit_per_uio:
                 continue
+            evidence_timestamp = getattr(row, "evidence_timestamp", None) or row.source_timestamp
             grouped[row.uio_id].append(
                 {
                     "evidence_id": row.evidence_id,
@@ -445,7 +460,11 @@ class MemoryService:
                     "conversation_id": row.conversation_id,
                     "message_id": row.message_id,
                     "quoted_text": row.quoted_text,
-                    "source_timestamp": row.source_timestamp.isoformat() if row.source_timestamp else None,
+                    "source_timestamp": evidence_timestamp.isoformat() if evidence_timestamp else None,
+                    "start_ms": getattr(row, "start_ms", None),
+                    "end_ms": getattr(row, "end_ms", None),
+                    "speaker_label": getattr(row, "speaker_label", None),
+                    "speaker_contact_id": getattr(row, "speaker_contact_id", None),
                 }
             )
 

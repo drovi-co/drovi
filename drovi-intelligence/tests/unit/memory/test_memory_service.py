@@ -120,3 +120,39 @@ class TestMemoryServiceEvidence:
         assert len(evidence["u1"]) == 2
         assert evidence["u1"][0]["evidence_id"] == "e1"
         assert evidence["u2"][0]["evidence_id"] == "e3"
+
+    @pytest.mark.asyncio
+    async def test_get_uio_evidence_includes_transcript_metadata(self):
+        session = AsyncMock()
+        rows = MagicMock()
+        rows.fetchall.return_value = [
+            SimpleNamespace(
+                evidence_id="e1",
+                uio_id="u1",
+                source_type="transcript",
+                source_account_id=None,
+                conversation_id="session_1",
+                message_id="segment_1",
+                quoted_text="Transcript snippet",
+                source_timestamp=datetime(2024, 1, 1, 12, 0, 0),
+                start_ms=1500,
+                end_ms=4200,
+                speaker_label="Speaker 1",
+                speaker_contact_id="contact_1",
+                evidence_timestamp=datetime(2024, 1, 1, 12, 0, 1),
+            )
+        ]
+        session.execute.return_value = rows
+
+        @asynccontextmanager
+        async def fake_session():
+            yield session
+
+        memory = MemoryService("org_1", FalkorMemoryBackend("org_1"))
+        with patch("src.memory.service.get_db_session", fake_session):
+            evidence = await memory.get_uio_evidence(["u1"], limit_per_uio=2)
+
+        assert evidence["u1"][0]["start_ms"] == 1500
+        assert evidence["u1"][0]["end_ms"] == 4200
+        assert evidence["u1"][0]["speaker_label"] == "Speaker 1"
+        assert evidence["u1"][0]["speaker_contact_id"] == "contact_1"

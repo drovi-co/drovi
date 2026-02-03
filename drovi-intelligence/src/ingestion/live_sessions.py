@@ -648,7 +648,7 @@ async def get_transcript_segments_since(
             result = await session.execute(
                 text(
                     """
-                    SELECT id, speaker_label, start_ms, end_ms, text, confidence, created_at
+                    SELECT id, speaker_label, speaker_contact_id, start_ms, end_ms, text, confidence, created_at
                     FROM transcript_segment
                     WHERE session_id = :session_id
                       AND created_at > :since_time
@@ -662,7 +662,7 @@ async def get_transcript_segments_since(
             result = await session.execute(
                 text(
                     """
-                    SELECT id, speaker_label, start_ms, end_ms, text, confidence, created_at
+                    SELECT id, speaker_label, speaker_contact_id, start_ms, end_ms, text, confidence, created_at
                     FROM transcript_segment
                     WHERE session_id = :session_id
                     ORDER BY created_at ASC
@@ -678,6 +678,7 @@ async def get_transcript_segments_since(
                 {
                     "id": row.id,
                     "speaker_label": row.speaker_label,
+                    "speaker_contact_id": row.speaker_contact_id,
                     "start_ms": row.start_ms or 0,
                     "end_ms": row.end_ms or 0,
                     "text": row.text or "",
@@ -727,34 +728,24 @@ async def link_session_transcripts_to_uios(session_id: str, limit: int = 200) ->
     Link transcript segments to UIOs extracted from this session.
     """
     async with get_db_session() as session:
-        uio_rows = await session.execute(
+        link_rows = await session.execute(
             text(
                 """
-                SELECT DISTINCT u.id, u.type
+                SELECT DISTINCT u.id as uio_id, u.type as uio_type, s.message_id as segment_id
                 FROM unified_intelligence_object u
                 JOIN unified_object_source s ON s.unified_object_id = u.id
+                JOIN transcript_segment t ON t.id = s.message_id
                 WHERE s.conversation_id = :session_id
-                """
-            ),
-            {"session_id": session_id},
-        )
-        uio_records = [(row.id, row.type) for row in uio_rows.fetchall()]
-
-        segment_rows = await session.execute(
-            text(
-                """
-                SELECT id
-                FROM transcript_segment
-                WHERE session_id = :session_id
-                ORDER BY created_at DESC
+                  AND s.source_type = 'transcript'
+                ORDER BY t.created_at DESC
                 LIMIT :limit
                 """
             ),
             {"session_id": session_id, "limit": limit},
         )
-        segment_ids = [row.id for row in segment_rows.fetchall()]
+        link_records = [(row.uio_id, row.uio_type, row.segment_id) for row in link_rows.fetchall()]
 
-    if not uio_records or not segment_ids:
+    if not link_records:
         return
 
     try:
@@ -767,19 +758,25 @@ async def link_session_transcripts_to_uios(session_id: str, limit: int = 200) ->
             "claim": GraphNodeType.CLAIM,
         }
 
-        for uio_id, uio_type in uio_records:
+        seen: set[tuple[str, str]] = set()
+        for uio_id, uio_type, segment_id in link_records:
+            if not segment_id:
+                continue
             node_type = type_map.get(uio_type)
             if not node_type:
                 continue
-            for segment_id in segment_ids:
-                await graph.create_relationship(
-                    from_type=node_type,
-                    from_id=uio_id,
-                    to_type=GraphNodeType.TRANSCRIPT_SEGMENT,
-                    to_id=segment_id,
-                    rel_type=GraphRelationshipType.EXTRACTED_FROM.value,
-                    properties={},
-                )
+            key = (uio_id, segment_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            await graph.create_relationship(
+                from_type=node_type,
+                from_id=uio_id,
+                to_type=GraphNodeType.TRANSCRIPT_SEGMENT,
+                to_id=segment_id,
+                rel_type=GraphRelationshipType.EXTRACTED_FROM.value,
+                properties={},
+            )
     except Exception as exc:
         logger.warning("Failed to link transcript segments to UIOs", error=str(exc))
 

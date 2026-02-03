@@ -100,11 +100,11 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Use patterns as a fast‑path for high‑precision extraction and prioritization. Acceptance: pattern match boosts confidence and routing decisions.
 
 **Phase 9 — Multimodal Intelligence**
-- [ ] Process attachments, PDFs, slides, and images with OCR + layout awareness. Acceptance: extracted content is indexed and evidence‑linked.
-- [ ] Meeting audio: diarization + speaker resolution with evidence‑level timestamps. Acceptance: transcript segments include speaker IDs and timestamps.
-- [ ] Link every transcript segment to UIOs it supports. Acceptance: each UIO references specific transcript segments.
-- [ ] Add “closest matches” fallback when no direct results exist. Acceptance: Ask endpoint returns helpful alternatives.
-- [ ] Add RAM‑layer user profile retrieval and caching. Acceptance: default context included in responses under 400ms.
+- [x] Process attachments, PDFs, slides, and images with OCR + layout awareness. Acceptance: extracted content is indexed and evidence‑linked.
+- [x] Meeting audio: diarization + speaker resolution with evidence‑level timestamps. Acceptance: transcript segments include speaker IDs and timestamps.
+- [x] Link every transcript segment to UIOs it supports. Acceptance: each UIO references specific transcript segments.
+- [x] Add “closest matches” fallback when no direct results exist. Acceptance: Ask endpoint returns helpful alternatives.
+- [x] Add RAM‑layer user profile retrieval and caching. Acceptance: default context included in responses under 400ms.
 
 **Phase 10 — Risk, Policy, and Pre‑Send Guardrails**
 - [x] Pre‑send contradiction check API for compose flows. Acceptance: conflicts appear before send with evidence links.

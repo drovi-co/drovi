@@ -78,6 +78,11 @@ class DocumentConnector(BaseConnector):
         ".md": "markdown",
         ".csv": "csv",
         ".json": "json",
+        ".png": "png",
+        ".jpg": "jpg",
+        ".jpeg": "jpeg",
+        ".tiff": "tiff",
+        ".bmp": "bmp",
     }
 
     def __init__(self):
@@ -340,6 +345,12 @@ class DocumentConnector(BaseConnector):
 
         if file_type == "pdf":
             content, page_count, metadata = self._extract_pdf(content_bytes)
+            if not content.strip():
+                ocr_result = await self._extract_pdf_with_ocr(content_bytes)
+                if ocr_result:
+                    content = ocr_result["text"]
+                    metadata = {**metadata, **ocr_result["metadata"]}
+                    page_count = ocr_result.get("page_count") or page_count
         elif file_type in ("docx", "doc"):
             content, metadata = self._extract_docx(content_bytes)
         elif file_type in ("xlsx", "xls"):
@@ -353,6 +364,8 @@ class DocumentConnector(BaseConnector):
         elif file_type == "json":
             content = content_bytes.decode("utf-8", errors="replace")
             metadata["format"] = "json"
+        elif file_type in ("png", "jpg", "jpeg", "tiff", "bmp"):
+            content, metadata = await self._extract_image(content_bytes, file_type)
 
         return content, page_count, metadata
 
@@ -363,10 +376,12 @@ class DocumentConnector(BaseConnector):
         """Extract text from PDF."""
         try:
             from pypdf import PdfReader
+            from src.parsers.ocr import build_line_layout
 
             reader = PdfReader(io.BytesIO(content_bytes))
             pages = []
             metadata = {}
+            layout_blocks: list[dict[str, Any]] = []
 
             # Extract metadata
             if reader.metadata:
@@ -378,10 +393,14 @@ class DocumentConnector(BaseConnector):
                 }
 
             # Extract text from each page
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
+            for page_index, page in enumerate(reader.pages):
+                text = page.extract_text() or ""
+                if text.strip():
                     pages.append(text)
+                    layout_blocks.extend(build_line_layout(text, page_index=page_index))
+
+            if layout_blocks:
+                metadata["layout_blocks"] = layout_blocks
 
             return "\n\n".join(pages), len(reader.pages), metadata
 
@@ -476,6 +495,7 @@ class DocumentConnector(BaseConnector):
             prs = Presentation(io.BytesIO(content_bytes))
             slides_content = []
             metadata = {}
+            layout_blocks: list[dict[str, Any]] = []
 
             # Extract core properties
             if prs.core_properties:
@@ -488,12 +508,33 @@ class DocumentConnector(BaseConnector):
             # Extract text from slides
             for i, slide in enumerate(prs.slides, 1):
                 slide_texts = []
+                line_index = 0
                 for shape in slide.shapes:
                     if hasattr(shape, "text") and shape.text:
                         slide_texts.append(shape.text)
+                        for line in shape.text.splitlines():
+                            if not line.strip():
+                                continue
+                            layout_blocks.append(
+                                {
+                                    "page_index": i - 1,
+                                    "line_index": line_index,
+                                    "block_index": line_index,
+                                    "text": line.strip(),
+                                    "left": 0,
+                                    "top": 0,
+                                    "width": 0,
+                                    "height": 0,
+                                    "confidence": None,
+                                }
+                            )
+                            line_index += 1
 
                 if slide_texts:
                     slides_content.append(f"## Slide {i}\n\n" + "\n".join(slide_texts))
+
+            if layout_blocks:
+                metadata["layout_blocks"] = layout_blocks
 
             return "\n\n".join(slides_content), len(prs.slides), metadata
 
@@ -503,6 +544,50 @@ class DocumentConnector(BaseConnector):
         except Exception as e:
             logger.error(f"Failed to extract PPTX: {e}")
             return "", 0, {}
+
+    async def _extract_image(
+        self,
+        content_bytes: bytes,
+        file_type: str,
+    ) -> tuple[str, dict[str, Any]]:
+        """Extract text from images using OCR."""
+        try:
+            from src.parsers.ocr import extract_ocr_from_image_bytes
+        except Exception as exc:
+            logger.warning("OCR parser unavailable", error=str(exc))
+            return "", {"ocr_used": False, "file_type": file_type}
+
+        ocr_result = extract_ocr_from_image_bytes(content_bytes, page_index=0)
+        if not ocr_result:
+            return "", {"ocr_used": False, "file_type": file_type}
+
+        metadata = {
+            "ocr_used": True,
+            "layout_blocks": ocr_result.blocks,
+            "file_type": file_type,
+        }
+        return ocr_result.text, metadata
+
+    async def _extract_pdf_with_ocr(self, content_bytes: bytes) -> dict[str, Any] | None:
+        """Extract text from PDF using OCR if available."""
+        try:
+            from src.parsers.ocr import extract_ocr_from_pdf_bytes
+        except Exception as exc:
+            logger.warning("OCR parser unavailable for PDF", error=str(exc))
+            return None
+
+        ocr_result = extract_ocr_from_pdf_bytes(content_bytes)
+        if not ocr_result:
+            return None
+
+        return {
+            "text": ocr_result.text,
+            "page_count": ocr_result.page_count,
+            "metadata": {
+                "ocr_used": True,
+                "layout_blocks": ocr_result.blocks,
+            },
+        }
 
     def _extract_csv(
         self,

@@ -23,6 +23,7 @@ import structlog
 
 from src.config import get_settings
 from src.memory import MemoryService, get_memory_service
+from src.memory.fast_memory import get_fast_memory
 
 logger = structlog.get_logger()
 
@@ -571,6 +572,7 @@ class DroviGraphRAG:
         organization_id: str,
         include_evidence: bool = True,
         max_results: int = 20,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Answer a natural language question about the knowledge graph.
@@ -585,6 +587,14 @@ class DroviGraphRAG:
             question=question[:100],
             organization_id=organization_id,
         )
+
+        user_context = None
+        if user_id:
+            try:
+                fast_memory = await get_fast_memory()
+                user_context = await fast_memory.get_user_context(user_id, organization_id)
+            except Exception as exc:
+                logger.warning("Failed to load user context", error=str(exc))
 
         # Step 1: Classify intent
         classification = await self._classify_intent(question)
@@ -631,6 +641,15 @@ class DroviGraphRAG:
             graph_results = await self._fallback_chain(question, organization_id)
             fallback_used = bool(graph_results)
 
+        # Step 4.2: Closest-match fallback if still empty
+        closest_matches_used = False
+        if not graph_results:
+            closest_matches = await self._closest_matches_fallback(question, organization_id)
+            if closest_matches:
+                graph_results = closest_matches
+                fallback_used = True
+                closest_matches_used = True
+
         # Step 4.5: Enrich with evidence citations (if available)
         if include_evidence and graph_results:
             await self._attach_evidence(graph_results, organization_id)
@@ -657,6 +676,8 @@ class DroviGraphRAG:
             results=synthesis_results,
             include_evidence=include_evidence,
             temporal_note=temporal_note,
+            user_context=user_context,
+            closest_matches=closest_matches_used,
         )
 
         # Step 7: Extract sources (include historical context for auditability)
@@ -684,6 +705,12 @@ class DroviGraphRAG:
             duration=duration,
         )
 
+        user_context_payload = None
+        if user_context is not None:
+            user_context_payload = (
+                user_context.model_dump() if hasattr(user_context, "model_dump") else user_context
+            )
+
         return {
             "answer": answer,
             "intent": intent,
@@ -692,6 +719,8 @@ class DroviGraphRAG:
             "results_count": len(synthesis_results),
             "duration_seconds": duration,
             "timestamp": utc_now().isoformat(),
+            "closest_matches_used": closest_matches_used,
+            "user_context": user_context_payload,
         }
 
     async def _attach_evidence(
@@ -1036,6 +1065,48 @@ class DroviGraphRAG:
 
         return all_results
 
+    async def _closest_matches_fallback(
+        self,
+        question: str,
+        organization_id: str,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        """Return closest semantic matches when no direct results exist."""
+        try:
+            from src.search.hybrid import HybridSearch
+        except Exception as exc:
+            logger.warning("Hybrid search unavailable for closest matches", error=str(exc))
+            return []
+
+        search = HybridSearch()
+        try:
+            matches = await search.search(
+                query=question,
+                organization_id=organization_id,
+                limit=limit,
+            )
+        except Exception as exc:
+            logger.warning("Closest match search failed", error=str(exc))
+            return []
+
+        normalized: list[dict[str, Any]] = []
+        for match in matches:
+            props = match.get("properties") or {}
+            title = match.get("title") or props.get("title") or props.get("name") or props.get("displayName")
+            normalized.append(
+                {
+                    **props,
+                    "id": match.get("id"),
+                    "type": match.get("type") or props.get("type"),
+                    "title": title,
+                    "score": match.get("score"),
+                    "match_source": match.get("match_source", "hybrid"),
+                    "suggested": True,
+                }
+            )
+
+        return normalized
+
     # =========================================================================
     # Response Synthesis
     # =========================================================================
@@ -1047,6 +1118,8 @@ class DroviGraphRAG:
         results: list[dict[str, Any]],
         include_evidence: bool,
         temporal_note: str | None = None,
+        user_context: Any | None = None,
+        closest_matches: bool = False,
     ) -> str:
         """Synthesize a natural language response from graph results."""
         if not results:
@@ -1055,10 +1128,18 @@ class DroviGraphRAG:
         # Try LLM synthesis
         llm = await self._get_llm_client()
         if llm:
-            return await self._llm_synthesize(question, intent, results, llm, temporal_note)
+            return await self._llm_synthesize(
+                question,
+                intent,
+                results,
+                llm,
+                temporal_note,
+                user_context=user_context,
+                closest_matches=closest_matches,
+            )
 
         # Fallback to template synthesis
-        return self._template_synthesize(intent, results, include_evidence, temporal_note)
+        return self._template_synthesize(intent, results, include_evidence, temporal_note, closest_matches)
 
     async def _llm_synthesize(
         self,
@@ -1067,17 +1148,27 @@ class DroviGraphRAG:
         results: list[dict[str, Any]],
         llm: Any,
         temporal_note: str | None,
+        user_context: Any | None = None,
+        closest_matches: bool = False,
     ) -> str:
         """Use LLM for rich response synthesis."""
         settings = get_settings()
 
         results_json = json.dumps(results[:15], indent=2, default=str)
         temporal_context = temporal_note or "No superseded or future-dated items detected."
+        user_context_str = self._format_user_context(user_context)
+        fallback_note = (
+            "Note: No exact matches were found; the results below are the closest related matches."
+            if closest_matches
+            else "Exact matches found."
+        )
 
         user_prompt = f"""Question: {question}
 
 Intent: {intent}
 Temporal context: {temporal_context}
+Fallback note: {fallback_note}
+User context: {user_context_str or "None"}
 Results ({len(results)} total):
 {results_json}
 
@@ -1096,7 +1187,53 @@ Provide a structured, insightful answer based on these results."""
             return response.choices[0].message.content.strip()
         except Exception as e:
             logger.warning("LLM synthesis failed", error=str(e))
-            return self._template_synthesize(intent, results, True)
+            return self._template_synthesize(intent, results, True, temporal_note, closest_matches)
+
+    @staticmethod
+    def _format_user_context(user_context: Any | None) -> str:
+        if user_context is None:
+            return ""
+        if hasattr(user_context, "model_dump"):
+            data = user_context.model_dump()
+        elif isinstance(user_context, dict):
+            data = user_context
+        else:
+            return ""
+
+        def _list(value: Any) -> str:
+            if isinstance(value, list):
+                return ", ".join(str(v) for v in value if v)
+            return str(value) if value is not None else ""
+
+        parts: list[str] = []
+        for key, label in (
+            ("name", "Name"),
+            ("role", "Role"),
+            ("timezone", "Timezone"),
+            ("priorities", "Priorities"),
+            ("current_focus", "Current focus"),
+            ("recent_topics", "Recent topics"),
+            ("active_projects", "Active projects"),
+            ("vip_contact_emails", "VIP contacts"),
+        ):
+            value = _list(data.get(key))
+            if value:
+                parts.append(f"{label}: {value}")
+
+        counts = []
+        for key, label in (
+            ("unread_commitments_count", "Unread commitments"),
+            ("overdue_commitments_count", "Overdue commitments"),
+            ("pending_decisions_count", "Pending decisions"),
+        ):
+            value = data.get(key)
+            if value:
+                counts.append(f"{label}={value}")
+
+        if counts:
+            parts.append("Counts: " + ", ".join(counts))
+
+        return " | ".join(parts)
 
     def _template_synthesize(
         self,
@@ -1104,8 +1241,17 @@ Provide a structured, insightful answer based on these results."""
         results: list[dict[str, Any]],
         include_evidence: bool,
         temporal_note: str | None,
+        closest_matches: bool = False,
     ) -> str:
         """Template-based response synthesis (fallback)."""
+        if closest_matches:
+            titles = [r.get("title") or r.get("name") or r.get("id", "Unknown") for r in results[:5]]
+            response = (
+                "No exact matches found. Closest related items include: "
+                + ", ".join([t for t in titles if t])
+                + "."
+            )
+            return f"{response} {temporal_note}".strip() if temporal_note else response
         if intent == "influential":
             names = [r.get("name", r.get("email", "Unknown")) for r in results[:5]]
             response = f"The most influential people in your network are: {', '.join(names)}. Rankings are based on PageRank analysis of communication patterns."
@@ -1348,6 +1494,7 @@ async def query_graph(
     question: str,
     organization_id: str,
     include_evidence: bool = True,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Convenience function to query the knowledge graph."""
     graphrag = await get_graphrag()
@@ -1355,4 +1502,5 @@ async def query_graph(
         question=question,
         organization_id=organization_id,
         include_evidence=include_evidence,
+        user_id=user_id,
     )

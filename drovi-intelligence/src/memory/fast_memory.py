@@ -129,6 +129,16 @@ class FastMemoryRetrieval:
             from ..graph.client import get_graph_client
 
             self._graph = await get_graph_client()
+        if self._redis is None:
+            try:
+                import redis.asyncio as redis  # type: ignore
+
+                from src.config import get_settings
+
+                settings = get_settings()
+                self._redis = redis.from_url(str(settings.redis_url))
+            except Exception as exc:
+                logger.warning("Redis unavailable for fast memory cache", error=str(exc))
 
     async def search(
         self,

@@ -133,6 +133,10 @@ class AskRequest(BaseModel):
         default=True,
         description="Include source citations in the response",
     )
+    user_id: str | None = Field(
+        default=None,
+        description="Optional user ID for RAM-layer personalization",
+    )
 
 
 class AskResponse(BaseModel):
@@ -168,6 +172,14 @@ class AskResponse(BaseModel):
     context_used: bool = Field(
         default=False,
         description="Whether prior session context was used to interpret the question",
+    )
+    closest_matches_used: bool = Field(
+        default=False,
+        description="Whether closest-match fallback was used",
+    )
+    user_context: dict[str, Any] | None = Field(
+        default=None,
+        description="RAM-layer user context included in the response",
     )
 
 
@@ -246,10 +258,13 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
             session,
         )
 
+        user_id = request.user_id or (session.metadata.get("user_id") if session else None)
+
         result = await query_graph(
             question=augmented_question,
             organization_id=request.organization_id,
             include_evidence=request.include_evidence,
+            user_id=user_id,
         )
 
         if session:
@@ -265,6 +280,8 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
 
         result["session_id"] = session.session_id if session else None
         result["context_used"] = context_used
+        result["closest_matches_used"] = result.get("closest_matches_used", False)
+        result["user_context"] = result.get("user_context")
 
         return AskResponse(**result)
 
@@ -299,6 +316,10 @@ async def ask_get(
         default=True,
         description="Include source citations",
     ),
+    user_id: str | None = Query(
+        default=None,
+        description="Optional user ID for RAM-layer personalization",
+    ),
 ) -> AskResponse:
     """
     Ask a natural language question (GET version).
@@ -317,6 +338,7 @@ async def ask_get(
             organization_id=organization_id,
             session_id=session_id,
             include_evidence=include_evidence,
+            user_id=user_id,
         )
     )
 
