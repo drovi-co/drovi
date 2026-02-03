@@ -10,7 +10,6 @@ This ensures source evidence is queryable from both systems.
 
 import json
 import time
-import hashlib
 import re
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
@@ -21,6 +20,11 @@ from ..state import IntelligenceState, NodeTiming, ParsedMessage
 from src.graph.types import RawMessageNode, ThreadContextNode, SourceType
 from src.db import get_db_pool
 from src.monitoring import get_metrics
+from src.ingestion.unified_event import (
+    build_content_hash,
+    build_source_fingerprint,
+    build_uem_metadata,
+)
 
 logger = structlog.get_logger()
 
@@ -374,11 +378,6 @@ def _event_type_for_source(source_type: str) -> str:
     return mapping.get(source_type, "other")
 
 
-def _hash_event(content: str, source_fingerprint: str) -> str:
-    payload = f"{source_fingerprint}::{content}".encode("utf-8", errors="ignore")
-    return hashlib.sha256(payload).hexdigest()
-
-
 async def persist_unified_events(
     state: IntelligenceState,
     now: datetime,
@@ -397,16 +396,21 @@ async def persist_unified_events(
             for i, message in enumerate(state.messages):
                 start = time.time()
                 message_id = message.id or f"{state.input.conversation_id}_{i}"
-                source_fingerprint = "|".join(
-                    [
-                        state.input.source_type or "",
-                        state.input.source_id or "",
-                        state.input.conversation_id or "",
-                        message_id or "",
-                    ]
+                source_fingerprint = build_source_fingerprint(
+                    state.input.source_type,
+                    state.input.source_id,
+                    state.input.conversation_id,
+                    message_id,
                 )
                 content = message.content or ""
-                content_hash = _hash_event(content, source_fingerprint)
+                content_hash = build_content_hash(content, source_fingerprint)
+                uem_metadata = build_uem_metadata(
+                    state.input.metadata,
+                    source_fingerprint,
+                    content_hash,
+                    message.sent_at or now,
+                    now,
+                )
                 participants = []
                 if message.sender_email or message.sender_name:
                     participants.append({
@@ -472,7 +476,7 @@ async def persist_unified_events(
                             "message_index": i,
                         }),
                         json.dumps(participants),
-                        json.dumps(state.input.metadata or {}),
+                        json.dumps(uem_metadata),
                         content_hash,
                         message.sent_at or now,
                         now,
@@ -502,15 +506,20 @@ async def persist_unified_events(
                     )
         else:
             start = time.time()
-            source_fingerprint = "|".join(
-                [
-                    state.input.source_type or "",
-                    state.input.source_id or "",
-                    state.input.conversation_id or "",
-                ]
+            source_fingerprint = build_source_fingerprint(
+                state.input.source_type,
+                state.input.source_id,
+                state.input.conversation_id,
             )
             content = state.input.content or ""
-            content_hash = _hash_event(content, source_fingerprint)
+            content_hash = build_content_hash(content, source_fingerprint)
+            uem_metadata = build_uem_metadata(
+                state.input.metadata,
+                source_fingerprint,
+                content_hash,
+                now,
+                now,
+            )
             try:
                 exists = await conn.fetchrow(
                     """
@@ -549,7 +558,7 @@ async def persist_unified_events(
                         content,
                         json.dumps({"content": content}),
                         json.dumps([]),
-                        json.dumps(state.input.metadata or {}),
+                        json.dumps(uem_metadata),
                         content_hash,
                         now,
                         now,

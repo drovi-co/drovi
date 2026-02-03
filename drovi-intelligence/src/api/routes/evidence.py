@@ -18,6 +18,9 @@ from prometheus_client import Counter, Histogram
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
+from src.evidence.storage import get_evidence_storage
+from src.evidence.audit import record_evidence_audit
+from src.config import get_settings
 
 logger = structlog.get_logger()
 
@@ -98,6 +101,25 @@ class EvidenceFullResponse(EvidenceSnippetResponse):
     related_uios: list[RelatedUIO] = Field(default_factory=list)
 
 
+class EvidenceArtifactResponse(BaseModel):
+    """Evidence artifact metadata + optional presigned URL."""
+
+    id: str
+    artifact_type: str
+    mime_type: str | None = None
+    storage_backend: str
+    storage_path: str
+    storage_uri: str | None = None
+    byte_size: int | None = None
+    sha256: str | None = None
+    created_at: datetime
+    retention_until: datetime | None = None
+    immutable: bool | None = None
+    legal_hold: bool | None = None
+    metadata: dict | None = None
+    presigned_url: str | None = None
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -119,6 +141,34 @@ def _truncate_snippet(text: str | None, max_length: int = 200) -> str:
     if len(text) <= max_length:
         return text
     return text[:max_length - 3] + "..."
+
+
+async def _fetch_unified_event(
+    session,
+    organization_id: str,
+    conversation_id: str | None,
+    message_id: str | None,
+):
+    """Fetch a unified event row for fallback evidence lookup."""
+    if not conversation_id:
+        return None
+
+    from sqlalchemy import text
+
+    query = """
+        SELECT content_text, content_json, metadata, captured_at, received_at
+        FROM unified_event
+        WHERE organization_id = :org_id
+          AND conversation_id = :conversation_id
+    """
+    params = {"org_id": organization_id, "conversation_id": conversation_id}
+    if message_id:
+        query += " AND message_id = :message_id"
+        params["message_id"] = message_id
+    query += " ORDER BY received_at DESC LIMIT 1"
+
+    result = await session.execute(text(query), params)
+    return result.fetchone()
 
 
 # =============================================================================
@@ -190,6 +240,7 @@ async def get_evidence(
 
             # Build base response
             snippet = _truncate_snippet(row.quoted_text)
+            sent_at = row.source_timestamp
 
             # Try to get additional source info (message content, sender, etc.)
             # This would vary by source type
@@ -315,6 +366,31 @@ async def get_evidence(
                 except Exception as e:
                     logger.debug("Could not fetch slack message details", error=str(e))
 
+            # Fallback to unified_event when source tables are missing
+            if full_content is None:
+                uem_row = await _fetch_unified_event(
+                    session,
+                    organization_id,
+                    row.conversation_id,
+                    row.message_id,
+                )
+                if uem_row:
+                    content_json = uem_row.content_json or {}
+                    metadata = uem_row.metadata or {}
+                    if not sender:
+                        sender = ContactInfo(
+                            name=content_json.get("sender_name"),
+                            email=content_json.get("sender_email"),
+                        )
+                    if not subject:
+                        subject = metadata.get("subject") or content_json.get("subject")
+                    if mode == "full":
+                        full_content = uem_row.content_text
+                    if not snippet:
+                        snippet = _truncate_snippet(uem_row.content_text)
+                    if not sent_at:
+                        sent_at = uem_row.captured_at or uem_row.received_at
+
             # Get related UIOs for full mode
             if mode == "full":
                 try:
@@ -369,7 +445,7 @@ async def get_evidence(
                     sender=sender,
                     recipients=recipients,
                     subject=subject,
-                    sent_at=row.source_timestamp,
+                    sent_at=sent_at,
                     snippet=snippet or row.quoted_text or "",
                     deep_link=deep_link,
                     has_thread=has_thread,
@@ -386,7 +462,7 @@ async def get_evidence(
                 sender=sender,
                 recipients=recipients,
                 subject=subject,
-                sent_at=row.source_timestamp,
+                sent_at=sent_at,
                 snippet=snippet or row.quoted_text or "",
                 deep_link=deep_link,
                 has_thread=has_thread,
@@ -402,6 +478,77 @@ async def get_evidence(
             error=str(e),
         )
         raise HTTPException(status_code=500, detail="Failed to fetch evidence")
+
+
+@router.get("/artifacts/{artifact_id}", response_model=EvidenceArtifactResponse)
+async def get_evidence_artifact(
+    artifact_id: str,
+    organization_id: str,
+    include_url: bool = Query(default=True),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Fetch evidence artifact metadata and optional presigned URL."""
+    _validate_org_id(ctx, organization_id)
+
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, artifact_type, mime_type,
+                       storage_backend, storage_path, byte_size, sha256,
+                       metadata, created_at, retention_until, immutable, legal_hold
+                FROM evidence_artifact
+                WHERE id = :artifact_id AND organization_id = :org_id
+                """
+            ),
+            {"artifact_id": artifact_id, "org_id": organization_id},
+        )
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Evidence artifact not found")
+
+        metadata = row.metadata or {}
+        storage_uri = metadata.get("storage_uri")
+        if not storage_uri:
+            if row.storage_backend == "s3":
+                settings = get_settings()
+                bucket = settings.evidence_s3_bucket or ""
+                storage_uri = f"s3://{bucket}/{row.storage_path}" if bucket else f"s3://{row.storage_path}"
+            else:
+                storage_uri = f"file://{row.storage_path}"
+
+        presigned_url = None
+        if include_url:
+            storage = get_evidence_storage()
+            presigned_url = await storage.create_presigned_url(row.storage_path)
+            if presigned_url:
+                await record_evidence_audit(
+                    artifact_id=artifact_id,
+                    organization_id=organization_id,
+                    action="presigned_url",
+                    actor_type="system",
+                )
+
+        return EvidenceArtifactResponse(
+            id=row.id,
+            artifact_type=row.artifact_type,
+            mime_type=row.mime_type,
+            storage_backend=row.storage_backend,
+            storage_path=row.storage_path,
+            storage_uri=storage_uri,
+            byte_size=row.byte_size,
+            sha256=row.sha256,
+            created_at=row.created_at,
+            retention_until=row.retention_until,
+            immutable=row.immutable,
+            legal_hold=row.legal_hold,
+            metadata=metadata,
+            presigned_url=presigned_url,
+        )
 
 
 @router.get("/{evidence_id}/timeline")

@@ -619,6 +619,13 @@ class IntelligenceState(BaseModel):
     # Routing
     routing: Routing = Field(default_factory=Routing)
 
+    # Source triage metadata (rule-based, pre-LLM)
+    source_intelligence: dict = Field(default_factory=dict)
+    pipeline_route: str | None = None
+
+    # Content cleaning metadata (optional)
+    cleaned_content: dict | None = None
+
     # Deduplication
     deduplication: Deduplication = Field(default_factory=Deduplication)
 

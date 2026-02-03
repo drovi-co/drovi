@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     default_llm_model: str = Field(default="gpt-4o")
     fallback_llm_model: str = Field(default="claude-3-5-sonnet-20241022")
     embedding_model: str = Field(default="togethercomputer/m2-bert-80M-32k-retrieval")
+    embedding_dimension: int = Field(default=1536)
 
     # Provider Routing
     prefer_open_source: bool = Field(default=True)
@@ -70,7 +71,7 @@ class Settings(BaseSettings):
     api_key_salt: str = Field(default="")
     api_base_url: str = Field(default="http://localhost:8000")
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
-    environment: Literal["development", "production"] = Field(default="development")
+    environment: Literal["development", "production", "test"] = Field(default="development")
 
     # Evidence Storage
     evidence_storage_backend: Literal["local", "s3"] = Field(default="local")

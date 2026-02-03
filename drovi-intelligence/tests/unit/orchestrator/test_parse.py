@@ -611,3 +611,19 @@ class TestParseMessagesNode:
         trace = result["trace"]
         # Node should be recorded in trace
         assert "parse_messages" in state.trace.nodes or "parse_messages" in trace.get("nodes", [])
+
+
+@pytest.mark.asyncio
+async def test_parse_messages_uses_input_message_ids():
+    state = IntelligenceState(
+        input=AnalysisInput(
+            organization_id="org_test",
+            content="Hello world",
+            source_type="email",
+            message_ids=["source_msg_1"],
+        )
+    )
+
+    result = await parse_messages_node(state)
+
+    assert result["messages"][0].id == "source_msg_1"

@@ -20,6 +20,7 @@ from ..state import (
 )
 from src.graph.types import ConfidenceTier, get_confidence_tier, GraphNodeType, GraphRelationshipType
 from src.search.embeddings import generate_embedding, EmbeddingError
+from src.evidence.audit import record_evidence_audit
 
 logger = structlog.get_logger()
 
@@ -58,6 +59,53 @@ def utc_now():
     This function returns the current UTC time without timezone info.
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _has_evidence(quoted_text: str | None) -> bool:
+    """Return True when quoted evidence is present."""
+    return bool(quoted_text and quoted_text.strip())
+
+
+def _resolve_message_id(state: IntelligenceState, quoted_text: str | None) -> str | None:
+    """Best-effort resolve the source message ID for evidence linkage."""
+    if not state.messages:
+        return None
+
+    if quoted_text:
+        needle = quoted_text.strip().lower()
+        for message in state.messages:
+            content = (message.content or "").lower()
+            if needle and needle in content:
+                return message.id
+
+    if len(state.messages) == 1:
+        return state.messages[0].id
+
+    return state.messages[0].id if state.messages else None
+
+
+async def _audit_uio_source(
+    organization_id: str,
+    evidence_id: str,
+    uio_id: str,
+    uio_type: str,
+    action: str,
+    conversation_id: str | None = None,
+    message_id: str | None = None,
+) -> None:
+    """Record evidence audit entry for UIO creation/updates."""
+    await record_evidence_audit(
+        artifact_id=evidence_id,
+        organization_id=organization_id,
+        action=action,
+        actor_type="system",
+        metadata={
+            "uio_id": uio_id,
+            "uio_type": uio_type,
+            "conversation_id": conversation_id,
+            "message_id": message_id,
+        },
+    )
 
 
 def _resolve_session_node_type(source_type: str | None) -> GraphNodeType | None:
@@ -172,6 +220,7 @@ async def create_timeline_event(
     quoted_text: str | None = None,
     previous_value: dict | None = None,
     new_value: dict | None = None,
+    evidence_id: str | None = None,
     confidence: float | None = None,
     triggered_by: str = "system",
 ) -> None:
@@ -183,6 +232,11 @@ async def create_timeline_event(
     """
     event_id = str(uuid4())
     now = utc_now()
+
+    if evidence_id:
+        merged_new_value = dict(new_value or {})
+        merged_new_value["evidence_id"] = evidence_id
+        new_value = merged_new_value
 
     await session.execute(
         text("""
@@ -417,6 +471,15 @@ async def persist_node(state: IntelligenceState) -> dict:
         # Persist commitments (filtered by confidence)
         async with get_db_session() as session:
             for commitment in commitments_to_persist:
+                if not _has_evidence(getattr(commitment, "quoted_text", None)):
+                    logger.info(
+                        "Skipping commitment without evidence",
+                        title=commitment.title,
+                        analysis_id=state.analysis_id,
+                    )
+                    continue
+
+                message_id = _resolve_message_id(state, getattr(commitment, "quoted_text", None))
                 # Check if should merge (from vector search deduplication)
                 merge_candidate = merge_lookup.get(commitment.id)
 
@@ -462,13 +525,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
+                                conversation_id, message_id, quoted_text, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :title,
+                                :conversation_id, :message_id, :quoted_text, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -479,12 +542,43 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": message_id,
                             "quoted_text": getattr(commitment, "quoted_text", None),
                             "title": commitment.title,
                             "confidence": commitment.confidence,
                             "now": now,
                             "source_timestamp": now,
                         },
+                    )
+
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=source_id,
+                        uio_id=existing_uio_id,
+                        uio_type="risk",
+                        action="uio_source_added",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=source_id,
+                        uio_id=existing_uio_id,
+                        uio_type="decision",
+                        action="uio_source_added",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=source_id,
+                        uio_id=existing_uio_id,
+                        uio_type="commitment",
+                        action="uio_source_added",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
                     )
 
                     # Create timeline event for source confirmation
@@ -496,6 +590,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=getattr(commitment, "quoted_text", None),
+                        evidence_id=source_id,
                         new_value={
                             "title": commitment.title,
                             "confidence": commitment.confidence,
@@ -631,7 +726,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_type": state.input.source_type or "email",
                         "source_account_id": state.input.source_account_id,
                         "conversation_id": state.input.conversation_id,
-                        "message_id": None,  # Could be extracted from message data
+                        "message_id": message_id,
                         "quoted_text": getattr(commitment, "quoted_text", None),
                         "title": commitment.title,
                         "due_date": to_naive_utc(commitment.due_date),
@@ -639,6 +734,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "now": now,
                         "source_timestamp": now,
                     },
+                )
+
+                await _audit_uio_source(
+                    organization_id=state.input.organization_id,
+                    evidence_id=source_id,
+                    uio_id=uio_id,
+                    uio_type="commitment",
+                    action="uio_created",
+                    conversation_id=state.input.conversation_id,
+                    message_id=message_id,
                 )
 
                 # Create timeline event for UIO creation
@@ -650,6 +755,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     source_type=state.input.source_type or "email",
                     source_id=state.input.conversation_id,
                     quoted_text=getattr(commitment, "quoted_text", None),
+                    evidence_id=source_id,
                     new_value={
                         "title": commitment.title,
                         "description": commitment.description,
@@ -721,6 +827,15 @@ async def persist_node(state: IntelligenceState) -> dict:
         # Persist decisions (filtered by confidence)
         async with get_db_session() as session:
             for decision in decisions_to_persist:
+                if not _has_evidence(getattr(decision, "quoted_text", None)):
+                    logger.info(
+                        "Skipping decision without evidence",
+                        title=decision.title,
+                        analysis_id=state.analysis_id,
+                    )
+                    continue
+
+                message_id = _resolve_message_id(state, getattr(decision, "quoted_text", None))
                 merge_candidate = merge_lookup.get(decision.id)
 
                 if merge_candidate:
@@ -763,13 +878,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
+                                conversation_id, message_id, quoted_text, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :title,
+                                :conversation_id, :message_id, :quoted_text, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -780,6 +895,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": message_id,
                             "quoted_text": getattr(decision, "quoted_text", None),
                             "title": decision.title,
                             "confidence": decision.confidence,
@@ -797,6 +913,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=getattr(decision, "quoted_text", None),
+                        evidence_id=source_id,
                         new_value={
                             "title": decision.title,
                             "confidence": decision.confidence,
@@ -918,13 +1035,23 @@ async def persist_node(state: IntelligenceState) -> dict:
                         "source_type": state.input.source_type or "email",
                         "source_account_id": state.input.source_account_id,
                         "conversation_id": state.input.conversation_id,
-                        "message_id": None,
+                        "message_id": message_id,
                         "quoted_text": getattr(decision, "quoted_text", None),
                         "title": decision.title,
                         "confidence": decision.confidence,
                         "now": now,
                         "source_timestamp": now,
                     },
+                )
+
+                await _audit_uio_source(
+                    organization_id=state.input.organization_id,
+                    evidence_id=source_id,
+                    uio_id=uio_id,
+                    uio_type="decision",
+                    action="uio_created",
+                    conversation_id=state.input.conversation_id,
+                    message_id=message_id,
                 )
 
                 # Create timeline event for UIO creation
@@ -936,6 +1063,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     source_type=state.input.source_type or "email",
                     source_id=state.input.conversation_id,
                     quoted_text=getattr(decision, "quoted_text", None),
+                    evidence_id=source_id,
                     new_value={
                         "title": decision.title,
                         "statement": decision.statement,
@@ -1005,6 +1133,15 @@ async def persist_node(state: IntelligenceState) -> dict:
 
         async with get_db_session() as session:
             for risk in risks_to_persist:
+                if not _has_evidence(getattr(risk, "quoted_text", None)):
+                    logger.info(
+                        "Skipping risk without evidence",
+                        title=risk.title,
+                        analysis_id=state.analysis_id,
+                    )
+                    continue
+
+                message_id = _resolve_message_id(state, getattr(risk, "quoted_text", None))
                 # Check for existing risk UIO with same title (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
                     session,
@@ -1022,13 +1159,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
+                                conversation_id, message_id, quoted_text, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'confirmation',
-                                :conversation_id, :quoted_text, :title,
+                                :conversation_id, :message_id, :quoted_text, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -1039,6 +1176,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": message_id,
                             "quoted_text": getattr(risk, "quoted_text", None),
                             "title": risk.title,
                             "confidence": risk.confidence,
@@ -1056,6 +1194,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=getattr(risk, "quoted_text", None),
+                        evidence_id=source_id,
                         new_value={
                             "title": risk.title,
                             "severity": risk.severity,
@@ -1183,13 +1322,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                             INSERT INTO unified_object_source (
                                 id, unified_object_id, source_type,
                                 source_account_id, role,
-                                conversation_id, quoted_text, extracted_title,
+                                conversation_id, message_id, quoted_text, extracted_title,
                                 confidence, added_at, source_timestamp,
                                 detection_method, created_at
                             ) VALUES (
                                 :id, :uio_id, :source_type,
                                 :source_account_id, 'origin',
-                                :conversation_id, :quoted_text, :title,
+                                :conversation_id, :message_id, :quoted_text, :title,
                                 :confidence, :now, :source_timestamp,
                                 'llm_extraction', :now
                             )
@@ -1200,12 +1339,23 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "source_type": state.input.source_type or "email",
                             "source_account_id": state.input.source_account_id,
                             "conversation_id": state.input.conversation_id,
+                            "message_id": message_id,
                             "quoted_text": risk.quoted_text,
                             "title": risk.title,
                             "confidence": risk.confidence,
                             "now": now,
                             "source_timestamp": now,
                         },
+                    )
+
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=risk_source_id,
+                        uio_id=uio_id,
+                        uio_type="risk",
+                        action="uio_created",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
                     )
 
                     # Create timeline event for risk creation
@@ -1217,6 +1367,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=risk.quoted_text,
+                        evidence_id=risk_source_id,
                         new_value={
                             "title": risk.title,
                             "type": risk.type,
@@ -1351,6 +1502,8 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
+                message_id = _resolve_message_id(state, getattr(task, "quoted_text", None))
+
                 # Check for existing task UIO with same title (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
                     session,
@@ -1393,6 +1546,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                         },
                     )
 
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=source_id,
+                        uio_id=existing_uio_id,
+                        uio_type="task",
+                        action="uio_source_added",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
                     # Create timeline event for confirmation
                     await create_timeline_event(
                         session=session,
@@ -1402,6 +1565,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=getattr(task, "quoted_text", None),
+                        evidence_id=source_id,
                         new_value={
                             "title": task.title,
                             "status": task.status,
@@ -1548,6 +1712,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                     },
                 )
 
+                await _audit_uio_source(
+                    organization_id=state.input.organization_id,
+                    evidence_id=task_source_id,
+                    uio_id=uio_id,
+                    uio_type="task",
+                    action="uio_created",
+                    conversation_id=state.input.conversation_id,
+                    message_id=message_id,
+                )
+
                 # Create timeline event for task creation
                 await create_timeline_event(
                     session=session,
@@ -1557,6 +1731,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     source_type=state.input.source_type or "email",
                     source_id=state.input.conversation_id,
                     quoted_text=getattr(task, "quoted_text", None),
+                    evidence_id=task_source_id,
                     new_value={
                         "title": task.title,
                         "status": task_status,
@@ -1669,6 +1844,7 @@ async def persist_node(state: IntelligenceState) -> dict:
         async with get_db_session() as session:
             claim_graph_entries: list[dict] = []
             for claim in claims_to_persist:
+                message_id = _resolve_message_id(state, getattr(claim, "quoted_text", None))
                 # Check for existing claim with same content (PostgreSQL fallback)
                 existing_uio_id = await find_existing_uio(
                     session,
@@ -1711,6 +1887,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                         },
                     )
 
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=source_id,
+                        uio_id=existing_uio_id,
+                        uio_type="claim",
+                        action="uio_source_added",
+                        conversation_id=state.input.conversation_id,
+                        message_id=message_id,
+                    )
+
                     # Create timeline event for confirmation
                     await create_timeline_event(
                         session=session,
@@ -1720,6 +1906,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                         source_type=state.input.source_type or "email",
                         source_id=state.input.conversation_id,
                         quoted_text=getattr(claim, "quoted_text", None),
+                        evidence_id=source_id,
                         new_value={
                             "content": claim.content[:100] if claim.content else None,
                             "confidence": claim.confidence,
@@ -1832,6 +2019,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                     },
                 )
 
+                await _audit_uio_source(
+                    organization_id=state.input.organization_id,
+                    evidence_id=source_id,
+                    uio_id=uio_id,
+                    uio_type="claim",
+                    action="uio_created",
+                    conversation_id=state.input.conversation_id,
+                    message_id=message_id,
+                )
+
                 # Create timeline event for claim creation
                 await create_timeline_event(
                     session=session,
@@ -1841,6 +2038,7 @@ async def persist_node(state: IntelligenceState) -> dict:
                     source_type=state.input.source_type or "email",
                     source_id=state.input.conversation_id,
                     quoted_text=getattr(claim, "quoted_text", None),
+                    evidence_id=source_id,
                     new_value={
                         "type": claim.type,
                         "content": claim.content[:100] if claim.content else None,
@@ -2077,6 +2275,16 @@ async def persist_node(state: IntelligenceState) -> dict:
                             "now": now,
                             "source_timestamp": now,
                         },
+                    )
+
+                    await _audit_uio_source(
+                        organization_id=state.input.organization_id,
+                        evidence_id=brief_source_id,
+                        uio_id=brief_uio_id,
+                        uio_type="brief",
+                        action="uio_created",
+                        conversation_id=state.input.conversation_id,
+                        message_id=_resolve_message_id(state, None),
                     )
 
                     await session.commit()

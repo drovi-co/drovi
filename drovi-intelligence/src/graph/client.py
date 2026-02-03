@@ -21,6 +21,17 @@ from .types import GraphNodeType
 
 logger = structlog.get_logger()
 
+# Labels that are expected to have embeddings
+VECTOR_EMBEDDING_LABELS = {
+    "UIO",
+    "Message",
+    "Commitment",
+    "Decision",
+    "Risk",
+    "Task",
+    "Claim",
+}
+
 # Global client instance
 _graph_client: "DroviGraph | None" = None
 
@@ -228,11 +239,14 @@ class DroviGraph:
 
         # Default fulltext/vector indexes (best-effort)
         if settings.falkordb_apply_default_fulltext:
-            from src.graph.indexes import DEFAULT_FULLTEXT_INDEXES, DEFAULT_VECTOR_INDEXES
+            from src.graph.indexes import DEFAULT_FULLTEXT_INDEXES, build_default_vector_indexes
+            from src.search.embeddings import get_embedding_dimension
+
             if await self._falkordb_supports_indexes():
                 await self._apply_custom_indexes(DEFAULT_FULLTEXT_INDEXES)
             if await self._falkordb_supports_indexes():
-                await self._apply_custom_indexes(DEFAULT_VECTOR_INDEXES)
+                vector_dimension = get_embedding_dimension()
+                await self._apply_custom_indexes(build_default_vector_indexes(vector_dimension))
 
         # Custom index statements for production
         if settings.falkordb_index_statements:
@@ -447,6 +461,24 @@ class DroviGraph:
         Returns:
             List of matching nodes with scores
         """
+        if label not in VECTOR_EMBEDDING_LABELS:
+            logger.debug(
+                "Vector search skipped for label without embeddings",
+                label=label,
+            )
+            return []
+
+        from src.search.embeddings import get_embedding_dimension
+        expected_dim = get_embedding_dimension()
+        if len(embedding) != expected_dim:
+            logger.warning(
+                "Vector search skipped due to embedding dimension mismatch",
+                label=label,
+                expected_dim=expected_dim,
+                got_dim=len(embedding),
+            )
+            return []
+
         try:
             # FalkorDB vector query: label, property, k, vecf32([..])
             # Some FalkorDB versions reject param-bound vectors, so inline the vector literal.
