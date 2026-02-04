@@ -35,6 +35,10 @@ class PolicyContext:
     pii_types: list[str]
     contradiction_severity: SeverityLevel | None
     fraud_score: float | None
+    actor_role: str | None = None
+    sensitivity: str | None = None
+    action_tier: str | None = None
+    action_type: str | None = None
 
 
 def _load_rules_from_json(payload: str) -> list[PolicyRule]:
@@ -83,6 +87,29 @@ def _default_rules() -> list[PolicyRule]:
             applies_to="outbound",
             conditions=[{"field": "contradiction_severity", "operator": "gte", "value": "high"}],
             description="Require approval when draft contradicts existing commitments/decisions.",
+        ),
+        PolicyRule(
+            id="require_approval_sensitive_action",
+            name="Approve Sensitive Actions",
+            action="require_approval",
+            severity="high",
+            applies_to="outbound",
+            conditions=[
+                {"field": "sensitivity", "operator": "in", "value": ["restricted", "confidential"]},
+            ],
+            description="Require approval for restricted or confidential actions.",
+        ),
+        PolicyRule(
+            id="block_critical_action_without_role",
+            name="Block Critical Action Without Admin",
+            action="block",
+            severity="critical",
+            applies_to="outbound",
+            conditions=[
+                {"field": "action_tier", "operator": "equals", "value": "critical"},
+                {"field": "actor_role", "operator": "not_in", "value": ["admin", "pilot_admin"]},
+            ],
+            description="Block critical actions unless executed by an admin.",
         ),
         PolicyRule(
             id="block_fraud_high",
@@ -135,6 +162,14 @@ def _evaluate_condition(
         field_value = context.contradiction_severity or "low"
     elif field == "channel":
         field_value = context.channel or ""
+    elif field == "actor_role":
+        field_value = context.actor_role or ""
+    elif field == "sensitivity":
+        field_value = context.sensitivity or ""
+    elif field == "action_tier":
+        field_value = context.action_tier or ""
+    elif field == "action_type":
+        field_value = context.action_type or ""
     else:
         return False
 
@@ -150,6 +185,8 @@ def _evaluate_condition(
         return field_value == value
     if operator == "in":
         return field_value in value
+    if operator == "not_in":
+        return field_value not in value
     return False
 
 

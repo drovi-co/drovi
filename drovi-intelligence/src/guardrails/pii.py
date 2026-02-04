@@ -88,3 +88,29 @@ def detect_pii(text: str) -> list[PIIFinding]:
         )
 
     return findings
+
+
+def apply_data_minimization(text: str, *, override_redact: bool | None = None) -> tuple[str, list[PIIFinding], bool]:
+    """Redact non-allowed PII based on DLP settings."""
+    settings = get_settings()
+    redact_enabled = settings.dlp_redact if override_redact is None else override_redact
+    findings = detect_pii(text)
+    if not redact_enabled or not findings:
+        return text, findings, False
+
+    redactable = sorted([finding for finding in findings if not finding.allowed], key=lambda f: f.start)
+    if not redactable:
+        return text, findings, False
+
+    redacted_parts: list[str] = []
+    cursor = 0
+    for finding in redactable:
+        if finding.start < cursor:
+            continue
+        redacted_parts.append(text[cursor : finding.start])
+        redacted_parts.append(finding.masked_value)
+        cursor = finding.end
+    redacted_parts.append(text[cursor:])
+
+    redacted_text = "".join(redacted_parts)
+    return redacted_text, findings, redacted_text != text

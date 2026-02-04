@@ -43,7 +43,13 @@ REQUIRED_TABLES = [
     "continuum_version",
     "continuum_run",
     "continuum_alert",
+    "continuum_bundle",
+    "continuum_bundle_version",
+    "continuum_bundle_installation",
     "actuation_action",
+    "audit_log",
+    "audit_ledger_head",
+    "simulation_run",
     # UIO extension tables
     "uio_commitment_details",
     "uio_decision_details",

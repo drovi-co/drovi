@@ -60,6 +60,10 @@ class ComposeGuardrailRequest(BaseModel):
     content: str
     channel: str = "email"
     recipients: list[str] = Field(default_factory=list)
+    actor_role: str | None = None
+    sensitivity: str | None = None
+    action_tier: str | None = None
+    action_type: str | None = None
 
 
 class ComposeGuardrailResponse(BaseModel):
@@ -69,6 +73,19 @@ class ComposeGuardrailResponse(BaseModel):
     overall_action: GuardrailAction = "allow"
 
 
+class DataMinimizationRequest(BaseModel):
+    organization_id: str
+    content: str
+    channel: str | None = None
+    redact: bool | None = None
+
+
+class DataMinimizationResponse(BaseModel):
+    redacted_content: str
+    findings: list[PIIFinding] = Field(default_factory=list)
+    applied: bool = False
+
+
 class InboundGuardrailRequest(BaseModel):
     organization_id: str
     sender_email: str | None = None
@@ -76,6 +93,7 @@ class InboundGuardrailRequest(BaseModel):
     subject: str | None = None
     content: str
     known_domains: list[str] = Field(default_factory=list)
+    actor_role: str | None = None
 
 
 class InboundGuardrailResponse(BaseModel):

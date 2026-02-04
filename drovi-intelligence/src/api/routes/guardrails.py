@@ -13,10 +13,13 @@ from src.audit.log import record_audit_event
 from src.guardrails import (
     ComposeGuardrailRequest,
     ComposeGuardrailResponse,
+    DataMinimizationRequest,
+    DataMinimizationResponse,
     InboundGuardrailRequest,
     InboundGuardrailResponse,
     PolicyContext,
     assess_inbound_risk,
+    apply_data_minimization,
     check_contradictions,
     detect_pii,
     evaluate_policy,
@@ -90,6 +93,10 @@ async def compose_guardrail_check(
         pii_types=blocked_pii_types,
         contradiction_severity=contradiction_severity,
         fraud_score=None,
+        actor_role=request.actor_role,
+        sensitivity=request.sensitivity,
+        action_tier=request.action_tier,
+        action_type=request.action_type,
     )
     policy_decisions = evaluate_policy(policy_context)
     overall_action = _resolve_action(policy_decisions)
@@ -143,6 +150,31 @@ async def compose_guardrail_check(
         pii_findings=pii_findings,
         policy_decisions=policy_decisions,
         overall_action=overall_action,
+    )
+
+
+@router.post("/minimize", response_model=DataMinimizationResponse)
+async def minimize_content(
+    request: DataMinimizationRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+) -> DataMinimizationResponse:
+    _validate_org_id(ctx, request.organization_id)
+    redacted_content, findings, applied = apply_data_minimization(
+        request.content,
+        override_redact=request.redact,
+    )
+    if applied:
+        await _audit_events(
+            request.organization_id,
+            ctx,
+            "guardrail.data_minimized",
+            {"count": len([f for f in findings if not f.allowed])},
+            resource_type="data_minimization",
+        )
+    return DataMinimizationResponse(
+        redacted_content=redacted_content,
+        findings=findings,
+        applied=applied,
     )
 
 

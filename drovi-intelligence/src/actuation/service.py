@@ -15,6 +15,7 @@ from src.actuation.drivers.base import DriverContext
 from src.config import get_settings
 from src.db.client import get_db_session
 from src.guardrails.policy import evaluate_policy, PolicyContext
+from src.audit.log import record_audit_event
 
 logger = structlog.get_logger()
 
@@ -44,6 +45,10 @@ def _build_policy_decisions(policy_context: dict[str, Any] | None) -> list[dict[
         pii_types=policy_context.get("pii_types", []),
         contradiction_severity=policy_context.get("contradiction_severity"),
         fraud_score=policy_context.get("fraud_score"),
+        actor_role=policy_context.get("actor_role"),
+        sensitivity=policy_context.get("sensitivity"),
+        action_tier=policy_context.get("action_tier"),
+        action_type=policy_context.get("action_type"),
     )
     decisions = evaluate_policy(context)
     return [decision.model_dump() for decision in decisions]
@@ -88,6 +93,15 @@ class ActuationService:
                     "updated_at": now,
                 },
             )
+        await _safe_audit(
+            organization_id=request.organization_id,
+            action="actuation.draft",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            resource_type="actuation_action",
+            resource_id=action_id,
+            metadata={"driver": request.driver, "action_type": request.action},
+        )
         return ActuationRecord(
             id=action_id,
             organization_id=request.organization_id,
@@ -125,6 +139,15 @@ class ActuationService:
                     "id": record.id,
                 },
             )
+        await _safe_audit(
+            organization_id=request.organization_id,
+            action="actuation.stage",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            resource_type="actuation_action",
+            resource_id=record.id,
+            metadata={"driver": record.driver, "action_type": record.action_type},
+        )
         record.status = ActionStatus.STAGED
         record.stage_payload = stage_payload
         return record
@@ -134,7 +157,10 @@ class ActuationService:
         driver = get_driver(record.driver)
         context = DriverContext(organization_id=record.organization_id, actor_id=request.actor_id)
         tier = request.tier or record.tier
-        decisions = _build_policy_decisions(request.policy_context)
+        policy_context = dict(request.policy_context or {})
+        policy_context.setdefault("action_tier", tier.value)
+        policy_context.setdefault("action_type", request.action)
+        decisions = _build_policy_decisions(policy_context)
         status = record.status
 
         if _policy_blocks(decisions):
@@ -148,6 +174,15 @@ class ActuationService:
             record.status = status
             record.policy_decisions = decisions
             record.error_message = "Blocked by policy"
+            await _safe_audit(
+                organization_id=request.organization_id,
+                action="actuation.blocked",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                resource_type="actuation_action",
+                resource_id=record.id,
+                metadata={"policy_decisions": decisions},
+            )
             return record
 
         if _policy_requires_approval(decisions) or (_requires_approval_for_tier(tier) and not request.approval_by):
@@ -161,6 +196,15 @@ class ActuationService:
             )
             record.status = status
             record.policy_decisions = decisions
+            await _safe_audit(
+                organization_id=request.organization_id,
+                action="actuation.approval_required",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                resource_type="actuation_action",
+                resource_id=record.id,
+                metadata={"policy_decisions": decisions},
+            )
             return record
 
         if (
@@ -200,6 +244,15 @@ class ActuationService:
         record.result_payload = result.data
         record.rollback_payload = result.rollback_payload
         record.policy_decisions = decisions
+        await _safe_audit(
+            organization_id=request.organization_id,
+            action="actuation.execute",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            resource_type="actuation_action",
+            resource_id=record.id,
+            metadata={"status": status.value, "driver": record.driver},
+        )
         return record
 
     async def rollback(self, organization_id: str, action_id: str, actor_id: str | None = None) -> ActuationRecord:
@@ -218,7 +271,40 @@ class ActuationService:
         )
         record.status = status
         record.rollback_result = result.data
+        await _safe_audit(
+            organization_id=organization_id,
+            action="actuation.rollback",
+            actor_type="user" if actor_id else "system",
+            actor_id=actor_id,
+            resource_type="actuation_action",
+            resource_id=record.id,
+            metadata={"status": status.value, "driver": record.driver},
+        )
         return record
+
+
+async def _safe_audit(
+    *,
+    organization_id: str,
+    action: str,
+    actor_type: str,
+    actor_id: str | None,
+    resource_type: str,
+    resource_id: str | None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    try:
+        await record_audit_event(
+            organization_id=organization_id,
+            action=action,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            metadata=metadata,
+        )
+    except Exception as exc:
+        logger.warning("Audit logging failed", action=action, error=str(exc))
 
     async def _fetch_record(self, organization_id: str, action_id: str) -> ActuationRecord:
         async with get_db_session() as session:

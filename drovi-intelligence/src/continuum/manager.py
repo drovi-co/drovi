@@ -21,6 +21,7 @@ from src.continuum.models import (
 from src.continuum.state_machine import require_transition
 from src.db.client import get_db_session
 from src.db.rls import rls_context
+from src.audit.log import record_audit_event
 
 logger = structlog.get_logger()
 
@@ -133,6 +134,14 @@ async def create_continuum(
             },
         )
 
+    await _audit_continuum(
+        organization_id=organization_id,
+        action="continuum.create",
+        actor_id=created_by,
+        continuum_id=continuum_id,
+        metadata={"version": version_number, "status": status.value},
+    )
+
     return {
         "id": continuum_id,
         "version": version_number,
@@ -217,6 +226,14 @@ async def add_continuum_version(
             },
         )
 
+    await _audit_continuum(
+        organization_id=organization_id,
+        action="continuum.version_add",
+        actor_id=created_by,
+        continuum_id=continuum_id,
+        metadata={"version": new_version, "activated": activate},
+    )
+
     return {"version": new_version, "activated": activate}
 
 
@@ -261,6 +278,13 @@ async def set_continuum_status(
                 "org_id": organization_id,
             },
         )
+    await _audit_continuum(
+        organization_id=organization_id,
+        action="continuum.status_update",
+        actor_id=None,
+        continuum_id=continuum_id,
+        metadata={"status": status.value},
+    )
 
 
 async def rollback_continuum(
@@ -329,7 +353,37 @@ async def rollback_continuum(
         triggered_by=triggered_by,
     )
 
+    await _audit_continuum(
+        organization_id=organization_id,
+        action="continuum.rollback",
+        actor_id=triggered_by,
+        continuum_id=continuum_id,
+        metadata={"target_version": target_version},
+    )
+
     return {"active_version": target_version}
+
+
+async def _audit_continuum(
+    *,
+    organization_id: str,
+    action: str,
+    actor_id: str | None,
+    continuum_id: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    try:
+        await record_audit_event(
+            organization_id=organization_id,
+            action=action,
+            actor_type="user" if actor_id else "system",
+            actor_id=actor_id,
+            resource_type="continuum",
+            resource_id=continuum_id,
+            metadata=metadata,
+        )
+    except Exception as exc:
+        logger.warning("Failed to audit continuum event", action=action, error=str(exc))
 
 
 async def record_continuum_run(

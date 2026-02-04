@@ -435,13 +435,13 @@ async def shutdown_continuum_scheduler() -> None:
         await _runtime.shutdown()
 
 
-    async def trigger_continuum_run(
-        *,
-        continuum_id: str,
-        organization_id: str,
-        triggered_by: str,
-        version: int | None = None,
-    ) -> dict[str, Any]:
+async def trigger_continuum_run(
+    *,
+    continuum_id: str,
+    organization_id: str,
+    triggered_by: str,
+    version: int | None = None,
+) -> dict[str, Any]:
     if _runtime is None:
         runtime = ContinuumRuntime()
         return await runtime.execute_continuum(

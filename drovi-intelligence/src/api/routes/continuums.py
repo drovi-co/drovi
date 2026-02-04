@@ -26,6 +26,8 @@ from src.continuum.manager import (
 from src.continuum.models import ContinuumStatus
 from src.continuum.runtime import trigger_continuum_run
 from src.db.client import get_db_session
+from src.simulation.engine import preview_continuum
+from src.simulation.models import ContinuumPreviewRequest, ContinuumPreviewResponse
 
 router = APIRouter(prefix="/continuums", tags=["Continuums"])
 
@@ -201,6 +203,20 @@ async def override_continuum_endpoint(
         next_run_at=None,
     )
     return {"status": "active"}
+
+
+@router.post("/{continuum_id}/preview", response_model=ContinuumPreviewResponse)
+async def preview_continuum_endpoint(
+    continuum_id: str,
+    request: ContinuumPreviewRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    _validate_org(ctx, request.organization_id)
+    return await preview_continuum(
+        organization_id=request.organization_id,
+        continuum_id=continuum_id,
+        horizon_days=request.horizon_days,
+    )
 
 
 @router.get("")

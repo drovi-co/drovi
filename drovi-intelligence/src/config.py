@@ -215,6 +215,9 @@ class Settings(BaseSettings):
     continuum_degraded_failure_threshold: int = Field(default=3)
     continuum_degraded_window_minutes: int = Field(default=60)
 
+    # Continuum Exchange
+    continuum_exchange_signing_secret: str | None = Field(default=None)
+
     # Actuation settings
     actuation_webhook_url: str | None = Field(default=None)
     actuation_webhook_secret: str | None = Field(default=None)

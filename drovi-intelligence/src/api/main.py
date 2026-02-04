@@ -30,6 +30,7 @@ from src.api.routes import (
     analyze,
     analytics,
     actuations,
+    audit,
     api_keys,
     ask,
     auth,
@@ -39,6 +40,7 @@ from src.api.routes import (
     console,
     contacts,
     continuums,
+    continuum_exchange,
     contradictions,
     customer,
     events,
@@ -59,6 +61,8 @@ from src.api.routes import (
     stream,
     uios,
     workflows,
+    trust,
+    simulations,
 )
 from src.mcp.http import router as mcp_router
 from src.connectors.webhooks import webhook_router
@@ -220,6 +224,7 @@ app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(actuations.router, prefix="/api/v1", tags=["Actuations"])
+app.include_router(audit.router, prefix="/api/v1", tags=["Audit"])
 app.include_router(console.router, prefix="/api/v1", tags=["Console"])
 app.include_router(customer.router, prefix="/api/v1", tags=["Customer Context"])
 app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
@@ -230,6 +235,7 @@ app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
 app.include_router(contacts.router, prefix="/api/v1", tags=["Contacts"])
 app.include_router(continuums.router, prefix="/api/v1", tags=["Continuums"])
+app.include_router(continuum_exchange.router, prefix="/api/v1", tags=["Continuum Exchange"])
 app.include_router(contradictions.router, prefix="/api/v1", tags=["Contradictions"])
 app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])
@@ -248,6 +254,8 @@ app.include_router(patterns.router, prefix="/api/v1", tags=["Patterns"])
 app.include_router(personalization.router, prefix="/api/v1", tags=["Personalization"])
 app.include_router(guardrails.router, prefix="/api/v1", tags=["Guardrails"])
 app.include_router(sensors.router, prefix="/api/v1", tags=["Sensors"])
+app.include_router(trust.router, prefix="/api/v1", tags=["Trust"])
+app.include_router(simulations.router, prefix="/api/v1", tags=["Simulations"])
 
 
 @app.get("/")
