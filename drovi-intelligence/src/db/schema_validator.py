@@ -37,6 +37,7 @@ REQUIRED_TABLES = [
     "deduplication_candidate",
     "signal_candidate",
     "unified_event",
+    "uio_contradiction",
     # UIO extension tables
     "uio_commitment_details",
     "uio_decision_details",
@@ -55,6 +56,7 @@ REQUIRED_TABLES = [
     "live_session",
     "transcript_segment",
     "evidence_artifact",
+    "sensor_permission",
 ]
 
 # Required PostgreSQL extensions

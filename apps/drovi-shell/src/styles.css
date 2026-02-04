@@ -1,0 +1,304 @@
+:root {
+  font-family: "Inter", system-ui, sans-serif;
+  color: #f4f4f7;
+  background: #0b0c10;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0b0c10;
+}
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__header {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #1f2230;
+  background: #0f1218;
+}
+
+.shell__brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.shell__tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  background: transparent;
+  color: #8c92a5;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tab--active {
+  color: #f7f7fb;
+  border-color: #3b415a;
+  background: #1a1f2d;
+}
+
+.shell__content {
+  padding: 24px;
+  display: flex;
+  flex: 1;
+}
+
+.panel {
+  background: #111521;
+  border: 1px solid #1c2132;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+}
+
+.intent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.intent__modes {
+  display: flex;
+  gap: 8px;
+}
+
+.intent__input {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.intent__input input {
+  flex: 1;
+  border-radius: 12px;
+  border: 1px solid #2b3245;
+  background: #0c0f16;
+  color: #f4f4f7;
+  padding: 14px 16px;
+}
+
+.intent__context {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.intent__privacy {
+  background: #0f131d;
+  border: 1px solid #1c2132;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.privacy__title {
+  font-weight: 600;
+  color: #e6eaf3;
+}
+
+.privacy__fields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.privacy__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #a7b0c6;
+}
+
+.privacy__row input {
+  background: #0c0f16;
+  border: 1px solid #2b3245;
+  color: #f4f4f7;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.privacy__row--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.privacy__row--toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.privacy__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.privacy__status {
+  color: #8c92a5;
+  font-size: 12px;
+}
+
+.pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #2b3245;
+  background: transparent;
+  color: #8c92a5;
+  cursor: pointer;
+}
+
+.pill--active {
+  background: #2b3245;
+  color: #f4f4f7;
+}
+
+.primary {
+  background: #3c5cff;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid #2b3245;
+  color: #c3c8d6;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.chip {
+  background: #1b2130;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.chip--ghost {
+  background: transparent;
+  border: 1px dashed #3b415a;
+  color: #a1a7b8;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.chat__bubble {
+  background: #1a2030;
+  padding: 12px 14px;
+  border-radius: 12px;
+  max-width: 520px;
+}
+
+.chat__bubble--user {
+  background: #2f3351;
+  align-self: flex-end;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.timeline__item {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 16px;
+  padding: 12px;
+  background: #0e121b;
+  border-radius: 12px;
+  border: 1px solid #1c2132;
+}
+
+.timeline__time {
+  color: #93a0c7;
+  font-weight: 600;
+}
+
+.deck {
+  display: grid;
+  gap: 16px;
+}
+
+.deck__card {
+  border: 1px solid #23283a;
+  border-radius: 14px;
+  padding: 16px;
+  background: #0f131c;
+}
+
+.deck__title {
+  font-weight: 600;
+}
+
+.deck__meta {
+  color: #8c92a5;
+  margin-top: 4px;
+}
+
+.deck__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.json__root {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.json__row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  padding: 10px;
+  background: #0f141f;
+  border-radius: 12px;
+  border: 1px solid #1c2132;
+}
+
+.json__key {
+  color: #9aa3ba;
+  font-weight: 600;
+}
+
+.json__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.json__scalar {
+  color: #e3e7f0;
+}

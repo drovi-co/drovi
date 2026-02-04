@@ -320,6 +320,148 @@ class MemoryService:
 
         return await self._query_uios(where_clause=where_clause, params=params, limit=limit)
 
+    async def diff_uios(
+        self,
+        start: datetime,
+        end: datetime,
+        mode: TimeSliceMode = "truth",
+        uio_types: list[str] | None = None,
+        status: str | None = None,
+        limit: int = 1000,
+    ) -> dict[str, Any]:
+        """Return a diff summary between two time slices."""
+        before = await self.time_slice_uios(
+            as_of=start,
+            mode=mode,
+            uio_types=uio_types,
+            status=status,
+            limit=limit,
+        )
+        after = await self.time_slice_uios(
+            as_of=end,
+            mode=mode,
+            uio_types=uio_types,
+            status=status,
+            limit=limit,
+        )
+        return self._diff_time_slices(before, after)
+
+    async def export_reality_graph(
+        self,
+        as_of: datetime | None = None,
+        limit: int = 5000,
+        include_relationships: bool = True,
+    ) -> dict[str, Any]:
+        """Export a snapshot of the reality graph for audit/compliance."""
+        graph = await self._backend._get_graph()
+
+        params: dict[str, Any] = {
+            "org_id": self.organization_id,
+            "limit": limit,
+        }
+        node_filters = ["n.organizationId = $org_id"]
+        if as_of:
+            params["as_of"] = as_of.isoformat()
+            node_filters.append("(n.validFrom IS NULL OR n.validFrom <= $as_of)")
+            node_filters.append("(n.validTo IS NULL OR n.validTo = '' OR n.validTo > $as_of)")
+
+        node_where = " AND ".join(node_filters)
+        nodes = await graph.query(
+            f"""
+            MATCH (n)
+            WHERE {node_where}
+            RETURN labels(n) as labels, properties(n) as props
+            LIMIT $limit
+            """,
+            params,
+        )
+
+        relationships: list[dict[str, Any]] = []
+        if include_relationships:
+            rel_filters = ["a.organizationId = $org_id"]
+            if as_of:
+                rel_filters.append("(r.validFrom IS NULL OR r.validFrom <= $as_of)")
+                rel_filters.append("(r.validTo IS NULL OR r.validTo = '' OR r.validTo > $as_of)")
+            rel_where = " AND ".join(rel_filters)
+            relationships = await graph.query(
+                f"""
+                MATCH (a)-[r]->(b)
+                WHERE {rel_where}
+                RETURN type(r) as type,
+                       properties(r) as props,
+                       a.id as source_id,
+                       b.id as target_id
+                LIMIT $limit
+                """,
+                params,
+            )
+
+        return {
+            "organization_id": self.organization_id,
+            "as_of": as_of.isoformat() if as_of else None,
+            "node_count": len(nodes),
+            "relationship_count": len(relationships),
+            "nodes": nodes,
+            "relationships": relationships,
+        }
+
+    @staticmethod
+    def _diff_time_slices(
+        before: list[dict[str, Any]],
+        after: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Compute added/removed/updated UIOs between two time slices."""
+        before_map = {item["id"]: item for item in before}
+        after_map = {item["id"]: item for item in after}
+
+        added_ids = sorted(set(after_map.keys()) - set(before_map.keys()))
+        removed_ids = sorted(set(before_map.keys()) - set(after_map.keys()))
+        shared_ids = set(before_map.keys()) & set(after_map.keys())
+
+        fields_to_compare = [
+            "status",
+            "title",
+            "description",
+            "valid_from",
+            "valid_to",
+            "system_from",
+            "system_to",
+            "belief_state",
+            "truth_state",
+            "last_update_reason",
+        ]
+
+        updated = []
+        for uio_id in shared_ids:
+            before_item = before_map[uio_id]
+            after_item = after_map[uio_id]
+            changes = {}
+            for field in fields_to_compare:
+                if before_item.get(field) != after_item.get(field):
+                    changes[field] = {
+                        "before": before_item.get(field),
+                        "after": after_item.get(field),
+                    }
+            if changes:
+                updated.append(
+                    {
+                        "id": uio_id,
+                        "type": after_item.get("type"),
+                        "changes": changes,
+                    }
+                )
+
+        return {
+            "summary": {
+                "added": len(added_ids),
+                "removed": len(removed_ids),
+                "updated": len(updated),
+            },
+            "added": [after_map[uio_id] for uio_id in added_ids],
+            "removed": [before_map[uio_id] for uio_id in removed_ids],
+            "updated": updated,
+        }
+
     async def get_uio_trail(self, uio_id: str) -> dict[str, Any]:
         """Return a unified decision/commitment trail from the timeline table."""
         set_rls_context(self.organization_id, is_internal=True)
@@ -529,7 +671,8 @@ class MemoryService:
                     text(
                         f"""
                         SELECT id, type, status, canonical_title, canonical_description,
-                               last_updated_at, valid_from, valid_to, system_from, system_to
+                               last_updated_at, valid_from, valid_to, system_from, system_to,
+                               belief_state, truth_state, last_update_reason
                         FROM unified_intelligence_object
                         WHERE organization_id = :org_id
                         {where_clause}
@@ -555,6 +698,9 @@ class MemoryService:
                 "valid_to": row.valid_to.isoformat() if row.valid_to else None,
                 "system_from": row.system_from.isoformat() if row.system_from else None,
                 "system_to": row.system_to.isoformat() if row.system_to else None,
+                "belief_state": row.belief_state,
+                "truth_state": row.truth_state,
+                "last_update_reason": row.last_update_reason,
             }
             for row in rows
         ]

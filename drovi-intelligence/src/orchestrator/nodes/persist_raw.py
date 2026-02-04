@@ -25,6 +25,7 @@ from src.ingestion.unified_event import (
     build_source_fingerprint,
     build_uem_metadata,
 )
+from src.ingestion.event_types import normalize_event_type, UnifiedEventType
 
 logger = structlog.get_logger()
 
@@ -362,20 +363,21 @@ async def persist_to_postgresql(
 
 def _event_type_for_source(source_type: str) -> str:
     mapping = {
-        "email": "message",
-        "slack": "message",
-        "whatsapp": "message",
-        "calendar": "meeting",
-        "meeting": "meeting",
-        "call": "call",
-        "recording": "recording",
-        "transcript": "transcript",
-        "notion": "document",
-        "google_docs": "document",
-        "api": "note",
-        "manual": "note",
+        "email": UnifiedEventType.MESSAGE.value,
+        "slack": UnifiedEventType.MESSAGE.value,
+        "whatsapp": UnifiedEventType.MESSAGE.value,
+        "calendar": UnifiedEventType.MEETING.value,
+        "meeting": UnifiedEventType.MEETING.value,
+        "call": UnifiedEventType.CALL.value,
+        "recording": UnifiedEventType.RECORDING.value,
+        "transcript": UnifiedEventType.TRANSCRIPT.value,
+        "notion": UnifiedEventType.DOCUMENT.value,
+        "google_docs": UnifiedEventType.DOCUMENT.value,
+        "api": UnifiedEventType.NOTE.value,
+        "manual": UnifiedEventType.NOTE.value,
+        "desktop": UnifiedEventType.DESKTOP_CONTEXT.value,
     }
-    return mapping.get(source_type, "other")
+    return normalize_event_type(mapping.get(source_type))
 
 
 async def persist_unified_events(
@@ -387,7 +389,12 @@ async def persist_unified_events(
     if not state.input.organization_id:
         return 0
 
-    event_type = _event_type_for_source(state.input.source_type)
+    metadata = state.input.metadata or {}
+    event_type = normalize_event_type(
+        metadata.get("event_type") if isinstance(metadata, dict) else None
+    )
+    if event_type == UnifiedEventType.OTHER.value:
+        event_type = _event_type_for_source(state.input.source_type)
     pool = await get_db_pool()
     persisted = 0
 

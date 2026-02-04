@@ -420,7 +420,7 @@ class FastMemoryRetrieval:
                 vecf32($embedding)
             ) YIELD node, score
             WHERE node.organizationId = $org_id
-            AND node.validTo IS NULL
+            AND (node.validTo IS NULL OR node.validTo = '')
             RETURN node.id as id,
                    node.name as name,
                    node.entityType as entity_type,
@@ -518,7 +518,7 @@ class FastMemoryRetrieval:
                 CALL db.idx.fulltext.queryNodes('entity_content', $query)
                 YIELD node, score
                 WHERE node.organizationId = $org_id
-                AND node.validTo IS NULL
+                AND (node.validTo IS NULL OR node.validTo = '')
                 RETURN node.id as id,
                        node.name as name,
                        node.entityType as entity_type,
@@ -561,7 +561,7 @@ class FastMemoryRetrieval:
             commitment_result = await self._graph.query(
                 """
                 MATCH (c:Commitment {organizationId: $org_id})
-                WHERE c.validTo IS NULL
+                WHERE (c.validTo IS NULL OR c.validTo = '')
                 AND (c.title CONTAINS $keyword OR c.description CONTAINS $keyword)
                 RETURN c.id as id,
                        c.title as title,
@@ -595,7 +595,7 @@ class FastMemoryRetrieval:
             decision_result = await self._graph.query(
                 """
                 MATCH (d:Decision {organizationId: $org_id})
-                WHERE d.validTo IS NULL
+                WHERE (d.validTo IS NULL OR d.validTo = '')
                 AND (d.title CONTAINS $keyword OR d.statement CONTAINS $keyword)
                 RETURN d.id as id,
                        d.title as title,
@@ -650,7 +650,7 @@ class FastMemoryRetrieval:
             result = await self._graph.query(
                 """
                 MATCH (e:Entity {organizationId: $org_id})
-                WHERE e.validTo IS NULL
+                WHERE (e.validTo IS NULL OR e.validTo = '')
                 RETURN e.id as id
                 ORDER BY e.relevanceScore DESC, e.accessCount DESC
                 LIMIT 100

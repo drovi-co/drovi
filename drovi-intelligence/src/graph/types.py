@@ -103,6 +103,7 @@ class GraphNodeType(str, Enum):
     CALL_SESSION = "CallSession"
     TRANSCRIPT_SEGMENT = "TranscriptSegment"
     RECORDING = "Recording"
+    CONTRADICTION = "Contradiction"
 
 
 class GraphRelationshipType(str, Enum):
@@ -128,6 +129,7 @@ class GraphRelationshipType(str, Enum):
     DERIVED_FROM = "DERIVED_FROM"  # Fact derived from other facts
     CONTRADICTS = "CONTRADICTS"  # Explicit contradiction between facts
     CONFIRMS = "CONFIRMS"  # Fact confirms another fact
+    HAS_CONTRADICTION = "HAS_CONTRADICTION"  # Contradiction -> UIO
 
     # Agentic Memory relationships
     RECORDED_IN = "RECORDED_IN"

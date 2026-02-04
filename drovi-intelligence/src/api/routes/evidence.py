@@ -7,8 +7,10 @@ Evidence links UIOs back to their original source (email, slack, etc.).
 Performance target: < 100ms p95 for snippet mode, < 200ms p95 for full mode
 """
 
+import base64
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from uuid import uuid4
 from typing import Literal
 
 import structlog
@@ -18,8 +20,10 @@ from prometheus_client import Counter, Histogram
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
+from src.evidence.chain import compute_chain_entry
 from src.evidence.storage import get_evidence_storage
 from src.evidence.audit import record_evidence_audit
+from src.ingestion.reality_events import persist_reality_event
 from src.config import get_settings
 
 logger = structlog.get_logger()
@@ -113,11 +117,37 @@ class EvidenceArtifactResponse(BaseModel):
     byte_size: int | None = None
     sha256: str | None = None
     created_at: datetime
+    chain_id: str | None = None
+    chain_sequence: int | None = None
+    chain_prev_hash: str | None = None
+    chain_hash: str | None = None
     retention_until: datetime | None = None
     immutable: bool | None = None
     legal_hold: bool | None = None
     metadata: dict | None = None
     presigned_url: str | None = None
+
+
+class EvidenceArtifactCreate(BaseModel):
+    organization_id: str
+    artifact_type: str
+    mime_type: str | None = None
+    content_base64: str
+    source_type: str | None = None
+    source_id: str | None = None
+    session_id: str | None = None
+    metadata: dict | None = None
+    retention_days: int | None = None
+    immutable: bool | None = None
+    legal_hold: bool | None = None
+
+
+class EvidenceArtifactIngest(EvidenceArtifactCreate):
+    event_type: str
+    content_text: str | None = None
+    content_json: dict | list | None = None
+    participants: list[dict] | None = None
+    captured_at: datetime | None = None
 
 
 # =============================================================================
@@ -543,12 +573,175 @@ async def get_evidence_artifact(
             byte_size=row.byte_size,
             sha256=row.sha256,
             created_at=row.created_at,
+            chain_id=getattr(row, "chain_id", None),
+            chain_sequence=getattr(row, "chain_sequence", None),
+            chain_prev_hash=getattr(row, "chain_prev_hash", None),
+            chain_hash=getattr(row, "chain_hash", None),
             retention_until=row.retention_until,
             immutable=row.immutable,
             legal_hold=row.legal_hold,
             metadata=metadata,
             presigned_url=presigned_url,
         )
+
+
+@router.post("/artifacts", response_model=EvidenceArtifactResponse)
+async def create_evidence_artifact(
+    payload: EvidenceArtifactCreate,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """Create evidence artifact from base64 payload."""
+    _validate_org_id(ctx, payload.organization_id)
+    settings = get_settings()
+
+    try:
+        raw_bytes = base64.b64decode(payload.content_base64)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid base64 payload") from exc
+
+    artifact_id = f"evd_{uuid4().hex}"
+    retention_days = payload.retention_days or settings.evidence_default_retention_days
+    retention_until = None
+    if retention_days:
+        retention_until = datetime.utcnow() + timedelta(days=retention_days)
+
+    immutable = payload.immutable if payload.immutable is not None else settings.evidence_immutable_by_default
+    legal_hold = payload.legal_hold if payload.legal_hold is not None else settings.evidence_legal_hold_by_default
+
+    storage = get_evidence_storage()
+    stored = await storage.write_bytes(
+        artifact_id=artifact_id,
+        data=raw_bytes,
+        extension="",
+        organization_id=payload.organization_id,
+        retention_until=retention_until,
+        immutable=immutable,
+    )
+
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    created_at = datetime.utcnow()
+    metadata = payload.metadata or {}
+    metadata.setdefault("storage_backend", stored.storage_backend)
+    metadata.setdefault("storage_path", stored.storage_path)
+    metadata.setdefault("sha256", stored.sha256)
+    metadata.setdefault("created_at", created_at.isoformat())
+
+    async with get_db_session() as session:
+        chain = await compute_chain_entry(
+            session=session,
+            organization_id=payload.organization_id,
+            artifact_id=artifact_id,
+            artifact_sha256=stored.sha256,
+            created_at=created_at,
+            metadata=metadata,
+        )
+        chain.pop("metadata_json", None)
+
+        await session.execute(
+            text(
+                """
+                INSERT INTO evidence_artifact (
+                    id, organization_id, session_id, source_type, source_id,
+                    artifact_type, mime_type, storage_backend, storage_path,
+                    byte_size, sha256, metadata, created_at,
+                    retention_until, immutable, legal_hold,
+                    chain_id, chain_sequence, chain_prev_hash, chain_hash
+                ) VALUES (
+                    :id, :org_id, :session_id, :source_type, :source_id,
+                    :artifact_type, :mime_type, :storage_backend, :storage_path,
+                    :byte_size, :sha256, :metadata, :created_at,
+                    :retention_until, :immutable, :legal_hold,
+                    :chain_id, :chain_sequence, :chain_prev_hash, :chain_hash
+                )
+                """
+            ),
+            {
+                "id": artifact_id,
+                "org_id": payload.organization_id,
+                "session_id": payload.session_id,
+                "source_type": payload.source_type,
+                "source_id": payload.source_id,
+                "artifact_type": payload.artifact_type,
+                "mime_type": payload.mime_type,
+                "storage_backend": stored.storage_backend,
+                "storage_path": stored.storage_path,
+                "byte_size": stored.byte_size,
+                "sha256": stored.sha256,
+                "metadata": metadata,
+                "created_at": created_at,
+                "retention_until": retention_until,
+                "immutable": immutable,
+                "legal_hold": legal_hold,
+                "chain_id": chain["chain_id"],
+                "chain_sequence": chain["chain_sequence"],
+                "chain_prev_hash": chain["chain_prev_hash"],
+                "chain_hash": chain["chain_hash"],
+            },
+        )
+
+    await record_evidence_audit(
+        artifact_id=artifact_id,
+        organization_id=payload.organization_id,
+        action="created",
+        actor_type="api",
+        actor_id=ctx.api_key_id,
+        metadata={"artifact_type": payload.artifact_type},
+    )
+
+    return EvidenceArtifactResponse(
+        id=artifact_id,
+        artifact_type=payload.artifact_type,
+        mime_type=payload.mime_type,
+        storage_backend=stored.storage_backend,
+        storage_path=stored.storage_path,
+        storage_uri=None,
+        byte_size=stored.byte_size,
+        sha256=stored.sha256,
+        created_at=created_at,
+        chain_id=chain["chain_id"],
+        chain_sequence=chain["chain_sequence"],
+        chain_prev_hash=chain["chain_prev_hash"],
+        chain_hash=chain["chain_hash"],
+        retention_until=retention_until,
+        immutable=immutable,
+        legal_hold=legal_hold,
+        metadata=metadata,
+        presigned_url=None,
+    )
+
+
+@router.post("/artifacts/ingest")
+async def ingest_evidence_artifact(
+    payload: EvidenceArtifactIngest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """
+    Upload an evidence artifact and create a linked Unified Event.
+
+    This is the end‑to‑end ingestion path for audio, slides, and images.
+    """
+    artifact_response = await create_evidence_artifact(payload, ctx)
+
+    event_id, created = await persist_reality_event(
+        organization_id=payload.organization_id,
+        source_type=payload.source_type or "evidence",
+        event_type=payload.event_type,
+        content_text=payload.content_text,
+        content_json=payload.content_json,
+        participants=payload.participants,
+        metadata=payload.metadata,
+        source_id=payload.source_id,
+        captured_at=payload.captured_at,
+        evidence_artifact_id=artifact_response.id,
+    )
+
+    return {
+        "artifact_id": artifact_response.id,
+        "event_id": event_id,
+        "created": created,
+    }
 
 
 @router.get("/{evidence_id}/timeline")

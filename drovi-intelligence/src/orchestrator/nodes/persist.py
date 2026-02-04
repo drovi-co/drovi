@@ -100,9 +100,9 @@ def _temporal_graph_props(now: datetime) -> dict[str, str]:
     iso_now = now.isoformat()
     return {
         "validFrom": iso_now,
-        "validTo": "",
+        "validTo": None,
         "systemFrom": iso_now,
-        "systemTo": "",
+        "systemTo": None,
     }
 
 
@@ -111,9 +111,9 @@ def _temporal_relationship_props(now: datetime) -> dict[str, str]:
     iso_now = now.isoformat()
     return {
         "validFrom": iso_now,
-        "validTo": "",
+        "validTo": None,
         "systemFrom": iso_now,
-        "systemTo": "",
+        "systemTo": None,
         "createdAt": iso_now,
         "updatedAt": iso_now,
     }

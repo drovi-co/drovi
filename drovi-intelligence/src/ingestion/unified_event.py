@@ -8,6 +8,7 @@ produce consistent Unified Event records.
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +23,21 @@ def build_content_hash(content: str, source_fingerprint: str) -> str:
     """Hash content with a source fingerprint for per-source dedupe."""
     payload = f"{source_fingerprint}::{content}".encode("utf-8", errors="ignore")
     return hashlib.sha256(payload).hexdigest()
+
+
+def build_event_hash(
+    content_text: str | None,
+    content_json: dict[str, Any] | list[Any] | None,
+    source_fingerprint: str,
+) -> str:
+    """Hash event payload with a source fingerprint for dedupe."""
+    if content_text:
+        content = content_text
+    elif content_json is not None:
+        content = json.dumps(content_json, sort_keys=True, ensure_ascii=False)
+    else:
+        content = ""
+    return build_content_hash(content, source_fingerprint)
 
 
 def build_segment_hash(text: str) -> str:

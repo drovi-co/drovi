@@ -395,7 +395,7 @@ class MemoryEvolution:
                 MATCH (n:{node_type.value})
                 WHERE (n.id = $nodeId OR n.supersededById = $nodeId)
                 AND n.createdAt <= $asOf
-                AND (n.validTo IS NULL OR n.validTo > $asOf)
+                AND (n.validTo IS NULL OR n.validTo = '' OR n.validTo > $asOf)
                 RETURN n
                 ORDER BY n.createdAt DESC
                 LIMIT 1

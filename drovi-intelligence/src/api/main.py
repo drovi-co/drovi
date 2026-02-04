@@ -37,6 +37,7 @@ from src.api.routes import (
     connections,
     console,
     contacts,
+    contradictions,
     customer,
     events,
     evidence,
@@ -50,6 +51,7 @@ from src.api.routes import (
     patterns,
     personalization,
     search,
+    sensors,
     sessions,
     signals,
     stream,
@@ -212,6 +214,7 @@ app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
 app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
 app.include_router(contacts.router, prefix="/api/v1", tags=["Contacts"])
+app.include_router(contradictions.router, prefix="/api/v1", tags=["Contradictions"])
 app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])
 app.include_router(signals.router, prefix="/api/v1", tags=["Signals"])
@@ -228,6 +231,7 @@ app.include_router(org.router, prefix="/api/v1", tags=["Organization Management"
 app.include_router(patterns.router, prefix="/api/v1", tags=["Patterns"])
 app.include_router(personalization.router, prefix="/api/v1", tags=["Personalization"])
 app.include_router(guardrails.router, prefix="/api/v1", tags=["Guardrails"])
+app.include_router(sensors.router, prefix="/api/v1", tags=["Sensors"])
 
 
 @app.get("/")

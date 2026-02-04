@@ -274,6 +274,9 @@ class UIOResponse(BaseModel):
     canonical_description: str | None = None
     user_corrected_title: str | None = None
     status: str
+    belief_state: str | None = None
+    truth_state: str | None = None
+    last_update_reason: str | None = None
 
     # Confidence
     overall_confidence: float | None = None
@@ -605,6 +608,9 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         canonical_description=row_dict.get("canonical_description"),
         user_corrected_title=row_dict.get("user_corrected_title"),
         status=row_dict.get("status") or "active",
+        belief_state=row_dict.get("belief_state"),
+        truth_state=row_dict.get("truth_state"),
+        last_update_reason=row_dict.get("last_update_reason"),
         overall_confidence=confidence,
         confidence_tier=confidence_to_tier(confidence),
         confidence_reasoning=confidence_reasoning,
@@ -638,6 +644,7 @@ SELECT
     u.id, u.type, u.canonical_title, u.canonical_description,
     u.user_corrected_title, u.status, u.overall_confidence, u.due_date,
     u.created_at, u.updated_at, u.first_seen_at, u.last_updated_at,
+    u.belief_state, u.truth_state, u.last_update_reason,
     u.is_user_verified, u.is_user_dismissed,
 
     -- Owner contact
@@ -1447,7 +1454,8 @@ async def verify_uio(
                     UPDATE unified_intelligence_object
                     SET is_user_verified = true,
                         status = CASE WHEN status = 'draft' THEN 'active' ELSE status END,
-                        updated_at = NOW()
+                        updated_at = NOW(),
+                        last_update_reason = 'user_verified'
                     WHERE id = :uio_id AND organization_id = :org_id
                 """),
                 {"uio_id": uio_id, "org_id": org_id},
@@ -1523,7 +1531,8 @@ async def snooze_uio(
                 text("""
                     UPDATE unified_intelligence_object
                     SET status = 'snoozed',
-                        updated_at = NOW()
+                        updated_at = NOW(),
+                        last_update_reason = 'snoozed'
                     WHERE id = :uio_id AND organization_id = :org_id
                 """),
                 {"uio_id": uio_id, "org_id": org_id},
@@ -1629,10 +1638,15 @@ async def update_task_status(
                 text("""
                     UPDATE unified_intelligence_object
                     SET status = :status,
-                        updated_at = NOW()
+                        updated_at = NOW(),
+                        last_update_reason = :reason
                     WHERE id = :uio_id
                 """),
-                {"uio_id": uio_id, "status": uio_status},
+                {
+                    "uio_id": uio_id,
+                    "status": uio_status,
+                    "reason": f"task_status:{request.status}",
+                },
             )
 
             await session.commit()
@@ -1709,10 +1723,11 @@ async def update_task_priority(
             await session.execute(
                 text("""
                     UPDATE unified_intelligence_object
-                    SET updated_at = NOW()
+                    SET updated_at = NOW(),
+                        last_update_reason = :reason
                     WHERE id = :uio_id
                 """),
-                {"uio_id": uio_id},
+                {"uio_id": uio_id, "reason": f"task_priority:{request.priority}"},
             )
 
             await session.commit()
@@ -1789,10 +1804,11 @@ async def update_commitment_priority(
             await session.execute(
                 text("""
                     UPDATE unified_intelligence_object
-                    SET updated_at = NOW()
+                    SET updated_at = NOW(),
+                        last_update_reason = :reason
                     WHERE id = :uio_id
                 """),
-                {"uio_id": uio_id},
+                {"uio_id": uio_id, "reason": f"commitment_priority:{request.priority}"},
             )
 
             await session.commit()
@@ -1867,10 +1883,11 @@ async def update_commitment_direction(
             await session.execute(
                 text("""
                     UPDATE unified_intelligence_object
-                    SET updated_at = NOW()
+                    SET updated_at = NOW(),
+                        last_update_reason = :reason
                     WHERE id = :uio_id
                 """),
-                {"uio_id": uio_id},
+                {"uio_id": uio_id, "reason": f"commitment_direction:{request.direction}"},
             )
 
             await session.commit()
@@ -1966,7 +1983,8 @@ async def supersede_decision(
                 text("""
                     UPDATE unified_intelligence_object
                     SET status = 'archived',
-                        updated_at = NOW()
+                        updated_at = NOW(),
+                        last_update_reason = 'decision_superseded'
                     WHERE id = :uio_id
                 """),
                 {"uio_id": uio_id},
@@ -2073,11 +2091,12 @@ async def supersede_generic(
                     UPDATE unified_intelligence_object
                     SET valid_to = NOW(),
                         system_to = NOW(),
-                        updated_at = NOW()
+                        updated_at = NOW(),
+                        last_update_reason = :reason
                     WHERE id = :uio_id
                     """
                 ),
-                {"uio_id": uio_id},
+                {"uio_id": uio_id, "reason": f"superseded:{request.uio_type}"},
             )
 
             await session.execute(
@@ -2086,6 +2105,7 @@ async def supersede_generic(
                     INSERT INTO unified_object_timeline (
                         id, unified_object_id,
                         event_type, event_description,
+                        event_reason,
                         previous_value, new_value,
                         source_type, source_id, source_name,
                         message_id, quoted_text,
@@ -2093,6 +2113,7 @@ async def supersede_generic(
                     ) VALUES (
                         :id, :unified_object_id,
                         :event_type, :event_description,
+                        :event_reason,
                         :previous_value, :new_value,
                         :source_type, :source_id, :source_name,
                         :message_id, :quoted_text,
@@ -2105,6 +2126,7 @@ async def supersede_generic(
                     "unified_object_id": uio_id,
                     "event_type": "superseded",
                     "event_description": f"Superseded by {request.uio_type} {request.superseded_by_id}",
+                    "event_reason": f"superseded:{request.uio_type}",
                     "previous_value": None,
                     "new_value": None,
                     "source_type": "user",

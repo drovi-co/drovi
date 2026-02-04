@@ -70,6 +70,30 @@ class TimeSliceRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=500)
 
 
+class MemoryChangeRequest(BaseModel):
+    """Request for change diff between two time slices."""
+
+    organization_id: str = Field(..., description="Organization ID")
+    start: datetime = Field(..., description="Start time for diff")
+    end: datetime = Field(..., description="End time for diff")
+    mode: Literal["truth", "knowledge", "both"] = Field(
+        default="truth",
+        description="Filter mode: truth (valid_from/to), knowledge (system_from/to), or both",
+    )
+    uio_types: list[str] | None = Field(default=None, description="Filter by UIO types")
+    status: str | None = Field(default=None, description="Filter by UIO status")
+    limit: int = Field(default=500, ge=1, le=2000)
+
+
+class MemoryExportRequest(BaseModel):
+    """Request for reality graph export."""
+
+    organization_id: str = Field(..., description="Organization ID")
+    as_of: datetime | None = Field(default=None, description="Export as-of time slice")
+    include_relationships: bool = Field(default=True)
+    limit: int = Field(default=5000, ge=1, le=20000)
+
+
 class TrailEvent(BaseModel):
     event_type: str
     event_description: str
@@ -290,6 +314,55 @@ async def time_slice_uios(
         }
     except Exception as e:
         logger.error("Time-slice query failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/changes")
+async def memory_changes(
+    request: MemoryChangeRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Return a diff summary between two time slices."""
+    _validate_org_id(ctx, request.organization_id)
+    try:
+        memory = await get_memory_service(request.organization_id)
+        diff = await memory.diff_uios(
+            start=request.start,
+            end=request.end,
+            mode=request.mode,
+            uio_types=request.uio_types,
+            status=request.status,
+            limit=request.limit,
+        )
+        return {
+            "success": True,
+            "start": request.start.isoformat(),
+            "end": request.end.isoformat(),
+            "mode": request.mode,
+            "diff": diff,
+        }
+    except Exception as e:
+        logger.error("Memory change diff failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/export")
+async def export_reality_graph(
+    request: MemoryExportRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Export the reality graph snapshot for audit/compliance."""
+    _validate_org_id(ctx, request.organization_id)
+    try:
+        memory = await get_memory_service(request.organization_id)
+        export = await memory.export_reality_graph(
+            as_of=request.as_of,
+            limit=request.limit,
+            include_relationships=request.include_relationships,
+        )
+        return {"success": True, "export": export}
+    except Exception as e:
+        logger.error("Reality graph export failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

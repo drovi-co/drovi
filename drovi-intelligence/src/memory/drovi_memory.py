@@ -476,7 +476,10 @@ class DroviMemory:
             "limit": limit,
         }
         if as_of_date:
-            valid_filter = "AND u.validFrom <= $asOfDate AND (u.validTo IS NULL OR u.validTo > $asOfDate)"
+            valid_filter = (
+                "AND u.validFrom <= $asOfDate "
+                "AND (u.validTo IS NULL OR u.validTo = '' OR u.validTo > $asOfDate)"
+            )
             params["asOfDate"] = as_of_date.isoformat()
 
         result = await graph.query(

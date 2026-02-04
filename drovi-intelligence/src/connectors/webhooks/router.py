@@ -19,6 +19,18 @@ logger = structlog.get_logger()
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
+async def _verify_shared_secret(token: str | None) -> bool:
+    from src.config import get_settings
+
+    settings = get_settings()
+    if not settings.webhook_shared_secret:
+        logger.warning("Webhook shared secret not configured; allowing request")
+        return True
+    if not token:
+        return False
+    return hmac.compare_digest(token, settings.webhook_shared_secret)
+
+
 # =============================================================================
 # SLACK WEBHOOKS
 # =============================================================================
@@ -181,6 +193,122 @@ async def notion_webhook(request: Request):
     await _queue_notion_event(body)
 
     return {"ok": True}
+
+
+# =============================================================================
+# GENERIC DOCUMENT WEBHOOKS (DIFF / APPROVAL)
+# =============================================================================
+
+
+@router.post("/documents")
+async def document_webhook(
+    request: Request,
+    x_drovi_org: str | None = Header(None, alias="X-Drovi-Org"),
+    x_drovi_token: str | None = Header(None, alias="X-Drovi-Webhook-Token"),
+):
+    if not await _verify_shared_secret(x_drovi_token):
+        raise HTTPException(status_code=401, detail="Invalid webhook token")
+
+    payload = await request.json()
+    organization_id = x_drovi_org or payload.get("organization_id")
+    if not organization_id:
+        raise HTTPException(status_code=400, detail="Missing organization_id")
+
+    event_type = payload.get("event_type", "doc_diff")
+    title = payload.get("title") or payload.get("document_title")
+    summary = payload.get("summary") or payload.get("diff_summary")
+
+    participants = []
+    if payload.get("actor_email") or payload.get("actor_name"):
+        participants.append({
+            "email": payload.get("actor_email"),
+            "name": payload.get("actor_name"),
+            "role": "actor",
+        })
+
+    from src.ingestion.reality_events import persist_reality_event
+
+    event_id, created = await persist_reality_event(
+        organization_id=organization_id,
+        source_type="document",
+        event_type=event_type,
+        source_id=payload.get("document_id"),
+        content_text=summary or title,
+        content_json=payload,
+        participants=participants,
+        metadata={"source": "webhook", "event": event_type},
+        captured_at=datetime.utcnow(),
+    )
+
+    return {"ok": True, "id": event_id, "created": created}
+
+
+# =============================================================================
+# GITHUB WEBHOOKS (CODE MERGES)
+# =============================================================================
+
+
+@router.post("/github")
+async def github_webhook(
+    request: Request,
+    x_github_event: str | None = Header(None, alias="X-GitHub-Event"),
+    x_drovi_org: str | None = Header(None, alias="X-Drovi-Org"),
+    x_drovi_token: str | None = Header(None, alias="X-Drovi-Webhook-Token"),
+):
+    if not await _verify_shared_secret(x_drovi_token):
+        raise HTTPException(status_code=401, detail="Invalid webhook token")
+
+    payload = await request.json()
+    organization_id = x_drovi_org or payload.get("organization_id")
+    if not organization_id:
+        raise HTTPException(status_code=400, detail="Missing organization_id")
+
+    if x_github_event != "pull_request":
+        return {"ok": True, "ignored": True}
+
+    action = payload.get("action")
+    pr = payload.get("pull_request", {})
+    if action != "closed" or not pr.get("merged"):
+        return {"ok": True, "ignored": True}
+
+    repo = payload.get("repository", {}).get("full_name")
+    title = pr.get("title")
+    merged_by = pr.get("merged_by", {}) or {}
+
+    participants = []
+    if merged_by.get("email") or merged_by.get("login"):
+        participants.append({
+            "email": merged_by.get("email"),
+            "name": merged_by.get("login"),
+            "role": "merger",
+        })
+    if pr.get("user", {}).get("login"):
+        participants.append({
+            "email": pr.get("user", {}).get("email"),
+            "name": pr.get("user", {}).get("login"),
+            "role": "author",
+        })
+
+    from src.ingestion.reality_events import persist_reality_event
+
+    event_id, created = await persist_reality_event(
+        organization_id=organization_id,
+        source_type="github",
+        event_type="code_merge",
+        source_id=str(pr.get("id")),
+        content_text=title,
+        content_json={
+            "repository": repo,
+            "title": title,
+            "url": pr.get("html_url"),
+            "merged_at": pr.get("merged_at"),
+        },
+        participants=participants,
+        metadata={"source": "github", "event": "pull_request.merged"},
+        captured_at=datetime.utcnow(),
+    )
+
+    return {"ok": True, "id": event_id, "created": created}
 
 
 async def _queue_notion_event(payload: dict[str, Any]) -> None:

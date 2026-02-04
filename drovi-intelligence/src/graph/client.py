@@ -689,6 +689,13 @@ class DroviGraph:
         if not props:
             return "", {}
 
+        # Enforce temporal defaults for all nodes
+        props = dict(props)
+        if "validFrom" not in props and "valid_from" not in props:
+            props["validFrom"] = datetime.utcnow()
+        if "validTo" not in props and "valid_to" not in props:
+            props["validTo"] = None
+
         clauses = []
         params = {}
         for key, value in props.items():

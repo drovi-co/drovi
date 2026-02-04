@@ -139,12 +139,18 @@ class UIOManager:
             "status": UIOStatus.DRAFT.value,
             "createdAt": now.isoformat(),
             "updatedAt": now.isoformat(),
+            "validFrom": now.isoformat(),
+            "validTo": None,
+            "systemFrom": now.isoformat(),
+            "systemTo": None,
             "sourceType": source_type,
             "sourceId": source_id,
             "episodeId": episode_id,
             "confidence": confidence,
             "needsReview": True,
             "userCorrected": False,
+            "beliefState": "asserted",
+            "truthState": "unknown",
             **self._sanitize_properties(data),
         }
 
@@ -236,6 +242,7 @@ class UIOManager:
                         owner_contact_id, participant_contact_ids,
                         overall_confidence, first_seen_at, last_updated_at,
                         is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
@@ -245,6 +252,7 @@ class UIOManager:
                         :owner_contact_id, :participant_contact_ids,
                         :overall_confidence, :first_seen_at, :last_updated_at,
                         :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -264,6 +272,9 @@ class UIOManager:
                     "last_updated_at": request.base.last_updated_at,
                     "is_user_verified": request.base.is_user_verified,
                     "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -369,6 +380,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Commitment UIO created", uio_id=uio_id)
@@ -397,6 +411,8 @@ class UIOManager:
                         canonical_title, canonical_description,
                         owner_contact_id, participant_contact_ids,
                         overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
@@ -404,6 +420,8 @@ class UIOManager:
                         :canonical_title, :canonical_description,
                         :owner_contact_id, :participant_contact_ids,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -419,6 +437,11 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -518,6 +541,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Decision UIO created", uio_id=uio_id)
@@ -545,12 +571,16 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'claim', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -564,6 +594,11 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -640,6 +675,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Claim UIO created", uio_id=uio_id)
@@ -668,6 +706,8 @@ class UIOManager:
                         canonical_title, canonical_description,
                         due_date, owner_contact_id,
                         overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
@@ -675,6 +715,8 @@ class UIOManager:
                         :canonical_title, :canonical_description,
                         :due_date, :owner_contact_id,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -690,6 +732,11 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -800,6 +847,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Task UIO created", uio_id=uio_id)
@@ -827,12 +877,16 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'risk', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -846,6 +900,11 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -941,6 +1000,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Risk UIO created", uio_id=uio_id)
@@ -968,12 +1030,16 @@ class UIOManager:
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
                         overall_confidence, first_seen_at, last_updated_at,
+                        is_user_verified, is_user_dismissed,
+                        belief_state, truth_state, last_update_reason,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :organization_id, 'brief', :status,
                         :canonical_title, :canonical_description,
                         :overall_confidence, :first_seen_at, :last_updated_at,
+                        :is_user_verified, :is_user_dismissed,
+                        :belief_state, :truth_state, :last_update_reason,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :created_at, :updated_at
                     )
@@ -987,6 +1053,11 @@ class UIOManager:
                     "overall_confidence": request.base.overall_confidence,
                     "first_seen_at": request.base.first_seen_at,
                     "last_updated_at": request.base.last_updated_at,
+                    "is_user_verified": request.base.is_user_verified,
+                    "is_user_dismissed": request.base.is_user_dismissed,
+                    "belief_state": request.base.belief_state.value,
+                    "truth_state": request.base.truth_state.value,
+                    "last_update_reason": request.base.last_update_reason,
                     "valid_from": now,
                     "valid_to": None,
                     "system_from": now,
@@ -1074,6 +1145,9 @@ class UIOManager:
             confidence=request.source.confidence,
             valid_from=now,
             system_from=now,
+            belief_state=request.base.belief_state.value,
+            truth_state=request.base.truth_state.value,
+            last_update_reason=request.base.last_update_reason,
         )
 
         logger.info("Brief UIO created", uio_id=uio_id)
@@ -1133,6 +1207,7 @@ class UIOManager:
         source: SourceContext,
         confidence: float | None,
         now: datetime,
+        event_reason: str | None = None,
     ) -> None:
         """Record a creation event in the UIO timeline."""
         new_value = {
@@ -1140,12 +1215,14 @@ class UIOManager:
             "title": title,
             "description": description,
         }
+        event_description = f"Created {uio_type} from {source.source_type}"
         await session.execute(
             text(
                 """
                 INSERT INTO unified_object_timeline (
                     id, unified_object_id,
                     event_type, event_description,
+                    event_reason,
                     previous_value, new_value,
                     source_type, source_id, source_name,
                     message_id, quoted_text,
@@ -1153,6 +1230,7 @@ class UIOManager:
                 ) VALUES (
                     :id, :unified_object_id,
                     :event_type, :event_description,
+                    :event_reason,
                     :previous_value, :new_value,
                     :source_type, :source_id, :source_name,
                     :message_id, :quoted_text,
@@ -1164,7 +1242,8 @@ class UIOManager:
                 "id": str(uuid4()),
                 "unified_object_id": uio_id,
                 "event_type": "created",
-                "event_description": f"Created {uio_type} from {source.source_type}",
+                "event_description": event_description,
+                "event_reason": event_reason or event_description,
                 "previous_value": None,
                 "new_value": json.dumps(new_value),
                 "source_type": source.source_type,
@@ -1195,7 +1274,8 @@ class UIOManager:
                 UPDATE unified_intelligence_object
                 SET valid_to = :now,
                     system_to = :now,
-                    updated_at = :now
+                    updated_at = :now,
+                    last_update_reason = :reason
                 WHERE id = :supersedes_id
                   AND organization_id = :org_id
                 """
@@ -1204,6 +1284,7 @@ class UIOManager:
                 "now": now,
                 "supersedes_id": supersedes_uio_id,
                 "org_id": self.organization_id,
+                "reason": "superseded",
             },
         )
 
@@ -1213,6 +1294,7 @@ class UIOManager:
                 INSERT INTO unified_object_timeline (
                     id, unified_object_id,
                     event_type, event_description,
+                    event_reason,
                     previous_value, new_value,
                     source_type, source_id, source_name,
                     message_id, quoted_text,
@@ -1220,6 +1302,7 @@ class UIOManager:
                 ) VALUES (
                     :id, :unified_object_id,
                     :event_type, :event_description,
+                    :event_reason,
                     :previous_value, :new_value,
                     :source_type, :source_id, :source_name,
                     :message_id, :quoted_text,
@@ -1232,6 +1315,7 @@ class UIOManager:
                 "unified_object_id": supersedes_uio_id,
                 "event_type": "superseded",
                 "event_description": f"Superseded by {uio_type} {new_uio_id}",
+                "event_reason": "superseded",
                 "previous_value": None,
                 "new_value": None,
                 "source_type": source.source_type,
@@ -1278,6 +1362,9 @@ class UIOManager:
         valid_to: datetime | None = None,
         system_from: datetime | None = None,
         system_to: datetime | None = None,
+        belief_state: str | None = None,
+        truth_state: str | None = None,
+        last_update_reason: str | None = None,
     ) -> None:
         """Sync a UIO to FalkorDB."""
         try:
@@ -1297,6 +1384,9 @@ class UIOManager:
                 "confidence": confidence,
                 "needsReview": False,
                 "userCorrected": False,
+                "beliefState": belief_state or "asserted",
+                "truthState": truth_state or "unknown",
+                "lastUpdateReason": last_update_reason,
                 **self._sanitize_properties(data),
             }
 
@@ -1436,7 +1526,8 @@ class UIOManager:
                         """
                         UPDATE unified_intelligence_object
                         SET status = :status,
-                            updated_at = :now
+                            updated_at = :now,
+                            last_update_reason = :reason
                         WHERE id = :id
                           AND organization_id = :org_id
                         """
@@ -1446,6 +1537,7 @@ class UIOManager:
                         "now": now,
                         "id": uio_id,
                         "org_id": self.organization_id,
+                        "reason": f"status_change:{new_status.value}",
                     },
                 )
 
@@ -1455,6 +1547,7 @@ class UIOManager:
                         INSERT INTO unified_object_timeline (
                             id, unified_object_id,
                             event_type, event_description,
+                            event_reason,
                             previous_value, new_value,
                             source_type, source_id, source_name,
                             message_id, quoted_text,
@@ -1462,6 +1555,7 @@ class UIOManager:
                         ) VALUES (
                             :id, :unified_object_id,
                             :event_type, :event_description,
+                            :event_reason,
                             :previous_value, :new_value,
                             :source_type, :source_id, :source_name,
                             :message_id, :quoted_text,
@@ -1474,6 +1568,7 @@ class UIOManager:
                         "unified_object_id": uio_id,
                         "event_type": "status_changed",
                         "event_description": f"Status changed from {current_status.value} to {new_status.value}",
+                        "event_reason": f"status_change:{new_status.value}",
                         "previous_value": json.dumps({"status": current_status.value}),
                         "new_value": json.dumps({"status": new_status.value}),
                         "source_type": "system",
@@ -1632,6 +1727,7 @@ class UIOManager:
             if core_updates:
                 core_updates["updated_at"] = now
                 core_updates["is_user_verified"] = True
+                core_updates["last_update_reason"] = "user_correction"
 
                 async with get_db_session() as session:
                     set_clause = ", ".join(f"{key} = :{key}" for key in core_updates.keys())
@@ -1657,6 +1753,7 @@ class UIOManager:
                             INSERT INTO unified_object_timeline (
                                 id, unified_object_id,
                                 event_type, event_description,
+                                event_reason,
                                 previous_value, new_value,
                                 source_type, source_id, source_name,
                                 message_id, quoted_text,
@@ -1664,6 +1761,7 @@ class UIOManager:
                             ) VALUES (
                                 :id, :unified_object_id,
                                 :event_type, :event_description,
+                                :event_reason,
                                 :previous_value, :new_value,
                                 :source_type, :source_id, :source_name,
                                 :message_id, :quoted_text,
@@ -1676,6 +1774,7 @@ class UIOManager:
                             "unified_object_id": uio_id,
                             "event_type": "corrected",
                             "event_description": "User correction applied",
+                            "event_reason": "user_correction",
                             "previous_value": json.dumps(original_extraction) if original_extraction else None,
                             "new_value": json.dumps(corrections),
                             "source_type": "user",
@@ -1861,6 +1960,269 @@ class UIOManager:
                 error=str(e),
             )
             return False
+
+    # =========================================================================
+    # Contradictions
+    # =========================================================================
+
+    async def record_contradiction(
+        self,
+        uio_a_id: str,
+        uio_b_id: str,
+        contradiction_type: str,
+        severity: str = "medium",
+        evidence_quote: str | None = None,
+        evidence_artifact_id: str | None = None,
+        detected_by: str | None = None,
+    ) -> str:
+        """Record a contradiction between two UIOs (SQL + graph)."""
+        now = datetime.utcnow()
+        if uio_a_id == uio_b_id:
+            raise ValueError("Cannot record contradiction against the same UIO")
+
+        ordered = sorted([uio_a_id, uio_b_id])
+        uio_a_id, uio_b_id = ordered[0], ordered[1]
+
+        async with get_db_session() as session:
+            existing = await session.execute(
+                text(
+                    """
+                    SELECT id FROM uio_contradiction
+                    WHERE organization_id = :org_id
+                      AND uio_a_id = :uio_a_id
+                      AND uio_b_id = :uio_b_id
+                      AND status = 'open'
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "org_id": self.organization_id,
+                    "uio_a_id": uio_a_id,
+                    "uio_b_id": uio_b_id,
+                },
+            )
+            row = existing.fetchone()
+            if row:
+                return row.id
+
+            contradiction_id = str(uuid4())
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO uio_contradiction (
+                        id, organization_id, uio_a_id, uio_b_id,
+                        contradiction_type, severity, status,
+                        evidence_quote, evidence_artifact_id,
+                        detected_at, created_at, updated_at
+                    ) VALUES (
+                        :id, :org_id, :uio_a_id, :uio_b_id,
+                        :contradiction_type, :severity, 'open',
+                        :evidence_quote, :evidence_artifact_id,
+                        :detected_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "id": contradiction_id,
+                    "org_id": self.organization_id,
+                    "uio_a_id": uio_a_id,
+                    "uio_b_id": uio_b_id,
+                    "contradiction_type": contradiction_type,
+                    "severity": severity,
+                    "evidence_quote": evidence_quote,
+                    "evidence_artifact_id": evidence_artifact_id,
+                    "detected_at": now,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE unified_intelligence_object
+                    SET contradicts_existing = true,
+                        belief_state = 'contradicted',
+                        last_update_reason = 'contradiction_detected',
+                        updated_at = :now
+                    WHERE id IN (:uio_a_id, :uio_b_id)
+                      AND organization_id = :org_id
+                    """
+                ),
+                {
+                    "uio_a_id": uio_a_id,
+                    "uio_b_id": uio_b_id,
+                    "org_id": self.organization_id,
+                    "now": now,
+                },
+            )
+
+            for target_id in (uio_a_id, uio_b_id):
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO unified_object_timeline (
+                            id, unified_object_id,
+                            event_type, event_description,
+                            event_reason,
+                            previous_value, new_value,
+                            source_type, source_id, source_name,
+                            message_id, quoted_text,
+                            triggered_by, confidence, event_at
+                        ) VALUES (
+                            :id, :unified_object_id,
+                            :event_type, :event_description,
+                            :event_reason,
+                            :previous_value, :new_value,
+                            :source_type, :source_id, :source_name,
+                            :message_id, :quoted_text,
+                            :triggered_by, :confidence, :event_at
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "unified_object_id": target_id,
+                        "event_type": "contradiction_detected",
+                        "event_description": f"Contradiction detected with {uio_b_id if target_id == uio_a_id else uio_a_id}",
+                        "event_reason": "contradiction_detected",
+                        "previous_value": None,
+                        "new_value": None,
+                        "source_type": "system",
+                        "source_id": None,
+                        "source_name": None,
+                        "message_id": None,
+                        "quoted_text": evidence_quote,
+                        "triggered_by": detected_by or "system",
+                        "confidence": None,
+                        "event_at": now,
+                    },
+                )
+
+        try:
+            graph = await self._get_graph()
+            contradiction_node = {
+                "id": contradiction_id,
+                "organizationId": self.organization_id,
+                "contradictionType": contradiction_type,
+                "severity": severity,
+                "status": "open",
+                "evidenceQuote": evidence_quote,
+                "evidenceArtifactId": evidence_artifact_id,
+                "detectedAt": now.isoformat(),
+                "createdAt": now.isoformat(),
+                "updatedAt": now.isoformat(),
+                "validFrom": now.isoformat(),
+                "validTo": None,
+            }
+            props_clause, props_params = graph.build_create_properties(contradiction_node)
+            await graph.query(
+                f"CREATE (c:Contradiction {{{props_clause}}})",
+                props_params,
+            )
+
+            await graph.query(
+                """
+                MATCH (c:Contradiction {id: $cid})
+                MATCH (a:UIO {id: $a_id})
+                MATCH (b:UIO {id: $b_id})
+                CREATE (c)-[:HAS_CONTRADICTION]->(a)
+                CREATE (c)-[:HAS_CONTRADICTION]->(b)
+                """,
+                {"cid": contradiction_id, "a_id": uio_a_id, "b_id": uio_b_id},
+            )
+
+            evolution = MemoryEvolution(graph)
+            await evolution.record_contradiction(
+                node_a_id=uio_a_id,
+                node_b_id=uio_b_id,
+                node_type=GraphNodeType.UIO,
+                contradiction_type=contradiction_type,
+                evidence=evidence_quote,
+                severity=severity,
+            )
+        except Exception as exc:
+            logger.warning("Failed to sync contradiction to graph", error=str(exc))
+
+        return contradiction_id
+
+    async def resolve_contradiction(
+        self,
+        contradiction_id: str,
+        resolution_reason: str,
+        resolved_by: str | None = None,
+    ) -> bool:
+        """Resolve a contradiction and update related UIOs."""
+        now = datetime.utcnow()
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT uio_a_id, uio_b_id FROM uio_contradiction
+                    WHERE id = :id AND organization_id = :org_id
+                    """
+                ),
+                {"id": contradiction_id, "org_id": self.organization_id},
+            )
+            row = result.fetchone()
+            if not row:
+                return False
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE uio_contradiction
+                    SET status = 'resolved',
+                        resolution_reason = :reason,
+                        resolved_at = :now,
+                        resolved_by = :resolved_by,
+                        updated_at = :now
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "id": contradiction_id,
+                    "reason": resolution_reason,
+                    "resolved_by": resolved_by,
+                    "now": now,
+                },
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE unified_intelligence_object
+                    SET belief_state = 'resolved',
+                        last_update_reason = 'contradiction_resolved',
+                        updated_at = :now
+                    WHERE id IN (:uio_a_id, :uio_b_id)
+                      AND organization_id = :org_id
+                    """
+                ),
+                {
+                    "uio_a_id": row.uio_a_id,
+                    "uio_b_id": row.uio_b_id,
+                    "org_id": self.organization_id,
+                    "now": now,
+                },
+            )
+
+        try:
+            graph = await self._get_graph()
+            await graph.query(
+                """
+                MATCH (c:Contradiction {id: $cid})
+                SET c.status = 'resolved',
+                    c.resolutionReason = $reason,
+                    c.resolvedAt = $now,
+                    c.updatedAt = $now
+                """,
+                {"cid": contradiction_id, "reason": resolution_reason, "now": now.isoformat()},
+            )
+        except Exception as exc:
+            logger.warning("Failed to update contradiction in graph", error=str(exc))
+
+        return True
 
     # =========================================================================
     # Query UIOs

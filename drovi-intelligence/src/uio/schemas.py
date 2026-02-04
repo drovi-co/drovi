@@ -40,6 +40,24 @@ class UIOStatus(str, Enum):
     DISMISSED = "dismissed"
 
 
+class UIOBeliefState(str, Enum):
+    """System belief state about the UIO."""
+
+    ASSERTED = "asserted"
+    UNCERTAIN = "uncertain"
+    CONTRADICTED = "contradicted"
+    RESOLVED = "resolved"
+
+
+class UIOTruthState(str, Enum):
+    """Truth state when verified against reality sources."""
+
+    UNKNOWN = "unknown"
+    TRUE = "true"
+    FALSE = "false"
+    DISPUTED = "disputed"
+
+
 class CommitmentDirection(str, Enum):
     """Direction of commitment."""
 
@@ -222,6 +240,9 @@ class UIOBase(BaseModel):
     overall_confidence: float = 0.5
     is_user_verified: bool = False
     is_user_dismissed: bool = False
+    belief_state: UIOBeliefState = UIOBeliefState.ASSERTED
+    truth_state: UIOTruthState = UIOTruthState.UNKNOWN
+    last_update_reason: str | None = None
 
 
 class UIOCreate(UIOBase):

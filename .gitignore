@@ -5,6 +5,7 @@ __pycache__
 *.pyc
 .pnp
 .pnp.js
+.pytest_cache
 
 # Build outputs
 dist
@@ -53,6 +54,9 @@ coverage
 .cache
 tmp
 temp
+
+# Tauri / Rust
+apps/drovi-shell/src-tauri/target
 
 # START Ruler Generated Files
 /.codex/config.json

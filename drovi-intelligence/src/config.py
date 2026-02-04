@@ -198,6 +198,10 @@ class Settings(BaseSettings):
     streaming_worker_concurrency: int = Field(default=2)
     streaming_max_chunk_bytes: int = Field(default=5_000_000)
     streaming_max_latency_ms: int = Field(default=5000)
+    webhook_shared_secret: str | None = Field(default=None)
+    desktop_context_enabled: bool = Field(default=True)
+    desktop_context_max_bytes: int = Field(default=100_000)
+    desktop_context_ttl_seconds: int = Field(default=300)
 
     # Scheduler
     scheduler_run_in_api: bool = Field(default=True)

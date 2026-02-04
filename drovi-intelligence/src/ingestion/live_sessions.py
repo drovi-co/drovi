@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from src.db.client import get_db_session
 from src.evidence.storage import get_evidence_storage
+from src.evidence.chain import compute_chain_entry
 from src.evidence.audit import record_evidence_audit
 from src.config import get_settings
 from src.ingestion.unified_event import (
@@ -424,6 +425,14 @@ async def store_audio_chunk(
         metadata["retention_until"] = retention_until.isoformat()
 
     async with get_db_session() as session:
+        chain = await compute_chain_entry(
+            session=session,
+            organization_id=organization_id,
+            artifact_id=artifact_id,
+            artifact_sha256=stored.sha256,
+            created_at=created_at,
+            metadata=metadata,
+        )
         await session.execute(
             text(
                 """
@@ -431,12 +440,14 @@ async def store_audio_chunk(
                     id, organization_id, session_id, source_type, source_id, artifact_type,
                     mime_type, storage_backend, storage_path,
                     byte_size, sha256, metadata, created_at,
-                    immutable, legal_hold, retention_until
+                    immutable, legal_hold, retention_until,
+                    chain_id, chain_sequence, chain_prev_hash, chain_hash
                 ) VALUES (
                     :id, :org_id, :session_id, :source_type, :source_id, :artifact_type,
                     :mime_type, :storage_backend, :storage_path,
                     :byte_size, :sha256, :metadata, :created_at,
-                    :immutable, :legal_hold, :retention_until
+                    :immutable, :legal_hold, :retention_until,
+                    :chain_id, :chain_sequence, :chain_prev_hash, :chain_hash
                 )
                 """
             ),
@@ -452,11 +463,15 @@ async def store_audio_chunk(
                 "storage_path": stored.storage_path,
                 "byte_size": stored.byte_size,
                 "sha256": stored.sha256,
-                "metadata": json.dumps(metadata),
+                "metadata": metadata,
                 "created_at": created_at,
                 "immutable": immutable,
                 "legal_hold": settings.evidence_legal_hold_by_default,
                 "retention_until": retention_until,
+                "chain_id": chain["chain_id"],
+                "chain_sequence": chain["chain_sequence"],
+                "chain_prev_hash": chain["chain_prev_hash"],
+                "chain_hash": chain["chain_hash"],
             },
         )
 

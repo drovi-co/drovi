@@ -644,6 +644,11 @@ class GraphSchema:
             ("Entity", "pagerankScore"),
             ("Entity", "importanceScore"),
             ("Entity", "communityId"),
+            # Contradictions
+            ("Contradiction", "organizationId"),
+            ("Contradiction", "status"),
+            ("Contradiction", "severity"),
+            ("Contradiction", "detectedAt"),
             # Claim indexes (additional)
             ("Claim", "confidenceTier"),
             # Task indexes (additional)
