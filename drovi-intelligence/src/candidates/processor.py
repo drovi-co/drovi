@@ -432,3 +432,119 @@ async def process_signal_candidates(limit: int = 200) -> dict[str, int]:
         failed=failed,
     )
     return {"processed": processed, "merged": merged, "failed": failed}
+
+
+async def process_signal_candidate_by_id(
+    candidate_id: str,
+    organization_id: str | None = None,
+    confirmed_by: str | None = None,
+) -> dict[str, str | None]:
+    """Process a single signal candidate by ID (e.g., decision radar confirmation)."""
+    metrics = get_metrics()
+
+    with rls_context(None, True):
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT id, organization_id, candidate_type, title, content,
+                           evidence_text, confidence, conversation_id, source_type,
+                           source_id, source_message_id, raw_payload, created_at, status, uio_id
+                    FROM signal_candidate
+                    WHERE id = :id
+                    """
+                ),
+                {"id": candidate_id},
+            )
+            row = result.fetchone()
+            if not row:
+                return {"status": "not_found", "uio_id": None}
+            if organization_id and row.organization_id != organization_id:
+                return {"status": "forbidden", "uio_id": None}
+            if row.status in {"processed", "merged"}:
+                return {"status": row.status, "uio_id": row.uio_id}
+
+            now = datetime.now(timezone.utc)
+            confirmation_meta = {}
+            if confirmed_by:
+                confirmation_meta = {
+                    "confirmed_by": confirmed_by,
+                    "confirmed_at": now.isoformat(),
+                }
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE signal_candidate
+                    SET status = 'processing',
+                        processing_started_at = :now,
+                        updated_at = :now,
+                        raw_payload = raw_payload || :meta::jsonb
+                    WHERE id = :id
+                    """
+                ),
+                {"now": now, "id": candidate_id, "meta": json.dumps(confirmation_meta)},
+            )
+
+    candidate = dict(row._mapping)
+
+    try:
+        with rls_context(candidate["organization_id"], False):
+            created_id = await _create_uio_from_candidate(candidate)
+
+        processed_at = datetime.now(timezone.utc)
+        with rls_context(None, True):
+            async with get_db_session() as session:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE signal_candidate
+                        SET status = :status,
+                            processed_at = :processed_at,
+                            updated_at = :updated_at,
+                            processing_error = NULL,
+                            uio_id = :uio_id
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "status": "processed" if created_id else "skipped",
+                        "processed_at": processed_at,
+                        "updated_at": processed_at,
+                        "uio_id": created_id,
+                        "id": candidate_id,
+                    },
+                )
+
+        if created_id and metrics.enabled:
+            metrics.uem_events_total.labels(
+                organization_id=candidate["organization_id"],
+                source_type="candidate",
+                event_type="candidate_processed",
+                status="processed",
+            ).inc()
+
+        return {"status": "processed" if created_id else "skipped", "uio_id": created_id}
+    except Exception as exc:
+        with rls_context(None, True):
+            async with get_db_session() as session:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE signal_candidate
+                        SET status = 'failed',
+                            processed_at = :processed_at,
+                            updated_at = :updated_at,
+                            processing_error = :error
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "processed_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                        "error": str(exc),
+                        "id": candidate_id,
+                    },
+                )
+        logger.error("Candidate processing failed", error=str(exc), candidate_id=candidate_id)
+        return {"status": "failed", "uio_id": None}

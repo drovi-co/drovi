@@ -271,6 +271,24 @@ class CommitmentExtractionOutput(BaseModel):
     )
 
 
+class CommitmentFulfillmentSchema(BaseModel):
+    """Schema for a fulfilled commitment match."""
+
+    commitment_id: str = Field(description="ID of the commitment that was fulfilled")
+    evidence_quote: str = Field(description="Exact quote indicating fulfillment")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in fulfillment match")
+    reason: str | None = Field(default=None, description="Short reason for the fulfillment match")
+
+
+class CommitmentFulfillmentOutput(BaseModel):
+    """Output schema for commitment fulfillment detection."""
+
+    fulfilled: list[CommitmentFulfillmentSchema] = Field(
+        default_factory=list,
+        description="List of commitments fulfilled by the content"
+    )
+
+
 # =============================================================================
 # Decision Extraction Schema
 # =============================================================================

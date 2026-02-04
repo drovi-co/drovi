@@ -202,6 +202,23 @@ class Settings(BaseSettings):
     # Scheduler
     scheduler_run_in_api: bool = Field(default=True)
     scheduler_advisory_lock_id: int = Field(default=4242001)
+    weekly_reports_enabled: bool = Field(default=True)
+    weekly_reports_cron: str = Field(default="0 9 * * MON")
+    weekly_reports_pilot_only: bool = Field(default=True)
+    weekly_brief_days: int = Field(default=7)
+    weekly_blindspot_days: int = Field(default=30)
+    daily_reports_enabled: bool = Field(default=True)
+    daily_reports_cron: str = Field(default="0 9 * * *")
+    daily_reports_pilot_only: bool = Field(default=True)
+    daily_brief_days: int = Field(default=1)
+    reports_email_enabled: bool = Field(default=False)
+    reports_email_fallback_to_members: bool = Field(default=True)
+    reports_email_subject_prefix: str = Field(default="")
+    resend_api_key: str | None = Field(default=None)
+    resend_from: str | None = Field(default=None)
+    resend_reply_to: str | None = Field(default=None)
+    resend_api_url: str = Field(default="https://api.resend.com")
+    resend_timeout_seconds: float = Field(default=10.0)
 
     # Orchestrator
     orchestrator_timeout_seconds: int = Field(default=60)

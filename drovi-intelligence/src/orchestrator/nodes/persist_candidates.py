@@ -91,11 +91,22 @@ async def persist_candidates_node(state: IntelligenceState) -> dict:
     if not candidates:
         return {}
 
-    status = "new" if state.input.candidate_only or state.routing.candidate_only else "processed"
-    processed_at = None if status == "new" else _now()
+    candidate_only = bool(state.input.candidate_only or state.routing.candidate_only)
+    default_status = "new" if candidate_only else "processed"
+    def _candidate_status(candidate_type: str) -> tuple[str, datetime | None]:
+        if (
+            candidate_only
+            and candidate_type == "decision"
+            and (state.input.source_type or "").lower() in {"meeting", "call", "recording", "transcript"}
+        ):
+            return "pending_confirmation", None
+        if default_status == "processed":
+            return default_status, _now()
+        return default_status, None
 
     async with get_db_session() as session:
         for candidate in candidates:
+            status_value, processed_at_value = _candidate_status(candidate["candidate_type"])
             await session.execute(
                 text(
                     """
@@ -128,8 +139,8 @@ async def persist_candidates_node(state: IntelligenceState) -> dict:
                     "source_id": state.input.source_id,
                     "source_message_id": candidate["source_message_id"],
                     "raw_payload": json.dumps(candidate["raw"]),
-                    "status": status,
-                    "processed_at": processed_at,
+                    "status": status_value,
+                    "processed_at": processed_at_value,
                     "created_at": _now(),
                 },
             )

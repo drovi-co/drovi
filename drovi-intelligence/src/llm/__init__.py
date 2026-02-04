@@ -5,6 +5,7 @@ from .schemas import (
     ClassificationOutput,
     ClaimExtractionOutput,
     CommitmentExtractionOutput,
+    CommitmentFulfillmentOutput,
     DecisionExtractionOutput,
     RiskDetectionOutput,
     TaskExtractionOutput,
@@ -20,6 +21,7 @@ from .prompts_v2 import (
     get_calendar_extraction_prompt,
     get_task_extraction_v2_prompt,
     get_risk_detection_v2_prompt,
+    get_commitment_fulfillment_prompt,
 )
 
 __all__ = [
@@ -30,6 +32,7 @@ __all__ = [
     "ClassificationOutput",
     "ClaimExtractionOutput",
     "CommitmentExtractionOutput",
+    "CommitmentFulfillmentOutput",
     "DecisionExtractionOutput",
     "RiskDetectionOutput",
     "TaskExtractionOutput",
@@ -42,4 +45,5 @@ __all__ = [
     "get_calendar_extraction_prompt",
     "get_task_extraction_v2_prompt",
     "get_risk_detection_v2_prompt",
+    "get_commitment_fulfillment_prompt",
 ]

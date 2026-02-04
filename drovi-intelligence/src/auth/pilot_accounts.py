@@ -137,7 +137,7 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, name, pilot_status, region, allowed_domains, expires_at
+                SELECT id, name, pilot_status, region, allowed_domains, notification_emails, expires_at
                 FROM organizations
                 WHERE :domain = ANY(allowed_domains)
                 AND pilot_status = 'active'
@@ -154,6 +154,7 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
                 "pilot_status": row.pilot_status,
                 "region": row.region,
                 "allowed_domains": row.allowed_domains,
+                "notification_emails": row.notification_emails,
                 "expires_at": row.expires_at,
             }
         return None
@@ -164,7 +165,7 @@ async def get_org_by_id(org_id: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, name, pilot_status, region, allowed_domains, expires_at
+                SELECT id, name, pilot_status, region, allowed_domains, notification_emails, expires_at
                 FROM organizations
                 WHERE id = :org_id
             """),
@@ -179,6 +180,7 @@ async def get_org_by_id(org_id: str) -> dict | None:
                 "pilot_status": row.pilot_status,
                 "region": row.region,
                 "allowed_domains": row.allowed_domains,
+                "notification_emails": row.notification_emails,
                 "expires_at": row.expires_at,
             }
         return None
@@ -188,6 +190,7 @@ async def create_organization(
     org_id: str,
     name: str,
     allowed_domains: list[str],
+    notification_emails: list[str] | None = None,
     region: str = "us-west",
     expires_at: datetime | None = None,
 ) -> dict:
@@ -199,14 +202,24 @@ async def create_organization(
     async with get_db_session() as session:
         await session.execute(
             text("""
-                INSERT INTO organizations (id, name, pilot_status, region, allowed_domains, expires_at, created_at)
-                VALUES (:id, :name, 'active', :region, :allowed_domains, :expires_at, NOW())
+                INSERT INTO organizations (
+                    id,
+                    name,
+                    pilot_status,
+                    region,
+                    allowed_domains,
+                    notification_emails,
+                    expires_at,
+                    created_at
+                )
+                VALUES (:id, :name, 'active', :region, :allowed_domains, :notification_emails, :expires_at, NOW())
             """),
             {
                 "id": org_id,
                 "name": name,
                 "region": region,
                 "allowed_domains": allowed_domains,
+                "notification_emails": notification_emails or [],
                 "expires_at": expires_at,
             },
         )
@@ -219,6 +232,7 @@ async def create_organization(
         "pilot_status": "active",
         "region": region,
         "allowed_domains": allowed_domains,
+        "notification_emails": notification_emails or [],
         "expires_at": expires_at,
     }
 

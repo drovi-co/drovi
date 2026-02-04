@@ -80,6 +80,7 @@ class OrgInfoResponse(BaseModel):
     status: str
     region: str | None = None
     allowed_domains: list[str] = []
+    notification_emails: list[str] = []
     expires_at: datetime | None = None
     created_at: datetime | None = None
     member_count: int = 0
@@ -123,6 +124,7 @@ async def get_org_info(
         status=org.get("pilot_status", "active"),
         region=org.get("region"),
         allowed_domains=org.get("allowed_domains", []),
+        notification_emails=org.get("notification_emails", []),
         expires_at=org.get("expires_at"),
         created_at=org.get("created_at"),
         member_count=member_count,

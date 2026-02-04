@@ -134,18 +134,19 @@ Execute this list end‑to‑end to make Drovi’s intelligence layer production
 - [x] Data retention policies with deletion verification. Acceptance: data purged according to policy.
 
 **Phase 14 — End‑to‑End Testing and Release Readiness**
-- [ ] Build a gold dataset for commitments, decisions, risks, tasks, and claims. Acceptance: dataset covers at least 500 diverse samples.
-- [ ] Implement automated eval harness with precision/recall and hallucination metrics. Acceptance: regressions block CI.
-- [ ] Add integration tests for connectors, UEM, and pipeline. Acceptance: CI passes on core ingestion paths.
-- [ ] Add chaos tests for partial failures (LLM provider down, Kafka lag). Acceptance: pipeline degrades gracefully.
-- [ ] Run an internal pilot and collect correction data. Acceptance: correction rate trends downward after tuning.
+- [x] Build a gold dataset for commitments, decisions, risks, tasks, and claims. Acceptance: dataset covers at least 500 diverse samples.
+- [x] Implement automated eval harness with precision/recall and hallucination metrics. Acceptance: regressions block CI.
+- [x] Add integration tests for connectors, UEM, and pipeline. Acceptance: CI passes on core ingestion paths.
+- [x] Add chaos tests for partial failures (LLM provider down, Kafka lag). Acceptance: pipeline degrades gracefully.
+- [~] Run an internal pilot and collect correction data (runbook: `drovi-intelligence/deploy/pilot/INTERNAL_PILOT.md`). Acceptance: correction rate trends downward after tuning.
 
 **Phase 15 — Demo‑Ready “Wow” Features**
-- [ ] Decision Radar real‑time detection with confirmation prompt. Acceptance: live sessions flag decision points.
-- [ ] Commitment auto‑closure based on evidence. Acceptance: commitments close when fulfillment detected.
-- [ ] Organizational blindspot detection reports. Acceptance: blindspot report generated weekly.
-- [ ] Executive weekly memory brief. Acceptance: automated brief surfaces key decisions and risks.
-- [ ] Executive daily brief. Who did what yesterday, what happened and how?
+- [x] Decision Radar real‑time detection with confirmation prompt. Acceptance: live sessions flag decision points.
+- [x] Commitment auto‑closure based on evidence. Acceptance: commitments close when fulfillment detected.
+- [x] Organizational blindspot detection reports. Acceptance: blindspot report generated weekly.
+- [x] Executive weekly memory brief. Acceptance: automated brief surfaces key decisions and risks.
+- [x] Executive daily brief. Who did what yesterday, what happened and how?
+- [x] Brief/report delivery via Resend to organization notification emails.
 
 **Completion Definition**
 - Evidence‑first UEM ingestion for all sources is live.

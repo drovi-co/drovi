@@ -217,6 +217,13 @@ async def persist(state: IntelligenceState) -> dict:
     return await persist_node(state)
 
 
+async def auto_close_commitments(state: IntelligenceState) -> dict:
+    """Detect and auto-close fulfilled commitments."""
+    from .nodes.auto_close_commitments import auto_close_commitments_node
+
+    return await auto_close_commitments_node(state)
+
+
 async def link_intelligence(state: IntelligenceState) -> dict:
     """Cross-link intelligence objects for connected knowledge graph."""
     from .nodes.link_intelligence import link_intelligence_node
@@ -432,8 +439,13 @@ def after_signal_filter(state: IntelligenceState) -> Literal["persist"]:
     return "persist"
 
 
-def after_persist(state: IntelligenceState) -> Literal["link_intelligence"]:
-    """Route after persistence to link intelligence."""
+def after_persist(state: IntelligenceState) -> Literal["auto_close_commitments"]:
+    """Route after persistence to auto-close commitments."""
+    return "auto_close_commitments"
+
+
+def after_auto_close_commitments(state: IntelligenceState) -> Literal["link_intelligence"]:
+    """Route after auto-close to link intelligence."""
     return "link_intelligence"
 
 
@@ -530,6 +542,7 @@ def create_intelligence_graph() -> StateGraph:
     workflow.add_node("detect_contradictions", detect_contradictions)
     workflow.add_node("signal_filter", signal_filter)
     workflow.add_node("persist", persist)
+    workflow.add_node("auto_close_commitments", auto_close_commitments)
     workflow.add_node("link_intelligence", link_intelligence)  # Cross-link intelligence (Phase 2)
     workflow.add_node("evolve_memory", evolve_memory)
     workflow.add_node("enrich_contacts", enrich_contacts)  # Contact intelligence enrichment
@@ -710,8 +723,23 @@ def create_intelligence_graph() -> StateGraph:
     # signal_filter -> persist (always)
     workflow.add_edge("signal_filter", "persist")
 
-    # persist -> link_intelligence (always)
-    workflow.add_edge("persist", "link_intelligence")
+    # persist -> auto_close_commitments
+    workflow.add_conditional_edges(
+        "persist",
+        after_persist,
+        {
+            "auto_close_commitments": "auto_close_commitments",
+        },
+    )
+
+    # auto_close_commitments -> link_intelligence
+    workflow.add_conditional_edges(
+        "auto_close_commitments",
+        after_auto_close_commitments,
+        {
+            "link_intelligence": "link_intelligence",
+        },
+    )
 
     # link_intelligence -> evolve_memory (always)
     workflow.add_edge("link_intelligence", "evolve_memory")

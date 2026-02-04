@@ -208,6 +208,59 @@ class ConnectorScheduler:
             except Exception as e:
                 logger.warning("Failed to schedule candidate processing", error=str(e))
 
+            # Weekly executive brief + blindspot report
+            try:
+                from src.analytics.reporting import generate_weekly_reports
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def weekly_reports_job():
+                    await generate_weekly_reports(
+                        pilot_only=settings.weekly_reports_pilot_only,
+                        brief_days=settings.weekly_brief_days,
+                        blindspot_days=settings.weekly_blindspot_days,
+                    )
+
+                if settings.weekly_reports_enabled:
+                    self._scheduler.add_job(
+                        weekly_reports_job,
+                        trigger=CronTrigger.from_crontab(settings.weekly_reports_cron),
+                        id="weekly_reports",
+                        name="Weekly executive brief + blindspot report",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule weekly reports", error=str(e))
+
+            # Daily executive brief
+            try:
+                from src.analytics.reporting import generate_daily_reports
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def daily_reports_job():
+                    await generate_daily_reports(
+                        pilot_only=settings.daily_reports_pilot_only,
+                        brief_days=settings.daily_brief_days,
+                    )
+
+                if settings.daily_reports_enabled:
+                    self._scheduler.add_job(
+                        daily_reports_job,
+                        trigger=CronTrigger.from_crontab(settings.daily_reports_cron),
+                        id="daily_reports",
+                        name="Daily executive brief",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule daily reports", error=str(e))
+
     async def shutdown(self) -> None:
         """Shutdown the scheduler gracefully."""
         if self._scheduler.running:

@@ -22,6 +22,7 @@ from .entity_resolution import entity_resolution_node
 from .deduplicate import deduplicate_node
 from .detect_contradictions import detect_contradictions_node
 from .persist import persist_node
+from .auto_close_commitments import auto_close_commitments_node
 from .finalize import finalize_node
 
 __all__ = [
@@ -48,5 +49,6 @@ __all__ = [
     "deduplicate_node",
     "detect_contradictions_node",
     "persist_node",
+    "auto_close_commitments_node",
     "finalize_node",
 ]

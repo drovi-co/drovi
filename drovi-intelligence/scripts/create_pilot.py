@@ -68,6 +68,10 @@ Examples:
         help="Comma-separated list of allowed email domains",
     )
     parser.add_argument(
+        "--notify",
+        help="Comma-separated list of notification emails for briefs/reports",
+    )
+    parser.add_argument(
         "--region",
         default="us-west",
         choices=["us-west", "us-east", "eu-west", "ap-southeast"],
@@ -115,6 +119,9 @@ Examples:
                 print(f"  Status: {org['pilot_status']}")
                 print(f"  Region: {org['region']}")
                 print(f"  Domains: {', '.join(org['allowed_domains'])}")
+                print(
+                    f\"  Notification Emails: {', '.join(org.get('notification_emails', [])) or 'None'}\"
+                )
                 print(f"  Expires: {org['expires_at'] or 'Never'}")
             else:
                 print(f"Organization '{args.id}' not found")
@@ -165,6 +172,9 @@ Examples:
 
             # Parse domains
             domains = [d.strip().lower() for d in args.domains.split(",")]
+            notify_emails = []
+            if args.notify:
+                notify_emails = [e.strip() for e in args.notify.split(",") if e.strip()]
 
             # Parse expiration
             expires_at = None
@@ -178,6 +188,7 @@ Examples:
                 org_id=args.id,
                 name=args.name,
                 allowed_domains=domains,
+                notification_emails=notify_emails,
                 region=args.region,
                 expires_at=expires_at,
             )
@@ -187,6 +198,9 @@ Examples:
             print(f"  Name: {org['name']}")
             print(f"  Region: {org['region']}")
             print(f"  Domains: {', '.join(org['allowed_domains'])}")
+            print(
+                f\"  Notification Emails: {', '.join(org.get('notification_emails', [])) or 'None'}\"
+            )
             print(f"  Expires: {org['expires_at'] or 'Never'}")
             print()
             print(f"Users from these domains can now sign in:")

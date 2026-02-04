@@ -101,6 +101,64 @@ def _source_specific_guidance(source_type: str) -> str:
         )
     return "Source guidance: extract only explicit commitments/decisions/tasks."
 
+
+# =============================================================================
+# COMMITMENT FULFILLMENT DETECTION
+# =============================================================================
+
+COMMITMENT_FULFILLMENT_SYSTEM = """You are an expert analyst detecting when prior commitments are explicitly fulfilled.
+
+Rules:
+- ONLY mark a commitment as fulfilled if the content explicitly confirms completion (e.g., "I sent", "we delivered", "completed").
+- Provide a verbatim quote from the content that proves fulfillment.
+- If unsure, return an empty list.
+"""
+
+
+def get_commitment_fulfillment_prompt(
+    content: str,
+    commitments: list[dict],
+    source_type: str | None = None,
+) -> list[dict[str, str]]:
+    """Build prompt for commitment fulfillment detection."""
+    guidance = _source_specific_guidance(source_type or "api")
+    commitments_block = "\n".join(
+        [
+            f"- id: {c['id']}\n  title: {c['title']}\n  description: {c.get('description')}\n  due_date: {c.get('due_date')}\n  status: {c.get('status')}"
+            for c in commitments
+        ]
+    )
+
+    user_prompt = f"""Analyze the content and determine whether it explicitly fulfills any existing commitments.
+
+{guidance}
+
+CONTENT:
+\"\"\"\n{content}\n\"\"\"
+
+OPEN COMMITMENTS:
+{commitments_block}
+
+Return a JSON object:
+{{
+  \"fulfilled\": [
+    {{
+      \"commitment_id\": \"...\",
+      \"evidence_quote\": \"...\",
+      \"confidence\": 0.0-1.0,
+      \"reason\": \"...\"
+    }}
+  ]
+}}
+
+If no commitments are explicitly fulfilled, return {{\"fulfilled\": []}}.
+"""
+
+    return [
+        {"role": "system", "content": COMMITMENT_FULFILLMENT_SYSTEM},
+        {"role": "user", "content": user_prompt},
+    ]
+
 # =============================================================================
 # COMMITMENT EXTRACTION - STRICT
 # =============================================================================

@@ -64,6 +64,7 @@ class AnalyzeResponse(BaseModel):
     claims: list[dict] = Field(default_factory=list)
     commitments: list[dict] = Field(default_factory=list)
     decisions: list[dict] = Field(default_factory=list)
+    tasks: list[dict] = Field(default_factory=list)
     risks: list[dict] = Field(default_factory=list)
     confidence: float
     needs_review: bool
@@ -150,6 +151,7 @@ async def analyze_content(
         claims = extracted.get("claims", []) if isinstance(extracted, dict) else getattr(extracted, "claims", [])
         commitments = extracted.get("commitments", []) if isinstance(extracted, dict) else getattr(extracted, "commitments", [])
         decisions = extracted.get("decisions", []) if isinstance(extracted, dict) else getattr(extracted, "decisions", [])
+        tasks = extracted.get("tasks", []) if isinstance(extracted, dict) else getattr(extracted, "tasks", [])
         risks = extracted.get("risks", []) if isinstance(extracted, dict) else getattr(extracted, "risks", [])
 
         response = AnalyzeResponse(
@@ -158,6 +160,7 @@ async def analyze_content(
             claims=to_dict_list(claims),
             commitments=to_dict_list(commitments),
             decisions=to_dict_list(decisions),
+            tasks=to_dict_list(tasks),
             risks=to_dict_list(risks),
             confidence=confidence.get("overall", 0.0) if isinstance(confidence, dict) else getattr(confidence, "overall", 0.0),
             needs_review=confidence.get("needs_review", False) if isinstance(confidence, dict) else getattr(confidence, "needs_review", False),

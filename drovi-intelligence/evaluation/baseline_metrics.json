@@ -2,12 +2,32 @@
   "decisions": {
     "precision": 0.6,
     "recall": 0.6,
-    "f1": 0.6
+    "f1": 0.6,
+    "hallucination_rate": 0.2
   },
   "commitments": {
     "precision": 0.6,
     "recall": 0.6,
-    "f1": 0.6
+    "f1": 0.6,
+    "hallucination_rate": 0.2
   },
-  "samples": 50
+  "tasks": {
+    "precision": 0.5,
+    "recall": 0.5,
+    "f1": 0.5,
+    "hallucination_rate": 0.25
+  },
+  "risks": {
+    "precision": 0.5,
+    "recall": 0.5,
+    "f1": 0.5,
+    "hallucination_rate": 0.25
+  },
+  "claims": {
+    "precision": 0.5,
+    "recall": 0.5,
+    "f1": 0.5,
+    "hallucination_rate": 0.25
+  },
+  "samples": 500
 }

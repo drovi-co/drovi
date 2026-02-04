@@ -42,6 +42,7 @@ class Organization(Base):
         pilot_status: "active" or "ended"
         region: Deployment region (e.g., "us-west")
         allowed_domains: Email domains allowed to join
+        notification_emails: Report recipients for briefs
         expires_at: Pilot expiration date
     """
 
@@ -64,6 +65,9 @@ class Organization(Base):
 
     # Domain allow-listing for auto-join
     allowed_domains = Column(ARRAY(String), nullable=False, default=list)
+
+    # Notification emails for briefs/reports
+    notification_emails = Column(ARRAY(String), nullable=False, default=list)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -7,6 +7,7 @@ Handles live meeting/call ingestion, transcript segments, and audio chunks.
 from __future__ import annotations
 
 from typing import Any, Literal
+from datetime import datetime
 from uuid import uuid4
 
 import structlog
@@ -101,6 +102,29 @@ class LiveSessionEndRequest(BaseModel):
 class LiveSessionEndResponse(BaseModel):
     status: str
     transcript_length: int
+
+
+class DecisionRadarItem(BaseModel):
+    """Decision radar candidate detected during a live session."""
+
+    id: str
+    title: str | None = None
+    content: str | None = None
+    evidence_text: str | None = None
+    confidence: float | None = None
+    source_message_id: str | None = None
+    created_at: datetime
+
+
+class DecisionRadarConfirmResponse(BaseModel):
+    status: str
+    candidate_id: str
+    uio_id: str | None = None
+
+
+class DecisionRadarDismissResponse(BaseModel):
+    status: str
+    candidate_id: str
 
 
 @router.post("/start", response_model=LiveSessionStartResponse)
@@ -351,6 +375,196 @@ async def get_transcript_text(
 
     transcript_text = await build_transcript_text(session_id)
     return {"session_id": session_id, "text": transcript_text}
+
+
+@router.get("/{session_id}/decision-radar", response_model=list[DecisionRadarItem])
+async def list_decision_radar(
+    session_id: str,
+    organization_id: str,
+    limit: int = 50,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """List pending decision radar candidates for a live session."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Organization ID mismatch")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, title, content, evidence_text, confidence,
+                       source_message_id, created_at
+                FROM signal_candidate
+                WHERE organization_id = :org_id
+                  AND conversation_id = :session_id
+                  AND candidate_type = 'decision'
+                  AND status = 'pending_confirmation'
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            ),
+            {"org_id": organization_id, "session_id": session_id, "limit": limit},
+        )
+        rows = result.fetchall()
+
+    return [
+        DecisionRadarItem(
+            id=row.id,
+            title=row.title,
+            content=row.content,
+            evidence_text=row.evidence_text,
+            confidence=row.confidence,
+            source_message_id=row.source_message_id,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+@router.get("/{session_id}/decision-radar/stream")
+async def stream_decision_radar(
+    session_id: str,
+    organization_id: str,
+    poll_interval: float = 1.0,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Stream decision radar candidates as they arrive."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Organization ID mismatch")
+
+    async def event_stream():
+        cursor_time = None
+        while True:
+            try:
+                async with get_db_session() as session:
+                    result = await session.execute(
+                        text(
+                            """
+                            SELECT id, title, content, evidence_text, confidence,
+                                   source_message_id, created_at
+                            FROM signal_candidate
+                            WHERE organization_id = :org_id
+                              AND conversation_id = :session_id
+                              AND candidate_type = 'decision'
+                              AND status = 'pending_confirmation'
+                              AND (:cursor_time IS NULL OR created_at > :cursor_time)
+                            ORDER BY created_at ASC
+                            LIMIT 50
+                            """
+                        ),
+                        {
+                            "org_id": organization_id,
+                            "session_id": session_id,
+                            "cursor_time": cursor_time,
+                        },
+                    )
+                    rows = result.fetchall()
+
+                if rows:
+                    cursor_time = rows[-1].created_at
+                    payload = [
+                        {
+                            "id": row.id,
+                            "title": row.title,
+                            "content": row.content,
+                            "evidence_text": row.evidence_text,
+                            "confidence": row.confidence,
+                            "source_message_id": row.source_message_id,
+                            "created_at": row.created_at,
+                        }
+                        for row in rows
+                    ]
+                    yield {
+                        "event": "decision_radar",
+                        "data": json.dumps(payload, default=str),
+                    }
+
+                await asyncio.sleep(poll_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.error("Decision radar stream error", error=str(exc))
+                await asyncio.sleep(poll_interval)
+
+    return EventSourceResponse(event_stream())
+
+
+@router.post("/{session_id}/decision-radar/{candidate_id}/confirm", response_model=DecisionRadarConfirmResponse)
+async def confirm_decision_radar(
+    session_id: str,
+    candidate_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """Confirm a decision radar candidate and materialize the decision UIO."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Organization ID mismatch")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, status
+                FROM signal_candidate
+                WHERE id = :id
+                  AND organization_id = :org_id
+                  AND conversation_id = :session_id
+                  AND candidate_type = 'decision'
+                """
+            ),
+            {"id": candidate_id, "org_id": organization_id, "session_id": session_id},
+        )
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Decision candidate not found")
+
+    from src.candidates.processor import process_signal_candidate_by_id
+
+    result = await process_signal_candidate_by_id(
+        candidate_id=candidate_id,
+        organization_id=organization_id,
+        confirmed_by=ctx.key_id,
+    )
+
+    return DecisionRadarConfirmResponse(
+        status=result["status"] or "processed",
+        candidate_id=candidate_id,
+        uio_id=result.get("uio_id"),
+    )
+
+
+@router.post("/{session_id}/decision-radar/{candidate_id}/dismiss", response_model=DecisionRadarDismissResponse)
+async def dismiss_decision_radar(
+    session_id: str,
+    candidate_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+):
+    """Dismiss a decision radar candidate."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Organization ID mismatch")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                UPDATE signal_candidate
+                SET status = 'dismissed',
+                    updated_at = NOW(),
+                    processing_error = 'dismissed_by_user'
+                WHERE id = :id
+                  AND organization_id = :org_id
+                  AND conversation_id = :session_id
+                  AND candidate_type = 'decision'
+                """
+            ),
+            {"id": candidate_id, "org_id": organization_id, "session_id": session_id},
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Decision candidate not found")
+        await session.commit()
+
+    return DecisionRadarDismissResponse(status="dismissed", candidate_id=candidate_id)
 
 
 @router.get("/{session_id}/transcript/stream")
