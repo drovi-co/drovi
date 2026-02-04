@@ -3,6 +3,7 @@
 from . import (
     analyze,
     analytics,
+    actuations,
     api_keys,
     ask,
     auth,
@@ -11,6 +12,7 @@ from . import (
     connections,
     console,
     contacts,
+    continuums,
     contradictions,
     customer,
     events,
@@ -35,6 +37,7 @@ from . import (
 __all__ = [
     "analyze",
     "analytics",
+    "actuations",
     "api_keys",
     "ask",
     "auth",
@@ -43,6 +46,7 @@ __all__ = [
     "connections",
     "console",
     "contacts",
+    "continuums",
     "contradictions",
     "customer",
     "events",

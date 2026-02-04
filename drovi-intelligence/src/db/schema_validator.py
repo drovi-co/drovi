@@ -38,6 +38,12 @@ REQUIRED_TABLES = [
     "signal_candidate",
     "unified_event",
     "uio_contradiction",
+    "confidence_calibration_event",
+    "continuum",
+    "continuum_version",
+    "continuum_run",
+    "continuum_alert",
+    "actuation_action",
     # UIO extension tables
     "uio_commitment_details",
     "uio_decision_details",

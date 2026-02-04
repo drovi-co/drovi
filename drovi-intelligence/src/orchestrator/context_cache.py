@@ -92,6 +92,43 @@ class ContextCache:
         expires_at = datetime.utcnow() + timedelta(seconds=ttl)
         self._local_cache[key] = _CacheEntry(payload=payload, expires_at=expires_at)
 
+    async def invalidate(self, key: str) -> None:
+        redis_client = await self._get_redis()
+        if redis_client:
+            try:
+                await redis_client.delete(key)
+            except Exception as exc:
+                logger.warning("Context cache invalidate failed", error=str(exc))
+        if key in self._local_cache:
+            del self._local_cache[key]
+
+    async def invalidate_prefix(self, prefix: str) -> None:
+        redis_client = await self._get_redis()
+        if redis_client:
+            try:
+                cursor = 0
+                pattern = f"{prefix}*"
+                while True:
+                    cursor, keys = await redis_client.scan(cursor=cursor, match=pattern, count=100)
+                    if keys:
+                        await redis_client.delete(*keys)
+                    if cursor == 0:
+                        break
+            except Exception as exc:
+                logger.warning("Context cache prefix invalidation failed", error=str(exc))
+
+        keys_to_delete = [key for key in self._local_cache if key.startswith(prefix)]
+        for key in keys_to_delete:
+            del self._local_cache[key]
+
+    async def invalidate_conversation(self, organization_id: str, conversation_id: str) -> None:
+        prefix = f"drovi:context:{organization_id}:{conversation_id}:"
+        await self.invalidate_prefix(prefix)
+
+    async def invalidate_org(self, organization_id: str) -> None:
+        prefix = f"drovi:context:{organization_id}:"
+        await self.invalidate_prefix(prefix)
+
 
 async def get_context_cache() -> ContextCache:
     return ContextCache.get_instance()

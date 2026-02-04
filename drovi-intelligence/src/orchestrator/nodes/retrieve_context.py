@@ -7,9 +7,12 @@ Fetch recent and conversation-linked UIOs for memory-grounded extraction.
 import hashlib
 import re
 from collections import Counter
+from dataclasses import dataclass
+from datetime import datetime
 
 import structlog
 
+from src.config import get_settings
 from src.memory import get_memory_service
 from src.orchestrator.state import IntelligenceState
 from src.orchestrator.context_cache import get_context_cache
@@ -24,6 +27,67 @@ STOPWORDS = {
     "about", "into", "over", "under", "your", "you", "our", "but", "not", "all",
     "can", "any", "may", "might", "also", "just", "than", "then", "there", "here",
 }
+
+
+@dataclass
+class ContextBudget:
+    max_recent_uios: int
+    max_conversation_uios: int
+    max_total_uios: int
+    hybrid_limit: int
+    temporal_limit: int
+    evidence_limit: int
+    half_life_days: int
+    min_relevance: float
+    stale_days: int
+    decay_threshold: float
+    cache_ttl_seconds: int
+
+    def to_dict(self) -> dict:
+        return {
+            "max_recent_uios": self.max_recent_uios,
+            "max_conversation_uios": self.max_conversation_uios,
+            "max_total_uios": self.max_total_uios,
+            "hybrid_limit": self.hybrid_limit,
+            "temporal_limit": self.temporal_limit,
+            "evidence_limit": self.evidence_limit,
+            "half_life_days": self.half_life_days,
+            "min_relevance": self.min_relevance,
+            "stale_days": self.stale_days,
+            "decay_threshold": self.decay_threshold,
+            "cache_ttl_seconds": self.cache_ttl_seconds,
+        }
+
+
+def _resolve_budget(metadata: dict | None, context_budget: dict | None) -> ContextBudget:
+    settings = get_settings()
+    overrides = {}
+    if isinstance(context_budget, dict):
+        overrides.update(context_budget)
+    if isinstance(metadata, dict):
+        overrides.update(metadata.get("context_budget") or metadata.get("contextBudget") or {})
+
+    def _pick(key: str, default):
+        return overrides.get(key, default)
+
+    max_recent = int(_pick("max_recent_uios", settings.context_budget_recent_limit))
+    max_conversation = int(_pick("max_conversation_uios", settings.context_budget_conversation_limit))
+    max_total = _pick("max_total_uios", settings.context_budget_total_limit)
+    max_total = int(max_total) if max_total is not None else max_recent + max_conversation
+
+    return ContextBudget(
+        max_recent_uios=max_recent,
+        max_conversation_uios=max_conversation,
+        max_total_uios=max_total,
+        hybrid_limit=int(_pick("hybrid_limit", settings.context_budget_hybrid_limit)),
+        temporal_limit=int(_pick("temporal_limit", settings.context_budget_temporal_limit)),
+        evidence_limit=int(_pick("evidence_limit", settings.context_budget_evidence_limit)),
+        half_life_days=int(_pick("half_life_days", settings.context_budget_half_life_days)),
+        min_relevance=float(_pick("min_relevance", settings.context_budget_min_relevance)),
+        stale_days=int(_pick("stale_days", settings.context_budget_stale_days)),
+        decay_threshold=float(_pick("decay_threshold", settings.context_budget_decay_threshold)),
+        cache_ttl_seconds=int(_pick("cache_ttl_seconds", settings.context_budget_cache_ttl_seconds)),
+    )
 
 
 def _build_query_text(state: IntelligenceState) -> str:
@@ -75,18 +139,30 @@ def _extract_participants(state: IntelligenceState) -> set[str]:
     return participants
 
 
-def _make_cache_key(state: IntelligenceState, query_text: str) -> str | None:
-    if not state.input.conversation_id:
-        return None
-    seed_parts = [state.input.conversation_id]
+def _make_cache_key(
+    state: IntelligenceState,
+    query_text: str,
+    context_version: str | None,
+    budget: ContextBudget,
+) -> str | None:
+    org_id = state.input.organization_id
+    conversation_id = state.input.conversation_id
+    if not conversation_id:
+        conversation_id = "org"
+    seed_parts = [conversation_id]
     if state.input.message_ids:
         seed_parts.extend(state.input.message_ids)
     elif state.input.source_id:
         seed_parts.append(state.input.source_id)
     else:
         seed_parts.append(query_text[:200])
+    seed_parts.append(context_version or "noversion")
+    seed_parts.append(str(budget.max_recent_uios))
+    seed_parts.append(str(budget.max_conversation_uios))
+    seed_parts.append(str(budget.max_total_uios))
+    seed_parts.append(str(budget.half_life_days))
     digest = hashlib.sha256("|".join(seed_parts).encode("utf-8")).hexdigest()
-    return f"drovi:context:{state.input.organization_id}:{digest}"
+    return f"drovi:context:{org_id}:{conversation_id}:{digest}"
 
 
 def _normalize_properties(raw: dict) -> dict:
@@ -134,6 +210,43 @@ def _build_uio_item(
     }
 
 
+def _parse_datetime(value: str | datetime | None) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            return None
+    return None
+
+
+def _is_drifted(item: dict, now: datetime, stale_days: int, decay_threshold: float) -> bool:
+    valid_to = _parse_datetime(item.get("valid_to") or item.get("validTo"))
+    system_to = _parse_datetime(item.get("system_to") or item.get("systemTo"))
+    if valid_to and valid_to <= now:
+        return True
+    if system_to and system_to <= now:
+        return True
+
+    last_updated = _parse_datetime(item.get("last_updated_at") or item.get("updated_at"))
+    if last_updated:
+        age_days = max((now - last_updated).days, 0)
+        if age_days >= stale_days:
+            return True
+
+    status = (item.get("status") or "").lower()
+    if status in {"completed", "cancelled", "superseded", "archived"} and last_updated:
+        age_days = max((now - last_updated).days, 0)
+        if age_days >= max(30, stale_days // 2):
+            return True
+
+    decay_score = item.get("decay_score", 1.0)
+    return decay_score < decay_threshold
+
+
 def _score_item(item: dict, topic_terms: list[str], participants: set[str]) -> float:
     bonus = 0.0
     text = f"{item.get('title') or ''} {item.get('description') or ''}".lower()
@@ -147,7 +260,7 @@ def _score_item(item: dict, topic_terms: list[str], participants: set[str]) -> f
 
     base = item.get("base_score") or 0.2
     decay = item.get("decay_score", 1.0)
-    return (base + bonus) * decay
+    return (base * decay) + bonus
 
 
 async def retrieve_context_node(state: IntelligenceState) -> dict:
@@ -164,8 +277,10 @@ async def retrieve_context_node(state: IntelligenceState) -> dict:
     state.trace.nodes.append("retrieve_context")
 
     memory = await get_memory_service(state.input.organization_id)
+    budget = _resolve_budget(state.input.metadata, state.input.context_budget)
     query_text = _build_query_text(state)
-    cache_key = _make_cache_key(state, query_text)
+    context_version = await memory.get_context_version(state.input.conversation_id)
+    cache_key = _make_cache_key(state, query_text, context_version, budget)
     cache = await get_context_cache()
 
     if cache_key:
@@ -183,14 +298,14 @@ async def retrieve_context_node(state: IntelligenceState) -> dict:
         query=search_query,
         organization_id=state.input.organization_id,
         types=["Commitment", "Decision", "Task", "Risk", "Claim"],
-        limit=25,
+        limit=budget.hybrid_limit,
     )
 
     temporal_results = await memory.search_uios_as_of(
         query=search_query,
         as_of_date=utc_now(),
         uio_types=["commitment", "decision", "task", "risk", "claim"],
-        limit=25,
+        limit=budget.temporal_limit,
     )
 
     items: dict[str, dict] = {}
@@ -217,28 +332,60 @@ async def retrieve_context_node(state: IntelligenceState) -> dict:
         items[uio_id] = item
 
     combined = list(items.values())
-    combined = MemoryService.apply_temporal_decay(combined, half_life_days=45)
+    now = utc_now()
+    combined = MemoryService.apply_temporal_decay(combined, half_life_days=budget.half_life_days)
     for item in combined:
         item["relevance_score"] = _score_item(item, topic_terms, participants)
 
+    combined = [
+        item
+        for item in combined
+        if item.get("id")
+        and item.get("relevance_score", 0) >= budget.min_relevance
+        and not _is_drifted(item, now, budget.stale_days, budget.decay_threshold)
+    ]
     combined.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-    relevant_uios = [item for item in combined if item.get("id")][:10]
+    relevant_uios = combined[:budget.max_recent_uios]
 
     conversation_uios = []
     if state.input.conversation_id:
         conversation_uios = await memory.get_conversation_uios(
             conversation_id=state.input.conversation_id,
-            limit=10,
+            limit=budget.max_conversation_uios,
         )
+
+    if budget.max_total_uios:
+        remaining = max(budget.max_total_uios - len(conversation_uios), 0)
+        if remaining < len(relevant_uios):
+            relevant_uios = relevant_uios[:remaining]
+
+    selected_ids = [item["id"] for item in relevant_uios if item.get("id")]
+    evidence_map = {}
+    if budget.evidence_limit > 0 and selected_ids:
+        evidence_map = await memory.get_uio_evidence(
+            selected_ids,
+            limit_per_uio=budget.evidence_limit,
+        )
+    evidence_summaries = [
+        {
+            "uio_id": item["id"],
+            "title": item.get("title"),
+            "evidence": evidence_map.get(item["id"], []),
+        }
+        for item in relevant_uios
+    ]
 
     memory_context = {
         "recent_uios": relevant_uios,
         "conversation_uios": conversation_uios,
         "context_terms": topic_terms,
         "context_query": search_query[:200],
+        "context_version": context_version,
+        "context_budget": budget.to_dict(),
+        "evidence_summaries": evidence_summaries,
     }
 
     if cache_key:
-        await cache.set(cache_key, memory_context)
+        await cache.set(cache_key, memory_context, ttl_seconds=budget.cache_ttl_seconds)
 
     return {"memory_context": memory_context}

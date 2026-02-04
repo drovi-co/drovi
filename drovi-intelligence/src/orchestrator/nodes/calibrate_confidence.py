@@ -10,6 +10,7 @@ import math
 import structlog
 
 from src.orchestrator.state import IntelligenceState, NodeTiming, Confidence
+from src.finetuning.confidence_calibrator import get_adjustment_factors
 
 logger = structlog.get_logger()
 
@@ -66,7 +67,7 @@ def _evidence_metrics(item) -> tuple[int, float, float]:
     return count, avg_len, evidence_score
 
 
-def _calibrate_item(item, source_weight: float) -> float:
+def _calibrate_item(item, source_weight: float, adjustment_factor: float) -> float:
     base_confidence = max(0.0, min(float(getattr(item, "confidence", 0.0)), 1.0))
     evidence_count, avg_len, evidence_score = _evidence_metrics(item)
     model_tier = getattr(item, "model_tier", None) or "balanced"
@@ -77,11 +78,13 @@ def _calibrate_item(item, source_weight: float) -> float:
     logit += (model_weight - 1.0) * 1.0
     logit += (source_weight - 1.0) * 1.0
     calibrated = max(0.0, min(_sigmoid(logit), 1.0))
+    calibrated = max(0.0, min(calibrated * adjustment_factor, 1.0))
 
     reasoning = (
         f"base={base_confidence:.2f}; evidence_count={evidence_count}; "
         f"avg_quote_len={avg_len:.0f}; evidence_score={evidence_score:.2f}; "
         f"model_tier={model_tier}; source_weight={source_weight:.2f}; "
+        f"adjustment_factor={adjustment_factor:.2f}; "
         f"calibrated={calibrated:.2f}"
     )
     item.confidence = calibrated
@@ -101,16 +104,27 @@ async def calibrate_confidence_node(state: IntelligenceState) -> dict:
     source_type = (state.input.source_type or "email").lower()
     weight = SOURCE_WEIGHTS.get(source_type, 0.95)
 
+    try:
+        adjustment_factors = await get_adjustment_factors(state.input.organization_id)
+    except Exception as exc:
+        logger.warning("Calibration adjustment lookup failed", error=str(exc))
+        adjustment_factors = {}
+
     for item in state.extracted.claims:
-        _calibrate_item(item, weight)
+        factor = adjustment_factors.get("claim", 1.0)
+        _calibrate_item(item, weight, factor)
     for item in state.extracted.commitments:
-        _calibrate_item(item, weight)
+        factor = adjustment_factors.get("commitment", 1.0)
+        _calibrate_item(item, weight, factor)
     for item in state.extracted.decisions:
-        _calibrate_item(item, weight)
+        factor = adjustment_factors.get("decision", 1.0)
+        _calibrate_item(item, weight, factor)
     for item in state.extracted.tasks:
-        _calibrate_item(item, weight)
+        factor = adjustment_factors.get("task", 1.0)
+        _calibrate_item(item, weight, factor)
     for item in state.extracted.risks:
-        _calibrate_item(item, weight)
+        factor = adjustment_factors.get("risk", 1.0)
+        _calibrate_item(item, weight, factor)
 
     by_type = {
         "claims": _avg_conf(state.extracted.claims),

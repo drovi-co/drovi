@@ -48,6 +48,8 @@ class AnalyzeRequest(BaseModel):
     user_email: str | None = Field(default=None)
     user_name: str | None = Field(default=None)
     candidate_only: bool = Field(default=False, description="Only persist candidates, skip full synthesis")
+    metadata: dict | None = Field(default=None, description="Optional source metadata")
+    context_budget: dict | None = Field(default=None, description="Context retrieval budget overrides")
 
     # Analysis options
     extract_commitments: bool = Field(default=True)
@@ -115,6 +117,8 @@ async def analyze_content(
                 user_email=request.user_email,
                 user_name=request.user_name,
                 candidate_only=request.candidate_only,
+                metadata=request.metadata,
+                context_budget=request.context_budget,
             ),
             routing={
                 "should_extract_commitments": request.extract_commitments,

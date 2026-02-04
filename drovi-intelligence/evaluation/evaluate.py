@@ -19,6 +19,7 @@ class Metrics:
     f1: float
     hallucination_rate: float
     miss_rate: float
+    evidence_coverage: float
     tp: int
     fp: int
     fn: int
@@ -47,6 +48,7 @@ def _score(pred: Iterable[str], gold: Iterable[str]) -> Metrics:
             f1=1.0,
             hallucination_rate=0.0,
             miss_rate=0.0,
+            evidence_coverage=0.0,
             tp=0,
             fp=0,
             fn=0,
@@ -70,6 +72,7 @@ def _score(pred: Iterable[str], gold: Iterable[str]) -> Metrics:
         f1=f1,
         hallucination_rate=hallucination_rate,
         miss_rate=miss_rate,
+        evidence_coverage=0.0,
         tp=true_pos,
         fp=false_pos,
         fn=false_neg,
@@ -78,12 +81,37 @@ def _score(pred: Iterable[str], gold: Iterable[str]) -> Metrics:
     )
 
 
+def _evidence_coverage(items: list[dict]) -> float:
+    if not items:
+        return 0.0
+    supported = 0
+    for item in items:
+        quoted = item.get("quoted_text") or item.get("quotedText")
+        supporting = item.get("supporting_quotes") or item.get("supportingQuotes") or []
+        has_support = bool(quoted and str(quoted).strip())
+        if not has_support:
+            for span in supporting:
+                span_quote = span.get("quoted_text") or span.get("quotedText")
+                if span_quote and str(span_quote).strip():
+                    has_support = True
+                    break
+        if has_support:
+            supported += 1
+    return supported / max(len(items), 1)
+
+
 def _load_gold(path: Path) -> list[dict]:
     records = []
     for line in path.read_text().splitlines():
         if line.strip():
             records.append(json.loads(line))
     return records
+
+
+def _load_optional(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return _load_gold(path)
 
 
 def _fetch_prediction(api_base: str, api_key: str, org_id: str, content: str) -> dict:
@@ -116,12 +144,19 @@ def run_eval() -> dict:
         raise RuntimeError("EVAL_API_KEY is required to run evaluation")
 
     gold_records = _load_gold(Path(__file__).parent / "goldset.jsonl")
+    redteam_records = _load_optional(Path(__file__).parent / "redteam.jsonl")
 
     decision_metrics: list[Metrics] = []
     commitment_metrics: list[Metrics] = []
     task_metrics: list[Metrics] = []
     risk_metrics: list[Metrics] = []
     claim_metrics: list[Metrics] = []
+
+    decision_evidence: list[float] = []
+    commitment_evidence: list[float] = []
+    task_evidence: list[float] = []
+    risk_evidence: list[float] = []
+    claim_evidence: list[float] = []
 
     for record in gold_records:
         prediction = _fetch_prediction(api_base, api_key, org_id, record["content"])
@@ -133,13 +168,19 @@ def run_eval() -> dict:
         risks = [r.get("title", "") for r in prediction.get("risks", [])]
         claims = [cl.get("content", "") for cl in prediction.get("claims", [])]
 
+        decision_evidence.append(_evidence_coverage(prediction.get("decisions", [])))
+        commitment_evidence.append(_evidence_coverage(prediction.get("commitments", [])))
+        task_evidence.append(_evidence_coverage(prediction.get("tasks", [])))
+        risk_evidence.append(_evidence_coverage(prediction.get("risks", [])))
+        claim_evidence.append(_evidence_coverage(prediction.get("claims", [])))
+
         decision_metrics.append(_score(decisions, expected.get("decisions", [])))
         commitment_metrics.append(_score(commitments, expected.get("commitments", [])))
         task_metrics.append(_score(tasks, expected.get("tasks", [])))
         risk_metrics.append(_score(risks, expected.get("risks", [])))
         claim_metrics.append(_score(claims, expected.get("claims", [])))
 
-    def _aggregate(metrics: list[Metrics]) -> dict:
+    def _aggregate(metrics: list[Metrics], evidence_samples: list[float]) -> dict:
         if not metrics:
             return {
                 "precision": 0.0,
@@ -147,6 +188,7 @@ def run_eval() -> dict:
                 "f1": 0.0,
                 "hallucination_rate": 0.0,
                 "miss_rate": 0.0,
+                "evidence_coverage": 0.0,
                 "tp": 0,
                 "fp": 0,
                 "fn": 0,
@@ -164,6 +206,7 @@ def run_eval() -> dict:
         f1 = sum(m.f1 for m in metrics) / len(metrics)
         hallucination_rate = sum(m.hallucination_rate for m in metrics) / len(metrics)
         miss_rate = sum(m.miss_rate for m in metrics) / len(metrics)
+        evidence_coverage = sum(evidence_samples) / max(len(evidence_samples), 1)
 
         tp = sum(m.tp for m in metrics)
         fp = sum(m.fp for m in metrics)
@@ -183,6 +226,7 @@ def run_eval() -> dict:
             "f1": f1,
             "hallucination_rate": hallucination_rate,
             "miss_rate": miss_rate,
+            "evidence_coverage": evidence_coverage,
             "tp": tp,
             "fp": fp,
             "fn": fn,
@@ -195,19 +239,68 @@ def run_eval() -> dict:
             "micro_miss_rate": micro_miss_rate,
         }
 
-    decision = _aggregate(decision_metrics)
-    commitment = _aggregate(commitment_metrics)
-    tasks = _aggregate(task_metrics)
-    risks = _aggregate(risk_metrics)
-    claims = _aggregate(claim_metrics)
+    decision = _aggregate(decision_metrics, decision_evidence)
+    commitment = _aggregate(commitment_metrics, commitment_evidence)
+    tasks = _aggregate(task_metrics, task_evidence)
+    risks = _aggregate(risk_metrics, risk_evidence)
+    claims = _aggregate(claim_metrics, claim_evidence)
 
-    return {
+    results = {
         "decisions": decision,
         "commitments": commitment,
         "tasks": tasks,
         "risks": risks,
         "claims": claims,
         "samples": len(gold_records),
+    }
+
+    if redteam_records:
+        redteam = run_redteam(redteam_records)
+        results["redteam"] = redteam
+
+    return results
+
+
+def run_redteam(records: list[dict]) -> dict:
+    api_base = os.getenv("EVAL_API_BASE_URL", "http://localhost:8000/api/v1")
+    api_key = os.getenv("EVAL_API_KEY")
+    org_id = os.getenv("EVAL_ORG_ID", "eval")
+
+    if not api_key:
+        raise RuntimeError("EVAL_API_KEY is required to run red-team evaluation")
+
+    totals = {
+        "samples": len(records),
+        "failures": 0,
+        "decisions": 0,
+        "commitments": 0,
+        "tasks": 0,
+        "risks": 0,
+        "claims": 0,
+    }
+
+    for record in records:
+        prediction = _fetch_prediction(api_base, api_key, org_id, record["content"])
+        counts = {
+            "decisions": len(prediction.get("decisions", [])),
+            "commitments": len(prediction.get("commitments", [])),
+            "tasks": len(prediction.get("tasks", [])),
+            "risks": len(prediction.get("risks", [])),
+            "claims": len(prediction.get("claims", [])),
+        }
+        totals["decisions"] += counts["decisions"]
+        totals["commitments"] += counts["commitments"]
+        totals["tasks"] += counts["tasks"]
+        totals["risks"] += counts["risks"]
+        totals["claims"] += counts["claims"]
+
+        if any(v > 0 for v in counts.values()):
+            totals["failures"] += 1
+
+    failure_rate = totals["failures"] / max(totals["samples"], 1)
+    return {
+        **totals,
+        "failure_rate": failure_rate,
     }
 
 

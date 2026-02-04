@@ -277,6 +277,52 @@ class MemoryService:
             for row in rows
         ]
 
+    async def get_context_version(self, conversation_id: str | None = None) -> str | None:
+        """Return a timestamp marker for the latest context update."""
+        set_rls_context(self.organization_id, is_internal=True)
+        try:
+            async with get_db_session() as session:
+                if conversation_id:
+                    result = await session.execute(
+                        text(
+                            """
+                            SELECT MAX(
+                                GREATEST(
+                                    COALESCE(u.last_updated_at, TIMESTAMP '1970-01-01'),
+                                    COALESCE(s.source_timestamp, TIMESTAMP '1970-01-01')
+                                )
+                            ) AS context_ts
+                            FROM unified_intelligence_object u
+                            JOIN unified_object_source s ON s.unified_object_id = u.id
+                            WHERE u.organization_id = :org_id
+                              AND s.conversation_id = :conversation_id
+                            """
+                        ),
+                        {
+                            "org_id": self.organization_id,
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                else:
+                    result = await session.execute(
+                        text(
+                            """
+                            SELECT MAX(last_updated_at) AS context_ts
+                            FROM unified_intelligence_object
+                            WHERE organization_id = :org_id
+                            """
+                        ),
+                        {"org_id": self.organization_id},
+                    )
+                row = result.fetchone()
+                context_ts = row.context_ts if row else None
+        finally:
+            set_rls_context(None, is_internal=False)
+
+        if not context_ts:
+            return None
+        return context_ts.isoformat()
+
     async def time_slice_uios(
         self,
         as_of: datetime,

@@ -173,6 +173,7 @@ async def _check_decision_contradictions(
 ) -> list[dict]:
     """Check for contradictions with existing decisions."""
     contradictions = []
+    now = datetime.utcnow()
 
     # Generate embedding for the new decision
     embed_text = f"{decision.title} {decision.statement or ''}"
@@ -197,6 +198,10 @@ async def _check_decision_contradictions(
         existing = match.get("node", match)
         existing_id = existing.get("id")
         if not existing_id:
+            continue
+
+        # Temporal validity check: ignore superseded/expired decisions
+        if not _is_temporally_active(existing, now):
             continue
 
         # Skip if very high similarity (likely duplicate, not contradiction)
@@ -230,6 +235,7 @@ async def _check_commitment_contradictions(
 ) -> list[dict]:
     """Check for contradictions with existing commitments."""
     contradictions = []
+    now = datetime.utcnow()
 
     # Generate embedding for the new commitment
     embed_text = f"{commitment.title} {commitment.description or ''}"
@@ -254,6 +260,10 @@ async def _check_commitment_contradictions(
         existing = match.get("node", match)
         existing_id = existing.get("id")
         if not existing_id:
+            continue
+
+        # Temporal validity check: ignore superseded/expired commitments
+        if not _is_temporally_active(existing, now):
             continue
 
         # Skip if very high similarity (likely duplicate)
@@ -360,6 +370,27 @@ Only return the JSON, nothing else."""
     except Exception as e:
         logger.warning("LLM contradiction analysis failed", error=str(e))
         return {"is_contradiction": False}
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _is_temporally_active(node: dict, as_of: datetime) -> bool:
+    """Return True if node is valid at the given time."""
+    valid_from = _parse_iso_datetime(node.get("validFrom"))
+    valid_to = _parse_iso_datetime(node.get("validTo"))
+
+    if valid_from and valid_from > as_of:
+        return False
+    if valid_to and valid_to <= as_of:
+        return False
+    return True
 
 
 async def _analyze_commitment_contradiction(

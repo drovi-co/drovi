@@ -22,6 +22,8 @@ from src.graph.types import ConfidenceTier, get_confidence_tier, GraphNodeType, 
 from src.search.embeddings import generate_embedding, EmbeddingError
 from src.evidence.audit import record_evidence_audit
 from src.ingestion.unified_event import build_segment_hash
+from src.uio.manager import get_uio_manager
+from src.orchestrator.context_cache import get_context_cache
 
 logger = structlog.get_logger()
 
@@ -3290,121 +3292,55 @@ async def persist_node(state: IntelligenceState) -> dict:
                 "reversal",
                 "supersedes",
             }
-            async with get_db_session() as session:
-                now = utc_now()
-                for pair in state.contradiction_pairs:
-                    mapping = created_uio_by_extracted_id.get(pair.get("new_id"))
-                    if not mapping:
-                        continue
-                    new_uio_id = mapping["uio_id"]
-                    existing_uio_id = pair.get("existing_id")
-                    if not existing_uio_id:
-                        continue
+            manager = await get_uio_manager(state.input.organization_id)
+            for pair in state.contradiction_pairs:
+                mapping = created_uio_by_extracted_id.get(pair.get("new_id"))
+                if not mapping:
+                    continue
+                new_uio_id = mapping["uio_id"]
+                existing_uio_id = pair.get("existing_id")
+                if not existing_uio_id:
+                    continue
 
-                    contradiction_type = pair.get("contradiction_type", "content_conflict")
-                    severity = pair.get("severity", "medium")
-                    evidence_id = mapping.get("evidence_id")
+                contradiction_type = pair.get("contradiction_type", "content_conflict")
+                severity = pair.get("severity", "medium")
+                evidence_id = mapping.get("evidence_id")
+                evidence_quote = pair.get("evidence") or None
 
-                    await session.execute(
-                        text("""
-                            UPDATE unified_intelligence_object
-                            SET contradicts_existing = true,
-                                last_updated_at = :now,
-                                updated_at = :now
-                            WHERE id = :new_id
-                        """),
-                        {
-                            "now": now,
-                            "new_id": new_uio_id,
-                        },
+                try:
+                    await manager.record_contradiction(
+                        uio_a_id=new_uio_id,
+                        uio_b_id=existing_uio_id,
+                        contradiction_type=contradiction_type,
+                        severity=severity,
+                        evidence_quote=evidence_quote,
+                        evidence_artifact_id=evidence_id,
+                        detected_by="system",
                     )
+                except Exception as exc:
+                    logger.warning("Failed to record contradiction", error=str(exc))
 
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=new_uio_id,
-                        event_type="contradiction_detected",
-                        event_description=f"Contradicts {existing_uio_id} ({contradiction_type})",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=None,
-                        evidence_id=evidence_id,
-                        new_value={
-                            "existing_id": existing_uio_id,
-                            "type": contradiction_type,
-                            "severity": severity,
-                        },
-                        confidence=None,
-                        triggered_by="system",
-                    )
-                    await create_timeline_event(
-                        session=session,
-                        uio_id=existing_uio_id,
-                        event_type="contradicted_by",
-                        event_description=f"Contradicted by {new_uio_id} ({contradiction_type})",
-                        source_type=state.input.source_type or "email",
-                        source_id=state.input.conversation_id,
-                        quoted_text=None,
-                        evidence_id=evidence_id,
-                        new_value={
-                            "new_id": new_uio_id,
-                            "type": contradiction_type,
-                            "severity": severity,
-                        },
-                        confidence=None,
-                        triggered_by="system",
-                    )
-
+                if contradiction_type in supersession_types:
                     try:
-                        rel_props = _temporal_relationship_props(now)
-                        await graph.query(
-                            f"""
-                            MATCH (n {{id: $new_id, organizationId: $org_id}})
-                            MATCH (e {{id: $existing_id, organizationId: $org_id}})
-                            MERGE (n)-[r:{GraphRelationshipType.CONTRADICTS.value}]->(e)
-                            ON CREATE SET r.contradictionType = $contradiction_type,
-                                          r.severity = $severity,
-                                          r.evidenceId = $evidence_id,
-                                          r.validFrom = $valid_from,
-                                          r.validTo = $valid_to,
-                                          r.systemFrom = $system_from,
-                                          r.systemTo = $system_to,
-                                          r.createdAt = $created_at,
-                                          r.updatedAt = $updated_at
-                            """,
-                            {
-                                "new_id": new_uio_id,
-                                "existing_id": existing_uio_id,
-                                "org_id": state.input.organization_id,
-                                "contradiction_type": contradiction_type,
-                                "severity": severity,
-                                "evidence_id": evidence_id,
-                                "valid_from": rel_props["validFrom"],
-                                "valid_to": rel_props["validTo"],
-                                "system_from": rel_props["systemFrom"],
-                                "system_to": rel_props["systemTo"],
-                                "created_at": rel_props["createdAt"],
-                                "updated_at": rel_props["updatedAt"],
-                            },
-                        )
+                        async with get_db_session() as session:
+                            await _apply_supersession(
+                                session,
+                                graph,
+                                now=utc_now(),
+                                organization_id=state.input.organization_id,
+                                existing_uio_id=existing_uio_id,
+                                new_uio_id=new_uio_id,
+                                uio_type=mapping.get("type", "decision"),
+                                evidence_id=evidence_id,
+                                source_type=state.input.source_type or "email",
+                                conversation_id=state.input.conversation_id,
+                                message_id=None,
+                            )
                     except Exception as exc:
-                        logger.warning("Failed to create contradiction relationship", error=str(exc))
-
-                    if contradiction_type in supersession_types:
-                        await _apply_supersession(
-                            session,
-                            graph,
-                            now=now,
-                            organization_id=state.input.organization_id,
-                            existing_uio_id=existing_uio_id,
-                            new_uio_id=new_uio_id,
-                            uio_type=mapping.get("type", "decision"),
-                            evidence_id=evidence_id,
-                            source_type=state.input.source_type or "email",
-                            conversation_id=state.input.conversation_id,
-                            message_id=None,
+                        logger.warning(
+                            "Failed to apply supersession for contradiction",
+                            error=str(exc),
                         )
-
-                await session.commit()
 
         logger.info(
             "Intelligence persisted",
@@ -3415,6 +3351,26 @@ async def persist_node(state: IntelligenceState) -> dict:
             claims_created=len(claims_created),
             contacts_created=len(contacts_created),
         )
+
+        # Invalidate context cache for this conversation/org when updates occur.
+        if (
+            uios_created
+            or uios_merged
+            or tasks_created
+            or claims_created
+            or contacts_created
+        ):
+            try:
+                cache = await get_context_cache()
+                if state.input.conversation_id:
+                    await cache.invalidate_conversation(
+                        state.input.organization_id,
+                        state.input.conversation_id,
+                    )
+                else:
+                    await cache.invalidate_org(state.input.organization_id)
+            except Exception as exc:
+                logger.warning("Context cache invalidation failed", error=str(exc))
 
     except Exception as e:
         logger.error(

@@ -36,42 +36,42 @@ This is a full, non‑MVP buildout aligned to the Intent Substrate vision.
 ---
 
 **Phase 3 — Proof Core (Verification at Scale)**
-- [ ] Implement multi‑pass extraction pipeline: classify → extract → verify → contradict.
-- [ ] Enforce “No Evidence → No Persist” for high‑stakes items.
-- [ ] Add confidence calibration model with supervised feedback.
-- [ ] Build contradiction detector with temporal reasoning.
-- [ ] Create evidence‑anchored output schema for every claim.
-- [ ] Expand eval harness for hallucination rates and evidence coverage.
-- [ ] Add red‑team tests for misleading or adversarial inputs.
+- [x] Implement multi‑pass extraction pipeline: classify → extract → verify → contradict.
+- [x] Enforce “No Evidence → No Persist” for high‑stakes items.
+- [x] Add confidence calibration model with supervised feedback.
+- [x] Build contradiction detector with temporal reasoning.
+- [x] Create evidence‑anchored output schema for every claim.
+- [x] Expand eval harness for hallucination rates and evidence coverage.
+- [x] Add red‑team tests for misleading or adversarial inputs.
 
 ---
 
 **Phase 4 — Continuum Runtime (Intent Scheduler)**
-- [ ] Define Continuum lifecycle and state machine.
-- [ ] Build Continuum DSL for goals, constraints, escalation, and proofs.
-- [ ] Implement runtime service to schedule and execute Continuums.
-- [ ] Add Continuum persistence, versioning, and rollback.
-- [ ] Build escalation rules with policy checks and manual overrides.
-- [ ] Add monitoring for stuck or degraded Continuums.
+- [x] Define Continuum lifecycle and state machine.
+- [x] Build Continuum DSL for goals, constraints, escalation, and proofs.
+- [x] Implement runtime service to schedule and execute Continuums.
+- [x] Add Continuum persistence, versioning, and rollback.
+- [x] Build escalation rules with policy checks and manual overrides.
+- [x] Add monitoring for stuck or degraded Continuums.
 
 ---
 
 **Phase 5 — Actuation Plane (Capability Primitives)**
-- [ ] Define Actuator interface with read, draft, stage, execute phases.
-- [ ] Create driver SDK for partner integrations.
-- [ ] Build permissioned execution layer with action tiering.
-- [ ] Add reversible actions and rollback handlers.
-- [ ] Implement core drivers: email, docs, calendar, slack, CRM, repo.
-- [ ] Add sandbox execution for high‑risk operations.
+- [x] Define Actuator interface with read, draft, stage, execute phases.
+- [x] Create driver SDK for partner integrations.
+- [x] Build permissioned execution layer with action tiering.
+- [x] Add reversible actions and rollback handlers.
+- [x] Implement core drivers: email, docs, calendar, slack, CRM, repo.
+- [x] Add sandbox execution for high‑risk operations.
 
 ---
 
 **Phase 6 — Context Loom (Attention Kernel)**
-- [ ] Build per‑Continuum context budgets and retrieval limits.
-- [ ] Add hybrid retrieval with temporal scoring and freshness decay.
-- [ ] Implement context caching and invalidation.
-- [ ] Build context summaries tied to evidence only.
-- [ ] Add drift detection to prune stale context.
+- [x] Build per‑Continuum context budgets and retrieval limits.
+- [x] Add hybrid retrieval with temporal scoring and freshness decay.
+- [x] Implement context caching and invalidation.
+- [x] Build context summaries tied to evidence only.
+- [x] Add drift detection to prune stale context.
 
 ---
 

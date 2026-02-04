@@ -206,6 +206,20 @@ class Settings(BaseSettings):
     # Scheduler
     scheduler_run_in_api: bool = Field(default=True)
     scheduler_advisory_lock_id: int = Field(default=4242001)
+
+    # Continuum scheduler settings
+    continuum_scheduler_run_in_api: bool = Field(default=True)
+    continuum_scheduler_interval_seconds: int = Field(default=60)
+    continuum_monitor_interval_seconds: int = Field(default=300)
+    continuum_stuck_minutes: int = Field(default=30)
+    continuum_degraded_failure_threshold: int = Field(default=3)
+    continuum_degraded_window_minutes: int = Field(default=60)
+
+    # Actuation settings
+    actuation_webhook_url: str | None = Field(default=None)
+    actuation_webhook_secret: str | None = Field(default=None)
+    actuation_webhook_timeout_seconds: float = Field(default=10.0)
+    actuation_sandbox_enabled: bool = Field(default=True)
     weekly_reports_enabled: bool = Field(default=True)
     weekly_reports_cron: str = Field(default="0 9 * * MON")
     weekly_reports_pilot_only: bool = Field(default=True)
@@ -230,6 +244,17 @@ class Settings(BaseSettings):
     human_review_threshold: float = Field(default=0.5)
     context_cache_enabled: bool = Field(default=True)
     context_cache_ttl_seconds: int = Field(default=900)
+    context_budget_recent_limit: int = Field(default=10)
+    context_budget_conversation_limit: int = Field(default=10)
+    context_budget_total_limit: int = Field(default=15)
+    context_budget_hybrid_limit: int = Field(default=30)
+    context_budget_temporal_limit: int = Field(default=30)
+    context_budget_half_life_days: int = Field(default=45)
+    context_budget_min_relevance: float = Field(default=0.2)
+    context_budget_stale_days: int = Field(default=180)
+    context_budget_decay_threshold: float = Field(default=0.12)
+    context_budget_evidence_limit: int = Field(default=2)
+    context_budget_cache_ttl_seconds: int = Field(default=600)
 
     # Memory backend
     memory_backend: Literal["falkordb", "graphiti"] = Field(default="falkordb")

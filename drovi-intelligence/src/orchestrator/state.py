@@ -93,6 +93,10 @@ class AnalysisInput(BaseModel):
         default=None,
         description="Source-specific metadata (e.g., calendar event details, attendees, organizer)"
     )
+    context_budget: dict | None = Field(
+        default=None,
+        description="Optional context retrieval budget overrides",
+    )
 
 
 class ParsedMessage(BaseModel):

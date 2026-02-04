@@ -841,6 +841,7 @@ async def list_uios_v2(
     # Query from PostgreSQL with full JOINs
     from src.db.client import get_db_session
     from sqlalchemy import text
+    from src.finetuning.confidence_calibrator import record_calibration_event
 
     items: list[UIOResponse] = []
     total = 0
@@ -1276,6 +1277,9 @@ async def apply_correction(
     """
     _validate_org_id(ctx, organization_id)
     manager = await get_uio_manager(organization_id)
+    from src.finetuning.confidence_calibrator import record_calibration_event
+    from src.db.client import get_db_session
+    from sqlalchemy import text
 
     uio = await manager.get_uio(uio_id)
     if not uio:
@@ -1289,6 +1293,31 @@ async def apply_correction(
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to apply correction")
+
+    try:
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT id, type, overall_confidence
+                    FROM unified_intelligence_object
+                    WHERE id = :uio_id AND organization_id = :org_id
+                    """
+                ),
+                {"uio_id": uio_id, "org_id": organization_id},
+            )
+            row = result.fetchone()
+            if row:
+                await record_calibration_event(
+                    organization_id=organization_id,
+                    item_type=row.type,
+                    confidence=row.overall_confidence or 0.0,
+                    was_correct=False,
+                    uio_id=row.id,
+                    source="user_correction",
+                )
+    except Exception as exc:
+        logger.warning("Failed to record calibration event", error=str(exc))
 
     return {
         "id": uio_id,
@@ -1473,6 +1502,18 @@ async def verify_uio(
             row = result.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="UIO not found")
+
+            try:
+                await record_calibration_event(
+                    organization_id=org_id,
+                    item_type=row.type,
+                    confidence=row.overall_confidence or 0.0,
+                    was_correct=True,
+                    uio_id=row.id,
+                    source="user_verified",
+                )
+            except Exception as exc:
+                logger.warning("Failed to record calibration event", error=str(exc))
 
             return await build_uio_response(row, session)
 

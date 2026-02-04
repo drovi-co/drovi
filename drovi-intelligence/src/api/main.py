@@ -29,6 +29,7 @@ from src.config import get_settings
 from src.api.routes import (
     analyze,
     analytics,
+    actuations,
     api_keys,
     ask,
     auth,
@@ -37,6 +38,7 @@ from src.api.routes import (
     connections,
     console,
     contacts,
+    continuums,
     contradictions,
     customer,
     events,
@@ -61,6 +63,7 @@ from src.api.routes import (
 from src.mcp.http import router as mcp_router
 from src.connectors.webhooks import webhook_router
 from src.connectors.scheduling.scheduler import init_scheduler, shutdown_scheduler
+from src.continuum.runtime import init_continuum_scheduler, shutdown_continuum_scheduler
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
 from src.streaming import init_streaming, shutdown_streaming
@@ -133,6 +136,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         logger.info("Connector scheduler disabled in API process")
 
+    # Initialize Continuum scheduler
+    if settings.environment == "test":
+        logger.info("Skipping Continuum scheduler in test environment")
+    elif settings.continuum_scheduler_run_in_api:
+        await init_continuum_scheduler()
+        logger.info("Continuum scheduler initialized")
+    else:
+        logger.info("Continuum scheduler disabled in API process")
+
     # Initialize Kafka streaming (if enabled)
     if settings.environment == "test":
         logger.info("Skipping Kafka streaming in test environment")
@@ -150,6 +162,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await shutdown_streaming()
     if get_settings().scheduler_run_in_api and get_settings().environment != "test":
         await shutdown_scheduler()
+    if get_settings().continuum_scheduler_run_in_api and get_settings().environment != "test":
+        await shutdown_continuum_scheduler()
     await close_graph_client()
     await close_db()
 
@@ -205,6 +219,7 @@ app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+app.include_router(actuations.router, prefix="/api/v1", tags=["Actuations"])
 app.include_router(console.router, prefix="/api/v1", tags=["Console"])
 app.include_router(customer.router, prefix="/api/v1", tags=["Customer Context"])
 app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
@@ -214,6 +229,7 @@ app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
 app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])
 app.include_router(contacts.router, prefix="/api/v1", tags=["Contacts"])
+app.include_router(continuums.router, prefix="/api/v1", tags=["Continuums"])
 app.include_router(contradictions.router, prefix="/api/v1", tags=["Contradictions"])
 app.include_router(webhook_router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])

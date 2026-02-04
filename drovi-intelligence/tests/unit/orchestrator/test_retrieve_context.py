@@ -21,7 +21,7 @@ class _FakeCache:
     async def get(self, _key):
         return self.payload
 
-    async def set(self, _key, _payload):
+    async def set(self, _key, _payload, **_kwargs):
         self.set_called = True
 
 
@@ -45,7 +45,7 @@ async def test_retrieve_context_uses_cache():
         AsyncMock(return_value=fake_cache),
     ), patch(
         "src.orchestrator.nodes.retrieve_context.get_memory_service",
-        AsyncMock(return_value=AsyncMock()),
+        AsyncMock(return_value=AsyncMock(get_context_version=AsyncMock(return_value="v1"))),
     ), patch(
         "src.orchestrator.nodes.retrieve_context.get_hybrid_search",
         AsyncMock(),
@@ -64,6 +64,13 @@ async def test_retrieve_context_computes_relevant_uios():
             content="Please send the proposal to Acme",
             source_type="email",
             conversation_id="conv_2",
+            metadata={
+                "context_budget": {
+                    "stale_days": 10000,
+                    "decay_threshold": 0.0,
+                    "min_relevance": 0.0,
+                }
+            },
         ),
         messages=[ParsedMessage(id="m1", content="Please send the proposal to Acme")],
     )
@@ -87,6 +94,8 @@ async def test_retrieve_context_computes_relevant_uios():
     memory = AsyncMock()
     memory.search_uios_as_of = AsyncMock(return_value=[])
     memory.get_conversation_uios = AsyncMock(return_value=[])
+    memory.get_context_version = AsyncMock(return_value="v1")
+    memory.get_uio_evidence = AsyncMock(return_value={})
 
     fake_cache = _FakeCache(payload=None)
 
@@ -104,3 +113,54 @@ async def test_retrieve_context_computes_relevant_uios():
 
     assert result["memory_context"]["recent_uios"][0]["id"] == "u1"
     assert fake_cache.set_called is True
+
+
+@pytest.mark.asyncio
+async def test_retrieve_context_respects_budget_override():
+    state = IntelligenceState(
+        input=AnalysisInput(
+            organization_id="org_123",
+            content="Q2 launch status",
+            source_type="email",
+            conversation_id="conv_3",
+            metadata={
+                "context_budget": {
+                    "max_recent_uios": 1,
+                    "hybrid_limit": 5,
+                    "temporal_limit": 0,
+                    "evidence_limit": 0,
+                }
+            },
+        ),
+        messages=[ParsedMessage(id="m1", content="Q2 launch status")],
+    )
+
+    hybrid = AsyncMock()
+    hybrid.search = AsyncMock(
+        return_value=[
+            {"id": "u1", "type": "decision", "score": 0.7, "properties": {"title": "Launch plan"}},
+            {"id": "u2", "type": "risk", "score": 0.6, "properties": {"title": "Risk factors"}},
+        ]
+    )
+
+    memory = AsyncMock()
+    memory.search_uios_as_of = AsyncMock(return_value=[])
+    memory.get_conversation_uios = AsyncMock(return_value=[])
+    memory.get_context_version = AsyncMock(return_value="v1")
+    memory.get_uio_evidence = AsyncMock(return_value={})
+
+    fake_cache = _FakeCache(payload=None)
+
+    with patch(
+        "src.orchestrator.nodes.retrieve_context.get_context_cache",
+        AsyncMock(return_value=fake_cache),
+    ), patch(
+        "src.orchestrator.nodes.retrieve_context.get_memory_service",
+        AsyncMock(return_value=memory),
+    ), patch(
+        "src.orchestrator.nodes.retrieve_context.get_hybrid_search",
+        AsyncMock(return_value=hybrid),
+    ):
+        result = await retrieve_context_node(state)
+
+    assert len(result["memory_context"]["recent_uios"]) == 1
