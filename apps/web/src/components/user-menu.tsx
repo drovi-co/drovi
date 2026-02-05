@@ -22,7 +22,7 @@ export default function UserMenu() {
     return <Skeleton className="h-9 w-24" />;
   }
 
-  if (!session) {
+  if (!session?.user) {
     return (
       <Link to="/login">
         <Button variant="outline">Sign In</Button>
@@ -33,7 +33,9 @@ export default function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">{session.user.name}</Button>
+        <Button variant="outline">
+          {session.user.name ?? session.user.email}
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="bg-card">
         <DropdownMenuGroup>
@@ -42,14 +44,10 @@ export default function UserMenu() {
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    navigate({
-                      to: "/",
-                    });
-                  },
-                },
+              authClient.signOut().then(() => {
+                navigate({
+                  to: "/",
+                });
               });
             }}
             variant="destructive"

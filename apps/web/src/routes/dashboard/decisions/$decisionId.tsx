@@ -17,8 +17,6 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock,
   ExternalLink,
   FileText,
@@ -32,7 +30,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +70,11 @@ export const Route = createFileRoute("/dashboard/decisions/$decisionId")({
 // =============================================================================
 
 type DecisionStatus = "made" | "pending" | "deferred" | "reversed";
+type DecisionTimelineEvent = {
+  id: string;
+  eventDescription: string;
+  eventAt: string;
+};
 
 // Status configuration
 const STATUS_CONFIG: Record<
@@ -117,9 +119,7 @@ function DecisionDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
-  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
-  const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
 
   // Editing state
@@ -127,7 +127,6 @@ function DecisionDetailPage() {
   const [editingRationale, setEditingRationale] = useState(false);
   const [title, setTitle] = useState("");
   const [rationale, setRationale] = useState("");
-  const [showComments, setShowComments] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const rationaleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -148,38 +147,87 @@ function DecisionDetailPage() {
 
   // Transform UIO data
   const decision = decisionData
-    ? {
-        id: decisionData.id,
-        title:
-          decisionData.userCorrectedTitle ?? decisionData.canonicalTitle ?? "",
-        statement:
-          decisionData.decisionDetails?.statement ??
-          decisionData.canonicalDescription ??
-          "",
-        rationale: decisionData.decisionDetails?.rationale ?? "",
-        status: (decisionData.decisionDetails?.status ??
-          "made") as DecisionStatus,
-        confidence: decisionData.overallConfidence ?? 0.8,
-        isUserVerified: decisionData.isUserVerified ?? false,
-        decisionMaker:
-          decisionData.decisionDetails?.decisionMaker ??
-          decisionData.owner ??
-          null,
-        alternatives: decisionData.decisionDetails?.alternatives ?? [],
-        impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
-        extractionContext:
-          decisionData.decisionDetails?.extractionContext ?? null,
-        decidedAt: decisionData.decisionDetails?.decidedAt
-          ? new Date(decisionData.decisionDetails.decidedAt)
-          : null,
-        supersedesUioId: decisionData.decisionDetails?.supersedesUioId ?? null,
-        supersededByUioId:
-          decisionData.decisionDetails?.supersededByUioId ?? null,
-        sources: decisionData.sources ?? [],
-        timeline: decisionData.timeline ?? [],
-        createdAt: new Date(decisionData.createdAt),
-        updatedAt: new Date(decisionData.updatedAt),
-      }
+    ? (() => {
+        const timeline: DecisionTimelineEvent[] = [];
+        if (decisionData.createdAt) {
+          timeline.push({
+            id: "created",
+            eventDescription: "Decision captured",
+            eventAt: decisionData.createdAt,
+          });
+        }
+        if (decisionData.updatedAt) {
+          timeline.push({
+            id: "updated",
+            eventDescription: "Decision updated",
+            eventAt: decisionData.updatedAt,
+          });
+        }
+        if (decisionData.decisionDetails?.decidedAt) {
+          timeline.push({
+            id: "decided",
+            eventDescription: "Decision made",
+            eventAt: decisionData.decisionDetails.decidedAt,
+          });
+        }
+        if (decisionData.decisionDetails?.supersedesUioId) {
+          timeline.push({
+            id: "supersedes",
+            eventDescription: "Supersedes prior decision",
+            eventAt: decisionData.createdAt,
+          });
+        }
+        if (decisionData.decisionDetails?.supersededByUioId) {
+          timeline.push({
+            id: "superseded",
+            eventDescription: "Superseded by newer decision",
+            eventAt: decisionData.updatedAt ?? decisionData.createdAt,
+          });
+        }
+        timeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
+
+        const primarySource = decisionData.sources?.[0] ?? null;
+
+        return {
+          id: decisionData.id,
+          title:
+            decisionData.userCorrectedTitle ?? decisionData.canonicalTitle ?? "",
+          statement:
+            decisionData.decisionDetails?.statement ??
+            decisionData.canonicalDescription ??
+            "",
+          rationale: decisionData.decisionDetails?.rationale ?? "",
+          status: (decisionData.decisionDetails?.status ??
+            "made") as DecisionStatus,
+          confidence: decisionData.overallConfidence ?? 0.8,
+          isUserVerified: decisionData.isUserVerified ?? false,
+          decisionMaker: decisionData.decisionMaker ?? decisionData.owner ?? null,
+          impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
+          evidence: primarySource
+            ? {
+                quotedText: primarySource.quotedText,
+                sourceType: primarySource.sourceType,
+                sourceTimestamp: primarySource.sourceTimestamp,
+                segmentHash: primarySource.segmentHash,
+              }
+            : null,
+          decidedAt: decisionData.decisionDetails?.decidedAt
+            ? new Date(decisionData.decisionDetails.decidedAt)
+            : null,
+          supersedesUioId: decisionData.decisionDetails?.supersedesUioId ?? null,
+          supersededByUioId:
+            decisionData.decisionDetails?.supersededByUioId ?? null,
+          sources: decisionData.sources ?? [],
+          timeline,
+          createdAt: new Date(decisionData.createdAt),
+          updatedAt: decisionData.updatedAt
+            ? new Date(decisionData.updatedAt)
+            : null,
+        };
+      })()
     : null;
 
   // Initialize form values when decision loads
@@ -251,15 +299,9 @@ function DecisionDetailPage() {
     );
   }, [decision, verifyMutation, organizationId, refetch, queryClient]);
 
-  const handleSourceClick = useCallback(
-    (conversationId: string) => {
-      navigate({
-        to: "/dashboard/email/thread/$threadId",
-        params: { threadId: conversationId },
-      });
-    },
-    [navigate]
-  );
+  const handleSourceClick = useCallback((_conversationId?: string | null) => {
+    toast.message("Source viewer coming soon");
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -470,86 +512,44 @@ function DecisionDetailPage() {
                 )}
               </div>
 
-              {/* Alternatives */}
-              {decision.alternatives.length > 0 && (
-                <div>
-                  <label className="mb-2 block font-medium text-muted-foreground text-sm">
-                    Alternatives Considered
-                  </label>
-                  <div className="space-y-2">
-                    {decision.alternatives.map((alt, idx) => (
-                      <div
-                        className={cn(
-                          "rounded-lg border p-3",
-                          alt.rejected
-                            ? "border-border bg-muted/50"
-                            : "border-green-200 bg-green-50/50 dark:border-green-900/50 dark:bg-green-900/10"
-                        )}
-                        key={idx}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "font-medium text-sm",
-                              alt.rejected
-                                ? "text-muted-foreground line-through"
-                                : "text-foreground"
-                            )}
-                          >
-                            {alt.title}
-                          </span>
-                          {!alt.rejected && (
-                            <Badge className="text-xs" variant="secondary">
-                              Chosen
-                            </Badge>
-                          )}
-                        </div>
-                        {alt.description && (
-                          <p className="mt-1 text-muted-foreground text-sm">
-                            {alt.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Evidence / Extraction Context */}
-              {decision.extractionContext && (
+              {/* Evidence */}
+              {decision.evidence && (
                 <div>
                   <label className="mb-2 flex items-center gap-2 font-medium text-muted-foreground text-sm">
                     <FileText className="h-4 w-4" />
                     Evidence
                   </label>
                   <div className="space-y-3 rounded-lg border border-border bg-muted/50 p-4">
-                    {decision.extractionContext.quotedText && (
+                    {decision.evidence.quotedText && (
                       <div>
                         <span className="mb-1 block font-medium text-muted-foreground text-xs uppercase">
                           Quoted Text
                         </span>
                         <blockquote className="border-purple-500 border-l-2 pl-3 text-foreground text-sm italic">
-                          "{decision.extractionContext.quotedText}"
+                          "{decision.evidence.quotedText}"
                         </blockquote>
                       </div>
                     )}
-                    {decision.extractionContext.reasoning && (
-                      <div>
-                        <span className="mb-1 block font-medium text-muted-foreground text-xs uppercase">
-                          AI Reasoning
+                    <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                      {decision.evidence.sourceType && (
+                        <span className="rounded-full border border-border px-2 py-0.5">
+                          {decision.evidence.sourceType}
                         </span>
-                        <p className="text-muted-foreground text-sm">
-                          {decision.extractionContext.reasoning}
-                        </p>
-                      </div>
-                    )}
-                    {decision.extractionContext.modelUsed && (
-                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      )}
+                      {decision.evidence.sourceTimestamp && (
                         <span>
-                          Model: {decision.extractionContext.modelUsed}
+                          {format(
+                            new Date(decision.evidence.sourceTimestamp),
+                            "MMM d, yyyy"
+                          )}
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {decision.evidence.segmentHash && (
+                        <span className="font-mono">
+                          #{decision.evidence.segmentHash.slice(0, 8)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -562,7 +562,7 @@ function DecisionDetailPage() {
                     Sources ({decision.sources.length})
                   </label>
                   <div className="space-y-2">
-                    {decision.sources.map((source) => (
+                    {decision.sources.map((source, index) => (
                       <div
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
@@ -574,7 +574,9 @@ function DecisionDetailPage() {
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-foreground text-sm">
-                            {source.conversation?.title ?? "Email thread"}
+                            {source.sourceType
+                              ? source.sourceType.toUpperCase()
+                              : `Source ${index + 1}`}
                           </p>
                           {source.quotedText && (
                             <p className="mt-0.5 truncate text-muted-foreground text-xs">
@@ -609,7 +611,7 @@ function DecisionDetailPage() {
                     {/* Timeline line */}
                     <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
                     <div className="space-y-4">
-                      {decision.timeline.map((event) => (
+                      {decision.timeline.map((event: DecisionTimelineEvent) => (
                         <div className="relative pl-8" key={event.id}>
                           {/* Timeline dot */}
                           <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
@@ -642,43 +644,26 @@ function DecisionDetailPage() {
                   Created:{" "}
                   {format(decision.createdAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
-                <div>
-                  Updated:{" "}
-                  {format(decision.updatedAt, "MMM d, yyyy 'at' h:mm a")}
-                </div>
+                {decision.updatedAt && (
+                  <div>
+                    Updated:{" "}
+                    {format(decision.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  </div>
+                )}
               </div>
 
-              {/* Team Discussion / Comments Section */}
+              {/* Team Discussion */}
               <div className="border-border border-t pt-6">
-                <button
-                  className="mb-4 flex w-full items-center justify-between gap-2"
-                  onClick={() => setShowComments(!showComments)}
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-foreground text-sm">
-                      Team Discussion
-                    </span>
-                  </div>
-                  {showComments ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {showComments &&
-                  organizationId &&
-                  decisionId &&
-                  currentUserId && (
-                    <CommentThread
-                      currentUserId={currentUserId}
-                      organizationId={organizationId}
-                      targetId={decisionId}
-                      targetType="decision"
-                    />
-                  )}
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Team Discussion
+                  </span>
+                </div>
+                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
+                  Collaborative threads are coming soon. Capture updates directly
+                  in decision notes or attach supporting evidence.
+                </div>
               </div>
             </div>
           </div>

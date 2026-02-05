@@ -14,14 +14,11 @@ import {
   ChevronRight,
   Clock,
   GitBranch,
-  Heart,
   Loader2,
   Mail,
   MessageSquare,
   Slack,
   Target,
-  TrendingDown,
-  TrendingUp,
   User,
   Users,
 } from "lucide-react";
@@ -144,18 +141,20 @@ function HealthGauge({ score, label }: HealthGaugeProps) {
 interface TimelineEventProps {
   event: {
     id: string;
-    event_type: string;
+    eventType: string;
     title: string;
-    timestamp: string;
-    source_type: string;
+    timestamp: string | null;
+    sourceType: string | null;
   };
 }
 
 function TimelineEvent({ event }: TimelineEventProps) {
-  const Icon = SOURCE_ICONS[event.source_type] ?? SOURCE_ICONS.default;
-  const timeAgo = formatDistanceToNow(new Date(event.timestamp), {
-    addSuffix: true,
-  });
+  const Icon = SOURCE_ICONS[event.sourceType ?? "default"] ?? SOURCE_ICONS.default;
+  const timeAgo = event.timestamp
+    ? formatDistanceToNow(new Date(event.timestamp), {
+      addSuffix: true,
+    })
+    : "—";
 
   return (
     <div className="flex gap-3 py-2">
@@ -219,7 +218,15 @@ export function CustomerContextPanel({
     );
   }
 
-  const initials = context.contact_name
+  const contactName = context.name ?? context.email ?? "Contact";
+  const contactEmail = context.email ?? "—";
+  const sourcePresence = context.sourceTypes ?? [];
+  const openCommitments = context.openCommitments ?? [];
+  const relatedDecisions = context.relatedDecisions ?? [];
+  const relatedContacts = context.topContacts ?? [];
+  const topTopics = context.topTopics ?? [];
+
+  const initials = contactName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -244,13 +251,13 @@ export function CustomerContextPanel({
             </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-lg">{context.contact_name}</h3>
+            <h3 className="font-semibold text-lg">{contactName}</h3>
             <p className="text-muted-foreground text-sm">
-              {context.contact_email}
+              {contactEmail}
             </p>
             {/* Source presence */}
             <div className="mt-1 flex gap-1">
-              {context.source_presence.map((source) => {
+              {sourcePresence.map((source) => {
                 const Icon = SOURCE_ICONS[source] ?? SOURCE_ICONS.default;
                 return (
                   <Badge
@@ -278,16 +285,16 @@ export function CustomerContextPanel({
             ) : (
               <HealthGauge
                 label="Relationship Health"
-                score={health?.health_score ?? context.relationship_health}
+                score={health?.healthScore ?? context.relationshipHealth}
               />
             )}
             <div className="text-right">
-              <p className="font-medium text-lg">{context.interaction_count}</p>
+              <p className="font-medium text-lg">{context.interactionCount}</p>
               <p className="text-muted-foreground text-xs">Interactions</p>
-              {context.last_interaction && (
+              {context.lastInteraction && (
                 <p className="mt-1 text-muted-foreground text-xs">
                   Last:{" "}
-                  {formatDistanceToNow(new Date(context.last_interaction), {
+                  {formatDistanceToNow(new Date(context.lastInteraction), {
                     addSuffix: true,
                   })}
                 </p>
@@ -295,49 +302,12 @@ export function CustomerContextPanel({
             </div>
           </div>
 
-          {/* Health components */}
-          {health?.components && (
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <Target className="h-3 w-3 text-muted-foreground" />
-                  <span className="font-medium text-sm">
-                    {Math.round(health.components.fulfillment_rate * 100)}%
-                  </span>
-                </div>
-                <p className="text-muted-foreground text-xs">Fulfillment</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  {health.components.interaction_trend >= 1 ? (
-                    <TrendingUp className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3 text-red-500" />
-                  )}
-                  <span className="font-medium text-sm">
-                    {Math.round(health.components.interaction_trend * 100)}%
-                  </span>
-                </div>
-                <p className="text-muted-foreground text-xs">Trend</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <Heart className="h-3 w-3 text-muted-foreground" />
-                  <span className="font-medium text-sm">
-                    {Math.round(health.components.response_quality * 100)}%
-                  </span>
-                </div>
-                <p className="text-muted-foreground text-xs">Quality</p>
-              </div>
-            </div>
-          )}
-
-          {/* Risk indicators */}
-          {health?.risk_indicators && health.risk_indicators.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
-              {health.risk_indicators.map((risk) => (
-                <Badge className="text-xs" key={risk} variant="destructive">
-                  {risk}
+          {/* Health factors */}
+          {health?.factors && Object.keys(health.factors).length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+              {Object.entries(health.factors).map(([key, value]) => (
+                <Badge className="text-xs" key={key} variant="secondary">
+                  {key.replace(/_/g, " ")}: {String(value)}
                 </Badge>
               ))}
             </div>
@@ -345,20 +315,20 @@ export function CustomerContextPanel({
         </motion.div>
 
         {/* Relationship Summary */}
-        {context.relationship_summary && (
+        {context.relationshipSummary && (
           <div className="rounded-xl bg-muted/50 p-4">
             <p className="text-sm italic">
-              &ldquo;{context.relationship_summary}&rdquo;
+              &ldquo;{context.relationshipSummary}&rdquo;
             </p>
           </div>
         )}
 
         {/* Topics */}
-        {context.top_topics.length > 0 && (
+        {topTopics.length > 0 && (
           <div>
             <h4 className="mb-2 font-medium text-sm">Discussion Topics</h4>
             <div className="flex flex-wrap gap-1">
-              {context.top_topics.map((topic) => (
+              {topTopics.map((topic) => (
                 <Badge key={topic} variant="secondary">
                   {topic}
                 </Badge>
@@ -371,13 +341,13 @@ export function CustomerContextPanel({
         <Collapsible onOpenChange={setShowCommitments} open={showCommitments}>
           <CollapsibleTrigger asChild>
             <Button className="w-full justify-between" variant="ghost">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-500" />
-                <span>Open Commitments</span>
-                <Badge variant="secondary">
-                  {context.open_commitments.length}
-                </Badge>
-              </div>
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-blue-500" />
+                  <span>Open Commitments</span>
+                  <Badge variant="secondary">
+                  {openCommitments.length}
+                  </Badge>
+                </div>
               {showCommitments ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
@@ -386,23 +356,23 @@ export function CustomerContextPanel({
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            {context.open_commitments.length === 0 ? (
+            {openCommitments.length === 0 ? (
               <p className="py-4 text-center text-muted-foreground text-sm">
                 No open commitments
               </p>
             ) : (
               <div className="space-y-2 py-2">
-                {context.open_commitments.map((commitment) => (
+                {openCommitments.map((commitment) => (
                   <div
                     className="flex items-center justify-between rounded-lg border p-3"
                     key={commitment.id}
                   >
                     <div className="flex-1">
                       <p className="text-sm">{commitment.title}</p>
-                      {commitment.due_date && (
+                      {commitment.dueDate && (
                         <p className="text-muted-foreground text-xs">
                           Due{" "}
-                          {format(new Date(commitment.due_date), "MMM d, yyyy")}
+                          {format(new Date(commitment.dueDate), "MMM d, yyyy")}
                         </p>
                       )}
                     </div>
@@ -431,7 +401,7 @@ export function CustomerContextPanel({
                 <GitBranch className="h-4 w-4 text-purple-500" />
                 <span>Related Decisions</span>
                 <Badge variant="secondary">
-                  {context.related_decisions.length}
+                  {relatedDecisions.length}
                 </Badge>
               </div>
               {showDecisions ? (
@@ -442,18 +412,20 @@ export function CustomerContextPanel({
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            {context.related_decisions.length === 0 ? (
+            {relatedDecisions.length === 0 ? (
               <p className="py-4 text-center text-muted-foreground text-sm">
                 No related decisions
               </p>
             ) : (
               <div className="space-y-2 py-2">
-                {context.related_decisions.map((decision) => (
+                {relatedDecisions.map((decision) => (
                   <div className="rounded-lg border p-3" key={decision.id}>
                     <p className="text-sm">{decision.title}</p>
                     <p className="text-muted-foreground text-xs">
                       Decided{" "}
-                      {format(new Date(decision.decided_at), "MMM d, yyyy")}
+                      {decision.decidedAt
+                        ? format(new Date(decision.decidedAt), "MMM d, yyyy")
+                        : "—"}
                     </p>
                   </div>
                 ))}
@@ -499,11 +471,11 @@ export function CustomerContextPanel({
         </Collapsible>
 
         {/* Related Contacts */}
-        {context.related_contacts.length > 0 && (
+        {relatedContacts.length > 0 && (
           <div>
             <h4 className="mb-2 font-medium text-sm">Related Contacts</h4>
             <div className="space-y-2">
-              {context.related_contacts.slice(0, 5).map((contact) => (
+              {relatedContacts.slice(0, 5).map((contact) => (
                 <div
                   className="flex items-center gap-3 rounded-lg border p-2"
                   key={contact.id}
@@ -512,17 +484,17 @@ export function CustomerContextPanel({
                     <User className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm">{contact.name}</p>
+                    <p className="text-sm">{contact.name ?? contact.email ?? "Contact"}</p>
                     <p className="text-muted-foreground text-xs">
-                      {contact.relationship_type}
+                      {contact.company ?? contact.title ?? "Related contact"}
                     </p>
                   </div>
                 </div>
               ))}
-              {context.related_contacts.length > 5 && (
+              {relatedContacts.length > 5 && (
                 <Button className="w-full" size="sm" variant="ghost">
                   <Users className="mr-2 h-4 w-4" />
-                  View all {context.related_contacts.length} contacts
+                  View all {relatedContacts.length} contacts
                 </Button>
               )}
             </div>

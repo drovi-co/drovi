@@ -1,5 +1,3 @@
-import type { QueryClient } from "@tanstack/react-query";
-
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
@@ -8,15 +6,13 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
-import { CommandBarProvider } from "@/components/email/command-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import type { trpc } from "@/utils/trpc";
+import type { QueryClient } from "@tanstack/react-query";
 
 import "../index.css";
 
 export interface RouterAppContext {
-  trpc: typeof trpc;
   queryClient: QueryClient;
 }
 
@@ -52,9 +48,7 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <CommandBarProvider>
-          <Outlet />
-        </CommandBarProvider>
+        <Outlet />
         <Toaster richColors />
         <AutoUpdaterDialog />
       </ThemeProvider>

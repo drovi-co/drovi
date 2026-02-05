@@ -30,7 +30,6 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread } from "@/components/collaboration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -135,7 +134,6 @@ function UIODetailPage() {
   const { data: activeOrg } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
-  const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
 
   // Smart back navigation
@@ -259,21 +257,25 @@ function UIODetailPage() {
   const TypeIcon = typeConfig.icon;
   const displayTitle = uioData.title;
 
-  const evidenceSources: EvidenceSource[] = (uioData.sources ?? []).map((source) => ({
-    id: source.id,
-    sourceType: source.sourceType ?? "unknown",
-    role: (source.role as EvidenceSource["role"]) ?? "origin",
-    quotedText: source.quotedText ?? null,
-    segmentHash: source.segmentHash ?? null,
-    extractedTitle: uioData.title,
-    confidence: uioData.overallConfidence ?? uioData.confidence ?? 0.8,
-    sourceTimestamp: source.sourceTimestamp ? new Date(source.sourceTimestamp) : null,
-    conversationId: source.conversationId ?? null,
-    messageId: source.messageId ?? null,
-  }));
+  const evidenceSources: EvidenceSource[] = (uioData.sources ?? []).map(
+    (source) => ({
+      id: source.id,
+      sourceType: source.sourceType ?? "unknown",
+      role: (source.role as EvidenceSource["role"]) ?? "origin",
+      quotedText: source.quotedText ?? null,
+      segmentHash: source.segmentHash ?? null,
+      extractedTitle: uioData.title,
+      confidence: uioData.overallConfidence ?? uioData.confidence ?? 0.8,
+      sourceTimestamp: source.sourceTimestamp
+        ? new Date(source.sourceTimestamp)
+        : null,
+      conversationId: source.conversationId ?? null,
+      messageId: source.messageId ?? null,
+    })
+  );
 
   // Timeline events (simplified based on available data)
-  const timelineEvents: TimelineEvent[] = uioData.created_at
+  const timelineEvents: TimelineEvent[] = uioData.createdAt
     ? [
         {
           id: "created",
@@ -283,9 +285,9 @@ function UIODetailPage() {
           sourceName: "Email",
           messageId: null,
           quotedText: null,
-          confidence: uioData.confidence || 0.8,
+          confidence: uioData.overallConfidence ?? uioData.confidence ?? 0.8,
           triggeredBy: null,
-          eventAt: new Date(uioData.created_at),
+          eventAt: new Date(uioData.createdAt),
         },
       ]
     : [];
@@ -422,10 +424,10 @@ function UIODetailPage() {
           </div>
 
           {/* Source info - simplified */}
-          {uioData.evidence_id && (
+          {uioData.evidenceId && (
             <div className="mt-3 flex items-center gap-2 text-muted-foreground text-xs">
               <ExternalLink className="h-3 w-3" />
-              <span>Evidence: {uioData.evidence_id.slice(0, 8)}...</span>
+              <span>Evidence: {uioData.evidenceId.slice(0, 8)}...</span>
             </div>
           )}
         </div>
@@ -435,7 +437,7 @@ function UIODetailPage() {
           <div className="mx-auto max-w-4xl space-y-8 p-6">
             {/* Meta info */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {uioData.due_date && (
+              {uioData.dueDate && (
                 <div className="rounded-lg border bg-card p-4">
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <Calendar className="size-4" />
@@ -444,7 +446,7 @@ function UIODetailPage() {
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {format(new Date(uioData.due_date), "MMM d, yyyy")}
+                    {format(new Date(uioData.dueDate), "MMM d, yyyy")}
                   </p>
                 </div>
               )}
@@ -458,7 +460,11 @@ function UIODetailPage() {
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {uioData.direction === "owed_to_me" ? uioData.debtor : uioData.creditor}
+                    {uioData.direction === "owed_to_me"
+                      ? uioData.debtor?.displayName ??
+                        uioData.debtor?.primaryEmail
+                      : uioData.creditor?.displayName ??
+                        uioData.creditor?.primaryEmail}
                   </p>
                 </div>
               )}
@@ -471,11 +477,14 @@ function UIODetailPage() {
                   </span>
                 </div>
                 <p className="font-medium text-sm">
-                  {Math.round((uioData.confidence || 0) * 100)}% ({uioData.confidence_tier || "medium"})
+                  {Math.round(
+                    (uioData.overallConfidence ?? uioData.confidence ?? 0) * 100
+                  )}
+                  % ({uioData.confidenceTier || "medium"})
                 </p>
               </div>
 
-              {uioData.created_at && (
+              {uioData.createdAt && (
                 <div className="rounded-lg border bg-card p-4">
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <Clock className="size-4" />
@@ -484,7 +493,7 @@ function UIODetailPage() {
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {formatDistanceToNow(new Date(uioData.created_at), {
+                    {formatDistanceToNow(new Date(uioData.createdAt), {
                       addSuffix: true,
                     })}
                   </p>
@@ -511,14 +520,8 @@ function UIODetailPage() {
                 </h3>
                 <EvidenceChain
                   collapsible={false}
-                  onViewSource={(source) => {
-                    // Navigate to source based on type
-                    if (source.emailThreadId) {
-                      navigate({
-                        to: "/dashboard/email/thread/$threadId",
-                        params: { threadId: source.emailThreadId },
-                      });
-                    }
+                  onViewSource={() => {
+                    toast.message("Source viewer coming soon");
                   }}
                   sources={evidenceSources}
                 />
@@ -543,17 +546,13 @@ function UIODetailPage() {
             )}
 
             {/* Comments & Discussion */}
-            {organizationId && currentUserId && (
-              <div>
-                <h3 className="mb-3 font-medium text-sm">Discussion</h3>
-                <CommentThread
-                  currentUserId={currentUserId}
-                  organizationId={organizationId}
-                  targetId={uioId}
-                  targetType="uio"
-                />
+            <div>
+              <h3 className="mb-3 font-medium text-sm">Discussion</h3>
+              <div className="rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
+                Collaborative threads are coming soon. Capture decisions in the
+                notes section or attach evidence from sources.
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

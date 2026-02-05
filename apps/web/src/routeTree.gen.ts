@@ -9,42 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as Verify2faRouteImport } from './routes/verify-2fa'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AiRouteImport } from './routes/ai'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
-import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OnboardingInviteTeamRouteImport } from './routes/onboarding/invite-team'
 import { Route as OnboardingCreateOrgRouteImport } from './routes/onboarding/create-org'
 import { Route as OnboardingConnectSourcesRouteImport } from './routes/onboarding/connect-sources'
 import { Route as OnboardingCompleteRouteImport } from './routes/onboarding/complete'
+import { Route as DashboardTrustRouteImport } from './routes/dashboard/trust'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
-import { Route as DashboardNotificationsRouteImport } from './routes/dashboard/notifications'
-import { Route as DashboardEmailAccountsRouteImport } from './routes/dashboard/email-accounts'
+import { Route as DashboardScheduleRouteImport } from './routes/dashboard/schedule'
+import { Route as DashboardExchangeRouteImport } from './routes/dashboard/exchange'
+import { Route as DashboardContinuumsRouteImport } from './routes/dashboard/continuums'
 import { Route as DashboardConsoleRouteImport } from './routes/dashboard/console'
-import { Route as DashboardCalendarRouteImport } from './routes/dashboard/calendar'
-import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
-import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
-import { Route as DashboardAiRouteImport } from './routes/dashboard/ai'
-import { Route as AdminWaitlistRouteImport } from './routes/admin/waitlist'
-import { Route as AdminUsersRouteImport } from './routes/admin/users'
-import { Route as AdminOrganizationsRouteImport } from './routes/admin/organizations'
-import { Route as AdminIdentityMergeRouteImport } from './routes/admin/identity-merge'
-import { Route as AdminAuditRouteImport } from './routes/admin/audit'
-import { Route as DashboardTodayIndexRouteImport } from './routes/dashboard/today/index'
+import { Route as DashboardBuilderRouteImport } from './routes/dashboard/builder'
+import { Route as DashboardActuationsRouteImport } from './routes/dashboard/actuations'
 import { Route as DashboardTeamIndexRouteImport } from './routes/dashboard/team/index'
 import { Route as DashboardTasksIndexRouteImport } from './routes/dashboard/tasks/index'
 import { Route as DashboardSourcesIndexRouteImport } from './routes/dashboard/sources/index'
-import { Route as DashboardSearchIndexRouteImport } from './routes/dashboard/search/index'
+import { Route as DashboardSimulationsIndexRouteImport } from './routes/dashboard/simulations/index'
+import { Route as DashboardRealityStreamIndexRouteImport } from './routes/dashboard/reality-stream/index'
 import { Route as DashboardPatternsIndexRouteImport } from './routes/dashboard/patterns/index'
-import { Route as DashboardInboxIndexRouteImport } from './routes/dashboard/inbox/index'
 import { Route as DashboardGraphIndexRouteImport } from './routes/dashboard/graph/index'
 import { Route as DashboardDecisionsIndexRouteImport } from './routes/dashboard/decisions/index'
 import { Route as DashboardContactsIndexRouteImport } from './routes/dashboard/contacts/index'
@@ -54,22 +45,9 @@ import { Route as DashboardTeamSettingsRouteImport } from './routes/dashboard/te
 import { Route as DashboardTeamMembersRouteImport } from './routes/dashboard/team/members'
 import { Route as DashboardTeamInvitationsRouteImport } from './routes/dashboard/team/invitations'
 import { Route as DashboardTasksTaskIdRouteImport } from './routes/dashboard/tasks/$taskId'
-import { Route as DashboardSettingsTeamsRouteImport } from './routes/dashboard/settings/teams'
-import { Route as DashboardSettingsSharedInboxRouteImport } from './routes/dashboard/settings/shared-inbox'
-import { Route as DashboardSettingsRolesRouteImport } from './routes/dashboard/settings/roles'
-import { Route as DashboardSettingsOrganizationRouteImport } from './routes/dashboard/settings/organization'
-import { Route as DashboardSettingsNotificationsRouteImport } from './routes/dashboard/settings/notifications'
-import { Route as DashboardInboxSharedRouteImport } from './routes/dashboard/inbox/shared'
 import { Route as DashboardDecisionsDecisionIdRouteImport } from './routes/dashboard/decisions/$decisionId'
-import { Route as DashboardContactsContactIdRouteImport } from './routes/dashboard/contacts/$contactId'
 import { Route as DashboardCommitmentsCommitmentIdRouteImport } from './routes/dashboard/commitments/$commitmentId'
-import { Route as DashboardEmailThreadThreadIdRouteImport } from './routes/dashboard/email/thread.$threadId'
 
-const Verify2faRoute = Verify2faRouteImport.update({
-  id: '/verify-2fa',
-  path: '/verify-2fa',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SuccessRoute = SuccessRouteImport.update({
   id: '/success',
   path: '/success',
@@ -100,11 +78,6 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRouteRoute = AdminRouteRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -119,11 +92,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminRouteRoute,
 } as any)
 const OnboardingInviteTeamRoute = OnboardingInviteTeamRouteImport.update({
   id: '/onboarding/invite-team',
@@ -146,19 +114,29 @@ const OnboardingCompleteRoute = OnboardingCompleteRouteImport.update({
   path: '/onboarding/complete',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardTrustRoute = DashboardTrustRouteImport.update({
+  id: '/trust',
+  path: '/trust',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardNotificationsRoute = DashboardNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
+const DashboardScheduleRoute = DashboardScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardEmailAccountsRoute = DashboardEmailAccountsRouteImport.update({
-  id: '/email-accounts',
-  path: '/email-accounts',
+const DashboardExchangeRoute = DashboardExchangeRouteImport.update({
+  id: '/exchange',
+  path: '/exchange',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardContinuumsRoute = DashboardContinuumsRouteImport.update({
+  id: '/continuums',
+  path: '/continuums',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardConsoleRoute = DashboardConsoleRouteImport.update({
@@ -166,54 +144,14 @@ const DashboardConsoleRoute = DashboardConsoleRouteImport.update({
   path: '/console',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardCalendarRoute = DashboardCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
+const DashboardBuilderRoute = DashboardBuilderRouteImport.update({
+  id: '/builder',
+  path: '/builder',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardBillingRoute = DashboardBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardAiRoute = DashboardAiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
-  id: '/waitlist',
-  path: '/waitlist',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
-  id: '/organizations',
-  path: '/organizations',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminIdentityMergeRoute = AdminIdentityMergeRouteImport.update({
-  id: '/identity-merge',
-  path: '/identity-merge',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminAuditRoute = AdminAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const DashboardTodayIndexRoute = DashboardTodayIndexRouteImport.update({
-  id: '/today/',
-  path: '/today/',
+const DashboardActuationsRoute = DashboardActuationsRouteImport.update({
+  id: '/actuations',
+  path: '/actuations',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardTeamIndexRoute = DashboardTeamIndexRouteImport.update({
@@ -231,19 +169,21 @@ const DashboardSourcesIndexRoute = DashboardSourcesIndexRouteImport.update({
   path: '/sources/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardSearchIndexRoute = DashboardSearchIndexRouteImport.update({
-  id: '/search/',
-  path: '/search/',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
+const DashboardSimulationsIndexRoute =
+  DashboardSimulationsIndexRouteImport.update({
+    id: '/simulations/',
+    path: '/simulations/',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const DashboardRealityStreamIndexRoute =
+  DashboardRealityStreamIndexRouteImport.update({
+    id: '/reality-stream/',
+    path: '/reality-stream/',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 const DashboardPatternsIndexRoute = DashboardPatternsIndexRouteImport.update({
   id: '/patterns/',
   path: '/patterns/',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardInboxIndexRoute = DashboardInboxIndexRouteImport.update({
-  id: '/inbox/',
-  path: '/inbox/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardGraphIndexRoute = DashboardGraphIndexRouteImport.update({
@@ -293,49 +233,10 @@ const DashboardTasksTaskIdRoute = DashboardTasksTaskIdRouteImport.update({
   path: '/tasks/$taskId',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardSettingsTeamsRoute = DashboardSettingsTeamsRouteImport.update({
-  id: '/teams',
-  path: '/teams',
-  getParentRoute: () => DashboardSettingsRoute,
-} as any)
-const DashboardSettingsSharedInboxRoute =
-  DashboardSettingsSharedInboxRouteImport.update({
-    id: '/shared-inbox',
-    path: '/shared-inbox',
-    getParentRoute: () => DashboardSettingsRoute,
-  } as any)
-const DashboardSettingsRolesRoute = DashboardSettingsRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
-  getParentRoute: () => DashboardSettingsRoute,
-} as any)
-const DashboardSettingsOrganizationRoute =
-  DashboardSettingsOrganizationRouteImport.update({
-    id: '/organization',
-    path: '/organization',
-    getParentRoute: () => DashboardSettingsRoute,
-  } as any)
-const DashboardSettingsNotificationsRoute =
-  DashboardSettingsNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => DashboardSettingsRoute,
-  } as any)
-const DashboardInboxSharedRoute = DashboardInboxSharedRouteImport.update({
-  id: '/inbox/shared',
-  path: '/inbox/shared',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const DashboardDecisionsDecisionIdRoute =
   DashboardDecisionsDecisionIdRouteImport.update({
     id: '/decisions/$decisionId',
     path: '/decisions/$decisionId',
-    getParentRoute: () => DashboardRouteRoute,
-  } as any)
-const DashboardContactsContactIdRoute =
-  DashboardContactsContactIdRouteImport.update({
-    id: '/contacts/$contactId',
-    path: '/contacts/$contactId',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
 const DashboardCommitmentsCommitmentIdRoute =
@@ -344,52 +245,31 @@ const DashboardCommitmentsCommitmentIdRoute =
     path: '/commitments/$commitmentId',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
-const DashboardEmailThreadThreadIdRoute =
-  DashboardEmailThreadThreadIdRouteImport.update({
-    id: '/email/thread/$threadId',
-    path: '/email/thread/$threadId',
-    getParentRoute: () => DashboardRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/ai': typeof AiRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/success': typeof SuccessRoute
-  '/verify-2fa': typeof Verify2faRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/identity-merge': typeof AdminIdentityMergeRoute
-  '/admin/organizations': typeof AdminOrganizationsRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/dashboard/ai': typeof DashboardAiRoute
-  '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/billing': typeof DashboardBillingRoute
-  '/dashboard/calendar': typeof DashboardCalendarRoute
+  '/dashboard/actuations': typeof DashboardActuationsRoute
+  '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
-  '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
-  '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/exchange': typeof DashboardExchangeRoute
+  '/dashboard/schedule': typeof DashboardScheduleRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/trust': typeof DashboardTrustRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
-  '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
-  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
-  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
-  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
-  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
-  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
-  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
-  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -399,14 +279,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/graph': typeof DashboardGraphIndexRoute
-  '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/patterns': typeof DashboardPatternsIndexRoute
-  '/dashboard/search': typeof DashboardSearchIndexRoute
+  '/dashboard/reality-stream': typeof DashboardRealityStreamIndexRoute
+  '/dashboard/simulations': typeof DashboardSimulationsIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
   '/dashboard/tasks': typeof DashboardTasksIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
-  '/dashboard/today': typeof DashboardTodayIndexRoute
-  '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -415,36 +293,22 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/success': typeof SuccessRoute
-  '/verify-2fa': typeof Verify2faRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/identity-merge': typeof AdminIdentityMergeRoute
-  '/admin/organizations': typeof AdminOrganizationsRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/dashboard/ai': typeof DashboardAiRoute
-  '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/billing': typeof DashboardBillingRoute
-  '/dashboard/calendar': typeof DashboardCalendarRoute
+  '/dashboard/actuations': typeof DashboardActuationsRoute
+  '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
-  '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
-  '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/exchange': typeof DashboardExchangeRoute
+  '/dashboard/schedule': typeof DashboardScheduleRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/trust': typeof DashboardTrustRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
-  '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
-  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
-  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
-  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
-  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
-  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
-  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
-  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -454,55 +318,38 @@ export interface FileRoutesByTo {
   '/dashboard/contacts': typeof DashboardContactsIndexRoute
   '/dashboard/decisions': typeof DashboardDecisionsIndexRoute
   '/dashboard/graph': typeof DashboardGraphIndexRoute
-  '/dashboard/inbox': typeof DashboardInboxIndexRoute
   '/dashboard/patterns': typeof DashboardPatternsIndexRoute
-  '/dashboard/search': typeof DashboardSearchIndexRoute
+  '/dashboard/reality-stream': typeof DashboardRealityStreamIndexRoute
+  '/dashboard/simulations': typeof DashboardSimulationsIndexRoute
   '/dashboard/sources': typeof DashboardSourcesIndexRoute
   '/dashboard/tasks': typeof DashboardTasksIndexRoute
   '/dashboard/team': typeof DashboardTeamIndexRoute
-  '/dashboard/today': typeof DashboardTodayIndexRoute
-  '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/ai': typeof AiRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/success': typeof SuccessRoute
-  '/verify-2fa': typeof Verify2faRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/identity-merge': typeof AdminIdentityMergeRoute
-  '/admin/organizations': typeof AdminOrganizationsRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/dashboard/ai': typeof DashboardAiRoute
-  '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/billing': typeof DashboardBillingRoute
-  '/dashboard/calendar': typeof DashboardCalendarRoute
+  '/dashboard/actuations': typeof DashboardActuationsRoute
+  '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
-  '/dashboard/email-accounts': typeof DashboardEmailAccountsRoute
-  '/dashboard/notifications': typeof DashboardNotificationsRoute
-  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/exchange': typeof DashboardExchangeRoute
+  '/dashboard/schedule': typeof DashboardScheduleRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/trust': typeof DashboardTrustRoute
   '/onboarding/complete': typeof OnboardingCompleteRoute
   '/onboarding/connect-sources': typeof OnboardingConnectSourcesRoute
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
-  '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
-  '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
-  '/dashboard/inbox/shared': typeof DashboardInboxSharedRoute
-  '/dashboard/settings/notifications': typeof DashboardSettingsNotificationsRoute
-  '/dashboard/settings/organization': typeof DashboardSettingsOrganizationRoute
-  '/dashboard/settings/roles': typeof DashboardSettingsRolesRoute
-  '/dashboard/settings/shared-inbox': typeof DashboardSettingsSharedInboxRoute
-  '/dashboard/settings/teams': typeof DashboardSettingsTeamsRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
   '/dashboard/team/invitations': typeof DashboardTeamInvitationsRoute
   '/dashboard/team/members': typeof DashboardTeamMembersRoute
@@ -512,56 +359,39 @@ export interface FileRoutesById {
   '/dashboard/contacts/': typeof DashboardContactsIndexRoute
   '/dashboard/decisions/': typeof DashboardDecisionsIndexRoute
   '/dashboard/graph/': typeof DashboardGraphIndexRoute
-  '/dashboard/inbox/': typeof DashboardInboxIndexRoute
   '/dashboard/patterns/': typeof DashboardPatternsIndexRoute
-  '/dashboard/search/': typeof DashboardSearchIndexRoute
+  '/dashboard/reality-stream/': typeof DashboardRealityStreamIndexRoute
+  '/dashboard/simulations/': typeof DashboardSimulationsIndexRoute
   '/dashboard/sources/': typeof DashboardSourcesIndexRoute
   '/dashboard/tasks/': typeof DashboardTasksIndexRoute
   '/dashboard/team/': typeof DashboardTeamIndexRoute
-  '/dashboard/today/': typeof DashboardTodayIndexRoute
-  '/dashboard/email/thread/$threadId': typeof DashboardEmailThreadThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/ai'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
     | '/success'
-    | '/verify-2fa'
-    | '/admin/audit'
-    | '/admin/identity-merge'
-    | '/admin/organizations'
-    | '/admin/users'
-    | '/admin/waitlist'
-    | '/dashboard/ai'
-    | '/dashboard/analytics'
-    | '/dashboard/billing'
-    | '/dashboard/calendar'
+    | '/dashboard/actuations'
+    | '/dashboard/builder'
     | '/dashboard/console'
-    | '/dashboard/email-accounts'
-    | '/dashboard/notifications'
+    | '/dashboard/continuums'
+    | '/dashboard/exchange'
+    | '/dashboard/schedule'
     | '/dashboard/settings'
+    | '/dashboard/trust'
     | '/onboarding/complete'
     | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
-    | '/admin/'
     | '/dashboard/'
     | '/onboarding'
     | '/dashboard/commitments/$commitmentId'
-    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
-    | '/dashboard/inbox/shared'
-    | '/dashboard/settings/notifications'
-    | '/dashboard/settings/organization'
-    | '/dashboard/settings/roles'
-    | '/dashboard/settings/shared-inbox'
-    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -571,14 +401,12 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/graph'
-    | '/dashboard/inbox'
     | '/dashboard/patterns'
-    | '/dashboard/search'
+    | '/dashboard/reality-stream'
+    | '/dashboard/simulations'
     | '/dashboard/sources'
     | '/dashboard/tasks'
     | '/dashboard/team'
-    | '/dashboard/today'
-    | '/dashboard/email/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -587,36 +415,22 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/success'
-    | '/verify-2fa'
-    | '/admin/audit'
-    | '/admin/identity-merge'
-    | '/admin/organizations'
-    | '/admin/users'
-    | '/admin/waitlist'
-    | '/dashboard/ai'
-    | '/dashboard/analytics'
-    | '/dashboard/billing'
-    | '/dashboard/calendar'
+    | '/dashboard/actuations'
+    | '/dashboard/builder'
     | '/dashboard/console'
-    | '/dashboard/email-accounts'
-    | '/dashboard/notifications'
+    | '/dashboard/continuums'
+    | '/dashboard/exchange'
+    | '/dashboard/schedule'
     | '/dashboard/settings'
+    | '/dashboard/trust'
     | '/onboarding/complete'
     | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
-    | '/admin'
     | '/dashboard'
     | '/onboarding'
     | '/dashboard/commitments/$commitmentId'
-    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
-    | '/dashboard/inbox/shared'
-    | '/dashboard/settings/notifications'
-    | '/dashboard/settings/organization'
-    | '/dashboard/settings/roles'
-    | '/dashboard/settings/shared-inbox'
-    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -626,54 +440,37 @@ export interface FileRouteTypes {
     | '/dashboard/contacts'
     | '/dashboard/decisions'
     | '/dashboard/graph'
-    | '/dashboard/inbox'
     | '/dashboard/patterns'
-    | '/dashboard/search'
+    | '/dashboard/reality-stream'
+    | '/dashboard/simulations'
     | '/dashboard/sources'
     | '/dashboard/tasks'
     | '/dashboard/team'
-    | '/dashboard/today'
-    | '/dashboard/email/thread/$threadId'
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/ai'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
     | '/success'
-    | '/verify-2fa'
-    | '/admin/audit'
-    | '/admin/identity-merge'
-    | '/admin/organizations'
-    | '/admin/users'
-    | '/admin/waitlist'
-    | '/dashboard/ai'
-    | '/dashboard/analytics'
-    | '/dashboard/billing'
-    | '/dashboard/calendar'
+    | '/dashboard/actuations'
+    | '/dashboard/builder'
     | '/dashboard/console'
-    | '/dashboard/email-accounts'
-    | '/dashboard/notifications'
+    | '/dashboard/continuums'
+    | '/dashboard/exchange'
+    | '/dashboard/schedule'
     | '/dashboard/settings'
+    | '/dashboard/trust'
     | '/onboarding/complete'
     | '/onboarding/connect-sources'
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
-    | '/admin/'
     | '/dashboard/'
     | '/onboarding/'
     | '/dashboard/commitments/$commitmentId'
-    | '/dashboard/contacts/$contactId'
     | '/dashboard/decisions/$decisionId'
-    | '/dashboard/inbox/shared'
-    | '/dashboard/settings/notifications'
-    | '/dashboard/settings/organization'
-    | '/dashboard/settings/roles'
-    | '/dashboard/settings/shared-inbox'
-    | '/dashboard/settings/teams'
     | '/dashboard/tasks/$taskId'
     | '/dashboard/team/invitations'
     | '/dashboard/team/members'
@@ -683,26 +480,22 @@ export interface FileRouteTypes {
     | '/dashboard/contacts/'
     | '/dashboard/decisions/'
     | '/dashboard/graph/'
-    | '/dashboard/inbox/'
     | '/dashboard/patterns/'
-    | '/dashboard/search/'
+    | '/dashboard/reality-stream/'
+    | '/dashboard/simulations/'
     | '/dashboard/sources/'
     | '/dashboard/tasks/'
     | '/dashboard/team/'
-    | '/dashboard/today/'
-    | '/dashboard/email/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   AiRoute: typeof AiRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SuccessRoute: typeof SuccessRoute
-  Verify2faRoute: typeof Verify2faRoute
   OnboardingCompleteRoute: typeof OnboardingCompleteRoute
   OnboardingConnectSourcesRoute: typeof OnboardingConnectSourcesRoute
   OnboardingCreateOrgRoute: typeof OnboardingCreateOrgRoute
@@ -712,13 +505,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/verify-2fa': {
-      id: '/verify-2fa'
-      path: '/verify-2fa'
-      fullPath: '/verify-2fa'
-      preLoaderRoute: typeof Verify2faRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/success': {
       id: '/success'
       path: '/success'
@@ -761,13 +547,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -788,13 +567,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
-    }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
     }
     '/onboarding/invite-team': {
       id: '/onboarding/invite-team'
@@ -824,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingCompleteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/trust': {
+      id: '/dashboard/trust'
+      path: '/trust'
+      fullPath: '/dashboard/trust'
+      preLoaderRoute: typeof DashboardTrustRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
@@ -831,18 +610,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/notifications': {
-      id: '/dashboard/notifications'
-      path: '/notifications'
-      fullPath: '/dashboard/notifications'
-      preLoaderRoute: typeof DashboardNotificationsRouteImport
+    '/dashboard/schedule': {
+      id: '/dashboard/schedule'
+      path: '/schedule'
+      fullPath: '/dashboard/schedule'
+      preLoaderRoute: typeof DashboardScheduleRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/email-accounts': {
-      id: '/dashboard/email-accounts'
-      path: '/email-accounts'
-      fullPath: '/dashboard/email-accounts'
-      preLoaderRoute: typeof DashboardEmailAccountsRouteImport
+    '/dashboard/exchange': {
+      id: '/dashboard/exchange'
+      path: '/exchange'
+      fullPath: '/dashboard/exchange'
+      preLoaderRoute: typeof DashboardExchangeRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/continuums': {
+      id: '/dashboard/continuums'
+      path: '/continuums'
+      fullPath: '/dashboard/continuums'
+      preLoaderRoute: typeof DashboardContinuumsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/console': {
@@ -852,74 +638,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardConsoleRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/calendar': {
-      id: '/dashboard/calendar'
-      path: '/calendar'
-      fullPath: '/dashboard/calendar'
-      preLoaderRoute: typeof DashboardCalendarRouteImport
+    '/dashboard/builder': {
+      id: '/dashboard/builder'
+      path: '/builder'
+      fullPath: '/dashboard/builder'
+      preLoaderRoute: typeof DashboardBuilderRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/billing': {
-      id: '/dashboard/billing'
-      path: '/billing'
-      fullPath: '/dashboard/billing'
-      preLoaderRoute: typeof DashboardBillingRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/analytics': {
-      id: '/dashboard/analytics'
-      path: '/analytics'
-      fullPath: '/dashboard/analytics'
-      preLoaderRoute: typeof DashboardAnalyticsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/ai': {
-      id: '/dashboard/ai'
-      path: '/ai'
-      fullPath: '/dashboard/ai'
-      preLoaderRoute: typeof DashboardAiRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/admin/waitlist': {
-      id: '/admin/waitlist'
-      path: '/waitlist'
-      fullPath: '/admin/waitlist'
-      preLoaderRoute: typeof AdminWaitlistRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/organizations': {
-      id: '/admin/organizations'
-      path: '/organizations'
-      fullPath: '/admin/organizations'
-      preLoaderRoute: typeof AdminOrganizationsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/identity-merge': {
-      id: '/admin/identity-merge'
-      path: '/identity-merge'
-      fullPath: '/admin/identity-merge'
-      preLoaderRoute: typeof AdminIdentityMergeRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/audit': {
-      id: '/admin/audit'
-      path: '/audit'
-      fullPath: '/admin/audit'
-      preLoaderRoute: typeof AdminAuditRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/dashboard/today/': {
-      id: '/dashboard/today/'
-      path: '/today'
-      fullPath: '/dashboard/today'
-      preLoaderRoute: typeof DashboardTodayIndexRouteImport
+    '/dashboard/actuations': {
+      id: '/dashboard/actuations'
+      path: '/actuations'
+      fullPath: '/dashboard/actuations'
+      preLoaderRoute: typeof DashboardActuationsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/team/': {
@@ -943,11 +673,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSourcesIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/search/': {
-      id: '/dashboard/search/'
-      path: '/search'
-      fullPath: '/dashboard/search'
-      preLoaderRoute: typeof DashboardSearchIndexRouteImport
+    '/dashboard/simulations/': {
+      id: '/dashboard/simulations/'
+      path: '/simulations'
+      fullPath: '/dashboard/simulations'
+      preLoaderRoute: typeof DashboardSimulationsIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/reality-stream/': {
+      id: '/dashboard/reality-stream/'
+      path: '/reality-stream'
+      fullPath: '/dashboard/reality-stream'
+      preLoaderRoute: typeof DashboardRealityStreamIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/patterns/': {
@@ -955,13 +692,6 @@ declare module '@tanstack/react-router' {
       path: '/patterns'
       fullPath: '/dashboard/patterns'
       preLoaderRoute: typeof DashboardPatternsIndexRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/inbox/': {
-      id: '/dashboard/inbox/'
-      path: '/inbox'
-      fullPath: '/dashboard/inbox'
-      preLoaderRoute: typeof DashboardInboxIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/graph/': {
@@ -1027,60 +757,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTasksTaskIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/settings/teams': {
-      id: '/dashboard/settings/teams'
-      path: '/teams'
-      fullPath: '/dashboard/settings/teams'
-      preLoaderRoute: typeof DashboardSettingsTeamsRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
-    '/dashboard/settings/shared-inbox': {
-      id: '/dashboard/settings/shared-inbox'
-      path: '/shared-inbox'
-      fullPath: '/dashboard/settings/shared-inbox'
-      preLoaderRoute: typeof DashboardSettingsSharedInboxRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
-    '/dashboard/settings/roles': {
-      id: '/dashboard/settings/roles'
-      path: '/roles'
-      fullPath: '/dashboard/settings/roles'
-      preLoaderRoute: typeof DashboardSettingsRolesRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
-    '/dashboard/settings/organization': {
-      id: '/dashboard/settings/organization'
-      path: '/organization'
-      fullPath: '/dashboard/settings/organization'
-      preLoaderRoute: typeof DashboardSettingsOrganizationRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
-    '/dashboard/settings/notifications': {
-      id: '/dashboard/settings/notifications'
-      path: '/notifications'
-      fullPath: '/dashboard/settings/notifications'
-      preLoaderRoute: typeof DashboardSettingsNotificationsRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
-    '/dashboard/inbox/shared': {
-      id: '/dashboard/inbox/shared'
-      path: '/inbox/shared'
-      fullPath: '/dashboard/inbox/shared'
-      preLoaderRoute: typeof DashboardInboxSharedRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/dashboard/decisions/$decisionId': {
       id: '/dashboard/decisions/$decisionId'
       path: '/decisions/$decisionId'
       fullPath: '/dashboard/decisions/$decisionId'
       preLoaderRoute: typeof DashboardDecisionsDecisionIdRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/contacts/$contactId': {
-      id: '/dashboard/contacts/$contactId'
-      path: '/contacts/$contactId'
-      fullPath: '/dashboard/contacts/$contactId'
-      preLoaderRoute: typeof DashboardContactsContactIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/commitments/$commitmentId': {
@@ -1090,71 +771,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCommitmentsCommitmentIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/email/thread/$threadId': {
-      id: '/dashboard/email/thread/$threadId'
-      path: '/email/thread/$threadId'
-      fullPath: '/dashboard/email/thread/$threadId'
-      preLoaderRoute: typeof DashboardEmailThreadThreadIdRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
   }
 }
 
-interface AdminRouteRouteChildren {
-  AdminAuditRoute: typeof AdminAuditRoute
-  AdminIdentityMergeRoute: typeof AdminIdentityMergeRoute
-  AdminOrganizationsRoute: typeof AdminOrganizationsRoute
-  AdminUsersRoute: typeof AdminUsersRoute
-  AdminWaitlistRoute: typeof AdminWaitlistRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-}
-
-const AdminRouteRouteChildren: AdminRouteRouteChildren = {
-  AdminAuditRoute: AdminAuditRoute,
-  AdminIdentityMergeRoute: AdminIdentityMergeRoute,
-  AdminOrganizationsRoute: AdminOrganizationsRoute,
-  AdminUsersRoute: AdminUsersRoute,
-  AdminWaitlistRoute: AdminWaitlistRoute,
-  AdminIndexRoute: AdminIndexRoute,
-}
-
-const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
-  AdminRouteRouteChildren,
-)
-
-interface DashboardSettingsRouteChildren {
-  DashboardSettingsNotificationsRoute: typeof DashboardSettingsNotificationsRoute
-  DashboardSettingsOrganizationRoute: typeof DashboardSettingsOrganizationRoute
-  DashboardSettingsRolesRoute: typeof DashboardSettingsRolesRoute
-  DashboardSettingsSharedInboxRoute: typeof DashboardSettingsSharedInboxRoute
-  DashboardSettingsTeamsRoute: typeof DashboardSettingsTeamsRoute
-}
-
-const DashboardSettingsRouteChildren: DashboardSettingsRouteChildren = {
-  DashboardSettingsNotificationsRoute: DashboardSettingsNotificationsRoute,
-  DashboardSettingsOrganizationRoute: DashboardSettingsOrganizationRoute,
-  DashboardSettingsRolesRoute: DashboardSettingsRolesRoute,
-  DashboardSettingsSharedInboxRoute: DashboardSettingsSharedInboxRoute,
-  DashboardSettingsTeamsRoute: DashboardSettingsTeamsRoute,
-}
-
-const DashboardSettingsRouteWithChildren =
-  DashboardSettingsRoute._addFileChildren(DashboardSettingsRouteChildren)
-
 interface DashboardRouteRouteChildren {
-  DashboardAiRoute: typeof DashboardAiRoute
-  DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
-  DashboardBillingRoute: typeof DashboardBillingRoute
-  DashboardCalendarRoute: typeof DashboardCalendarRoute
+  DashboardActuationsRoute: typeof DashboardActuationsRoute
+  DashboardBuilderRoute: typeof DashboardBuilderRoute
   DashboardConsoleRoute: typeof DashboardConsoleRoute
-  DashboardEmailAccountsRoute: typeof DashboardEmailAccountsRoute
-  DashboardNotificationsRoute: typeof DashboardNotificationsRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
+  DashboardContinuumsRoute: typeof DashboardContinuumsRoute
+  DashboardExchangeRoute: typeof DashboardExchangeRoute
+  DashboardScheduleRoute: typeof DashboardScheduleRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardTrustRoute: typeof DashboardTrustRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardCommitmentsCommitmentIdRoute: typeof DashboardCommitmentsCommitmentIdRoute
-  DashboardContactsContactIdRoute: typeof DashboardContactsContactIdRoute
   DashboardDecisionsDecisionIdRoute: typeof DashboardDecisionsDecisionIdRoute
-  DashboardInboxSharedRoute: typeof DashboardInboxSharedRoute
   DashboardTasksTaskIdRoute: typeof DashboardTasksTaskIdRoute
   DashboardTeamInvitationsRoute: typeof DashboardTeamInvitationsRoute
   DashboardTeamMembersRoute: typeof DashboardTeamMembersRoute
@@ -1164,30 +795,26 @@ interface DashboardRouteRouteChildren {
   DashboardContactsIndexRoute: typeof DashboardContactsIndexRoute
   DashboardDecisionsIndexRoute: typeof DashboardDecisionsIndexRoute
   DashboardGraphIndexRoute: typeof DashboardGraphIndexRoute
-  DashboardInboxIndexRoute: typeof DashboardInboxIndexRoute
   DashboardPatternsIndexRoute: typeof DashboardPatternsIndexRoute
-  DashboardSearchIndexRoute: typeof DashboardSearchIndexRoute
+  DashboardRealityStreamIndexRoute: typeof DashboardRealityStreamIndexRoute
+  DashboardSimulationsIndexRoute: typeof DashboardSimulationsIndexRoute
   DashboardSourcesIndexRoute: typeof DashboardSourcesIndexRoute
   DashboardTasksIndexRoute: typeof DashboardTasksIndexRoute
   DashboardTeamIndexRoute: typeof DashboardTeamIndexRoute
-  DashboardTodayIndexRoute: typeof DashboardTodayIndexRoute
-  DashboardEmailThreadThreadIdRoute: typeof DashboardEmailThreadThreadIdRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
-  DashboardAiRoute: DashboardAiRoute,
-  DashboardAnalyticsRoute: DashboardAnalyticsRoute,
-  DashboardBillingRoute: DashboardBillingRoute,
-  DashboardCalendarRoute: DashboardCalendarRoute,
+  DashboardActuationsRoute: DashboardActuationsRoute,
+  DashboardBuilderRoute: DashboardBuilderRoute,
   DashboardConsoleRoute: DashboardConsoleRoute,
-  DashboardEmailAccountsRoute: DashboardEmailAccountsRoute,
-  DashboardNotificationsRoute: DashboardNotificationsRoute,
-  DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
+  DashboardContinuumsRoute: DashboardContinuumsRoute,
+  DashboardExchangeRoute: DashboardExchangeRoute,
+  DashboardScheduleRoute: DashboardScheduleRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardTrustRoute: DashboardTrustRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardCommitmentsCommitmentIdRoute: DashboardCommitmentsCommitmentIdRoute,
-  DashboardContactsContactIdRoute: DashboardContactsContactIdRoute,
   DashboardDecisionsDecisionIdRoute: DashboardDecisionsDecisionIdRoute,
-  DashboardInboxSharedRoute: DashboardInboxSharedRoute,
   DashboardTasksTaskIdRoute: DashboardTasksTaskIdRoute,
   DashboardTeamInvitationsRoute: DashboardTeamInvitationsRoute,
   DashboardTeamMembersRoute: DashboardTeamMembersRoute,
@@ -1197,14 +824,12 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardContactsIndexRoute: DashboardContactsIndexRoute,
   DashboardDecisionsIndexRoute: DashboardDecisionsIndexRoute,
   DashboardGraphIndexRoute: DashboardGraphIndexRoute,
-  DashboardInboxIndexRoute: DashboardInboxIndexRoute,
   DashboardPatternsIndexRoute: DashboardPatternsIndexRoute,
-  DashboardSearchIndexRoute: DashboardSearchIndexRoute,
+  DashboardRealityStreamIndexRoute: DashboardRealityStreamIndexRoute,
+  DashboardSimulationsIndexRoute: DashboardSimulationsIndexRoute,
   DashboardSourcesIndexRoute: DashboardSourcesIndexRoute,
   DashboardTasksIndexRoute: DashboardTasksIndexRoute,
   DashboardTeamIndexRoute: DashboardTeamIndexRoute,
-  DashboardTodayIndexRoute: DashboardTodayIndexRoute,
-  DashboardEmailThreadThreadIdRoute: DashboardEmailThreadThreadIdRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
@@ -1213,14 +838,12 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRouteRoute: AdminRouteRouteWithChildren,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
   AiRoute: AiRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SuccessRoute: SuccessRoute,
-  Verify2faRoute: Verify2faRoute,
   OnboardingCompleteRoute: OnboardingCompleteRoute,
   OnboardingConnectSourcesRoute: OnboardingConnectSourcesRoute,
   OnboardingCreateOrgRoute: OnboardingCreateOrgRoute,

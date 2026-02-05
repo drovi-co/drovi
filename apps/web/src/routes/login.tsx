@@ -54,7 +54,6 @@ function LoginPage() {
     <AuthLayout description={getDescription()} title={getTitle()}>
       {view === "sign-in" && (
         <SignInForm
-          onSwitchToMagicLink={() => {}}
           onSwitchToSignUp={() => setView("sign-up")}
         />
       )}

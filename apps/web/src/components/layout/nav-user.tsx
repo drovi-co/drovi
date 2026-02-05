@@ -59,8 +59,10 @@ export function NavUser() {
     return null;
   }
 
-  const initials = user.name
-    ?.split(" ")
+  const displayName =
+    user.name ?? user.email?.split("@")[0]?.replace(/\./g, " ") ?? "User";
+  const initials = displayName
+    .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
@@ -76,13 +78,13 @@ export function NavUser() {
               size="lg"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage alt={user.name} src={user.image ?? undefined} />
+                <AvatarImage alt={displayName} src={user.image ?? undefined} />
                 <AvatarFallback className="rounded-lg">
                   {initials ?? "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.name}</span>
+                <span className="truncate font-semibold">{displayName}</span>
                 <span className="truncate text-muted-foreground text-xs">
                   {user.email}
                 </span>
@@ -99,13 +101,13 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage alt={user.name} src={user.image ?? undefined} />
+                  <AvatarImage alt={displayName} src={user.image ?? undefined} />
                   <AvatarFallback className="rounded-lg">
                     {initials ?? "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
+                  <span className="truncate font-semibold">{displayName}</span>
                   <span className="truncate text-muted-foreground text-xs">
                     {user.email}
                   </span>
@@ -115,7 +117,7 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => navigate({ to: "/dashboard/billing" })}
+                onClick={() => navigate({ to: "/dashboard/actuations" })}
               >
                 <Sparkles className="mr-2 size-4" />
                 Upgrade to Pro
@@ -130,14 +132,16 @@ export function NavUser() {
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => navigate({ to: "/dashboard/billing" })}
+                onClick={() => navigate({ to: "/dashboard/actuations" })}
               >
                 <CreditCard className="mr-2 size-4" />
-                Billing
+                Actuations
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate({ to: "/dashboard/trust" })}
+              >
                 <Bell className="mr-2 size-4" />
-                Notifications
+                Trust & Audit
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => navigate({ to: "/dashboard/settings" })}

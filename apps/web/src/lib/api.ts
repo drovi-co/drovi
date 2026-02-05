@@ -23,10 +23,37 @@ export interface OrgInfo {
   status: string;
   region: string | null;
   allowed_domains: string[];
+  notification_emails: string[] | null;
   expires_at: string | null;
   created_at: string | null;
   member_count: number;
   connection_count: number;
+}
+
+export interface OrgMember {
+  id: string;
+  role: string;
+  name: string | null;
+  email: string;
+  created_at: string | null;
+}
+
+export interface OrgInvite {
+  token: string;
+  org_id: string;
+  role: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string | null;
+  email?: string | null;
+}
+
+export interface OrgExportResponse {
+  export_job_id: string;
+  status: "processing" | "completed" | "failed";
+  progress: number;
+  download_url: string | null;
+  expires_at: string;
 }
 
 export interface Connection {
@@ -39,6 +66,18 @@ export interface Connection {
   last_sync_at: string | null;
   sync_enabled: boolean;
   streams: string[];
+}
+
+export interface ConnectorCapabilities {
+  supports_incremental: boolean;
+  supports_full_refresh: boolean;
+  supports_webhooks: boolean;
+  supports_real_time: boolean;
+}
+
+export interface AvailableConnector {
+  type: string;
+  capabilities: ConnectorCapabilities;
 }
 
 // =============================================================================
@@ -378,6 +417,31 @@ export interface OAuthInitResponse {
   state: string;
 }
 
+export interface EmailAuthResponse {
+  user: {
+    id: string;
+    email: string;
+    name?: string | null;
+    role?: string | null;
+    created_at?: string | null;
+  };
+  session_token: string;
+  organization?: {
+    id: string;
+    name: string;
+    status?: string;
+    region?: string | null;
+    created_at?: string | null;
+  } | null;
+  organizations?: Array<{
+    id: string;
+    name: string;
+    status?: string;
+    region?: string | null;
+    created_at?: string | null;
+  }> | null;
+}
+
 // API Error class
 export class APIError extends Error {
   constructor(
@@ -441,11 +505,40 @@ async function apiFetch<T>(
 
 export const authAPI = {
   /**
-   * Initiate OAuth login flow
-   * Returns URL to redirect user to for authentication
+   * Login with email and password.
+   * Sets a session cookie on success.
    */
-  async login(provider = "google"): Promise<LoginResponse> {
-    return apiFetch<LoginResponse>(`/auth/login?provider=${provider}`);
+  async loginWithEmail(params: { email: string; password: string }): Promise<EmailAuthResponse> {
+    return apiFetch<EmailAuthResponse>("/auth/login/email", {
+      method: "POST",
+      body: JSON.stringify({
+        email: params.email,
+        password: params.password,
+      }),
+    });
+  },
+
+  /**
+   * Sign up with email and password.
+   * Creates an organization when no invite token is provided.
+   */
+  async signupWithEmail(params: {
+    email: string;
+    password: string;
+    name?: string;
+    organizationName?: string;
+    inviteToken?: string;
+  }): Promise<EmailAuthResponse> {
+    return apiFetch<EmailAuthResponse>("/auth/signup/email", {
+      method: "POST",
+      body: JSON.stringify({
+        email: params.email,
+        password: params.password,
+        name: params.name ?? null,
+        organization_name: params.organizationName ?? null,
+        invite_token: params.inviteToken ?? null,
+      }),
+    });
   },
 
   /**
@@ -476,6 +569,16 @@ export const authAPI = {
 // =============================================================================
 
 export const connectionsAPI = {
+  /**
+   * List available connector types
+   */
+  async listConnectors(): Promise<AvailableConnector[]> {
+    const response = await apiFetch<{ connectors: AvailableConnector[] }>(
+      "/connections/connectors"
+    );
+    return response.connectors || [];
+  },
+
   /**
    * List all connections for the organization
    */
@@ -1019,6 +1122,12 @@ export interface SyncTriggerResponse {
   message: string;
 }
 
+export interface BackfillResponse {
+  connection_id: string;
+  backfill_jobs: string[];
+  status: string;
+}
+
 export const orgAPI = {
   /**
    * List all connections for the authenticated org
@@ -1040,6 +1149,7 @@ export const orgAPI = {
     options?: {
       restrictedLabels?: string[];
       restrictedChannels?: string[];
+      returnTo?: string;
     }
   ): Promise<ConnectResponse> {
     const redirectUri = `${API_BASE}/api/v1/auth/callback`;
@@ -1051,6 +1161,7 @@ export const orgAPI = {
           redirect_uri: redirectUri,
           restricted_labels: options?.restrictedLabels || [],
           restricted_channels: options?.restrictedChannels || [],
+          return_to: options?.returnTo || null,
         }),
       }
     );
@@ -1075,6 +1186,29 @@ export const orgAPI = {
     );
   },
 
+  async triggerBackfill(params: {
+    connectionId: string;
+    startDate: string;
+    endDate?: string;
+    windowDays?: number;
+    streams?: string[];
+    throttleSeconds?: number;
+  }): Promise<BackfillResponse> {
+    return apiFetch<BackfillResponse>(
+      `/org/connections/${params.connectionId}/backfill`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          start_date: params.startDate,
+          end_date: params.endDate ?? null,
+          window_days: params.windowDays ?? 7,
+          streams: params.streams ?? [],
+          throttle_seconds: params.throttleSeconds ?? 1.0,
+        }),
+      }
+    );
+  },
+
   /**
    * Delete a connection
    */
@@ -1090,6 +1224,84 @@ export const orgAPI = {
   async getOrgInfo(): Promise<OrgInfo> {
     return apiFetch<OrgInfo>("/org/info");
   },
+
+  async updateOrgInfo(params: {
+    name?: string;
+    allowedDomains?: string[];
+    notificationEmails?: string[];
+    region?: string;
+  }): Promise<OrgInfo> {
+    return apiFetch<OrgInfo>("/org/info", {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: params.name ?? null,
+        allowed_domains: params.allowedDomains ?? null,
+        notification_emails: params.notificationEmails ?? null,
+        region: params.region ?? null,
+      }),
+    });
+  },
+
+  async listMembers(): Promise<OrgMember[]> {
+    const response = await apiFetch<{ members: OrgMember[] }>("/org/members");
+    return response.members || [];
+  },
+
+  async updateMemberRole(params: { userId: string; role: string }) {
+    return apiFetch<{ updated: boolean }>(`/org/members/${params.userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role: params.role }),
+    });
+  },
+
+  async removeMember(userId: string) {
+    return apiFetch<{ removed: boolean }>(`/org/members/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async listInvites(): Promise<OrgInvite[]> {
+    const response = await apiFetch<{ invites: OrgInvite[] }>("/org/invites");
+    return response.invites || [];
+  },
+
+  async createInvite(params: {
+    role?: "pilot_admin" | "pilot_member";
+    expiresInDays?: number;
+    email?: string;
+  }): Promise<OrgInvite> {
+    return apiFetch<OrgInvite>("/org/invites", {
+      method: "POST",
+      body: JSON.stringify({
+        role: params.role ?? "pilot_member",
+        expires_in_days: params.expiresInDays ?? 7,
+        email: params.email ?? null,
+      }),
+    });
+  },
+
+  async revokeInvite(token: string) {
+    return apiFetch<{ revoked: boolean }>(`/org/invites/${token}`, {
+      method: "DELETE",
+    });
+  },
+
+  async exportData(params: {
+    format?: "json" | "csv" | "neo4j";
+    include?: string[];
+  }): Promise<OrgExportResponse> {
+    return apiFetch<OrgExportResponse>("/org/export", {
+      method: "POST",
+      body: JSON.stringify({
+        format: params.format ?? "json",
+        include: params.include ?? ["uios", "evidence", "graph", "connections"],
+      }),
+    });
+  },
+
+  async getExportStatus(jobId: string): Promise<OrgExportResponse> {
+    return apiFetch<OrgExportResponse>(`/org/export/${jobId}`);
+  },
 };
 
 // =============================================================================
@@ -1099,9 +1311,14 @@ export const orgAPI = {
 export interface SyncEvent {
   event_type: "started" | "progress" | "completed" | "failed";
   connection_id: string;
+  connector_type?: string;
+  job_id?: string | null;
   records_synced?: number;
   total_records?: number;
+  progress?: number | null;
+  status?: string;
   error?: string;
+  timestamp?: string;
 }
 
 export const orgSSE = {
@@ -1549,6 +1766,885 @@ export const contactsAPI = {
 };
 
 // =============================================================================
+// CUSTOMER CONTEXT API
+// =============================================================================
+
+export interface CustomerCommitment {
+  id: string;
+  title: string;
+  status: string;
+  priority: string | null;
+  direction: string;
+  dueDate: string | null;
+  confidence: number;
+}
+
+export interface CustomerDecision {
+  id: string;
+  title: string;
+  statement: string | null;
+  status: string;
+  decidedAt: string | null;
+}
+
+export interface CustomerContact {
+  id: string;
+  email: string | null;
+  name: string | null;
+  company: string | null;
+  title: string | null;
+  interactionCount: number;
+}
+
+export interface CustomerTimelineEvent {
+  id: string;
+  eventType: string;
+  title: string;
+  summary: string | null;
+  sourceType: string | null;
+  timestamp: string | null;
+  participants: string[];
+}
+
+export interface CustomerContext {
+  contactId: string;
+  email: string | null;
+  name: string | null;
+  company: string | null;
+  title: string | null;
+  interactionCount: number;
+  lastInteraction: string | null;
+  relationshipHealth: number;
+  sourceTypes: string[];
+  openCommitments: CustomerCommitment[];
+  relatedDecisions: CustomerDecision[];
+  topContacts: CustomerContact[];
+  topTopics: string[];
+  timeline: CustomerTimelineEvent[];
+  relationshipSummary: string | null;
+}
+
+export interface CustomerTimeline {
+  contactId: string;
+  events: CustomerTimelineEvent[];
+  total: number;
+}
+
+export interface RelationshipHealth {
+  contactId: string;
+  healthScore: number;
+  factors: Record<string, unknown>;
+}
+
+function transformCustomerCommitment(raw: Record<string, unknown>): CustomerCommitment {
+  return {
+    id: raw.id as string,
+    title: (raw.title as string) ?? "Untitled",
+    status: (raw.status as string) ?? "open",
+    priority: (raw.priority as string | null) ?? null,
+    direction: (raw.direction as string) ?? "unknown",
+    dueDate: (raw.due_date as string | null) ?? null,
+    confidence: (raw.confidence as number) ?? 0,
+  };
+}
+
+function transformCustomerDecision(raw: Record<string, unknown>): CustomerDecision {
+  return {
+    id: raw.id as string,
+    title: (raw.title as string) ?? "Untitled",
+    statement: (raw.statement as string | null) ?? null,
+    status: (raw.status as string) ?? "active",
+    decidedAt: (raw.decided_at as string | null) ?? null,
+  };
+}
+
+function transformCustomerContact(raw: Record<string, unknown>): CustomerContact {
+  return {
+    id: raw.id as string,
+    email: (raw.email as string | null) ?? null,
+    name: (raw.name as string | null) ?? null,
+    company: (raw.company as string | null) ?? null,
+    title: (raw.title as string | null) ?? null,
+    interactionCount: (raw.interaction_count as number) ?? 0,
+  };
+}
+
+function transformCustomerTimelineEvent(raw: Record<string, unknown>): CustomerTimelineEvent {
+  return {
+    id: raw.id as string,
+    eventType: (raw.event_type as string) ?? "event",
+    title: (raw.title as string) ?? "Event",
+    summary: (raw.summary as string | null) ?? null,
+    sourceType: (raw.source_type as string | null) ?? null,
+    timestamp: (raw.reference_time as string | null) ?? null,
+    participants: (raw.participants as string[] | null) ?? [],
+  };
+}
+
+function transformCustomerContext(raw: Record<string, unknown>): CustomerContext {
+  return {
+    contactId: raw.contact_id as string,
+    email: (raw.email as string | null) ?? null,
+    name: (raw.name as string | null) ?? null,
+    company: (raw.company as string | null) ?? null,
+    title: (raw.title as string | null) ?? null,
+    interactionCount: (raw.interaction_count as number) ?? 0,
+    lastInteraction: (raw.last_interaction as string | null) ?? null,
+    relationshipHealth: (raw.relationship_health as number) ?? 1,
+    sourceTypes: (raw.source_types as string[] | null) ?? [],
+    openCommitments: (raw.open_commitments as Record<string, unknown>[] | null)
+      ? (raw.open_commitments as Record<string, unknown>[]).map(transformCustomerCommitment)
+      : [],
+    relatedDecisions: (raw.related_decisions as Record<string, unknown>[] | null)
+      ? (raw.related_decisions as Record<string, unknown>[]).map(transformCustomerDecision)
+      : [],
+    topContacts: (raw.top_contacts as Record<string, unknown>[] | null)
+      ? (raw.top_contacts as Record<string, unknown>[]).map(transformCustomerContact)
+      : [],
+    topTopics: (raw.top_topics as string[] | null) ?? [],
+    timeline: (raw.timeline as Record<string, unknown>[] | null)
+      ? (raw.timeline as Record<string, unknown>[]).map(transformCustomerTimelineEvent)
+      : [],
+    relationshipSummary: (raw.relationship_summary as string | null) ?? null,
+  };
+}
+
+export const customerAPI = {
+  async getContext(params: {
+    organizationId: string;
+    contactId?: string;
+    email?: string;
+    includeTimeline?: boolean;
+    maxTimelineItems?: number;
+  }): Promise<CustomerContext> {
+    const raw = await apiFetch<Record<string, unknown>>("/customer/context", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        contact_id: params.contactId ?? null,
+        email: params.email ?? null,
+        include_timeline: params.includeTimeline ?? true,
+        max_timeline_items: params.maxTimelineItems ?? 50,
+      }),
+    });
+    return transformCustomerContext(raw);
+  },
+
+  async getTimeline(params: {
+    organizationId: string;
+    contactId: string;
+    limit?: number;
+  }): Promise<CustomerTimeline> {
+    const raw = await apiFetch<{ contact_id: string; events: Record<string, unknown>[]; total: number }>(
+      `/customer/timeline/${params.contactId}?organization_id=${params.organizationId}&limit=${params.limit ?? 50}`
+    );
+    return {
+      contactId: raw.contact_id,
+      events: raw.events.map(transformCustomerTimelineEvent),
+      total: raw.total,
+    };
+  },
+
+  async getRelationshipHealth(params: {
+    organizationId: string;
+    contactId: string;
+  }): Promise<RelationshipHealth> {
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/customer/health/${params.contactId}?organization_id=${params.organizationId}`
+    );
+    return {
+      contactId: raw.contact_id as string,
+      healthScore: (raw.health_score as number) ?? 0,
+      factors: (raw.factors as Record<string, unknown> | null) ?? {},
+    };
+  },
+};
+
+// =============================================================================
+// CONTINUUMS API
+// =============================================================================
+
+export interface ContinuumSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  currentVersion: number | null;
+  activeVersion: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  nextRunAt: string | null;
+}
+
+export interface ContinuumRun {
+  id: string;
+  status: string;
+  version: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface ContinuumCreateResponse {
+  id: string;
+  version: number;
+  status: string;
+  next_run_at: string | null;
+}
+
+export interface ContinuumPreview {
+  continuum_id: string;
+  name: string;
+  goal: string;
+  schedule: Record<string, unknown>;
+  expected_actions: string[];
+  proof_requirements: Record<string, unknown>[];
+  risk_snapshot: {
+    open_commitments: number;
+    overdue_commitments: number;
+    at_risk_commitments: number;
+    risk_score: number;
+    risk_outlook: string;
+  };
+}
+
+function transformContinuumSummary(raw: Record<string, unknown>): ContinuumSummary {
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    description: (raw.description as string | null) ?? null,
+    status: raw.status as string,
+    currentVersion: (raw.current_version as number | null) ?? null,
+    activeVersion: (raw.active_version as number | null) ?? null,
+    createdAt: (raw.created_at as string | null) ?? null,
+    updatedAt: (raw.updated_at as string | null) ?? null,
+    nextRunAt: (raw.next_run_at as string | null) ?? null,
+  };
+}
+
+function transformContinuumRun(raw: Record<string, unknown>): ContinuumRun {
+  return {
+    id: raw.id as string,
+    status: raw.status as string,
+    version: (raw.version as number) ?? 0,
+    startedAt: (raw.started_at as string | null) ?? null,
+    completedAt: (raw.completed_at as string | null) ?? null,
+    errorMessage: (raw.error_message as string | null) ?? null,
+  };
+}
+
+export const continuumsAPI = {
+  async list(organizationId: string): Promise<ContinuumSummary[]> {
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/continuums?organization_id=${organizationId}`
+    );
+    return raw.map(transformContinuumSummary);
+  },
+
+  async create(params: {
+    organizationId: string;
+    definition: Record<string, unknown>;
+    activate?: boolean;
+    createdBy?: string;
+  }): Promise<ContinuumCreateResponse> {
+    return apiFetch<ContinuumCreateResponse>("/continuums", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        definition: params.definition,
+        activate: params.activate ?? false,
+        created_by: params.createdBy ?? null,
+      }),
+    });
+  },
+
+  async addVersion(params: {
+    continuumId: string;
+    organizationId: string;
+    definition: Record<string, unknown>;
+    activate?: boolean;
+    createdBy?: string;
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuums/${params.continuumId}/versions`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          definition: params.definition,
+          activate: params.activate ?? false,
+          created_by: params.createdBy ?? null,
+        }),
+      }
+    );
+  },
+
+  async activate(params: { continuumId: string; organizationId: string }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuums/${params.continuumId}/activate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ organization_id: params.organizationId }),
+      }
+    );
+  },
+
+  async pause(params: { continuumId: string; organizationId: string }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuums/${params.continuumId}/pause`,
+      {
+        method: "POST",
+        body: JSON.stringify({ organization_id: params.organizationId }),
+      }
+    );
+  },
+
+  async run(params: {
+    continuumId: string;
+    organizationId: string;
+    triggeredBy?: string;
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuums/${params.continuumId}/run`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          triggered_by: params.triggeredBy ?? "manual",
+        }),
+      }
+    );
+  },
+
+  async rollback(params: {
+    continuumId: string;
+    organizationId: string;
+    targetVersion?: number;
+    triggeredBy?: string;
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuums/${params.continuumId}/rollback`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          target_version: params.targetVersion ?? null,
+          triggered_by: params.triggeredBy ?? null,
+        }),
+      }
+    );
+  },
+
+  async preview(params: {
+    continuumId: string;
+    organizationId: string;
+    horizonDays?: number;
+  }): Promise<ContinuumPreview> {
+    return apiFetch<ContinuumPreview>(
+      `/continuums/${params.continuumId}/preview`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          horizon_days: params.horizonDays ?? 30,
+        }),
+      }
+    );
+  },
+
+  async getRuns(params: { continuumId: string; organizationId: string }): Promise<ContinuumRun[]> {
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/continuums/${params.continuumId}/runs?organization_id=${params.organizationId}`
+    );
+    return raw.map(transformContinuumRun);
+  },
+};
+
+// =============================================================================
+// CONTINUUM EXCHANGE API
+// =============================================================================
+
+export interface ContinuumBundle {
+  id: string;
+  name: string;
+  description: string | null;
+  organizationId: string;
+  visibility: string;
+  governanceStatus: string;
+  priceCents: number | null;
+  currency: string | null;
+  billingModel: string | null;
+  version: string;
+  manifest: Record<string, unknown>;
+  signature: string;
+}
+
+function transformBundle(raw: Record<string, unknown>): ContinuumBundle {
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    description: (raw.description as string | null) ?? null,
+    organizationId: raw.organization_id as string,
+    visibility: raw.visibility as string,
+    governanceStatus: raw.governance_status as string,
+    priceCents: (raw.price_cents as number | null) ?? null,
+    currency: (raw.currency as string | null) ?? null,
+    billingModel: (raw.billing_model as string | null) ?? null,
+    version: raw.version as string,
+    manifest: (raw.manifest as Record<string, unknown>) ?? {},
+    signature: raw.signature as string,
+  };
+}
+
+export const continuumExchangeAPI = {
+  async list(params: {
+    organizationId: string;
+    visibility?: string;
+    governanceStatus?: string;
+  }): Promise<ContinuumBundle[]> {
+    const search = new URLSearchParams({
+      organization_id: params.organizationId,
+    });
+    if (params.visibility) {
+      search.set("visibility", params.visibility);
+    }
+    if (params.governanceStatus) {
+      search.set("governance_status", params.governanceStatus);
+    }
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/continuum-exchange/bundles?${search.toString()}`
+    );
+    return raw.map(transformBundle);
+  },
+
+  async publish(params: {
+    organizationId: string;
+    manifest: Record<string, unknown>;
+    signature?: string | null;
+    createdBy?: string | null;
+    visibility?: "private" | "public" | "curated";
+    governanceStatus?: "pending" | "approved" | "rejected";
+    priceCents?: number | null;
+    currency?: string | null;
+    billingModel?: "one_time" | "subscription" | "usage" | null;
+  }) {
+    return apiFetch<{ bundle_id: string; version: string; signature: string }>(
+      "/continuum-exchange/bundles/publish",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          manifest: params.manifest,
+          signature: params.signature ?? null,
+          created_by: params.createdBy ?? null,
+          visibility: params.visibility ?? "private",
+          governance_status: params.governanceStatus ?? "pending",
+          price_cents: params.priceCents ?? null,
+          currency: params.currency ?? null,
+          billing_model: params.billingModel ?? null,
+        }),
+      }
+    );
+  },
+
+  async install(params: {
+    organizationId: string;
+    bundleId: string;
+    version?: string | null;
+    installedBy?: string | null;
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuum-exchange/bundles/${params.bundleId}/install`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          version: params.version ?? null,
+          installed_by: params.installedBy ?? null,
+        }),
+      }
+    );
+  },
+
+  async updateGovernance(params: {
+    organizationId: string;
+    bundleId: string;
+    governanceStatus: "pending" | "approved" | "rejected";
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/continuum-exchange/bundles/${params.bundleId}/governance`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          governance_status: params.governanceStatus,
+        }),
+      }
+    );
+  },
+};
+
+// =============================================================================
+// SIMULATION API
+// =============================================================================
+
+export interface SimulationOverridePayload {
+  commitment_delays?: Record<string, number>;
+  commitment_cancellations?: string[];
+}
+
+export interface SimulationSnapshot {
+  open_commitments: number;
+  overdue_commitments: number;
+  at_risk_commitments: number;
+  risk_score: number;
+  risk_outlook: string;
+}
+
+export interface SimulationSensitivity {
+  commitment_id: string;
+  change_type: "delay" | "cancel";
+  delta_risk_score: number;
+  delta_overdue: number;
+}
+
+export interface SimulationResult {
+  simulation_id: string;
+  scenario_name: string;
+  baseline: SimulationSnapshot;
+  simulated: SimulationSnapshot;
+  delta: Record<string, unknown>;
+  sensitivity: SimulationSensitivity[];
+  narrative: string;
+}
+
+export const simulationsAPI = {
+  async run(params: {
+    organizationId: string;
+    scenarioName?: string;
+    horizonDays?: number;
+    overrides?: SimulationOverridePayload;
+  }): Promise<SimulationResult> {
+    return apiFetch<SimulationResult>("/simulations/run", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        scenario_name: params.scenarioName ?? "what_if",
+        horizon_days: params.horizonDays ?? 30,
+        overrides: params.overrides ?? {},
+      }),
+    });
+  },
+
+  async history(params: { organizationId: string; limit?: number }) {
+    const search = new URLSearchParams({
+      organization_id: params.organizationId,
+      limit: String(params.limit ?? 50),
+    });
+    return apiFetch<Record<string, unknown>[]>(`/simulations/history?${search.toString()}`);
+  },
+};
+
+// =============================================================================
+// ACTUATIONS API
+// =============================================================================
+
+export interface ActuationRecordSummary {
+  id: string;
+  driver: string;
+  actionType: string;
+  tier: string;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+function transformActuationSummary(raw: Record<string, unknown>): ActuationRecordSummary {
+  return {
+    id: raw.id as string,
+    driver: raw.driver as string,
+    actionType: raw.action_type as string,
+    tier: raw.tier as string,
+    status: raw.status as string,
+    createdAt: (raw.created_at as string | null) ?? null,
+    updatedAt: (raw.updated_at as string | null) ?? null,
+  };
+}
+
+export const actuationsAPI = {
+  async listDrivers(): Promise<string[]> {
+    const raw = await apiFetch<{ drivers: string[] }>("/actuations/drivers");
+    return raw.drivers;
+  },
+
+  async list(organizationId: string): Promise<ActuationRecordSummary[]> {
+    const raw = await apiFetch<Record<string, unknown>[]>(
+      `/actuations?organization_id=${organizationId}`
+    );
+    return raw.map(transformActuationSummary);
+  },
+
+  async run(params: {
+    organizationId: string;
+    driver: string;
+    action: string;
+    payload?: Record<string, unknown>;
+    tier?: string;
+    policyContext?: Record<string, unknown>;
+    actorId?: string | null;
+    approvalBy?: string | null;
+    approvalReason?: string | null;
+    mode?: "draft" | "stage" | "execute";
+    actionId?: string | null;
+    forceExecute?: boolean;
+  }) {
+    return apiFetch<Record<string, unknown>>("/actuations", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        driver: params.driver,
+        action: params.action,
+        payload: params.payload ?? {},
+        tier: params.tier ?? null,
+        policy_context: params.policyContext ?? null,
+        actor_id: params.actorId ?? null,
+        approval_by: params.approvalBy ?? null,
+        approval_reason: params.approvalReason ?? null,
+        force_execute: params.forceExecute ?? false,
+        mode: params.mode ?? "execute",
+        action_id: params.actionId ?? null,
+      }),
+    });
+  },
+
+  async approve(params: {
+    organizationId: string;
+    actionId: string;
+    actorId?: string | null;
+    approvalBy?: string | null;
+    approvalReason?: string | null;
+  }) {
+    return apiFetch<Record<string, unknown>>(
+      `/actuations/${params.actionId}/approve`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          actor_id: params.actorId ?? null,
+          approval_by: params.approvalBy ?? null,
+          approval_reason: params.approvalReason ?? null,
+        }),
+      }
+    );
+  },
+
+  async rollback(params: { organizationId: string; actionId: string; actorId?: string | null }) {
+    return apiFetch<Record<string, unknown>>(
+      `/actuations/${params.actionId}/rollback`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          actor_id: params.actorId ?? null,
+        }),
+      }
+    );
+  },
+};
+
+// =============================================================================
+// TRUST + AUDIT API
+// =============================================================================
+
+export interface TrustIndicator {
+  uio_id: string;
+  trust_score: number;
+  confidence: number;
+  belief_state: string | null;
+  truth_state: string | null;
+  last_update_reason: string | null;
+  last_updated_at: string | null;
+  evidence_count: number;
+  evidence: Array<Record<string, unknown>>;
+  confidence_reasoning: string[];
+}
+
+export const trustAPI = {
+  async getIndicators(params: {
+    organizationId: string;
+    uioIds: string[];
+    evidenceLimit?: number;
+  }): Promise<TrustIndicator[]> {
+    return apiFetch<TrustIndicator[]>("/trust/uios", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        uio_ids: params.uioIds,
+        evidence_limit: params.evidenceLimit ?? 3,
+      }),
+    });
+  },
+};
+
+export const auditAPI = {
+  async verifyLedger(organizationId: string) {
+    return apiFetch<Record<string, unknown>>(
+      `/audit/verify?organization_id=${organizationId}`
+    );
+  },
+};
+
+// =============================================================================
+// GRAPH API
+// =============================================================================
+
+export interface GraphQueryResponse {
+  success: boolean;
+  results: Array<Record<string, unknown>>;
+  count: number;
+}
+
+export const graphAPI = {
+  async query(params: {
+    organizationId: string;
+    cypher: string;
+    params?: Record<string, unknown>;
+  }): Promise<GraphQueryResponse> {
+    return apiFetch<GraphQueryResponse>("/graph/query", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        cypher: params.cypher,
+        params: params.params ?? {},
+      }),
+    });
+  },
+
+  async stats(organizationId: string): Promise<Record<string, unknown>> {
+    return apiFetch<Record<string, unknown>>(
+      `/graph/stats?organization_id=${organizationId}`
+    );
+  },
+};
+
+// =============================================================================
+// CHANGES API (Reality Stream)
+// =============================================================================
+
+export interface ChangeRecord {
+  entity_id: string;
+  entity_type: string;
+  change_type: string;
+  version: number;
+  timestamp: string;
+  changed_by: string | null;
+  change_reason: string | null;
+  diff?: {
+    change_summary: string;
+    changes: Array<{
+      field_name: string;
+      change_type: string;
+      old_value: unknown;
+      new_value: unknown;
+    }>;
+  } | null;
+}
+
+export const changesAPI = {
+  async list(params: {
+    organizationId: string;
+    since?: string;
+    until?: string;
+    entityTypes?: string[];
+    limit?: number;
+  }) {
+    const search = new URLSearchParams({
+      organization_id: params.organizationId,
+      limit: String(params.limit ?? 100),
+    });
+    if (params.since) {
+      search.set("since", params.since);
+    }
+    if (params.until) {
+      search.set("until", params.until);
+    }
+    if (params.entityTypes?.length) {
+      search.set("entity_types", params.entityTypes.join(","));
+    }
+    return apiFetch<{ changes: ChangeRecord[]; total_count: number; since: string; until: string }>(
+      `/changes?${search.toString()}`
+    );
+  },
+};
+
+// =============================================================================
+// PATTERNS API
+// =============================================================================
+
+export interface PatternCandidate {
+  id: string;
+  organization_id: string;
+  candidate_type: string;
+  member_count: number;
+  member_ids: string[];
+  sample_titles: string[];
+  top_terms: string[];
+  confidence_boost: number;
+  updated_at: string;
+}
+
+export const patternsAPI = {
+  async listCandidates(organizationId: string): Promise<PatternCandidate[]> {
+    const raw = await apiFetch<PatternCandidate[]>(
+      `/patterns/candidates?organization_id=${organizationId}`
+    );
+    return raw;
+  },
+
+  async discoverCandidates(params: {
+    organizationId: string;
+    minClusterSize?: number;
+    similarityThreshold?: number;
+    maxNodes?: number;
+  }): Promise<PatternCandidate[]> {
+    return apiFetch<PatternCandidate[]>("/patterns/candidates/discover", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId,
+        min_cluster_size: params.minClusterSize ?? 3,
+        similarity_threshold: params.similarityThreshold ?? 0.85,
+        max_nodes: params.maxNodes ?? 500,
+      }),
+    });
+  },
+
+  async promoteCandidate(params: {
+    organizationId: string;
+    candidateId: string;
+    name?: string;
+    description?: string;
+    typicalAction?: string;
+    confidenceBoost?: number;
+    domain?: string;
+  }) {
+    return apiFetch<{ pattern_id: string; promoted: boolean }>(
+      `/patterns/candidates/${params.candidateId}/promote`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          name: params.name,
+          description: params.description,
+          typical_action: params.typicalAction,
+          confidence_boost: params.confidenceBoost,
+          domain: params.domain,
+        }),
+      }
+    );
+  },
+};
+
+// =============================================================================
 // CONVENIENCE EXPORTS
 // =============================================================================
 
@@ -1563,6 +2659,7 @@ export const api = {
   org: orgAPI,
   orgSSE: orgSSE,
   contacts: contactsAPI,
+  customer: customerAPI,
 };
 
 export default api;

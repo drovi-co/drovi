@@ -22,8 +22,12 @@ function OnboardingIndex() {
     return <Navigate to="/" />;
   }
 
-  // If user has organizations, redirect to dashboard
-  if (orgs && orgs.length > 0) {
+  const shouldRunOnboarding =
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("drovi:onboarding") === "pending";
+
+  // If user has organizations and onboarding is not pending, redirect to dashboard
+  if (orgs && orgs.length > 0 && !shouldRunOnboarding) {
     return <Navigate to="/dashboard" />;
   }
 

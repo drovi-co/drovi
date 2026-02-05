@@ -1,4 +1,3 @@
-import { CommandBar, useCommandBar } from "@/components/email/command-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import type {
@@ -51,8 +50,6 @@ export function AppShell({
   primaryAction,
   headerChildren,
 }: AppShellProps) {
-  const { open: commandBarOpen, setOpen: setCommandBarOpen } = useCommandBar();
-
   return (
     <SidebarProvider
       style={
@@ -90,8 +87,6 @@ export function AppShell({
         </div>
       </div>
 
-      {/* Global Command Bar - available on all dashboard pages via Cmd+K */}
-      <CommandBar onOpenChange={setCommandBarOpen} open={commandBarOpen} />
     </SidebarProvider>
   );
 }

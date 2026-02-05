@@ -20,7 +20,14 @@ interface AuthState {
 
   // Actions
   checkAuth: () => Promise<void>;
-  login: (provider?: string) => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  signupWithEmail: (params: {
+    email: string;
+    password: string;
+    name?: string;
+    organizationName?: string;
+    inviteToken?: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -50,16 +57,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (provider = "google") => {
+  loginWithEmail: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { auth_url } = await authAPI.login(provider);
-      // Redirect to OAuth provider
-      window.location.href = auth_url;
+      await authAPI.loginWithEmail({ email, password });
+      const user = await authAPI.getMe();
+      set({
+        user,
+        isAuthenticated: !!user,
+        isLoading: false,
+      });
     } catch (e) {
       set({
         isLoading: false,
-        error: e instanceof Error ? e.message : "Failed to initiate login",
+        error: e instanceof Error ? e.message : "Failed to sign in",
+      });
+    }
+  },
+
+  signupWithEmail: async (params) => {
+    set({ isLoading: true, error: null });
+    try {
+      await authAPI.signupWithEmail(params);
+      const user = await authAPI.getMe();
+      set({
+        user,
+        isAuthenticated: !!user,
+        isLoading: false,
+      });
+    } catch (e) {
+      set({
+        isLoading: false,
+        error: e instanceof Error ? e.message : "Failed to sign up",
       });
     }
   },
@@ -73,8 +102,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
       });
-      // Redirect to home
-      window.location.href = "/";
     } catch (e) {
       set({
         isLoading: false,
@@ -100,7 +127,8 @@ export function useAuth() {
     isLoading: store.isLoading,
     isAuthenticated: store.isAuthenticated,
     error: store.error,
-    login: store.login,
+    loginWithEmail: store.loginWithEmail,
+    signupWithEmail: store.signupWithEmail,
     logout: store.logout,
     checkAuth: store.checkAuth,
     clearError: store.clearError,
@@ -112,12 +140,12 @@ export function useAuth() {
  * Returns user if authenticated, redirects to login if not
  */
 export function useRequireAuth() {
-  const { user, isLoading, isAuthenticated, checkAuth, login } = useAuth();
+  const { user, isLoading, isAuthenticated, checkAuth } = useAuth();
 
   // Check auth on mount if not already checked
   if (!isLoading && !isAuthenticated && user === null) {
-    // Trigger login redirect
-    login();
+    // Trigger auth check for email login flow
+    checkAuth();
   }
 
   return { user, isLoading };
@@ -146,7 +174,8 @@ export async function initializeAuth(): Promise<User | null> {
  */
 export function hasRole(user: User | null, role: string): boolean {
   if (!user) return false;
-  return user.role === role || user.role === "owner";
+  const normalized = user.role?.replace("pilot_", "") ?? user.role;
+  return normalized === role || normalized === "owner";
 }
 
 /**

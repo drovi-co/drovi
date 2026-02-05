@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Mail, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,16 +9,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { authClient } from "@/lib/auth-client";
+import { orgAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/team/")({
   component: TeamPage,
 });
 
 function TeamPage() {
-  const { data: activeOrg, isPending } = authClient.useActiveOrganization();
+  const { data: orgInfo, isLoading } = useQuery({
+    queryKey: ["org-info"],
+    queryFn: () => orgAPI.getOrgInfo(),
+  });
 
-  if (isPending) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -30,7 +34,7 @@ function TeamPage() {
     );
   }
 
-  if (!activeOrg) {
+  if (!orgInfo) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <h2 className="font-semibold text-xl">No Organization Selected</h2>
@@ -56,23 +60,22 @@ function TeamPage() {
       {/* Organization info */}
       <Card>
         <CardHeader>
-          <CardTitle>{activeOrg.name}</CardTitle>
-          <CardDescription>Organization slug: {activeOrg.slug}</CardDescription>
+          <CardTitle>{orgInfo.name}</CardTitle>
+          <CardDescription>
+            Region: {orgInfo.region ?? "Default"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            {activeOrg.logo && (
-              <img
-                alt={activeOrg.name}
-                className="h-16 w-16 rounded-lg"
-                height={64}
-                src={activeOrg.logo}
-                width={64}
-              />
-            )}
             <div>
               <p className="text-muted-foreground text-sm">
-                Created: {new Date(activeOrg.createdAt).toLocaleDateString()}
+                Created:{" "}
+                {orgInfo.created_at
+                  ? new Date(orgInfo.created_at).toLocaleDateString()
+                  : "—"}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {orgInfo.member_count} members · {orgInfo.connection_count} connections
               </p>
             </div>
           </div>

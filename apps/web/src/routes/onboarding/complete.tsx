@@ -121,6 +121,12 @@ function CompletePage() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("drovi:onboarding", "complete");
+    }
+  }, []);
+
   // Hide confetti after animation
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 4000);

@@ -28,6 +28,13 @@ from src.api.routes.auth import require_pilot_auth
 from src.config import get_settings
 from src.db.client import get_db_session
 from src.connectors.sync_events import get_broadcaster, SyncEvent
+from src.auth.pilot_accounts import (
+    create_invite,
+    get_invite,
+    get_org_by_id,
+    update_membership_role,
+)
+from src.db.models.pilot import Organization
 
 logger = structlog.get_logger()
 
@@ -87,6 +94,47 @@ class OrgInfoResponse(BaseModel):
     connection_count: int = 0
 
 
+class OrgUpdateRequest(BaseModel):
+    """Update organization metadata."""
+
+    name: str | None = None
+    allowed_domains: list[str] | None = None
+    notification_emails: list[str] | None = None
+    region: str | None = None
+
+
+class MemberInfo(BaseModel):
+    id: str
+    role: str
+    name: str | None = None
+    email: str
+    created_at: datetime | None = None
+
+
+class MembersResponse(BaseModel):
+    members: list[MemberInfo]
+
+
+class InviteCreateRequest(BaseModel):
+    role: Literal["pilot_admin", "pilot_member"] = "pilot_member"
+    expires_in_days: int = Field(default=7, ge=1, le=30)
+    email: str | None = None
+
+
+class InviteInfo(BaseModel):
+    token: str
+    org_id: str
+    role: str
+    expires_at: datetime
+    used_at: datetime | None = None
+    created_at: datetime | None = None
+    email: str | None = None
+
+
+class InvitesResponse(BaseModel):
+    invites: list[InviteInfo]
+
+
 @router.get("/info", response_model=OrgInfoResponse)
 async def get_org_info(
     token: PilotToken = Depends(require_pilot_auth),
@@ -132,6 +180,258 @@ async def get_org_info(
     )
 
 
+@router.patch("/info", response_model=OrgInfoResponse)
+async def update_org_info(
+    request: OrgUpdateRequest,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> OrgInfoResponse:
+    """Update organization metadata (admin-only)."""
+    if token.role != "pilot_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    async with get_db_session() as session:
+        updates = {}
+        if request.name is not None:
+            updates["name"] = request.name
+        if request.allowed_domains is not None:
+            updates["allowed_domains"] = request.allowed_domains
+        if request.notification_emails is not None:
+            updates["notification_emails"] = request.notification_emails
+        if request.region is not None:
+            updates["region"] = request.region
+
+        if updates:
+            set_clause = ", ".join([f"{key} = :{key}" for key in updates])
+            await session.execute(
+                text(f"""
+                    UPDATE organizations
+                    SET {set_clause}, updated_at = NOW()
+                    WHERE id = :org_id
+                """),
+                {"org_id": token.org_id, **updates},
+            )
+            await session.commit()
+
+    org = await get_org_by_id(token.org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    async with get_db_session() as session:
+        member_result = await session.execute(
+            text("SELECT COUNT(*) FROM memberships WHERE org_id = :org_id"),
+            {"org_id": token.org_id},
+        )
+        member_count = member_result.scalar() or 0
+        connection_result = await session.execute(
+            text("SELECT COUNT(*) FROM connections WHERE organization_id = :org_id"),
+            {"org_id": token.org_id},
+        )
+        connection_count = connection_result.scalar() or 0
+
+    return OrgInfoResponse(
+        id=org["id"],
+        name=org["name"],
+        status=org.get("pilot_status", "active"),
+        region=org.get("region"),
+        allowed_domains=org.get("allowed_domains", []),
+        notification_emails=org.get("notification_emails", []),
+        expires_at=org.get("expires_at"),
+        created_at=org.get("created_at"),
+        member_count=member_count,
+        connection_count=connection_count,
+    )
+
+
+@router.get("/members", response_model=MembersResponse)
+async def list_members(
+    token: PilotToken = Depends(require_pilot_auth),
+) -> MembersResponse:
+    """List organization members."""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT m.user_id, m.role, m.created_at, u.email, u.name
+                FROM memberships m
+                JOIN users u ON u.id = m.user_id
+                WHERE m.org_id = :org_id
+                ORDER BY m.created_at ASC
+                """
+            ),
+            {"org_id": token.org_id},
+        )
+        rows = result.fetchall()
+
+    members = [
+        MemberInfo(
+            id=row.user_id,
+            role=row.role,
+            name=row.name,
+            email=row.email,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+    return MembersResponse(members=members)
+
+
+@router.patch("/members/{user_id}")
+async def update_member_role(
+    user_id: str,
+    request: dict,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> dict:
+    """Update member role (admin-only)."""
+    if token.role != "pilot_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    role = request.get("role")
+    if role not in ("pilot_admin", "pilot_member"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    updated = await update_membership_role(user_id, token.org_id, role)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return {"updated": True}
+
+
+@router.delete("/members/{user_id}")
+async def remove_member(
+    user_id: str,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> dict:
+    """Remove member from organization (admin-only)."""
+    if token.role != "pilot_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                DELETE FROM memberships
+                WHERE user_id = :user_id AND org_id = :org_id
+                """
+            ),
+            {"user_id": user_id, "org_id": token.org_id},
+        )
+        await session.commit()
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    return {"removed": True}
+
+
+@router.get("/invites", response_model=InvitesResponse)
+async def list_invites(
+    token: PilotToken = Depends(require_pilot_auth),
+) -> InvitesResponse:
+    """List active invites for the organization."""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT token, org_id, role, expires_at, used_at, created_at, email
+                FROM invites
+                WHERE org_id = :org_id
+                ORDER BY created_at DESC
+                """
+            ),
+            {"org_id": token.org_id},
+        )
+        rows = result.fetchall()
+
+    invites = [
+        InviteInfo(
+            token=row.token,
+            org_id=row.org_id,
+            role=row.role,
+            expires_at=row.expires_at,
+            used_at=row.used_at,
+            created_at=row.created_at,
+            email=getattr(row, "email", None),
+        )
+        for row in rows
+    ]
+    return InvitesResponse(invites=invites)
+
+
+@router.post("/invites", response_model=InviteInfo)
+async def create_invite_endpoint(
+    request: InviteCreateRequest,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> InviteInfo:
+    """Create an invite token (admin-only)."""
+    if token.role != "pilot_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    invite_token = await create_invite(
+        org_id=token.org_id,
+        role=request.role,
+        expires_in_days=request.expires_in_days,
+    )
+
+    invite = await get_invite(invite_token)
+    if not invite:
+        raise HTTPException(status_code=500, detail="Failed to create invite")
+
+    # Store email if column exists
+    if request.email:
+        async with get_db_session() as session:
+            try:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE invites
+                        SET email = :email
+                        WHERE token = :token
+                        """
+                    ),
+                    {"email": request.email, "token": invite_token},
+                )
+                await session.commit()
+            except Exception:
+                # Column may not exist in older schemas; ignore
+                await session.rollback()
+
+    return InviteInfo(
+        token=invite["token"],
+        org_id=invite["org_id"],
+        role=invite["role"],
+        expires_at=invite["expires_at"],
+        used_at=invite["used_at"],
+        created_at=invite["created_at"],
+        email=request.email,
+    )
+
+
+@router.delete("/invites/{invite_token}")
+async def revoke_invite(
+    invite_token: str,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> dict:
+    """Revoke an invite (admin-only)."""
+    if token.role != "pilot_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                DELETE FROM invites
+                WHERE token = :token AND org_id = :org_id
+                """
+            ),
+            {"token": invite_token, "org_id": token.org_id},
+        )
+        await session.commit()
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Invite not found")
+
+    return {"revoked": True}
+
+
 # =============================================================================
 # CONNECTIONS (Pilot-Friendly)
 # =============================================================================
@@ -165,6 +465,10 @@ class ConnectRequest(BaseModel):
     redirect_uri: str
     restricted_labels: list[str] = Field(default_factory=list, description="Gmail: labels to exclude")
     restricted_channels: list[str] = Field(default_factory=list, description="Slack: channels to exclude")
+    return_to: str | None = Field(
+        default=None,
+        description="Frontend path to redirect after successful connection",
+    )
 
 
 class ConnectResponse(BaseModel):
@@ -345,6 +649,7 @@ async def connect_provider(
             "org_id": token.org_id,
             "restricted_labels": request.restricted_labels,
             "restricted_channels": request.restricted_channels,
+            "return_to": request.return_to,
         }),
     )
     await redis_client.aclose()
@@ -497,12 +802,41 @@ class SyncTriggerRequest(BaseModel):
     streams: list[str] = Field(default_factory=list)
 
 
+class BackfillRequest(BaseModel):
+    """Request to trigger a backfill."""
+
+    start_date: datetime = Field(..., description="Backfill start date (ISO 8601)")
+    end_date: datetime | None = Field(
+        default=None,
+        description="Backfill end date (ISO 8601). Defaults to now.",
+    )
+    window_days: int = Field(default=7, ge=1, le=90, description="Window size in days")
+    streams: list[str] = Field(
+        default_factory=list,
+        description="Specific streams to backfill. If empty, backfill all enabled streams.",
+    )
+    throttle_seconds: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=30.0,
+        description="Delay between backfill windows to respect rate limits",
+    )
+
+
 class SyncTriggerResponse(BaseModel):
     """Sync trigger response."""
 
     connection_id: str
     status: str
     message: str
+
+
+class BackfillResponse(BaseModel):
+    """Backfill trigger response."""
+
+    connection_id: str
+    status: str
+    backfill_jobs: list[str]
 
 
 @router.post("/connections/{connection_id}/sync", response_model=SyncTriggerResponse)
@@ -569,6 +903,63 @@ async def trigger_connection_sync(
     except Exception as e:
         logger.error("Failed to trigger sync", error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to trigger sync: {str(e)}")
+
+
+@router.post("/connections/{connection_id}/backfill", response_model=BackfillResponse)
+async def trigger_connection_backfill(
+    connection_id: str,
+    request: BackfillRequest,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> BackfillResponse:
+    """
+    Trigger a windowed backfill for a connection.
+
+    **Requires**: Any pilot member
+    """
+    from src.db.models.connections import Connection
+    from src.connectors.scheduling.scheduler import get_scheduler
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Connection).where(
+                Connection.id == connection_id,
+                Connection.organization_id == token.org_id,
+            )
+        )
+        connection = result.scalar_one_or_none()
+
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+
+        if connection.status not in ("active", "connected"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Connection is not ready for backfill (status: {connection.status})",
+            )
+
+    end_date = request.end_date
+    if end_date and request.start_date >= end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be before end_date",
+        )
+
+    scheduler = get_scheduler()
+    job_ids = await scheduler.trigger_backfill_plan(
+        connection_id=connection_id,
+        organization_id=token.org_id,
+        start_date=request.start_date,
+        end_date=end_date,
+        window_days=request.window_days,
+        streams=request.streams if request.streams else None,
+        throttle_seconds=request.throttle_seconds,
+    )
+
+    return BackfillResponse(
+        connection_id=connection_id,
+        status="queued",
+        backfill_jobs=job_ids,
+    )
 
 
 @router.delete("/connections/{connection_id}")

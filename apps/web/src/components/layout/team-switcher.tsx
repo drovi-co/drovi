@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronsUpDown, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   DropdownMenu,
@@ -27,7 +28,10 @@ export function TeamSwitcher() {
     authClient.useActiveOrganization();
 
   const handleOrgSwitch = async (orgId: string) => {
-    await authClient.organization.setActive({ organizationId: orgId });
+    if (activeOrg?.id === orgId) {
+      return;
+    }
+    toast("Multi-organization support is coming soon.");
   };
 
   const handleCreateOrg = () => {
@@ -88,21 +92,11 @@ export function TeamSwitcher() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               size="lg"
             >
-              {currentOrg?.logo ? (
-                <img
-                  alt={currentOrg.name}
-                  className="size-8 rounded-lg object-cover"
-                  height={32}
-                  src={currentOrg.logo}
-                  width={32}
-                />
-              ) : (
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <span className="font-bold text-xs">
-                    {currentOrg?.name?.charAt(0).toUpperCase() ?? "?"}
-                  </span>
-                </div>
-              )}
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <span className="font-bold text-xs">
+                  {currentOrg?.name?.charAt(0).toUpperCase() ?? "?"}
+                </span>
+              </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
                   {currentOrg?.name ?? "Select Organization"}
@@ -129,21 +123,11 @@ export function TeamSwitcher() {
                 key={org.id}
                 onClick={() => handleOrgSwitch(org.id)}
               >
-                {org.logo ? (
-                  <img
-                    alt={org.name}
-                    className="size-6 shrink-0 rounded-sm object-cover"
-                    height={24}
-                    src={org.logo}
-                    width={24}
-                  />
-                ) : (
-                  <div className="flex size-6 items-center justify-center rounded-sm border">
-                    <span className="font-bold text-xs">
-                      {org.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                <div className="flex size-6 items-center justify-center rounded-sm border">
+                  <span className="font-bold text-xs">
+                    {org.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
                 <span className="flex-1">{org.name}</span>
                 {org.id === activeOrg?.id && (
                   <span className="text-muted-foreground text-xs">Active</span>

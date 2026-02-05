@@ -2,23 +2,11 @@
 // TASK COMPONENTS BARREL EXPORT
 // =============================================================================
 
-// Activity feed
-export {
-  CompactActivityFeed,
-  TaskActivityFeed,
-} from "./task-activity-feed";
-export {
-  TaskAssigneeAvatar,
-  TaskAssigneeDropdown,
-} from "./task-assignee-dropdown";
+// Activity feed (removed for now)
+// Assignee dropdown (removed for now)
 // Kanban board
 export { KanbanCard, TaskKanbanBoard } from "./task-kanban-board";
-// Labels
-export {
-  TaskLabelBadge,
-  TaskLabelPicker,
-  TaskLabelsDisplay,
-} from "./task-labels";
+// Labels (removed for now)
 export {
   TaskPriorityDropdown,
   TaskPriorityIndicator,

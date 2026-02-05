@@ -21,25 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
+import type { OrgInvite } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/team/invitations")({
   component: InvitationsPage,
 });
-
-interface Invitation {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  createdAt: Date | string;
-}
 
 function InvitationsPage() {
   const { data: activeOrg } = authClient.useActiveOrganization();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("member");
   const [isInviting, setIsInviting] = useState(false);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitations, setInvitations] = useState<OrgInvite[]>([]);
   const [isPending, setIsPending] = useState(true);
 
   // Fetch invitations when org changes
@@ -53,11 +46,9 @@ function InvitationsPage() {
 
       setIsPending(true);
       try {
-        const result = await authClient.organization.listInvitations({
-          query: { organizationId: activeOrg.id },
-        });
+        const result = await authClient.organization.listInvitations();
         if (result.data) {
-          setInvitations(result.data as unknown as Invitation[]);
+          setInvitations(result.data as OrgInvite[]);
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -76,11 +67,9 @@ function InvitationsPage() {
     if (!activeOrg) {
       return;
     }
-    const result = await authClient.organization.listInvitations({
-      query: { organizationId: activeOrg.id },
-    });
+    const result = await authClient.organization.listInvitations();
     if (result.data) {
-      setInvitations(result.data as unknown as Invitation[]);
+      setInvitations(result.data as OrgInvite[]);
     }
   };
 
@@ -117,7 +106,15 @@ function InvitationsPage() {
     );
   }
 
-  const pendingInvitations = invitations.filter((i) => i.status === "pending");
+  const pendingInvitations = invitations.filter(
+    (invite) => !invite.used_at && new Date(invite.expires_at) > new Date()
+  );
+
+  const getStatus = (invite: OrgInvite) => {
+    if (invite.used_at) return "accepted";
+    if (new Date(invite.expires_at) <= new Date()) return "expired";
+    return "pending";
+  };
 
   return (
     <div className="space-y-6">
@@ -197,25 +194,27 @@ function InvitationsPage() {
               {pendingInvitations.map((invitation) => (
                 <div
                   className="flex items-center justify-between py-2"
-                  key={invitation.id}
+                  key={invitation.token}
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                       <Mail className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <p className="font-medium">{invitation.email}</p>
+                      <p className="font-medium">{invitation.email ?? "—"}</p>
                       <p className="text-muted-foreground text-sm">
                         Invited{" "}
-                        {new Date(invitation.createdAt).toLocaleDateString()}
+                        {new Date(invitation.created_at ?? new Date()).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{invitation.role}</Badge>
-                    <Badge variant="secondary">{invitation.status}</Badge>
+                    <Badge variant="outline">
+                      {invitation.role.replace("pilot_", "")}
+                    </Badge>
+                    <Badge variant="secondary">{getStatus(invitation)}</Badge>
                     <Button
-                      onClick={() => handleCancelInvitation(invitation.id)}
+                      onClick={() => handleCancelInvitation(invitation.token)}
                       size="icon"
                       variant="ghost"
                     >

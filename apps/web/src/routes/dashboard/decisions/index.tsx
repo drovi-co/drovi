@@ -227,13 +227,10 @@ function DecisionsPage() {
   }, []);
 
   const handleThreadClick = useCallback(
-    (threadId: string) => {
-      navigate({
-        to: "/dashboard/email/thread/$threadId",
-        params: { threadId },
-      });
+    () => {
+      toast.message("Source viewer coming soon");
     },
-    [navigate]
+    []
   );
 
   const handleContactClick = useCallback(
@@ -281,6 +278,10 @@ function DecisionsPage() {
     const details = d.decisionDetails;
     // Get decision maker from UIO root level (where transformer places it)
     const decisionMaker = d.decisionMaker ?? d.owner;
+    const evidenceQuotes = (d.sources ?? [])
+      .map((source) => source.quotedText)
+      .filter((value): value is string => Boolean(value));
+    const sourceType = d.sources?.[0]?.sourceType ?? undefined;
     return {
       id: d.id,
       title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
@@ -291,9 +292,7 @@ function DecisionsPage() {
         : new Date(d.createdAt),
       confidence: d.overallConfidence ?? 0.8,
       isUserVerified: d.isUserVerified ?? undefined,
-      evidence: details?.extractionContext
-        ? [JSON.stringify(details.extractionContext)]
-        : undefined,
+      evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
       extractedAt: new Date(d.createdAt),
       isSuperseded: !!details?.supersededByUioId,
       supersededBy: null,
@@ -303,12 +302,11 @@ function DecisionsPage() {
               id: decisionMaker.id,
               displayName: decisionMaker.displayName,
               primaryEmail: decisionMaker.primaryEmail,
-              avatarUrl: decisionMaker.avatarUrl,
             },
           ]
         : [],
       topics: undefined,
-      sourceType: undefined,
+      sourceType: sourceType as DecisionRowData["sourceType"],
     };
   });
 
@@ -317,6 +315,9 @@ function DecisionsPage() {
     (d) => {
       const details = d.decisionDetails;
       const decisionMaker = d.decisionMaker ?? d.owner;
+      const evidenceQuotes = (d.sources ?? [])
+        .map((source) => source.quotedText)
+        .filter((value): value is string => Boolean(value));
       return {
         id: d.id,
         title: d.userCorrectedTitle ?? d.canonicalTitle ?? "",
@@ -328,9 +329,7 @@ function DecisionsPage() {
         confidence: d.overallConfidence ?? 0.8,
         isUserVerified: d.isUserVerified ?? undefined,
         isSuperseded: !!details?.supersededByUioId,
-        evidence: details?.extractionContext
-          ? [JSON.stringify(details.extractionContext)]
-          : undefined,
+        evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
         extractedAt: new Date(d.createdAt),
         owners: decisionMaker
           ? [
@@ -338,24 +337,54 @@ function DecisionsPage() {
                 id: decisionMaker.id,
                 displayName: decisionMaker.displayName,
                 primaryEmail: decisionMaker.primaryEmail,
-                avatarUrl: decisionMaker.avatarUrl,
               },
             ]
           : [],
-        sourceThread: d.sources?.[0]?.conversation
-          ? {
-              id: d.sources[0].conversation.id,
-              title: d.sources[0].conversation.title,
-              snippet: d.sources[0].conversation.snippet,
-            }
-          : undefined,
+        sourceThread: undefined,
         alternatives: undefined,
       };
     }
   );
 
+  const stats = {
+    total: statsData?.data?.total ?? decisions.length,
+  };
+
+  const now = new Date();
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const monthStart = startOfMonth(now);
+  const threeMonthsAgo = subMonths(now, 3);
+
+  const timeCounts = {
+    thisWeek: decisions.filter((d) => d.decidedAt >= weekAgo).length,
+    thisMonth: decisions.filter((d) => d.decidedAt >= monthStart).length,
+    last3Months: decisions.filter((d) => d.decidedAt >= threeMonthsAgo).length,
+  };
+
+  const applyDecisionFilters = (list: DecisionRowData[]) => {
+    const timeFiltered = list.filter((decision) => {
+      if (timeFilter === "this_week") {
+        return decision.decidedAt >= weekAgo;
+      }
+      if (timeFilter === "this_month") {
+        return decision.decidedAt >= monthStart;
+      }
+      if (timeFilter === "last_3_months") {
+        return decision.decidedAt >= threeMonthsAgo;
+      }
+      return true;
+    });
+
+    return includeSuperseded
+      ? timeFiltered
+      : timeFiltered.filter((decision) => !decision.isSuperseded);
+  };
+
   // Display search results or regular list
-  const displayDecisions: DecisionRowData[] =
+  const filteredDecisions = applyDecisionFilters(decisions);
+
+  const searchDecisionRows: DecisionRowData[] =
     isSearching && searchResults?.relevantDecisions
       ? searchResults.relevantDecisions.map((d) => {
           const full = decisions.find((fd) => fd.id === d.id);
@@ -371,10 +400,25 @@ function DecisionsPage() {
                 ? new Date(d.decisionDetails.decidedAt)
                 : new Date(d.createdAt),
               confidence: d.overallConfidence ?? 0.8,
+              isSuperseded: !!d.decisionDetails?.supersededByUioId,
+              isUserVerified: d.isUserVerified ?? undefined,
+              owners: d.decisionMaker
+                ? [
+                    {
+                      id: d.decisionMaker.id,
+                      displayName: d.decisionMaker.displayName,
+                      primaryEmail: d.decisionMaker.primaryEmail,
+                    },
+                  ]
+                : [],
             } as DecisionRowData)
           );
         })
-      : decisions;
+      : [];
+
+  const displayDecisions = isSearching
+    ? applyDecisionFilters(searchDecisionRows)
+    : filteredDecisions;
 
   // Selection handlers - must be defined after displayDecisions
   const handleSelectItem = useCallback((id: string, selected: boolean) => {
@@ -400,21 +444,14 @@ function DecisionsPage() {
     [displayDecisions]
   );
 
-  const stats = statsData ?? {
-    total: 0,
-    thisWeek: 0,
-    thisMonth: 0,
-    superseded: 0,
-    avgConfidence: 0,
-    verifiedCount: 0,
-    topTopics: [],
-  };
-
   // Transform UIO detail data for sheet
   const detailDecision: DecisionDetailData | null = detailData
     ? (() => {
         const details = detailData.decisionDetails;
-        const decisionMaker = details?.decisionMaker ?? detailData.owner;
+        const decisionMaker = detailData.decisionMaker ?? detailData.owner;
+        const evidenceQuotes = (detailData.sources ?? [])
+          .map((source) => source.quotedText)
+          .filter((value): value is string => Boolean(value));
         return {
           id: detailData.id,
           title:
@@ -428,33 +465,22 @@ function DecisionsPage() {
           confidence: detailData.overallConfidence ?? 0.8,
           isUserVerified: detailData.isUserVerified ?? undefined,
           isSuperseded: !!details?.supersededByUioId,
-          evidence: details?.extractionContext
-            ? [JSON.stringify(details.extractionContext)]
-            : undefined,
+          evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
           owners: decisionMaker
             ? [
                 {
                   id: decisionMaker.id,
                   displayName: decisionMaker.displayName,
                   primaryEmail: decisionMaker.primaryEmail,
-                  avatarUrl: decisionMaker.avatarUrl,
                 },
               ]
             : [],
-          sourceThread: detailData.sources?.[0]?.conversation
-            ? {
-                id: detailData.sources[0].conversation.id,
-                title: detailData.sources[0].conversation.title,
-                snippet: detailData.sources[0].conversation.snippet,
-              }
-            : undefined,
+          sourceThread: undefined,
           supersededBy: null,
           supersedes: null,
           alternatives: undefined,
           topics: undefined,
-          metadata: details?.extractionContext as
-            | Record<string, unknown>
-            | undefined,
+          metadata: null,
         };
       })()
     : null;
@@ -494,18 +520,24 @@ function DecisionsPage() {
                   value="all"
                 >
                   All
+                  <Badge
+                    className="ml-1 px-1.5 py-0 text-[10px]"
+                    variant="secondary"
+                  >
+                    {stats.total}
+                  </Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   className="px-3 text-sm data-[state=active]:bg-accent"
                   value="this_week"
                 >
                   This Week
-                  {stats.thisWeek > 0 && (
+                  {timeCounts.thisWeek > 0 && (
                     <Badge
                       className="ml-1 px-1.5 py-0 text-[10px]"
                       variant="secondary"
                     >
-                      {stats.thisWeek}
+                      {timeCounts.thisWeek}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -822,12 +854,8 @@ function DecisionsPage() {
                   "",
                 confidence: evidenceDecisionData.overallConfidence ?? 0.8,
                 isUserVerified: evidenceDecisionData.isUserVerified ?? false,
-                quotedText: evidenceDecisionData.decisionDetails
-                  ?.extractionContext
-                  ? JSON.stringify(
-                      evidenceDecisionData.decisionDetails.extractionContext
-                    )
-                  : null,
+                quotedText:
+                  evidenceDecisionData.sources?.[0]?.quotedText ?? null,
                 extractedAt: evidenceDecisionData.decisionDetails?.decidedAt
                   ? new Date(evidenceDecisionData.decisionDetails.decidedAt)
                   : new Date(evidenceDecisionData.createdAt),

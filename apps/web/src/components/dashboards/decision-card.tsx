@@ -24,13 +24,12 @@ import { toast } from "sonner";
 import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import {
   type TaskAssignee,
-  TaskAssigneeDropdown,
   type TaskPriority,
   TaskPriorityDropdown,
   type TaskStatus,
   TaskStatusDropdown,
 } from "@/components/tasks";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -263,15 +262,34 @@ export function DecisionCard({
         {/* Task controls - shown if task data exists */}
         {hasTaskData && (
           <>
-            <div onClick={(e) => e.stopPropagation()}>
-              <TaskAssigneeDropdown
-                align="end"
-                compact
-                currentAssignee={decision.task!.assignee}
-                organizationId={organizationId!}
-                taskId={decision.task!.id}
-              />
-            </div>
+            {decision.task?.assignee && (
+              <div
+                className="flex items-center gap-1 rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                onClick={(e) => e.stopPropagation()}
+                title={
+                  decision.task.assignee.name ?? decision.task.assignee.email
+                }
+              >
+                <Avatar className="h-4 w-4">
+                  {decision.task.assignee.image && (
+                    <AvatarImage
+                      alt={decision.task.assignee.name ?? "Assignee"}
+                      src={decision.task.assignee.image}
+                    />
+                  )}
+                  <AvatarFallback className="bg-secondary text-[8px] text-white">
+                    {getInitials(
+                      decision.task.assignee.name,
+                      decision.task.assignee.email
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="max-w-[72px] truncate">
+                  {decision.task.assignee.name ??
+                    decision.task.assignee.email}
+                </span>
+              </div>
+            )}
             <div onClick={(e) => e.stopPropagation()}>
               <TaskPriorityDropdown
                 align="end"

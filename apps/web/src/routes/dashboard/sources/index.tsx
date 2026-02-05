@@ -10,21 +10,18 @@ import {
   CheckCircle,
   Clock,
   FileText,
-  Hash,
   Loader2,
   Mail,
   MessageCircle,
   MoreHorizontal,
-  Phone,
   Plus,
   RefreshCw,
   Settings,
   Target,
   Trash2,
-  Users,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -59,10 +56,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useAuthStore } from "@/lib/auth";
-import { orgAPI, orgSSE, type OrgConnection, type SyncEvent } from "@/lib/api";
+import {
+  connectionsAPI,
+  orgAPI,
+  orgSSE,
+  type OrgConnection,
+  type SyncEvent,
+} from "@/lib/api";
+import {
+  CONNECTOR_CATALOG,
+  CONNECTOR_META_BY_ID,
+  type ConnectorMeta,
+} from "@/lib/connectors";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/sources/")({
@@ -73,103 +84,7 @@ export const Route = createFileRoute("/dashboard/sources/")({
 // CONNECTOR DEFINITIONS
 // =============================================================================
 
-interface ConnectorInfo {
-  id: string;
-  name: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  color: string;
-  description: string;
-  category: "email" | "messaging" | "calendar" | "knowledge" | "crm";
-  available: boolean;
-}
-
-const CONNECTORS: ConnectorInfo[] = [
-  {
-    id: "gmail",
-    name: "Gmail",
-    icon: Mail,
-    color: "#EA4335",
-    description: "Email messages and threads from Gmail",
-    category: "email",
-    available: true,
-  },
-  {
-    id: "outlook",
-    name: "Outlook",
-    icon: Mail,
-    color: "#0078D4",
-    description: "Email messages from Microsoft Outlook",
-    category: "email",
-    available: true,
-  },
-  {
-    id: "slack",
-    name: "Slack",
-    icon: Hash,
-    color: "#4A154B",
-    description: "Messages and channels from Slack workspaces",
-    category: "messaging",
-    available: true,
-  },
-  {
-    id: "teams",
-    name: "Microsoft Teams",
-    icon: Users,
-    color: "#6264A7",
-    description: "Chats and channel messages from Teams",
-    category: "messaging",
-    available: true,
-  },
-  {
-    id: "whatsapp",
-    name: "WhatsApp Business",
-    icon: Phone,
-    color: "#25D366",
-    description: "Business messages from WhatsApp",
-    category: "messaging",
-    available: true,
-  },
-  {
-    id: "google_calendar",
-    name: "Google Calendar",
-    icon: Calendar,
-    color: "#4285F4",
-    description: "Events and meetings from Google Calendar",
-    category: "calendar",
-    available: true,
-  },
-  {
-    id: "notion",
-    name: "Notion",
-    icon: FileText,
-    color: "#000000",
-    description: "Pages and databases from Notion",
-    category: "knowledge",
-    available: true,
-  },
-  {
-    id: "google_docs",
-    name: "Google Docs",
-    icon: FileText,
-    color: "#4285F4",
-    description: "Documents from Google Drive",
-    category: "knowledge",
-    available: true,
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot",
-    icon: Target,
-    color: "#FF7A59",
-    description: "Contacts, deals, and engagements from HubSpot CRM",
-    category: "crm",
-    available: true,
-  },
-];
-
-function getConnectorInfo(providerId: string): ConnectorInfo | undefined {
-  return CONNECTORS.find((c) => c.id === providerId);
-}
+type ConnectorCard = ConnectorMeta & { available: boolean };
 
 // =============================================================================
 // MAIN COMPONENT
@@ -180,8 +95,65 @@ function SourcesPage() {
   const queryClient = useQueryClient();
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [backfillDialogOpen, setBackfillDialogOpen] = useState(false);
   const [selectedConnection, setSelectedConnection] =
     useState<OrgConnection | null>(null);
+  const [backfillConnection, setBackfillConnection] =
+    useState<OrgConnection | null>(null);
+  const [backfillStart, setBackfillStart] = useState("");
+  const [backfillEnd, setBackfillEnd] = useState("");
+  const [backfillWindowDays, setBackfillWindowDays] = useState(7);
+  const [backfillThrottleSeconds, setBackfillThrottleSeconds] = useState(1);
+  const [liveSync, setLiveSync] = useState<Record<string, SyncEvent>>({});
+
+  const { data: availableConnectors } = useQuery({
+    queryKey: ["available-connectors"],
+    queryFn: () => connectionsAPI.listConnectors(),
+    enabled: !!user,
+  });
+
+  const availableIds = useMemo(
+    () => new Set((availableConnectors ?? []).map((connector) => connector.type)),
+    [availableConnectors]
+  );
+
+  const connectors = useMemo<ConnectorCard[]>(() => {
+    const catalog = CONNECTOR_CATALOG.map((meta) => ({
+      ...meta,
+      available: availableIds.has(meta.id),
+    }));
+
+    const extras = (availableConnectors ?? [])
+      .filter((connector) => !CONNECTOR_META_BY_ID.has(connector.type))
+      .map((connector) => ({
+        id: connector.type,
+        name: connector.type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+        icon: FileText,
+        color: "#64748B",
+        description: "Custom connector",
+        category: "knowledge" as const,
+        available: true,
+      }));
+
+    return [...catalog, ...extras];
+  }, [availableConnectors, availableIds]);
+
+  const connectorMap = useMemo(
+    () => new Map(connectors.map((connector) => [connector.id, connector])),
+    [connectors]
+  );
+
+  const openBackfillDialog = (connection: OrgConnection) => {
+    const now = new Date();
+    const start = new Date();
+    start.setDate(now.getDate() - 90);
+    setBackfillStart(start.toISOString().slice(0, 10));
+    setBackfillEnd(now.toISOString().slice(0, 10));
+    setBackfillWindowDays(7);
+    setBackfillThrottleSeconds(1);
+    setBackfillConnection(connection);
+    setBackfillDialogOpen(true);
+  };
 
   // Check URL params for success/error messages
   const searchParams = new URLSearchParams(window.location.search);
@@ -207,6 +179,14 @@ function SourcesPage() {
 
     const unsubscribe = orgSSE.subscribeSyncEvents(
       (event: SyncEvent) => {
+        setLiveSync((prev) => ({
+          ...prev,
+          [event.connection_id]: {
+            ...prev[event.connection_id],
+            ...event,
+          },
+        }));
+
         if (event.event_type === "completed") {
           toast.success("Sync completed!");
           queryClient.invalidateQueries({ queryKey: ["org-connections"] });
@@ -237,7 +217,9 @@ function SourcesPage() {
   // Connect mutation
   const connectMutation = useMutation({
     mutationFn: async (provider: string) => {
-      const response = await orgAPI.initiateConnect(provider);
+      const response = await orgAPI.initiateConnect(provider, {
+        returnTo: window.location.pathname,
+      });
       return response;
     },
     onSuccess: (data) => {
@@ -263,6 +245,32 @@ function SourcesPage() {
     },
   });
 
+  const backfillMutation = useMutation({
+    mutationFn: async (payload: {
+      connectionId: string;
+      startDate: string;
+      endDate?: string;
+      windowDays?: number;
+      throttleSeconds?: number;
+    }) =>
+      orgAPI.triggerBackfill({
+        connectionId: payload.connectionId,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        windowDays: payload.windowDays,
+        throttleSeconds: payload.throttleSeconds,
+      }),
+    onSuccess: () => {
+      toast.success("Backfill queued");
+      setBackfillDialogOpen(false);
+      setBackfillConnection(null);
+      queryClient.invalidateQueries({ queryKey: ["org-connections"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to start backfill: ${error.message}`);
+    },
+  });
+
   // Disconnect mutation
   const disconnectMutation = useMutation({
     mutationFn: async (connectionId: string) => {
@@ -285,6 +293,19 @@ function SourcesPage() {
 
   const handleSync = (connectionId: string) => {
     syncMutation.mutate(connectionId);
+  };
+
+  const handleBackfill = () => {
+    if (!backfillConnection || !backfillStart) return;
+    const startDate = new Date(backfillStart).toISOString();
+    const endDate = backfillEnd ? new Date(backfillEnd).toISOString() : undefined;
+    backfillMutation.mutate({
+      connectionId: backfillConnection.id,
+      startDate,
+      endDate,
+      windowDays: backfillWindowDays,
+      throttleSeconds: backfillThrottleSeconds,
+    });
   };
 
   const handleDisconnect = () => {
@@ -323,6 +344,15 @@ function SourcesPage() {
   }
 
   const connectionsList = connections || [];
+  const activeSyncCount = connectionsList.filter((connection) => {
+    const live = liveSync[connection.id];
+    return (
+      live?.event_type === "started" ||
+      live?.event_type === "progress" ||
+      connection.status === "syncing" ||
+      connection.progress !== null
+    );
+  }).length;
 
   // Group connections by category
   const emailConnections = connectionsList.filter((c) =>
@@ -374,7 +404,7 @@ function SourcesPage() {
           <CardHeader className="pb-2">
             <CardDescription>Active Syncs</CardDescription>
             <CardTitle className="text-2xl">
-              {connectionsList.filter((c) => c.progress !== null).length}
+              {activeSyncCount}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -408,7 +438,10 @@ function SourcesPage() {
               {connectionsList.map((connection) => (
                 <SourceCard
                   connection={connection}
+                  connector={connectorMap.get(connection.provider)}
                   key={connection.id}
+                  liveState={liveSync[connection.id]}
+                  onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
@@ -428,7 +461,10 @@ function SourcesPage() {
               {emailConnections.map((connection) => (
                 <SourceCard
                   connection={connection}
+                  connector={connectorMap.get(connection.provider)}
                   key={connection.id}
+                  liveState={liveSync[connection.id]}
+                  onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
@@ -451,7 +487,10 @@ function SourcesPage() {
               {messagingConnections.map((connection) => (
                 <SourceCard
                   connection={connection}
+                  connector={connectorMap.get(connection.provider)}
                   key={connection.id}
+                  liveState={liveSync[connection.id]}
+                  onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
@@ -474,7 +513,10 @@ function SourcesPage() {
               {calendarConnections.map((connection) => (
                 <SourceCard
                   connection={connection}
+                  connector={connectorMap.get(connection.provider)}
                   key={connection.id}
+                  liveState={liveSync[connection.id]}
+                  onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
@@ -504,7 +546,7 @@ function SourcesPage() {
           <div className="grid gap-4 overflow-y-auto py-4 pr-2">
             {/* Email */}
             <ConnectorCategory
-              connectors={CONNECTORS.filter((c) => c.category === "email")}
+              connectors={connectors.filter((c) => c.category === "email")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
               title="Email"
@@ -512,7 +554,7 @@ function SourcesPage() {
 
             {/* Messaging */}
             <ConnectorCategory
-              connectors={CONNECTORS.filter((c) => c.category === "messaging")}
+              connectors={connectors.filter((c) => c.category === "messaging")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
               title="Messaging"
@@ -520,7 +562,7 @@ function SourcesPage() {
 
             {/* Calendar */}
             <ConnectorCategory
-              connectors={CONNECTORS.filter((c) => c.category === "calendar")}
+              connectors={connectors.filter((c) => c.category === "calendar")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
               title="Calendar"
@@ -528,7 +570,7 @@ function SourcesPage() {
 
             {/* Knowledge Base */}
             <ConnectorCategory
-              connectors={CONNECTORS.filter((c) => c.category === "knowledge")}
+              connectors={connectors.filter((c) => c.category === "knowledge")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
               title="Knowledge Base"
@@ -536,11 +578,118 @@ function SourcesPage() {
 
             {/* CRM */}
             <ConnectorCategory
-              connectors={CONNECTORS.filter((c) => c.category === "crm")}
+              connectors={connectors.filter((c) => c.category === "crm")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
               title="CRM"
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Backfill Dialog */}
+      <Dialog
+        onOpenChange={(open) => {
+          setBackfillDialogOpen(open);
+          if (!open) {
+            setBackfillConnection(null);
+          }
+        }}
+        open={backfillDialogOpen}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Backfill history</DialogTitle>
+            <DialogDescription>
+              Re-ingest historical data for{" "}
+              <span className="font-medium text-foreground">
+                {backfillConnection?.email ||
+                  backfillConnection?.workspace ||
+                  backfillConnection?.provider ||
+                  "this source"}
+              </span>
+              . Drovi will window the backfill to respect rate limits.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="backfill-start">Start date</Label>
+                <Input
+                  id="backfill-start"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setBackfillStart(e.target.value)
+                  }
+                  type="date"
+                  value={backfillStart}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="backfill-end">End date</Label>
+                <Input
+                  id="backfill-end"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setBackfillEnd(e.target.value)
+                  }
+                  type="date"
+                  value={backfillEnd}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="backfill-window">Window size (days)</Label>
+                <Input
+                  id="backfill-window"
+                  min={1}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setBackfillWindowDays(Number(e.target.value))
+                  }
+                  type="number"
+                  value={backfillWindowDays}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="backfill-throttle">Throttle (seconds)</Label>
+                <Input
+                  id="backfill-throttle"
+                  min={0}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setBackfillThrottleSeconds(Number(e.target.value))
+                  }
+                  step={0.5}
+                  type="number"
+                  value={backfillThrottleSeconds}
+                />
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Backfills run sequentially. You can keep working while ingestion
+              completes in the background.
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button onClick={() => setBackfillDialogOpen(false)} variant="ghost">
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                backfillMutation.isPending ||
+                !backfillConnection ||
+                !backfillStart
+              }
+              onClick={handleBackfill}
+            >
+              {backfillMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                "Start backfill"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -592,7 +741,7 @@ function ConnectorCategory({
   isLoading,
 }: {
   title: string;
-  connectors: ConnectorInfo[];
+  connectors: ConnectorCard[];
   onConnect: (provider: string) => void;
   isLoading: boolean;
 }) {
@@ -633,16 +782,21 @@ function ConnectorCategory({
 
 function SourceCard({
   connection,
+  connector,
+  liveState,
   onSync,
+  onBackfill,
   onDisconnect,
 }: {
   connection: OrgConnection;
+  connector?: ConnectorCard;
+  liveState?: SyncEvent;
   onSync: () => void;
+  onBackfill: () => void;
   onDisconnect: () => void;
 }) {
-  const connectorInfo = getConnectorInfo(connection.provider);
-  const Icon = connectorInfo?.icon || Mail;
-  const color = connectorInfo?.color || "#888";
+  const Icon = connector?.icon || Mail;
+  const color = connector?.color || "#888";
 
   const statusConfig: Record<
     string,
@@ -675,9 +829,24 @@ function SourceCard({
     },
   };
 
-  const status = statusConfig[connection.status] || statusConfig.connected;
+  const liveStatus =
+    liveState?.event_type === "progress" || liveState?.event_type === "started"
+      ? "syncing"
+      : liveState?.event_type === "failed"
+        ? "error"
+        : liveState?.event_type === "completed"
+          ? "connected"
+          : connection.status;
+  const status = statusConfig[liveStatus] || statusConfig.connected;
+  const progress =
+    liveState?.progress ??
+    (typeof connection.progress === "number" ? connection.progress : null);
   const displayName =
-    connection.email || connection.workspace || connectorInfo?.name || "Unknown";
+    connection.email || connection.workspace || connector?.name || "Unknown";
+  const recordsSynced =
+    typeof liveState?.records_synced === "number"
+      ? liveState.records_synced
+      : connection.messages_synced;
 
   return (
     <Card>
@@ -689,10 +858,10 @@ function SourceCard({
           >
             <Icon className="h-5 w-5" style={{ color }} />
           </div>
-          <div>
-            <CardTitle className="text-base">{displayName}</CardTitle>
-            <CardDescription className="text-xs">
-              {connectorInfo?.name || connection.provider}
+            <div>
+              <CardTitle className="text-base">{displayName}</CardTitle>
+              <CardDescription className="text-xs">
+              {connector?.name || connection.provider}
             </CardDescription>
           </div>
         </div>
@@ -706,6 +875,10 @@ function SourceCard({
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
               Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onBackfill}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Backfill history
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onSync}>
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -730,9 +903,9 @@ function SourceCard({
               {status.icon}
               <span className="text-sm">{status.label}</span>
             </div>
-            {connection.progress !== null && (
+            {progress !== null && (
               <Badge className="text-xs" variant="secondary">
-                {Math.round(connection.progress * 100)}%
+                {Math.round(progress * 100)}%
               </Badge>
             )}
           </div>
@@ -740,7 +913,7 @@ function SourceCard({
           {/* Stats */}
           <div className="flex items-center gap-4 text-muted-foreground text-sm">
             <div className="flex items-center gap-1">
-              <span>{connection.messages_synced.toLocaleString()} synced</span>
+              <span>{recordsSynced.toLocaleString()} synced</span>
             </div>
             {connection.last_sync && (
               <div className="flex items-center gap-1">
@@ -751,6 +924,10 @@ function SourceCard({
               </div>
             )}
           </div>
+
+          {progress !== null && (
+            <Progress className="h-1.5" value={Math.round(progress * 100)} />
+          )}
         </div>
       </CardContent>
     </Card>

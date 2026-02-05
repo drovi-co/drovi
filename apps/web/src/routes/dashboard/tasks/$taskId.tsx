@@ -17,28 +17,22 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
-  ChevronDown,
-  ChevronUp,
   Clock,
   ExternalLink,
   MessageSquare,
   MoreHorizontal,
-  Plus,
   Trash2,
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread } from "@/components/collaboration";
 import {
   formatDueDate,
   PRIORITY_CONFIG,
   SOURCE_TYPE_CONFIG,
   STATUS_CONFIG,
-  TaskAssigneeDropdown,
   type TaskData,
-  TaskLabelPicker,
   type TaskPriority,
   type TaskStatus,
 } from "@/components/tasks";
@@ -65,9 +59,9 @@ import {
 import {
   useArchiveUIO,
   useUIO,
+  useCorrectUIO,
   useUpdateTaskPriorityUIO,
   useUpdateTaskStatusUIO,
-  useUpdateUIO,
 } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -85,6 +79,43 @@ export const Route = createFileRoute("/dashboard/tasks/$taskId")({
   validateSearch: searchSchema,
 });
 
+type TaskTimelineEvent = {
+  id: string;
+  eventDescription: string;
+  eventAt: string;
+};
+
+function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
+  switch (status) {
+    case "backlog":
+    case "todo":
+    case "in_progress":
+    case "in_review":
+    case "done":
+    case "cancelled":
+      return status;
+    case "open":
+      return "todo";
+    case "completed":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
+function normalizeTaskPriority(priority: string | null | undefined): TaskPriority {
+  switch (priority) {
+    case "low":
+    case "medium":
+    case "high":
+    case "urgent":
+    case "no_priority":
+      return priority;
+    default:
+      return "no_priority";
+  }
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -95,13 +126,8 @@ function TaskDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
-  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
-  const currentUserId = session?.user?.id ?? "";
   const queryClientInstance = useQueryClient();
-
-  // Comments/Collaboration state
-  const [showComments, setShowComments] = useState(false);
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -124,28 +150,80 @@ function TaskDetailPage() {
 
   // Transform UIO data to legacy task format
   const taskData = uioData
-    ? {
-        id: uioData.id,
-        title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
-        description: uioData.canonicalDescription ?? null,
-        status: uioData.taskDetails?.status ?? "todo",
-        priority: uioData.taskDetails?.priority ?? "no_priority",
-        sourceType: "manual" as const, // UIO doesn't track sourceType
-        dueDate: uioData.dueDate ?? null,
-        completedAt: uioData.taskDetails?.completedAt ?? null,
-        assignee: uioData.taskDetails?.assignee ?? null,
-        labels: [] as Array<{ id: string; name: string; color: string }>,
-        metadata: null,
-        createdAt: uioData.createdAt,
-        updatedAt: uioData.updatedAt,
-        // UIO-specific fields
-        sources: uioData.sources ?? [],
-        timeline: uioData.timeline ?? [],
-      }
+    ? (() => {
+        const timeline: TaskTimelineEvent[] = [];
+        if (uioData.createdAt) {
+          timeline.push({
+            id: "created",
+            eventDescription: "Task created",
+            eventAt: uioData.createdAt,
+          });
+        }
+        if (uioData.updatedAt) {
+          timeline.push({
+            id: "updated",
+            eventDescription: "Task updated",
+            eventAt: uioData.updatedAt,
+          });
+        }
+        if (uioData.dueDate) {
+          timeline.push({
+            id: "due-date",
+            eventDescription: "Due date set",
+            eventAt: uioData.dueDate,
+          });
+        }
+        if (uioData.taskDetails?.completedAt) {
+          timeline.push({
+            id: "completed",
+            eventDescription: "Marked complete",
+            eventAt: uioData.taskDetails.completedAt,
+          });
+        }
+        timeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
+
+        const assignee = uioData.assignee
+          ? {
+              id: uioData.assignee.id,
+              name: uioData.assignee.displayName,
+              email: uioData.assignee.primaryEmail,
+              image: uioData.assignee.avatarUrl,
+            }
+          : null;
+
+        return {
+          id: uioData.id,
+          title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
+          description: uioData.canonicalDescription ?? null,
+          status: normalizeTaskStatus(uioData.taskDetails?.status),
+          priority: normalizeTaskPriority(uioData.taskDetails?.priority),
+          sourceType: uioData.sources?.length ? "conversation" : "manual",
+          dueDate: uioData.dueDate ? new Date(uioData.dueDate) : null,
+          completedAt: uioData.taskDetails?.completedAt
+            ? new Date(uioData.taskDetails.completedAt)
+            : null,
+          assignee,
+          labels: [] as Array<{ id: string; name: string; color: string }>,
+          metadata: null,
+          createdAt: new Date(uioData.createdAt),
+          updatedAt: uioData.updatedAt
+            ? new Date(uioData.updatedAt)
+            : new Date(uioData.createdAt),
+          // UIO-specific fields
+          sources: uioData.sources ?? [],
+          timeline,
+        } satisfies TaskData & {
+          sources: typeof uioData.sources;
+          timeline: TaskTimelineEvent[];
+        };
+      })()
     : null;
 
   // UIO update mutation
-  const updateMutationBase = useUpdateUIO();
+  const updateMutationBase = useCorrectUIO();
   const updateMutation = {
     ...updateMutationBase,
     mutate: (params: {
@@ -159,9 +237,11 @@ function TaskDetailPage() {
         {
           organizationId: params.organizationId,
           id: params.taskId,
-          title: params.title,
-          description: params.description ?? undefined,
-          dueDate: params.dueDate ?? undefined,
+          updates: {
+            canonical_title: params.title ?? undefined,
+            canonical_description: params.description ?? undefined,
+            due_date: params.dueDate ? params.dueDate.toISOString() : undefined,
+          },
         },
         {
           onSuccess: () => {
@@ -256,32 +336,7 @@ function TaskDetailPage() {
   };
 
   // Use transformed taskData directly as task
-  const task: TaskData | null = taskData
-    ? {
-        id: taskData.id,
-        title: taskData.title,
-        description: taskData.description ?? null,
-        status: taskData.status as TaskStatus,
-        priority: taskData.priority as TaskPriority,
-        sourceType: taskData.sourceType,
-        dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
-        completedAt: taskData.completedAt
-          ? new Date(taskData.completedAt)
-          : null,
-        assignee: taskData.assignee
-          ? {
-              id: taskData.assignee.id,
-              name: taskData.assignee.displayName ?? null,
-              email: taskData.assignee.primaryEmail ?? "",
-              image: null,
-            }
-          : null,
-        labels: taskData.labels,
-        metadata: taskData.metadata,
-        createdAt: new Date(taskData.createdAt),
-        updatedAt: new Date(taskData.updatedAt),
-      }
-    : null;
+  const task: TaskData | null = taskData ? taskData : null;
 
   // Initialize form values when task loads
   useEffect(() => {
@@ -664,22 +719,20 @@ function TaskDetailPage() {
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {taskData.sources.map((source) => (
+                    {taskData.sources.map((source, index) => (
                       <div
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
                         onClick={() =>
-                          source.conversationId &&
-                          navigate({
-                            to: "/dashboard/email/thread/$threadId",
-                            params: { threadId: source.conversationId },
-                          })
+                          toast.message("Source viewer coming soon")
                         }
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-foreground text-sm">
-                            {source.conversation?.title ?? "Email thread"}
+                            {source.sourceType
+                              ? source.sourceType.toUpperCase()
+                              : `Source ${index + 1}`}
                           </p>
                           {source.quotedText && (
                             <p className="mt-0.5 truncate text-muted-foreground text-xs">
@@ -714,7 +767,7 @@ function TaskDetailPage() {
                     {/* Timeline line */}
                     <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
                     <div className="space-y-4">
-                      {taskData.timeline.map((event) => (
+                      {taskData.timeline.map((event: TaskTimelineEvent) => (
                         <div className="relative pl-8" key={event.id}>
                           {/* Timeline dot */}
                           <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
@@ -737,34 +790,16 @@ function TaskDetailPage() {
 
               {/* Team Discussion */}
               <div className="border-border border-t pt-6">
-                <button
-                  className="flex w-full items-center justify-between"
-                  onClick={() => setShowComments(!showComments)}
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-foreground text-sm">
-                      Team Discussion
-                    </span>
-                  </div>
-                  {showComments ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {showComments && organizationId && currentUserId && (
-                  <div className="mt-4">
-                    <CommentThread
-                      currentUserId={currentUserId}
-                      organizationId={organizationId}
-                      targetId={taskId}
-                      targetType="task"
-                    />
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Team Discussion
+                  </span>
+                </div>
+                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
+                  Collaborative threads are coming soon. For now, keep updates
+                  inside the task description or link supporting evidence.
+                </div>
               </div>
 
               {/* Timestamps */}
@@ -879,52 +914,45 @@ function TaskDetailPage() {
 
               {/* Assignee */}
               <PropertyRow label="Assignee">
-                <TaskAssigneeDropdown
-                  currentAssignee={task.assignee}
-                  organizationId={organizationId}
-                  taskId={task.id}
-                  trigger={
-                    <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
-                      {task.assignee ? (
-                        <>
-                          <Avatar className="h-5 w-5">
-                            {task.assignee.image && (
-                              <AvatarImage
-                                alt={task.assignee.name ?? ""}
-                                src={task.assignee.image}
-                              />
-                            )}
-                            <AvatarFallback className="bg-secondary text-[9px] text-white">
-                              {getInitials(
-                                task.assignee.name,
-                                task.assignee.email
-                              )}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="truncate text-foreground text-sm">
-                            {task.assignee.name ?? task.assignee.email}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full border border-muted-foreground border-dashed">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                          <span className="text-muted-foreground text-sm">
-                            No assignee
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  }
-                />
+                <div className="flex w-full items-center gap-2 rounded px-2 py-1.5">
+                  {task.assignee ? (
+                    <>
+                      <Avatar className="h-5 w-5">
+                        {task.assignee.image && (
+                          <AvatarImage
+                            alt={task.assignee.name ?? ""}
+                            src={task.assignee.image}
+                          />
+                        )}
+                        <AvatarFallback className="bg-secondary text-[9px] text-white">
+                          {getInitials(
+                            task.assignee.name,
+                            task.assignee.email
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate text-foreground text-sm">
+                        {task.assignee.name ?? task.assignee.email}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-muted-foreground border-dashed">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                      <span className="text-muted-foreground text-sm">
+                        No assignee
+                      </span>
+                    </>
+                  )}
+                </div>
               </PropertyRow>
 
               {/* Labels */}
               <PropertyRow label="Labels">
                 <div className="px-2 py-1.5">
                   {task.labels.length > 0 ? (
-                    <div className="mb-2 flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {task.labels.map((label) => (
                         <span
                           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
@@ -942,18 +970,11 @@ function TaskDetailPage() {
                         </span>
                       ))}
                     </div>
-                  ) : null}
-                  <TaskLabelPicker
-                    organizationId={organizationId}
-                    selectedLabels={task.labels}
-                    taskId={task.id}
-                    trigger={
-                      <button className="flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-muted-foreground">
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add label</span>
-                      </button>
-                    }
-                  />
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      No labels
+                    </div>
+                  )}
                 </div>
               </PropertyRow>
 

@@ -1,478 +1,385 @@
 // =============================================================================
-// PATTERN MANAGEMENT PAGE
+// PATTERN INTELLIGENCE
 // =============================================================================
 //
-// Pattern recognition management using Klein's Recognition-Primed Decision model.
-// Lists, filters, and manages organizational patterns for intelligence extraction.
+// Discover and promote recognition patterns from the memory graph.
 //
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Brain, Filter, Plus, RefreshCw, Search, Zap } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Brain,
+  Lightbulb,
+  Loader2,
+  Plus,
+  Sparkles,
+  Target,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { type Pattern, PatternCard } from "@/components/patterns/pattern-card";
 
-// Type for API response which uses snake_case
-interface ApiPattern {
-  id: string;
-  name: string;
-  description: string;
-  domain: string;
-  times_matched: number;
-  times_confirmed: number;
-  times_rejected: number;
-  accuracy_rate: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-// Transform API pattern to frontend Pattern type
-function transformPattern(p: ApiPattern): Pattern {
-  return {
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    domain: p.domain,
-    salientFeatures: [],
-    typicalExpectations: [],
-    typicalAction: "",
-    plausibleGoals: [],
-    confidenceThreshold: 0.7,
-    confidenceBoost: 0.1,
-    timesMatched: p.times_matched,
-    timesConfirmed: p.times_confirmed,
-    timesRejected: p.times_rejected,
-    accuracyRate: p.accuracy_rate,
-    isActive: p.is_active,
-    createdAt: p.created_at,
-    updatedAt: p.created_at,
-  };
-}
-
+import { PatternCard, type Pattern } from "@/components/patterns/pattern-card";
 import { PatternDetail } from "@/components/patterns/pattern-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
-
-// =============================================================================
-// ROUTE DEFINITION
-// =============================================================================
+import {
+  graphAPI,
+  patternsAPI,
+  type PatternCandidate,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/patterns/")({
   component: PatternsPage,
 });
 
-// =============================================================================
-// TYPES
-// =============================================================================
+const PATTERN_QUERY = `
+MATCH (p:Pattern {organizationId: $orgId})
+RETURN p.id as id,
+       p.name as name,
+       p.description as description,
+       p.domain as domain,
+       p.salientFeatures as salient_features,
+       p.typicalExpectations as typical_expectations,
+       p.typicalAction as typical_action,
+       p.plausibleGoals as plausible_goals,
+       p.confidenceThreshold as confidence_threshold,
+       p.confidenceBoost as confidence_boost,
+       p.timesMatched as times_matched,
+       p.timesConfirmed as times_confirmed,
+       p.timesRejected as times_rejected,
+       p.accuracyRate as accuracy_rate,
+       p.isActive as is_active,
+       p.createdAt as created_at,
+       p.updatedAt as updated_at
+ORDER BY p.updatedAt DESC
+LIMIT 100
+`;
 
-type ViewFilter = "all" | "active" | "inactive";
-type DomainFilter =
-  | "all"
-  | "sales"
-  | "engineering"
-  | "legal"
-  | "hr"
-  | "general";
-
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+function toPattern(raw: Record<string, unknown>): Pattern {
+  return {
+    id: raw.id as string,
+    name: (raw.name as string) ?? "Untitled Pattern",
+    description: (raw.description as string) ?? "",
+    domain: (raw.domain as string) ?? "general",
+    salientFeatures: (raw.salient_features as string[]) ?? [],
+    typicalExpectations: (raw.typical_expectations as string[]) ?? [],
+    typicalAction: (raw.typical_action as string) ?? "",
+    plausibleGoals: (raw.plausible_goals as string[]) ?? [],
+    confidenceThreshold: (raw.confidence_threshold as number) ?? 0.7,
+    confidenceBoost: (raw.confidence_boost as number) ?? 0.1,
+    timesMatched: (raw.times_matched as number) ?? 0,
+    timesConfirmed: (raw.times_confirmed as number) ?? 0,
+    timesRejected: (raw.times_rejected as number) ?? 0,
+    accuracyRate: (raw.accuracy_rate as number) ?? 0,
+    isActive: (raw.is_active as boolean) ?? true,
+    createdAt: (raw.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (raw.updated_at as string) ?? new Date().toISOString(),
+  };
+}
 
 function PatternsPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
-  // State
-  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
-  const [domainFilter, setDomainFilter] = useState<DomainFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPatternId, setSelectedPatternId] = useState<string | null>(
-    null
-  );
-  const [showDetailSheet, setShowDetailSheet] = useState(false);
+  const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
+  const [promotionTarget, setPromotionTarget] =
+    useState<PatternCandidate | null>(null);
+  const [promotionName, setPromotionName] = useState("");
+  const [promotionDescription, setPromotionDescription] = useState("");
+  const [promotionDomain, setPromotionDomain] = useState("general");
 
-  // Fetch patterns
-  const {
-    data: patternsData,
-    isLoading: isLoadingPatterns,
-    refetch,
-  } = useQuery({
-    ...trpc.intelligence.listPatterns.queryOptions({
-      organizationId,
-      domain: domainFilter === "all" ? undefined : domainFilter,
-    }),
+  const { data: patternsData, isLoading: patternsLoading, refetch } = useQuery({
+    queryKey: ["patterns", organizationId],
+    queryFn: () => graphAPI.query({ organizationId, cypher: PATTERN_QUERY }),
     enabled: !!organizationId,
   });
 
-  // Toggle active mutation (simulated - would be implemented in backend)
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({
-      patternId,
-      active,
-    }: {
-      patternId: string;
-      active: boolean;
-    }) => {
-      // This would call the actual API
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return { patternId, active };
-    },
-    onSuccess: (data) => {
-      toast.success(data.active ? "Pattern activated" : "Pattern deactivated");
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to update pattern");
-    },
+  const {
+    data: candidates,
+    isLoading: candidatesLoading,
+    refetch: refetchCandidates,
+  } = useQuery({
+    queryKey: ["pattern-candidates", organizationId],
+    queryFn: () => patternsAPI.listCandidates(organizationId),
+    enabled: !!organizationId,
   });
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        document.getElementById("pattern-search")?.focus();
-      }
-      if (e.key === "r") {
-        refetch();
-      }
-      if (e.key === "1") {
-        setViewFilter("all");
-      }
-      if (e.key === "2") {
-        setViewFilter("active");
-      }
-      if (e.key === "3") {
-        setViewFilter("inactive");
-      }
-      if (e.key === "Escape") {
-        setShowDetailSheet(false);
-        setSelectedPatternId(null);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [refetch]);
-
-  // Filter patterns based on view and search
-  const filteredPatterns = useCallback((): Pattern[] => {
-    const apiPatterns = (patternsData?.patterns ?? []) as ApiPattern[];
-    const patterns = apiPatterns.map(transformPattern);
-
-    return patterns.filter((pattern) => {
-      // View filter
-      if (viewFilter === "active" && !pattern.isActive) {
-        return false;
-      }
-      if (viewFilter === "inactive" && pattern.isActive) {
-        return false;
-      }
-
-      // Search filter
-      if (searchQuery.length > 0) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = pattern.name.toLowerCase().includes(query);
-        const matchesDescription = pattern.description
-          .toLowerCase()
-          .includes(query);
-        const matchesDomain = pattern.domain.toLowerCase().includes(query);
-        if (!(matchesName || matchesDescription || matchesDomain)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [patternsData, viewFilter, searchQuery]);
-
-  // Handlers
-  const handleToggleActive = useCallback(
-    (patternId: string, active: boolean) => {
-      toggleActiveMutation.mutate({ patternId, active });
+  const discoverMutation = useMutation({
+    mutationFn: () =>
+      patternsAPI.discoverCandidates({
+        organizationId,
+        minClusterSize: 3,
+        similarityThreshold: 0.85,
+        maxNodes: 500,
+      }),
+    onSuccess: () => {
+      toast.success("Pattern discovery complete");
+      refetchCandidates();
     },
-    [toggleActiveMutation]
-  );
+    onError: () => toast.error("Pattern discovery failed"),
+  });
 
-  const handleViewDetails = useCallback((patternId: string) => {
-    setSelectedPatternId(patternId);
-    setShowDetailSheet(true);
-  }, []);
+  const promoteMutation = useMutation({
+    mutationFn: () =>
+      patternsAPI.promoteCandidate({
+        organizationId,
+        candidateId: promotionTarget?.id ?? "",
+        name: promotionName,
+        description: promotionDescription,
+        domain: promotionDomain,
+      }),
+    onSuccess: () => {
+      toast.success("Pattern promoted");
+      setPromotionTarget(null);
+      refetch();
+      refetchCandidates();
+    },
+    onError: () => toast.error("Failed to promote pattern"),
+  });
 
-  const handleCloseDetail = useCallback(() => {
-    setShowDetailSheet(false);
-    setSelectedPatternId(null);
-  }, []);
-
-  const patterns = filteredPatterns();
-  const selectedPattern = patterns.find((p) => p.id === selectedPatternId);
-
-  // Stats
-  const apiPatterns = (patternsData?.patterns ?? []) as ApiPattern[];
-  const stats = {
-    total: apiPatterns.length,
-    active: apiPatterns.filter((p) => p.is_active).length,
-    inactive: apiPatterns.filter((p) => !p.is_active).length,
-    avgAccuracy:
-      apiPatterns.length > 0
-        ? Math.round(
-            (apiPatterns.reduce((acc, p) => acc + p.accuracy_rate, 0) /
-              apiPatterns.length) *
-              100
-          )
-        : 0,
-  };
+  const patterns = useMemo(() => {
+    return (patternsData?.results ?? []).map((item) => toPattern(item));
+  }, [patternsData]);
 
   if (orgLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Skeleton className="h-8 w-48" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!organizationId) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">
-          Select an organization to view patterns
-        </p>
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        Select an organization to manage patterns
       </div>
     );
   }
 
   return (
-    <div className="h-full" data-no-shell-padding>
-      <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
-        {/* Header */}
-        <div className="border-b bg-background">
-          <div className="flex items-center justify-between px-4 py-2">
-            {/* View Filter Tabs */}
-            <Tabs
-              onValueChange={(v) => setViewFilter(v as ViewFilter)}
-              value={viewFilter}
+    <div className="flex h-full flex-col gap-6 p-6" data-no-shell-padding>
+      <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              <Brain className="h-3 w-3" />
+              Pattern Intelligence
+            </div>
+            <h1 className="font-semibold text-2xl">
+              Promote the patterns your organization repeats
+            </h1>
+            <p className="max-w-2xl text-muted-foreground">
+              Cluster commitments, detect repeated playbooks, and teach Drovi to
+              act faster with confidence boosts.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => discoverMutation.mutate()}
+              size="sm"
+              variant="outline"
             >
-              <TabsList className="h-8 gap-1 bg-transparent">
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="all"
-                >
-                  <Brain className="h-4 w-4" />
-                  All
-                  <Badge
-                    className="ml-1 px-1.5 py-0 text-[10px]"
-                    variant="secondary"
-                  >
-                    {stats.total}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="active"
-                >
-                  <Zap className="h-4 w-4" />
-                  Active
-                  <Badge
-                    className="ml-1 px-1.5 py-0 text-[10px]"
-                    variant="secondary"
-                  >
-                    {stats.active}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger
-                  className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
-                  value="inactive"
-                >
-                  Inactive
-                  {stats.inactive > 0 && (
-                    <Badge
-                      className="ml-1 px-1.5 py-0 text-[10px]"
-                      variant="secondary"
-                    >
-                      {stats.inactive}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              {/* Domain Filter */}
-              <Select
-                onValueChange={(v) => setDomainFilter(v as DomainFilter)}
-                value={domainFilter}
-              >
-                <SelectTrigger className="h-8 w-[140px]">
-                  <Filter className="mr-2 h-3.5 w-3.5" />
-                  <SelectValue placeholder="Domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Domains</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                  <SelectItem value="legal">Legal</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="h-8 w-[200px] pl-8 text-sm"
-                  id="pattern-search"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search patterns..."
-                  value={searchQuery}
-                />
-              </div>
-
-              <Button
-                className="h-8 w-8"
-                onClick={() => refetch()}
-                size="icon"
-                variant="ghost"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-
-              <Button className="h-8 gap-2" size="sm">
-                <Plus className="h-4 w-4" />
-                New Pattern
-              </Button>
-
-              {/* Keyboard hints */}
-              <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
-                <kbd className="rounded bg-muted px-1.5 py-0.5">/</kbd>
-                <span>search</span>
-                <kbd className="rounded bg-muted px-1.5 py-0.5">1-3</kbd>
-                <span>tabs</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Bar */}
-          <div className="flex items-center gap-6 border-t bg-muted/30 px-4 py-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Avg Accuracy:</span>
-              <Badge
-                className={
-                  stats.avgAccuracy >= 80
-                    ? "border-green-500/30 bg-green-500/10 text-green-600"
-                    : stats.avgAccuracy >= 60
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
-                      : "border-red-500/30 bg-red-500/10 text-red-600"
-                }
-                variant="outline"
-              >
-                {stats.avgAccuracy}%
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Total Patterns:</span>
-              <span className="font-medium">{stats.total}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Active:</span>
-              <span className="font-medium text-green-600">{stats.active}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto p-4">
-          {isLoadingPatterns ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...new Array(6)].map((_, i) => (
-                <div
-                  className="h-48 animate-pulse rounded-xl bg-muted"
-                  key={i}
-                />
-              ))}
-            </div>
-          ) : patterns.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <Brain className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-lg">
-                {searchQuery.length > 0
-                  ? "No patterns match your search"
-                  : viewFilter === "active"
-                    ? "No active patterns"
-                    : viewFilter === "inactive"
-                      ? "No inactive patterns"
-                      : "No patterns yet"}
-              </h3>
-              <p className="mt-1 text-muted-foreground text-sm">
-                {searchQuery.length > 0
-                  ? "Try adjusting your search query"
-                  : "Patterns help recognize important situations in your communications"}
-              </p>
-              {searchQuery.length === 0 && viewFilter === "all" && (
-                <Button className="mt-4" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Pattern
-                </Button>
+              {discoverMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
               )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {patterns.map((pattern) => (
-                <PatternCard
-                  isSelected={selectedPatternId === pattern.id}
-                  key={pattern.id}
-                  onDelete={() =>
-                    toast.info("Delete functionality coming soon")
-                  }
-                  onEdit={() => toast.info("Edit functionality coming soon")}
-                  onSelect={() => handleViewDetails(pattern.id)}
-                  onToggleActive={handleToggleActive}
-                  onViewDetails={handleViewDetails}
-                  pattern={pattern}
-                />
-              ))}
-            </div>
-          )}
+              Discover patterns
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Pattern Detail Sheet */}
-      <Sheet onOpenChange={setShowDetailSheet} open={showDetailSheet}>
-        <SheetContent className="w-[540px] p-0">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Active Patterns
+            </CardTitle>
+            <CardDescription>
+              Governed patterns already boosting intelligence extraction.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {patternsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : patterns.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+                No patterns promoted yet.
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {patterns.map((pattern) => (
+                  <PatternCard
+                    key={pattern.id}
+                    onSelect={() => setSelectedPattern(pattern)}
+                    pattern={pattern}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-primary" />
+              Candidate Clusters
+            </CardTitle>
+            <CardDescription>
+              Clusters discovered from the memory graph.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {candidatesLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (candidates ?? []).length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+                No candidates yet. Run discovery to generate clusters.
+              </div>
+            ) : (
+              (candidates ?? []).map((candidate) => (
+                <CandidateCard
+                  candidate={candidate}
+                  key={candidate.id}
+                  onPromote={() => {
+                    setPromotionTarget(candidate);
+                    setPromotionName(candidate.sample_titles?.[0] ?? "Pattern");
+                    setPromotionDescription(
+                      candidate.top_terms?.join(", ") ?? "Auto-promoted pattern"
+                    );
+                    setPromotionDomain("general");
+                  }}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Sheet
+        onOpenChange={(open) => !open && setSelectedPattern(null)}
+        open={!!selectedPattern}
+      >
+        <SheetContent className="w-[520px] sm:max-w-[520px]">
           {selectedPattern && (
-            <PatternDetail
-              matches={[]}
-              onClose={handleCloseDetail}
-              pattern={selectedPattern}
-            />
+            <PatternDetail pattern={selectedPattern} />
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        onOpenChange={(open) => !open && setPromotionTarget(null)}
+        open={!!promotionTarget}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Promote Pattern</DialogTitle>
+            <DialogDescription>
+              Turn this candidate into a governed pattern with confidence boosts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                onChange={(event) => setPromotionName(event.target.value)}
+                value={promotionName}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                onChange={(event) =>
+                  setPromotionDescription(event.target.value)
+                }
+                value={promotionDescription}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Domain</Label>
+              <Input
+                onChange={(event) => setPromotionDomain(event.target.value)}
+                value={promotionDomain}
+              />
+            </div>
+            <Button
+              disabled={promoteMutation.isPending}
+              onClick={() => promoteMutation.mutate()}
+            >
+              {promoteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Promote pattern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CandidateCard({
+  candidate,
+  onPromote,
+}: {
+  candidate: PatternCandidate;
+  onPromote: () => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-sm">
+            {candidate.sample_titles?.[0] ?? "Cluster"}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {candidate.member_count} members
+          </p>
+        </div>
+        <Badge variant="secondary">+{candidate.confidence_boost}</Badge>
+      </div>
+      {candidate.top_terms?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {candidate.top_terms.slice(0, 4).map((term) => (
+            <Badge key={term} variant="outline">
+              {term}
+            </Badge>
+          ))}
+        </div>
+      )}
+      <Button className="mt-3 w-full" onClick={onPromote} size="sm">
+        Promote
+      </Button>
     </div>
   );
 }

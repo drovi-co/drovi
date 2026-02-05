@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpen,
   Calendar,
   CheckCircle2,
@@ -9,8 +10,11 @@ import {
   Network,
   Settings,
   Shield,
+  Sparkles,
+  Store,
   Terminal,
   Users,
+  Zap,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,23 +35,14 @@ const consoleNavItems: NavItem[] = [
     icon: Terminal,
   },
   {
+    title: "Reality Stream",
+    url: "/dashboard/reality-stream",
+    icon: Activity,
+  },
+  {
     title: "Graph",
     url: "/dashboard/graph",
     icon: Network,
-  },
-];
-
-// Intelligence navigation items (Drovi - Multi-Source)
-const intelligenceNavItems: NavItem[] = [
-  {
-    title: "Tasks",
-    url: "/dashboard/tasks",
-    icon: ListTodo,
-  },
-  {
-    title: "Calendar",
-    url: "/dashboard/calendar",
-    icon: Calendar,
   },
 ];
 
@@ -63,14 +58,66 @@ const memoryNavItems: NavItem[] = [
     url: "/dashboard/decisions",
     icon: BookOpen,
   },
+  {
+    title: "Tasks",
+    url: "/dashboard/tasks",
+    icon: ListTodo,
+  },
+  {
+    title: "Schedule",
+    url: "/dashboard/schedule",
+    icon: Calendar,
+  },
 ];
 
-// People items
+// People and discovery
 const discoveryNavItems: NavItem[] = [
   {
     title: "People",
     url: "/dashboard/contacts",
     icon: Users,
+  },
+  {
+    title: "Patterns",
+    url: "/dashboard/patterns",
+    icon: Sparkles,
+  },
+];
+
+// Continuums and execution
+const continuumNavItems: NavItem[] = [
+  {
+    title: "Continuums",
+    url: "/dashboard/continuums",
+    icon: Sparkles,
+  },
+  {
+    title: "Builder",
+    url: "/dashboard/builder",
+    icon: FileText,
+  },
+  {
+    title: "Exchange",
+    url: "/dashboard/exchange",
+    icon: Store,
+  },
+];
+
+const executionNavItems: NavItem[] = [
+  {
+    title: "Simulations",
+    url: "/dashboard/simulations",
+    icon: Activity,
+  },
+  {
+    title: "Actuations",
+    url: "/dashboard/actuations",
+    icon: Zap,
+  },
+  {
+    title: "Trust & Audit",
+    url: "/dashboard/trust",
+    icon: Shield,
   },
 ];
 
@@ -80,11 +127,6 @@ const sourcesNavItems: NavItem[] = [
     title: "Connected Sources",
     url: "/dashboard/sources",
     icon: Link2,
-  },
-  {
-    title: "Email Accounts",
-    url: "/dashboard/email-accounts",
-    icon: Mail,
   },
 ];
 
@@ -156,9 +198,10 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={consoleNavItems} label="Console" />
-        <NavMain items={intelligenceNavItems} label="Intelligence" />
         <NavMain items={memoryNavItems} label="Memory" />
         <NavMain items={discoveryNavItems} label="Discovery" />
+        <NavMain items={continuumNavItems} label="Continuums" />
+        <NavMain items={executionNavItems} label="Execution" />
         <NavMain items={sourcesNavItems} label="Sources" />
         <NavMain items={teamNavItems} label="Management" />
         {showAdmin && <NavMain items={adminNavItems} label="Administration" />}

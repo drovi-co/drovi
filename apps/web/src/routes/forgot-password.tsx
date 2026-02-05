@@ -11,8 +11,8 @@ function ForgotPasswordPage() {
 
   return (
     <AuthLayout
-      description="Enter your email to receive reset instructions"
-      title="Reset password"
+      description="Password resets are handled by your workspace admin"
+      title="Reset access"
     >
       <ForgotPasswordForm onBack={() => navigate({ to: "/login" })} />
     </AuthLayout>

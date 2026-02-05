@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,26 +19,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
+import type { OrgMember } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/team/members")({
   component: MembersPage,
 });
 
-interface Member {
-  id: string;
-  role: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-  };
-}
-
 function MembersPage() {
   const { data: activeOrg } = authClient.useActiveOrganization();
   const [isLoading, setIsLoading] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<OrgMember[]>([]);
   const [isPending, setIsPending] = useState(true);
 
   // Fetch members when org changes
@@ -52,11 +42,9 @@ function MembersPage() {
 
       setIsPending(true);
       try {
-        const result = await authClient.organization.listMembers({
-          query: { organizationId: activeOrg.id },
-        });
+        const result = await authClient.organization.listMembers();
         if (result.data?.members) {
-          setMembers(result.data.members as Member[]);
+          setMembers(result.data.members as OrgMember[]);
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -75,11 +63,9 @@ function MembersPage() {
     if (!activeOrg) {
       return;
     }
-    const result = await authClient.organization.listMembers({
-      query: { organizationId: activeOrg.id },
-    });
+    const result = await authClient.organization.listMembers();
     if (result.data?.members) {
-      setMembers(result.data.members as Member[]);
+      setMembers(result.data.members as OrgMember[]);
     }
   };
 
@@ -166,9 +152,11 @@ function MembersPage() {
           ) : (
             <div className="space-y-4">
               {members.map((member) => {
-                const initials = member.user?.name
-                  ?.split(" ")
-                  .map((n: string) => n[0])
+                const displayName =
+                  member.name ?? member.email?.split("@")[0] ?? "User";
+                const displayInitials = displayName
+                  .split(" ")
+                  .map((n) => n[0])
                   .join("")
                   .toUpperCase()
                   .slice(0, 2);
@@ -180,32 +168,28 @@ function MembersPage() {
                   >
                     <div className="flex items-center gap-4">
                       <Avatar>
-                        <AvatarImage
-                          alt={member.user?.name ?? "User"}
-                          src={member.user?.image ?? undefined}
-                        />
-                        <AvatarFallback>{initials ?? "U"}</AvatarFallback>
+                        <AvatarFallback>{displayInitials ?? "U"}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{member.user?.name}</p>
+                        <p className="font-medium">{displayName}</p>
                         <p className="text-muted-foreground text-sm">
-                          {member.user?.email}
+                          {member.email}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          member.role === "owner"
+                          member.role === "pilot_owner"
                             ? "default"
-                            : member.role === "admin"
+                            : member.role === "pilot_admin"
                               ? "secondary"
                               : "outline"
                         }
                       >
-                        {member.role}
+                        {member.role.replace("pilot_", "")}
                       </Badge>
-                      {member.role !== "owner" && (
+                      {member.role !== "pilot_owner" && (
                         <DropdownMenu>
                           <DropdownMenuTrigger>
                             <Button
@@ -217,7 +201,7 @@ function MembersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {member.role !== "admin" && (
+                            {member.role !== "pilot_admin" && (
                               <DropdownMenuItem
                                 onClick={() =>
                                   handleUpdateRole(member.id, "admin")
@@ -227,7 +211,7 @@ function MembersPage() {
                                 Make Admin
                               </DropdownMenuItem>
                             )}
-                            {member.role === "admin" && (
+                            {member.role === "pilot_admin" && (
                               <DropdownMenuItem
                                 onClick={() =>
                                   handleUpdateRole(member.id, "member")

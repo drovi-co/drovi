@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { authAPI, type User } from "./api";
+import { authAPI, orgAPI, type OrgInvite, type OrgMember, type User } from "./api";
 import { useAuthStore, initializeAuth } from "./auth";
 
 // Re-export the auth store for convenience
@@ -178,37 +178,69 @@ export const authClient = {
   useListOrganizations,
 
   /**
-   * Sign in with email/password or OAuth
+   * Sign in with email/password
    */
-  async signIn(
-    _credentials: { email: string; password: string } | { provider: "google" | "github" },
-    _options?: { callbackURL?: string }
-  ): Promise<{ error?: { message: string } }> {
-    // For now, redirect to OAuth
-    const store = useAuthStore.getState();
-    try {
-      await store.login("google");
-      return {};
-    } catch (error) {
-      return { error: { message: error instanceof Error ? error.message : "Sign in failed" } };
-    }
+  signIn: {
+    async email(
+      params: { email: string; password: string; rememberMe?: boolean },
+      callbacks?: {
+        onSuccess?: () => void;
+        onError?: (error: { error: { message: string; status?: number; statusText?: string } }) => void;
+      }
+    ) {
+      const store = useAuthStore.getState();
+      try {
+        await store.loginWithEmail(params.email, params.password);
+        callbacks?.onSuccess?.();
+        return { data: true };
+      } catch (error) {
+        callbacks?.onError?.({
+          error: {
+            message: error instanceof Error ? error.message : "Sign in failed",
+          },
+        });
+        return { error: { message: "Sign in failed" } };
+      }
+    },
   },
 
   /**
    * Sign up with email/password
    */
-  async signUp(
-    _data: { email: string; password: string; name?: string },
-    _options?: { callbackURL?: string }
-  ): Promise<{ error?: { message: string } }> {
-    // For now, redirect to OAuth - the Python backend handles user creation
-    const store = useAuthStore.getState();
-    try {
-      await store.login("google");
-      return {};
-    } catch (error) {
-      return { error: { message: error instanceof Error ? error.message : "Sign up failed" } };
-    }
+  signUp: {
+    async email(
+      params: {
+        email: string;
+        password: string;
+        name?: string;
+        organizationName?: string;
+        inviteToken?: string;
+      },
+      callbacks?: {
+        onSuccess?: () => void;
+        onError?: (error: { error: { message: string; status?: number; statusText?: string } }) => void;
+      }
+    ) {
+      const store = useAuthStore.getState();
+      try {
+        await store.signupWithEmail({
+          email: params.email,
+          password: params.password,
+          name: params.name,
+          organizationName: params.organizationName,
+          inviteToken: params.inviteToken,
+        });
+        callbacks?.onSuccess?.();
+        return { data: true };
+      } catch (error) {
+        callbacks?.onError?.({
+          error: {
+            message: error instanceof Error ? error.message : "Sign up failed",
+          },
+        });
+        return { error: { message: "Sign up failed" } };
+      }
+    },
   },
 
   /**
@@ -262,6 +294,58 @@ export const authClient = {
     async setActive(_opts: { organizationId: string }): Promise<void> {
       // TODO: Implement when Python backend supports multiple orgs
     },
+
+    async listMembers(): Promise<{ data: { members: OrgMember[] } | null }> {
+      const members = await orgAPI.listMembers();
+      return { data: { members } };
+    },
+
+    async updateMemberRole(params: { memberId: string; role: "admin" | "member"; organizationId: string }) {
+      await orgAPI.updateMemberRole({
+        userId: params.memberId,
+        role: params.role === "admin" ? "pilot_admin" : "pilot_member",
+      });
+      return { data: true };
+    },
+
+    async removeMember(params: { memberIdOrEmail: string; organizationId: string }) {
+      await orgAPI.removeMember(params.memberIdOrEmail);
+      return { data: true };
+    },
+
+    async listInvitations(): Promise<{ data: OrgInvite[] | null }> {
+      const invites = await orgAPI.listInvites();
+      return { data: invites };
+    },
+
+    async inviteMember(params: { email: string; role: "admin" | "member"; organizationId: string }) {
+      await orgAPI.createInvite({
+        email: params.email,
+        role: params.role === "admin" ? "pilot_admin" : "pilot_member",
+      });
+      return { data: true };
+    },
+
+    async cancelInvitation(params: { invitationId: string }) {
+      await orgAPI.revokeInvite(params.invitationId);
+      return { data: true };
+    },
+
+    async update(params: {
+      organizationId: string;
+      name?: string;
+      allowedDomains?: string[];
+      notificationEmails?: string[];
+      region?: string;
+    }) {
+      const updated = await orgAPI.updateOrgInfo({
+        name: params.name,
+        allowedDomains: params.allowedDomains,
+        notificationEmails: params.notificationEmails,
+        region: params.region,
+      });
+      return { data: updated };
+    },
   },
 };
 
@@ -269,20 +353,12 @@ export const authClient = {
 // SIGN IN/UP/OUT FUNCTIONS (Compatible with old exports)
 // =============================================================================
 
-export async function signIn(
-  provider: "google" | "credentials" = "google",
-  _credentials?: { email: string; password: string }
-) {
-  const store = useAuthStore.getState();
-  await store.login(provider);
+export async function signIn() {
+  throw new Error("Use authClient.signIn.email instead.");
 }
 
-export async function signUp(
-  _data: { email: string; password: string; name?: string }
-) {
-  // For now, redirect to OAuth - the Python backend handles user creation
-  const store = useAuthStore.getState();
-  await store.login("google");
+export async function signUp() {
+  throw new Error("Use authClient.signUp.email instead.");
 }
 
 export async function signOut() {

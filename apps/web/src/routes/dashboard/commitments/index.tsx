@@ -19,7 +19,6 @@ import {
   CommitmentDetailSheet,
   CommitmentTimeline,
 } from "@/components/dashboards";
-import { useCommandBar } from "@/components/email/command-bar";
 import { EvidenceDetailSheet } from "@/components/evidence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,7 +65,6 @@ type ViewMode = "list" | "timeline";
 
 function CommitmentsPage() {
   const navigate = useNavigate();
-  const { openCompose } = useCommandBar();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -234,24 +232,19 @@ function CommitmentsPage() {
       const subject = `Follow-up: ${commitment.canonicalTitle || "Commitment"}`;
       const body = `Hi${debtor?.displayName ? ` ${debtor.displayName}` : ""},\n\nI wanted to follow up regarding: ${commitment.canonicalTitle || "our commitment"}.\n\nCould you please provide an update on the status?\n\nBest regards`;
 
-      if (debtor?.primaryEmail) {
-        openCompose({
-          to: [
-            {
-              email: debtor.primaryEmail,
-              name: debtor.displayName ?? undefined,
-            },
-          ],
-          subject,
-          body,
-        });
-        toast.success("Follow-up draft ready");
+      const draft = `Subject: ${subject}\n\n${body}`;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(draft)
+          .then(() => toast.success("Follow-up draft copied to clipboard"))
+          .catch(() => toast.error("Failed to copy follow-up draft"));
       } else {
-        openCompose({ subject, body });
-        toast.success("Follow-up draft generated - please add recipient");
+        toast.success("Follow-up draft generated", {
+          description: "Copy it from the task detail panel.",
+        });
       }
     },
-    [commitmentsData, openCompose]
+    [commitmentsData]
   );
 
   // Keyboard shortcuts
@@ -350,13 +343,10 @@ function CommitmentsPage() {
   );
 
   const handleThreadClick = useCallback(
-    (threadId: string) => {
-      navigate({
-        to: "/dashboard/email/thread/$threadId",
-        params: { threadId },
-      });
+    () => {
+      toast.message("Source viewer coming soon");
     },
-    [navigate]
+    []
   );
 
   const handleContactClick = useCallback(
@@ -396,6 +386,10 @@ function CommitmentsPage() {
       // Get debtor and creditor from UIO root level (where transformer places them)
       const debtor = c.debtor ?? c.owner;
       const creditor = c.creditor;
+      const evidenceQuotes = (c.sources ?? [])
+        .map((source) => source.quotedText)
+        .filter((value): value is string => Boolean(value));
+      const sourceType = c.sources?.[0]?.sourceType ?? undefined;
       return {
         id: c.id,
         title: c.userCorrectedTitle ?? c.canonicalTitle ?? "",
@@ -408,9 +402,7 @@ function CommitmentsPage() {
         dueDate,
         confidence: c.overallConfidence ?? 0.8,
         isUserVerified: c.isUserVerified ?? undefined,
-        evidence: details?.extractionContext
-          ? [JSON.stringify(details.extractionContext)]
-          : undefined,
+        evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
         extractedAt: new Date(c.createdAt),
         debtor: debtor
           ? {
@@ -428,27 +420,26 @@ function CommitmentsPage() {
               avatarUrl: creditor.avatarUrl,
             }
           : undefined,
-        sourceThread: c.sources?.[0]?.conversation
-          ? {
-              id: c.sources[0].conversation.id,
-              title: c.sources[0].conversation.title,
-              snippet: c.sources[0].conversation.snippet,
-            }
-          : undefined,
-        sourceType: undefined,
+        sourceThread: undefined,
+        sourceType: sourceType as CommitmentCardData["sourceType"],
         daysOverdue,
       };
     }
   );
 
   // Filter by search
+  const directionFilteredCommitments =
+    direction === "all"
+      ? commitments
+      : commitments.filter((c) => c.direction === direction);
+
   const filteredCommitments = searchQuery
-    ? commitments.filter(
+    ? directionFilteredCommitments.filter(
         (c) =>
           c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           c.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : commitments;
+    : directionFilteredCommitments;
 
   // Select all handler (must be after filteredCommitments is defined)
   const handleSelectAll = useCallback(
@@ -464,19 +455,25 @@ function CommitmentsPage() {
 
   const stats = statsData ?? {
     total: 0,
+    open: 0,
     overdue: 0,
-    dueThisWeek: 0,
-    owedByMe: 0,
-    owedToMe: 0,
-    completedThisMonth: 0,
+    completed: 0,
+  };
+
+  const directionCounts = {
+    owedByMe: commitments.filter((c) => c.direction === "owed_by_me").length,
+    owedToMe: commitments.filter((c) => c.direction === "owed_to_me").length,
   };
 
   // Transform UIO detail data for sheet
   const detailCommitment: CommitmentDetailData | null = detailData
     ? (() => {
         const details = detailData.commitmentDetails;
-        const debtor = details?.debtor ?? detailData.owner;
-        const creditor = details?.creditor;
+        const debtor = detailData.debtor ?? detailData.owner;
+        const creditor = detailData.creditor;
+        const evidenceQuotes = (detailData.sources ?? [])
+          .map((source) => source.quotedText)
+          .filter((value): value is string => Boolean(value));
         return {
           id: detailData.id,
           title:
@@ -490,11 +487,12 @@ function CommitmentsPage() {
             "owed_by_me") as CommitmentDetailData["direction"],
           dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
           createdAt: new Date(detailData.createdAt),
+          completedAt: details?.completedAt
+            ? new Date(details.completedAt)
+            : null,
           confidence: detailData.overallConfidence ?? 0.8,
           isUserVerified: detailData.isUserVerified ?? undefined,
-          evidence: details?.extractionContext
-            ? [JSON.stringify(details.extractionContext)]
-            : undefined,
+          evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
           debtor: debtor
             ? {
                 id: debtor.id,
@@ -511,16 +509,11 @@ function CommitmentsPage() {
                 avatarUrl: creditor.avatarUrl,
               }
             : undefined,
-          sourceThread: detailData.sources?.[0]?.conversation
-            ? {
-                id: detailData.sources[0].conversation.id,
-                title: detailData.sources[0].conversation.title,
-                snippet: detailData.sources[0].conversation.snippet,
-              }
-            : undefined,
-          metadata: details?.extractionContext as
-            | Record<string, unknown>
-            | undefined,
+          sourceThread: undefined,
+          snoozedUntil: details?.snoozedUntil
+            ? new Date(details.snoozedUntil)
+            : null,
+          metadata: null,
         };
       })()
     : null;
@@ -576,7 +569,7 @@ function CommitmentsPage() {
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
                   >
-                    {stats.owedByMe}
+                    {directionCounts.owedByMe}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
@@ -588,7 +581,7 @@ function CommitmentsPage() {
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
                   >
-                    {stats.owedToMe}
+                    {directionCounts.owedToMe}
                   </Badge>
                 </TabsTrigger>
               </TabsList>
@@ -809,12 +802,8 @@ function CommitmentsPage() {
                   "",
                 confidence: evidenceCommitmentData.overallConfidence ?? 0.8,
                 isUserVerified: evidenceCommitmentData.isUserVerified ?? false,
-                quotedText: evidenceCommitmentData.commitmentDetails
-                  ?.extractionContext
-                  ? JSON.stringify(
-                      evidenceCommitmentData.commitmentDetails.extractionContext
-                    )
-                  : null,
+                quotedText:
+                  evidenceCommitmentData.sources?.[0]?.quotedText ?? null,
                 extractedAt: new Date(evidenceCommitmentData.createdAt),
                 modelVersion: "llama-4-maverick",
                 confidenceFactors: [

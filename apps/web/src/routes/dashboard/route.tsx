@@ -3,10 +3,10 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useNavigate,
 } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 
-import { useCommandBar } from "@/components/email/command-bar";
 import { AppShell } from "@/components/layout/app-shell";
 import type {
   ActionButton,
@@ -19,14 +19,16 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
   beforeLoad: async () => {
     const session = await authClient.getSession();
-    if (!session.data) {
+    if (!session.data || !session.data.user) {
       throw redirect({
         to: "/login",
       });
     }
 
     // Check if user is admin
-    const isAdmin = session.data.user.role === "admin";
+    const isAdmin =
+      session.data.user.role === "pilot_admin" ||
+      session.data.user.role === "pilot_owner";
 
     return { session, isAdmin };
   },
@@ -48,8 +50,8 @@ function getBreadcrumbs(pathname: string) {
   }
 
   // Billing
-  if (pathname === "/dashboard/billing") {
-    breadcrumbs.push({ label: "Billing" });
+  if (pathname === "/dashboard/actuations") {
+    breadcrumbs.push({ label: "Actuations" });
     return breadcrumbs;
   }
 
@@ -66,33 +68,50 @@ function getBreadcrumbs(pathname: string) {
   }
 
   // AI Chat
-  if (pathname === "/dashboard/ai") {
-    breadcrumbs.push({ label: "AI Chat" });
+  if (pathname === "/dashboard/builder") {
+    breadcrumbs.push({ label: "Continuum Builder" });
     return breadcrumbs;
   }
 
-  // Email Accounts
-  if (pathname === "/dashboard/email-accounts") {
-    breadcrumbs.push({ label: "Email Accounts" });
+  // Continuum Exchange
+  if (pathname === "/dashboard/exchange") {
+    breadcrumbs.push({ label: "Continuum Exchange" });
     return breadcrumbs;
   }
 
   // Today section
-  if (pathname === "/dashboard/today") {
-    breadcrumbs.push({ label: "Today" });
+  if (pathname === "/dashboard/reality-stream") {
+    breadcrumbs.push({ label: "Reality Stream" });
     return breadcrumbs;
   }
 
   // Calendar section
-  if (pathname === "/dashboard/calendar") {
-    breadcrumbs.push({ label: "Calendar" });
+  if (pathname === "/dashboard/schedule") {
+    breadcrumbs.push({ label: "Schedule" });
     return breadcrumbs;
   }
 
-  // Thread detail page (under /dashboard/email/thread for route compatibility)
-  if (pathname.startsWith("/dashboard/email/thread")) {
-    breadcrumbs.push({ label: "Console", href: "/dashboard/console" });
-    breadcrumbs.push({ label: "Thread" });
+  // Continuums
+  if (pathname === "/dashboard/continuums") {
+    breadcrumbs.push({ label: "Continuums" });
+    return breadcrumbs;
+  }
+
+  // Simulations
+  if (pathname === "/dashboard/simulations") {
+    breadcrumbs.push({ label: "Simulations" });
+    return breadcrumbs;
+  }
+
+  // Trust & Audit
+  if (pathname === "/dashboard/trust") {
+    breadcrumbs.push({ label: "Trust & Audit" });
+    return breadcrumbs;
+  }
+
+  // Patterns
+  if (pathname === "/dashboard/patterns") {
+    breadcrumbs.push({ label: "Patterns" });
     return breadcrumbs;
   }
 
@@ -111,6 +130,12 @@ function getBreadcrumbs(pathname: string) {
   // Contacts section
   if (pathname === "/dashboard/contacts") {
     breadcrumbs.push({ label: "Contacts" });
+    return breadcrumbs;
+  }
+
+  // Tasks section
+  if (pathname === "/dashboard/tasks") {
+    breadcrumbs.push({ label: "Tasks" });
     return breadcrumbs;
   }
 
@@ -164,17 +189,21 @@ interface RouteHeaderConfig {
 function getHeaderConfig(
   _pathname: string,
   handlers: {
-    onCompose?: () => void;
+    onPrimaryAction?: () => void;
   }
 ): RouteHeaderConfig {
   // Console page will handle its own header with search bar
   // Other pages get default config
+  if (!handlers.onPrimaryAction) {
+    return {};
+  }
+
   return {
     primaryAction: {
-      id: "compose",
-      label: "Compose",
+      id: "primary",
+      label: "New Continuum",
       icon: Plus,
-      onClick: handlers.onCompose,
+      onClick: handlers.onPrimaryAction,
     },
   };
 }
@@ -183,13 +212,13 @@ function DashboardLayout() {
   const { isAdmin } = Route.useRouteContext() as {
     isAdmin: boolean;
   };
+  const navigate = useNavigate();
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname);
-  const { openCompose } = useCommandBar();
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
-    onCompose: openCompose,
+    onPrimaryAction: () => navigate({ to: "/dashboard/builder" }),
   });
 
   return (

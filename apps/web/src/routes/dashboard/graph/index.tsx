@@ -2,9 +2,7 @@
 // KNOWLEDGE GRAPH PAGE
 // =============================================================================
 //
-// Interactive real-time visualization of your professional universe.
-// See contacts, commitments, decisions, and tasks all connected.
-// Watch intelligence appear in real-time as emails are analyzed.
+// Interactive visualization of the memory graph.
 //
 
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +35,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { graphAPI } from "@/lib/api";
 import type {
   GraphEdge,
+  GraphEdgeType,
   GraphNode,
   GraphNodeData,
   GraphNodeType,
@@ -46,91 +46,225 @@ import type {
 import { GraphSidebar } from "./components/-graph-sidebar";
 import { KnowledgeGraph } from "./components/-knowledge-graph";
 
-// =============================================================================
-// ROUTE DEFINITION
-// =============================================================================
-
 export const Route = createFileRoute("/dashboard/graph/")({
   component: GraphPage,
 });
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
 type NodeFilter = "all" | "contacts" | "commitments" | "decisions" | "tasks";
 
-// Map filter value to node type
-const filterToNodeTypes: Record<NodeFilter, GraphNodeType[]> = {
-  all: ["contact", "commitment", "decision", "task"],
-  contacts: ["contact"],
-  commitments: ["commitment"],
-  decisions: ["decision"],
-  tasks: ["task"],
+const filterToLabels: Record<NodeFilter, string[]> = {
+  all: ["Contact", "Commitment", "Decision", "Task"],
+  contacts: ["Contact"],
+  commitments: ["Commitment"],
+  decisions: ["Decision"],
+  tasks: ["Task"],
 };
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+function getValue<T>(
+  node: Record<string, unknown>,
+  keys: string[],
+  fallback: T
+): T {
+  for (const key of keys) {
+    const value = node[key];
+    if (value !== undefined && value !== null) {
+      return value as T;
+    }
+  }
+  return fallback;
+}
+
+function mapNodeType(label: string): GraphNodeType {
+  switch (label) {
+    case "Contact":
+      return "contact";
+    case "Commitment":
+      return "commitment";
+    case "Decision":
+      return "decision";
+    case "Task":
+      return "task";
+    default:
+      return "topic";
+  }
+}
+
+function mapEdgeType(raw: string): GraphEdgeType {
+  const normalized = raw.toLowerCase();
+  const allowed: GraphEdgeType[] = [
+    "communicates_with",
+    "owns",
+    "involves",
+    "originated_from",
+    "tracks",
+    "depends_on",
+    "supersedes",
+    "related_to",
+  ];
+  return (allowed.includes(normalized as GraphEdgeType)
+    ? normalized
+    : "related_to") as GraphEdgeType;
+}
 
 function GraphPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
-  // State
   const [nodeFilter, setNodeFilter] = useState<NodeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNode, setSelectedNode] = useState<GraphNodeData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Fetch graph data
-  const {
-    data: graphData,
-    isLoading,
-    refetch,
-  } = useQuery({
-    ...trpc.graph.getSubgraph.queryOptions({
-      organizationId,
-      nodeTypes: filterToNodeTypes[nodeFilter],
-      limit: 200,
-    }),
+  const labels = filterToLabels[nodeFilter];
+
+  const nodesQuery = useQuery({
+    queryKey: ["graph-nodes", organizationId, nodeFilter],
+    queryFn: () =>
+      graphAPI.query({
+        organizationId,
+        cypher: `
+        MATCH (n)
+        WHERE n.organizationId = $orgId AND labels(n)[0] IN $labels
+        RETURN labels(n)[0] as node_label, n as node
+        LIMIT $limit
+      `,
+        params: {
+          labels,
+          limit: 240,
+        },
+      }),
     enabled: !!organizationId,
   });
 
-  // Transform API data to proper graph types
-  // The API returns compatible shapes, but TypeScript's strict null checks cause issues
-  // with null vs undefined in optional boolean fields
-  const transformedNodes = useMemo((): GraphNode[] => {
-    if (!graphData?.nodes) {
-      return [];
-    }
-    // Cast through unknown to handle null vs undefined differences
-    return graphData.nodes as unknown as GraphNode[];
-  }, [graphData?.nodes]);
+  const edgesQuery = useQuery({
+    queryKey: ["graph-edges", organizationId, nodeFilter],
+    queryFn: () =>
+      graphAPI.query({
+        organizationId,
+        cypher: `
+        MATCH (a)-[r]->(b)
+        WHERE a.organizationId = $orgId
+          AND b.organizationId = $orgId
+          AND labels(a)[0] IN $labels
+          AND labels(b)[0] IN $labels
+        RETURN a.id as source, b.id as target, type(r) as rel_type, r.strength as strength
+        LIMIT $limit
+      `,
+        params: {
+          labels,
+          limit: 320,
+        },
+      }),
+    enabled: !!organizationId,
+  });
 
-  const transformedEdges = useMemo((): GraphEdge[] => {
-    if (!graphData?.edges) {
-      return [];
-    }
-    // Cast through unknown to handle edgeType string literal type
-    return graphData.edges as unknown as GraphEdge[];
-  }, [graphData?.edges]);
+  const { nodes, edges } = useMemo(() => {
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
 
-  // Handlers
+    const rawNodes = nodesQuery.data?.results ?? [];
+    rawNodes.forEach((row) => {
+      const rawNode = (row.node as Record<string, unknown>) ?? row;
+      const label = getValue(rawNode, ["name", "title", "canonicalTitle", "label"], "Untitled");
+      const nodeId = getValue(rawNode, ["id"], "");
+      const nodeLabel = (row.node_label as string) ?? getValue(rawNode, ["label"], "");
+      const finalType = mapNodeType(nodeLabel);
+
+      const base = {
+        id: nodeId,
+        label,
+        nodeType: finalType,
+      };
+
+      const data: GraphNodeData =
+        finalType === "contact"
+          ? {
+              ...base,
+              nodeType: "contact",
+              email: getValue(rawNode, ["email", "primaryEmail"], ""),
+              company: getValue(rawNode, ["company", "organization"], undefined),
+              title: getValue(rawNode, ["title"], undefined),
+              avatarUrl: getValue(rawNode, ["avatarUrl", "avatar_url"], undefined),
+              healthScore: getValue(rawNode, ["healthScore", "health_score"], undefined),
+              importanceScore: getValue(rawNode, ["importanceScore", "importance_score"], undefined),
+              isVip: getValue(rawNode, ["isVip", "is_vip"], false),
+              isAtRisk: getValue(rawNode, ["isAtRisk", "is_at_risk"], false),
+            }
+          : finalType === "commitment"
+            ? {
+                ...base,
+                nodeType: "commitment",
+                status: getValue(rawNode, ["status"], "pending"),
+                priority: getValue(rawNode, ["priority"], "medium"),
+                direction: getValue(rawNode, ["direction"], "owed_by_me"),
+                dueDate: getValue(rawNode, ["dueDate", "due_date"], undefined),
+                confidence: getValue(rawNode, ["confidence"], 0.6),
+                isOverdue: getValue(rawNode, ["isOverdue", "is_overdue"], false),
+              }
+            : finalType === "decision"
+              ? {
+                  ...base,
+                  nodeType: "decision",
+                  status: getValue(rawNode, ["status"], "made"),
+                  decidedAt: getValue(rawNode, ["decidedAt", "decided_at"], ""),
+                  confidence: getValue(rawNode, ["confidence"], 0.6),
+                  rationale: getValue(rawNode, ["rationale"], undefined),
+                  isSuperseded: getValue(rawNode, ["isSuperseded", "is_superseded"], false),
+                }
+              : {
+                  ...base,
+                  nodeType: "task",
+                  status: getValue(rawNode, ["status"], "open"),
+                  priority: getValue(rawNode, ["priority"], "medium"),
+                  dueDate: getValue(rawNode, ["dueDate", "due_date"], undefined),
+                  sourceType: getValue(rawNode, ["sourceType", "source_type"], undefined),
+                };
+
+      nodes.push({
+        id: nodeId,
+        type: finalType,
+        position: { x: 0, y: 0 },
+        data,
+      });
+    });
+
+    const rawEdges = edgesQuery.data?.results ?? [];
+    rawEdges.forEach((row, index) => {
+      const source = row.source as string;
+      const target = row.target as string;
+      const relType = row.rel_type as string;
+      if (!source || !target) return;
+
+      edges.push({
+        id: `${source}-${target}-${index}`,
+        source,
+        target,
+        type: "default",
+        data: {
+          edgeType: mapEdgeType(relType),
+          strength: (row.strength as number | undefined) ?? undefined,
+          label: relType,
+        },
+      });
+    });
+
+    return { nodes, edges };
+  }, [nodesQuery.data, edgesQuery.data]);
+
   const handleNodeSelect = useCallback((node: GraphNodeData | null) => {
     setSelectedNode(node);
   }, []);
 
   const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    nodesQuery.refetch();
+    edgesQuery.refetch();
+  }, [nodesQuery, edgesQuery]);
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev);
   }, []);
 
-  // Loading state
   if (orgLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -143,21 +277,16 @@ function GraphPage() {
     <div
       className={`flex h-full flex-col ${isFullscreen ? "fixed inset-0 z-50 bg-background" : ""}`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Network className="h-5 w-5 text-primary" />
           <h1 className="font-semibold text-lg">Knowledge Graph</h1>
-          {graphData && (
-            <Badge className="text-xs" variant="secondary">
-              {graphData.nodes?.length ?? 0} nodes ·{" "}
-              {graphData.edges?.length ?? 0} connections
-            </Badge>
-          )}
+          <Badge className="text-xs" variant="secondary">
+            {nodes.length} nodes · {edges.length} connections
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -168,7 +297,6 @@ function GraphPage() {
             />
           </div>
 
-          {/* Filter */}
           <Select
             onValueChange={(v) => setNodeFilter(v as NodeFilter)}
             value={nodeFilter}
@@ -186,7 +314,6 @@ function GraphPage() {
             </SelectContent>
           </Select>
 
-          {/* Actions */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -201,11 +328,7 @@ function GraphPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  onClick={toggleFullscreen}
-                  size="icon"
-                  variant="outline"
-                >
+                <Button onClick={toggleFullscreen} size="icon" variant="outline">
                   {isFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
                   ) : (
@@ -221,35 +344,17 @@ function GraphPage() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Graph canvas */}
+      <div className="flex flex-1">
         <div className="flex-1">
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <Network className="mx-auto h-12 w-12 animate-pulse text-muted-foreground" />
-                <p className="mt-2 text-muted-foreground text-sm">
-                  Loading your knowledge graph...
-                </p>
-              </div>
-            </div>
-          ) : (
-            <KnowledgeGraph
-              edges={transformedEdges}
-              nodes={transformedNodes}
-              onNodeSelect={handleNodeSelect}
-              searchQuery={searchQuery}
-            />
-          )}
-        </div>
-
-        {/* Sidebar (selected node details) */}
-        {selectedNode && (
-          <GraphSidebar
-            node={selectedNode}
-            onClose={() => setSelectedNode(null)}
+          <KnowledgeGraph
+            edges={edges}
+            nodes={nodes}
+            onNodeSelect={handleNodeSelect}
+            searchQuery={searchQuery}
           />
+        </div>
+        {selectedNode && (
+          <GraphSidebar node={selectedNode} onClose={() => setSelectedNode(null)} />
         )}
       </div>
     </div>

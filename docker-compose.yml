@@ -1,169 +1,250 @@
 # =============================================================================
-# LEADMINER - Enterprise SaaS Template
-# Production Docker Compose Configuration
-# =============================================================================
-# Usage:
-#   docker-compose up -d              # Start all services
-#   docker-compose down               # Stop all services
-#   docker-compose logs -f            # View logs
-#   docker-compose up -d --build      # Rebuild and start
+# DROVI - Full Stack (Web + Intelligence)
 # =============================================================================
 
-name: memorystack
+name: drovi-stack
 
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL Database
+  # PostgreSQL (pgvector)
   # ---------------------------------------------------------------------------
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: memorystack-postgres
+    container_name: drovi-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-memorystack}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: drovi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - drovi_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-memorystack}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d drovi"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - memorystack-network
 
   # ---------------------------------------------------------------------------
-  # Redis (Caching, Rate Limiting, Session Store)
+  # FalkorDB (Redis-compatible + Graph)
   # ---------------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: memorystack-redis
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: drovi-falkordb
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6379:6379"
+      - "3002:3000"
     volumes:
-      - redis_data:/data
+      - drovi_falkordb_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - memorystack-network
 
   # ---------------------------------------------------------------------------
-  # API Server (Hono + tRPC)
+  # Redpanda (Kafka-compatible)
   # ---------------------------------------------------------------------------
-  server:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: drovi-redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+
+  # ---------------------------------------------------------------------------
+  # MinIO (Evidence Storage)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: drovi-minio
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - drovi_minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "mc alias set drovi http://minio:9000 minioadmin minioadmin &&
+       mc mb --with-lock -p drovi/drovi-evidence || true &&
+       mc retention set --default GOVERNANCE 30d drovi/drovi-evidence || true"
+
+  # ---------------------------------------------------------------------------
+  # Drovi Intelligence API
+  # ---------------------------------------------------------------------------
+  drovi-intelligence:
     build:
-      context: .
+      context: ./drovi-intelligence
       dockerfile: Dockerfile
-      target: server
-    container_name: memorystack-server
+    container_name: drovi-intel-api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      falkordb:
+        condition: service_started
+    env_file:
+      - ./drovi-intelligence/.env
     environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-memorystack}
-      REDIS_URL: redis://redis:6379
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      # OAuth
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # Email
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
-      # Payments
-      POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN:-}
-      POLAR_WEBHOOK_SECRET: ${POLAR_WEBHOOK_SECRET:-}
-      POLAR_SUCCESS_URL: ${POLAR_SUCCESS_URL:-}
-      # AI
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      # Observability
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
-      # Trigger.dev
-      TRIGGER_SECRET_KEY: ${TRIGGER_SECRET_KEY:-}
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
+      SCHEDULER_RUN_IN_API: "false"
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: 6379
+      FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
+      KAFKA_ENABLED: "true"
+      KAFKA_RUN_PROCESSOR_IN_API: "false"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
+      KAFKA_TOPIC_NORMALIZED_RECORDS: normalized.records
+      KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
+      KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
+      KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      EVIDENCE_STORAGE_BACKEND: s3
+      EVIDENCE_S3_BUCKET: drovi-evidence
+      EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
+      EVIDENCE_S3_ACCESS_KEY_ID: minioadmin
+      EVIDENCE_S3_SECRET_ACCESS_KEY: minioadmin
+      EVIDENCE_S3_PREFIX: drovi-evidence
+      EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS: 3600
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
     ports:
-      - "${SERVER_PORT:-3000}:3000"
-    networks:
-      - memorystack-network
+      - "8000:8000"
 
   # ---------------------------------------------------------------------------
-  # Web Application (Nginx + Static Files)
+  # Drovi Intelligence Worker
+  # ---------------------------------------------------------------------------
+  drovi-worker:
+    build:
+      context: ./drovi-intelligence
+      dockerfile: Dockerfile
+    container_name: drovi-intel-worker
+    restart: unless-stopped
+    command: ["python", "-m", "src.streaming.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      falkordb:
+        condition: service_started
+      redpanda:
+        condition: service_started
+    env_file:
+      - ./drovi-intelligence/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: 6379
+      FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
+      KAFKA_TOPIC_NORMALIZED_RECORDS: normalized.records
+      KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
+      KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
+      KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      KAFKA_RAW_EVENT_MODE: webhook_only
+      EVIDENCE_STORAGE_BACKEND: s3
+      EVIDENCE_S3_BUCKET: drovi-evidence
+      EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
+      EVIDENCE_S3_ACCESS_KEY_ID: minioadmin
+      EVIDENCE_S3_SECRET_ACCESS_KEY: minioadmin
+      EVIDENCE_S3_PREFIX: drovi-evidence
+      EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS: 3600
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+
+  # ---------------------------------------------------------------------------
+  # Ingestion Worker (Go)
+  # ---------------------------------------------------------------------------
+  drovi-ingestion-worker:
+    build:
+      context: ./drovi-intelligence/ingestion-worker
+      dockerfile: Dockerfile
+    container_name: drovi-intel-ingestion-worker
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
+      KAFKA_TOPIC_NORMALIZED_RECORDS: normalized.records
+      KAFKA_CONSUMER_GROUP_ID: drovi-ingestion-worker
+      LOG_LEVEL: INFO
+
+  # ---------------------------------------------------------------------------
+  # Scheduler
+  # ---------------------------------------------------------------------------
+  drovi-scheduler:
+    build:
+      context: ./drovi-intelligence
+      dockerfile: Dockerfile
+    container_name: drovi-intel-scheduler
+    restart: unless-stopped
+    command: ["python", "-m", "src.connectors.scheduling.runner"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./drovi-intelligence/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      LOG_LEVEL: INFO
+
+  # ---------------------------------------------------------------------------
+  # Web App (Vite build + Nginx)
   # ---------------------------------------------------------------------------
   web:
     build:
       context: .
-      dockerfile: Dockerfile
-      target: web
-    container_name: memorystack-web
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_SERVER_URL: http://localhost:8000
+    container_name: drovi-web
     restart: unless-stopped
     depends_on:
-      - server
+      - drovi-intelligence
     ports:
-      - "${WEB_PORT:-3001}:80"
-    networks:
-      - memorystack-network
+      - "3001:80"
 
-  # ---------------------------------------------------------------------------
-  # Trigger.dev Worker (Background Jobs)
-  # ---------------------------------------------------------------------------
-  trigger-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: server
-    container_name: memorystack-trigger
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["bun", "x", "trigger.dev@latest", "dev", "--config", "apps/server/trigger.config.ts"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-memorystack}
-      REDIS_URL: redis://redis:6379
-      TRIGGER_SECRET_KEY: ${TRIGGER_SECRET_KEY}
-      # Email (for email tasks)
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
-    networks:
-      - memorystack-network
-    profiles:
-      - with-trigger
-
-# =============================================================================
-# Volumes
-# =============================================================================
 volumes:
-  postgres_data:
+  drovi_postgres_data:
     driver: local
-  redis_data:
+  drovi_falkordb_data:
     driver: local
-
-# =============================================================================
-# Networks
-# =============================================================================
-networks:
-  memorystack-network:
-    driver: bridge
+  drovi_minio_data:
+    driver: local

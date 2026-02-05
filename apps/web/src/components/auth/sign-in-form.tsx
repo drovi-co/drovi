@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -9,16 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { OrDivider, SocialButtons } from "./social-buttons";
 
 interface SignInFormProps {
   onSwitchToSignUp: () => void;
-  onSwitchToMagicLink: () => void;
 }
 
 export function SignInForm({
   onSwitchToSignUp,
-  onSwitchToMagicLink,
 }: SignInFormProps) {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -57,9 +54,6 @@ export function SignInForm({
 
   return (
     <div className="space-y-6">
-      <SocialButtons />
-      <OrDivider />
-
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -102,12 +96,9 @@ export function SignInForm({
                 <Label className="text-foreground" htmlFor={field.name}>
                   Password
                 </Label>
-                <Link
-                  className="text-muted-foreground text-sm transition-colors hover:text-primary"
-                  to="/forgot-password"
-                >
-                  Forgot password?
-                </Link>
+                <span className="text-muted-foreground text-xs">
+                  Contact your admin to reset
+                </span>
               </div>
               <div className="relative">
                 <Input
@@ -176,11 +167,6 @@ export function SignInForm({
           )}
         </form.Subscribe>
       </form>
-
-      <Button className="w-full" onClick={onSwitchToMagicLink} variant="ghost">
-        <Mail className="mr-2 h-4 w-4" />
-        Sign in with magic link
-      </Button>
 
       <p className="text-center text-muted-foreground text-sm">
         Don't have an account?{" "}

@@ -78,6 +78,8 @@ class EmailSignupRequest(BaseModel):
     email: str
     password: str
     name: str | None = None
+    organization_name: str | None = None
+    invite_token: str | None = None
 
 
 class EmailAuthResponse(BaseModel):
@@ -229,7 +231,10 @@ async def login(
 
 
 @router.post("/login/email", response_model=EmailAuthResponse)
-async def login_with_email(request: EmailLoginRequest) -> EmailAuthResponse:
+async def login_with_email(
+    request: EmailLoginRequest,
+    response: Response,
+) -> EmailAuthResponse:
     """
     Login with email and password.
 
@@ -263,6 +268,8 @@ async def login_with_email(request: EmailLoginRequest) -> EmailAuthResponse:
                 else datetime.now(timezone.utc).isoformat(),
             }
 
+        _set_session_cookie(response, auth_result.token)
+
         logger.info("Email login successful", user_id=auth_result.user_id)
 
         return EmailAuthResponse(
@@ -279,7 +286,10 @@ async def login_with_email(request: EmailLoginRequest) -> EmailAuthResponse:
 
 
 @router.post("/signup/email", response_model=EmailAuthResponse)
-async def signup_with_email(request: EmailSignupRequest) -> EmailAuthResponse:
+async def signup_with_email(
+    request: EmailSignupRequest,
+    response: Response,
+) -> EmailAuthResponse:
     """
     Create a new account with email and password.
 
@@ -294,6 +304,8 @@ async def signup_with_email(request: EmailSignupRequest) -> EmailAuthResponse:
             email=request.email,
             password=request.password,
             name=request.name,
+            organization_name=request.organization_name,
+            invite_token=request.invite_token,
         )
 
         # Get organization info
@@ -318,6 +330,8 @@ async def signup_with_email(request: EmailSignupRequest) -> EmailAuthResponse:
                 "region": org.get("region"),
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
+
+        _set_session_cookie(response, auth_result.token)
 
         logger.info("Email signup successful", user_id=auth_result.user_id)
 
@@ -819,10 +833,16 @@ async def _handle_connector_callback(
     redirect_uri = connector_state.get("redirect_uri")
     restricted_labels = connector_state.get("restricted_labels", [])
     restricted_channels = connector_state.get("restricted_channels", [])
+    return_to = connector_state.get("return_to")
+
+    def _build_redirect_url(status_param: str) -> str:
+        base_path = return_to if isinstance(return_to, str) and return_to.startswith("/") else "/"
+        separator = "&" if "?" in base_path else "?"
+        return f"{base_path}{separator}{status_param}"
 
     if not org_id:
         logger.warning("Connector OAuth missing org_id", state=state[:8])
-        return RedirectResponse(url="/?error=missing_org_id", status_code=302)
+        return RedirectResponse(url=_build_redirect_url("error=missing_org_id"), status_code=302)
 
     try:
         # Exchange code for tokens based on provider
@@ -836,7 +856,7 @@ async def _handle_connector_callback(
 
         if token_result is None:
             return RedirectResponse(
-                url="/?error=connector_token_exchange_failed",
+                url=_build_redirect_url("error=connector_token_exchange_failed"),
                 status_code=302,
             )
 
@@ -961,8 +981,11 @@ async def _handle_connector_callback(
             )
 
         # Redirect to frontend with success
-        return RedirectResponse(url="/?connection=success", status_code=302)
+        return RedirectResponse(url=_build_redirect_url("connection=success"), status_code=302)
 
     except Exception as e:
         logger.error("Connector OAuth failed", provider=provider, error=str(e))
-        return RedirectResponse(url=f"/?error=connector_failed", status_code=302)
+        return RedirectResponse(
+            url=_build_redirect_url("error=connector_failed"),
+            status_code=302,
+        )

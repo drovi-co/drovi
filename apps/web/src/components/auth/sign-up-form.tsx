@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { authClient } from "@/lib/auth-client";
-import { OrDivider, SocialButtons } from "./social-buttons";
 
 // Password validation regex patterns
 const UPPERCASE_REGEX = /[A-Z]/;
@@ -76,6 +75,21 @@ function getStrengthLabel(score: number): string {
   return "Strong";
 }
 
+function formatFieldError(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  return "Invalid value";
+}
+
 export function SignUpForm({
   onSwitchToSignIn,
   defaultEmail,
@@ -85,6 +99,11 @@ export function SignUpForm({
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [password, setPassword] = useState("");
+  const inviteToken =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("invite") ?? undefined
+      : undefined;
+  const hasInvite = Boolean(inviteToken);
 
   const passwordStrength = useMemo(
     () => calculatePasswordStrength(password),
@@ -94,6 +113,7 @@ export function SignUpForm({
   const form = useForm({
     defaultValues: {
       name: defaultName ?? "",
+      organizationName: hasInvite ? undefined : "",
       email: defaultEmail ?? "",
       password: "",
     },
@@ -108,11 +128,19 @@ export function SignUpForm({
           email: value.email,
           password: value.password,
           name: value.name,
+          organizationName: hasInvite ? undefined : value.organizationName,
+          inviteToken,
         },
         {
           onSuccess: () => {
             toast.success("Account created successfully!");
-            navigate({ to: "/onboarding" });
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(
+                "drovi:onboarding",
+                hasInvite ? "complete" : "pending"
+              );
+            }
+            navigate({ to: hasInvite ? "/dashboard" : "/onboarding" });
           },
           onError: (error) => {
             toast.error(error.error.message || "Failed to create account");
@@ -123,6 +151,9 @@ export function SignUpForm({
     validators: {
       onSubmit: z.object({
         name: z.string().min(2, "Name must be at least 2 characters"),
+        organizationName: hasInvite
+          ? z.string().optional()
+          : z.string().min(2, "Organization name is required"),
         email: z.string().email("Please enter a valid email address"),
         password: z
           .string()
@@ -136,9 +167,6 @@ export function SignUpForm({
 
   return (
     <div className="space-y-6">
-      <SocialButtons />
-      <OrDivider />
-
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -165,14 +193,51 @@ export function SignUpForm({
                 type="text"
                 value={field.state.value}
               />
-              {field.state.meta.errors.map((error) => (
-                <p className="text-destructive text-sm" key={error?.message}>
-                  {error?.message}
+              {field.state.meta.errors.map((error, index) => (
+                <p
+                  className="text-destructive text-sm"
+                  key={`${field.name}-${index}`}
+                >
+                  {formatFieldError(error)}
                 </p>
               ))}
             </div>
           )}
         </form.Field>
+
+        {!hasInvite && (
+          <form.Field name="organizationName">
+            {(field) => (
+              <div className="space-y-2">
+                <Label className="text-foreground" htmlFor={field.name}>
+                  Organization
+                </Label>
+                <Input
+                  autoComplete="organization"
+                  className={
+                    field.state.meta.errors.length > 0
+                      ? "border-destructive"
+                      : ""
+                  }
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="Drovi Labs"
+                  type="text"
+                  value={field.state.value}
+                />
+                {field.state.meta.errors.map((error, index) => (
+                  <p
+                    className="text-destructive text-sm"
+                    key={`${field.name}-${index}`}
+                  >
+                    {formatFieldError(error)}
+                  </p>
+                ))}
+              </div>
+            )}
+          </form.Field>
+        )}
 
         <form.Field name="email">
           {(field) => (
@@ -192,9 +257,12 @@ export function SignUpForm({
                 type="email"
                 value={field.state.value}
               />
-              {field.state.meta.errors.map((error) => (
-                <p className="text-destructive text-sm" key={error?.message}>
-                  {error?.message}
+              {field.state.meta.errors.map((error, index) => (
+                <p
+                  className="text-destructive text-sm"
+                  key={`${field.name}-${index}`}
+                >
+                  {formatFieldError(error)}
                 </p>
               ))}
             </div>
@@ -268,9 +336,12 @@ export function SignUpForm({
                 </div>
               )}
 
-              {field.state.meta.errors.map((error) => (
-                <p className="text-destructive text-sm" key={error?.message}>
-                  {error?.message}
+              {field.state.meta.errors.map((error, index) => (
+                <p
+                  className="text-destructive text-sm"
+                  key={`${field.name}-${index}`}
+                >
+                  {formatFieldError(error)}
                 </p>
               ))}
             </div>

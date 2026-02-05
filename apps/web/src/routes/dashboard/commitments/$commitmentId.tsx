@@ -19,8 +19,6 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock,
   ExternalLink,
   FileText,
@@ -32,7 +30,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CommentThread } from "@/components/collaboration";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +86,11 @@ type CommitmentStatus =
   | "snoozed";
 type CommitmentPriority = "low" | "medium" | "high" | "urgent";
 type CommitmentDirection = "owed_by_me" | "owed_to_me";
+type CommitmentTimelineEvent = {
+  id: string;
+  eventDescription: string;
+  eventAt: string;
+};
 
 // Status configuration
 const STATUS_CONFIG: Record<
@@ -191,9 +193,7 @@ function CommitmentDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
-  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
-  const currentUserId = session?.user?.id ?? "";
   const queryClient = useQueryClient();
 
   // Editing state
@@ -201,7 +201,6 @@ function CommitmentDetailPage() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [showComments, setShowComments] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -224,34 +223,87 @@ function CommitmentDetailPage() {
 
   // Transform UIO data
   const commitment = commitmentData
-    ? {
-        id: commitmentData.id,
-        title:
-          commitmentData.userCorrectedTitle ??
-          commitmentData.canonicalTitle ??
-          "",
-        description: commitmentData.canonicalDescription ?? "",
-        status: (commitmentData.commitmentDetails?.status ??
-          "pending") as CommitmentStatus,
-        priority: (commitmentData.commitmentDetails?.priority ??
-          "medium") as CommitmentPriority,
-        direction: (commitmentData.commitmentDetails?.direction ??
-          "owed_by_me") as CommitmentDirection,
-        dueDate: commitmentData.dueDate
-          ? new Date(commitmentData.dueDate)
-          : null,
-        confidence: commitmentData.overallConfidence ?? 0.8,
-        isUserVerified: commitmentData.isUserVerified ?? false,
-        debtor: commitmentData.commitmentDetails?.debtor ?? null,
-        creditor: commitmentData.commitmentDetails?.creditor ?? null,
-        owner: commitmentData.owner ?? null,
-        extractionContext:
-          commitmentData.commitmentDetails?.extractionContext ?? null,
-        sources: commitmentData.sources ?? [],
-        timeline: commitmentData.timeline ?? [],
-        createdAt: new Date(commitmentData.createdAt),
-        updatedAt: new Date(commitmentData.updatedAt),
-      }
+    ? (() => {
+        const timeline: CommitmentTimelineEvent[] = [];
+        if (commitmentData.createdAt) {
+          timeline.push({
+            id: "created",
+            eventDescription: "Commitment captured",
+            eventAt: commitmentData.createdAt,
+          });
+        }
+        if (commitmentData.updatedAt) {
+          timeline.push({
+            id: "updated",
+            eventDescription: "Commitment updated",
+            eventAt: commitmentData.updatedAt,
+          });
+        }
+        if (commitmentData.dueDate) {
+          timeline.push({
+            id: "due-date",
+            eventDescription: "Due date set",
+            eventAt: commitmentData.dueDate,
+          });
+        }
+        if (commitmentData.commitmentDetails?.snoozedUntil) {
+          timeline.push({
+            id: "snoozed",
+            eventDescription: "Snoozed until",
+            eventAt: commitmentData.commitmentDetails.snoozedUntil,
+          });
+        }
+        if (commitmentData.commitmentDetails?.completedAt) {
+          timeline.push({
+            id: "completed",
+            eventDescription: "Marked complete",
+            eventAt: commitmentData.commitmentDetails.completedAt,
+          });
+        }
+        timeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
+
+        const primarySource = commitmentData.sources?.[0] ?? null;
+
+        return {
+          id: commitmentData.id,
+          title:
+            commitmentData.userCorrectedTitle ??
+            commitmentData.canonicalTitle ??
+            "",
+          description: commitmentData.canonicalDescription ?? "",
+          status: (commitmentData.commitmentDetails?.status ??
+            "pending") as CommitmentStatus,
+          priority: (commitmentData.commitmentDetails?.priority ??
+            "medium") as CommitmentPriority,
+          direction: (commitmentData.commitmentDetails?.direction ??
+            "owed_by_me") as CommitmentDirection,
+          dueDate: commitmentData.dueDate
+            ? new Date(commitmentData.dueDate)
+            : null,
+          confidence: commitmentData.overallConfidence ?? 0.8,
+          isUserVerified: commitmentData.isUserVerified ?? false,
+          debtor: commitmentData.debtor ?? null,
+          creditor: commitmentData.creditor ?? null,
+          owner: commitmentData.owner ?? null,
+          evidence: primarySource
+            ? {
+                quotedText: primarySource.quotedText,
+                sourceType: primarySource.sourceType,
+                sourceTimestamp: primarySource.sourceTimestamp,
+                segmentHash: primarySource.segmentHash,
+              }
+            : null,
+          sources: commitmentData.sources ?? [],
+          timeline,
+          createdAt: new Date(commitmentData.createdAt),
+          updatedAt: commitmentData.updatedAt
+            ? new Date(commitmentData.updatedAt)
+            : null,
+        };
+      })()
     : null;
 
   // Initialize form values when commitment loads
@@ -366,15 +418,9 @@ function CommitmentDetailPage() {
     );
   }, [commitment, verifyMutation, organizationId, refetch, queryClient]);
 
-  const handleSourceClick = useCallback(
-    (conversationId: string) => {
-      navigate({
-        to: "/dashboard/email/thread/$threadId",
-        params: { threadId: conversationId },
-      });
-    },
-    [navigate]
-  );
+  const handleSourceClick = useCallback((_conversationId?: string | null) => {
+    toast.message("Source viewer coming soon");
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -641,41 +687,44 @@ function CommitmentDetailPage() {
                 )}
               </div>
 
-              {/* Evidence / Extraction Context */}
-              {commitment.extractionContext && (
+              {/* Evidence */}
+              {commitment.evidence && (
                 <div>
                   <label className="mb-2 flex items-center gap-2 font-medium text-muted-foreground text-sm">
                     <FileText className="h-4 w-4" />
                     Evidence
                   </label>
                   <div className="space-y-3 rounded-lg border border-border bg-muted/50 p-4">
-                    {commitment.extractionContext.quotedText && (
+                    {commitment.evidence.quotedText && (
                       <div>
                         <span className="mb-1 block font-medium text-muted-foreground text-xs uppercase">
                           Quoted Text
                         </span>
                         <blockquote className="border-blue-500 border-l-2 pl-3 text-foreground text-sm italic">
-                          "{commitment.extractionContext.quotedText}"
+                          "{commitment.evidence.quotedText}"
                         </blockquote>
                       </div>
                     )}
-                    {commitment.extractionContext.reasoning && (
-                      <div>
-                        <span className="mb-1 block font-medium text-muted-foreground text-xs uppercase">
-                          AI Reasoning
+                    <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                      {commitment.evidence.sourceType && (
+                        <span className="rounded-full border border-border px-2 py-0.5">
+                          {commitment.evidence.sourceType}
                         </span>
-                        <p className="text-muted-foreground text-sm">
-                          {commitment.extractionContext.reasoning}
-                        </p>
-                      </div>
-                    )}
-                    {commitment.extractionContext.modelUsed && (
-                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      )}
+                      {commitment.evidence.sourceTimestamp && (
                         <span>
-                          Model: {commitment.extractionContext.modelUsed}
+                          {format(
+                            new Date(commitment.evidence.sourceTimestamp),
+                            "MMM d, yyyy"
+                          )}
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {commitment.evidence.segmentHash && (
+                        <span className="font-mono">
+                          #{commitment.evidence.segmentHash.slice(0, 8)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -688,7 +737,7 @@ function CommitmentDetailPage() {
                     Sources ({commitment.sources.length})
                   </label>
                   <div className="space-y-2">
-                    {commitment.sources.map((source) => (
+                    {commitment.sources.map((source, index) => (
                       <div
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
@@ -700,7 +749,9 @@ function CommitmentDetailPage() {
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-foreground text-sm">
-                            {source.conversation?.title ?? "Email thread"}
+                            {source.sourceType
+                              ? source.sourceType.toUpperCase()
+                              : `Source ${index + 1}`}
                           </p>
                           {source.quotedText && (
                             <p className="mt-0.5 truncate text-muted-foreground text-xs">
@@ -735,7 +786,7 @@ function CommitmentDetailPage() {
                     {/* Timeline line */}
                     <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
                     <div className="space-y-4">
-                      {commitment.timeline.map((event) => (
+                      {commitment.timeline.map((event: CommitmentTimelineEvent) => (
                         <div className="relative pl-8" key={event.id}>
                           {/* Timeline dot */}
                           <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
@@ -762,43 +813,26 @@ function CommitmentDetailPage() {
                   Created:{" "}
                   {format(commitment.createdAt, "MMM d, yyyy 'at' h:mm a")}
                 </div>
-                <div>
-                  Updated:{" "}
-                  {format(commitment.updatedAt, "MMM d, yyyy 'at' h:mm a")}
-                </div>
+                {commitment.updatedAt && (
+                  <div>
+                    Updated:{" "}
+                    {format(commitment.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  </div>
+                )}
               </div>
 
-              {/* Team Discussion / Comments Section */}
+              {/* Team Discussion */}
               <div className="border-border border-t pt-6">
-                <button
-                  className="mb-4 flex w-full items-center justify-between gap-2"
-                  onClick={() => setShowComments(!showComments)}
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-foreground text-sm">
-                      Team Discussion
-                    </span>
-                  </div>
-                  {showComments ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {showComments &&
-                  organizationId &&
-                  commitmentId &&
-                  currentUserId && (
-                    <CommentThread
-                      currentUserId={currentUserId}
-                      organizationId={organizationId}
-                      targetId={commitmentId}
-                      targetType="commitment"
-                    />
-                  )}
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Team Discussion
+                  </span>
+                </div>
+                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
+                  Collaborative threads are coming soon. Capture updates directly
+                  in the commitment notes or attach evidence from your sources.
+                </div>
               </div>
             </div>
           </div>

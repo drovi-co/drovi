@@ -81,6 +81,50 @@ const COL = {
   taskId: "w-[120px]", // 120px - matches sender column in inbox
 } as const;
 
+function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
+  switch (status) {
+    case "backlog":
+    case "todo":
+    case "in_progress":
+    case "in_review":
+    case "done":
+    case "cancelled":
+      return status;
+    case "open":
+      return "todo";
+    case "completed":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
+function normalizeTaskPriority(priority: string | null | undefined): TaskPriority {
+  switch (priority) {
+    case "low":
+    case "medium":
+    case "high":
+    case "urgent":
+    case "no_priority":
+      return priority;
+    default:
+      return "no_priority";
+  }
+}
+
+function normalizeTaskSourceType(
+  sourceType: string | null | undefined,
+  hasSources: boolean
+): TaskSourceType {
+  if (sourceType === "commitment" || sourceType === "decision") {
+    return sourceType;
+  }
+  if (hasSources) {
+    return "conversation";
+  }
+  return "manual";
+}
+
 // =============================================================================
 // ROUTE DEFINITION
 // =============================================================================
@@ -338,27 +382,31 @@ function TasksPage() {
 
   const tasks: TaskData[] = filteredItems.map((t) => {
     const details = t.taskDetails;
+    const hasSources = Boolean(t.sources && t.sources.length > 0);
     return {
       id: t.id,
       title: t.userCorrectedTitle ?? t.canonicalTitle ?? "",
       description: t.canonicalDescription ?? null,
-      status: (details?.status ?? "backlog") as TaskStatus,
-      priority: (details?.priority ?? "no_priority") as TaskPriority,
-      sourceType: "manual" as TaskSourceType, // UIO tasks don't track sourceType
+      status: normalizeTaskStatus(details?.status),
+      priority: normalizeTaskPriority(details?.priority),
+      sourceType: normalizeTaskSourceType(
+        t.sources?.[0]?.sourceType ?? null,
+        hasSources
+      ),
       dueDate: t.dueDate ? new Date(t.dueDate) : null,
       completedAt: details?.completedAt ? new Date(details.completedAt) : null,
-      assignee: t.owner
+      assignee: t.assignee
         ? {
-            id: t.owner.id,
-            name: t.owner.displayName,
-            email: t.owner.primaryEmail ?? "",
-            image: null, // owner contact doesn't have avatar in UIO schema
+            id: t.assignee.id,
+            name: t.assignee.displayName,
+            email: t.assignee.primaryEmail ?? "",
+            image: t.assignee.avatarUrl ?? null,
           }
         : null,
       labels: [], // Labels would need separate query
       metadata: null, // UIO task details don't have metadata field
       createdAt: new Date(t.createdAt),
-      updatedAt: new Date(t.updatedAt),
+      updatedAt: t.updatedAt ? new Date(t.updatedAt) : new Date(t.createdAt),
     };
   });
 
@@ -374,13 +422,17 @@ function TasksPage() {
     {} as Record<TaskStatus, TaskData[]>
   );
 
-  const stats = statsData ?? {
-    total: 0,
-    byStatus: {} as Record<TaskStatus, number>,
-    byPriority: {} as Record<TaskPriority, number>,
-    bySourceType: {} as Record<TaskSourceType, number>,
-    overdueCount: 0,
-    dueThisWeek: 0,
+  const statusCounts = tasks.reduce(
+    (acc, task) => {
+      acc[task.status] = (acc[task.status] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<TaskStatus, number>
+  );
+
+  const stats = {
+    total: statsData?.total ?? tasks.length,
+    byStatus: statusCounts,
   };
 
   if (orgLoading) {

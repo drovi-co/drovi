@@ -338,7 +338,7 @@ export function useUpdateUIO() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, status);
+      return intelligenceAPI.updateStatus(id, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -378,7 +378,7 @@ export function useDismissUIO() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, "archived");
+      return intelligenceAPI.updateStatus(id, "archived");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -394,7 +394,7 @@ export function useVerifyUIO() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, "active");
+      return intelligenceAPI.updateStatus(id, "active");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -410,7 +410,7 @@ export function useArchiveUIO() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, "archived");
+      return intelligenceAPI.updateStatus(id, "archived");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -426,7 +426,7 @@ export function useMarkCompleteUIO() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, "completed");
+      return intelligenceAPI.updateStatus(id, "completed");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -443,7 +443,7 @@ export function useSnoozeUIO() {
   return useMutation({
     mutationFn: async ({ id }: { id: string; organizationId?: string; until?: Date }) => {
       // For now, just mark as in_progress (snooze functionality would need backend support)
-      return intelligenceAPI.updateUIOStatus(id, "in_progress");
+      return intelligenceAPI.updateStatus(id, "in_progress");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });
@@ -459,7 +459,7 @@ export function useUpdateTaskStatusUIO() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string; organizationId?: string }) => {
-      return intelligenceAPI.updateUIOStatus(id, status);
+      return intelligenceAPI.updateStatus(id, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: uioKeys.all });

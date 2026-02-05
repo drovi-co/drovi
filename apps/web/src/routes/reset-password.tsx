@@ -15,8 +15,8 @@ export const Route = createFileRoute("/reset-password")({
 function ResetPasswordPage() {
   return (
     <AuthLayout
-      description="Create a strong password for your account"
-      title="Set new password"
+      description="Reset links are managed by your workspace admin"
+      title="Reset access"
     >
       <ResetPasswordForm />
     </AuthLayout>

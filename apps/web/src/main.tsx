@@ -3,9 +3,9 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 import { ErrorBoundary } from "./components/error-boundary";
 import Loader from "./components/loader";
+import { queryClient } from "./lib/query-client";
 import { initSentry } from "./lib/sentry";
 import { routeTree } from "./routeTree.gen";
-import { queryClient, trpc } from "./utils/trpc";
 
 // Initialize Sentry for error tracking
 initSentry();
@@ -14,7 +14,7 @@ const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   defaultPendingComponent: () => <Loader />,
-  context: { trpc, queryClient },
+  context: { queryClient },
   Wrap({ children }) {
     return (
       <ErrorBoundary>

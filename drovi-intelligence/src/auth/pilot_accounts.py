@@ -417,6 +417,8 @@ async def handle_email_signup(
     email: str,
     password: str,
     name: str | None = None,
+    organization_name: str | None = None,
+    invite_token: str | None = None,
 ) -> AuthResult:
     """
     Handle email signup with automatic organization creation.
@@ -431,42 +433,72 @@ async def handle_email_signup(
     # Create user
     user = await create_user_with_password(email, password, name)
 
-    # Create a personal organization for the user
-    email_domain = email.split("@")[1].lower()
-    org_id = f"org_{secrets.token_hex(8)}"
-    org_name = name + "'s Workspace" if name else f"{email.split('@')[0]}'s Workspace"
+    if invite_token:
+        invite = await get_invite(invite_token)
+        if not invite:
+            raise AuthError("Invalid invite token.", status_code=400)
 
-    async with get_db_session() as session:
-        await session.execute(
-            text("""
-                INSERT INTO organizations (
-                    id, name, pilot_status, region, allowed_domains,
-                    notification_emails, created_at
-                )
-                VALUES (:id, :name, 'active', 'us-west', :allowed_domains, :notification_emails, NOW())
-            """),
-            {
-                "id": org_id,
-                "name": org_name,
-                "allowed_domains": [email_domain],
-                "notification_emails": [email],
-            },
+        if invite["used_at"]:
+            raise AuthError("This invite has already been used.", status_code=400)
+
+        invite_expires = invite["expires_at"]
+        if invite_expires.tzinfo is None:
+            invite_expires = invite_expires.replace(tzinfo=timezone.utc)
+        if invite_expires < datetime.now(timezone.utc):
+            raise AuthError("This invite has expired.", status_code=400)
+
+        org_id = invite["org_id"]
+        role = invite["role"]
+
+        await get_or_create_membership(
+            user_id=user["id"],
+            org_id=org_id,
+            role=role,
+        )
+        await use_invite(invite_token, user["id"])
+    else:
+        # Create a personal organization for the user
+        email_domain = email.split("@")[1].lower()
+        org_id = f"org_{secrets.token_hex(8)}"
+        org_name = (
+            organization_name.strip()
+            if organization_name and organization_name.strip()
+            else name + "'s Workspace"
+            if name
+            else f"{email.split('@')[0]}'s Workspace"
         )
 
-    logger.info("Organization created for signup", org_id=org_id, name=org_name)
+        async with get_db_session() as session:
+            await session.execute(
+                text("""
+                    INSERT INTO organizations (
+                        id, name, pilot_status, region, allowed_domains,
+                        notification_emails, created_at
+                    )
+                    VALUES (:id, :name, 'active', 'us-west', :allowed_domains, :notification_emails, NOW())
+                """),
+                {
+                    "id": org_id,
+                    "name": org_name,
+                    "allowed_domains": [email_domain],
+                    "notification_emails": [email],
+                },
+            )
 
-    # Create membership as admin
-    await get_or_create_membership(
-        user_id=user["id"],
-        org_id=org_id,
-        role="pilot_admin",
-    )
+        logger.info("Organization created for signup", org_id=org_id, name=org_name)
+
+        # Create membership as admin
+        await get_or_create_membership(
+            user_id=user["id"],
+            org_id=org_id,
+            role="pilot_admin",
+        )
 
     # Issue JWT
     token = create_jwt(
         user_id=user["id"],
         org_id=org_id,
-        role="pilot_admin",
+        role="pilot_admin" if not invite_token else role,
         email=email,
     )
 
@@ -480,7 +512,7 @@ async def handle_email_signup(
         token=token,
         user_id=user["id"],
         org_id=org_id,
-        role="pilot_admin",
+        role="pilot_admin" if not invite_token else role,
         email=email,
         name=name,
         is_new_user=True,
