@@ -8,6 +8,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 import { type ParsedQuery, toApiRequest } from "@/lib/console-parser";
 
 // =============================================================================
@@ -110,24 +111,10 @@ async function fetchConsoleQuery(
 ): Promise<ConsoleQueryResponse> {
   const request = toApiRequest(parsed, options);
 
-  const response = await fetch(
-    `${import.meta.env.VITE_INTELLIGENCE_API_URL ?? "http://localhost:8000"}/api/v1/console/query`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Organization-ID": organizationId,
-      },
-      credentials: "include",
-      body: JSON.stringify(request),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Console query failed: ${response.statusText}`);
-  }
-
-  return response.json();
+  return apiFetch<ConsoleQueryResponse>("/console/query", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 async function fetchEntitySuggestions(
@@ -144,21 +131,7 @@ async function fetchEntitySuggestions(
     params.set("query", query);
   }
 
-  const response = await fetch(
-    `${import.meta.env.VITE_INTELLIGENCE_API_URL ?? "http://localhost:8000"}/api/v1/console/entities?${params}`,
-    {
-      headers: {
-        "X-Organization-ID": organizationId,
-      },
-      credentials: "include",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Entity suggestions failed: ${response.statusText}`);
-  }
-
-  return response.json();
+  return apiFetch<EntitySuggestion[]>(`/console/entities?${params}`);
 }
 
 // =============================================================================
@@ -245,21 +218,7 @@ async function fetchUioSources(
   organizationId: string,
   uioId: string
 ): Promise<SourceItem[]> {
-  const response = await fetch(
-    `${import.meta.env.VITE_INTELLIGENCE_API_URL ?? "http://localhost:8000"}/api/v1/console/sources/${uioId}`,
-    {
-      headers: {
-        "X-Organization-ID": organizationId,
-      },
-      credentials: "include",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sources: ${response.statusText}`);
-  }
-
-  return response.json();
+  return apiFetch<SourceItem[]>(`/console/sources/${uioId}`);
 }
 
 async function fetchRelatedUios(
@@ -267,21 +226,7 @@ async function fetchRelatedUios(
   uioId: string,
   limit = 10
 ): Promise<RelatedItem[]> {
-  const response = await fetch(
-    `${import.meta.env.VITE_INTELLIGENCE_API_URL ?? "http://localhost:8000"}/api/v1/console/related/${uioId}?limit=${limit}`,
-    {
-      headers: {
-        "X-Organization-ID": organizationId,
-      },
-      credentials: "include",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch related: ${response.statusText}`);
-  }
-
-  return response.json();
+  return apiFetch<RelatedItem[]>(`/console/related/${uioId}?limit=${limit}`);
 }
 
 // =============================================================================
@@ -357,21 +302,7 @@ async function fetchSourceDetail(
   organizationId: string,
   sourceId: string
 ): Promise<MessageDetail> {
-  const response = await fetch(
-    `${import.meta.env.VITE_INTELLIGENCE_API_URL ?? "http://localhost:8000"}/api/v1/console/source/${sourceId}`,
-    {
-      headers: {
-        "X-Organization-ID": organizationId,
-      },
-      credentials: "include",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch source detail: ${response.statusText}`);
-  }
-
-  return response.json();
+  return apiFetch<MessageDetail>(`/console/source/${sourceId}`);
 }
 
 // =============================================================================

@@ -6,6 +6,7 @@
  */
 
 import { env } from "@memorystack/env/web";
+import { markApiReachable, markApiUnreachable } from "./api-reachability";
 
 // Types
 export interface User {
@@ -455,25 +456,142 @@ export class APIError extends Error {
 }
 
 // API Base URL from environment
-const API_BASE = env.VITE_SERVER_URL;
+export const API_BASE = env.VITE_SERVER_URL;
+const API_BASE_STORAGE_KEY = "drovi:api-base";
+
+function normalizeLocalhostBase(base: string): string {
+  if (typeof window === "undefined") {
+    return base;
+  }
+
+  try {
+    const url = new URL(base);
+    const windowHost = window.location.hostname;
+    const isBaseLocal =
+      url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    const isWindowLocal =
+      windowHost === "localhost" || windowHost === "127.0.0.1";
+
+    if (isBaseLocal && isWindowLocal && url.hostname !== windowHost) {
+      url.hostname = windowHost;
+      return url.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return base;
+  }
+
+  return base;
+}
+
+let resolvedApiBase = API_BASE;
+
+if (typeof window !== "undefined") {
+  const storedBase = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+  if (storedBase) {
+    resolvedApiBase = normalizeLocalhostBase(storedBase);
+  } else {
+    resolvedApiBase = normalizeLocalhostBase(API_BASE);
+  }
+}
+
+export function getApiBase() {
+  return resolvedApiBase;
+}
+
+function persistApiBase(base: string) {
+  const normalized = normalizeLocalhostBase(base);
+  resolvedApiBase = normalized;
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
+  }
+}
+
+function getApiBaseCandidates(): string[] {
+  const bases = [
+    normalizeLocalhostBase(getApiBase()),
+    normalizeLocalhostBase(API_BASE),
+  ];
+
+  const addLocalhostVariant = (base: string) => {
+    if (base.includes("localhost")) {
+      bases.push(base.replace("localhost", "127.0.0.1"));
+    } else if (base.includes("127.0.0.1")) {
+      bases.push(base.replace("127.0.0.1", "localhost"));
+    }
+  };
+
+  addLocalhostVariant(getApiBase());
+  addLocalhostVariant(API_BASE);
+
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    const isLocalHost =
+      hostname === "localhost" || hostname === "127.0.0.1";
+    const baseHasLocalhost =
+      API_BASE.includes("localhost") || API_BASE.includes("127.0.0.1");
+
+    if (!isLocalHost && baseHasLocalhost) {
+      bases.push(`${protocol}//${hostname}:8000`);
+    }
+  }
+
+  return Array.from(new Set(bases.filter(Boolean)));
+}
 
 /**
  * Core fetch wrapper with error handling
  */
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE}/api/v1${path}`;
+  const candidates = getApiBaseCandidates();
+  let res: Response | null = null;
+  let lastError: unknown = null;
+  const method = (options.method ?? "GET").toUpperCase();
+  const canRetryAuth =
+    method === "GET" || method === "HEAD" || method === "OPTIONS";
 
-  const res = await fetch(url, {
-    ...options,
-    credentials: "include", // Include cookies for session auth
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  for (const [index, base] of candidates.entries()) {
+    const url = `${base}/api/v1${path}`;
+    try {
+      res = await fetch(url, {
+        ...options,
+        credentials: "include", // Include cookies for session auth
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
+      markApiReachable();
+      if (res.ok) {
+        persistApiBase(base);
+        break;
+      }
+
+      if (
+        canRetryAuth &&
+        (res.status === 401 || res.status === 403) &&
+        index < candidates.length - 1
+      ) {
+        continue;
+      }
+
+      break;
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+  }
+
+  if (!res) {
+    markApiUnreachable(lastError);
+    throw new APIError(
+      "Drovi API unreachable. Check that the intelligence stack is running.",
+      0,
+      lastError instanceof Error ? lastError.message : "Network error"
+    );
+  }
 
   if (!res.ok) {
     let detail: string | undefined;
@@ -604,7 +722,7 @@ export const connectionsAPI = {
     organizationId: string,
     options?: { restrictedLabels?: string[]; restrictedChannels?: string[] }
   ): Promise<OAuthInitResponse> {
-    const redirectUri = `${API_BASE}/api/v1/auth/callback`;
+    const redirectUri = `${getApiBase()}/api/v1/auth/callback`;
     return apiFetch<OAuthInitResponse>("/connections/oauth/init", {
       method: "POST",
       body: JSON.stringify({
@@ -950,7 +1068,7 @@ export const sseAPI = {
     onError?: (error: Event) => void
   ): () => void {
     const eventSource = new EventSource(
-      `${API_BASE}/api/v1/sse/sync/${connectionId}`,
+      `${getApiBase()}/api/v1/sse/sync/${connectionId}`,
       { withCredentials: true }
     );
 
@@ -981,7 +1099,7 @@ export const sseAPI = {
     onError?: (error: Event) => void
   ): () => void {
     const eventSource = new EventSource(
-      `${API_BASE}/api/v1/sse/intelligence`,
+      `${getApiBase()}/api/v1/sse/intelligence`,
       { withCredentials: true }
     );
 
@@ -1152,7 +1270,7 @@ export const orgAPI = {
       returnTo?: string;
     }
   ): Promise<ConnectResponse> {
-    const redirectUri = `${API_BASE}/api/v1/auth/callback`;
+    const redirectUri = `${getApiBase()}/api/v1/auth/callback`;
     return apiFetch<ConnectResponse>(
       `/org/connections/${provider}/connect`,
       {
@@ -1330,7 +1448,7 @@ export const orgSSE = {
     onError?: (error: Event) => void
   ): () => void {
     const eventSource = new EventSource(
-      `${API_BASE}/api/v1/org/connections/events`,
+      `${getApiBase()}/api/v1/org/connections/events`,
       { withCredentials: true }
     );
 
@@ -2491,6 +2609,42 @@ export const auditAPI = {
     return apiFetch<Record<string, unknown>>(
       `/audit/verify?organization_id=${organizationId}`
     );
+  },
+};
+
+// =============================================================================
+// HEALTH API
+// =============================================================================
+
+export const healthAPI = {
+  async ping(): Promise<Record<string, unknown>> {
+    const candidates = getApiBaseCandidates();
+    let lastError: unknown = null;
+
+    for (const base of candidates) {
+      try {
+        const res = await fetch(`${base}/health`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          lastError = new APIError("Health check failed", res.status);
+          continue;
+        }
+
+        const data = (await res.json()) as Record<string, unknown>;
+        persistApiBase(base);
+        markApiReachable();
+        return data;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    markApiUnreachable(lastError);
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    throw new Error("Health check failed");
   },
 };
 

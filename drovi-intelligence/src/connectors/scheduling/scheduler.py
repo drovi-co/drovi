@@ -152,6 +152,7 @@ class ConnectorScheduler:
         self._job_history: dict[str, SyncJobResult] = {}
         self._sync_callback: Callable[[SyncJob], Coroutine[Any, Any, SyncJobResult]] | None = None
         self._lock_conn = None
+        self._lock_ctx = None
 
     async def start(self) -> None:
         """Start the scheduler."""
@@ -278,14 +279,16 @@ class ConnectorScheduler:
             return True
 
         pool = await get_db_pool()
-        conn = await pool.acquire()
+        acquire_cm = pool.acquire()
+        conn = await acquire_cm.__aenter__()
         acquired = await conn.fetchval("SELECT pg_try_advisory_lock($1)", lock_id)
         if acquired:
             self._lock_conn = conn
+            self._lock_ctx = acquire_cm
             logger.info("Scheduler advisory lock acquired", lock_id=lock_id)
             return True
 
-        await pool.release(conn)
+        await acquire_cm.__aexit__(None, None, None)
         return False
 
     async def _release_advisory_lock(self) -> None:
@@ -294,15 +297,15 @@ class ConnectorScheduler:
 
         settings = get_settings()
         lock_id = settings.scheduler_advisory_lock_id
-        if not lock_id or not self._lock_conn:
+        if not lock_id or not self._lock_conn or not self._lock_ctx:
             return
 
         try:
             await self._lock_conn.fetchval("SELECT pg_advisory_unlock($1)", lock_id)
         finally:
-            pool = await get_db_pool()
-            await pool.release(self._lock_conn)
+            await self._lock_ctx.__aexit__(None, None, None)
             self._lock_conn = None
+            self._lock_ctx = None
 
     def set_sync_callback(
         self,

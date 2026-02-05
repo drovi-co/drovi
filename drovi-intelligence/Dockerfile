@@ -59,7 +59,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python - <<'PY'\nimport sys\nimport urllib.request\ntry:\n    with urllib.request.urlopen('http://localhost:8000/health', timeout=2) as r:\n        sys.exit(0 if r.status == 200 else 1)\nexcept Exception:\n    sys.exit(1)\nPY
+    CMD ["python","-c","code = \"\"\"import sys,urllib.request\ntry:\n    r=urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2)\n    sys.exit(0 if r.status==200 else 1)\nexcept Exception:\n    sys.exit(1)\n\"\"\"; exec(code)"]
 
 # Run with Uvicorn
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

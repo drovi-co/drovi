@@ -1,5 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
+import { orgAPI } from "@/lib/api";
+import {
+  getStoredOnboardingState,
+  inferOnboardingComplete,
+  setStoredOnboardingState,
+} from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/onboarding/")({
   component: OnboardingIndex,
@@ -8,6 +15,11 @@ export const Route = createFileRoute("/onboarding/")({
 function OnboardingIndex() {
   const { data: session, isPending } = authClient.useSession();
   const { data: orgs } = authClient.useListOrganizations();
+  const { data: orgInfo } = useQuery({
+    queryKey: ["org-info"],
+    queryFn: () => orgAPI.getOrgInfo(),
+    enabled: !!session,
+  });
 
   if (isPending) {
     return (
@@ -22,9 +34,21 @@ function OnboardingIndex() {
     return <Navigate to="/" />;
   }
 
-  const shouldRunOnboarding =
-    typeof window !== "undefined" &&
-    window.localStorage.getItem("drovi:onboarding") === "pending";
+  const stored = getStoredOnboardingState();
+  const inferredComplete = inferOnboardingComplete(orgInfo);
+  let effectiveState = stored;
+
+  if (orgInfo) {
+    if (stored === "complete" && !inferredComplete) {
+      effectiveState = "pending";
+      setStoredOnboardingState("pending");
+    } else if (stored === null) {
+      effectiveState = inferredComplete ? "complete" : "pending";
+      setStoredOnboardingState(effectiveState);
+    }
+  }
+
+  const shouldRunOnboarding = effectiveState !== "complete";
 
   // If user has organizations and onboarding is not pending, redirect to dashboard
   if (orgs && orgs.length > 0 && !shouldRunOnboarding) {

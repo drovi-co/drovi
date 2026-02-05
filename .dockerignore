@@ -14,6 +14,10 @@ dist
 .next
 **/.next
 
+# Large project areas not needed for web image
+drovi-intelligence
+apps/drovi-shell
+
 # Git
 .git
 .gitignore

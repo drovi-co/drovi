@@ -1,5 +1,6 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
+import { ApiStatusBanner } from "./api-status-banner";
 import type {
   ActionButton,
   BreadcrumbItemData,
@@ -16,8 +17,6 @@ export interface AppShellProps {
   children: React.ReactNode;
   /** Breadcrumb navigation items */
   breadcrumbs?: BreadcrumbItemData[];
-  /** Show admin menu items */
-  showAdmin?: boolean;
   /** Header tabs for view switching (replaces in-page tabs) */
   tabs?: HeaderTab[];
   /** Currently active tab */
@@ -41,7 +40,6 @@ export interface AppShellProps {
 export function AppShell({
   children,
   breadcrumbs = [],
-  showAdmin = false,
   tabs,
   activeTab,
   onTabChange,
@@ -61,10 +59,11 @@ export function AppShell({
     >
       {/* Shell background wrapper - creates unified sidebar + header visual */}
       <div className="flex h-screen w-full bg-shell">
-        <AppSidebar showAdmin={showAdmin} />
+        <AppSidebar />
 
         {/* Main content area with header */}
         <div className="flex flex-1 flex-col overflow-hidden">
+          <ApiStatusBanner />
           {/* Interactive Header - shares shell background */}
           <InteractiveHeader
             actions={actions}

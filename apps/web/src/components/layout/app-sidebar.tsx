@@ -8,8 +8,8 @@ import {
   ListTodo,
   Mail,
   Network,
-  Settings,
   Shield,
+  Settings,
   Sparkles,
   Store,
   Terminal,
@@ -158,39 +158,7 @@ const teamNavItems: NavItem[] = [
   },
 ];
 
-// Admin items (only shown to admins)
-const adminNavItems: NavItem[] = [
-  {
-    title: "Admin",
-    url: "/admin",
-    icon: Shield,
-    items: [
-      {
-        title: "Users",
-        url: "/admin/users",
-      },
-      {
-        title: "Organizations",
-        url: "/admin/organizations",
-      },
-      {
-        title: "Audit Logs",
-        url: "/admin/audit",
-      },
-    ],
-  },
-  {
-    title: "Audit Log",
-    url: "/dashboard/audit-log",
-    icon: FileText,
-  },
-];
-
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  showAdmin?: boolean;
-}
-
-export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-14 justify-center">
@@ -204,7 +172,6 @@ export function AppSidebar({ showAdmin = false, ...props }: AppSidebarProps) {
         <NavMain items={executionNavItems} label="Execution" />
         <NavMain items={sourcesNavItems} label="Sources" />
         <NavMain items={teamNavItems} label="Management" />
-        {showAdmin && <NavMain items={adminNavItems} label="Administration" />}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

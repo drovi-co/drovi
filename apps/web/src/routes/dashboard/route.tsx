@@ -14,6 +14,12 @@ import type {
   HeaderTab,
 } from "@/components/layout/interactive-header";
 import { authClient } from "@/lib/auth-client";
+import { orgAPI } from "@/lib/api";
+import {
+  getStoredOnboardingState,
+  inferOnboardingComplete,
+  setStoredOnboardingState,
+} from "@/lib/onboarding-state";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -25,12 +31,25 @@ export const Route = createFileRoute("/dashboard")({
       });
     }
 
-    // Check if user is admin
-    const isAdmin =
-      session.data.user.role === "pilot_admin" ||
-      session.data.user.role === "pilot_owner";
+    const stored = getStoredOnboardingState();
+    if (stored === "pending") {
+      throw redirect({ to: "/onboarding/create-org" });
+    }
 
-    return { session, isAdmin };
+    if (stored === null || stored === "complete") {
+      try {
+        const orgInfo = await orgAPI.getOrgInfo();
+        const inferredComplete = inferOnboardingComplete(orgInfo);
+        setStoredOnboardingState(inferredComplete ? "complete" : "pending");
+        if (!inferredComplete) {
+          throw redirect({ to: "/onboarding/create-org" });
+        }
+      } catch {
+        // If we cannot confirm onboarding state, proceed to dashboard.
+      }
+    }
+
+    return { session };
   },
 });
 
@@ -209,9 +228,7 @@ function getHeaderConfig(
 }
 
 function DashboardLayout() {
-  const { isAdmin } = Route.useRouteContext() as {
-    isAdmin: boolean;
-  };
+  // Admin section is intentionally hidden for now.
   const navigate = useNavigate();
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname);
@@ -227,7 +244,6 @@ function DashboardLayout() {
       breadcrumbs={breadcrumbs}
       filters={headerConfig.filters}
       primaryAction={headerConfig.primaryAction}
-      showAdmin={isAdmin}
       tabs={headerConfig.tabs}
     >
       <Outlet />
