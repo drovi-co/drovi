@@ -15,20 +15,31 @@ interface ContextPolicy {
   max_bytes: number;
   ttl_seconds: number;
   allow_screenshot: boolean;
+  allow_accessibility: boolean;
+  allow_ocr: boolean;
 }
 
 const DEFAULT_POLICY: ContextPolicy = {
   max_bytes: 100_000,
   ttl_seconds: 300,
   allow_screenshot: true,
+  allow_accessibility: false,
+  allow_ocr: false,
 };
 
 const isTauri =
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
-export function IntentBar() {
-  const [mode, setMode] = useState<"ask" | "act" | "build" | "inspect">("ask");
+interface IntentBarProps {
+  activeView?: string;
+  onSubmit?: (payload: { mode: string; content: string; context?: ContextSnapshot | null }) => void;
+  organizationId?: string | null;
+}
+
+export function IntentBar({ activeView, onSubmit, organizationId }: IntentBarProps) {
+  const [mode, setMode] = useState<"ask" | "command" | "delegate" | "inspect">("ask");
+  const [input, setInput] = useState("");
   const [context, setContext] = useState<ContextSnapshot | null>(null);
   const [cacheCount, setCacheCount] = useState(0);
   const [policy, setPolicy] = useState<ContextPolicy>(DEFAULT_POLICY);
@@ -53,12 +64,21 @@ export function IntentBar() {
     if (context.screenshot_base64) {
       tags.push("Screenshot cached");
     }
+    if (context.selected_text) {
+      tags.push("Selection captured");
+    }
+    if (context.ocr_text) {
+      tags.push("OCR captured");
+    }
     if (context.timestamp) {
       const timestamp = new Date(context.timestamp);
       tags.push(`Captured: ${timestamp.toLocaleTimeString()}`);
     }
+    if (activeView) {
+      tags.push(`Shell view: ${activeView}`);
+    }
     return tags;
-  }, [context]);
+  }, [context, activeView]);
 
   useEffect(() => {
     if (!isTauri) {
@@ -106,12 +126,37 @@ export function IntentBar() {
         max_bytes: pendingPolicy.max_bytes,
         ttl_seconds: pendingPolicy.ttl_seconds,
         allow_screenshot: pendingPolicy.allow_screenshot,
+        allow_accessibility: pendingPolicy.allow_accessibility,
+        allow_ocr: pendingPolicy.allow_ocr,
       });
       setPolicy(pendingPolicy);
       setStatus("Privacy budgets updated.");
     } catch (error) {
       setStatus(`Failed to update budgets: ${String(error)}`);
     }
+  };
+
+  const clearCache = async () => {
+    if (!isTauri) {
+      return;
+    }
+    try {
+      await invoke("clear_context_cache");
+      setCacheCount(0);
+      setStatus("Context cache cleared.");
+    } catch (error) {
+      setStatus(`Failed to clear cache: ${String(error)}`);
+    }
+  };
+
+  const handleRun = () => {
+    if (!input.trim()) {
+      setStatus("Enter an intent before running.");
+      return;
+    }
+    onSubmit?.({ mode, content: input.trim(), context });
+    setInput("");
+    setStatus("Intent sent.");
   };
 
   const maxBytesKb = Math.max(1, Math.round(pendingPolicy.max_bytes / 1024));
@@ -121,8 +166,8 @@ export function IntentBar() {
       <div className="intent__modes">
         {[
           { id: "ask", label: "Ask" },
-          { id: "act", label: "Act" },
-          { id: "build", label: "Build" },
+          { id: "command", label: "Command" },
+          { id: "delegate", label: "Delegate" },
           { id: "inspect", label: "Inspect" },
         ].map((item) => (
           <button
@@ -140,8 +185,12 @@ export function IntentBar() {
           type="text"
           placeholder="Tell Drovi what you want to happen"
           aria-label="Intent input"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
         />
-        <button className="primary">Run</button>
+        <button className="primary" onClick={handleRun}>
+          Run
+        </button>
       </div>
 
       <div className="intent__context">
@@ -151,6 +200,7 @@ export function IntentBar() {
           </span>
         ))}
         {cacheCount > 0 && <span className="chip">Cache: {cacheCount}</span>}
+        {organizationId && <span className="chip">Org: {organizationId}</span>}
         <span className="chip chip--ghost">Context Loom active</span>
       </div>
 
@@ -200,10 +250,39 @@ export function IntentBar() {
               }
             />
           </label>
+          <label className="privacy__row privacy__row--toggle">
+            <span>Accessibility capture</span>
+            <input
+              type="checkbox"
+              checked={pendingPolicy.allow_accessibility}
+              onChange={(event) =>
+                setPendingPolicy((prev) => ({
+                  ...prev,
+                  allow_accessibility: event.target.checked,
+                }))
+              }
+            />
+          </label>
+          <label className="privacy__row privacy__row--toggle">
+            <span>OCR extraction</span>
+            <input
+              type="checkbox"
+              checked={pendingPolicy.allow_ocr}
+              onChange={(event) =>
+                setPendingPolicy((prev) => ({
+                  ...prev,
+                  allow_ocr: event.target.checked,
+                }))
+              }
+            />
+          </label>
         </div>
         <div className="privacy__actions">
           <button className="ghost" onClick={refreshContext} disabled={loading}>
             {loading ? "Capturing..." : "Refresh context"}
+          </button>
+          <button className="ghost" onClick={clearCache} disabled={!cacheCount}>
+            Clear cache
           </button>
           <button
             className="primary"
@@ -211,13 +290,40 @@ export function IntentBar() {
             disabled={
               pendingPolicy.max_bytes === policy.max_bytes &&
               pendingPolicy.ttl_seconds === policy.ttl_seconds &&
-              pendingPolicy.allow_screenshot === policy.allow_screenshot
+              pendingPolicy.allow_screenshot === policy.allow_screenshot &&
+              pendingPolicy.allow_accessibility === policy.allow_accessibility &&
+              pendingPolicy.allow_ocr === policy.allow_ocr
             }
           >
             Apply budgets
           </button>
         </div>
         {status && <div className="privacy__status">{status}</div>}
+        {context?.screenshot_base64 && (
+          <div className="context__preview">
+            <div className="context__preview-title">Focused window capture</div>
+            <img
+              src={`data:image/png;base64,${context.screenshot_base64}`}
+              alt="Focused window capture"
+            />
+            <div className="muted">Capture consented via privacy controls.</div>
+          </div>
+        )}
+        {(context?.selected_text || context?.ocr_text) && (
+          <div className="context__preview">
+            <div className="context__preview-title">Extracted context</div>
+            {context.selected_text && (
+              <div className="context__snippet">
+                <strong>Selected text:</strong> {context.selected_text}
+              </div>
+            )}
+            {context.ocr_text && (
+              <div className="context__snippet">
+                <strong>OCR text:</strong> {context.ocr_text}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

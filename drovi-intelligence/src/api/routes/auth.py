@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 import httpx
 import structlog
-from fastapi import APIRouter, Cookie, HTTPException, Query, Response
+from fastapi import APIRouter, Cookie, Header, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -24,6 +24,8 @@ from src.auth.pilot_accounts import (
     AuthError,
     OAuthUserInfo,
     PilotToken,
+    handle_email_login,
+    handle_email_signup,
     handle_oauth_callback,
     verify_jwt,
 )
@@ -61,6 +63,30 @@ class CallbackQuery(BaseModel):
 
     code: str
     state: str
+
+
+class EmailLoginRequest(BaseModel):
+    """Email login request."""
+
+    email: str
+    password: str
+
+
+class EmailSignupRequest(BaseModel):
+    """Email signup request."""
+
+    email: str
+    password: str
+    name: str | None = None
+
+
+class EmailAuthResponse(BaseModel):
+    """Response from email auth (login or signup)."""
+
+    user: dict
+    session_token: str
+    organization: dict | None = None
+    organizations: list[dict] | None = None
 
 
 # =============================================================================
@@ -202,6 +228,112 @@ async def login(
     return LoginResponse(auth_url=auth_url, state=state)
 
 
+@router.post("/login/email", response_model=EmailAuthResponse)
+async def login_with_email(request: EmailLoginRequest) -> EmailAuthResponse:
+    """
+    Login with email and password.
+
+    Returns session token and user info.
+    """
+    try:
+        auth_result = await handle_email_login(request.email, request.password)
+
+        # Get organization info
+        from src.auth.pilot_accounts import get_org_by_id
+
+        org = await get_org_by_id(auth_result.org_id)
+
+        user_dict = {
+            "id": auth_result.user_id,
+            "email": auth_result.email,
+            "name": auth_result.name,
+            "role": auth_result.role,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        org_dict = None
+        if org:
+            org_dict = {
+                "id": org["id"],
+                "name": org["name"],
+                "status": org.get("pilot_status", "active"),
+                "region": org.get("region"),
+                "created_at": org.get("created_at", datetime.now(timezone.utc)).isoformat()
+                if isinstance(org.get("created_at"), datetime)
+                else datetime.now(timezone.utc).isoformat(),
+            }
+
+        logger.info("Email login successful", user_id=auth_result.user_id)
+
+        return EmailAuthResponse(
+            user=user_dict,
+            session_token=auth_result.token,
+            organization=org_dict,
+            organizations=[org_dict] if org_dict else [],
+        )
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error("Email login error", error=str(e))
+        raise HTTPException(status_code=500, detail="Login failed")
+
+
+@router.post("/signup/email", response_model=EmailAuthResponse)
+async def signup_with_email(request: EmailSignupRequest) -> EmailAuthResponse:
+    """
+    Create a new account with email and password.
+
+    Creates a new user and a personal organization.
+    Returns session token and user info.
+    """
+    if len(request.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    try:
+        auth_result = await handle_email_signup(
+            email=request.email,
+            password=request.password,
+            name=request.name,
+        )
+
+        # Get organization info
+        from src.auth.pilot_accounts import get_org_by_id
+
+        org = await get_org_by_id(auth_result.org_id)
+
+        user_dict = {
+            "id": auth_result.user_id,
+            "email": auth_result.email,
+            "name": auth_result.name,
+            "role": auth_result.role,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        org_dict = None
+        if org:
+            org_dict = {
+                "id": org["id"],
+                "name": org["name"],
+                "status": org.get("pilot_status", "active"),
+                "region": org.get("region"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        logger.info("Email signup successful", user_id=auth_result.user_id)
+
+        return EmailAuthResponse(
+            user=user_dict,
+            session_token=auth_result.token,
+            organization=org_dict,
+            organizations=[org_dict] if org_dict else [],
+        )
+    except AuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error("Email signup error", error=str(e))
+        raise HTTPException(status_code=500, detail="Signup failed")
+
+
 @router.get("/callback")
 async def callback(
     code: str = Query(..., description="OAuth authorization code"),
@@ -315,16 +447,24 @@ async def callback(
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> UserResponse:
     """
     Get current authenticated user.
 
-    Validates session cookie and returns user info with organization name.
+    Accepts session token from either cookie or Authorization header.
+    Returns user info with organization name.
     """
-    if not session:
+    # Try cookie first, then Authorization header
+    token_str = session
+    if not token_str and authorization:
+        if authorization.startswith("Bearer "):
+            token_str = authorization[7:]
+
+    if not token_str:
         raise HTTPException(401, "Not authenticated")
 
-    token = verify_jwt(session)
+    token = verify_jwt(token_str)
     if not token:
         raise HTTPException(401, "Invalid or expired session")
 
@@ -361,9 +501,16 @@ async def logout(response: Response) -> dict:
 # =============================================================================
 
 
-async def require_pilot_auth(session: str | None = Cookie(default=None)) -> PilotToken:
+async def require_pilot_auth(
+    session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> PilotToken:
     """
     Dependency that requires valid pilot authentication.
+
+    Accepts session token from either:
+    - Cookie named "session"
+    - Authorization header as "Bearer <token>"
 
     Use in routes that need org-scoped access:
 
@@ -376,10 +523,16 @@ async def require_pilot_auth(session: str | None = Cookie(default=None)) -> Pilo
         ...
     ```
     """
-    if not session:
+    # Try cookie first, then Authorization header
+    token_str = session
+    if not token_str and authorization:
+        if authorization.startswith("Bearer "):
+            token_str = authorization[7:]  # Remove "Bearer " prefix
+
+    if not token_str:
         raise HTTPException(401, "Not authenticated")
 
-    token = verify_jwt(session)
+    token = verify_jwt(token_str)
     if not token:
         raise HTTPException(401, "Invalid or expired session")
 

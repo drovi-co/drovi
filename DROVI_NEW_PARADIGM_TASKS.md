@@ -76,47 +76,47 @@ This is a full, non‑MVP buildout aligned to the Intent Substrate vision.
 ---
 
 **Phase 7 — UI: Intent Bar, Reality Stream, Command Deck**
-- [ ] Build global Intent Bar with app‑wide hotkey.
-- [ ] Add contextual awareness from active tabs and open views.
-- [ ] Support ask/command/delegate modes within the Intent Bar.
-- [ ] Implement Reality Stream with proof‑driven playback.
-- [ ] Build Command Deck for Continuum operations and kill switches.
-- [ ] Add rendered outputs: charts, graphs, tables, maps.
-- [ ] Implement JSON‑driven UI rendering for model outputs.
-- [ ] Ship a dedicated macOS Drovi Shell app with menu‑bar presence.
-- [ ] Implement secure IPC between UI Shell and local Core process.
-- [ ] Add macOS Accessibility context capture with explicit permissions.
-- [ ] Add focused window capture with consent indicators.
-- [ ] Add OCR extraction for non‑text surfaces.
-- [ ] Build privacy controls and context expiration UI.
-- [ ] Implement “Evidence Lens” hover overlay for instant proof.
-- [ ] Add dual‑view toggles: structured state and narrative.
+- [x] Build global Intent Bar with app‑wide hotkey.
+- [x] Add contextual awareness from active tabs and open views.
+- [x] Support ask/command/delegate modes within the Intent Bar.
+- [x] Implement Reality Stream with proof‑driven playback.
+- [x] Build Command Deck for Continuum operations and kill switches.
+- [x] Add rendered outputs: charts, graphs, tables, maps.
+- [x] Implement JSON‑driven UI rendering for model outputs.
+- [x] Ship a dedicated macOS Drovi Shell app with menu‑bar presence.
+- [x] Implement secure IPC between UI Shell and local Core process.
+- [x] Add macOS Accessibility context capture with explicit permissions.
+- [x] Add focused window capture with consent indicators.
+- [x] Add OCR extraction for non‑text surfaces.
+- [x] Build privacy controls and context expiration UI.
+- [x] Implement “Evidence Lens” hover overlay for instant proof.
+- [x] Add dual‑view toggles: structured state and narrative.
 
 ---
 
 **Phase 8 — Trust + Policy Core**
-- [ ] Build policy‑as‑code runtime with role and sensitivity classes.
-- [ ] Add approval gates and confirmation UX.
-- [ ] Implement tamper‑evident audit ledger for all actions.
-- [ ] Add privacy controls and data minimization policies.
-- [ ] Build user‑visible trust indicators and confidence reasoning.
+- [x] Build policy‑as‑code runtime with role and sensitivity classes.
+- [x] Add approval gates and confirmation UX.
+- [x] Implement tamper‑evident audit ledger for all actions.
+- [x] Add privacy controls and data minimization policies.
+- [x] Build user‑visible trust indicators and confidence reasoning.
 
 ---
 
 **Phase 9 — Simulation and Counterfactual Engine**
-- [ ] Build a decision simulation engine for “what if” analysis.
-- [ ] Add outcome prediction for commitments and risks.
-- [ ] Implement Continuum previews with expected outcomes.
-- [ ] Add sensitivity analysis for high‑impact actions.
+- [x] Build a decision simulation engine for “what if” analysis.
+- [x] Add outcome prediction for commitments and risks.
+- [x] Implement Continuum previews with expected outcomes.
+- [x] Add sensitivity analysis for high‑impact actions.
 
 ---
 
 **Phase 10 — Continuum Exchange (Marketplace)**
-- [ ] Define Continuum packaging format and metadata.
-- [ ] Build a curated Continuum library with governance rules.
-- [ ] Add driver dependency resolution for Continuums.
-- [ ] Implement marketplace distribution with signed bundles.
-- [ ] Add monetization and versioning controls.
+- [x] Define Continuum packaging format and metadata.
+- [x] Build a curated Continuum library with governance rules.
+- [x] Add driver dependency resolution for Continuums.
+- [x] Implement marketplace distribution with signed bundles.
+- [x] Add monetization and versioning controls.
 
 ---
 

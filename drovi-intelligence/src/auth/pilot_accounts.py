@@ -1,16 +1,18 @@
 """
 Pilot Account Service
 
-Handles OAuth authentication and pilot account lifecycle:
+Handles OAuth and email/password authentication and pilot account lifecycle:
 - Domain-based organization lookup
-- User creation on first OAuth login
+- User creation on first OAuth login or email signup
 - Membership management
 - JWT token issuance
+- Password hashing and verification
 
 This is NOT a SaaS authentication system.
 Pilots are provisioned by Drovi, not self-served.
 """
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -24,6 +26,35 @@ from src.config import get_settings
 from src.db.client import get_db_session
 
 logger = structlog.get_logger()
+
+
+# =============================================================================
+# Password Hashing (using PBKDF2 for simplicity, consider argon2 in production)
+# =============================================================================
+
+
+def _hash_password(password: str) -> str:
+    """Hash a password using PBKDF2-SHA256."""
+    salt = secrets.token_hex(16)
+    iterations = 100000
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), iterations)
+    return f"pbkdf2:sha256:{iterations}${salt}${dk.hex()}"
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password against its hash."""
+    try:
+        if not password_hash.startswith("pbkdf2:sha256:"):
+            return False
+        parts = password_hash.split("$")
+        if len(parts) != 3:
+            return False
+        header, salt, stored_hash = parts
+        iterations = int(header.split(":")[2])
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), iterations)
+        return dk.hex() == stored_hash
+    except Exception:
+        return False
 
 
 # =============================================================================
@@ -303,6 +334,212 @@ async def get_or_create_user(email: str, name: str | None = None) -> tuple[dict,
         "created_at": datetime.now(timezone.utc),
         "last_login_at": datetime.now(timezone.utc),
     }, True
+
+
+async def create_user_with_password(
+    email: str,
+    password: str,
+    name: str | None = None,
+) -> dict:
+    """
+    Create a new user with email/password authentication.
+
+    Raises:
+        AuthError: If user already exists
+    """
+    existing = await get_user_by_email(email)
+    if existing:
+        raise AuthError("An account with this email already exists.", status_code=400)
+
+    user_id = f"user_{secrets.token_hex(8)}"
+    password_hash = _hash_password(password)
+
+    async with get_db_session() as session:
+        await session.execute(
+            text("""
+                INSERT INTO users (id, email, name, password_hash, created_at, last_login_at)
+                VALUES (:id, :email, :name, :password_hash, NOW(), NOW())
+            """),
+            {"id": user_id, "email": email, "name": name, "password_hash": password_hash},
+        )
+
+    logger.info("User created with password", user_id=user_id, email=email)
+
+    return {
+        "id": user_id,
+        "email": email,
+        "name": name,
+        "created_at": datetime.now(timezone.utc),
+        "last_login_at": datetime.now(timezone.utc),
+    }
+
+
+async def verify_user_password(email: str, password: str) -> dict | None:
+    """
+    Verify user credentials.
+
+    Returns:
+        User dict if credentials are valid, None otherwise
+    """
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT id, email, name, password_hash, created_at, last_login_at
+                FROM users
+                WHERE email = :email
+            """),
+            {"email": email},
+        )
+        row = result.fetchone()
+
+        if not row or not row.password_hash:
+            return None
+
+        if not _verify_password(password, row.password_hash):
+            return None
+
+        # Update last login
+        await session.execute(
+            text("UPDATE users SET last_login_at = NOW() WHERE email = :email"),
+            {"email": email},
+        )
+
+        return {
+            "id": row.id,
+            "email": row.email,
+            "name": row.name,
+            "created_at": row.created_at,
+            "last_login_at": datetime.now(timezone.utc),
+        }
+
+
+async def handle_email_signup(
+    email: str,
+    password: str,
+    name: str | None = None,
+) -> AuthResult:
+    """
+    Handle email signup with automatic organization creation.
+
+    For development/demo, creates a personal org for each new user.
+    """
+    # Check for existing user
+    existing = await get_user_by_email(email)
+    if existing:
+        raise AuthError("An account with this email already exists.", status_code=400)
+
+    # Create user
+    user = await create_user_with_password(email, password, name)
+
+    # Create a personal organization for the user
+    email_domain = email.split("@")[1].lower()
+    org_id = f"org_{secrets.token_hex(8)}"
+    org_name = name + "'s Workspace" if name else f"{email.split('@')[0]}'s Workspace"
+
+    async with get_db_session() as session:
+        await session.execute(
+            text("""
+                INSERT INTO organizations (
+                    id, name, pilot_status, region, allowed_domains,
+                    notification_emails, created_at
+                )
+                VALUES (:id, :name, 'active', 'us-west', :allowed_domains, :notification_emails, NOW())
+            """),
+            {
+                "id": org_id,
+                "name": org_name,
+                "allowed_domains": [email_domain],
+                "notification_emails": [email],
+            },
+        )
+
+    logger.info("Organization created for signup", org_id=org_id, name=org_name)
+
+    # Create membership as admin
+    await get_or_create_membership(
+        user_id=user["id"],
+        org_id=org_id,
+        role="pilot_admin",
+    )
+
+    # Issue JWT
+    token = create_jwt(
+        user_id=user["id"],
+        org_id=org_id,
+        role="pilot_admin",
+        email=email,
+    )
+
+    logger.info(
+        "User signed up via email",
+        user_id=user["id"],
+        org_id=org_id,
+    )
+
+    return AuthResult(
+        token=token,
+        user_id=user["id"],
+        org_id=org_id,
+        role="pilot_admin",
+        email=email,
+        name=name,
+        is_new_user=True,
+    )
+
+
+async def handle_email_login(email: str, password: str) -> AuthResult:
+    """
+    Handle email/password login.
+
+    Raises:
+        AuthError: If credentials are invalid
+    """
+    user = await verify_user_password(email, password)
+    if not user:
+        raise AuthError("Invalid email or password.", status_code=401)
+
+    # Find user's organization (get the first membership)
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT m.org_id, m.role, o.name as org_name
+                FROM memberships m
+                JOIN organizations o ON o.id = m.org_id
+                WHERE m.user_id = :user_id
+                AND o.pilot_status = 'active'
+                ORDER BY m.created_at ASC
+                LIMIT 1
+            """),
+            {"user_id": user["id"]},
+        )
+        membership = result.fetchone()
+
+    if not membership:
+        raise AuthError("No active organization found for this user.", status_code=403)
+
+    # Issue JWT
+    token = create_jwt(
+        user_id=user["id"],
+        org_id=membership.org_id,
+        role=membership.role,
+        email=email,
+    )
+
+    logger.info(
+        "User logged in via email",
+        user_id=user["id"],
+        org_id=membership.org_id,
+    )
+
+    return AuthResult(
+        token=token,
+        user_id=user["id"],
+        org_id=membership.org_id,
+        role=membership.role,
+        email=email,
+        name=user.get("name"),
+        is_new_user=False,
+    )
 
 
 # =============================================================================

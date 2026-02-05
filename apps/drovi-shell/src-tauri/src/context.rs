@@ -18,6 +18,8 @@ pub struct ContextPolicy {
     pub max_bytes: usize,
     pub ttl_seconds: u64,
     pub allow_screenshot: bool,
+    pub allow_accessibility: bool,
+    pub allow_ocr: bool,
 }
 
 struct StoredSnapshot {
@@ -30,6 +32,8 @@ pub struct ContextState {
     max_bytes: Mutex<usize>,
     ttl: Mutex<Duration>,
     allow_screenshot: Mutex<bool>,
+    allow_accessibility: Mutex<bool>,
+    allow_ocr: Mutex<bool>,
     snapshots: Mutex<Vec<StoredSnapshot>>,
     current_bytes: Mutex<usize>,
 }
@@ -48,15 +52,31 @@ impl ContextState {
             .ok()
             .map(|v| v.to_lowercase() != "false")
             .unwrap_or(true);
+        let allow_accessibility = std::env::var("DROVI_CONTEXT_ALLOW_ACCESSIBILITY")
+            .ok()
+            .map(|v| v.to_lowercase() != "false")
+            .unwrap_or(false);
+        let allow_ocr = std::env::var("DROVI_CONTEXT_ALLOW_OCR")
+            .ok()
+            .map(|v| v.to_lowercase() != "false")
+            .unwrap_or(false);
 
-        Self::new_with_config(max_bytes, ttl_seconds, allow_screenshot)
+        Self::new_with_config(max_bytes, ttl_seconds, allow_screenshot, allow_accessibility, allow_ocr)
     }
 
-    pub fn new_with_config(max_bytes: usize, ttl_seconds: u64, allow_screenshot: bool) -> Self {
+    pub fn new_with_config(
+        max_bytes: usize,
+        ttl_seconds: u64,
+        allow_screenshot: bool,
+        allow_accessibility: bool,
+        allow_ocr: bool,
+    ) -> Self {
         Self {
             max_bytes: Mutex::new(max_bytes),
             ttl: Mutex::new(Duration::from_secs(ttl_seconds)),
             allow_screenshot: Mutex::new(allow_screenshot),
+            allow_accessibility: Mutex::new(allow_accessibility),
+            allow_ocr: Mutex::new(allow_ocr),
             snapshots: Mutex::new(Vec::new()),
             current_bytes: Mutex::new(0),
         }
@@ -67,6 +87,8 @@ impl ContextState {
             max_bytes: *Self::lock_value(&self.max_bytes),
             ttl_seconds: Self::lock_value(&self.ttl).as_secs(),
             allow_screenshot: *Self::lock_value(&self.allow_screenshot),
+            allow_accessibility: *Self::lock_value(&self.allow_accessibility),
+            allow_ocr: *Self::lock_value(&self.allow_ocr),
         }
     }
 
@@ -75,13 +97,30 @@ impl ContextState {
         *Self::lock_value_mut(&self.ttl) = Duration::from_secs(ttl_seconds);
     }
 
-    pub fn update_policy(&self, max_bytes: usize, ttl_seconds: u64, allow_screenshot: bool) {
+    pub fn update_policy(
+        &self,
+        max_bytes: usize,
+        ttl_seconds: u64,
+        allow_screenshot: bool,
+        allow_accessibility: bool,
+        allow_ocr: bool,
+    ) {
         self.update_budget(max_bytes, ttl_seconds);
         *Self::lock_value_mut(&self.allow_screenshot) = allow_screenshot;
+        *Self::lock_value_mut(&self.allow_accessibility) = allow_accessibility;
+        *Self::lock_value_mut(&self.allow_ocr) = allow_ocr;
     }
 
     pub fn allow_screenshot(&self) -> bool {
         *Self::lock_value(&self.allow_screenshot)
+    }
+
+    pub fn allow_accessibility(&self) -> bool {
+        *Self::lock_value(&self.allow_accessibility)
+    }
+
+    pub fn allow_ocr(&self) -> bool {
+        *Self::lock_value(&self.allow_ocr)
     }
 
     pub fn store_snapshot(&self, mut snapshot: ContextSnapshot) {
@@ -128,6 +167,13 @@ impl ContextState {
         snapshots.iter().map(|entry| entry.snapshot.clone()).collect()
     }
 
+    pub fn clear_snapshots(&self) {
+        let mut snapshots = Self::lock_value_mut(&self.snapshots);
+        let mut current_bytes = Self::lock_value_mut(&self.current_bytes);
+        snapshots.clear();
+        *current_bytes = 0;
+    }
+
     fn snapshot_size(snapshot: &ContextSnapshot) -> usize {
         serde_json::to_vec(snapshot).map(|v| v.len()).unwrap_or(0)
     }
@@ -166,7 +212,7 @@ mod tests {
 
     #[test]
     fn trims_snapshot_when_over_budget() {
-        let state = ContextState::new_with_config(400, 300, true);
+        let state = ContextState::new_with_config(400, 300, true, false, false);
         let snapshot = ContextSnapshot {
             active_app: Some("Test".into()),
             window_title: Some("Window".into()),
@@ -185,11 +231,13 @@ mod tests {
 
     #[test]
     fn updates_policy_values() {
-        let state = ContextState::new_with_config(100, 100, true);
-        state.update_policy(500, 60, false);
+        let state = ContextState::new_with_config(100, 100, true, false, false);
+        state.update_policy(500, 60, false, true, true);
         let policy = state.policy();
         assert_eq!(policy.max_bytes, 500);
         assert_eq!(policy.ttl_seconds, 60);
         assert!(!policy.allow_screenshot);
+        assert!(policy.allow_accessibility);
+        assert!(policy.allow_ocr);
     }
 }

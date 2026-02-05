@@ -13,11 +13,18 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
+    "@tanstack/react-virtual": "^3.13.18",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-global-shortcut": "^2.2.0",
+    "cmdk": "^1.1.1",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.31.0",
+    "lucide-react": "^0.563.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.4.0",

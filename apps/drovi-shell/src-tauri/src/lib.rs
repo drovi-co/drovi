@@ -153,12 +153,23 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Context capture commands
             commands::get_active_context,
             commands::get_context_cache,
             commands::get_context_policy,
-            commands::toggle_intent_bar,
+            commands::clear_context_cache,
             commands::update_context_budget,
             commands::update_context_policy,
+            // Core API commands
+            commands::core_request,
+            // Window commands
+            commands::toggle_intent_bar,
+            // Auth token storage commands
+            commands::store_auth_token,
+            commands::get_auth_token,
+            commands::delete_auth_token,
+            commands::clear_auth_tokens,
+            commands::open_external_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
