@@ -100,6 +100,20 @@ services:
        mc retention set --default GOVERNANCE 30d drovi/drovi-evidence || true"
 
   # ---------------------------------------------------------------------------
+  # Redis (OAuth state, sync events, rate limiting)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: drovi-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
   # Drovi Intelligence API
   # ---------------------------------------------------------------------------
   drovi-intelligence:
@@ -113,11 +127,14 @@ services:
         condition: service_healthy
       falkordb:
         condition: service_started
+      redis:
+        condition: service_healthy
     env_file:
       - ./drovi-intelligence/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
       ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/0
       SCHEDULER_RUN_IN_API: "false"
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: 6379
@@ -168,11 +185,14 @@ services:
         condition: service_started
       redpanda:
         condition: service_started
+      redis:
+        condition: service_healthy
     env_file:
       - ./drovi-intelligence/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
       ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/0
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: 6379
       FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
@@ -229,10 +249,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ./drovi-intelligence/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379/0
       LOG_LEVEL: INFO
 
   # ---------------------------------------------------------------------------
@@ -243,7 +266,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_SERVER_URL: http://localhost:8000
+        VITE_SERVER_URL: http://localhost:3001
     container_name: drovi-web
     restart: unless-stopped
     depends_on:

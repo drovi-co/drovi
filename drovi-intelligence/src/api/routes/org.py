@@ -682,8 +682,17 @@ def _build_oauth_url(
     """Build OAuth authorization URL for the given provider."""
     from urllib.parse import urlencode
 
+    def _require(value: str | None, label: str) -> None:
+        if not value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"OAuth not configured for {provider}. Missing {label}.",
+            )
+
     # Google-based providers (Gmail, Docs, Calendar)
     if provider == "gmail":
+        _require(settings.google_client_id, "GOOGLE_CLIENT_ID")
+        _require(settings.google_client_secret, "GOOGLE_CLIENT_SECRET")
         params = {
             "client_id": settings.google_client_id,
             "redirect_uri": redirect_uri,
@@ -698,6 +707,8 @@ def _build_oauth_url(
         return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     if provider == "google_docs":
+        _require(settings.google_client_id, "GOOGLE_CLIENT_ID")
+        _require(settings.google_client_secret, "GOOGLE_CLIENT_SECRET")
         params = {
             "client_id": settings.google_client_id,
             "redirect_uri": redirect_uri,
@@ -716,6 +727,8 @@ def _build_oauth_url(
         return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     if provider == "google_calendar":
+        _require(settings.google_client_id, "GOOGLE_CLIENT_ID")
+        _require(settings.google_client_secret, "GOOGLE_CLIENT_SECRET")
         params = {
             "client_id": settings.google_client_id,
             "redirect_uri": redirect_uri,
@@ -734,6 +747,8 @@ def _build_oauth_url(
 
     # Slack
     if provider == "slack":
+        _require(settings.slack_client_id, "SLACK_CLIENT_ID")
+        _require(settings.slack_client_secret, "SLACK_CLIENT_SECRET")
         params = {
             "client_id": settings.slack_client_id,
             "redirect_uri": redirect_uri,
@@ -744,6 +759,8 @@ def _build_oauth_url(
 
     # Microsoft-based providers (Outlook, Teams)
     if provider in ("outlook", "teams"):
+        _require(settings.microsoft_client_id, "MICROSOFT_CLIENT_ID")
+        _require(settings.microsoft_client_secret, "MICROSOFT_CLIENT_SECRET")
         scopes = {
             "outlook": "offline_access User.Read Mail.Read",
             "teams": "offline_access User.Read ChannelMessage.Read.All Chat.Read",
@@ -762,6 +779,8 @@ def _build_oauth_url(
 
     # Notion
     if provider == "notion":
+        _require(settings.notion_client_id, "NOTION_CLIENT_ID")
+        _require(settings.notion_client_secret, "NOTION_CLIENT_SECRET")
         params = {
             "client_id": settings.notion_client_id,
             "redirect_uri": redirect_uri,
@@ -773,6 +792,8 @@ def _build_oauth_url(
 
     # HubSpot
     if provider == "hubspot":
+        _require(settings.hubspot_client_id, "HUBSPOT_CLIENT_ID")
+        _require(settings.hubspot_client_secret, "HUBSPOT_CLIENT_SECRET")
         params = {
             "client_id": settings.hubspot_client_id,
             "redirect_uri": redirect_uri,
@@ -783,6 +804,8 @@ def _build_oauth_url(
 
     # WhatsApp Business (via Meta)
     if provider == "whatsapp":
+        _require(settings.meta_app_id, "META_APP_ID")
+        _require(settings.meta_app_secret, "META_APP_SECRET")
         params = {
             "client_id": settings.meta_app_id,
             "redirect_uri": redirect_uri,

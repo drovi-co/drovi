@@ -219,33 +219,35 @@ async def list_bundles(
 ) -> list[dict[str, Any]]:
     with rls_context(organization_id, is_internal=True):
         async with get_db_session() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT b.id, b.name, b.description, b.organization_id,
-                           b.visibility, b.governance_status, b.price_cents,
-                           b.currency, b.billing_model,
-                           v.version, v.manifest, v.signature
-                    FROM continuum_bundle b
-                    JOIN LATERAL (
-                        SELECT version, manifest, signature
-                        FROM continuum_bundle_version
-                        WHERE bundle_id = b.id
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                    ) v ON true
-                    WHERE b.organization_id = :org_id
-                      AND (:visibility IS NULL OR b.visibility = :visibility)
-                      AND (:governance_status IS NULL OR b.governance_status = :governance_status)
-                    ORDER BY b.created_at DESC
-                    """
-                ),
-                {
-                    "org_id": organization_id,
-                    "visibility": visibility,
-                    "governance_status": governance_status,
-                },
-            )
+            query = """
+                SELECT b.id, b.name, b.description, b.organization_id,
+                       b.visibility, b.governance_status, b.price_cents,
+                       b.currency, b.billing_model,
+                       v.version, v.manifest, v.signature
+                FROM continuum_bundle b
+                JOIN LATERAL (
+                    SELECT version, manifest, signature
+                    FROM continuum_bundle_version
+                    WHERE bundle_id = b.id
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ) v ON true
+                WHERE b.organization_id = :org_id
+            """
+
+            params: dict[str, Any] = {"org_id": organization_id}
+
+            if visibility is not None:
+                query += " AND b.visibility = :visibility"
+                params["visibility"] = visibility
+
+            if governance_status is not None:
+                query += " AND b.governance_status = :governance_status"
+                params["governance_status"] = governance_status
+
+            query += " ORDER BY b.created_at DESC"
+
+            result = await session.execute(text(query), params)
             return [dict(row._mapping) for row in result.fetchall()]
 
 

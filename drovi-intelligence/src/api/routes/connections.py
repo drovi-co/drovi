@@ -9,6 +9,7 @@ Provides endpoints for managing data source connections:
 """
 
 from datetime import datetime
+import inspect
 from typing import Any
 
 import structlog
@@ -175,7 +176,21 @@ async def list_connectors(
     """
     connectors = []
     for connector_type, connector_class in ConnectorRegistry._connectors.items():
-        connector = connector_class()
+        if inspect.isabstract(connector_class):
+            logger.debug(
+                "Skipping abstract connector",
+                connector_type=connector_type,
+            )
+            continue
+        try:
+            connector = connector_class()
+        except TypeError as e:
+            logger.warning(
+                "Failed to instantiate connector",
+                connector_type=connector_type,
+                error=str(e),
+            )
+            continue
         connectors.append({
             "type": connector_type,
             "capabilities": {

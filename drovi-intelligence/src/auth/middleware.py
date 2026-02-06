@@ -21,7 +21,7 @@ from functools import wraps
 from typing import Callable
 
 import structlog
-from fastapi import Cookie, Depends, HTTPException, Request
+from fastapi import Cookie, Depends, HTTPException, Request, Header
 from fastapi.security import APIKeyHeader
 
 from src.auth.api_key import validate_api_key, APIKeyInfo
@@ -108,6 +108,7 @@ async def get_api_key_context(
     request: Request,
     api_key: str | None = Depends(api_key_header),
     session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> APIKeyContext:
     """
     FastAPI dependency for API key authentication.
@@ -128,12 +129,17 @@ async def get_api_key_context(
     Raises:
         HTTPException: If authentication fails
     """
-    # 1. Check for session cookie first (Pilot Surface frontend)
-    if session:
-        token = verify_jwt(session)
+    # 1. Check for session cookie or Authorization bearer (Pilot Surface frontend)
+    token_str = session
+    if not token_str and authorization:
+        if authorization.startswith("Bearer "):
+            token_str = authorization[7:]
+
+    if token_str:
+        token = verify_jwt(token_str)
         if token:
             logger.debug(
-                "Session cookie authentication",
+                "Session authentication",
                 user_id=token.sub,
                 org_id=token.org_id,
                 path=request.url.path,

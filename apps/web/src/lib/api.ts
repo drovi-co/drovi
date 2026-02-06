@@ -7,6 +7,7 @@
 
 import { env } from "@memorystack/env/web";
 import { markApiReachable, markApiUnreachable } from "./api-reachability";
+import { getSessionToken } from "./session-token";
 
 // Types
 export interface User {
@@ -507,10 +508,14 @@ function persistApiBase(base: string) {
 }
 
 function getApiBaseCandidates(): string[] {
-  const bases = [
-    normalizeLocalhostBase(getApiBase()),
-    normalizeLocalhostBase(API_BASE),
-  ];
+  const bases: string[] = [];
+
+  if (typeof window !== "undefined") {
+    bases.push(window.location.origin);
+  }
+
+  bases.push(normalizeLocalhostBase(getApiBase()));
+  bases.push(normalizeLocalhostBase(API_BASE));
 
   const addLocalhostVariant = (base: string) => {
     if (base.includes("localhost")) {
@@ -551,6 +556,32 @@ export async function apiFetch<T>(
   const method = (options.method ?? "GET").toUpperCase();
   const canRetryAuth =
     method === "GET" || method === "HEAD" || method === "OPTIONS";
+  const sessionToken = getSessionToken();
+  const normalizedHeaders: Record<string, string> = (() => {
+    if (!options.headers) {
+      return {};
+    }
+    if (options.headers instanceof Headers) {
+      return Object.fromEntries(options.headers.entries());
+    }
+    if (Array.isArray(options.headers)) {
+      return Object.fromEntries(options.headers);
+    }
+    return options.headers;
+  })();
+
+  const baseHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...normalizedHeaders,
+  };
+
+  const hasAuthHeader = Object.keys(baseHeaders).some(
+    (key) => key.toLowerCase() === "authorization"
+  );
+
+  if (sessionToken && !hasAuthHeader) {
+    baseHeaders.Authorization = `Bearer ${sessionToken}`;
+  }
 
   for (const [index, base] of candidates.entries()) {
     const url = `${base}/api/v1${path}`;
@@ -558,10 +589,7 @@ export async function apiFetch<T>(
       res = await fetch(url, {
         ...options,
         credentials: "include", // Include cookies for session auth
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
+        headers: baseHeaders,
       });
       markApiReachable();
       if (res.ok) {

@@ -186,7 +186,7 @@ app = FastAPI(
 settings = get_settings()
 
 # Rate limiting (applied first to reject early)
-if settings.environment != "test":
+if settings.environment == "production":
     app.add_middleware(
         RateLimitMiddleware,
         requests_per_minute=100,

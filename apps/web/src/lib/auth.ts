@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { authAPI, type User } from "./api";
+import { clearSessionToken, setSessionToken } from "./session-token";
 
 // =============================================================================
 // AUTH STORE
@@ -47,6 +48,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: !!user,
         isLoading: false,
       });
+      if (!user) {
+        clearSessionToken();
+      }
     } catch (e) {
       set({
         user: null,
@@ -54,42 +58,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to check auth",
       });
+      clearSessionToken();
     }
   },
 
   loginWithEmail: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      await authAPI.loginWithEmail({ email, password });
+      const response = await authAPI.loginWithEmail({ email, password });
+      setSessionToken(response.session_token);
       const user = await authAPI.getMe();
+      if (!user) {
+        throw new Error("Unable to verify session after login");
+      }
       set({
         user,
         isAuthenticated: !!user,
         isLoading: false,
       });
+      return;
     } catch (e) {
       set({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to sign in",
       });
+      clearSessionToken();
+      throw e instanceof Error ? e : new Error("Failed to sign in");
     }
   },
 
   signupWithEmail: async (params) => {
     set({ isLoading: true, error: null });
     try {
-      await authAPI.signupWithEmail(params);
+      const response = await authAPI.signupWithEmail(params);
+      setSessionToken(response.session_token);
       const user = await authAPI.getMe();
+      if (!user) {
+        throw new Error("Unable to verify session after signup");
+      }
       set({
         user,
         isAuthenticated: !!user,
         isLoading: false,
       });
+      return;
     } catch (e) {
       set({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to sign up",
       });
+      clearSessionToken();
+      throw e instanceof Error ? e : new Error("Failed to sign up");
     }
   },
 
@@ -97,6 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await authAPI.logout();
+      clearSessionToken();
       set({
         user: null,
         isAuthenticated: false,
