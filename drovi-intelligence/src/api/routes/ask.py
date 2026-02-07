@@ -23,13 +23,15 @@ from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Literal
 
 import structlog
-from fastapi import APIRouter, Query, HTTPException, Cookie
+from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from prometheus_client import Histogram
 from pydantic import BaseModel, Field
 
 from src.graphrag import query_graph
-from src.auth.pilot_accounts import verify_jwt
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.private_sources import get_session_user_id, is_admin_or_internal
+from src.auth.scopes import Scope
 from src.agents import get_session_manager
 
 logger = structlog.get_logger()
@@ -184,7 +186,10 @@ class AskResponse(BaseModel):
 
 
 @router.post("", response_model=AskResponse)
-async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
+async def ask_knowledge_graph(
+    request: AskRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> AskResponse:
     """
     Ask a natural language question about your knowledge graph.
 
@@ -240,6 +245,20 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
         organization_id=request.organization_id,
     )
 
+    # Validate org access against auth context.
+    org_id = request.organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+    if (
+        ctx.organization_id != "internal"
+        and request.organization_id
+        and request.organization_id != ctx.organization_id
+    ):
+        raise HTTPException(status_code=403, detail="Organization ID mismatch with authenticated key")
+
+    session_user_id = get_session_user_id(ctx)
+    is_admin = is_admin_or_internal(ctx)
+
     session = None
     context_used = False
 
@@ -247,7 +266,7 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
         session_manager = await get_session_manager()
         session = await session_manager.get_or_create_session(
             request.session_id,
-            request.organization_id,
+            org_id,
         )
     except Exception as exc:
         logger.warning("Ask session unavailable", error=str(exc))
@@ -258,13 +277,23 @@ async def ask_knowledge_graph(request: AskRequest) -> AskResponse:
             session,
         )
 
-        user_id = request.user_id or (session.metadata.get("user_id") if session else None)
+        # Never trust client-supplied user_id for visibility boundaries.
+        # For personalization, prefer the authenticated session user id.
+        effective_user_id = session_user_id or (session.metadata.get("user_id") if session else None)
+        if request.user_id and session_user_id and request.user_id != session_user_id:
+            logger.warning(
+                "ask_user_id_mismatch_ignored",
+                request_user_id=request.user_id,
+                session_user_id=session_user_id,
+            )
 
         result = await query_graph(
             question=augmented_question,
-            organization_id=request.organization_id,
+            organization_id=org_id,
             include_evidence=request.include_evidence,
-            user_id=user_id,
+            user_id=effective_user_id,
+            visibility_user_id=session_user_id,
+            visibility_is_admin=is_admin,
         )
 
         if session:
@@ -320,6 +349,7 @@ async def ask_get(
         default=None,
         description="Optional user ID for RAM-layer personalization",
     ),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> AskResponse:
     """
     Ask a natural language question (GET version).
@@ -339,7 +369,8 @@ async def ask_get(
             session_id=session_id,
             include_evidence=include_evidence,
             user_id=user_id,
-        )
+        ),
+        ctx=ctx,
     )
 
 
@@ -561,6 +592,9 @@ async def _retrieve_truth(
     query: str,
     session_id: str | None = None,
     context_used: bool = False,
+    user_id: str | None = None,
+    visibility_user_id: str | None = None,
+    visibility_is_admin: bool = False,
 ) -> tuple[TruthEvent, list[dict]]:
     """
     Phase A: Retrieve structured truth from graph (< 200ms target).
@@ -575,6 +609,9 @@ async def _retrieve_truth(
             question=query,
             organization_id=organization_id,
             include_evidence=True,
+            user_id=user_id,
+            visibility_user_id=visibility_user_id,
+            visibility_is_admin=visibility_is_admin,
         )
 
         # Transform to truth format
@@ -707,6 +744,9 @@ def _sse_event(event_type: str, data: dict) -> str:
 
 async def _ask_stream_generator(
     request: AskStreamRequest,
+    *,
+    session_user_id: str | None,
+    is_admin: bool,
 ) -> AsyncGenerator[str, None]:
     """
     Generate SSE stream for 2-phase ask protocol.
@@ -745,6 +785,9 @@ async def _ask_stream_generator(
             query=augmented_query,
             session_id=session.session_id if session else None,
             context_used=context_used,
+            user_id=session_user_id,
+            visibility_user_id=session_user_id,
+            visibility_is_admin=is_admin,
         )
 
         yield _sse_event("truth", truth.model_dump())
@@ -810,7 +853,7 @@ async def _ask_stream_generator(
 @router.post("/stream")
 async def ask_stream(
     request: AskStreamRequest,
-    session: str | None = Cookie(default=None),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> StreamingResponse:
     """
     2-Phase Truth-First Ask Protocol (SSE Streaming).
@@ -850,14 +893,14 @@ async def ask_stream(
     // Parse SSE events...
     ```
     """
-    # Validate session if provided
-    if session:
-        token = verify_jwt(session)
-        if token and token.org_id != request.organization_id:
-            raise HTTPException(403, "Organization mismatch")
+    if ctx.organization_id != "internal" and request.organization_id != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Organization ID mismatch with authenticated key")
+
+    session_user_id = get_session_user_id(ctx)
+    is_admin = is_admin_or_internal(ctx)
 
     return StreamingResponse(
-        _ask_stream_generator(request),
+        _ask_stream_generator(request, session_user_id=session_user_id, is_admin=is_admin),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

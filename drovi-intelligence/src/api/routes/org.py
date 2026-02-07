@@ -23,7 +23,7 @@ from sqlalchemy import delete, func, select, text, or_
 
 from sse_starlette.sse import EventSourceResponse
 
-from src.auth.pilot_accounts import PilotToken, verify_jwt
+from src.auth.pilot_accounts import PilotToken
 from src.api.routes.auth import require_pilot_auth
 from src.config import get_settings
 from src.db.client import get_db_session
@@ -59,22 +59,13 @@ data_export_total = Counter(
 # =============================================================================
 
 
-async def require_pilot_admin(session: str | None = Cookie(default=None)) -> PilotToken:
+async def require_pilot_admin(
+    token: PilotToken = Depends(require_pilot_auth),
+) -> PilotToken:
     """Require pilot admin authentication."""
-    if not session:
-        raise HTTPException(401, "Not authenticated")
-
-    token = verify_jwt(session)
-    if not token:
-        raise HTTPException(401, "Invalid or expired session")
-
     if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(403, "Admin access required")
-
-    from src.db.rls import rls_context
-
-    with rls_context(token.org_id, is_internal=False):
-        yield token
+    return token
 
 
 # =============================================================================
@@ -91,6 +82,8 @@ class OrgInfoResponse(BaseModel):
     region: str | None = None
     allowed_domains: list[str] = []
     notification_emails: list[str] = []
+    allowed_connectors: list[str] | None = None
+    default_connection_visibility: Literal["org_shared", "private"] = "org_shared"
     expires_at: datetime | None = None
     created_at: datetime | None = None
     member_count: int = 0
@@ -104,6 +97,8 @@ class OrgUpdateRequest(BaseModel):
     allowed_domains: list[str] | None = None
     notification_emails: list[str] | None = None
     region: str | None = None
+    allowed_connectors: list[str] | None = None
+    default_connection_visibility: Literal["org_shared", "private"] | None = None
 
 
 class MemberInfo(BaseModel):
@@ -176,6 +171,8 @@ async def get_org_info(
         region=org.get("region"),
         allowed_domains=org.get("allowed_domains", []),
         notification_emails=org.get("notification_emails", []),
+        allowed_connectors=org.get("allowed_connectors"),
+        default_connection_visibility=org.get("default_connection_visibility") or "org_shared",
         expires_at=org.get("expires_at"),
         created_at=org.get("created_at"),
         member_count=member_count,
@@ -202,6 +199,10 @@ async def update_org_info(
             updates["notification_emails"] = request.notification_emails
         if request.region is not None:
             updates["region"] = request.region
+        if request.allowed_connectors is not None:
+            updates["allowed_connectors"] = request.allowed_connectors
+        if request.default_connection_visibility is not None:
+            updates["default_connection_visibility"] = request.default_connection_visibility
 
         if updates:
             set_clause = ", ".join([f"{key} = :{key}" for key in updates])
@@ -238,6 +239,8 @@ async def update_org_info(
         region=org.get("region"),
         allowed_domains=org.get("allowed_domains", []),
         notification_emails=org.get("notification_emails", []),
+        allowed_connectors=org.get("allowed_connectors"),
+        default_connection_visibility=org.get("default_connection_visibility") or "org_shared",
         expires_at=org.get("expires_at"),
         created_at=org.get("created_at"),
         member_count=member_count,
@@ -473,8 +476,8 @@ class ConnectRequest(BaseModel):
     """Request to initiate connection OAuth."""
 
     redirect_uri: str
-    visibility: Literal["org_shared", "private"] = Field(
-        default="org_shared",
+    visibility: Literal["org_shared", "private"] | None = Field(
+        default=None,
         description="Whether this source is shared across the org or private to the connector owner.",
     )
     restricted_labels: list[str] = Field(default_factory=list, description="Gmail: labels to exclude")
@@ -961,6 +964,35 @@ async def connect_provider(
             detail=f"Connector '{provider}' is not configured. Missing: {', '.join(missing_env)}",
         )
 
+    # Org connector policies (allowed providers + default visibility).
+    allowed_connectors: list[str] | None = None
+    default_visibility: str | None = None
+    async with get_db_session() as session:
+        org_row = await session.execute(
+            text(
+                """
+                SELECT allowed_connectors, default_connection_visibility
+                FROM organizations
+                WHERE id = :org_id
+                """
+            ),
+            {"org_id": token.org_id},
+        )
+        row = org_row.fetchone()
+        if row:
+            allowed_connectors = getattr(row, "allowed_connectors", None)
+            default_visibility = getattr(row, "default_connection_visibility", None)
+
+    if allowed_connectors and provider not in allowed_connectors:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Connector '{provider}' is not allowed by org policy.",
+        )
+
+    effective_visibility = request.visibility or default_visibility or "org_shared"
+    if effective_visibility not in ("org_shared", "private"):
+        effective_visibility = "org_shared"
+
     # Generate PKCE parameters
     code_verifier = secrets.token_urlsafe(64)
     code_challenge = urlsafe_b64encode(
@@ -981,7 +1013,7 @@ async def connect_provider(
             "provider": provider,
             "org_id": token.org_id,
             "created_by_user_id": token.sub,
-            "visibility": request.visibility,
+            "visibility": effective_visibility,
             "restricted_labels": request.restricted_labels,
             "restricted_channels": request.restricted_channels,
             "return_to": request.return_to,

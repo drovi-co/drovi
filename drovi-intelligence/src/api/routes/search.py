@@ -108,6 +108,25 @@ async def hybrid_search(
             limit=request.limit,
         )
 
+        # Enforce private-source visibility boundaries for UIO-backed nodes.
+        # Graph nodes do not carry source visibility; we cross-check via Postgres.
+        uio_like_types = {"commitment", "decision", "risk", "task", "claim"}
+        uio_ids = [
+            str(r.get("id"))
+            for r in results
+            if r.get("id") and str(r.get("type", "")).lower() in uio_like_types
+        ]
+        if uio_ids:
+            from src.auth.private_sources import filter_visible_uio_ids
+
+            visible = await filter_visible_uio_ids(org_id, uio_ids, ctx)
+            results = [
+                r
+                for r in results
+                if str(r.get("type", "")).lower() not in uio_like_types
+                or (r.get("id") and str(r.get("id")) in visible)
+            ]
+
         query_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
         return SearchResponse(

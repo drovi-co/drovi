@@ -22,8 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authClient } from "@/lib/auth-client";
 import { orgAPI, type OrgInvite } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/team/invitations")({
   component: InvitationsPage,
@@ -31,8 +31,9 @@ export const Route = createFileRoute("/dashboard/team/invitations")({
 
 function InvitationsPage() {
   const queryClient = useQueryClient();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
-  const organizationId = activeOrg?.id ?? "";
+  const user = useAuthStore((state) => state.user);
+  const organizationId = user?.org_id ?? "";
+  const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("member");
   const {
@@ -76,7 +77,7 @@ function InvitationsPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organizationId || !email) {
+    if (!organizationId || !email || !isAdmin) {
       return;
     }
 
@@ -95,14 +96,10 @@ function InvitationsPage() {
     revokeMutation.mutate(invitationId);
   };
 
-  if (!activeOrg) {
+  if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        {orgLoading ? (
-          <p className="text-muted-foreground">Loading organization…</p>
-        ) : (
-          <p className="text-muted-foreground">No organization selected</p>
-        )}
+        <p className="text-muted-foreground">Sign in to invite team members.</p>
       </div>
     );
   }
@@ -127,7 +124,7 @@ function InvitationsPage() {
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Invitations</h1>
         <p className="text-muted-foreground">
-          Invite new members to {activeOrg.name}
+          Invite new members to {user.org_name}
         </p>
       </div>
 
@@ -152,6 +149,7 @@ function InvitationsPage() {
                 required
                 type="email"
                 value={email}
+                disabled={!isAdmin}
               />
             </div>
             <div className="w-32">
@@ -159,7 +157,7 @@ function InvitationsPage() {
                 Role
               </Label>
               <Select onValueChange={(val) => val && setRole(val)} value={role}>
-                <SelectTrigger>
+                <SelectTrigger disabled={!isAdmin}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -169,11 +167,16 @@ function InvitationsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button disabled={inviteMutation.isPending} type="submit">
+            <Button disabled={!isAdmin || inviteMutation.isPending} type="submit">
               <Mail className="mr-2 h-4 w-4" />
               {inviteMutation.isPending ? "Sending..." : "Send Invite"}
             </Button>
           </form>
+          {!isAdmin ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Admin access is required to invite members.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -7,6 +7,7 @@
 
 import { env } from "@memorystack/env/web";
 import { markApiReachable, markApiUnreachable } from "./api-reachability";
+import { recordApiTrace } from "./api-trace";
 import { getSessionToken } from "./session-token";
 
 // Types
@@ -26,6 +27,8 @@ export interface OrgInfo {
   region: string | null;
   allowed_domains: string[];
   notification_emails: string[] | null;
+  allowed_connectors: string[] | null;
+  default_connection_visibility: "org_shared" | "private";
   expires_at: string | null;
   created_at: string | null;
   member_count: number;
@@ -536,6 +539,10 @@ export async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
+  const startedAt =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
   const sessionToken = getSessionToken();
   const normalizedHeaders: Record<string, string> = (() => {
     if (!options.headers) {
@@ -564,6 +571,7 @@ export async function apiFetch<T>(
   }
 
   const url = buildApiV1Url(path);
+  const endpoint = `/api/v1${path}`;
   let res: Response;
   try {
     res = await fetch(url, {
@@ -574,12 +582,26 @@ export async function apiFetch<T>(
     markApiReachable();
   } catch (error) {
     markApiUnreachable(error);
+    const durationMs =
+      (typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now()) - startedAt;
+    recordApiTrace({
+      kind: "error",
+      at: Date.now(),
+      method,
+      endpoint,
+      url,
+      status: 0,
+      requestId: undefined,
+      durationMs: Math.max(0, Math.round(durationMs)),
+    });
     throw new APIError(
       `Drovi API unreachable (${method} /api/v1${path}). Check that the intelligence stack is running.`,
       0,
       "API_UNREACHABLE",
       error instanceof Error ? error.message : "Network error",
-      `/api/v1${path}`,
+      endpoint,
       method,
       undefined,
       url
@@ -588,6 +610,20 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const requestId = res.headers.get("X-Request-ID") ?? undefined;
+    const durationMs =
+      (typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now()) - startedAt;
+    recordApiTrace({
+      kind: "error",
+      at: Date.now(),
+      method,
+      endpoint,
+      url,
+      status: res.status,
+      requestId,
+      durationMs: Math.max(0, Math.round(durationMs)),
+    });
     let detail: string | undefined;
     try {
       const errorBody = await res.json();
@@ -625,7 +661,6 @@ export async function apiFetch<T>(
       return "UNKNOWN_ERROR";
     })();
 
-    const endpoint = `/api/v1${path}`;
     const message = (() => {
       if (code === "UNAUTHENTICATED") {
         return `Not authenticated (${method} ${endpoint}). Please sign in again.`;
@@ -656,6 +691,22 @@ export async function apiFetch<T>(
       url
     );
   }
+
+  const requestId = res.headers.get("X-Request-ID") ?? undefined;
+  const durationMs =
+    (typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now()) - startedAt;
+  recordApiTrace({
+    kind: "ok",
+    at: Date.now(),
+    method,
+    endpoint,
+    url,
+    status: res.status,
+    requestId,
+    durationMs: Math.max(0, Math.round(durationMs)),
+  });
 
   // Handle empty responses
   const text = await res.text();
@@ -1096,6 +1147,49 @@ export const searchAPI = {
 };
 
 // =============================================================================
+// CONTENT SEARCH API (Unified Event Model)
+// =============================================================================
+
+export interface ContentSearchResult {
+  id: string;
+  kind: string;
+  source_type: string;
+  source_id: string | null;
+  source_account_id: string | null;
+  conversation_id: string | null;
+  message_id: string | null;
+  title: string | null;
+  snippet: string | null;
+  captured_at: string | null;
+  received_at: string;
+}
+
+export interface ContentSearchResponse {
+  success: boolean;
+  results: ContentSearchResult[];
+  count: number;
+}
+
+export const contentAPI = {
+  async search(params: {
+    query: string;
+    organizationId?: string;
+    kinds?: Array<"message" | "document" | "meeting" | "note">;
+    limit?: number;
+  }): Promise<ContentSearchResponse> {
+    return apiFetch<ContentSearchResponse>("/content/search", {
+      method: "POST",
+      body: JSON.stringify({
+        query: params.query,
+        organization_id: params.organizationId ?? null,
+        kinds: params.kinds ?? null,
+        limit: params.limit ?? 20,
+      }),
+    });
+  },
+};
+
+// =============================================================================
 // BRIEF API
 // =============================================================================
 
@@ -1333,6 +1427,7 @@ export const orgAPI = {
   async initiateConnect(
     provider: string,
     options?: {
+      visibility?: "org_shared" | "private";
       restrictedLabels?: string[];
       restrictedChannels?: string[];
       returnTo?: string;
@@ -1345,6 +1440,7 @@ export const orgAPI = {
         method: "POST",
         body: JSON.stringify({
           redirect_uri: redirectUri,
+          visibility: options?.visibility ?? null,
           restricted_labels: options?.restrictedLabels || [],
           restricted_channels: options?.restrictedChannels || [],
           return_to: options?.returnTo || null,
@@ -1432,6 +1528,8 @@ export const orgAPI = {
     allowedDomains?: string[];
     notificationEmails?: string[];
     region?: string;
+    allowedConnectors?: string[] | null;
+    defaultConnectionVisibility?: "org_shared" | "private" | null;
   }): Promise<OrgInfo> {
     return apiFetch<OrgInfo>("/org/info", {
       method: "PATCH",
@@ -1440,6 +1538,8 @@ export const orgAPI = {
         allowed_domains: params.allowedDomains ?? null,
         notification_emails: params.notificationEmails ?? null,
         region: params.region ?? null,
+        allowed_connectors: params.allowedConnectors ?? null,
+        default_connection_visibility: params.defaultConnectionVisibility ?? null,
       }),
     });
   },

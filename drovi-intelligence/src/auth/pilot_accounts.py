@@ -168,7 +168,16 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, name, pilot_status, region, allowed_domains, notification_emails, expires_at
+                SELECT
+                    id,
+                    name,
+                    pilot_status,
+                    region,
+                    allowed_domains,
+                    notification_emails,
+                    allowed_connectors,
+                    default_connection_visibility,
+                    expires_at
                 FROM organizations
                 WHERE :domain = ANY(allowed_domains)
                 AND pilot_status = 'active'
@@ -186,6 +195,8 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
                 "region": row.region,
                 "allowed_domains": row.allowed_domains,
                 "notification_emails": row.notification_emails,
+                "allowed_connectors": getattr(row, "allowed_connectors", None),
+                "default_connection_visibility": getattr(row, "default_connection_visibility", "org_shared"),
                 "expires_at": row.expires_at,
             }
         return None
@@ -196,7 +207,17 @@ async def get_org_by_id(org_id: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, name, pilot_status, region, allowed_domains, notification_emails, expires_at
+                SELECT
+                    id,
+                    name,
+                    pilot_status,
+                    region,
+                    allowed_domains,
+                    notification_emails,
+                    allowed_connectors,
+                    default_connection_visibility,
+                    expires_at,
+                    created_at
                 FROM organizations
                 WHERE id = :org_id
             """),
@@ -212,7 +233,10 @@ async def get_org_by_id(org_id: str) -> dict | None:
                 "region": row.region,
                 "allowed_domains": row.allowed_domains,
                 "notification_emails": row.notification_emails,
+                "allowed_connectors": getattr(row, "allowed_connectors", None),
+                "default_connection_visibility": getattr(row, "default_connection_visibility", "org_shared"),
                 "expires_at": row.expires_at,
+                "created_at": getattr(row, "created_at", None),
             }
         return None
 

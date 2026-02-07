@@ -22,12 +22,11 @@ Each phase includes acceptance criteria and test expectations.
 - [x] Phase 0.3: standardized API error taxonomy + UI surfaces (banner + per-page panel).
 - [x] Phase 0.5: execution plane hardening (Kafka retries/DLQ + Postgres durable jobs + restart-safe scheduler).
 - [x] Phase 1 (backend): connector contract APIs + durable sync/backfill job execution + regression tests.
-- [x] Phase 3 (partial): global Intent Bar (`Cmd/Ctrl+K`) with Ask/Search wired to drovi-intelligence.
-- [x] Phase 2 (partial backend): connection ownership + `org_shared/private` visibility + access checks + SSE filtering.
+- [x] Phase 2: team model and permissions (roles + policies + private memory boundaries).
+- [x] Phase 3: global Intent Bar (`Cmd/Ctrl+K`) with evidence-first Ask + hybrid Find + command registry + debug view.
 
 **In progress (current focus)**
 - [ ] Phase 0.2: “no errors on any page” audit, starting with auth/onboarding + Connected Sources + Exchange.
-- [ ] Phase 2: team model and permissions (complete UI + policy + “private memory” boundaries).
 
 ---
 
@@ -94,6 +93,8 @@ Each phase includes acceptance criteria and test expectations.
 
 This phase makes connectors/backfills/live ingestion and all background work resilient to restarts, poison messages, and scale.
 
+- [x] Phase 0.5 complete
+
 ### 0.5.1 Decide and document the async architecture (single source of truth)
 - [x] Write a short internal ADR (architecture decision record) that states:
   - [x] Kafka is the **event plane** (ingestion + pipeline + graph change streaming)
@@ -101,8 +102,7 @@ This phase makes connectors/backfills/live ingestion and all background work res
   - [x] We will not introduce a parallel job system like BullMQ in Node (avoid split-brain)
 - [x] Decide the durable job plane implementation:
   - [x] Option A (recommended): Postgres-backed job queue (leases + SKIP LOCKED) + worker pool
-  - [ ] Option B: Celery + Redis/RabbitMQ (requires deploying celery worker + beat and removing APScheduler duplication)
-  - [ ] Option C: Temporal (bigger lift; strongest reliability/visibility)
+  - [x] Explicitly not chosen (for now): Celery / Temporal (avoid split-brain; revisit only if Postgres job plane proves insufficient)
 
 **Acceptance**
 - One job system is selected; all future work is aligned to it.
@@ -174,13 +174,12 @@ This phase makes connectors/backfills/live ingestion and all background work res
 ### 0.5.5 Celery cleanup (or activation)
 - [x] If we choose not to use Celery:
   - [x] delete Celery config/tasks to avoid split-brain, or mark as explicitly deprecated with a clear comment
-- [ ] If we choose to use Celery:
-  - [ ] add `celery-worker` + `celery-beat` containers to docker compose
-  - [ ] remove APScheduler duplication and make Celery the single scheduler/runner for commands
 
 ---
 
 ## Phase 1: Connector Contract + Backfill + Live Sync (All Sources “Plugged In”)
+
+- [x] Phase 1 complete
 
 ### 1.1 Canonical connector state + idempotency
 - [x] Define canonical connector state fields (persisted):
@@ -240,13 +239,10 @@ These are the connectors required for pilots (legal/accounting) and for "wow fac
 **CRM**
 - [x] HubSpot: OAuth connect + durable sync/backfill.
 
-**Deferred (post-pilot / later phases)**
-- [ ] Postgres: connect, snapshot ingestion + optional CDC later.
-- [ ] MySQL: connect, snapshot ingestion + optional CDC later.
-- [ ] MongoDB: connect, snapshot ingestion + optional change streams later.
-- [ ] S3: connect, backfill object listings + incremental polling.
-- [ ] BigQuery: connect, backfill dataset snapshots + periodic refresh.
-- [ ] Document connector: large uploads + parsing + “Smart Drive” UI (Phase 9).
+**Deferred connectors**
+Tracked outside Phase 1:
+- DB/Storage connectors are in Phase 13.
+- Document connector and “Smart Drive” are in Phase 9 and Phase 10.
 
 **Acceptance**
 - OAuth connectors either complete OAuth initiation or return a clear “not configured” 400 (never 500).
@@ -268,33 +264,33 @@ These are the connectors required for pilots (legal/accounting) and for "wow fac
 
 ### 2.1 Define roles + policy primitives
 - [x] Implement org roles: `OWNER`, `ADMIN`, `MEMBER`, `VIEWER`.
-- [ ] Define permission matrix:
-  - [ ] invite/remove members
-  - [ ] connect sources
-  - [ ] mark source private/shared
-  - [ ] view private sources
-  - [ ] export data
-  - [ ] manage org settings
+- [x] Define permission matrix:
+  - [x] invite/remove members
+  - [x] connect sources
+  - [x] mark source private/shared
+  - [x] view private sources
+  - [x] export data
+  - [x] manage org settings
 - [x] Add a source-level visibility flag: `ORG_SHARED` vs `PRIVATE`.
 
 **Acceptance**
 - A member cannot see private sources from another user; admins can manage shared sources.
 
 ### 2.2 UI: team settings consistency
-- [ ] Team pages show:
-  - [ ] members + roles
-  - [ ] invitation flow
-  - [ ] org policies (allowed sources, default visibility)
-- [ ] Source connection UI displays who owns a connection and whether it’s shared/private.
+- [x] Team pages show:
+  - [x] members + roles
+  - [x] invitation flow
+  - [x] org policies (allowed sources, default visibility)
+- [x] Source connection UI displays who owns a connection and whether it’s shared/private.
 
 **Acceptance**
 - All team pages load without fetch errors; role changes take effect immediately.
 
 ### 2.3 “Private memory” boundaries
-- [ ] Ensure derived intelligence respects the source visibility boundary:
-  - [ ] UIOs extracted from private sources are private by default
-  - [ ] Aggregations and dashboards must not leak private objects
-- [ ] Provide UI affordance to explicitly “Share this source with org” (with audit log).
+- [x] Ensure derived intelligence respects the source visibility boundary:
+  - [x] UIOs extracted from private sources are private by default
+  - [x] Aggregations and dashboards must not leak private objects
+- [x] Provide UI affordance to explicitly “Share this source with org” (with audit log).
 
 ---
 
@@ -307,27 +303,27 @@ These are the connectors required for pilots (legal/accounting) and for "wow fac
   - [x] Build (continuum creation/edit)
   - [x] Act (stage/approve/execute actuations)
   - [x] Inspect (evidence lens, contradictions, timeline)
-- [ ] Define command registry (actions, keyboard shortcuts, availability rules).
+- [x] Define command registry (actions, keyboard shortcuts, availability rules).
 
 ### 3.2 Implement evidence-first ask/search
 - [x] Ask returns:
   - [x] structured answer blocks with citations
-  - [ ] “I can’t find evidence” refusal path (no hallucinations)
-- [ ] Search returns:
-  - [ ] docs + messages + UIOs + continuums with filters
+  - [x] “I can’t find evidence” refusal path (no hallucinations)
+- [x] Search returns:
+  - [x] docs + messages + UIOs + continuums with filters
 
 ### 3.3 Command bar UI integration
-- [ ] Make command bar context-aware:
-  - [ ] current route
-  - [ ] selected objects
-  - [ ] active org and role
-- [ ] Add “debug view” for command executions (request id, latency, citations count).
+- [x] Make command bar context-aware:
+  - [x] current route
+  - [x] selected objects
+  - [x] active org and role
+- [x] Add “debug view” for command executions (request id, latency, citations count).
 
 **Acceptance**
 - A user can open the command bar and:
-  - [ ] find a decision by natural language
-  - [ ] open its evidence in one step
-  - [ ] start a continuum from the exchange
+  - [x] find a decision by natural language
+  - [x] open its evidence in one step
+  - [x] start a continuum from the exchange
 
 ---
 
@@ -645,6 +641,24 @@ These are the connectors required for pilots (legal/accounting) and for "wow fac
 
 **Acceptance**
 - Demo: draft a memo -> verify -> it flags a contradiction -> fix -> export -> stored and appears in the matter timeline.
+
+---
+
+## Phase 13: Additional Connectors (DB + Storage)
+
+These connectors expand Drovi beyond “knowledge work” sources and are useful for deeper enterprise integrations.
+
+### 13.1 Databases
+- [ ] Postgres: credential connect, stream discovery, snapshot ingestion, incremental sync via cursor field.
+- [ ] MySQL: credential connect, stream discovery, snapshot ingestion, incremental sync via cursor field.
+- [ ] MongoDB: credential connect, collection discovery, snapshot ingestion, incremental via change streams (optional later).
+
+### 13.2 Storage / Warehouse
+- [ ] S3: credential connect, bucket discovery, object listing backfill, incremental polling.
+- [ ] BigQuery: credential connect, dataset discovery, snapshot ingestion, periodic refresh.
+
+**Acceptance**
+- Each connector can be configured end-to-end and emits clear “not configured” or “permission denied” errors (never 500).
 
 ---
 

@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 import httpx
 import structlog
-from fastapi import APIRouter, Cookie, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -33,6 +33,80 @@ from src.config import get_settings
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# =============================================================================
+# Middleware Helper
+# =============================================================================
+
+
+async def require_pilot_auth(
+    session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Dependency that requires valid pilot authentication.
+
+    Accepts session token from either:
+    - Cookie named "session"
+    - Authorization header as "Bearer <token>"
+
+    Use in routes that need org-scoped access:
+
+    ```python
+    @app.get("/api/v1/brief")
+    async def get_brief(
+        token: PilotToken = Depends(require_pilot_auth),
+    ):
+        org_id = token.org_id
+        ...
+    ```
+    """
+    # Try cookie first, then Authorization header
+    token_str = session
+    if not token_str and authorization:
+        if authorization.startswith("Bearer "):
+            token_str = authorization[7:]  # Remove "Bearer " prefix
+
+    if not token_str:
+        raise HTTPException(401, "Not authenticated")
+
+    token = verify_jwt(token_str)
+    if not token:
+        raise HTTPException(401, "Invalid or expired session")
+
+    # Re-validate membership on every request so role changes take effect
+    # immediately and removed users cannot keep using a stale JWT.
+    try:
+        from src.db.client import get_db_session
+
+        async with get_db_session() as db:
+            result = await db.execute(
+                text(
+                    """
+                    SELECT role
+                    FROM memberships
+                    WHERE user_id = :user_id AND org_id = :org_id
+                    """
+                ),
+                {"user_id": token.sub, "org_id": token.org_id},
+            )
+            membership_row = result.fetchone()
+    except Exception as exc:
+        logger.warning("Failed to revalidate membership", error=str(exc))
+        membership_row = None
+
+    if not membership_row or not getattr(membership_row, "role", None):
+        raise HTTPException(401, "Session no longer valid")
+
+    current_role = str(membership_row.role)
+    if current_role != token.role:
+        token = token.model_copy(update={"role": current_role})
+
+    # Ensure all DB reads/writes in this request are scoped by org-level RLS.
+    from src.db.rls import rls_context
+
+    with rls_context(token.org_id, is_internal=False):
+        yield token
 
 
 # =============================================================================
@@ -460,8 +534,7 @@ async def callback(
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    session: str | None = Cookie(default=None),
-    authorization: str | None = Header(default=None),
+    token: PilotToken = Depends(require_pilot_auth),
 ) -> UserResponse:
     """
     Get current authenticated user.
@@ -469,19 +542,6 @@ async def get_me(
     Accepts session token from either cookie or Authorization header.
     Returns user info with organization name.
     """
-    # Try cookie first, then Authorization header
-    token_str = session
-    if not token_str and authorization:
-        if authorization.startswith("Bearer "):
-            token_str = authorization[7:]
-
-    if not token_str:
-        raise HTTPException(401, "Not authenticated")
-
-    token = verify_jwt(token_str)
-    if not token:
-        raise HTTPException(401, "Invalid or expired session")
-
     # Fetch organization name
     from src.auth.pilot_accounts import get_org_by_id
 
@@ -508,53 +568,6 @@ async def logout(response: Response) -> dict:
     _clear_session_cookie(response)
 
     return {"success": True}
-
-
-# =============================================================================
-# Middleware Helper
-# =============================================================================
-
-
-async def require_pilot_auth(
-    session: str | None = Cookie(default=None),
-    authorization: str | None = Header(default=None),
-):
-    """
-    Dependency that requires valid pilot authentication.
-
-    Accepts session token from either:
-    - Cookie named "session"
-    - Authorization header as "Bearer <token>"
-
-    Use in routes that need org-scoped access:
-
-    ```python
-    @app.get("/api/v1/brief")
-    async def get_brief(
-        token: PilotToken = Depends(require_pilot_auth),
-    ):
-        org_id = token.org_id
-        ...
-    ```
-    """
-    # Try cookie first, then Authorization header
-    token_str = session
-    if not token_str and authorization:
-        if authorization.startswith("Bearer "):
-            token_str = authorization[7:]  # Remove "Bearer " prefix
-
-    if not token_str:
-        raise HTTPException(401, "Not authenticated")
-
-    token = verify_jwt(token_str)
-    if not token:
-        raise HTTPException(401, "Invalid or expired session")
-
-    # Ensure all DB reads/writes in this request are scoped by org-level RLS.
-    from src.db.rls import rls_context
-
-    with rls_context(token.org_id, is_internal=False):
-        yield token
 
 
 # =============================================================================

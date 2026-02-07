@@ -268,6 +268,16 @@ async def get_evidence(
             if row.organization_id != organization_id:
                 raise HTTPException(status_code=403, detail="Access denied")
 
+            # Enforce private-source visibility boundaries.
+            from src.auth.private_sources import require_uio_visible
+
+            await require_uio_visible(
+                organization_id=organization_id,
+                uio_id=str(row.unified_object_id),
+                ctx=ctx,
+                not_found_as_404=True,
+            )
+
             # Build base response
             snippet = _truncate_snippet(row.quoted_text)
             sent_at = row.source_timestamp

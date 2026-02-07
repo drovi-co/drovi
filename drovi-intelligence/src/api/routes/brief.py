@@ -131,6 +131,7 @@ BRIEF_CACHE_TTL = 60  # 1 minute cache
 async def compute_brief(
     organization_id: str,
     period: BriefPeriod,
+    ctx: APIKeyContext,
 ) -> BriefResponse:
     """
     Compute intelligence brief for an organization.
@@ -154,6 +155,40 @@ async def compute_brief(
     summary = BriefSummary()
     attention_items: list[AttentionItem] = []
 
+    # Apply private-source visibility boundaries (same semantics as /uios).
+    from src.auth.private_sources import get_session_user_id, is_admin_or_internal
+
+    private_clause = ""
+    private_params: dict[str, object] = {}
+    if not is_admin_or_internal(ctx):
+        session_user_id = get_session_user_id(ctx)
+        if session_user_id:
+            private_clause = """
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM unified_object_source uos_priv
+                    JOIN connections c_priv
+                      ON c_priv.organization_id = u.organization_id
+                     AND c_priv.id::text = uos_priv.source_account_id
+                    WHERE uos_priv.unified_object_id = u.id
+                      AND c_priv.visibility = 'private'
+                      AND (c_priv.created_by_user_id IS DISTINCT FROM :current_user_id)
+                )
+            """.strip()
+            private_params["current_user_id"] = session_user_id
+        else:
+            private_clause = """
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM unified_object_source uos_priv
+                    JOIN connections c_priv
+                      ON c_priv.organization_id = u.organization_id
+                     AND c_priv.id::text = uos_priv.source_account_id
+                    WHERE uos_priv.unified_object_id = u.id
+                      AND c_priv.visibility = 'private'
+                )
+            """.strip()
+
     # Query PostgreSQL for UIO counts
     try:
         async with get_db_session() as session:
@@ -161,13 +196,14 @@ async def compute_brief(
             result = await session.execute(
                 text("""
                     SELECT COUNT(*) as count
-                    FROM unified_intelligence_object
-                    WHERE organization_id = :org_id
-                    AND type = 'commitment'
-                    AND status IN ('draft', 'active', 'in_progress')
-                    AND created_at >= :period_start
-                """),
-                {"org_id": organization_id, "period_start": period_start},
+                    FROM unified_intelligence_object u
+                    WHERE u.organization_id = :org_id
+                    AND u.type = 'commitment'
+                    AND u.status IN ('draft', 'active', 'in_progress')
+                    AND u.created_at >= :period_start
+                    {private_clause}
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, "period_start": period_start, **private_params},
             )
             row = result.fetchone()
             summary.open_commitments = row.count if row else 0
@@ -176,13 +212,14 @@ async def compute_brief(
             result = await session.execute(
                 text("""
                     SELECT COUNT(*) as count
-                    FROM unified_intelligence_object
-                    WHERE organization_id = :org_id
-                    AND type = 'commitment'
-                    AND status IN ('draft', 'active', 'in_progress')
-                    AND due_date < :now
-                """),
-                {"org_id": organization_id, "now": now},
+                    FROM unified_intelligence_object u
+                    WHERE u.organization_id = :org_id
+                    AND u.type = 'commitment'
+                    AND u.status IN ('draft', 'active', 'in_progress')
+                    AND u.due_date < :now
+                    {private_clause}
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, "now": now, **private_params},
             )
             row = result.fetchone()
             summary.overdue_commitments = row.count if row else 0
@@ -191,12 +228,13 @@ async def compute_brief(
             result = await session.execute(
                 text("""
                     SELECT COUNT(*) as count
-                    FROM unified_intelligence_object
-                    WHERE organization_id = :org_id
-                    AND type = 'decision'
-                    AND created_at >= :period_start
-                """),
-                {"org_id": organization_id, "period_start": period_start},
+                    FROM unified_intelligence_object u
+                    WHERE u.organization_id = :org_id
+                    AND u.type = 'decision'
+                    AND u.created_at >= :period_start
+                    {private_clause}
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, "period_start": period_start, **private_params},
             )
             row = result.fetchone()
             summary.decisions_made = row.count if row else 0
@@ -211,8 +249,9 @@ async def compute_brief(
                     AND u.type = 'risk'
                     AND r.severity IN ('high', 'critical')
                     AND u.status NOT IN ('completed', 'cancelled', 'archived')
-                """),
-                {"org_id": organization_id},
+                    {private_clause}
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, **private_params},
             )
             row = result.fetchone()
             summary.high_risks = row.count if row else 0
@@ -221,12 +260,13 @@ async def compute_brief(
             result = await session.execute(
                 text("""
                     SELECT COUNT(DISTINCT owner_contact_id) as count
-                    FROM unified_intelligence_object
-                    WHERE organization_id = :org_id
+                    FROM unified_intelligence_object u
+                    WHERE u.organization_id = :org_id
                     AND owner_contact_id IS NOT NULL
                     AND created_at >= :period_start
-                """),
-                {"org_id": organization_id, "period_start": period_start},
+                    {private_clause}
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, "period_start": period_start, **private_params},
             )
             row = result.fetchone()
             summary.people_involved = row.count if row else 0
@@ -250,10 +290,11 @@ async def compute_brief(
                     AND u.type = 'commitment'
                     AND u.status IN ('draft', 'active', 'in_progress')
                     AND u.due_date < :now
+                    {private_clause}
                     ORDER BY u.due_date ASC
                     LIMIT 10
-                """),
-                {"org_id": organization_id, "now": now},
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, "now": now, **private_params},
             )
             rows = result.fetchall()
 
@@ -288,10 +329,11 @@ async def compute_brief(
                     AND u.type = 'risk'
                     AND r.severity IN ('high', 'critical')
                     AND u.status NOT IN ('completed', 'cancelled', 'archived')
+                    {private_clause}
                     ORDER BY CASE r.severity WHEN 'critical' THEN 0 ELSE 1 END
                     LIMIT 5
-                """),
-                {"org_id": organization_id},
+                """.format(private_clause=private_clause)),
+                {"org_id": organization_id, **private_params},
             )
             rows = result.fetchall()
 
@@ -338,6 +380,7 @@ async def compute_brief(
 async def get_cached_brief(
     organization_id: str,
     period: BriefPeriod,
+    cache_scope: str,
 ) -> tuple[BriefResponse | None, bool]:
     """
     Get brief from cache if available.
@@ -347,7 +390,7 @@ async def get_cached_brief(
     """
     try:
         redis = await get_redis()
-        cache_key = f"{BRIEF_CACHE_PREFIX}{organization_id}:{period.value}"
+        cache_key = f"{BRIEF_CACHE_PREFIX}{organization_id}:{period.value}:{cache_scope}"
 
         cached = await redis.get(cache_key)
         if cached:
@@ -364,11 +407,12 @@ async def cache_brief(
     organization_id: str,
     period: BriefPeriod,
     brief: BriefResponse,
+    cache_scope: str,
 ) -> None:
     """Cache computed brief in Redis."""
     try:
         redis = await get_redis()
-        cache_key = f"{BRIEF_CACHE_PREFIX}{organization_id}:{period.value}"
+        cache_key = f"{BRIEF_CACHE_PREFIX}{organization_id}:{period.value}:{cache_scope}"
 
         await redis.setex(
             cache_key,
@@ -426,15 +470,23 @@ async def get_brief(
     # Track request
     BRIEF_REQUESTS.labels(org_id=organization_id, period=period.value).inc()
 
+    from src.auth.private_sources import get_session_user_id, is_admin_or_internal
+
+    cache_scope = (
+        "admin"
+        if is_admin_or_internal(ctx)
+        else (get_session_user_id(ctx) or "api_key")
+    )
+
     # Try cache first
-    brief, cache_hit = await get_cached_brief(organization_id, period)
+    brief, cache_hit = await get_cached_brief(organization_id, period, cache_scope)
 
     if not brief:
         # Compute fresh brief
-        brief = await compute_brief(organization_id, period)
+        brief = await compute_brief(organization_id, period, ctx)
 
         # Cache for next request
-        await cache_brief(organization_id, period, brief)
+        await cache_brief(organization_id, period, brief, cache_scope)
 
     # Record latency
     latency = time.time() - start_time
@@ -475,22 +527,30 @@ async def refresh_brief(
             detail="Organization ID mismatch with authenticated key",
         )
 
-    # Invalidate both period caches
+    from src.auth.private_sources import get_session_user_id, is_admin_or_internal
+
+    cache_scope = (
+        "admin"
+        if is_admin_or_internal(ctx)
+        else (get_session_user_id(ctx) or "api_key")
+    )
+
+    # Invalidate all cached briefs for this org (all scopes/periods).
     try:
         redis = await get_redis()
-        for period in BriefPeriod:
-            cache_key = f"{BRIEF_CACHE_PREFIX}{organization_id}:{period.value}"
-            await redis.delete(cache_key)
+        pattern = f"{BRIEF_CACHE_PREFIX}{organization_id}:*"
+        async for key in redis.scan_iter(match=pattern):
+            await redis.delete(key)
     except Exception as e:
         logger.warning("Failed to invalidate brief cache", error=str(e))
 
-    # Recompute both
-    brief_7d = await compute_brief(organization_id, BriefPeriod.LAST_7_DAYS)
-    brief_today = await compute_brief(organization_id, BriefPeriod.TODAY)
+    # Recompute for the caller's scope (others will lazy-recompute on demand).
+    brief_7d = await compute_brief(organization_id, BriefPeriod.LAST_7_DAYS, ctx)
+    brief_today = await compute_brief(organization_id, BriefPeriod.TODAY, ctx)
 
     # Cache them
-    await cache_brief(organization_id, BriefPeriod.LAST_7_DAYS, brief_7d)
-    await cache_brief(organization_id, BriefPeriod.TODAY, brief_today)
+    await cache_brief(organization_id, BriefPeriod.LAST_7_DAYS, brief_7d, cache_scope)
+    await cache_brief(organization_id, BriefPeriod.TODAY, brief_today, cache_scope)
 
     return {
         "refreshed": True,

@@ -35,6 +35,7 @@ from src.api.routes import (
     ask,
     auth,
     brief,
+    content,
     changes,
     jobs,
     connections,
@@ -231,6 +232,7 @@ app.include_router(customer.router, prefix="/api/v1", tags=["Customer Context"])
 app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory"])
 app.include_router(search.router, prefix="/api/v1", tags=["Search"])
+app.include_router(content.router, prefix="/api/v1", tags=["Content"])
 app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
 app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])

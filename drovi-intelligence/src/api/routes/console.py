@@ -19,6 +19,7 @@ from prometheus_client import Counter, Histogram
 
 from src.auth.context import AuthContext
 from src.auth.middleware import get_auth_context
+from src.auth.scopes import Scope
 from src.db import get_db_pool
 
 logger = structlog.get_logger()
@@ -253,6 +254,45 @@ async def console_query(
         conditions = ["u.organization_id = $1"]
         params: list = [org_id]
         param_idx = 2
+
+        # Enforce private-source visibility boundaries.
+        # Semantics:
+        # - Admin/internal: no filter.
+        # - Session user: exclude UIOs that have ANY evidence from a private connection
+        #   owned by someone else.
+        # - API key (no user): exclude ALL private-sourced UIOs.
+        if not auth.is_internal and not auth.has_scope(Scope.ADMIN):
+            if auth.user_id:
+                conditions.append(
+                    f"""
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM unified_object_source uos_priv
+                        JOIN connections c_priv
+                          ON c_priv.organization_id = u.organization_id
+                         AND c_priv.id::text = uos_priv.source_account_id
+                        WHERE uos_priv.unified_object_id = u.id
+                          AND c_priv.visibility = 'private'
+                          AND (c_priv.created_by_user_id IS DISTINCT FROM ${param_idx})
+                    )
+                    """.strip()
+                )
+                params.append(auth.user_id)
+                param_idx += 1
+            else:
+                conditions.append(
+                    """
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM unified_object_source uos_priv
+                        JOIN connections c_priv
+                          ON c_priv.organization_id = u.organization_id
+                         AND c_priv.id::text = uos_priv.source_account_id
+                        WHERE uos_priv.unified_object_id = u.id
+                          AND c_priv.visibility = 'private'
+                    )
+                    """.strip()
+                )
 
         # Apply entity filters
         for f in request.filters:

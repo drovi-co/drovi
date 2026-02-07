@@ -69,6 +69,16 @@ class Organization(Base):
     # Notification emails for briefs/reports
     notification_emails = Column(ARRAY(String), nullable=False, default=list)
 
+    # Org policy: restrict which connectors can be connected (NULL means "allow all").
+    allowed_connectors = Column(ARRAY(String), nullable=True)
+
+    # Org policy: default visibility for new connections.
+    default_connection_visibility = Column(
+        String(20),
+        nullable=False,
+        default="org_shared",
+    )
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)

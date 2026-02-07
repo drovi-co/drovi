@@ -573,6 +573,8 @@ class DroviGraphRAG:
         include_evidence: bool = True,
         max_results: int = 20,
         user_id: str | None = None,
+        visibility_user_id: str | None = None,
+        visibility_is_admin: bool = False,
     ) -> dict[str, Any]:
         """
         Answer a natural language question about the knowledge graph.
@@ -650,6 +652,29 @@ class DroviGraphRAG:
                 fallback_used = True
                 closest_matches_used = True
 
+        # Step 4.4: Enforce private-source visibility boundaries for UIO-backed IDs.
+        #
+        # Graph nodes do not encode connection visibility. We cross-check the UIO IDs
+        # we are about to synthesize against Postgres evidence tables.
+        if graph_results and not visibility_is_admin:
+            from src.auth.private_sources import filter_visible_uio_ids_for_user
+
+            # If visibility_user_id is not provided, fall back to user_id (session mode).
+            session_user_id = visibility_user_id or user_id
+            uio_ids = self._collect_uio_ids(graph_results)
+            if uio_ids:
+                visible = await filter_visible_uio_ids_for_user(
+                    organization_id=organization_id,
+                    uio_ids=uio_ids,
+                    session_user_id=session_user_id,
+                    is_admin=visibility_is_admin,
+                )
+                graph_results = [
+                    r
+                    for r in graph_results
+                    if (self._extract_uio_id(r) is None) or (self._extract_uio_id(r) in visible)
+                ]
+
         # Step 4.5: Enrich with evidence citations (if available)
         if include_evidence and graph_results:
             await self._attach_evidence(graph_results, organization_id)
@@ -687,6 +712,13 @@ class DroviGraphRAG:
         if future_results:
             sources_input = sources_input + future_results
         sources = self._extract_sources(sources_input) if include_evidence and sources_input else []
+
+        # Evidence-first refusal path: if we can't produce citations, we refuse.
+        if include_evidence and not sources:
+            answer = (
+                "I can't answer that without evidence from your sources. "
+                "Try rephrasing, broadening the time range, or connecting more sources."
+            )
 
         duration = (utc_now() - start_time).total_seconds()
 
@@ -1495,6 +1527,8 @@ async def query_graph(
     organization_id: str,
     include_evidence: bool = True,
     user_id: str | None = None,
+    visibility_user_id: str | None = None,
+    visibility_is_admin: bool = False,
 ) -> dict[str, Any]:
     """Convenience function to query the knowledge graph."""
     graphrag = await get_graphrag()
@@ -1503,4 +1537,6 @@ async def query_graph(
         organization_id=organization_id,
         include_evidence=include_evidence,
         user_id=user_id,
+        visibility_user_id=visibility_user_id,
+        visibility_is_admin=visibility_is_admin,
     )

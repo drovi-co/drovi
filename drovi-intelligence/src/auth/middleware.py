@@ -77,6 +77,39 @@ class APIKeyContext:
         return has_scope(self.scopes, scope_str)
 
 
+async def _resolve_membership_role(user_id: str, org_id: str) -> str | None:
+    """
+    Resolve the *current* membership role from the database.
+
+    We do not rely on the JWT role claim because:
+    - role changes must take effect immediately (no re-login),
+    - removed users must not keep access via a stale token.
+    """
+    try:
+        from sqlalchemy import text
+        from src.db.client import get_db_session
+
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT role
+                    FROM memberships
+                    WHERE user_id = :user_id AND org_id = :org_id
+                    """
+                ),
+                {"user_id": user_id, "org_id": org_id},
+            )
+            row = result.fetchone()
+            if not row:
+                return None
+            role = getattr(row, "role", None)
+            return str(role) if role else None
+    except Exception as exc:
+        logger.warning("Failed to resolve membership role", error=str(exc))
+        return None
+
+
 async def _extract_org_id_from_request(request: Request) -> str | None:
     """
     Extract organization_id from request body or query params.
@@ -148,7 +181,14 @@ async def get_api_key_context(
     if token_str:
         token = verify_jwt(token_str)
         if token:
-            scopes = get_scopes_for_role(token.role)
+            current_role = await _resolve_membership_role(token.sub, token.org_id)
+            if not current_role:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid or expired session",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            scopes = get_scopes_for_role(current_role)
             logger.debug(
                 "Session authentication",
                 user_id=token.sub,
@@ -316,14 +356,22 @@ async def get_auth_context(
     if token_str:
         token = verify_jwt(token_str)
         if token:
-            # Get role-based scopes (not wildcard ["*"])
-            scopes = get_scopes_for_role(token.role)
+            # Get role-based scopes (not wildcard ["*"]), using DB role so changes
+            # take effect immediately.
+            current_role = await _resolve_membership_role(token.sub, token.org_id)
+            if not current_role:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid or expired session",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            scopes = get_scopes_for_role(current_role)
 
             logger.debug(
                 "session_authentication_success",
                 user_id=token.sub,
                 org_id=token.org_id,
-                role=token.role,
+                role=current_role,
                 scopes=scopes,
                 path=request.url.path,
             )

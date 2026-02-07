@@ -20,8 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authClient } from "@/lib/auth-client";
 import { orgAPI, type OrgMember } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/team/members")({
   component: MembersPage,
@@ -29,8 +29,9 @@ export const Route = createFileRoute("/dashboard/team/members")({
 
 function MembersPage() {
   const queryClient = useQueryClient();
-  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
-  const organizationId = activeOrg?.id ?? "";
+  const user = useAuthStore((state) => state.user);
+  const organizationId = user?.org_id ?? "";
+  const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
 
   const {
     data: members,
@@ -74,14 +75,10 @@ function MembersPage() {
 
   const memberList = useMemo(() => members ?? [], [members]);
 
-  if (!activeOrg) {
+  if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        {orgLoading ? (
-          <p className="text-muted-foreground">Loading organization…</p>
-        ) : (
-          <p className="text-muted-foreground">No organization selected</p>
-        )}
+        <p className="text-muted-foreground">Sign in to manage your team.</p>
       </div>
     );
   }
@@ -92,12 +89,18 @@ function MembersPage() {
         <div>
           <h1 className="font-bold text-3xl tracking-tight">Members</h1>
           <p className="text-muted-foreground">
-            Manage members in {activeOrg.name}
+            Manage members in {user.org_name}
           </p>
         </div>
-        <Link to="/dashboard/team/invitations">
-          <Button>Invite Members</Button>
-        </Link>
+        {isAdmin ? (
+          <Link to="/dashboard/team/invitations">
+            <Button>Invite members</Button>
+          </Link>
+        ) : (
+          <Button disabled title="Admin access required">
+            Invite members
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -170,7 +173,7 @@ function MembersPage() {
                       >
                         {member.role.replace("pilot_", "")}
                       </Badge>
-                      {!isOwner && (
+                      {isAdmin && !isOwner && (
                         <DropdownMenu>
                           <DropdownMenuTrigger>
                             <Button
