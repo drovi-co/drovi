@@ -5,10 +5,13 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { useEffect } from "react";
 import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
+import { IntentBar } from "@/components/intent-bar/intent-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { QueryClient } from "@tanstack/react-query";
+import { initializeAuth } from "@/lib/auth";
 
 import "../index.css";
 
@@ -39,6 +42,13 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  // Hydrate auth state from cookie / session token once for the whole app.
+  // This prevents pages that rely on `useAuthStore()` from getting stuck in
+  // "not authenticated" / "loading" states after a reload.
+  useEffect(() => {
+    void initializeAuth();
+  }, []);
+
   return (
     <>
       <HeadContent />
@@ -49,6 +59,7 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <Outlet />
+        <IntentBar />
         <Toaster richColors />
         <AutoUpdaterDialog />
       </ThemeProvider>

@@ -18,8 +18,10 @@ from pydantic import BaseModel, Field
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
+from src.config import get_settings
 from src.connectors.base.config import AuthType, SyncMode
 from src.connectors.base.connector import ConnectorRegistry
+from src.connectors.connector_requirements import get_missing_env_for_connector
 
 logger = structlog.get_logger()
 
@@ -174,6 +176,10 @@ async def list_connectors(
 
     Requires `read` scope.
     """
+    from src.connectors.bootstrap import ensure_connectors_registered
+
+    ensure_connectors_registered()
+    settings = get_settings()
     connectors = []
     for connector_type, connector_class in ConnectorRegistry._connectors.items():
         if inspect.isabstract(connector_class):
@@ -182,6 +188,8 @@ async def list_connectors(
                 connector_type=connector_type,
             )
             continue
+        missing_env = get_missing_env_for_connector(connector_type, settings)
+        configured = len(missing_env) == 0
         try:
             connector = connector_class()
         except TypeError as e:
@@ -193,6 +201,8 @@ async def list_connectors(
             continue
         connectors.append({
             "type": connector_type,
+            "configured": configured,
+            "missing_env": missing_env,
             "capabilities": {
                 "supports_incremental": connector.capabilities.supports_incremental,
                 "supports_full_refresh": connector.capabilities.supports_full_refresh,
@@ -229,11 +239,8 @@ async def create_connection(
                    f"Available: {list(ConnectorRegistry._connectors.keys())}",
         )
 
-    connection_id = f"conn_{datetime.utcnow().timestamp():.0f}"
-
     async with get_db_session() as session:
         connection = Connection(
-            id=connection_id,
             connector_type=request.connector_type,
             name=request.name,
             organization_id=request.organization_id,
@@ -248,18 +255,18 @@ async def create_connection(
 
     logger.info(
         "Connection created",
-        connection_id=connection_id,
+        connection_id=str(connection.id),
         connector_type=request.connector_type,
         organization_id=request.organization_id,
     )
 
     return ConnectionResponse(
-        id=connection_id,
+        id=str(connection.id),
         connector_type=request.connector_type,
         name=request.name,
         organization_id=request.organization_id,
         status="pending_auth",
-        created_at=datetime.utcnow(),
+        created_at=connection.created_at,
         streams=[],
     )
 
@@ -539,7 +546,6 @@ async def trigger_sync(
     from sqlalchemy import select
     from src.db.client import get_db_session
     from src.db.models.connections import Connection
-    from src.connectors.scheduling.scheduler import get_scheduler
 
     request = request or SyncRequest()
 
@@ -562,18 +568,28 @@ async def trigger_sync(
         # Save organization_id before exiting session context
         organization_id = connection.organization_id
 
-    # Trigger the sync
-    scheduler = get_scheduler()
-    job = await scheduler.trigger_sync_by_id(
-        connection_id=connection_id,
-        organization_id=organization_id,
-        full_refresh=request.full_refresh,
-        streams=request.streams,
+    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+    job_id = await enqueue_job(
+        EnqueueJobRequest(
+            organization_id=organization_id,
+            job_type="connector.sync",
+            payload={
+                "connection_id": connection_id,
+                "organization_id": organization_id,
+                "streams": request.streams,
+                "full_refresh": request.full_refresh,
+                "scheduled": False,
+            },
+            priority=1,
+            max_attempts=3,
+            resource_key=f"connection:{connection_id}",
+        )
     )
 
     return {
         "connection_id": connection_id,
-        "sync_job_id": job.job_id,
+        "sync_job_id": job_id,
         "status": "queued",
     }
 
@@ -592,7 +608,6 @@ async def trigger_backfill(
     from sqlalchemy import select
     from src.db.client import get_db_session
     from src.db.models.connections import Connection
-    from src.connectors.scheduling.scheduler import get_scheduler
 
     async with get_db_session() as session:
         result = await session.execute(
@@ -623,20 +638,30 @@ async def trigger_backfill(
     window_days = request.window_days if "window_days" in request.model_fields_set else None
     throttle_seconds = request.throttle_seconds if "throttle_seconds" in request.model_fields_set else None
 
-    scheduler = get_scheduler()
-    job_ids = await scheduler.trigger_backfill_plan(
-        connection_id=connection_id,
-        organization_id=organization_id,
-        start_date=request.start_date,
-        end_date=end_date,
-        window_days=window_days,
-        streams=request.streams,
-        throttle_seconds=throttle_seconds,
+    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+    job_id = await enqueue_job(
+        EnqueueJobRequest(
+            organization_id=organization_id,
+            job_type="connector.backfill_plan",
+            payload={
+                "connection_id": connection_id,
+                "organization_id": organization_id,
+                "start_date": request.start_date.isoformat(),
+                "end_date": end_date.isoformat() if end_date else None,
+                "window_days": window_days,
+                "streams": request.streams,
+                "throttle_seconds": throttle_seconds,
+            },
+            priority=0,
+            max_attempts=2,
+            resource_key=f"connection:{connection_id}",
+        )
     )
 
     return {
         "connection_id": connection_id,
-        "backfill_jobs": job_ids,
+        "backfill_jobs": [job_id],
         "status": "queued",
     }
 

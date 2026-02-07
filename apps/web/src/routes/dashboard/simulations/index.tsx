@@ -19,6 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,7 +66,13 @@ function SimulationPage() {
     null
   );
 
-  const { data: history, isLoading } = useQuery({
+  const {
+    data: history,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["simulation-history", organizationId],
     queryFn: () => simulationsAPI.history({ organizationId, limit: 10 }),
     enabled: !!organizationId,
@@ -323,6 +330,8 @@ function SimulationPage() {
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : isError ? (
+            <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : (history ?? []).length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
               No simulations recorded yet.

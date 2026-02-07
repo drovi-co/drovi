@@ -12,9 +12,11 @@ Processes:
 """
 
 import asyncio
+import base64
 import json
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -33,6 +35,41 @@ _kafka_consumer: "DroviKafkaConsumer | None" = None
 def utc_now() -> datetime:
     """Get current UTC time."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+@dataclass
+class _PartitionOffsetTracker:
+    """
+    Tracks offsets for a single (topic, partition) to allow safe commits when
+    messages are processed out-of-order (due to worker concurrency/priority).
+    """
+
+    last_committed_offset: int
+    processed_offsets: set[int] = field(default_factory=set)
+
+    def mark_processed(self, offset: int) -> int | None:
+        """
+        Mark an offset as processed and return the next commit offset if the
+        contiguous processed window advanced, otherwise None.
+
+        Kafka commits represent "next offset to consume", so we commit
+        `last_committed_offset + 1` once all offsets up to that point are done.
+        """
+        if offset <= self.last_committed_offset:
+            return None
+
+        self.processed_offsets.add(offset)
+
+        advanced = False
+        while (self.last_committed_offset + 1) in self.processed_offsets:
+            self.processed_offsets.remove(self.last_committed_offset + 1)
+            self.last_committed_offset += 1
+            advanced = True
+
+        if not advanced:
+            return None
+
+        return self.last_committed_offset + 1
 
 
 class DroviKafkaConsumer:
@@ -87,6 +124,12 @@ class DroviKafkaConsumer:
         self._metrics = get_metrics()
         self._lag_report_interval_seconds = max(5, lag_report_interval_seconds)
         self._last_lag_report = 0.0
+        settings = get_settings()
+        self._retry_suffix = settings.kafka_retry_suffix
+        self._dlq_suffix = settings.kafka_dlq_suffix
+        self._max_retry_attempts = max(0, settings.kafka_max_retry_attempts)
+        self._max_retry_attempts_by_topic = settings.kafka_max_retry_attempts_by_topic or {}
+        self._partition_offsets: dict[tuple[str, int], _PartitionOffsetTracker] = {}
 
     async def connect(self) -> None:
         """Initialize the Kafka consumer connection."""
@@ -117,7 +160,12 @@ class DroviKafkaConsumer:
                 pass
 
             self._consumer = Consumer(config)
-            self._consumer.subscribe(self.topics)
+            # Assignment callbacks are passed to `subscribe`, not as config keys.
+            self._consumer.subscribe(
+                self.topics,
+                on_assign=self._on_assign,
+                on_revoke=self._on_revoke,
+            )
 
             logger.info(
                 "Kafka consumer connected",
@@ -268,13 +316,27 @@ class DroviKafkaConsumer:
             await self._process_message(msg)
             return
         topic = msg.topic()
+        try:
+            self._ensure_partition_tracker(topic, msg.partition(), msg.offset())
+        except Exception:
+            # Never fail enqueue due to bookkeeping.
+            pass
         priority = self._resolve_priority(msg, topic)
         self._counter += 1
         await self._queue.put((priority, self._counter, msg))
 
     def _resolve_priority(self, msg, topic: str) -> int:
         """Resolve priority from headers or topic defaults (lower = higher priority)."""
-        default_priority = self.topic_priorities.get(topic, 10)
+        base_topic = topic
+        if self._retry_suffix and topic.endswith(self._retry_suffix):
+            base_topic = topic[: -len(self._retry_suffix)]
+        elif self._dlq_suffix and topic.endswith(self._dlq_suffix):
+            base_topic = topic[: -len(self._dlq_suffix)]
+
+        # Retry topics should be slightly lower priority than their base topic.
+        default_priority = self.topic_priorities.get(base_topic, 10)
+        if base_topic != topic:
+            default_priority += 1
         try:
             headers = {}
             if msg.headers():
@@ -293,6 +355,195 @@ class DroviKafkaConsumer:
         except Exception:
             return default_priority
         return default_priority
+
+    def _on_assign(self, consumer, partitions) -> None:  # pragma: no cover
+        # Reset offset trackers on rebalances to avoid committing stale offsets.
+        self._partition_offsets.clear()
+        try:
+            consumer.assign(partitions)
+        except Exception:
+            pass
+        logger.info("Kafka partitions assigned", count=len(partitions))
+
+    def _on_revoke(self, consumer, partitions) -> None:  # pragma: no cover
+        self._partition_offsets.clear()
+        logger.info("Kafka partitions revoked", count=len(partitions))
+
+    def _ensure_partition_tracker(self, topic: str, partition: int, offset: int) -> None:
+        key = (topic, partition)
+        if key in self._partition_offsets:
+            return
+        # We have observed `offset` as the earliest fetched offset for this partition
+        # (polling is ordered per partition). Do not commit past it until processed.
+        self._partition_offsets[key] = _PartitionOffsetTracker(last_committed_offset=offset - 1)
+
+    def _base_topic(self, topic: str) -> str:
+        if self._retry_suffix and topic.endswith(self._retry_suffix):
+            return topic[: -len(self._retry_suffix)]
+        if self._dlq_suffix and topic.endswith(self._dlq_suffix):
+            return topic[: -len(self._dlq_suffix)]
+        return topic
+
+    async def _commit_if_possible(self, topic: str, partition: int, offset: int) -> None:
+        """
+        Commit offsets safely when processing is concurrent/out-of-order.
+        """
+        if self.enable_auto_commit or not self._consumer:
+            return
+
+        key = (topic, partition)
+        tracker = self._partition_offsets.get(key)
+        if tracker is None:
+            self._ensure_partition_tracker(topic, partition, offset)
+            tracker = self._partition_offsets[key]
+
+        commit_offset = tracker.mark_processed(offset)
+        if commit_offset is None:
+            return
+
+        try:
+            from confluent_kafka import TopicPartition
+
+            await asyncio.to_thread(
+                self._consumer.commit,
+                offsets=[TopicPartition(topic, partition, commit_offset)],
+                asynchronous=False,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Kafka commit failed",
+                topic=topic,
+                partition=partition,
+                commit_offset=commit_offset,
+                error=str(exc),
+            )
+
+    def _get_header_int(self, headers: dict[str, str | None], key: str) -> int | None:
+        value = headers.get(key)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except Exception:
+            return None
+
+    async def _route_failed_message(
+        self,
+        *,
+        topic: str,
+        key: str | None,
+        partition: int,
+        offset: int,
+        headers: dict[str, str | None],
+        payload: Any,
+        error: Exception,
+    ) -> None:
+        """
+        Route a failed message to a retry topic (bounded attempts) or a DLQ.
+
+        This prevents poison messages from wedging consumer groups and provides
+        an operator-friendly replay surface.
+        """
+        from src.streaming.kafka_producer import get_kafka_producer
+
+        producer = await get_kafka_producer()
+        base_topic = self._base_topic(topic)
+        max_attempts = self._max_retry_attempts_by_topic.get(base_topic, self._max_retry_attempts)
+        retry_count = self._get_header_int(headers, "drovi_retry_count") or 0
+
+        try:
+            self._metrics.inc_kafka_handler_error(
+                self.group_id,
+                base_topic,
+                type(error).__name__,
+            )
+        except Exception:
+            pass
+
+        # Prefer retry first (bounded), then DLQ.
+        if (
+            retry_count < max_attempts
+            and self._retry_suffix
+            and isinstance(payload, dict)
+        ):
+            retry_topic = f"{base_topic}{self._retry_suffix}"
+            await producer.produce(
+                topic=retry_topic,
+                value=payload,
+                key=key,
+                headers={
+                    **{k: v for k, v in headers.items() if v is not None},
+                    "drovi_retry_count": str(retry_count + 1),
+                    "drovi_original_topic": base_topic,
+                    "drovi_original_partition": str(partition),
+                    "drovi_original_offset": str(offset),
+                    "drovi_error": str(error),
+                },
+            )
+            try:
+                self._metrics.inc_kafka_message_routed(
+                    self.group_id,
+                    base_topic,
+                    "retry",
+                )
+            except Exception:
+                pass
+            return
+
+        if not self._dlq_suffix:
+            # As a last resort, drop with a clear log; callers decide commit behavior.
+            logger.error(
+                "DLQ routing disabled; message dropped",
+                topic=topic,
+                partition=partition,
+                offset=offset,
+                error=str(error),
+            )
+            try:
+                self._metrics.inc_kafka_message_routed(
+                    self.group_id,
+                    base_topic,
+                    "drop",
+                )
+            except Exception:
+                pass
+            return
+
+        dlq_topic = f"{base_topic}{self._dlq_suffix}"
+        dlq_key = key or f"{base_topic}:{partition}:{offset}"
+
+        dlq_value: dict[str, Any] = {
+            "failed_at": utc_now().isoformat(),
+            "base_topic": base_topic,
+            "original_topic": topic,
+            "original_partition": partition,
+            "original_offset": offset,
+            "original_key": key,
+            "retry_count": retry_count,
+            "error": str(error),
+            "error_type": type(error).__name__,
+            "headers": headers,
+            "payload": payload,
+        }
+
+        await producer.produce(
+            topic=dlq_topic,
+            value=dlq_value,
+            key=dlq_key,
+            headers={
+                "drovi_dlq": "1",
+                "drovi_original_topic": base_topic,
+                "drovi_original_partition": str(partition),
+            },
+        )
+        try:
+            self._metrics.inc_kafka_message_routed(
+                self.group_id,
+                base_topic,
+                "dlq",
+            )
+        except Exception:
+            pass
 
     async def _worker_loop(self, index: int) -> None:
         """Worker loop that processes queued messages."""
@@ -348,23 +599,24 @@ class DroviKafkaConsumer:
             )
 
             # Find and call the handler
-            if topic in self._handlers:
-                handler = self._handlers[topic]
+            handler_topic = self._base_topic(topic)
+
+            if handler_topic in self._handlers:
+                handler = self._handlers[handler_topic]
                 if asyncio.iscoroutinefunction(handler):
                     await handler(message)
                 else:
                     handler(message)
             elif self._default_handler:
                 if asyncio.iscoroutinefunction(self._default_handler):
-                    await self._default_handler(topic, message)
+                    await self._default_handler(handler_topic, message)
                 else:
-                    self._default_handler(topic, message)
+                    self._default_handler(handler_topic, message)
             else:
-                logger.warning("No handler for topic", topic=topic)
+                raise RuntimeError(f"No handler for topic: {handler_topic}")
 
             # Commit offset after successful processing
-            if not self.enable_auto_commit:
-                self._consumer.commit(message=msg, asynchronous=False)
+            await self._commit_if_possible(topic, partition, offset)
 
             logger.debug(
                 "Message processed",
@@ -381,9 +633,29 @@ class DroviKafkaConsumer:
                 key=key,
                 error=str(e),
             )
-            # Commit to skip malformed message
-            if not self.enable_auto_commit:
-                self._consumer.commit(message=msg, asynchronous=False)
+            # Route to DLQ and commit to skip malformed message.
+            try:
+                await self._route_failed_message(
+                    topic=topic,
+                    key=key,
+                    partition=partition,
+                    offset=offset,
+                    headers={"drovi_retry_count": str(self._max_retry_attempts)},
+                    payload={
+                        "decode_error": str(e),
+                        "raw_b64": base64.b64encode(msg.value() or b"").decode("utf-8"),
+                    },
+                    error=e,
+                )
+                await self._commit_if_possible(topic, partition, offset)
+            except Exception as route_exc:
+                logger.warning(
+                    "Failed to route malformed message to DLQ",
+                    topic=topic,
+                    partition=partition,
+                    offset=offset,
+                    error=str(route_exc),
+                )
 
         except Exception as e:
             logger.error(
@@ -392,7 +664,35 @@ class DroviKafkaConsumer:
                 key=key,
                 error=str(e),
             )
-            # Don't commit - will retry on next poll
+            # Route to retry/DLQ and commit only if routed successfully.
+            try:
+                # We expect the internal schema to be an envelope with `payload`.
+                raw = json.loads(msg.value().decode("utf-8"))
+                raw_headers = {}
+                if msg.headers():
+                    raw_headers = {
+                        h[0]: h[1].decode("utf-8") if h[1] else None
+                        for h in msg.headers()
+                    }
+                payload = raw.get("payload") if isinstance(raw, dict) and "payload" in raw else raw
+                await self._route_failed_message(
+                    topic=topic,
+                    key=key,
+                    partition=partition,
+                    offset=offset,
+                    headers=raw_headers,
+                    payload=payload,
+                    error=e,
+                )
+                await self._commit_if_possible(topic, partition, offset)
+            except Exception as route_exc:
+                logger.warning(
+                    "Failed to route message to retry/DLQ; leaving uncommitted",
+                    topic=topic,
+                    partition=partition,
+                    offset=offset,
+                    error=str(route_exc),
+                )
 
     async def consume_batch(
         self,

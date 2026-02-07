@@ -8,10 +8,11 @@
 //
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
 import { ContactCard, type ContactCardData } from "@/components/dashboards";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,6 @@ type ViewFilter = "all" | "vip" | "at_risk";
 // =============================================================================
 
 function ContactsPage() {
-  const navigate = useNavigate();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -55,7 +55,13 @@ function ContactsPage() {
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
 
   // Fetch stats
-  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+  const {
+    data: statsData,
+    isLoading: isLoadingStats,
+    isError: statsIsError,
+    error: statsError,
+    refetch: refetchStats,
+  } = useQuery({
     queryKey: ["contacts", "stats", organizationId],
     queryFn: () => contactsAPI.getStats(organizationId),
     enabled: !!organizationId,
@@ -65,7 +71,9 @@ function ContactsPage() {
   const {
     data: contactsData,
     isLoading: isLoadingContacts,
-    refetch,
+    isError: contactsIsError,
+    error: contactsError,
+    refetch: refetchAllContacts,
   } = useQuery({
     queryKey: ["contacts", "list", organizationId],
     queryFn: () => contactsAPI.list({ organizationId, limit: 50 }),
@@ -73,25 +81,70 @@ function ContactsPage() {
   });
 
   // VIP contacts query
-  const { data: vipData, isLoading: isLoadingVip } = useQuery({
+  const {
+    data: vipData,
+    isLoading: isLoadingVip,
+    isError: vipIsError,
+    error: vipError,
+    refetch: refetchVip,
+  } = useQuery({
     queryKey: ["contacts", "vips", organizationId],
     queryFn: () => contactsAPI.getVips({ organizationId, limit: 50 }),
     enabled: !!organizationId && viewFilter === "vip",
   });
 
   // At-risk contacts query
-  const { data: atRiskData, isLoading: isLoadingAtRisk } = useQuery({
+  const {
+    data: atRiskData,
+    isLoading: isLoadingAtRisk,
+    isError: atRiskIsError,
+    error: atRiskError,
+    refetch: refetchAtRisk,
+  } = useQuery({
     queryKey: ["contacts", "at-risk", organizationId],
     queryFn: () => contactsAPI.getAtRisk({ organizationId, limit: 50 }),
     enabled: !!organizationId && viewFilter === "at_risk",
   });
 
   // Search query
-  const { data: searchData, isLoading: isLoadingSearch } = useQuery({
+  const {
+    data: searchData,
+    isLoading: isLoadingSearch,
+    isError: searchIsError,
+    error: searchError,
+    refetch: refetchSearch,
+  } = useQuery({
     queryKey: ["contacts", "search", organizationId, searchQuery],
     queryFn: () => contactsAPI.search({ organizationId, query: searchQuery, limit: 20 }),
     enabled: !!organizationId && searchQuery.length > 2,
   });
+
+  const handleRefresh = useCallback(async () => {
+    // Always keep stats fresh as well (cheap + used in header).
+    void refetchStats();
+
+    if (searchQuery.length > 2) {
+      await refetchSearch();
+      return;
+    }
+    if (viewFilter === "vip") {
+      await refetchVip();
+      return;
+    }
+    if (viewFilter === "at_risk") {
+      await refetchAtRisk();
+      return;
+    }
+    await refetchAllContacts();
+  }, [
+    refetchAllContacts,
+    refetchAtRisk,
+    refetchSearch,
+    refetchStats,
+    refetchVip,
+    searchQuery,
+    viewFilter,
+  ]);
 
   // Mutations
   const toggleVipMutation = useMutation({
@@ -99,7 +152,7 @@ function ContactsPage() {
       contactsAPI.toggleVip(contactId, organizationId, isVip),
     onSuccess: () => {
       toast.success("VIP status updated");
-      refetch();
+      void handleRefresh();
     },
     onError: () => {
       toast.error("Failed to update VIP status");
@@ -152,7 +205,7 @@ function ContactsPage() {
         document.getElementById("contact-search")?.focus();
       }
       if (e.key === "r") {
-        refetch();
+        void handleRefresh();
       }
       if (e.key === "1") {
         setViewFilter("all");
@@ -167,7 +220,7 @@ function ContactsPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedContact, refetch, viewFilter]);
+  }, [selectedContact, viewFilter, searchQuery, handleRefresh]);
 
   // Get current contacts based on filter
   const getCurrentContacts = useCallback((): ContactCardData[] => {
@@ -239,12 +292,31 @@ function ContactsPage() {
   }, []);
 
   const contacts = getCurrentContacts();
+
   const isLoading =
     viewFilter === "all"
       ? isLoadingContacts
       : viewFilter === "vip"
         ? isLoadingVip
         : isLoadingAtRisk;
+
+  const activeIsError =
+    searchQuery.length > 2
+      ? searchIsError
+      : viewFilter === "vip"
+        ? vipIsError
+        : viewFilter === "at_risk"
+          ? atRiskIsError
+          : contactsIsError;
+
+  const activeError =
+    searchQuery.length > 2
+      ? searchError
+      : viewFilter === "vip"
+        ? vipError
+        : viewFilter === "at_risk"
+          ? atRiskError
+          : contactsError;
 
   const stats = {
     total: statsData?.totalContacts ?? 0,
@@ -345,7 +417,7 @@ function ContactsPage() {
 
               <Button
                 className="h-8 w-8"
-                onClick={() => refetch()}
+                onClick={() => void handleRefresh()}
                 size="icon"
                 variant="ghost"
               >
@@ -367,7 +439,19 @@ function ContactsPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          {isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
+          {isLoadingStats && !statsData ? (
+            <div className="p-4">
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : statsIsError && !statsData ? (
+            <div className="p-4">
+              <ApiErrorPanel error={statsError} onRetry={() => void handleRefresh()} />
+            </div>
+          ) : activeIsError ? (
+            <div className="p-4">
+              <ApiErrorPanel error={activeError} onRetry={() => void handleRefresh()} />
+            </div>
+          ) : isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
             <div>
               {[...new Array(10)].map((_, i) => (
                 <div

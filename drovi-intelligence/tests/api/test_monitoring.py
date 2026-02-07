@@ -218,6 +218,22 @@ class TestMetricsSummaryEndpoint:
             assert response.status_code == 200
 
 
+class TestDecayEndpoints:
+    """Tests for memory decay endpoints."""
+
+    async def test_trigger_decay_async_enqueues_job(self, async_client, factory):
+        with patch("src.jobs.queue.enqueue_job", AsyncMock(return_value="job_decay_1")):
+            response = await async_client.post(
+                "/api/v1/monitoring/trigger-decay",
+                params={"organization_id": factory.organization_id(), "async_mode": True},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "queued"
+        assert data["job_id"] == "job_decay_1"
+
+
 class TestAccessStatsEndpoint:
     """Tests for GET /monitoring/access-stats."""
 
@@ -347,56 +363,40 @@ class TestTriggerDecayEndpoint:
 
             assert data["status"] == "completed"
 
-    async def test_trigger_decay_with_options(self, async_client, factory):
-        """Test triggering decay with async mode that falls back to sync."""
+    async def test_trigger_decay_with_options(self, async_client, factory, mock_db_pool):
+        """Test triggering decay in async mode queues a durable job."""
         org_id = factory.organization_id()
 
-        # Mock both celery and decay modules
-        import sys
-        mock_celery_module = MagicMock()
-        mock_celery_module.compute_memory_decay.apply_async.side_effect = Exception("Celery not available")
+        response = await async_client.post(
+            "/api/v1/monitoring/trigger-decay",
+            params={
+                "organization_id": org_id,
+            },
+        )
 
-        mock_decay_module = MagicMock()
-        mock_job = AsyncMock()
-        mock_job.run.return_value = {"success": True}
-        mock_decay_module.get_decay_job = AsyncMock(return_value=mock_job)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "queued"
+        assert data["job_id"]
+        assert mock_db_pool.acquire.called
 
-        with patch.dict(sys.modules, {
-            "src.connectors.scheduling.celery_tasks": mock_celery_module,
-            "src.jobs.decay": mock_decay_module,
-        }):
-            response = await async_client.post(
-                "/api/v1/monitoring/trigger-decay",
-                params={
-                    "organization_id": org_id,
-                },
-            )
-
-            assert response.status_code == 200
-
-    async def test_trigger_decay_dry_run(self, async_client, factory):
+    async def test_trigger_decay_dry_run(self, async_client, factory, mock_db_pool):
         """Test decay can be queued in async mode."""
         org_id = factory.organization_id()
 
-        # Mock celery module for successful queue
-        import sys
-        mock_celery_module = MagicMock()
-        mock_task = MagicMock()
-        mock_celery_module.compute_memory_decay.apply_async.return_value = mock_task
+        response = await async_client.post(
+            "/api/v1/monitoring/trigger-decay",
+            params={
+                "organization_id": org_id,
+                "async_mode": "true",
+            },
+        )
 
-        with patch.dict(sys.modules, {"src.connectors.scheduling.celery_tasks": mock_celery_module}):
-            response = await async_client.post(
-                "/api/v1/monitoring/trigger-decay",
-                params={
-                    "organization_id": org_id,
-                    "async_mode": "true",
-                },
-            )
-
-            assert response.status_code == 200
-            data = response.json()
-
-            assert data["status"] == "queued"
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "queued"
+        assert data["job_id"]
+        assert mock_db_pool.acquire.called
 
 
 class TestMonitoringIntegration:

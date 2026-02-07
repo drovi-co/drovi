@@ -15,6 +15,7 @@ import structlog
 
 from src.connectors.connection_service import get_connection_config
 from src.connectors.scheduling.scheduler import ConnectorScheduler, SyncJob, SyncJobType
+from src.db.rls import rls_context
 
 logger = structlog.get_logger()
 
@@ -93,7 +94,8 @@ async def run_backfill_plan(
     Run a backfill plan sequentially across time windows.
     """
     end_date = end_date or datetime.utcnow()
-    config = await get_connection_config(connection_id, organization_id)
+    with rls_context(organization_id, is_internal=True):
+        config = await get_connection_config(connection_id, organization_id)
     if not config:
         raise ValueError(f"Connection not found: {connection_id}")
 

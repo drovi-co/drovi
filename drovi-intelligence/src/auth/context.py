@@ -59,6 +59,17 @@ class AuthMetadata:
 
 # Role to scopes mapping for session users
 ROLE_SCOPES = {
+    "pilot_owner": [
+        Scope.ADMIN.value,
+        Scope.READ.value,
+        Scope.WRITE.value,
+        Scope.READ_GRAPH.value,
+        Scope.WRITE_GRAPH.value,
+        Scope.READ_ANALYTICS.value,
+        Scope.WRITE_CONNECTIONS.value,
+        Scope.MANAGE_KEYS.value,
+        Scope.MCP.value,
+    ],
     "pilot_admin": [
         Scope.ADMIN.value,
         Scope.READ.value,
@@ -89,7 +100,7 @@ def get_scopes_for_role(role: str) -> list[str]:
     Get scopes for a given role.
 
     Args:
-        role: User role (pilot_admin, pilot_member, pilot_viewer)
+        role: User role (pilot_owner, pilot_admin, pilot_member, pilot_viewer)
 
     Returns:
         List of scope strings for this role

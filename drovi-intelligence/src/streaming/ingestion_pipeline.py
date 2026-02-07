@@ -149,6 +149,7 @@ def _build_ingest_metadata(
     job_type: str | None,
     is_vip: bool = False,
     explicit_priority: str | int | None = None,
+    origin_timestamp: str | None = None,
 ) -> dict[str, Any]:
     fingerprint = build_source_fingerprint(
         source_type,
@@ -163,16 +164,20 @@ def _build_ingest_metadata(
         is_vip=is_vip,
         explicit_priority=explicit_priority,
     )
-    return {
+    ingest = {
         "priority": priority,
         "content_hash": content_hash,
         "source_fingerprint": fingerprint,
         "job_type": job_type,
     }
+    if origin_timestamp:
+        ingest["origin_ts"] = origin_timestamp
+    return ingest
 
 
 def normalize_raw_event_payload(
     event_payload: dict[str, Any],
+    kafka_timestamp: str | None = None,
 ) -> NormalizedRecordEvent | None:
     event_type = event_payload.get("event_type") or "unknown"
     organization_id = event_payload.get("organization_id")
@@ -261,6 +266,7 @@ def normalize_raw_event_payload(
         conversation_id=normalized.conversation_id,
         message_id=message_id,
         job_type=job_type,
+        origin_timestamp=kafka_timestamp,
     )
 
     return NormalizedRecordEvent(
@@ -429,6 +435,7 @@ async def enrich_normalized_payload(
         job_type=normalized_event.ingest.get("job_type"),
         is_vip=is_vip,
         explicit_priority=priority,
+        origin_timestamp=normalized_event.ingest.get("origin_ts"),
     )
 
     pipeline_id = str(uuid4())

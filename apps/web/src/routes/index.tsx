@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { authClient } from "@/lib/auth-client";
+import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
 import {
   getStoredOnboardingState,
@@ -13,8 +13,13 @@ export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     // Landing page lives on drovi.co (separate app)
     // App lives on app.drovi.co - always redirect to dashboard or login
-    const session = await authClient.getSession();
-    if (session.data?.user) {
+    const store = useAuthStore.getState();
+    if (!store.user) {
+      await store.checkAuth();
+    }
+
+    const user = useAuthStore.getState().user;
+    if (user) {
       const stored = getStoredOnboardingState();
       if (stored === "pending") {
         throw redirect({ to: "/onboarding/create-org" });
@@ -29,7 +34,9 @@ export const Route = createFileRoute("/")({
             throw redirect({ to: "/onboarding/create-org" });
           }
         } catch {
-          // If we cannot verify onboarding state, default to the main app.
+          // If we cannot verify onboarding state, default to onboarding.
+          setStoredOnboardingState("pending");
+          throw redirect({ to: "/onboarding/create-org" });
         }
       }
 

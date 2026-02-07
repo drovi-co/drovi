@@ -87,6 +87,14 @@ class KafkaWorker:
         if self.settings.kafka_raw_event_mode != "disabled":
             topics.insert(0, self.settings.kafka_topic_raw_events)
 
+        # Subscribe to retry topics as well (DLQs are operator-only).
+        retry_suffix = self.settings.kafka_retry_suffix
+        if retry_suffix:
+            retry_topics = [f"{t}{retry_suffix}" for t in topics if not t.endswith(retry_suffix)]
+            for t in retry_topics:
+                if t not in topics:
+                    topics.append(t)
+
         self._consumer = DroviKafkaConsumer(
             bootstrap_servers=self.settings.kafka_bootstrap_servers,
             group_id=f"{self.settings.kafka_consumer_group_id}-worker",
@@ -151,6 +159,7 @@ class KafkaWorker:
         payload = message.get("payload", {})
         event_type = payload.get("event_type")
         organization_id = payload.get("organization_id")
+        origin_timestamp = message.get("timestamp")
 
         if self.settings.kafka_raw_event_mode == "webhook_only" and event_type != "connector.webhook":
             return
@@ -162,7 +171,7 @@ class KafkaWorker:
             return
 
         try:
-            normalized_event = normalize_raw_event_payload(payload)
+            normalized_event = normalize_raw_event_payload(payload, kafka_timestamp=str(origin_timestamp) if origin_timestamp else None)
             if not normalized_event:
                 return
 
@@ -220,6 +229,19 @@ class KafkaWorker:
         started_at = datetime.utcnow()
 
         try:
+            # End-to-end lag: raw ingest -> extraction
+            try:
+                origin_ts = ingest.get("origin_ts")
+                if origin_ts:
+                    from datetime import datetime as _dt
+                    origin_dt = _dt.fromisoformat(str(origin_ts).replace("Z", "+00:00")).replace(tzinfo=None)
+                    metrics.observe_pipeline_end_to_end_lag(
+                        source_type=source_type,
+                        lag_seconds=(started_at - origin_dt).total_seconds(),
+                    )
+            except Exception:
+                pass
+
             with rls_context(organization_id, is_internal=True):
                 result_state = await run_intelligence_extraction(
                     organization_id=organization_id,

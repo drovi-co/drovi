@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +159,10 @@ function GraphPage() {
       }),
     enabled: !!organizationId,
   });
+
+  const isGraphLoading = nodesQuery.isLoading || edgesQuery.isLoading;
+  const isGraphError = nodesQuery.isError || edgesQuery.isError;
+  const graphError = nodesQuery.error ?? edgesQuery.error;
 
   const { nodes, edges } = useMemo(() => {
     const nodes: GraphNode[] = [];
@@ -346,12 +351,22 @@ function GraphPage() {
 
       <div className="flex flex-1">
         <div className="flex-1">
-          <KnowledgeGraph
-            edges={edges}
-            nodes={nodes}
-            onNodeSelect={handleNodeSelect}
-            searchQuery={searchQuery}
-          />
+          {isGraphLoading ? (
+            <div className="p-6">
+              <Skeleton className="h-[520px] w-full" />
+            </div>
+          ) : isGraphError ? (
+            <div className="p-6">
+              <ApiErrorPanel error={graphError} onRetry={handleRefresh} />
+            </div>
+          ) : (
+            <KnowledgeGraph
+              edges={edges}
+              nodes={nodes}
+              onNodeSelect={handleNodeSelect}
+              searchQuery={searchQuery}
+            />
+          )}
         </div>
         {selectedNode && (
           <GraphSidebar node={selectedNode} onClose={() => setSelectedNode(null)} />

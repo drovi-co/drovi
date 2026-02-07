@@ -11,6 +11,7 @@ import { format, subDays } from "date-fns";
 import { Activity, Filter, Loader2, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +60,7 @@ function RealityStreamPage() {
     return subDays(new Date(), days).toISOString();
   }, [rangeDays]);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["reality-stream", organizationId, entityFilter, rangeDays],
     queryFn: () =>
       changesAPI.list({
@@ -176,6 +177,8 @@ function RealityStreamPage() {
         <CardContent className="space-y-6">
           {isLoading ? (
             <Skeleton className="h-64" />
+          ) : isError ? (
+            <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : grouped.length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
               No changes yet in this window.

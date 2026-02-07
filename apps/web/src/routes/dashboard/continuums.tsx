@@ -23,6 +23,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,7 +91,13 @@ function ContinuumsPage() {
     preview: ContinuumPreview;
   } | null>(null);
 
-  const { data: continuums, isLoading } = useQuery({
+  const {
+    data: continuums,
+    isLoading,
+    isError: continuumsError,
+    error: continuumsErrorObj,
+    refetch: refetchContinuums,
+  } = useQuery({
     queryKey: ["continuums", organizationId],
     queryFn: () => continuumsAPI.list(organizationId),
     enabled: !!organizationId,
@@ -285,6 +292,8 @@ function ContinuumsPage() {
                 <Skeleton className="h-32" key={i} />
               ))}
             </div>
+          ) : continuumsError ? (
+            <ApiErrorPanel error={continuumsErrorObj} onRetry={() => refetchContinuums()} />
           ) : (continuums ?? []).length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
@@ -451,6 +460,8 @@ function ContinuumsPage() {
             </div>
           ) : runsQuery.isLoading ? (
             <Skeleton className="h-64" />
+          ) : runsQuery.isError ? (
+            <ApiErrorPanel error={runsQuery.error} onRetry={() => runsQuery.refetch()} />
           ) : (runsQuery.data ?? []).length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
               No runs yet. Trigger the first run from the list.

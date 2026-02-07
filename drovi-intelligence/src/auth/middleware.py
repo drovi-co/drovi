@@ -129,15 +129,26 @@ async def get_api_key_context(
     Raises:
         HTTPException: If authentication fails
     """
+    # Internal service token (Drovi app bypass)
+    internal_token = request.headers.get(INTERNAL_SERVICE_HEADER)
+
     # 1. Check for session cookie or Authorization bearer (Pilot Surface frontend)
-    token_str = session
-    if not token_str and authorization:
-        if authorization.startswith("Bearer "):
-            token_str = authorization[7:]
+    #
+    # NOTE: In normal FastAPI operation, `session` and `authorization` will be
+    # either `str` or `None`. When unit-testing this dependency by calling it
+    # directly, the default values may be the `Cookie(...)` / `Header(...)`
+    # parameter objects; treat non-strings as missing.
+    token_str = session if isinstance(session, str) else None
+    auth_header = authorization if isinstance(authorization, str) else None
+
+    if not token_str and auth_header:
+        if auth_header.startswith("Bearer "):
+            token_str = auth_header[7:]
 
     if token_str:
         token = verify_jwt(token_str)
         if token:
+            scopes = get_scopes_for_role(token.role)
             logger.debug(
                 "Session authentication",
                 user_id=token.sub,
@@ -147,16 +158,22 @@ async def get_api_key_context(
             set_rls_context(token.org_id, is_internal=False)
             return APIKeyContext(
                 organization_id=token.org_id,
-                scopes=["*"],  # Full access for authenticated users
+                scopes=scopes,
                 key_id=f"session:{token.sub}",
                 key_name=f"Session: {token.email}",
-                is_internal=True,  # Treat as internal for rate limits
+                is_internal=False,
                 rate_limit_per_minute=1000,
+            )
+        # Invalid session token. If no alternative auth method is present, fail
+        # with a session-style 401 (instead of falling through to "Missing API key").
+        if not internal_token and not api_key:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
     # 2. Check for internal service token (Drovi app bypass)
-    internal_token = request.headers.get(INTERNAL_SERVICE_HEADER)
-
     if internal_token and INTERNAL_SERVICE_TOKEN:
         if internal_token == INTERNAL_SERVICE_TOKEN:
             # Internal service - extract org_id from request
@@ -263,6 +280,7 @@ async def get_auth_context(
     request: Request,
     api_key: str | None = Depends(api_key_header),
     session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> AuthContext:
     """
     Unified authentication middleware - returns AuthContext for all auth types.
@@ -289,9 +307,14 @@ async def get_auth_context(
     Raises:
         HTTPException: If authentication fails
     """
-    # 1. Check for session cookie first (Pilot Surface frontend)
-    if session:
-        token = verify_jwt(session)
+    # 1. Check for session cookie / Authorization bearer first (Pilot Surface frontend)
+    token_str: str | None = session
+    if not token_str and authorization:
+        if authorization.startswith("Bearer "):
+            token_str = authorization[7:]
+
+    if token_str:
+        token = verify_jwt(token_str)
         if token:
             # Get role-based scopes (not wildcard ["*"])
             scopes = get_scopes_for_role(token.role)

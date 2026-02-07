@@ -79,6 +79,8 @@ export interface ConnectorCapabilities {
 
 export interface AvailableConnector {
   type: string;
+  configured: boolean;
+  missing_env: string[];
   capabilities: ConnectorCapabilities;
 }
 
@@ -392,10 +394,32 @@ export interface Evidence {
   extracted_at: string;
 }
 
+export interface AskSource {
+  name?: string | null;
+  title?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_timestamp?: string | null;
+  quoted_text?: string | null;
+  segment_hash?: string | null;
+  conversation_id?: string | null;
+  message_id?: string | null;
+  url?: string | null;
+  [key: string]: unknown;
+}
+
 export interface AskResponse {
   answer: string;
-  evidence: Evidence[];
-  confidence: number;
+  intent: string;
+  sources: AskSource[];
+  cypher_query: string | null;
+  results_count: number;
+  duration_seconds: number;
+  timestamp: string;
+  session_id: string | null;
+  context_used: boolean;
+  closest_matches_used: boolean;
+  user_context: Record<string, unknown> | null;
 }
 
 export interface SyncStatus {
@@ -444,12 +468,29 @@ export interface EmailAuthResponse {
   }> | null;
 }
 
-// API Error class
+// =============================================================================
+// API Errors
+// =============================================================================
+
+export type ApiErrorCode =
+  | "API_UNREACHABLE"
+  | "UNAUTHENTICATED"
+  | "FORBIDDEN"
+  | "VALIDATION_ERROR"
+  | "RATE_LIMITED"
+  | "SERVER_ERROR"
+  | "UNKNOWN_ERROR";
+
 export class APIError extends Error {
   constructor(
     message: string,
     public status: number,
-    public detail?: string
+    public code: ApiErrorCode,
+    public detail?: string,
+    public endpoint?: string,
+    public method?: string,
+    public requestId?: string,
+    public url?: string
   ) {
     super(message);
     this.name = "APIError";
@@ -457,90 +498,34 @@ export class APIError extends Error {
 }
 
 // API Base URL from environment
-export const API_BASE = env.VITE_SERVER_URL;
-const API_BASE_STORAGE_KEY = "drovi:api-base";
+const APP_BASE_URL = env.VITE_SERVER_URL;
 
-function normalizeLocalhostBase(base: string): string {
-  if (typeof window === "undefined") {
-    return base;
-  }
-
-  try {
-    const url = new URL(base);
-    const windowHost = window.location.hostname;
-    const isBaseLocal =
-      url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    const isWindowLocal =
-      windowHost === "localhost" || windowHost === "127.0.0.1";
-
-    if (isBaseLocal && isWindowLocal && url.hostname !== windowHost) {
-      url.hostname = windowHost;
-      return url.toString().replace(/\/$/, "");
-    }
-  } catch {
-    return base;
-  }
-
-  return base;
-}
-
-let resolvedApiBase = API_BASE;
-
-if (typeof window !== "undefined") {
-  const storedBase = window.localStorage.getItem(API_BASE_STORAGE_KEY);
-  if (storedBase) {
-    resolvedApiBase = normalizeLocalhostBase(storedBase);
-  } else {
-    resolvedApiBase = normalizeLocalhostBase(API_BASE);
-  }
-}
-
-export function getApiBase() {
-  return resolvedApiBase;
-}
-
-function persistApiBase(base: string) {
-  const normalized = normalizeLocalhostBase(base);
-  resolvedApiBase = normalized;
+/**
+ * API base for diagnostics only.
+ *
+ * The web app is deployed with an Nginx reverse-proxy that serves the UI and
+ * forwards `/api/*` and `/health` to the intelligence API. Using same-origin
+ * relative URLs avoids CORS/cookie issues and prevents "failed to fetch" loops.
+ */
+export function getApiBase(): string {
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
+    return window.location.origin;
   }
+  return APP_BASE_URL;
 }
 
-function getApiBaseCandidates(): string[] {
-  const bases: string[] = [];
-
+function buildApiV1Url(path: string): string {
   if (typeof window !== "undefined") {
-    bases.push(window.location.origin);
+    return `/api/v1${path}`;
   }
+  return `${APP_BASE_URL}/api/v1${path}`;
+}
 
-  bases.push(normalizeLocalhostBase(getApiBase()));
-  bases.push(normalizeLocalhostBase(API_BASE));
-
-  const addLocalhostVariant = (base: string) => {
-    if (base.includes("localhost")) {
-      bases.push(base.replace("localhost", "127.0.0.1"));
-    } else if (base.includes("127.0.0.1")) {
-      bases.push(base.replace("127.0.0.1", "localhost"));
-    }
-  };
-
-  addLocalhostVariant(getApiBase());
-  addLocalhostVariant(API_BASE);
-
+function buildHealthUrl(): string {
   if (typeof window !== "undefined") {
-    const { hostname, protocol } = window.location;
-    const isLocalHost =
-      hostname === "localhost" || hostname === "127.0.0.1";
-    const baseHasLocalhost =
-      API_BASE.includes("localhost") || API_BASE.includes("127.0.0.1");
-
-    if (!isLocalHost && baseHasLocalhost) {
-      bases.push(`${protocol}//${hostname}:8000`);
-    }
+    return "/health";
   }
-
-  return Array.from(new Set(bases.filter(Boolean)));
+  return `${APP_BASE_URL}/health`;
 }
 
 /**
@@ -550,12 +535,7 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const candidates = getApiBaseCandidates();
-  let res: Response | null = null;
-  let lastError: unknown = null;
   const method = (options.method ?? "GET").toUpperCase();
-  const canRetryAuth =
-    method === "GET" || method === "HEAD" || method === "OPTIONS";
   const sessionToken = getSessionToken();
   const normalizedHeaders: Record<string, string> = (() => {
     if (!options.headers) {
@@ -583,56 +563,97 @@ export async function apiFetch<T>(
     baseHeaders.Authorization = `Bearer ${sessionToken}`;
   }
 
-  for (const [index, base] of candidates.entries()) {
-    const url = `${base}/api/v1${path}`;
-    try {
-      res = await fetch(url, {
-        ...options,
-        credentials: "include", // Include cookies for session auth
-        headers: baseHeaders,
-      });
-      markApiReachable();
-      if (res.ok) {
-        persistApiBase(base);
-        break;
-      }
-
-      if (
-        canRetryAuth &&
-        (res.status === 401 || res.status === 403) &&
-        index < candidates.length - 1
-      ) {
-        continue;
-      }
-
-      break;
-    } catch (error) {
-      lastError = error;
-      continue;
-    }
-  }
-
-  if (!res) {
-    markApiUnreachable(lastError);
+  const url = buildApiV1Url(path);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      credentials: "include", // Include cookies for session auth
+      headers: baseHeaders,
+    });
+    markApiReachable();
+  } catch (error) {
+    markApiUnreachable(error);
     throw new APIError(
-      "Drovi API unreachable. Check that the intelligence stack is running.",
+      `Drovi API unreachable (${method} /api/v1${path}). Check that the intelligence stack is running.`,
       0,
-      lastError instanceof Error ? lastError.message : "Network error"
+      "API_UNREACHABLE",
+      error instanceof Error ? error.message : "Network error",
+      `/api/v1${path}`,
+      method,
+      undefined,
+      url
     );
   }
 
   if (!res.ok) {
+    const requestId = res.headers.get("X-Request-ID") ?? undefined;
     let detail: string | undefined;
     try {
       const errorBody = await res.json();
-      detail = errorBody.detail || errorBody.message;
+      if (typeof errorBody?.detail === "string") {
+        detail = errorBody.detail;
+      } else if (Array.isArray(errorBody?.detail)) {
+        // FastAPI validation errors: [{loc, msg, type}, ...]
+        detail = errorBody.detail
+          .map((item: unknown) => {
+            if (item && typeof item === "object" && "msg" in item) {
+              return String((item as { msg?: unknown }).msg ?? "");
+            }
+            return String(item);
+          })
+          .filter(Boolean)
+          .slice(0, 3)
+          .join("; ");
+      } else if (typeof errorBody?.message === "string") {
+        detail = errorBody.message;
+      } else if (typeof errorBody === "string") {
+        detail = errorBody;
+      } else {
+        detail = res.statusText;
+      }
     } catch {
       detail = res.statusText;
     }
+
+    const code: ApiErrorCode = (() => {
+      if (res.status === 401) return "UNAUTHENTICATED";
+      if (res.status === 403) return "FORBIDDEN";
+      if (res.status === 400 || res.status === 422) return "VALIDATION_ERROR";
+      if (res.status === 429) return "RATE_LIMITED";
+      if (res.status >= 500) return "SERVER_ERROR";
+      return "UNKNOWN_ERROR";
+    })();
+
+    const endpoint = `/api/v1${path}`;
+    const message = (() => {
+      if (code === "UNAUTHENTICATED") {
+        return `Not authenticated (${method} ${endpoint}). Please sign in again.`;
+      }
+      if (code === "FORBIDDEN") {
+        return `Forbidden (${method} ${endpoint}).`;
+      }
+      if (code === "VALIDATION_ERROR") {
+        return `${detail ? `Invalid request: ${detail}` : "Invalid request"} (${method} ${endpoint}).`;
+      }
+      if (code === "RATE_LIMITED") {
+        return `Rate limited (${method} ${endpoint}). Try again soon.`;
+      }
+      if (code === "SERVER_ERROR") {
+        return `${detail ? `Server error: ${detail}` : `Server error (${res.status})`} (${method} ${endpoint}).`;
+      }
+      return `${detail || `Request failed (${res.status})`} (${method} ${endpoint}).`;
+    })();
+
     throw new APIError(
-      detail || `API Error: ${res.status}`,
+      message,
       res.status,
-      detail
+      code,
+      detail,
+      endpoint,
+      method,
+      requestId,
+      url
     );
   }
 
@@ -751,7 +772,7 @@ export const connectionsAPI = {
     options?: { restrictedLabels?: string[]; restrictedChannels?: string[] }
   ): Promise<OAuthInitResponse> {
     const redirectUri = `${getApiBase()}/api/v1/auth/callback`;
-    return apiFetch<OAuthInitResponse>("/connections/oauth/init", {
+    return apiFetch<OAuthInitResponse>("/connections/oauth/initiate", {
       method: "POST",
       body: JSON.stringify({
         connector_type: connectorType,
@@ -1002,10 +1023,22 @@ export const askAPI = {
   /**
    * Ask a natural language question about your data
    */
-  async ask(query: string): Promise<AskResponse> {
+  async ask(params: {
+    question: string;
+    organizationId: string;
+    sessionId?: string;
+    includeEvidence?: boolean;
+    userId?: string;
+  }): Promise<AskResponse> {
     return apiFetch<AskResponse>("/ask", {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({
+        question: params.question,
+        organization_id: params.organizationId,
+        session_id: params.sessionId ?? null,
+        include_evidence: params.includeEvidence ?? true,
+        user_id: params.userId ?? null,
+      }),
     });
   },
 };
@@ -1248,6 +1281,13 @@ export interface OrgConnection {
   email: string | null;
   workspace: string | null;
   status: string;
+  visibility?: "org_shared" | "private";
+  created_by_user_id?: string | null;
+  created_by_email?: string | null;
+  created_by_name?: string | null;
+  live_status?: string | null;
+  backfill_status?: string | null;
+  last_error?: string | null;
   scopes: string[];
   last_sync: string | null;
   messages_synced: number;
@@ -1365,6 +1405,22 @@ export const orgAPI = {
   },
 
   /**
+   * Update connection visibility (org_shared vs private).
+   */
+  async updateConnectionVisibility(params: {
+    connectionId: string;
+    visibility: "org_shared" | "private";
+  }): Promise<{ updated: boolean; connection_id: string; visibility: string }> {
+    return apiFetch<{ updated: boolean; connection_id: string; visibility: string }>(
+      `/org/connections/${params.connectionId}/visibility`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ visibility: params.visibility }),
+      }
+    );
+  },
+
+  /**
    * Get organization info
    */
   async getOrgInfo(): Promise<OrgInfo> {
@@ -1412,7 +1468,7 @@ export const orgAPI = {
   },
 
   async createInvite(params: {
-    role?: "pilot_admin" | "pilot_member";
+    role?: "pilot_admin" | "pilot_member" | "pilot_viewer";
     expiresInDays?: number;
     email?: string;
   }): Promise<OrgInvite> {
@@ -1464,6 +1520,7 @@ export interface SyncEvent {
   progress?: number | null;
   status?: string;
   error?: string;
+  sync_params?: Record<string, unknown> | null;
   timestamp?: string;
 }
 
@@ -2646,33 +2703,41 @@ export const auditAPI = {
 
 export const healthAPI = {
   async ping(): Promise<Record<string, unknown>> {
-    const candidates = getApiBaseCandidates();
-    let lastError: unknown = null;
-
-    for (const base of candidates) {
-      try {
-        const res = await fetch(`${base}/health`, {
-          credentials: "include",
-        });
-        if (!res.ok) {
-          lastError = new APIError("Health check failed", res.status);
-          continue;
-        }
-
-        const data = (await res.json()) as Record<string, unknown>;
-        persistApiBase(base);
-        markApiReachable();
-        return data;
-      } catch (error) {
-        lastError = error;
+    const url = buildHealthUrl();
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        const requestId = res.headers.get("X-Request-ID") ?? undefined;
+        throw new APIError(
+          "Health check failed (GET /health).",
+          res.status,
+          res.status >= 500 ? "SERVER_ERROR" : "UNKNOWN_ERROR",
+          res.statusText,
+          "/health",
+          "GET",
+          requestId,
+          url
+        );
       }
+      const data = (await res.json()) as Record<string, unknown>;
+      markApiReachable();
+      return data;
+    } catch (error) {
+      markApiUnreachable(error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new APIError(
+        "Drovi API unreachable (GET /health).",
+        0,
+        "API_UNREACHABLE",
+        "Network error",
+        "/health",
+        "GET",
+        undefined,
+        url
+      );
     }
-
-    markApiUnreachable(lastError);
-    if (lastError instanceof Error) {
-      throw lastError;
-    }
-    throw new Error("Health check failed");
   },
 };
 

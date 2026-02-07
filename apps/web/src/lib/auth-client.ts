@@ -190,7 +190,9 @@ export const authClient = {
     ) {
       const store = useAuthStore.getState();
       try {
-        await store.loginWithEmail(params.email, params.password);
+        await store.loginWithEmail(params.email, params.password, {
+          persist: params.rememberMe ?? true,
+        });
         callbacks?.onSuccess?.();
         return { data: true };
       } catch (error) {

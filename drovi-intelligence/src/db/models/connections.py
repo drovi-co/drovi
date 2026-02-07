@@ -41,6 +41,8 @@ class Connection(Base):
     # Identity
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     organization_id = Column(String(100), nullable=False, index=True)  # Text ID like "org_xyz"
+    created_by_user_id = Column(String(100), nullable=True, index=True)
+    visibility = Column(String(20), nullable=False, default="org_shared", index=True)  # org_shared | private
 
     # Connector info
     connector_type = Column(String(50), nullable=False, index=True)  # gmail, slack, etc.

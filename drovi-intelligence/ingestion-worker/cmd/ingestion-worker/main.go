@@ -26,6 +26,12 @@ type RawEvent struct {
 	Payload        map[string]interface{} `json:"payload"`
 }
 
+type KafkaEnvelope[T any] struct {
+	MessageID string `json:"message_id"`
+	Timestamp string `json:"timestamp"`
+	Payload   T      `json:"payload"`
+}
+
 type NormalizedRecordEvent struct {
 	NormalizedID   string                 `json:"normalized_id"`
 	OrganizationID string                 `json:"organization_id"`
@@ -93,10 +99,12 @@ func main() {
 		}
 
 		var raw RawEvent
-		if err := json.Unmarshal(msg.Value, &raw); err != nil {
+		var envelope KafkaEnvelope[RawEvent]
+		if err := json.Unmarshal(msg.Value, &envelope); err != nil {
 			log.Printf("invalid message payload: %v", err)
 			continue
 		}
+		raw = envelope.Payload
 
 		if strings.EqualFold(raw.EventType, "connector.webhook") {
 			continue
@@ -111,7 +119,13 @@ func main() {
 			continue
 		}
 
-		payload, err := json.Marshal(normalized)
+		normalizedEnvelope := KafkaEnvelope[NormalizedRecordEvent]{
+			MessageID: uuid.New().String(),
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			Payload:   *normalized,
+		}
+
+		payload, err := json.Marshal(normalizedEnvelope)
 		if err != nil {
 			log.Printf("marshal normalized error: %v", err)
 			continue

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Download, Shield, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +33,13 @@ function SettingsPage() {
   const { data: session } = authClient.useSession();
   const user = session?.user;
 
-  const { data: orgInfo, isLoading: orgLoading } = useQuery({
+  const {
+    data: orgInfo,
+    isLoading: orgLoading,
+    isError: orgError,
+    error: orgErrorObj,
+    refetch: refetchOrg,
+  } = useQuery({
     queryKey: ["org-info"],
     queryFn: () => orgAPI.getOrgInfo(),
   });
@@ -120,6 +127,8 @@ function SettingsPage() {
               <div className="text-muted-foreground text-sm">
                 Loading organization…
               </div>
+            ) : orgError ? (
+              <ApiErrorPanel error={orgErrorObj} onRetry={() => refetchOrg()} />
             ) : (
               <>
                 <div className="grid gap-2">
@@ -127,6 +136,7 @@ function SettingsPage() {
                   <Input
                     id="org-name"
                     value={activeOrg?.name ?? ""}
+                    disabled={!activeOrg}
                     onChange={(event) =>
                       setOrgDraft((prev) =>
                         prev

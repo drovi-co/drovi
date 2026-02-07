@@ -11,7 +11,7 @@ Handles OAuth flow with PKCE:
 import hashlib
 import secrets
 from base64 import urlsafe_b64encode
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
 
 import httpx
@@ -518,7 +518,7 @@ async def logout(response: Response) -> dict:
 async def require_pilot_auth(
     session: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
-) -> PilotToken:
+):
     """
     Dependency that requires valid pilot authentication.
 
@@ -550,7 +550,11 @@ async def require_pilot_auth(
     if not token:
         raise HTTPException(401, "Invalid or expired session")
 
-    return token
+    # Ensure all DB reads/writes in this request are scoped by org-level RLS.
+    from src.db.rls import rls_context
+
+    with rls_context(token.org_id, is_internal=False):
+        yield token
 
 
 # =============================================================================
@@ -616,6 +620,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": tokens.get("refresh_token"),
+                "expires_in": tokens.get("expires_in"),
                 "email": email,
                 "scopes": scope_map.get(provider, []),
                 "oauth_provider": "google",
@@ -644,6 +649,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": None,
+                "expires_in": tokens.get("expires_in"),
                 "email": None,
                 "scopes": ["channels:history", "channels:read", "users:read"],
                 "oauth_provider": "slack",
@@ -693,6 +699,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": tokens.get("refresh_token"),
+                "expires_in": tokens.get("expires_in"),
                 "email": email,
                 "scopes": scope_map.get(provider, []),
                 "oauth_provider": "microsoft",
@@ -739,6 +746,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": None,  # Notion doesn't use refresh tokens
+                "expires_in": tokens.get("expires_in"),
                 "email": email,
                 "scopes": ["read_content"],
                 "oauth_provider": "notion",
@@ -770,6 +778,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": tokens.get("refresh_token"),
+                "expires_in": tokens.get("expires_in"),
                 "email": None,
                 "scopes": ["crm.objects.contacts.read", "crm.objects.companies.read", "crm.objects.deals.read"],
                 "oauth_provider": "hubspot",
@@ -800,6 +809,7 @@ async def _exchange_oauth_code(
             return {
                 "access_token": tokens.get("access_token"),
                 "refresh_token": None,
+                "expires_in": tokens.get("expires_in"),
                 "email": None,
                 "scopes": ["whatsapp_business_messaging"],
                 "oauth_provider": "meta",
@@ -834,6 +844,10 @@ async def _handle_connector_callback(
     restricted_labels = connector_state.get("restricted_labels", [])
     restricted_channels = connector_state.get("restricted_channels", [])
     return_to = connector_state.get("return_to")
+    created_by_user_id = connector_state.get("created_by_user_id")
+    visibility = connector_state.get("visibility") or "org_shared"
+    if visibility not in ("org_shared", "private"):
+        visibility = "org_shared"
 
     def _build_redirect_url(status_param: str) -> str:
         base_path = return_to if isinstance(return_to, str) and return_to.startswith("/") else "/"
@@ -862,9 +876,17 @@ async def _handle_connector_callback(
 
         access_token = token_result["access_token"]
         refresh_token = token_result.get("refresh_token")
+        expires_in = token_result.get("expires_in")
         email = token_result.get("email")
         scopes = token_result.get("scopes", [])
         oauth_provider = token_result.get("oauth_provider", provider)
+
+        expires_at = None
+        if expires_in is not None:
+            try:
+                expires_at = datetime.utcnow() + timedelta(seconds=int(expires_in))
+            except Exception:
+                expires_at = None
 
         # Store connection in database
         from src.db.client import get_db_session
@@ -897,10 +919,12 @@ async def _handle_connector_callback(
                 text("""
                     INSERT INTO connections (
                         id, organization_id, connector_type, name, config,
-                        status, sync_enabled, created_at, updated_at
+                        status, sync_enabled, created_at, updated_at,
+                        created_by_user_id, visibility
                     ) VALUES (
                         :id, :org_id, :connector_type, :name, :config,
-                        'active', true, NOW(), NOW()
+                        'active', true, NOW(), NOW(),
+                        :created_by_user_id, :visibility
                     )
                 """),
                 {
@@ -914,6 +938,8 @@ async def _handle_connector_callback(
                         "restricted_channels": restricted_channels,
                         "scopes": scopes,
                     }),
+                    "created_by_user_id": created_by_user_id,
+                    "visibility": visibility,
                 },
             )
 
@@ -923,11 +949,11 @@ async def _handle_connector_callback(
                     INSERT INTO oauth_tokens (
                         id, connection_id, organization_id, provider,
                         access_token_encrypted, refresh_token_encrypted,
-                        token_type, scopes, created_at, updated_at
+                        token_type, expires_at, scopes, created_at, updated_at
                     ) VALUES (
                         :id, :connection_id, :org_id, :provider,
                         :access_token, :refresh_token,
-                        'Bearer', :scopes, NOW(), NOW()
+                        'Bearer', :expires_at, :scopes, NOW(), NOW()
                     )
                 """),
                 {
@@ -937,6 +963,7 @@ async def _handle_connector_callback(
                     "provider": oauth_provider,
                     "access_token": access_token_encrypted,
                     "refresh_token": refresh_token_encrypted,
+                    "expires_at": expires_at,
                     "scopes": scopes,
                 },
             )
@@ -956,26 +983,90 @@ async def _handle_connector_callback(
             email=email,
         )
 
-        # Trigger initial sync in the background
         try:
-            from src.connectors.scheduling.scheduler import get_scheduler
+            from src.audit.log import record_audit_event
 
-            scheduler = get_scheduler()
-            sync_job = await scheduler.trigger_sync_by_id(
-                connection_id=connection_id,
+            await record_audit_event(
                 organization_id=org_id,
-                full_refresh=True,  # Initial sync should be a full refresh
+                action="connection.connected",
+                actor_type="user" if created_by_user_id else "system",
+                actor_id=created_by_user_id,
+                resource_type="connection",
+                resource_id=str(connection_id),
+                metadata={
+                    "provider": provider,
+                    "visibility": visibility,
+                    "email": email,
+                },
             )
-            logger.info(
-                "Initial sync triggered",
+        except Exception as audit_error:
+            logger.warning(
+                "Failed to record audit event for connection connect",
                 connection_id=connection_id,
-                job_id=sync_job.job_id,
+                error=str(audit_error),
+            )
+
+        # Trigger initial ingestion via the durable job plane.
+        #
+        # This makes the "connect -> data appears" path restart-safe and keeps
+        # long-running work out of the API process.
+        try:
+            from datetime import timedelta
+
+            from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+            # 1) Fast-path sync: pull the most recent window first so the user sees value quickly.
+            initial_sync_job_id = await enqueue_job(
+                EnqueueJobRequest(
+                    organization_id=org_id,
+                    job_type="connector.sync",
+                    payload={
+                        "connection_id": connection_id,
+                        "organization_id": org_id,
+                        "streams": None,
+                        "full_refresh": True,
+                        "scheduled": False,
+                    },
+                    priority=2,
+                    max_attempts=3,
+                    idempotency_key=f"initial_sync:{connection_id}",
+                    resource_key=f"connection:{connection_id}",
+                )
+            )
+
+            # 2) Historical backfill: run a bounded default window (90d) in the background.
+            backfill_start = (datetime.utcnow() - timedelta(days=90)).isoformat()
+            initial_backfill_job_id = await enqueue_job(
+                EnqueueJobRequest(
+                    organization_id=org_id,
+                    job_type="connector.backfill_plan",
+                    payload={
+                        "connection_id": connection_id,
+                        "organization_id": org_id,
+                        "start_date": backfill_start,
+                        "end_date": None,
+                        "window_days": None,
+                        "streams": None,
+                        "throttle_seconds": None,
+                    },
+                    priority=1,
+                    max_attempts=2,
+                    idempotency_key=f"initial_backfill:{connection_id}",
+                    resource_key=f"connection:{connection_id}",
+                )
+            )
+
+            logger.info(
+                "Initial ingestion enqueued",
+                connection_id=connection_id,
+                initial_sync_job_id=initial_sync_job_id,
+                initial_backfill_job_id=initial_backfill_job_id,
             )
         except Exception as sync_error:
             # Don't fail the OAuth flow if sync fails to start
             # The user can manually trigger sync later
             logger.warning(
-                "Failed to trigger initial sync",
+                "Failed to enqueue initial ingestion",
                 connection_id=connection_id,
                 error=str(sync_error),
             )

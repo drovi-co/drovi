@@ -5,14 +5,17 @@ import {
   SignInForm,
   SignUpForm,
 } from "@/components/auth";
-import Loader from "@/components/loader";
-import { authClient } from "@/lib/auth-client";
+import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
   beforeLoad: async () => {
-    const session = await authClient.getSession();
-    if (session.data?.user) {
+    const store = useAuthStore.getState();
+    if (!store.user) {
+      await store.checkAuth();
+    }
+    const user = useAuthStore.getState().user;
+    if (user) {
       throw redirect({ to: "/dashboard" });
     }
   },
@@ -22,15 +25,6 @@ type AuthView = "sign-in" | "sign-up";
 
 function LoginPage() {
   const [view, setView] = useState<AuthView>("sign-in");
-  const { isPending } = authClient.useSession();
-
-  if (isPending) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader />
-      </div>
-    );
-  }
 
   const getTitle = () => {
     switch (view) {

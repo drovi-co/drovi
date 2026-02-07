@@ -118,10 +118,29 @@ async def get_db_pool():
     global _pool
     if _pool is None:
         import asyncpg
+        import json
         settings = get_settings()
         # Convert SQLAlchemy URL to asyncpg format
         db_url = str(settings.database_url).replace("postgresql+asyncpg://", "postgresql://")
-        raw_pool = await asyncpg.create_pool(db_url)
+
+        async def _init_connection(conn: asyncpg.Connection) -> None:
+            # asyncpg defaults to returning JSON/JSONB as strings and expects strings on inserts.
+            # Register codecs so we can transparently pass Python dict/list values for JSON columns.
+            await conn.set_type_codec(
+                "json",
+                encoder=json.dumps,
+                decoder=json.loads,
+                schema="pg_catalog",
+            )
+            await conn.set_type_codec(
+                "jsonb",
+                encoder=json.dumps,
+                decoder=json.loads,
+                schema="pg_catalog",
+                format="text",
+            )
+
+        raw_pool = await asyncpg.create_pool(db_url, init=_init_connection)
         _pool = _RLSAwarePool(raw_pool)
     return _pool
 

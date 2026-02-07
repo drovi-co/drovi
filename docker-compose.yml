@@ -73,6 +73,28 @@ services:
       - "9092:9092"
 
   # ---------------------------------------------------------------------------
+  # Redpanda Init (Create Required Topics)
+  # ---------------------------------------------------------------------------
+  redpanda-init:
+    image: redpandadata/redpanda:v24.2.7
+    depends_on:
+      redpanda:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "rpk topic create raw.connector.events -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create normalized.records -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create intelligence.pipeline.input -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create drovi-intelligence -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create graph.changes -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create raw.connector.events.retry -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create normalized.records.retry -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create intelligence.pipeline.input.retry -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create raw.connector.events.dlq -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create normalized.records.dlq -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create intelligence.pipeline.input.dlq -p 1 -r 1 --brokers redpanda:9092 || true"
+
+  # ---------------------------------------------------------------------------
   # MinIO (Evidence Storage)
   # ---------------------------------------------------------------------------
   minio:
@@ -183,8 +205,8 @@ services:
         condition: service_healthy
       falkordb:
         condition: service_started
-      redpanda:
-        condition: service_started
+      redpanda-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     env_file:
@@ -216,6 +238,54 @@ services:
       LOG_FORMAT: json
 
   # ---------------------------------------------------------------------------
+  # Durable Jobs Worker (Command Plane)
+  # ---------------------------------------------------------------------------
+  drovi-jobs-worker:
+    build:
+      context: ./drovi-intelligence
+      dockerfile: Dockerfile
+    container_name: drovi-intel-jobs-worker
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    command: ["python", "-m", "src.jobs.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      falkordb:
+        condition: service_started
+      redpanda-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./drovi-intelligence/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/0
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: 6379
+      FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
+      KAFKA_TOPIC_NORMALIZED_RECORDS: normalized.records
+      KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
+      KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
+      KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      EVIDENCE_STORAGE_BACKEND: s3
+      EVIDENCE_S3_BUCKET: drovi-evidence
+      EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
+      EVIDENCE_S3_ACCESS_KEY_ID: minioadmin
+      EVIDENCE_S3_SECRET_ACCESS_KEY: minioadmin
+      EVIDENCE_S3_PREFIX: drovi-evidence
+      EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS: 3600
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+
+  # ---------------------------------------------------------------------------
   # Ingestion Worker (Go)
   # ---------------------------------------------------------------------------
   drovi-ingestion-worker:
@@ -225,8 +295,8 @@ services:
     container_name: drovi-intel-ingestion-worker
     restart: unless-stopped
     depends_on:
-      redpanda:
-        condition: service_started
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
@@ -249,13 +319,36 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      falkordb:
+        condition: service_started
+      redpanda-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     env_file:
       - ./drovi-intelligence/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
       REDIS_URL: redis://redis:6379/0
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: 6379
+      FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_TOPIC_RAW_EVENTS: raw.connector.events
+      KAFKA_TOPIC_NORMALIZED_RECORDS: normalized.records
+      KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
+      KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
+      KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      EVIDENCE_STORAGE_BACKEND: s3
+      EVIDENCE_S3_BUCKET: drovi-evidence
+      EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
+      EVIDENCE_S3_ACCESS_KEY_ID: minioadmin
+      EVIDENCE_S3_SECRET_ACCESS_KEY: minioadmin
+      EVIDENCE_S3_PREFIX: drovi-evidence
+      EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS: 3600
       LOG_LEVEL: INFO
 
   # ---------------------------------------------------------------------------

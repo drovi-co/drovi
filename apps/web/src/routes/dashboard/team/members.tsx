@@ -1,6 +1,8 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,93 +21,67 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
-import type { OrgMember } from "@/lib/api";
+import { orgAPI, type OrgMember } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/team/members")({
   component: MembersPage,
 });
 
 function MembersPage() {
-  const { data: activeOrg } = authClient.useActiveOrganization();
-  const [isLoading, setIsLoading] = useState(false);
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [isPending, setIsPending] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: activeOrg, isPending: orgLoading } = authClient.useActiveOrganization();
+  const organizationId = activeOrg?.id ?? "";
 
-  // Fetch members when org changes
-  useEffect(() => {
-    const fetchMembers = async () => {
-      if (!activeOrg) {
-        setMembers([]);
-        setIsPending(false);
-        return;
-      }
+  const {
+    data: members,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["org-members", organizationId],
+    queryFn: () => orgAPI.listMembers(),
+    enabled: !!organizationId,
+  });
 
-      setIsPending(true);
-      try {
-        const result = await authClient.organization.listMembers();
-        if (result.data?.members) {
-          setMembers(result.data.members as OrgMember[]);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error("Failed to fetch members:", error);
-        }
-        toast.error("Failed to load team members");
-      } finally {
-        setIsPending(false);
-      }
-    };
+  const updateRoleMutation = useMutation({
+    mutationFn: async (params: { userId: string; role: "pilot_admin" | "pilot_member" | "pilot_viewer" }) => {
+      await orgAPI.updateMemberRole({ userId: params.userId, role: params.role });
+    },
+    onSuccess: () => {
+      toast.success("Role updated");
+      queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update role");
+    },
+  });
 
-    fetchMembers();
-  }, [activeOrg?.id]);
+  const removeMemberMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await orgAPI.removeMember(userId);
+    },
+    onSuccess: () => {
+      toast.success("Member removed");
+      queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to remove member");
+    },
+  });
 
-  const refetch = async () => {
-    if (!activeOrg) {
-      return;
-    }
-    const result = await authClient.organization.listMembers();
-    if (result.data?.members) {
-      setMembers(result.data.members as OrgMember[]);
-    }
-  };
+  const isMutating = updateRoleMutation.isPending || removeMemberMutation.isPending;
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!activeOrg) {
-      return;
-    }
-    setIsLoading(true);
-    try {
-      await authClient.organization.removeMember({
-        memberIdOrEmail: memberId,
-        organizationId: activeOrg.id,
-      });
-      refetch();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateRole = async (memberId: string, newRole: string) => {
-    if (!activeOrg) {
-      return;
-    }
-    setIsLoading(true);
-    try {
-      await authClient.organization.updateMemberRole({
-        memberId,
-        role: newRole as "admin" | "member",
-        organizationId: activeOrg.id,
-      });
-      refetch();
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const memberList = useMemo(() => members ?? [], [members]);
 
   if (!activeOrg) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">No organization selected</p>
+        {orgLoading ? (
+          <p className="text-muted-foreground">Loading organization…</p>
+        ) : (
+          <p className="text-muted-foreground">No organization selected</p>
+        )}
       </div>
     );
   }
@@ -128,12 +104,12 @@ function MembersPage() {
         <CardHeader>
           <CardTitle>Team Members</CardTitle>
           <CardDescription>
-            {members.length} member{members.length !== 1 ? "s" : ""} in this
+            {memberList.length} member{memberList.length !== 1 ? "s" : ""} in this
             organization
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isPending ? (
+          {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div className="flex animate-pulse items-center gap-4" key={i}>
@@ -145,13 +121,15 @@ function MembersPage() {
                 </div>
               ))}
             </div>
-          ) : members.length === 0 ? (
+          ) : isError ? (
+            <ApiErrorPanel error={error} onRetry={() => refetch()} />
+          ) : memberList.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
               No members found. Invite team members to get started.
             </p>
           ) : (
             <div className="space-y-4">
-              {members.map((member) => {
+              {memberList.map((member) => {
                 const displayName =
                   member.name ?? member.email?.split("@")[0] ?? "User";
                 const displayInitials = displayName
@@ -160,6 +138,9 @@ function MembersPage() {
                   .join("")
                   .toUpperCase()
                   .slice(0, 2);
+
+                const isOwner =
+                  member.role === "pilot_owner" || member.role === "owner";
 
                 return (
                   <div
@@ -180,7 +161,7 @@ function MembersPage() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          member.role === "pilot_owner"
+                          isOwner
                             ? "default"
                             : member.role === "pilot_admin"
                               ? "secondary"
@@ -189,11 +170,11 @@ function MembersPage() {
                       >
                         {member.role.replace("pilot_", "")}
                       </Badge>
-                      {member.role !== "pilot_owner" && (
+                      {!isOwner && (
                         <DropdownMenu>
                           <DropdownMenuTrigger>
                             <Button
-                              disabled={isLoading}
+                              disabled={isMutating}
                               size="icon"
                               variant="ghost"
                             >
@@ -204,26 +185,45 @@ function MembersPage() {
                             {member.role !== "pilot_admin" && (
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleUpdateRole(member.id, "admin")
+                                  updateRoleMutation.mutate({
+                                    userId: member.id,
+                                    role: "pilot_admin",
+                                  })
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
                                 Make Admin
                               </DropdownMenuItem>
                             )}
-                            {member.role === "pilot_admin" && (
+                            {member.role !== "pilot_member" && (
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleUpdateRole(member.id, "member")
+                                  updateRoleMutation.mutate({
+                                    userId: member.id,
+                                    role: "pilot_member",
+                                  })
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                Remove Admin
+                                Make Member
+                              </DropdownMenuItem>
+                            )}
+                            {member.role !== "pilot_viewer" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  updateRoleMutation.mutate({
+                                    userId: member.id,
+                                    role: "pilot_viewer",
+                                  })
+                                }
+                              >
+                                <Shield className="mr-2 h-4 w-4" />
+                                Make Viewer
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleRemoveMember(member.id)}
+                              onClick={() => removeMemberMutation.mutate(member.id)}
                             >
                               <UserMinus className="mr-2 h-4 w-4" />
                               Remove Member

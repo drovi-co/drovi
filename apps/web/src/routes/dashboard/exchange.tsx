@@ -22,6 +22,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -196,10 +197,15 @@ function ContinuumExchangePage() {
 
   if (isError) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        {error instanceof Error
-          ? error.message
-          : "Unable to load the Continuum Exchange"}
+      <div className="flex h-full flex-col justify-center p-6" data-no-shell-padding>
+        <ApiErrorPanel
+          error={error}
+          onRetry={() =>
+            queryClient.invalidateQueries({
+              queryKey: ["continuum-exchange", organizationId, filters],
+            })
+          }
+        />
       </div>
     );
   }

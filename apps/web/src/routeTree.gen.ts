@@ -14,6 +14,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AiRouteImport } from './routes/ai'
+import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
@@ -73,6 +74,11 @@ const AiRoute = AiRouteImport.update({
   path: '/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -84,9 +90,9 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
-  id: '/onboarding/',
-  path: '/onboarding/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
@@ -94,25 +100,25 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const OnboardingInviteTeamRoute = OnboardingInviteTeamRouteImport.update({
-  id: '/onboarding/invite-team',
-  path: '/onboarding/invite-team',
-  getParentRoute: () => rootRouteImport,
+  id: '/invite-team',
+  path: '/invite-team',
+  getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const OnboardingCreateOrgRoute = OnboardingCreateOrgRouteImport.update({
-  id: '/onboarding/create-org',
-  path: '/onboarding/create-org',
-  getParentRoute: () => rootRouteImport,
+  id: '/create-org',
+  path: '/create-org',
+  getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const OnboardingConnectSourcesRoute =
   OnboardingConnectSourcesRouteImport.update({
-    id: '/onboarding/connect-sources',
-    path: '/onboarding/connect-sources',
-    getParentRoute: () => rootRouteImport,
+    id: '/connect-sources',
+    path: '/connect-sources',
+    getParentRoute: () => OnboardingRouteRoute,
   } as any)
 const OnboardingCompleteRoute = OnboardingCompleteRouteImport.update({
-  id: '/onboarding/complete',
-  path: '/onboarding/complete',
-  getParentRoute: () => rootRouteImport,
+  id: '/complete',
+  path: '/complete',
+  getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const DashboardTrustRoute = DashboardTrustRouteImport.update({
   id: '/trust',
@@ -249,6 +255,7 @@ const DashboardCommitmentsCommitmentIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
+  '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/ai': typeof AiRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -267,7 +274,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/create-org': typeof OnboardingCreateOrgRoute
   '/onboarding/invite-team': typeof OnboardingInviteTeamRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/onboarding': typeof OnboardingIndexRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/dashboard/commitments/$commitmentId': typeof DashboardCommitmentsCommitmentIdRoute
   '/dashboard/decisions/$decisionId': typeof DashboardDecisionsDecisionIdRoute
   '/dashboard/tasks/$taskId': typeof DashboardTasksTaskIdRoute
@@ -329,6 +336,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
+  '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/ai': typeof AiRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -371,6 +379,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/onboarding'
     | '/ai'
     | '/forgot-password'
     | '/login'
@@ -389,7 +398,7 @@ export interface FileRouteTypes {
     | '/onboarding/create-org'
     | '/onboarding/invite-team'
     | '/dashboard/'
-    | '/onboarding'
+    | '/onboarding/'
     | '/dashboard/commitments/$commitmentId'
     | '/dashboard/decisions/$decisionId'
     | '/dashboard/tasks/$taskId'
@@ -450,6 +459,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/onboarding'
     | '/ai'
     | '/forgot-password'
     | '/login'
@@ -491,16 +501,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   AiRoute: typeof AiRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SuccessRoute: typeof SuccessRoute
-  OnboardingCompleteRoute: typeof OnboardingCompleteRoute
-  OnboardingConnectSourcesRoute: typeof OnboardingConnectSourcesRoute
-  OnboardingCreateOrgRoute: typeof OnboardingCreateOrgRoute
-  OnboardingInviteTeamRoute: typeof OnboardingInviteTeamRoute
-  OnboardingIndexRoute: typeof OnboardingIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -540,6 +546,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -556,10 +569,10 @@ declare module '@tanstack/react-router' {
     }
     '/onboarding/': {
       id: '/onboarding/'
-      path: '/onboarding'
-      fullPath: '/onboarding'
+      path: '/'
+      fullPath: '/onboarding/'
       preLoaderRoute: typeof OnboardingIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/dashboard/': {
       id: '/dashboard/'
@@ -570,31 +583,31 @@ declare module '@tanstack/react-router' {
     }
     '/onboarding/invite-team': {
       id: '/onboarding/invite-team'
-      path: '/onboarding/invite-team'
+      path: '/invite-team'
       fullPath: '/onboarding/invite-team'
       preLoaderRoute: typeof OnboardingInviteTeamRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/onboarding/create-org': {
       id: '/onboarding/create-org'
-      path: '/onboarding/create-org'
+      path: '/create-org'
       fullPath: '/onboarding/create-org'
       preLoaderRoute: typeof OnboardingCreateOrgRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/onboarding/connect-sources': {
       id: '/onboarding/connect-sources'
-      path: '/onboarding/connect-sources'
+      path: '/connect-sources'
       fullPath: '/onboarding/connect-sources'
       preLoaderRoute: typeof OnboardingConnectSourcesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/onboarding/complete': {
       id: '/onboarding/complete'
-      path: '/onboarding/complete'
+      path: '/complete'
       fullPath: '/onboarding/complete'
       preLoaderRoute: typeof OnboardingCompleteRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/dashboard/trust': {
       id: '/dashboard/trust'
@@ -836,19 +849,35 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
   DashboardRouteRouteChildren,
 )
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DashboardRouteRoute: DashboardRouteRouteWithChildren,
-  AiRoute: AiRoute,
-  ForgotPasswordRoute: ForgotPasswordRoute,
-  LoginRoute: LoginRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
-  SuccessRoute: SuccessRoute,
+interface OnboardingRouteRouteChildren {
+  OnboardingCompleteRoute: typeof OnboardingCompleteRoute
+  OnboardingConnectSourcesRoute: typeof OnboardingConnectSourcesRoute
+  OnboardingCreateOrgRoute: typeof OnboardingCreateOrgRoute
+  OnboardingInviteTeamRoute: typeof OnboardingInviteTeamRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
+}
+
+const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
   OnboardingCompleteRoute: OnboardingCompleteRoute,
   OnboardingConnectSourcesRoute: OnboardingConnectSourcesRoute,
   OnboardingCreateOrgRoute: OnboardingCreateOrgRoute,
   OnboardingInviteTeamRoute: OnboardingInviteTeamRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
+}
+
+const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
+  OnboardingRouteRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
+  OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
+  AiRoute: AiRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SuccessRoute: SuccessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

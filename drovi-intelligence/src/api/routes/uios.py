@@ -56,6 +56,67 @@ def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
         )
 
 
+def _get_session_user_id(ctx: APIKeyContext) -> str | None:
+    """
+    Best-effort extraction of the session user_id from APIKeyContext.
+
+    When the Pilot Surface authenticates via session JWT, the middleware sets:
+      key_id = "session:<user_id>"
+    """
+    if not ctx.key_id:
+        return None
+    if isinstance(ctx.key_id, str) and ctx.key_id.startswith("session:"):
+        return ctx.key_id.split("session:", 1)[1] or None
+    return None
+
+
+def _private_source_visibility_condition(ctx: APIKeyContext) -> tuple[str | None, dict]:
+    """
+    Build a SQL WHERE condition that prevents leakage of private sources.
+
+    Semantics:
+    - Admin/internal: no additional filter.
+    - Session user: exclude UIOs that have ANY source from a private connection
+      owned by a different user.
+    - Non-session API key: exclude ALL private sources (no user boundary).
+    """
+    if ctx.is_internal or ctx.has_scope(Scope.ADMIN):
+        return None, {}
+
+    user_id = _get_session_user_id(ctx)
+    if user_id:
+        return (
+            """
+            NOT EXISTS (
+                SELECT 1
+                FROM unified_object_source uos_priv
+                JOIN connections c_priv
+                  ON c_priv.organization_id = u.organization_id
+                 AND c_priv.id::text = uos_priv.source_account_id
+                WHERE uos_priv.unified_object_id = u.id
+                  AND c_priv.visibility = 'private'
+                  AND (c_priv.created_by_user_id IS DISTINCT FROM :current_user_id)
+            )
+            """.strip(),
+            {"current_user_id": user_id},
+        )
+
+    return (
+        """
+        NOT EXISTS (
+            SELECT 1
+            FROM unified_object_source uos_priv
+            JOIN connections c_priv
+              ON c_priv.organization_id = u.organization_id
+             AND c_priv.id::text = uos_priv.source_account_id
+            WHERE uos_priv.unified_object_id = u.id
+              AND c_priv.visibility = 'private'
+        )
+        """.strip(),
+        {},
+    )
+
+
 # =============================================================================
 # Request/Response Models
 # =============================================================================
@@ -883,6 +944,11 @@ async def list_uios_v2(
                     for i, s in enumerate(internal_statuses):
                         params[f"status_{i}"] = s
 
+            private_condition, private_params = _private_source_visibility_condition(ctx)
+            if private_condition:
+                conditions.append(private_condition)
+                params.update(private_params)
+
             where_clause = " AND ".join(conditions)
 
             # Count total
@@ -1057,12 +1123,17 @@ async def get_uio(
 
     try:
         async with get_db_session() as session:
+            private_condition, private_params = _private_source_visibility_condition(ctx)
+            where_clause = "u.id = :uio_id AND u.organization_id = :org_id"
+            if private_condition:
+                where_clause = f"{where_clause} AND {private_condition}"
+
             result = await session.execute(
                 text(f"""
                     {FULL_UIO_QUERY}
-                    WHERE u.id = :uio_id AND u.organization_id = :org_id
+                    WHERE {where_clause}
                 """),
-                {"uio_id": uio_id, "org_id": org_id},
+                {"uio_id": uio_id, "org_id": org_id, **private_params},
             )
             row = result.fetchone()
 

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth-client";
 import { orgAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   getStoredOnboardingState,
   inferOnboardingComplete,
@@ -13,15 +13,14 @@ export const Route = createFileRoute("/onboarding/")({
 });
 
 function OnboardingIndex() {
-  const { data: session, isPending } = authClient.useSession();
-  const { data: orgs } = authClient.useListOrganizations();
+  const { user, isLoading: authLoading } = useAuthStore();
   const { data: orgInfo } = useQuery({
     queryKey: ["org-info"],
     queryFn: () => orgAPI.getOrgInfo(),
-    enabled: !!session,
+    enabled: !!user,
   });
 
-  if (isPending) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -30,8 +29,8 @@ function OnboardingIndex() {
   }
 
   // If not authenticated, redirect to login
-  if (!session) {
-    return <Navigate to="/" />;
+  if (!user) {
+    return <Navigate to="/login" />;
   }
 
   const stored = getStoredOnboardingState();
@@ -50,8 +49,7 @@ function OnboardingIndex() {
 
   const shouldRunOnboarding = effectiveState !== "complete";
 
-  // If user has organizations and onboarding is not pending, redirect to dashboard
-  if (orgs && orgs.length > 0 && !shouldRunOnboarding) {
+  if (!shouldRunOnboarding) {
     return <Navigate to="/dashboard" />;
   }
 

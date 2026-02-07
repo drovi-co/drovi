@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +61,13 @@ function TrustAuditPage() {
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
-  const { data: uioSamples, isLoading: uioLoading } = useQuery({
+  const {
+    data: uioSamples,
+    isLoading: uioLoading,
+    isError: uioError,
+    error: uioErrorObj,
+    refetch: refetchUios,
+  } = useQuery({
     queryKey: ["trust-uio-samples", organizationId],
     queryFn: async () => {
       const [commitments, decisions] = await Promise.all([
@@ -77,7 +84,13 @@ function TrustAuditPage() {
     [uioSamples]
   );
 
-  const { data: trustIndicators, isLoading: trustLoading } = useQuery({
+  const {
+    data: trustIndicators,
+    isLoading: trustLoading,
+    isError: trustError,
+    error: trustErrorObj,
+    refetch: refetchTrust,
+  } = useQuery({
     queryKey: ["trust-indicators", organizationId, uioIds.join(",")],
     queryFn: () =>
       trustAPI.getIndicators({
@@ -88,7 +101,13 @@ function TrustAuditPage() {
     enabled: !!organizationId && uioIds.length > 0,
   });
 
-  const { data: auditStatusRaw, isLoading: auditLoading, refetch } = useQuery({
+  const {
+    data: auditStatusRaw,
+    isLoading: auditLoading,
+    isError: auditError,
+    error: auditErrorObj,
+    refetch,
+  } = useQuery({
     queryKey: ["audit-ledger", organizationId],
     queryFn: () => auditAPI.verifyLedger(organizationId),
     enabled: !!organizationId,
@@ -153,6 +172,10 @@ function TrustAuditPage() {
           <CardContent className="space-y-3">
             {uioLoading || trustLoading ? (
               <Skeleton className="h-64" />
+            ) : uioError ? (
+              <ApiErrorPanel error={uioErrorObj} onRetry={() => refetchUios()} />
+            ) : trustError ? (
+              <ApiErrorPanel error={trustErrorObj} onRetry={() => refetchTrust()} />
             ) : (trustIndicators ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 No trust indicators found yet.
@@ -182,6 +205,8 @@ function TrustAuditPage() {
           <CardContent className="space-y-4">
             {auditLoading ? (
               <Skeleton className="h-40" />
+            ) : auditError ? (
+              <ApiErrorPanel error={auditErrorObj} onRetry={() => refetch()} />
             ) : auditStatus ? (
               <>
                 <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2">

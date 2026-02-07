@@ -76,7 +76,7 @@ class PilotToken(BaseModel):
 
     sub: str  # user_id
     org_id: str
-    role: Literal["pilot_admin", "pilot_member"]
+    role: Literal["pilot_owner", "pilot_admin", "pilot_member", "pilot_viewer"]
     email: str
     exp: datetime
     iat: datetime
@@ -487,18 +487,18 @@ async def handle_email_signup(
 
         logger.info("Organization created for signup", org_id=org_id, name=org_name)
 
-        # Create membership as admin
+        # First user becomes the org owner.
         await get_or_create_membership(
             user_id=user["id"],
             org_id=org_id,
-            role="pilot_admin",
+            role="pilot_owner",
         )
 
     # Issue JWT
     token = create_jwt(
         user_id=user["id"],
         org_id=org_id,
-        role="pilot_admin" if not invite_token else role,
+        role="pilot_owner" if not invite_token else role,
         email=email,
     )
 
@@ -512,7 +512,7 @@ async def handle_email_signup(
         token=token,
         user_id=user["id"],
         org_id=org_id,
-        role="pilot_admin" if not invite_token else role,
+        role="pilot_owner" if not invite_token else role,
         email=email,
         name=name,
         is_new_user=True,

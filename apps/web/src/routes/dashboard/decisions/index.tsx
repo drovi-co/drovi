@@ -12,6 +12,7 @@ import { format, startOfMonth, subMonths } from "date-fns";
 import { Download, GitBranch, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import {
   type DecisionCardData,
   type DecisionDetailData,
@@ -107,6 +108,8 @@ function DecisionsPage() {
   const {
     data: decisionsData,
     isLoading: isLoadingDecisions,
+    isError: decisionsError,
+    error: decisionsErrorObj,
     refetch,
   } = useDecisionUIOs({
     organizationId,
@@ -668,6 +671,10 @@ function DecisionsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : decisionsError ? (
+            <div className="p-4">
+              <ApiErrorPanel error={decisionsErrorObj} onRetry={() => refetch()} />
             </div>
           ) : displayDecisions.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center p-8 text-center">

@@ -5,9 +5,19 @@
  * Uses cookie-based session auth (httpOnly cookies).
  */
 
+import { useEffect } from "react";
 import { create } from "zustand";
 import { authAPI, type User } from "./api";
 import { clearSessionToken, setSessionToken } from "./session-token";
+
+// Auth sequencing model:
+// - "Interactive" ops (login/signup/logout) are user actions and must not be
+//   invalidated by background `checkAuth()` calls.
+// - `checkAuth()` can run in parallel across route guards and hooks, but only
+//   the latest `checkAuth()` result should apply, and it must never overwrite a
+//   newer interactive operation.
+let interactiveAuthSeq = 0;
+let checkAuthSeq = 0;
 
 // =============================================================================
 // AUTH STORE
@@ -21,13 +31,18 @@ interface AuthState {
 
   // Actions
   checkAuth: () => Promise<void>;
-  loginWithEmail: (email: string, password: string) => Promise<void>;
+  loginWithEmail: (
+    email: string,
+    password: string,
+    options?: { persist?: boolean }
+  ) => Promise<void>;
   signupWithEmail: (params: {
     email: string;
     password: string;
     name?: string;
     organizationName?: string;
     inviteToken?: string;
+    options?: { persist?: boolean };
   }) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -40,9 +55,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   checkAuth: async () => {
+    const seq = ++checkAuthSeq;
+    const interactiveSeqAtStart = interactiveAuthSeq;
+    const previousUser = get().user;
+    const previousAuthenticated = get().isAuthenticated;
     set({ isLoading: true, error: null });
     try {
       const user = await authAPI.getMe();
+      // Only the latest checkAuth applies.
+      if (seq !== checkAuthSeq) {
+        return;
+      }
+      // If an interactive auth op occurred while we were waiting, ignore this
+      // result to avoid overwriting the newer state.
+      if (interactiveSeqAtStart !== interactiveAuthSeq) {
+        return;
+      }
       set({
         user,
         isAuthenticated: !!user,
@@ -52,24 +80,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         clearSessionToken();
       }
     } catch (e) {
+      if (seq !== checkAuthSeq) {
+        return;
+      }
+      if (interactiveSeqAtStart !== interactiveAuthSeq) {
+        return;
+      }
       set({
-        user: null,
-        isAuthenticated: false,
+        // Do not destroy auth state on transient errors (API unreachable, 5xx).
+        // Only a confirmed 401 in `authAPI.getMe()` should clear tokens.
+        user: previousUser,
+        isAuthenticated: previousAuthenticated,
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to check auth",
       });
-      clearSessionToken();
     }
   },
 
-  loginWithEmail: async (email: string, password: string) => {
+  loginWithEmail: async (email: string, password: string, options) => {
+    const opSeq = ++interactiveAuthSeq;
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.loginWithEmail({ email, password });
-      setSessionToken(response.session_token);
+      setSessionToken(response.session_token, { persist: options?.persist ?? true });
       const user = await authAPI.getMe();
       if (!user) {
         throw new Error("Unable to verify session after login");
+      }
+      if (opSeq !== interactiveAuthSeq) {
+        return;
       }
       set({
         user,
@@ -78,6 +117,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       return;
     } catch (e) {
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
       set({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to sign in",
@@ -88,13 +130,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signupWithEmail: async (params) => {
+    const opSeq = ++interactiveAuthSeq;
     set({ isLoading: true, error: null });
     try {
-      const response = await authAPI.signupWithEmail(params);
-      setSessionToken(response.session_token);
+      const { options, ...request } = params;
+      const response = await authAPI.signupWithEmail(request);
+      setSessionToken(response.session_token, {
+        persist: options?.persist ?? true,
+      });
       const user = await authAPI.getMe();
       if (!user) {
         throw new Error("Unable to verify session after signup");
+      }
+      if (opSeq !== interactiveAuthSeq) {
+        return;
       }
       set({
         user,
@@ -103,6 +152,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       return;
     } catch (e) {
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
       set({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to sign up",
@@ -113,16 +165,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const opSeq = ++interactiveAuthSeq;
     set({ isLoading: true, error: null });
     try {
       await authAPI.logout();
       clearSessionToken();
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
       });
     } catch (e) {
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
       set({
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to logout",
@@ -162,11 +221,13 @@ export function useAuth() {
 export function useRequireAuth() {
   const { user, isLoading, isAuthenticated, checkAuth } = useAuth();
 
-  // Check auth on mount if not already checked
-  if (!isLoading && !isAuthenticated && user === null) {
-    // Trigger auth check for email login flow
-    checkAuth();
-  }
+  // Check auth on mount if not already checked.
+  // Avoid triggering async effects during render.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && user === null) {
+      void checkAuth();
+    }
+  }, [checkAuth, isAuthenticated, isLoading, user]);
 
   return { user, isLoading };
 }

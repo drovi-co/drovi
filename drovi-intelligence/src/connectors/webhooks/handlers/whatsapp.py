@@ -482,23 +482,65 @@ class WhatsAppWebhookHandler:
                     return
                 organization_id = str(row["organization_id"])
 
-            # Queue for intelligence extraction via Celery
-            from src.connectors.scheduling.celery_tasks import analyze_content
+            # Queue for intelligence extraction via the Kafka event plane.
+            #
+            # This keeps webhook handlers fast and makes processing restart-safe.
+            from src.config import get_settings
+            from src.ingestion.priority import compute_ingest_priority
+            from src.streaming.kafka_producer import get_kafka_producer
 
-            analyze_content.apply_async(
-                args=[content, organization_id, "whatsapp"],
-                kwargs={
-                    "metadata": {
+            settings = get_settings()
+            if not settings.kafka_enabled:
+                # Fallback for dev/test when Kafka is disabled: run extraction inline.
+                from src.orchestrator.graph import run_intelligence_extraction
+
+                await run_intelligence_extraction(
+                    content=content,
+                    organization_id=organization_id,
+                    source_type="whatsapp",
+                    source_id=message.id,
+                    source_account_id=str(connection_id),
+                    conversation_id=None,
+                    message_ids=[message.id],
+                    user_email=None,
+                    user_name=message.profile_name,
+                    metadata={
+                        "connector_type": "whatsapp",
+                        "connection_id": str(connection_id),
                         "message_id": message.id,
                         "from_number": message.from_number,
                         "to_number": message.to_number,
                         "profile_name": message.profile_name,
-                        "connection_id": connection_id,
                         "is_reply": message.context is not None,
-                    }
-                },
-                queue="default",
-            )
+                    },
+                )
+            else:
+                producer = await get_kafka_producer()
+                priority = compute_ingest_priority(
+                    source_type="whatsapp",
+                    job_type="webhook",
+                )
+                await producer.produce_raw_event(
+                    organization_id=organization_id,
+                    source_type="whatsapp",
+                    event_type="whatsapp.message.received",
+                    source_id=message.id,
+                    priority=priority,
+                    payload={
+                        "connector_type": "whatsapp",
+                        "connection_id": str(connection_id),
+                        "job_type": "webhook",
+                        # Keep the key as `text` so normalization extracts content reliably.
+                        "text": content,
+                        "metadata": {
+                            "message_id": message.id,
+                            "from_number": message.from_number,
+                            "to_number": message.to_number,
+                            "profile_name": message.profile_name,
+                            "is_reply": message.context is not None,
+                        },
+                    },
+                )
 
             logger.info(
                 "WhatsApp message queued for intelligence extraction",

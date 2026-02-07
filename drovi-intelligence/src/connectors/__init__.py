@@ -33,6 +33,18 @@ from src.connectors.sources.productivity.google_docs.connector import GoogleDocs
 # CRM
 from src.connectors.sources.crm.hubspot import HubSpotConnector
 
+# Storage
+from src.connectors.sources.storage.s3 import S3Connector
+from src.connectors.sources.storage.bigquery import BigQueryConnector
+
+# Databases
+from src.connectors.sources.databases.postgres import PostgresConnector
+from src.connectors.sources.databases.mysql import MySQLConnector
+from src.connectors.sources.databases.mongodb import MongoDBConnector
+
+# Files
+from src.connectors.sources.files.documents import DocumentConnector
+
 # =============================================================================
 # EXPORTS
 # =============================================================================
@@ -63,4 +75,13 @@ __all__ = [
     "GoogleDocsConnector",
     # CRM connectors
     "HubSpotConnector",
+    # Storage connectors
+    "S3Connector",
+    "BigQueryConnector",
+    # Database connectors
+    "PostgresConnector",
+    "MySQLConnector",
+    "MongoDBConnector",
+    # Files connectors
+    "DocumentConnector",
 ]

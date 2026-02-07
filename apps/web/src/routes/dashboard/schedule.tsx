@@ -11,6 +11,7 @@ import { Calendar, Clock, Loader2 } from "lucide-react";
 import { useMemo } from "react";
 
 import { CommitmentTimeline } from "@/components/dashboards";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -83,7 +84,13 @@ function SchedulePage() {
     enabled: !!organizationId,
   });
 
-  const { data: continuums, isLoading: continuumsLoading } = useQuery({
+  const {
+    data: continuums,
+    isLoading: continuumsLoading,
+    isError: continuumsError,
+    error: continuumsErrorObj,
+    refetch: refetchContinuums,
+  } = useQuery({
     queryKey: ["continuums", organizationId],
     queryFn: () => continuumsAPI.list(organizationId),
     enabled: !!organizationId,
@@ -138,6 +145,11 @@ function SchedulePage() {
           <CardContent>
             {commitmentsQuery.isLoading ? (
               <Skeleton className="h-64" />
+            ) : commitmentsQuery.isError ? (
+              <ApiErrorPanel
+                error={commitmentsQuery.error}
+                onRetry={() => commitmentsQuery.refetch()}
+              />
             ) : (
               <CommitmentTimeline
                 commitments={timelineItems}
@@ -163,6 +175,8 @@ function SchedulePage() {
           <CardContent className="space-y-3">
             {continuumsLoading ? (
               <Skeleton className="h-40" />
+            ) : continuumsError ? (
+              <ApiErrorPanel error={continuumsErrorObj} onRetry={() => refetchContinuums()} />
             ) : (continuums ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 No Continuums scheduled yet.

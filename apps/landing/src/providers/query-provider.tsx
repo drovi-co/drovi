@@ -2,7 +2,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 
-import { queryClient } from "@/lib/trpc";
+import { queryClient } from "@/lib/query-client";
 
 // React 19 types conflict workaround
 // biome-ignore lint/suspicious/noExplicitAny: React types version mismatch

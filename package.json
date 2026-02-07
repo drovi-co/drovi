@@ -40,9 +40,11 @@
     "docker:dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
+    "docker:up:build": "docker compose up -d --build",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart",
+    "green": "bun run check-types && bun run test:run && bun run docker:up:build",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"

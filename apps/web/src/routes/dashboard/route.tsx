@@ -13,7 +13,7 @@ import type {
   FilterConfig,
   HeaderTab,
 } from "@/components/layout/interactive-header";
-import { authClient } from "@/lib/auth-client";
+import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
 import {
   getStoredOnboardingState,
@@ -24,8 +24,13 @@ import {
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
   beforeLoad: async () => {
-    const session = await authClient.getSession();
-    if (!session.data || !session.data.user) {
+    const store = useAuthStore.getState();
+    if (!store.user) {
+      await store.checkAuth();
+    }
+
+    const user = useAuthStore.getState().user;
+    if (!user) {
       throw redirect({
         to: "/login",
       });
@@ -45,11 +50,13 @@ export const Route = createFileRoute("/dashboard")({
           throw redirect({ to: "/onboarding/create-org" });
         }
       } catch {
-        // If we cannot confirm onboarding state, proceed to dashboard.
+        // If we cannot confirm onboarding state, default to onboarding.
+        setStoredOnboardingState("pending");
+        throw redirect({ to: "/onboarding/create-org" });
       }
     }
 
-    return { session };
+    return { user };
   },
 });
 

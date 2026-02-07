@@ -495,18 +495,27 @@ async def trigger_decay(
     _validate_org_id(ctx, organization_id)
 
     if async_mode:
-        # Queue for background processing
-        try:
-            from src.connectors.scheduling.celery_tasks import compute_memory_decay
+        # Queue for background processing via the durable job plane.
+        from src.jobs.queue import EnqueueJobRequest, enqueue_job
 
-            compute_memory_decay.apply_async(queue="default")
+        bucket = int(datetime.utcnow().timestamp()) // 60
+        job_id = await enqueue_job(
+            EnqueueJobRequest(
+                organization_id=organization_id,
+                job_type="memory.decay",
+                payload={"organization_id": organization_id},
+                priority=0,
+                max_attempts=1,
+                idempotency_key=f"manual_memory_decay:{organization_id}:{bucket}",
+                resource_key=f"org:{organization_id}:memory_decay",
+            )
+        )
 
-            return {
-                "status": "queued",
-                "message": "Decay computation queued for background processing",
-            }
-        except Exception as e:
-            logger.warning("Celery not available, running synchronously", error=str(e))
+        return {
+            "status": "queued",
+            "job_id": job_id,
+            "message": "Decay computation queued for background processing",
+        }
 
     # Run synchronously
     try:

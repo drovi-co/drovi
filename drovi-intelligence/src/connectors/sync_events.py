@@ -7,6 +7,7 @@ Simple pub/sub for real-time sync status updates using Redis.
 import asyncio
 import json
 from datetime import datetime
+from typing import Any
 from typing import AsyncIterator
 
 import redis.asyncio as redis
@@ -33,6 +34,8 @@ class SyncEvent(BaseModel):
     progress: float | None = None  # 0.0 to 1.0
     status: str = "syncing"
     error: str | None = None
+    # Optional metadata (e.g., backfill window index/total) for UI progress.
+    sync_params: dict[str, Any] | None = None
     timestamp: datetime | None = None
 
     def model_post_init(self, __context):
@@ -119,6 +122,7 @@ async def emit_sync_started(
     organization_id: str,
     connector_type: str,
     job_id: str,
+    sync_params: dict[str, Any] | None = None,
 ) -> None:
     """Emit sync started event."""
     await publish_sync_event(
@@ -129,6 +133,7 @@ async def emit_sync_started(
             connector_type=connector_type,
             job_id=job_id,
             status="syncing",
+            sync_params=sync_params,
         )
     )
 
@@ -140,6 +145,7 @@ async def emit_sync_progress(
     job_id: str,
     records_synced: int,
     total_records: int | None = None,
+    sync_params: dict[str, Any] | None = None,
 ) -> None:
     """Emit sync progress event."""
     progress = None
@@ -157,6 +163,7 @@ async def emit_sync_progress(
             total_records=total_records,
             progress=progress,
             status="syncing",
+            sync_params=sync_params,
         )
     )
 
@@ -167,6 +174,7 @@ async def emit_sync_completed(
     connector_type: str,
     job_id: str,
     records_synced: int,
+    sync_params: dict[str, Any] | None = None,
 ) -> None:
     """Emit sync completed event."""
     await publish_sync_event(
@@ -179,6 +187,7 @@ async def emit_sync_completed(
             records_synced=records_synced,
             progress=1.0,
             status="connected",
+            sync_params=sync_params,
         )
     )
 
@@ -190,6 +199,7 @@ async def emit_sync_failed(
     job_id: str,
     error: str,
     records_synced: int = 0,
+    sync_params: dict[str, Any] | None = None,
 ) -> None:
     """Emit sync failed event."""
     await publish_sync_event(
@@ -202,5 +212,6 @@ async def emit_sync_failed(
             records_synced=records_synced,
             status="error",
             error=error,
+            sync_params=sync_params,
         )
     )

@@ -165,13 +165,26 @@ class ConnectorScheduler:
 
             # Periodic webhook outbox flush (Kafka)
             try:
-                from src.connectors.webhooks.outbox import flush_webhook_outbox
                 from src.config import get_settings
 
                 settings = get_settings()
 
                 async def flush_job():
-                    await flush_webhook_outbox()
+                    # Enqueue only; workers execute.
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    bucket = int(datetime.utcnow().timestamp()) // 60
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="webhook.outbox.flush",
+                            payload={"limit": 100},
+                            priority=0,
+                            max_attempts=3,
+                            idempotency_key=f"webhook_outbox_flush:{bucket}",
+                            resource_key="system:webhook_outbox_flush",
+                        )
+                    )
 
                 if settings.kafka_enabled:
                     self._scheduler.add_job(
@@ -188,13 +201,27 @@ class ConnectorScheduler:
 
             # Periodic signal candidate processing
             try:
-                from src.candidates.processor import process_signal_candidates
                 from src.config import get_settings
 
                 settings = get_settings()
 
                 async def process_candidates_job():
-                    await process_signal_candidates(limit=200)
+                    # Enqueue only; workers execute.
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    interval = max(10, int(settings.candidate_processing_interval_seconds))
+                    bucket = int(datetime.utcnow().timestamp()) // interval
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="candidates.process",
+                            payload={"limit": 200},
+                            priority=0,
+                            max_attempts=3,
+                            idempotency_key=f"candidates_process:{bucket}",
+                            resource_key="system:candidates_process",
+                        )
+                    )
 
                 if settings.candidate_processing_enabled:
                     self._scheduler.add_job(
@@ -211,16 +238,30 @@ class ConnectorScheduler:
 
             # Weekly executive brief + blindspot report
             try:
-                from src.analytics.reporting import generate_weekly_reports
                 from src.config import get_settings
 
                 settings = get_settings()
 
                 async def weekly_reports_job():
-                    await generate_weekly_reports(
-                        pilot_only=settings.weekly_reports_pilot_only,
-                        brief_days=settings.weekly_brief_days,
-                        blindspot_days=settings.weekly_blindspot_days,
+                    # Enqueue only; workers execute.
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    # Idempotency key uses calendar week so restarts don't duplicate.
+                    year, week, _ = datetime.utcnow().isocalendar()
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="reports.weekly",
+                            payload={
+                                "pilot_only": settings.weekly_reports_pilot_only,
+                                "brief_days": settings.weekly_brief_days,
+                                "blindspot_days": settings.weekly_blindspot_days,
+                            },
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"weekly_reports:{year}-W{week}",
+                            resource_key="system:reports_weekly",
+                        )
                     )
 
                 if settings.weekly_reports_enabled:
@@ -238,15 +279,28 @@ class ConnectorScheduler:
 
             # Daily executive brief
             try:
-                from src.analytics.reporting import generate_daily_reports
                 from src.config import get_settings
 
                 settings = get_settings()
 
                 async def daily_reports_job():
-                    await generate_daily_reports(
-                        pilot_only=settings.daily_reports_pilot_only,
-                        brief_days=settings.daily_brief_days,
+                    # Enqueue only; workers execute.
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    day = datetime.utcnow().strftime("%Y-%m-%d")
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="reports.daily",
+                            payload={
+                                "pilot_only": settings.daily_reports_pilot_only,
+                                "brief_days": settings.daily_brief_days,
+                            },
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"daily_reports:{day}",
+                            resource_key="system:reports_daily",
+                        )
                     )
 
                 if settings.daily_reports_enabled:
@@ -261,6 +315,235 @@ class ConnectorScheduler:
                     )
             except Exception as e:
                 logger.warning("Failed to schedule daily reports", error=str(e))
+
+            # Daily memory decay computation
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def memory_decay_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    day = datetime.utcnow().strftime("%Y-%m-%d")
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="memory.decay",
+                            payload={"organization_id": None},
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"memory_decay:{day}",
+                            resource_key="system:memory_decay",
+                        )
+                    )
+
+                if settings.memory_decay_enabled:
+                    self._scheduler.add_job(
+                        memory_decay_job,
+                        trigger=CronTrigger.from_crontab(settings.memory_decay_cron),
+                        id="memory_decay",
+                        name="Daily memory decay computation",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule memory decay", error=str(e))
+
+            # Daily evidence retention cleanup
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def retention_cleanup_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    day = datetime.utcnow().strftime("%Y-%m-%d")
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="evidence.retention",
+                            payload={
+                                "organization_id": None,
+                                "dry_run": False,
+                                "limit": int(settings.evidence_retention_cleanup_limit),
+                            },
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"evidence_retention:{day}",
+                            resource_key="system:evidence_retention",
+                        )
+                    )
+
+                if settings.evidence_retention_cleanup_enabled:
+                    self._scheduler.add_job(
+                        retention_cleanup_job,
+                        trigger=CronTrigger.from_crontab(settings.evidence_retention_cleanup_cron),
+                        id="evidence_retention_cleanup",
+                        name="Evidence retention cleanup",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule evidence retention cleanup", error=str(e))
+
+            # Reconcile per-connection scheduled sync jobs (restart-safe).
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def reconcile_job():
+                    await self.reconcile_connection_schedules()
+
+                await self.reconcile_connection_schedules()
+
+                self._scheduler.add_job(
+                    reconcile_job,
+                    trigger=IntervalTrigger(seconds=settings.scheduler_reconcile_interval_seconds),
+                    id="reconcile_connection_schedules",
+                    name="Reconcile connection schedules",
+                    replace_existing=True,
+                    coalesce=True,
+                    max_instances=1,
+                )
+            except Exception as e:
+                logger.warning("Failed to schedule connection reconciliation", error=str(e))
+
+    async def reconcile_connection_schedules(self) -> dict[str, int]:
+        """
+        Ensure APScheduler contains a scheduled sync job for every active connection.
+
+        This is restart-safe: the scheduler can crash/restart and schedules are
+        rebuilt from DB state.
+        """
+        from src.config import get_settings
+        from src.db.client import get_db_pool
+        from src.db.rls import rls_context
+
+        settings = get_settings()
+
+        # Kill switch: allow disabling scheduled syncs during incidents.
+        if not settings.scheduler_scheduled_syncs_enabled:
+            removed = 0
+            for job in self._scheduler.get_jobs():
+                if job.id.startswith("sync_"):
+                    try:
+                        self._scheduler.remove_job(job.id)
+                        removed += 1
+                    except Exception:
+                        pass
+            logger.warning(
+                "Scheduled syncs disabled; removed scheduled jobs",
+                removed=removed,
+            )
+            return {"scheduled": 0, "removed": removed}
+
+        with rls_context(None, is_internal=True):
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT
+                        id::text as id,
+                        organization_id,
+                        connector_type,
+                        name,
+                        sync_frequency_minutes
+                    FROM connections
+                    WHERE sync_enabled = TRUE
+                      AND status IN ('active', 'connected')
+                    """
+                )
+
+        desired_job_ids: set[str] = set()
+        scheduled = 0
+
+        for row in rows:
+            connection_id = row["id"]
+            organization_id = row["organization_id"]
+            connector_type = row["connector_type"]
+            name = row["name"]
+            interval_minutes = row["sync_frequency_minutes"]
+
+            if not interval_minutes:
+                defaults = DEFAULT_SYNC_SCHEDULES.get(connector_type, {})
+                interval_minutes = defaults.get("interval_minutes", 15)
+
+            # Safety clamp.
+            interval_minutes = max(int(interval_minutes), 1)
+
+            job_id = f"sync_{connection_id}"
+            desired_job_ids.add(job_id)
+
+            async def sync_job(
+                _connection_id: str = connection_id,
+                _organization_id: str = organization_id,
+                _connector_type: str = connector_type,
+                _interval_minutes: int = interval_minutes,
+            ) -> None:
+                try:
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    bucket = int(datetime.utcnow().timestamp()) // max(60, _interval_minutes * 60)
+                    idempotency_key = f"scheduled_sync:{_connection_id}:{bucket}"
+
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id=_organization_id,
+                            job_type="connector.sync",
+                            payload={
+                                "connection_id": _connection_id,
+                                "organization_id": _organization_id,
+                                "scheduled": True,
+                            },
+                            priority=0,
+                            max_attempts=3,
+                            idempotency_key=idempotency_key,
+                            resource_key=f"connection:{_connection_id}",
+                        )
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Scheduled sync enqueue failed",
+                        connection_id=_connection_id,
+                        connector_type=_connector_type,
+                        error=str(exc),
+                    )
+
+            self._scheduler.add_job(
+                sync_job,
+                trigger=IntervalTrigger(minutes=interval_minutes),
+                id=job_id,
+                name=f"Sync {connector_type} ({name})",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+            scheduled += 1
+
+        # Remove stale scheduled jobs that no longer exist in DB.
+        removed = 0
+        for job in self._scheduler.get_jobs():
+            if not job.id.startswith("sync_"):
+                continue
+            if job.id in desired_job_ids:
+                continue
+            try:
+                self._scheduler.remove_job(job.id)
+                removed += 1
+            except Exception:
+                pass
+
+        logger.info(
+            "Reconciled connection schedules",
+            scheduled=scheduled,
+            removed=removed,
+        )
+        return {"scheduled": scheduled, "removed": removed}
 
     async def shutdown(self) -> None:
         """Shutdown the scheduler gracefully."""
@@ -597,7 +880,7 @@ class ConnectorScheduler:
         """
         Trigger sync by connection ID with proper token decryption.
 
-        Uses connection_service to build ConnectorConfig with decrypted OAuth tokens.
+        Uses the durable job plane: enqueues a `connector.sync` job executed by workers.
 
         Args:
             connection_id: Connection ID (UUID as string)
@@ -613,9 +896,12 @@ class ConnectorScheduler:
             ValueError: If connection not found or tokens cannot be decrypted
         """
         from src.connectors.connection_service import get_connection_config
+        from src.db.rls import rls_context
+        from src.jobs.queue import EnqueueJobRequest, enqueue_job
 
-        # Get connection config with decrypted tokens
-        config = await get_connection_config(connection_id, organization_id)
+        # Fetch connector_type (and validate connection exists) without doing heavy work.
+        with rls_context(organization_id, is_internal=True):
+            config = await get_connection_config(connection_id, organization_id)
 
         if not config:
             raise ValueError(f"Connection not found or tokens unavailable: {connection_id}")
@@ -623,28 +909,51 @@ class ConnectorScheduler:
         if not config.is_authenticated:
             raise ValueError(f"Connection has no valid authentication: {connection_id}")
 
-        job = SyncJob(
-            connection_id=config.connection_id,
-            organization_id=config.organization_id,
+        # Webhook bursts should dedupe to a single job per minute per connection.
+        bucket = int(datetime.utcnow().timestamp()) // 60
+        idempotency_key = f"trigger_sync:{job_type.value}:{connection_id}:{bucket}"
+
+        job_id = await enqueue_job(
+            EnqueueJobRequest(
+                organization_id=organization_id,
+                job_type="connector.sync",
+                payload={
+                    "connection_id": str(connection_id),
+                    "organization_id": organization_id,
+                    "streams": streams or None,
+                    "full_refresh": full_refresh,
+                    "scheduled": False,
+                    "sync_job_type": job_type.value,
+                    "sync_params": sync_params or {},
+                },
+                priority=2 if job_type == SyncJobType.WEBHOOK else 1,
+                max_attempts=3,
+                idempotency_key=idempotency_key,
+                resource_key=f"connection:{connection_id}",
+            )
+        )
+
+        queued_job = SyncJob(
+            job_id=job_id,
+            connection_id=str(connection_id),
+            organization_id=organization_id,
             connector_type=config.connector_type,
             job_type=job_type,
             streams=streams or [],
             full_refresh=full_refresh,
             sync_params=sync_params or {},
+            status=SyncJobStatus.PENDING,
         )
 
-        # Execute in background
-        asyncio.create_task(self._execute_sync(job, config))
-
         logger.info(
-            "Sync job triggered",
-            job_id=job.job_id,
+            "Sync job enqueued",
+            job_id=job_id,
             connection_id=connection_id,
             connector_type=config.connector_type,
             job_type=job_type.value,
         )
 
-        return job
+        return queued_job
 
     async def _execute_scheduled_sync(self, config: ConnectorConfig) -> None:
         """Execute a scheduled sync job."""
@@ -688,6 +997,7 @@ class ConnectorScheduler:
             organization_id=job.organization_id,
             connector_type=job.connector_type,
             job_id=job.job_id,
+            sync_params=job.sync_params or {},
         )
         try:
             await self._record_job_start(job)
@@ -782,6 +1092,7 @@ class ConnectorScheduler:
                 connector_type=job.connector_type,
                 job_id=job.job_id,
                 records_synced=result.records_synced,
+                sync_params=job.sync_params or {},
             )
         else:
             await emit_sync_failed(
@@ -791,6 +1102,7 @@ class ConnectorScheduler:
                 job_id=job.job_id,
                 error=result.error_message or "Unknown error",
                 records_synced=result.records_synced,
+                sync_params=job.sync_params or {},
             )
 
         logger.info(
@@ -831,6 +1143,9 @@ class ConnectorScheduler:
         last_progress_time = datetime.utcnow()  # Track time for periodic updates
 
         # Get connector
+        from src.connectors.bootstrap import ensure_connectors_registered
+
+        ensure_connectors_registered()
         connector = ConnectorRegistry.create(job.connector_type)
         if not connector:
             return SyncJobResult(
@@ -853,8 +1168,54 @@ class ConnectorScheduler:
                 "sync_params": job.sync_params,
             }
 
+        def _looks_like_auth_error(message: str | None) -> bool:
+            if not message:
+                return False
+            lowered = message.lower()
+            return any(
+                needle in lowered
+                for needle in (
+                    "401",
+                    "unauthorized",
+                    "invalid",
+                    "expired",
+                    "token",
+                )
+            )
+
+        # Refresh expiring OAuth tokens (durably) before attempting the sync.
+        try:
+            from src.connectors.connection_service import refresh_oauth_tokens_for_config
+
+            if config.token_needs_refresh:
+                config = await refresh_oauth_tokens_for_config(config)
+        except Exception as exc:
+            # Do not hard-fail here; some providers do not return expires_at and
+            # we may still have a valid access token.
+            logger.warning(
+                "Pre-sync token refresh failed",
+                connection_id=job.connection_id,
+                connector_type=job.connector_type,
+                error=str(exc),
+            )
+
         # Check connection
         success, error = await connector.check_connection(config)
+        if not success and config.auth.refresh_token and _looks_like_auth_error(error):
+            # Opportunistic retry: if token is expired and we have a refresh_token,
+            # refresh and re-run the connection check once.
+            try:
+                from src.connectors.connection_service import refresh_oauth_tokens_for_config
+
+                config = await refresh_oauth_tokens_for_config(config, force=True)
+                success, error = await connector.check_connection(config)
+            except Exception as exc:
+                logger.warning(
+                    "Token refresh retry failed",
+                    connection_id=job.connection_id,
+                    connector_type=job.connector_type,
+                    error=str(exc),
+                )
         if not success:
             return SyncJobResult(
                 job_id=job.job_id,
@@ -1004,6 +1365,7 @@ class ConnectorScheduler:
                             connector_type=job.connector_type,
                             job_id=job.job_id,
                             records_synced=records_synced,
+                            sync_params=job.sync_params or {},
                         )
                         last_progress_emit = records_synced
                         last_progress_time = datetime.utcnow()

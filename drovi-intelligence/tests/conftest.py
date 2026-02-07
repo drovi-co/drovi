@@ -174,12 +174,15 @@ async def async_client_no_auth(app_no_auth) -> AsyncGenerator[AsyncClient, None]
 @pytest_asyncio.fixture
 async def mock_db_pool():
     """Mock database pool."""
-    pool = AsyncMock()
+    # asyncpg's pool.acquire() returns an async context manager, not an awaitable.
+    # Use MagicMock for the pool so `async with pool.acquire()` works.
+    pool = MagicMock()
     conn = AsyncMock()
 
-    # Setup context manager
-    pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
-    pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+    acquire_cm = MagicMock()
+    acquire_cm.__aenter__ = AsyncMock(return_value=conn)
+    acquire_cm.__aexit__ = AsyncMock(return_value=None)
+    pool.acquire.return_value = acquire_cm
 
     conn.fetch.return_value = []
     conn.fetchrow.return_value = None

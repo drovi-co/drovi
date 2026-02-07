@@ -192,6 +192,19 @@ class Metrics:
                 ["group_id", "topic", "partition"],
             )
 
+            # Kafka reliability metrics (retry + DLQ + handler failures)
+            self.kafka_messages_routed_total = Counter(
+                "drovi_kafka_messages_routed_total",
+                "Total Kafka messages routed to retry/DLQ/drop",
+                ["group_id", "topic", "route"],  # route: retry | dlq | drop
+            )
+
+            self.kafka_handler_errors_total = Counter(
+                "drovi_kafka_handler_errors_total",
+                "Total Kafka handler exceptions by topic",
+                ["group_id", "topic", "error_type"],
+            )
+
             self.kafka_consumer_queue_depth = Gauge(
                 "drovi_kafka_consumer_queue_depth",
                 "Kafka consumer in-memory queue depth",
@@ -241,6 +254,14 @@ class Metrics:
                 "drovi_transcript_ingest_duration_seconds",
                 "Transcript segment ingest duration in seconds",
                 buckets=[0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10],
+            )
+
+            # Pipeline lag metrics
+            self.pipeline_end_to_end_lag_seconds = Histogram(
+                "drovi_pipeline_end_to_end_lag_seconds",
+                "End-to-end lag from raw event ingest to pipeline extraction",
+                ["source_type"],
+                buckets=[0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600],
             )
 
             # Memory/decay metrics
@@ -533,6 +554,52 @@ class Metrics:
         self.kafka_consumer_last_poll_timestamp_seconds.labels(
             group_id=group_id,
         ).set(timestamp)
+
+    def inc_kafka_message_routed(
+        self,
+        group_id: str,
+        topic: str,
+        route: str,
+    ) -> None:
+        """Increment retry/DLQ/drop counters for Kafka routing."""
+        if not self._enabled:
+            return
+        self.kafka_messages_routed_total.labels(
+            group_id=group_id,
+            topic=topic,
+            route=route,
+        ).inc()
+
+    def inc_kafka_handler_error(
+        self,
+        group_id: str,
+        topic: str,
+        error_type: str,
+    ) -> None:
+        """Increment per-topic handler error counter."""
+        if not self._enabled:
+            return
+        self.kafka_handler_errors_total.labels(
+            group_id=group_id,
+            topic=topic,
+            error_type=error_type,
+        ).inc()
+
+    def observe_pipeline_end_to_end_lag(
+        self,
+        source_type: str,
+        lag_seconds: float,
+    ) -> None:
+        """Observe pipeline end-to-end lag (raw ingest -> extraction)."""
+        if not self._enabled:
+            return
+        try:
+            self.pipeline_end_to_end_lag_seconds.labels(
+                source_type=source_type,
+            ).observe(max(float(lag_seconds), 0.0))
+        except Exception:
+            # Never allow metrics to affect pipeline processing.
+            pass
 
     def set_graph_stats(
         self,

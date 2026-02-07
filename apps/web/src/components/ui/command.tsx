@@ -1,6 +1,6 @@
 import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -51,10 +51,10 @@ function CommandDialog({
   );
 }
 
-function CommandInput({
-  className,
-  ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+const CommandInput = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Input>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
+>(({ className, ...props }, ref) => {
   return (
     <div
       className="flex items-center gap-2 border-border border-b px-3"
@@ -69,11 +69,13 @@ function CommandInput({
           className
         )}
         data-slot="command-input"
+        ref={ref}
         {...props}
       />
     </div>
   );
-}
+});
+CommandInput.displayName = CommandPrimitive.Input.displayName;
 
 function CommandList({
   className,

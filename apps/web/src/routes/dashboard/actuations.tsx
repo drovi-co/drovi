@@ -17,6 +17,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,12 +77,24 @@ function ActuationsPage() {
     )
   );
 
-  const { data: drivers, isLoading: driversLoading } = useQuery({
+  const {
+    data: drivers,
+    isLoading: driversLoading,
+    isError: driversError,
+    error: driversErrorObj,
+    refetch: refetchDrivers,
+  } = useQuery({
     queryKey: ["actuation-drivers"],
     queryFn: () => actuationsAPI.listDrivers(),
   });
 
-  const { data: actuationLog, isLoading: logLoading } = useQuery({
+  const {
+    data: actuationLog,
+    isLoading: logLoading,
+    isError: logError,
+    error: logErrorObj,
+    refetch: refetchLog,
+  } = useQuery({
     queryKey: ["actuations", organizationId],
     queryFn: () => actuationsAPI.list(organizationId),
     enabled: !!organizationId,
@@ -220,6 +233,14 @@ function ActuationsPage() {
                 {driversLoading && (
                   <p className="text-muted-foreground text-xs">Loading...</p>
                 )}
+                {driversError && (
+                  <ApiErrorPanel
+                    className="mt-2"
+                    error={driversErrorObj}
+                    onRetry={() => refetchDrivers()}
+                    retryLabel="Reload drivers"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Action</Label>
@@ -275,6 +296,8 @@ function ActuationsPage() {
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : logError ? (
+              <ApiErrorPanel error={logErrorObj} onRetry={() => refetchLog()} />
             ) : sortedLog.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 No actuation runs yet.

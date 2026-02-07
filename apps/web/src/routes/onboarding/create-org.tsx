@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Building2, Globe, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { OnboardingLayout } from "@/components/onboarding/onboarding-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +33,13 @@ function CreateOrgPage() {
   const [name, setName] = useState("");
   const [region, setRegion] = useState("us-west");
 
-  const { data: orgInfo, isLoading } = useQuery({
+  const {
+    data: orgInfo,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["org-info"],
     queryFn: () => orgAPI.getOrgInfo(),
   });
@@ -82,6 +89,8 @@ function CreateOrgPage() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : isError ? (
+            <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : (
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">

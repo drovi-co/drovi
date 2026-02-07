@@ -20,6 +20,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,7 +131,12 @@ function ContinuumBuilderPage() {
   const [activateOnSave, setActivateOnSave] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const { data: continuums } = useQuery({
+  const {
+    data: continuums,
+    isError: continuumsError,
+    error: continuumsErrorObj,
+    refetch: refetchContinuums,
+  } = useQuery({
     queryKey: ["continuums", organizationId],
     queryFn: () => continuumsAPI.list(organizationId),
     enabled: !!organizationId,
@@ -344,6 +350,14 @@ function ContinuumBuilderPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {continuumsError && (
+                  <ApiErrorPanel
+                    className="mt-2"
+                    error={continuumsErrorObj}
+                    onRetry={() => refetchContinuums()}
+                    retryLabel="Reload continuums"
+                  />
+                )}
                 {mode === "update" && !selectedContinuum && (
                   <p className="text-muted-foreground text-xs">
                     Choose a continuum to append a version.

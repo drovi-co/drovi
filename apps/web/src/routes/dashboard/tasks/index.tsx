@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { SourceIcon } from "@/components/inbox/source-icon";
 // Import shared task components
 import {
@@ -169,6 +170,8 @@ function TasksPage() {
   const {
     data: tasksData,
     isLoading: isLoadingTasks,
+    isError: tasksError,
+    error: tasksErrorObj,
     refetch,
   } = useTaskUIOs({
     organizationId,
@@ -624,6 +627,10 @@ function TasksPage() {
         <div className="flex-1 overflow-auto">
           {isLoadingTasks ? (
             <TaskListSkeleton />
+          ) : tasksError ? (
+            <div className="p-4">
+              <ApiErrorPanel error={tasksErrorObj} onRetry={() => refetch()} />
+            </div>
           ) : viewMode === "list" ? (
             tasks.length === 0 ? (
               <TaskEmptyState />

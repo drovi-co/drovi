@@ -75,6 +75,16 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
     environment: Literal["development", "production", "test"] = Field(default="development")
 
+    # Admin App (admin.drovi.co)
+    #
+    # Admin auth is intentionally separate from pilot user sessions. Admin tokens
+    # use a distinct JWT secret so they cannot be replayed against normal API
+    # endpoints that accept pilot sessions.
+    admin_allowed_domains: list[str] = Field(default=["drovi.co"])
+    admin_password_hash: str | None = Field(default=None)  # PBKDF2 hash (preferred)
+    admin_password: str | None = Field(default=None)  # plaintext (dev only)
+    admin_jwt_secret: str | None = Field(default=None)
+
     # Evidence Storage
     evidence_storage_backend: Literal["local", "s3"] = Field(default="local")
     evidence_storage_path: str = Field(default="/tmp/drovi-evidence")
@@ -146,6 +156,13 @@ class Settings(BaseSettings):
     candidate_processing_enabled: bool = Field(default=True)
     candidate_processing_interval_seconds: int = Field(default=60)
 
+    # Memory decay + evidence retention maintenance
+    memory_decay_enabled: bool = Field(default=True)
+    memory_decay_cron: str = Field(default="0 2 * * *")  # 02:00 UTC daily
+    evidence_retention_cleanup_enabled: bool = Field(default=True)
+    evidence_retention_cleanup_cron: str = Field(default="0 3 * * *")  # 03:00 UTC daily
+    evidence_retention_cleanup_limit: int = Field(default=500)
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
     log_format: Literal["json", "text"] = Field(default="json")
@@ -192,6 +209,16 @@ class Settings(BaseSettings):
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
     kafka_topic_graph_changes: str = Field(default="graph.changes")
     kafka_raw_event_mode: Literal["full", "webhook_only", "disabled"] = Field(default="full")
+    kafka_retry_suffix: str = Field(default=".retry")
+    kafka_dlq_suffix: str = Field(default=".dlq")
+    kafka_max_retry_attempts: int = Field(default=3)
+    kafka_max_retry_attempts_by_topic: dict[str, int] = Field(
+        default_factory=lambda: {
+            "raw.connector.events": 3,
+            "normalized.records": 3,
+            "intelligence.pipeline.input": 3,
+        }
+    )
 
     # Streaming gateway
     streaming_queue_size: int = Field(default=256)
@@ -206,6 +233,14 @@ class Settings(BaseSettings):
     # Scheduler
     scheduler_run_in_api: bool = Field(default=True)
     scheduler_advisory_lock_id: int = Field(default=4242001)
+    scheduler_scheduled_syncs_enabled: bool = Field(default=True)
+    scheduler_reconcile_interval_seconds: int = Field(default=300)
+
+    # Durable jobs worker
+    job_worker_poll_interval_seconds: float = Field(default=1.0)
+    job_worker_lease_seconds: int = Field(default=600)
+    job_worker_reaper_interval_seconds: int = Field(default=60)
+    job_worker_reaper_limit: int = Field(default=500)
 
     # Continuum scheduler settings
     continuum_scheduler_run_in_api: bool = Field(default=True)

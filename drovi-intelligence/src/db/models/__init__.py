@@ -18,6 +18,9 @@ from src.db.models.connector_webhooks import (
 from src.db.models.events import (
     EventRecord,
 )
+from src.db.models.background_jobs import (
+    BackgroundJob,
+)
 from src.db.models.pilot import (
     Organization,
     User,
@@ -36,6 +39,7 @@ __all__ = [
     "ConnectorWebhookInbox",
     "ConnectorWebhookOutbox",
     "EventRecord",
+    "BackgroundJob",
     "Organization",
     "User",
     "Membership",

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Building2, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/dashboard/team/settings")({
 
 function TeamSettingsPage() {
   const navigate = useNavigate();
-  const { data: orgInfo, isLoading } = useQuery({
+  const { data: orgInfo, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["org-info"],
     queryFn: () => orgAPI.getOrgInfo(),
   });
@@ -30,6 +31,10 @@ function TeamSettingsPage() {
         <Skeleton className="h-40" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <ApiErrorPanel error={error} onRetry={() => refetch()} />;
   }
 
   if (!orgInfo) {

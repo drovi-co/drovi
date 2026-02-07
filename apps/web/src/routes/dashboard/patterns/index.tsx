@@ -18,6 +18,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { PatternCard, type Pattern } from "@/components/patterns/pattern-card";
 import { PatternDetail } from "@/components/patterns/pattern-detail";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +109,13 @@ function PatternsPage() {
   const [promotionDescription, setPromotionDescription] = useState("");
   const [promotionDomain, setPromotionDomain] = useState("general");
 
-  const { data: patternsData, isLoading: patternsLoading, refetch } = useQuery({
+  const {
+    data: patternsData,
+    isLoading: patternsLoading,
+    isError: patternsError,
+    error: patternsErrorObj,
+    refetch,
+  } = useQuery({
     queryKey: ["patterns", organizationId],
     queryFn: () => graphAPI.query({ organizationId, cypher: PATTERN_QUERY }),
     enabled: !!organizationId,
@@ -117,6 +124,8 @@ function PatternsPage() {
   const {
     data: candidates,
     isLoading: candidatesLoading,
+    isError: candidatesError,
+    error: candidatesErrorObj,
     refetch: refetchCandidates,
   } = useQuery({
     queryKey: ["pattern-candidates", organizationId],
@@ -227,6 +236,8 @@ function PatternsPage() {
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : patternsError ? (
+              <ApiErrorPanel error={patternsErrorObj} onRetry={() => refetch()} />
             ) : patterns.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 No patterns promoted yet.
@@ -260,6 +271,8 @@ function PatternsPage() {
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : candidatesError ? (
+              <ApiErrorPanel error={candidatesErrorObj} onRetry={() => refetchCandidates()} />
             ) : (candidates ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 No candidates yet. Run discovery to generate clusters.

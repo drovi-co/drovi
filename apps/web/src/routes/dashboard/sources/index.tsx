@@ -11,6 +11,7 @@ import {
   Clock,
   FileText,
   Loader2,
+  Lock,
   Mail,
   MessageCircle,
   MoreHorizontal,
@@ -23,6 +24,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,7 +86,11 @@ export const Route = createFileRoute("/dashboard/sources/")({
 // CONNECTOR DEFINITIONS
 // =============================================================================
 
-type ConnectorCard = ConnectorMeta & { available: boolean };
+type ConnectorCard = ConnectorMeta & {
+  available: boolean;
+  configured: boolean;
+  missingEnv: string[];
+};
 
 // =============================================================================
 // MAIN COMPONENT
@@ -106,37 +112,50 @@ function SourcesPage() {
   const [backfillThrottleSeconds, setBackfillThrottleSeconds] = useState(1);
   const [liveSync, setLiveSync] = useState<Record<string, SyncEvent>>({});
 
-  const { data: availableConnectors } = useQuery({
+  const {
+    data: availableConnectors,
+    isError: connectorsError,
+    error: connectorsErrorObj,
+    refetch: refetchConnectors,
+  } = useQuery({
     queryKey: ["available-connectors"],
     queryFn: () => connectionsAPI.listConnectors(),
     enabled: !!user,
   });
 
-  const availableIds = useMemo(
-    () => new Set((availableConnectors ?? []).map((connector) => connector.type)),
-    [availableConnectors]
-  );
+  const availableById = useMemo(() => {
+    return new Map((availableConnectors ?? []).map((connector) => [connector.type, connector]));
+  }, [availableConnectors]);
 
   const connectors = useMemo<ConnectorCard[]>(() => {
-    const catalog = CONNECTOR_CATALOG.map((meta) => ({
-      ...meta,
-      available: availableIds.has(meta.id),
-    }));
+    const catalog = CONNECTOR_CATALOG.map((meta) => {
+      const server = availableById.get(meta.id);
+      return {
+        ...meta,
+        available: Boolean(server),
+        configured: server?.configured ?? false,
+        missingEnv: server?.missing_env ?? [],
+      };
+    });
 
-    const extras = (availableConnectors ?? [])
+    const extras = Array.from(availableById.values())
       .filter((connector) => !CONNECTOR_META_BY_ID.has(connector.type))
       .map((connector) => ({
         id: connector.type,
-        name: connector.type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+        name: connector.type
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (m) => m.toUpperCase()),
         icon: FileText,
         color: "#64748B",
         description: "Custom connector",
         category: "knowledge" as const,
         available: true,
+        configured: connector.configured ?? true,
+        missingEnv: connector.missing_env ?? [],
       }));
 
     return [...catalog, ...extras];
-  }, [availableConnectors, availableIds]);
+  }, [availableById]);
 
   const connectorMap = useMemo(
     () => new Map(connectors.map((connector) => [connector.id, connector])),
@@ -207,6 +226,8 @@ function SourcesPage() {
   const {
     data: connections,
     isLoading: connectionsLoading,
+    isError: connectionsError,
+    error: connectionsErrorObj,
     refetch: refetchConnections,
   } = useQuery({
     queryKey: ["org-connections"],
@@ -287,6 +308,28 @@ function SourcesPage() {
     },
   });
 
+  const visibilityMutation = useMutation({
+    mutationFn: async (payload: {
+      connectionId: string;
+      visibility: "org_shared" | "private";
+    }) =>
+      orgAPI.updateConnectionVisibility({
+        connectionId: payload.connectionId,
+        visibility: payload.visibility,
+      }),
+    onSuccess: (result) => {
+      toast.success(
+        result.visibility === "private"
+          ? "Source is now private"
+          : "Source shared with the org"
+      );
+      queryClient.invalidateQueries({ queryKey: ["org-connections"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update visibility: ${error.message}`);
+    },
+  });
+
   const handleConnect = (provider: string) => {
     connectMutation.mutate(provider);
   };
@@ -311,6 +354,16 @@ function SourcesPage() {
   const handleDisconnect = () => {
     if (!selectedConnection) return;
     disconnectMutation.mutate(selectedConnection.id);
+  };
+
+  const handleSetVisibility = (
+    connection: OrgConnection,
+    visibility: "org_shared" | "private"
+  ) => {
+    visibilityMutation.mutate({
+      connectionId: connection.id,
+      visibility,
+    });
   };
 
   // Loading state
@@ -376,7 +429,16 @@ function SourcesPage() {
             Manage data sources for your intelligence platform
           </p>
         </div>
-        <Button onClick={() => setConnectDialogOpen(true)}>
+        <Button
+          disabled={user.role === "pilot_viewer"}
+          onClick={() => {
+            if (user.role === "pilot_viewer") {
+              toast.error("Viewer role cannot connect sources");
+              return;
+            }
+            setConnectDialogOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Connect Source
         </Button>
@@ -433,6 +495,8 @@ function SourcesPage() {
         <TabsContent className="space-y-4" value="all">
           {connectionsLoading ? (
             <SourcesSkeleton />
+          ) : connectionsError ? (
+            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
           ) : connectionsList.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {connectionsList.map((connection) => (
@@ -441,11 +505,15 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
+                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
+                  onSetVisibility={(visibility) =>
+                    handleSetVisibility(connection, visibility)
+                  }
                   onSync={() => handleSync(connection.id)}
                 />
               ))}
@@ -456,7 +524,9 @@ function SourcesPage() {
         </TabsContent>
 
         <TabsContent className="space-y-4" value="email">
-          {emailConnections.length > 0 ? (
+          {connectionsError ? (
+            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+          ) : emailConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {emailConnections.map((connection) => (
                 <SourceCard
@@ -464,11 +534,15 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
+                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
+                  onSetVisibility={(visibility) =>
+                    handleSetVisibility(connection, visibility)
+                  }
                   onSync={() => handleSync(connection.id)}
                 />
               ))}
@@ -482,7 +556,9 @@ function SourcesPage() {
         </TabsContent>
 
         <TabsContent className="space-y-4" value="messaging">
-          {messagingConnections.length > 0 ? (
+          {connectionsError ? (
+            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+          ) : messagingConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {messagingConnections.map((connection) => (
                 <SourceCard
@@ -490,11 +566,15 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
+                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
+                  onSetVisibility={(visibility) =>
+                    handleSetVisibility(connection, visibility)
+                  }
                   onSync={() => handleSync(connection.id)}
                 />
               ))}
@@ -508,7 +588,9 @@ function SourcesPage() {
         </TabsContent>
 
         <TabsContent className="space-y-4" value="calendar">
-          {calendarConnections.length > 0 ? (
+          {connectionsError ? (
+            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+          ) : calendarConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {calendarConnections.map((connection) => (
                 <SourceCard
@@ -516,11 +598,15 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
+                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
                     setDisconnectDialogOpen(true);
                   }}
+                  onSetVisibility={(visibility) =>
+                    handleSetVisibility(connection, visibility)
+                  }
                   onSync={() => handleSync(connection.id)}
                 />
               ))}
@@ -543,6 +629,13 @@ function SourcesPage() {
               Choose a data source to connect to your intelligence platform
             </DialogDescription>
           </DialogHeader>
+          {connectorsError && (
+            <ApiErrorPanel
+              error={connectorsErrorObj}
+              onRetry={() => refetchConnectors()}
+              retryLabel="Reload connectors"
+            />
+          )}
           <div className="grid gap-4 overflow-y-auto py-4 pr-2">
             {/* Email */}
             <ConnectorCategory
@@ -752,7 +845,7 @@ function ConnectorCategory({
         {connectors.map((connector) => (
           <Button
             className="h-auto justify-start gap-4 p-4"
-            disabled={isLoading || !connector.available}
+            disabled={isLoading || !connector.available || !connector.configured}
             key={connector.id}
             onClick={() => onConnect(connector.id)}
             variant="outline"
@@ -767,10 +860,27 @@ function ConnectorCategory({
               />
             </div>
             <div className="text-left">
-              <div className="font-medium">{connector.name}</div>
+              <div className="flex items-center gap-2 font-medium">
+                {connector.name}
+                {!connector.available ? (
+                  <Badge variant="secondary">Unavailable</Badge>
+                ) : !connector.configured ? (
+                  <Badge variant="warning">Not configured</Badge>
+                ) : (
+                  <Badge variant="success">Ready</Badge>
+                )}
+              </div>
               <div className="text-muted-foreground text-sm">
                 {connector.description}
               </div>
+              {!connector.configured && connector.missingEnv.length ? (
+                <div className="mt-1 text-muted-foreground text-xs">
+                  Missing{" "}
+                  <span className="font-mono">
+                    {connector.missingEnv.join(", ")}
+                  </span>
+                </div>
+              ) : null}
             </div>
             {isLoading && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
           </Button>
@@ -787,6 +897,8 @@ function SourceCard({
   onSync,
   onBackfill,
   onDisconnect,
+  onSetVisibility,
+  readOnly = false,
 }: {
   connection: OrgConnection;
   connector?: ConnectorCard;
@@ -794,9 +906,22 @@ function SourceCard({
   onSync: () => void;
   onBackfill: () => void;
   onDisconnect: () => void;
+  onSetVisibility?: (visibility: "org_shared" | "private") => void;
+  readOnly?: boolean;
 }) {
+  const currentUser = useAuthStore((state) => state.user);
   const Icon = connector?.icon || Mail;
   const color = connector?.color || "#888";
+  const visibility = connection.visibility ?? "org_shared";
+  const isPrivate = visibility === "private";
+  const isAdmin =
+    currentUser?.role === "pilot_owner" || currentUser?.role === "pilot_admin";
+  const isConnectionOwner =
+    Boolean(connection.created_by_user_id) &&
+    currentUser !== null &&
+    connection.created_by_user_id === currentUser.user_id;
+  const canToggleVisibility =
+    !readOnly && Boolean(onSetVisibility) && (isAdmin || isConnectionOwner);
 
   const statusConfig: Record<
     string,
@@ -829,7 +954,7 @@ function SourceCard({
     },
   };
 
-  const liveStatus =
+  const connectionStatus =
     liveState?.event_type === "progress" || liveState?.event_type === "started"
       ? "syncing"
       : liveState?.event_type === "failed"
@@ -837,12 +962,60 @@ function SourceCard({
         : liveState?.event_type === "completed"
           ? "connected"
           : connection.status;
-  const status = statusConfig[liveStatus] || statusConfig.connected;
+  const status = statusConfig[connectionStatus] || statusConfig.connected;
   const progress =
     liveState?.progress ??
     (typeof connection.progress === "number" ? connection.progress : null);
+  const backfillWindow = (() => {
+    const params = liveState?.sync_params;
+    if (!params || typeof params !== "object") return null;
+    const idx = (params as Record<string, unknown>)["backfill_window_index"];
+    const total = (params as Record<string, unknown>)["backfill_window_total"];
+    if (typeof idx === "number" && typeof total === "number") {
+      return { idx, total };
+    }
+    return null;
+  })();
+  const overallBackfillProgress = (() => {
+    if (!backfillWindow) return null;
+    const { idx, total } = backfillWindow;
+    const perWindowProgress =
+      typeof liveState?.progress === "number" ? liveState.progress : null;
+    const eventType = liveState?.event_type;
+
+    const base =
+      eventType === "completed"
+        ? idx
+        : eventType === "started" || eventType === "failed"
+          ? Math.max(0, idx - 1)
+          : idx - 1;
+
+    const raw =
+      perWindowProgress !== null
+        ? (base + perWindowProgress) / total
+        : base / total;
+
+    if (!Number.isFinite(raw)) return null;
+    return Math.max(0, Math.min(1, raw));
+  })();
+  const effectiveProgress = progress ?? overallBackfillProgress;
+  const liveIngestionStatus = connection.live_status ?? null;
+  const backfillStatus = connection.backfill_status ?? null;
   const displayName =
     connection.email || connection.workspace || connector?.name || "Unknown";
+  const connectedBy = (() => {
+    if (!connection.created_by_user_id) return null;
+    if (currentUser && connection.created_by_user_id === currentUser.user_id) {
+      return "Connected by you";
+    }
+    if (connection.created_by_name) {
+      return `Connected by ${connection.created_by_name}`;
+    }
+    if (connection.created_by_email) {
+      return `Connected by ${connection.created_by_email}`;
+    }
+    return "Connected by a teammate";
+  })();
   const recordsSynced =
     typeof liveState?.records_synced === "number"
       ? liveState.records_synced
@@ -858,11 +1031,36 @@ function SourceCard({
           >
             <Icon className="h-5 w-5" style={{ color }} />
           </div>
-            <div>
-              <CardTitle className="text-base">{displayName}</CardTitle>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">{displayName}</CardTitle>
+                <Badge
+                  className={cn(
+                    "h-5 px-2 text-[10px]",
+                    isPrivate
+                      ? "border-slate-500/30 bg-slate-500/10 text-slate-600"
+                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                  )}
+                  variant="outline"
+                >
+                  {isPrivate ? (
+                    <span className="flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Private
+                    </span>
+                  ) : (
+                    "Org-shared"
+                  )}
+                </Badge>
+              </div>
               <CardDescription className="text-xs">
-              {connector?.name || connection.provider}
-            </CardDescription>
+                {connector?.name || connection.provider}
+                {connectedBy ? (
+                  <span className="ml-2 text-muted-foreground/80">
+                    · {connectedBy}
+                  </span>
+                ) : null}
+              </CardDescription>
           </div>
         </div>
         <DropdownMenu>
@@ -876,22 +1074,36 @@ function SourceCard({
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onBackfill}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Backfill history
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onSync}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Sync Now
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={onDisconnect}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Disconnect
-            </DropdownMenuItem>
+            {canToggleVisibility ? (
+              <DropdownMenuItem
+                onClick={() =>
+                  onSetVisibility?.(isPrivate ? "org_shared" : "private")
+                }
+              >
+                <Lock className="mr-2 h-4 w-4" />
+                {isPrivate ? "Share with org" : "Make private"}
+              </DropdownMenuItem>
+            ) : null}
+            {!readOnly ? (
+              <>
+                <DropdownMenuItem onClick={onBackfill}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Backfill history
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSync}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Sync Now
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={onDisconnect}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Disconnect
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
@@ -903,12 +1115,59 @@ function SourceCard({
               {status.icon}
               <span className="text-sm">{status.label}</span>
             </div>
-            {progress !== null && (
+            {effectiveProgress !== null && (
               <Badge className="text-xs" variant="secondary">
-                {Math.round(progress * 100)}%
+                {Math.round(effectiveProgress * 100)}%
               </Badge>
             )}
           </div>
+
+          {backfillWindow ? (
+            <div className="text-muted-foreground text-xs">
+              Backfill window{" "}
+              <span className="font-mono text-foreground">
+                {backfillWindow.idx}/{backfillWindow.total}
+              </span>
+            </div>
+          ) : null}
+
+          {(liveIngestionStatus || backfillStatus) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {liveIngestionStatus && (
+                <Badge
+                  className={cn(
+                    "text-xs",
+                    liveIngestionStatus === "running" &&
+                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+                    liveIngestionStatus === "paused" &&
+                      "border-slate-500/30 bg-slate-500/10 text-slate-600",
+                    liveIngestionStatus === "error" &&
+                      "border-red-500/30 bg-red-500/10 text-red-600"
+                  )}
+                >
+                  Live {liveIngestionStatus.replace(/_/g, " ")}
+                </Badge>
+              )}
+              {backfillStatus && (
+                <Badge
+                  className={cn(
+                    "text-xs",
+                    backfillStatus === "running" &&
+                      "border-blue-500/30 bg-blue-500/10 text-blue-600",
+                    backfillStatus === "done" &&
+                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+                    (backfillStatus === "not_started" ||
+                      backfillStatus === "paused") &&
+                      "border-slate-500/30 bg-slate-500/10 text-slate-600",
+                    backfillStatus === "error" &&
+                      "border-red-500/30 bg-red-500/10 text-red-600"
+                  )}
+                >
+                  Backfill {backfillStatus.replace(/_/g, " ")}
+                </Badge>
+              )}
+            </div>
+          )}
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-muted-foreground text-sm">
@@ -925,8 +1184,11 @@ function SourceCard({
             )}
           </div>
 
-          {progress !== null && (
-            <Progress className="h-1.5" value={Math.round(progress * 100)} />
+          {effectiveProgress !== null && (
+            <Progress
+              className="h-1.5"
+              value={Math.round(effectiveProgress * 100)}
+            />
           )}
         </div>
       </CardContent>

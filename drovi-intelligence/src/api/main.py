@@ -36,6 +36,7 @@ from src.api.routes import (
     auth,
     brief,
     changes,
+    jobs,
     connections,
     console,
     contacts,
@@ -245,6 +246,7 @@ app.include_router(sessions.router, prefix="/api/v1", tags=["Sessions"])
 app.include_router(changes.router, prefix="/api/v1", tags=["Changes"])
 app.include_router(monitoring.router, prefix="/api/v1", tags=["Monitoring"])
 app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
+app.include_router(jobs.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(stream.router, prefix="/api/v1", tags=["Real-Time Stream"])
 app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"])
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])

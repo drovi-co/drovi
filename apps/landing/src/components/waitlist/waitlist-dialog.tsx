@@ -16,7 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTRPC } from "@/lib/trpc";
+
+type WaitlistPayload = {
+  email: string;
+  name: string;
+  company?: string;
+  role?: string;
+  useCase?: string;
+};
 
 interface WaitlistDialogProps {
   children?: ReactNode;
@@ -47,18 +54,33 @@ export function WaitlistDialog({
       ? controlledOnOpenChange
       : setInternalOpen;
 
-  const trpc = useTRPC();
+  const submitMutation = useMutation({
+    mutationFn: async (payload: WaitlistPayload) => {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-  const submitMutation = useMutation(
-    trpc.waitlist.submit.mutationOptions({
-      onSuccess: () => {
-        setSubmitted(true);
-      },
-      onError: (error) => {
-        setErrors({ submit: error.message });
-      },
-    })
-  );
+      if (!response.ok) {
+        const message =
+          (await response.text()) || "Failed to submit waitlist request";
+        throw new Error(message);
+      }
+
+      return response.json() as Promise<{ ok: true }>;
+    },
+    onSuccess: () => {
+      setSubmitted(true);
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      setErrors({ submit: message });
+    },
+  });
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

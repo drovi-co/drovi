@@ -56,7 +56,7 @@ tmp
 temp
 
 # Tauri / Rust
-apps/drovi-shell/src-tauri/target
+apps/*/src-tauri/target
 
 # START Ruler Generated Files
 /.codex/config.json

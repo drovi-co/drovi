@@ -19,7 +19,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Background
 from fastapi.responses import StreamingResponse
 from prometheus_client import Counter
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select, text, or_
 
 from sse_starlette.sse import EventSourceResponse
 
@@ -68,10 +68,13 @@ async def require_pilot_admin(session: str | None = Cookie(default=None)) -> Pil
     if not token:
         raise HTTPException(401, "Invalid or expired session")
 
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(403, "Admin access required")
 
-    return token
+    from src.db.rls import rls_context
+
+    with rls_context(token.org_id, is_internal=False):
+        yield token
 
 
 # =============================================================================
@@ -116,7 +119,7 @@ class MembersResponse(BaseModel):
 
 
 class InviteCreateRequest(BaseModel):
-    role: Literal["pilot_admin", "pilot_member"] = "pilot_member"
+    role: Literal["pilot_admin", "pilot_member", "pilot_viewer"] = "pilot_member"
     expires_in_days: int = Field(default=7, ge=1, le=30)
     email: str | None = None
 
@@ -186,7 +189,7 @@ async def update_org_info(
     token: PilotToken = Depends(require_pilot_auth),
 ) -> OrgInfoResponse:
     """Update organization metadata (admin-only)."""
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     async with get_db_session() as session:
@@ -282,11 +285,11 @@ async def update_member_role(
     token: PilotToken = Depends(require_pilot_auth),
 ) -> dict:
     """Update member role (admin-only)."""
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     role = request.get("role")
-    if role not in ("pilot_admin", "pilot_member"):
+    if role not in ("pilot_admin", "pilot_member", "pilot_viewer"):
         raise HTTPException(status_code=400, detail="Invalid role")
 
     updated = await update_membership_role(user_id, token.org_id, role)
@@ -301,7 +304,7 @@ async def remove_member(
     token: PilotToken = Depends(require_pilot_auth),
 ) -> dict:
     """Remove member from organization (admin-only)."""
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     async with get_db_session() as session:
@@ -362,7 +365,7 @@ async def create_invite_endpoint(
     token: PilotToken = Depends(require_pilot_auth),
 ) -> InviteInfo:
     """Create an invite token (admin-only)."""
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     invite_token = await create_invite(
@@ -411,7 +414,7 @@ async def revoke_invite(
     token: PilotToken = Depends(require_pilot_auth),
 ) -> dict:
     """Revoke an invite (admin-only)."""
-    if token.role != "pilot_admin":
+    if token.role not in ("pilot_owner", "pilot_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     async with get_db_session() as session:
@@ -445,8 +448,15 @@ class PilotConnection(BaseModel):
     email: str | None = None
     workspace: str | None = None
     status: str
+    visibility: Literal["org_shared", "private"] = "org_shared"
+    created_by_user_id: str | None = None
+    created_by_email: str | None = None
+    created_by_name: str | None = None
+    live_status: str | None = None  # running | paused | error
+    backfill_status: str | None = None  # not_started | running | paused | done | error
     scopes: list[str] = []
     last_sync: datetime | None = None
+    last_error: str | None = None
     messages_synced: int = 0
     restricted_labels: list[str] = []
     restricted_channels: list[str] = []
@@ -463,6 +473,10 @@ class ConnectRequest(BaseModel):
     """Request to initiate connection OAuth."""
 
     redirect_uri: str
+    visibility: Literal["org_shared", "private"] = Field(
+        default="org_shared",
+        description="Whether this source is shared across the org or private to the connector owner.",
+    )
     restricted_labels: list[str] = Field(default_factory=list, description="Gmail: labels to exclude")
     restricted_channels: list[str] = Field(default_factory=list, description="Slack: channels to exclude")
     return_to: str | None = Field(
@@ -490,68 +504,340 @@ async def get_pilot_connections(
 
     **Requires**: Any pilot member
     """
-    from src.db.models.connections import Connection
+    from src.db.models.background_jobs import BackgroundJob
+    from src.db.models.connections import Connection, SyncJobHistory, SyncState
+    from src.db.models.pilot import User
 
     async with get_db_session() as session:
-        result = await session.execute(
-            select(Connection).where(Connection.organization_id == token.org_id)
-        )
-        connections = result.scalars().all()
-
-    pilot_connections = []
-    for conn in connections:
-        config = conn.config or {}
-
-        # Determine provider-specific fields
-        email = None
-        workspace = None
-        restricted_labels = []
-        restricted_channels = []
-
-        if conn.connector_type == "gmail":
-            email = config.get("email")
-            restricted_labels = config.get("restricted_labels", [])
-        elif conn.connector_type == "slack":
-            workspace = config.get("workspace")
-            restricted_channels = config.get("restricted_channels", [])
-
-        # Get message count from sync state
-        messages_synced = 0
-        try:
-            count_result = await session.execute(
-                text("""
-                    SELECT COUNT(*) FROM evidence
-                    WHERE organization_id = :org_id
-                    AND source_connection_id = :conn_id
-                """),
-                {"org_id": token.org_id, "conn_id": conn.id},
+        is_admin = token.role in ("pilot_owner", "pilot_admin")
+        query = (
+            select(
+                Connection,
+                User.email,
+                User.name,
             )
-            row = count_result.fetchone()
-            if row:
-                messages_synced = row[0]
-        except Exception:
-            pass
-
-        # Map status
-        status = "connected" if conn.status == "active" else conn.status
-
-        pilot_connections.append(
-            PilotConnection(
-                id=str(conn.id),
-                provider=conn.connector_type,
-                email=email,
-                workspace=workspace,
-                status=status,
-                scopes=config.get("scopes", []),
-                last_sync=conn.last_sync_at,
-                messages_synced=messages_synced,
-                restricted_labels=restricted_labels,
-                restricted_channels=restricted_channels,
-                progress=config.get("sync_progress"),
+            .outerjoin(User, User.id == Connection.created_by_user_id)
+            .where(Connection.organization_id == token.org_id)
+        )
+        if not is_admin:
+            query = query.where(
+                or_(
+                    Connection.visibility != "private",
+                    Connection.created_by_user_id == token.sub,
+                )
             )
+
+        result = await session.execute(query)
+        rows = result.all()
+        connections = [row[0] for row in rows]
+        owners_by_connection_id: dict[str, dict[str, str | None]] = {}
+        for conn, owner_email, owner_name in rows:
+            owners_by_connection_id[str(conn.id)] = {
+                "email": owner_email,
+                "name": owner_name,
+            }
+
+        # Compute total records synced per connection by summing sync_state counters.
+        # This avoids expensive evidence row counts and works even when evidence retention
+        # policies prune raw items over time.
+        messages_by_connection: dict[str, int] = {}
+        if connections:
+            sync_result = await session.execute(
+                select(
+                    SyncState.connection_id,
+                    func.sum(SyncState.records_synced),
+                )
+                .where(SyncState.connection_id.in_([c.id for c in connections]))
+                .group_by(SyncState.connection_id)
+            )
+            for connection_id, records_synced in sync_result.all():
+                messages_by_connection[str(connection_id)] = int(records_synced or 0)
+
+        # Latest backfill execution per connection (if any).
+        backfill_last_status: dict[str, str] = {}
+        if connections:
+            history_result = await session.execute(
+                select(
+                    SyncJobHistory.connection_id,
+                    SyncJobHistory.status,
+                    SyncJobHistory.started_at,
+                )
+                .where(SyncJobHistory.connection_id.in_([c.id for c in connections]))
+                .where(SyncJobHistory.job_type == "backfill")
+                .order_by(SyncJobHistory.connection_id, SyncJobHistory.started_at.desc())
+            )
+            for connection_id, status, _started_at in history_result.all():
+                key = str(connection_id)
+                if key in backfill_last_status:
+                    continue
+                backfill_last_status[key] = status
+
+        # Running/queued backfill plans in the durable job queue.
+        backfill_running: set[str] = set()
+        jobs_result = await session.execute(
+            select(BackgroundJob.resource_key)
+            .where(BackgroundJob.organization_id == token.org_id)
+            .where(BackgroundJob.job_type == "connector.backfill_plan")
+            .where(BackgroundJob.status.in_(["queued", "running"]))
+        )
+        for (resource_key,) in jobs_result.all():
+            if not resource_key:
+                continue
+            if not str(resource_key).startswith("connection:"):
+                continue
+            backfill_running.add(str(resource_key).split("connection:", 1)[1])
+
+        pilot_connections: list[PilotConnection] = []
+        for conn in connections:
+            config = conn.config or {}
+            owner = owners_by_connection_id.get(str(conn.id), {})
+
+            # Determine provider-specific fields
+            email = None
+            workspace = None
+            restricted_labels: list[str] = []
+            restricted_channels: list[str] = []
+
+            if conn.connector_type == "gmail":
+                email = config.get("email")
+                restricted_labels = config.get("restricted_labels", [])
+            elif conn.connector_type == "slack":
+                workspace = config.get("workspace")
+                restricted_channels = config.get("restricted_channels", [])
+
+            messages_synced = messages_by_connection.get(str(conn.id), 0)
+
+            # Map status
+            status = "connected" if conn.status == "active" else conn.status
+            live_status = (
+                "paused"
+                if not conn.sync_enabled
+                else ("error" if conn.status == "error" else "running")
+            )
+
+            backfill_status = "not_started"
+            if not conn.backfill_enabled:
+                backfill_status = "paused"
+            elif str(conn.id) in backfill_running:
+                backfill_status = "running"
+            else:
+                last_backfill = backfill_last_status.get(str(conn.id))
+                if last_backfill == "failed":
+                    backfill_status = "error"
+                elif last_backfill == "completed":
+                    backfill_status = "done"
+
+            pilot_connections.append(
+                PilotConnection(
+                    id=str(conn.id),
+                    provider=conn.connector_type,
+                    email=email,
+                    workspace=workspace,
+                    status=status,
+                    visibility=(conn.visibility or "org_shared"),
+                    created_by_user_id=conn.created_by_user_id,
+                    created_by_email=owner.get("email"),
+                    created_by_name=owner.get("name"),
+                    live_status=live_status,
+                    backfill_status=backfill_status,
+                    scopes=config.get("scopes", []),
+                    last_sync=conn.last_sync_at,
+                    last_error=conn.last_sync_error,
+                    messages_synced=messages_synced,
+                    restricted_labels=restricted_labels,
+                    restricted_channels=restricted_channels,
+                    progress=config.get("sync_progress"),
+                )
+            )
+
+        return PilotConnectionsResponse(connections=pilot_connections)
+
+
+async def _require_connection_access(
+    session,
+    connection_id: str,
+    token: PilotToken,
+    action: str,
+):
+    """
+    Enforce source visibility boundaries for connection-scoped actions.
+
+    - Admins can access all sources.
+    - Members/viewers can access org-shared sources.
+    - Members/viewers can access private sources only if they connected them.
+    """
+    from src.db.models.connections import Connection
+
+    conn_result = await session.execute(
+        select(Connection).where(
+            Connection.id == connection_id,
+            Connection.organization_id == token.org_id,
+        )
+    )
+    connection = conn_result.scalar_one_or_none()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    if token.role in ("pilot_owner", "pilot_admin"):
+        return connection
+
+    if connection.visibility != "private":
+        return connection
+
+    if connection.created_by_user_id == token.sub:
+        return connection
+
+    raise HTTPException(
+        status_code=403,
+        detail=f"Access denied: this source is private (action={action})",
+    )
+
+
+class PilotConnectionStreamState(BaseModel):
+    """Per-stream cursor/state for a connection."""
+
+    stream_name: str
+    status: str
+    cursor_state: dict[str, Any]
+    records_synced: int
+    bytes_synced: int
+    last_sync_started_at: datetime | None = None
+    last_sync_completed_at: datetime | None = None
+    updated_at: datetime | None = None
+    error_message: str | None = None
+
+
+class PilotConnectionStateResponse(BaseModel):
+    connection_id: str
+    streams: list[PilotConnectionStreamState]
+
+
+@router.get("/connections/{connection_id}/state", response_model=PilotConnectionStateResponse)
+async def get_connection_state(
+    connection_id: str,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> PilotConnectionStateResponse:
+    """
+    Get per-stream cursor/watermark state for a connection.
+
+    **Requires**: Any pilot member
+    """
+    from src.db.models.connections import Connection, SyncState
+
+    async with get_db_session() as session:
+        connection = await _require_connection_access(
+            session,
+            connection_id,
+            token,
+            action="view_state",
         )
 
-    return PilotConnectionsResponse(connections=pilot_connections)
+        state_result = await session.execute(
+            select(SyncState)
+            .where(SyncState.connection_id == connection.id)
+            .order_by(SyncState.stream_name.asc())
+        )
+        states = state_result.scalars().all()
+
+    streams = [
+        PilotConnectionStreamState(
+            stream_name=s.stream_name,
+            status=s.status,
+            cursor_state=s.cursor_state or {},
+            records_synced=int(s.records_synced or 0),
+            bytes_synced=int(s.bytes_synced or 0),
+            last_sync_started_at=s.last_sync_started_at,
+            last_sync_completed_at=s.last_sync_completed_at,
+            updated_at=s.updated_at,
+            error_message=s.error_message,
+        )
+        for s in states
+    ]
+
+    return PilotConnectionStateResponse(
+        connection_id=str(connection.id),
+        streams=streams,
+    )
+
+
+class PilotConnectionJobHistoryItem(BaseModel):
+    id: str
+    job_type: str
+    status: str
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: int | None = None
+    records_synced: int = 0
+    bytes_synced: int = 0
+    streams: list[str] = []
+    streams_completed: list[str] = []
+    streams_failed: list[str] = []
+    error_message: str | None = None
+    extra_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class PilotConnectionHistoryResponse(BaseModel):
+    connection_id: str
+    jobs: list[PilotConnectionJobHistoryItem]
+
+
+@router.get("/connections/{connection_id}/history", response_model=PilotConnectionHistoryResponse)
+async def get_connection_history(
+    connection_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    job_type: str | None = Query(None, description="Filter by job type (scheduled|on_demand|backfill|webhook)"),
+    token: PilotToken = Depends(require_pilot_auth),
+) -> PilotConnectionHistoryResponse:
+    """
+    Get sync job history for a connection (most recent first).
+
+    **Requires**: Any pilot member
+    """
+    from src.db.models.connections import Connection, SyncJobHistory
+
+    async with get_db_session() as session:
+        connection = await _require_connection_access(
+            session,
+            connection_id,
+            token,
+            action="view_history",
+        )
+
+        query = (
+            select(SyncJobHistory)
+            .where(SyncJobHistory.connection_id == connection.id)
+            .order_by(SyncJobHistory.started_at.desc().nullslast(), SyncJobHistory.created_at.desc())
+            .limit(limit)
+        )
+        if job_type:
+            query = query.where(SyncJobHistory.job_type == job_type)
+
+        result = await session.execute(query)
+        rows = result.scalars().all()
+
+    jobs = [
+        PilotConnectionJobHistoryItem(
+            id=str(row.id),
+            job_type=row.job_type,
+            status=row.status,
+            started_at=row.started_at,
+            completed_at=row.completed_at,
+            duration_seconds=row.duration_seconds,
+            records_synced=int(row.records_synced or 0),
+            bytes_synced=int(row.bytes_synced or 0),
+            streams=list(row.streams or []),
+            streams_completed=list(row.streams_completed or []),
+            streams_failed=list(row.streams_failed or []),
+            error_message=row.error_message,
+            extra_data=row.extra_data or {},
+        )
+        for row in rows
+    ]
+
+    return PilotConnectionHistoryResponse(
+        connection_id=str(connection.id),
+        jobs=jobs,
+    )
 
 
 @router.get("/connections/events")
@@ -571,6 +857,24 @@ async def stream_sync_events(
     """
     async def event_generator():
         broadcaster = get_broadcaster()
+        is_admin = token.role in ("pilot_owner", "pilot_admin")
+
+        # Privacy boundary: do not leak sync events for private sources to other users.
+        allowed_connection_ids: set[str] = set()
+        if not is_admin:
+            from src.db.models.connections import Connection
+
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(Connection.id).where(
+                        Connection.organization_id == token.org_id,
+                        or_(
+                            Connection.visibility != "private",
+                            Connection.created_by_user_id == token.sub,
+                        ),
+                    )
+                )
+                allowed_connection_ids = {str(row[0]) for row in result.all()}
 
         # Send initial connection event
         yield {
@@ -580,6 +884,24 @@ async def stream_sync_events(
 
         # Subscribe to sync events
         async for event in broadcaster.subscribe(token.org_id):
+            if not is_admin and event.connection_id not in allowed_connection_ids:
+                # Connection might have been created while SSE is open. Resolve once.
+                from src.db.models.connections import Connection
+
+                async with get_db_session() as session:
+                    res = await session.execute(
+                        select(Connection).where(
+                            Connection.id == event.connection_id,
+                            Connection.organization_id == token.org_id,
+                        )
+                    )
+                    connection = res.scalar_one_or_none()
+                    if not connection:
+                        continue
+                    if connection.visibility == "private" and connection.created_by_user_id != token.sub:
+                        continue
+                    allowed_connection_ids.add(str(connection.id))
+
             yield {
                 "event": event.event_type,
                 "data": event.model_dump_json(),
@@ -622,11 +944,22 @@ async def connect_provider(
 
     **Requires**: Any pilot member
     """
+    if token.role == "pilot_viewer":
+        raise HTTPException(status_code=403, detail="Viewer role cannot connect sources")
+
     import hashlib
     from base64 import urlsafe_b64encode
     from urllib.parse import urlencode
 
     settings = get_settings()
+    from src.connectors.connector_requirements import get_missing_env_for_connector
+
+    missing_env = get_missing_env_for_connector(provider, settings)
+    if missing_env:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connector '{provider}' is not configured. Missing: {', '.join(missing_env)}",
+        )
 
     # Generate PKCE parameters
     code_verifier = secrets.token_urlsafe(64)
@@ -647,6 +980,8 @@ async def connect_provider(
             "redirect_uri": request.redirect_uri,
             "provider": provider,
             "org_id": token.org_id,
+            "created_by_user_id": token.sub,
+            "visibility": request.visibility,
             "restricted_labels": request.restricted_labels,
             "restricted_channels": request.restricted_channels,
             "return_to": request.return_to,
@@ -874,22 +1209,20 @@ async def trigger_connection_sync(
     **Requires**: Any pilot member
     """
     from src.db.models.connections import Connection
-    from src.connectors.scheduling.scheduler import get_scheduler
 
     request = request or SyncTriggerRequest()
 
     # Verify connection belongs to org
     async with get_db_session() as session:
-        result = await session.execute(
-            select(Connection).where(
-                Connection.id == connection_id,
-                Connection.organization_id == token.org_id,
-            )
-        )
-        connection = result.scalar_one_or_none()
+        if token.role == "pilot_viewer":
+            raise HTTPException(status_code=403, detail="Viewer role cannot trigger sync")
 
-        if not connection:
-            raise HTTPException(status_code=404, detail="Connection not found")
+        connection = await _require_connection_access(
+            session,
+            connection_id,
+            token,
+            action="sync",
+        )
 
         if connection.status not in ("active", "connected"):
             raise HTTPException(
@@ -897,19 +1230,30 @@ async def trigger_connection_sync(
                 detail=f"Connection is not ready for sync (status: {connection.status})",
             )
 
-    # Trigger the sync via scheduler
+    # Enqueue durable sync job (executed by jobs worker)
     try:
-        scheduler = get_scheduler()
-        job = await scheduler.trigger_sync_by_id(
-            connection_id=str(connection.id),
-            organization_id=token.org_id,
-            streams=request.streams if request.streams else None,
-            full_refresh=request.full_refresh,
+        from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+        job_id = await enqueue_job(
+            EnqueueJobRequest(
+                organization_id=token.org_id,
+                job_type="connector.sync",
+                payload={
+                    "connection_id": str(connection.id),
+                    "organization_id": token.org_id,
+                    "streams": request.streams if request.streams else None,
+                    "full_refresh": request.full_refresh,
+                    "scheduled": False,
+                },
+                priority=1,
+                max_attempts=3,
+                resource_key=f"connection:{connection_id}",
+            )
         )
 
         logger.info(
-            "Sync triggered",
-            job_id=job.job_id,
+            "Sync enqueued",
+            job_id=job_id,
             connection_id=connection_id,
             org_id=token.org_id,
             full_refresh=request.full_refresh,
@@ -917,8 +1261,8 @@ async def trigger_connection_sync(
 
         return SyncTriggerResponse(
             connection_id=str(connection.id),
-            status="running",
-            message=f"Sync job {job.job_id} started",
+            status="queued",
+            message=f"Sync job {job_id} queued",
         )
 
     except ValueError as e:
@@ -940,19 +1284,17 @@ async def trigger_connection_backfill(
     **Requires**: Any pilot member
     """
     from src.db.models.connections import Connection
-    from src.connectors.scheduling.scheduler import get_scheduler
 
     async with get_db_session() as session:
-        result = await session.execute(
-            select(Connection).where(
-                Connection.id == connection_id,
-                Connection.organization_id == token.org_id,
-            )
-        )
-        connection = result.scalar_one_or_none()
+        if token.role == "pilot_viewer":
+            raise HTTPException(status_code=403, detail="Viewer role cannot trigger backfill")
 
-        if not connection:
-            raise HTTPException(status_code=404, detail="Connection not found")
+        connection = await _require_connection_access(
+            session,
+            connection_id,
+            token,
+            action="backfill",
+        )
 
         if connection.status not in ("active", "connected"):
             raise HTTPException(
@@ -967,21 +1309,31 @@ async def trigger_connection_backfill(
             detail="start_date must be before end_date",
         )
 
-    scheduler = get_scheduler()
-    job_ids = await scheduler.trigger_backfill_plan(
-        connection_id=connection_id,
-        organization_id=token.org_id,
-        start_date=request.start_date,
-        end_date=end_date,
-        window_days=request.window_days,
-        streams=request.streams if request.streams else None,
-        throttle_seconds=request.throttle_seconds,
+    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+    job_id = await enqueue_job(
+        EnqueueJobRequest(
+            organization_id=token.org_id,
+            job_type="connector.backfill_plan",
+            payload={
+                "connection_id": str(connection.id),
+                "organization_id": token.org_id,
+                "start_date": request.start_date.isoformat(),
+                "end_date": end_date.isoformat() if end_date else None,
+                "window_days": request.window_days,
+                "streams": request.streams if request.streams else None,
+                "throttle_seconds": request.throttle_seconds,
+            },
+            priority=0,
+            max_attempts=2,
+            resource_key=f"connection:{connection_id}",
+        )
     )
 
     return BackfillResponse(
         connection_id=connection_id,
         status="queued",
-        backfill_jobs=job_ids,
+        backfill_jobs=[job_id],
     )
 
 
@@ -1000,16 +1352,15 @@ async def delete_connection(
     from src.db.models.connections import Connection
 
     async with get_db_session() as session:
-        result = await session.execute(
-            select(Connection).where(
-                Connection.id == connection_id,
-                Connection.organization_id == token.org_id,
-            )
-        )
-        connection = result.scalar_one_or_none()
+        if token.role == "pilot_viewer":
+            raise HTTPException(status_code=403, detail="Viewer role cannot delete connections")
 
-        if not connection:
-            raise HTTPException(status_code=404, detail="Connection not found")
+        connection = await _require_connection_access(
+            session,
+            connection_id,
+            token,
+            action="delete",
+        )
 
         # Delete the connection
         await session.delete(connection)
@@ -1021,7 +1372,86 @@ async def delete_connection(
         org_id=token.org_id,
     )
 
+    try:
+        from src.audit.log import record_audit_event
+
+        await record_audit_event(
+            organization_id=token.org_id,
+            action="connection.deleted",
+            actor_type="user",
+            actor_id=token.sub,
+            resource_type="connection",
+            resource_id=str(connection_id),
+            metadata={},
+        )
+    except Exception as audit_error:
+        logger.warning(
+            "Failed to record audit event for connection deletion",
+            connection_id=connection_id,
+            error=str(audit_error),
+        )
+
     return {"deleted": True, "connection_id": connection_id}
+
+
+class ConnectionVisibilityRequest(BaseModel):
+    visibility: Literal["org_shared", "private"]
+
+
+@router.patch("/connections/{connection_id}/visibility")
+async def update_connection_visibility(
+    connection_id: str,
+    request: ConnectionVisibilityRequest,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> dict:
+    """
+    Update a connection's visibility (org_shared vs private).
+
+    Rules:
+    - OWNER/ADMIN can change any connection.
+    - MEMBER can only change connections they created.
+    - VIEWER cannot change visibility.
+    """
+    if token.role == "pilot_viewer":
+        raise HTTPException(status_code=403, detail="Viewer role cannot change source visibility")
+
+    from src.audit.log import record_audit_event
+    from src.db.models.connections import Connection
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Connection).where(
+                Connection.id == connection_id,
+                Connection.organization_id == token.org_id,
+            )
+        )
+        connection = result.scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+
+        is_admin = token.role in ("pilot_owner", "pilot_admin")
+        is_owner = connection.created_by_user_id == token.sub
+        if not is_admin and not is_owner:
+            raise HTTPException(status_code=403, detail="Only the connector owner can change this source")
+
+        previous = connection.visibility
+        connection.visibility = request.visibility
+        await session.commit()
+
+    await record_audit_event(
+        organization_id=token.org_id,
+        action="connection.visibility_changed",
+        actor_type="user",
+        actor_id=token.sub,
+        resource_type="connection",
+        resource_id=str(connection_id),
+        metadata={
+            "previous_visibility": previous,
+            "new_visibility": request.visibility,
+        },
+    )
+
+    return {"updated": True, "connection_id": connection_id, "visibility": request.visibility}
 
 
 # =============================================================================
