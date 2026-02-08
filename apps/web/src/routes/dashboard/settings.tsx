@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Download, Shield, Sparkles } from "lucide-react";
+import { Building2, Download, LifeBuoy, Shield, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
 import { orgAPI, type OrgInfo } from "@/lib/api";
+import { useSupportModalStore } from "@/lib/support-modal";
 
 export const Route = createFileRoute("/dashboard/settings")({
   component: SettingsPage,
@@ -32,6 +33,7 @@ const REGIONS = [
 function SettingsPage() {
   const { data: session } = authClient.useSession();
   const user = session?.user;
+  const openSupport = useSupportModalStore((s) => s.openWith);
 
   const {
     data: orgInfo,
@@ -300,6 +302,35 @@ function SettingsPage() {
               <p className="text-muted-foreground text-xs">
                 Exports are processed asynchronously and expire after 24 hours.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LifeBuoy className="h-5 w-5 text-primary" />
+                Support
+              </CardTitle>
+              <CardDescription>
+                Report a bug, request help, or ask for onboarding support.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                Drovi can attach diagnostics (route + recent API errors) to help us resolve issues faster.
+              </div>
+              <Button
+                className="w-full"
+                onClick={() =>
+                  openSupport({
+                    subject: "",
+                    message: "",
+                    route: typeof window !== "undefined" ? window.location.pathname : undefined,
+                  })
+                }
+              >
+                Contact support
+              </Button>
             </CardContent>
           </Card>
         </div>

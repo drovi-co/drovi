@@ -27,6 +27,11 @@ from src.db.models.pilot import (
     Membership,
     Invite,
 )
+from src.db.models.support_tickets import (
+    SupportTicket,
+    SupportTicketMessage,
+    SupportTicketAttachment,
+)
 
 __all__ = [
     "Base",
@@ -44,4 +49,7 @@ __all__ = [
     "User",
     "Membership",
     "Invite",
+    "SupportTicket",
+    "SupportTicketMessage",
+    "SupportTicketAttachment",
 ]

@@ -1,0 +1,35 @@
+import path from "node:path";
+import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [tailwindcss(), tanstackRouter({}), react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    port: 3003,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/health": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ["react-resizable-panels"],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/react-resizable-panels/, /node_modules/],
+    },
+  },
+});

@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Copy,
+  LifeBuoy,
   LogIn,
   RefreshCw,
   ShieldAlert,
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { APIError, getApiBase } from "@/lib/api";
+import { useSupportModalStore } from "@/lib/support-modal";
 import { cn } from "@/lib/utils";
 
 function getDefaultTitle(error: unknown): string {
@@ -76,6 +78,7 @@ export function ApiErrorPanel({
 }) {
   const navigate = useNavigate();
   const [retrying, setRetrying] = useState(false);
+  const openSupport = useSupportModalStore((s) => s.openWith);
 
   const computedTitle = title ?? getDefaultTitle(error);
   const computedDescription = description ?? getDefaultDescription(error);
@@ -129,6 +132,47 @@ export function ApiErrorPanel({
     } catch {
       toast.error("Failed to copy diagnostics");
     }
+  };
+
+  const handleContactSupport = () => {
+    const subjectSuffix = meta?.code ? ` (${meta.code})` : "";
+    const body = [
+      "What I was doing:",
+      "",
+      "What happened:",
+      computedDescription,
+      "",
+      meta
+        ? `Endpoint: ${meta.method ?? "GET"} ${meta.endpoint ?? "unknown"} (status ${meta.status})`
+        : null,
+      meta?.requestId ? `Request ID: ${meta.requestId}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    openSupport({
+      subject: `${computedTitle}${subjectSuffix}`.slice(0, 180),
+      message: body,
+      route: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined,
+      diagnostics: meta
+        ? {
+            errorPanel: {
+              code: meta.code,
+              status: meta.status,
+              endpoint: meta.endpoint,
+              method: meta.method,
+              requestId: meta.requestId,
+              title: computedTitle,
+              description: computedDescription,
+            },
+          }
+        : {
+            errorPanel: {
+              title: computedTitle,
+              description: computedDescription,
+            },
+          },
+    });
   };
 
   const showSignIn = meta?.code === "UNAUTHENTICATED";
@@ -190,6 +234,16 @@ export function ApiErrorPanel({
               Sign in
             </Button>
           ) : null}
+
+          <Button
+            className="h-8 text-xs"
+            onClick={handleContactSupport}
+            size="sm"
+            variant="secondary"
+          >
+            <LifeBuoy className="mr-2 h-3.5 w-3.5" />
+            Contact support
+          </Button>
 
           <Button
             className="h-8 text-xs"

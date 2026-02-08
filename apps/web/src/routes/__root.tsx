@@ -8,6 +8,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
 import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
 import { IntentBar } from "@/components/intent-bar/intent-bar";
+import { SupportModal } from "@/components/support/support-modal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { QueryClient } from "@tanstack/react-query";
@@ -60,6 +61,7 @@ function RootComponent() {
       >
         <Outlet />
         <IntentBar />
+        <SupportModal />
         <Toaster richColors />
         <AutoUpdaterDialog />
       </ThemeProvider>

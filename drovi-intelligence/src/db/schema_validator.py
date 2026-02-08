@@ -69,6 +69,10 @@ REQUIRED_TABLES = [
     "transcript_segment",
     "evidence_artifact",
     "sensor_permission",
+    # Support tooling
+    "support_ticket",
+    "support_ticket_message",
+    "support_ticket_attachment",
 ]
 
 # Required PostgreSQL extensions

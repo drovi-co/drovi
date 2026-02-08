@@ -15,7 +15,7 @@ Each phase includes acceptance criteria and test expectations.
 
 ---
 
-## Status (2026-02-07)
+## Status (2026-02-08)
 
 **Completed (implemented + passing local gates)**
 - [x] Phase 0.1: repo “green build” gates (`bun run green`) + CI build/test/docker/smoke workflow.
@@ -24,6 +24,7 @@ Each phase includes acceptance criteria and test expectations.
 - [x] Phase 1 (backend): connector contract APIs + durable sync/backfill job execution + regression tests.
 - [x] Phase 2: team model and permissions (roles + policies + private memory boundaries).
 - [x] Phase 3: global Intent Bar (`Cmd/Ctrl+K`) with evidence-first Ask + hybrid Find + command registry + debug view.
+- [x] Phase 5: support tooling (tickets + inbound email + Resend outbound).
 
 **In progress (current focus)**
 - [ ] Phase 0.2: “no errors on any page” audit, starting with auth/onboarding + Connected Sources + Exchange.
@@ -330,72 +331,72 @@ Tracked outside Phase 1:
 ## Phase 4: New Admin App (`apps/admin`) at `admin.drovi.co`
 
 ### 4.1 App scaffolding
-- [ ] Create `apps/admin` with the same UI primitives and styles as `apps/web`.
-- [ ] Use the same API client patterns as web (shared packages if possible).
-- [ ] Sidebar collapsed by default; add “TV mode” full-screen layout.
+- [x] Create `apps/admin` with the same UI primitives and styles as `apps/web`.
+- [x] Use the same API client patterns as web (shared packages if possible).
+- [x] Sidebar collapsed by default; add “TV mode” full-screen layout.
 
 ### 4.2 Admin authentication
-- [ ] Implement email/password login for admin app:
-  - [ ] only allow `@drovi.co` emails
-  - [ ] require env-configured admin password policy (rotateable)
-- [ ] Add server-side enforcement on drovi-intelligence:
-  - [ ] an “admin session” concept or admin-only endpoints protected by role/domain.
+- [x] Implement email/password login for admin app:
+  - [x] only allow `@drovi.co` emails
+  - [x] require env-configured admin password policy (rotateable)
+- [x] Add server-side enforcement on drovi-intelligence:
+  - [x] an “admin session” concept or admin-only endpoints protected by role/domain.
 
 **Acceptance**
 - Non-`@drovi.co` users cannot access admin; no admin UI appears in the main web app.
 
 ### 4.3 KPI dashboard (live without refresh)
-- [ ] Define KPIs:
-  - [ ] org count, user count, active users
-  - [ ] connected sources count by type
-  - [ ] ingestion throughput and lag
-  - [ ] backfill success rate
-  - [ ] error rate and top failing endpoints
-  - [ ] MRR (if billing exists), plan distribution
-- [ ] Build SSE-backed widgets (or polling with strong caching as fallback).
+- [x] Define KPIs:
+  - [x] org count, user count, active users
+  - [x] connected sources count by type
+  - [x] ingestion throughput and lag
+  - [x] backfill success rate
+  - [x] error rate and top failing endpoints
+  - [x] MRR (if billing exists), plan distribution
+- [x] Build SSE-backed widgets (or polling with strong caching as fallback).
 
 ### 4.4 Admin operations pages
-- [ ] Orgs: list/search -> org detail (members, sources, usage, flags).
-- [ ] Users: list/search -> user detail (sessions, resets).
-- [ ] Connectors: config status, failures, retry.
-- [ ] Jobs: queue lag and job replay.
-- [ ] Exchange moderation: publish/unpublish bundles.
+- [x] Orgs: list/search -> org detail (members, sources, usage, flags).
+- [x] Users: list/search -> user detail (sessions, resets).
+- [x] Connectors: config status, failures, retry.
+- [x] Jobs: queue lag and job replay.
+- [x] Exchange moderation: publish/unpublish bundles.
 
 ---
 
 ## Phase 5: Support Tooling (Tickets + Email Ingestion + Resend Outbound)
 
 ### 5.1 Ticket data model + APIs
-- [ ] Add tables:
-  - [ ] `support_ticket`
-  - [ ] `support_ticket_message`
-  - [ ] `support_ticket_attachment` (optional)
-- [ ] Add endpoints:
-  - [ ] create ticket (web)
-  - [ ] list tickets (admin)
-  - [ ] update ticket status/assignee (admin)
-  - [ ] add message (admin -> user, user -> admin)
-- [ ] Add audit logging for ticket updates.
+- [x] Add tables:
+  - [x] `support_ticket`
+  - [x] `support_ticket_message`
+  - [x] `support_ticket_attachment` (optional)
+- [x] Add endpoints:
+  - [x] create ticket (web)
+  - [x] list tickets (admin)
+  - [x] update ticket status/assignee (admin)
+  - [x] add message (admin -> user, user -> admin)
+- [x] Add audit logging for ticket updates.
 
 ### 5.2 Web app: “Contact support” flow
-- [ ] Add a support modal accessible from:
-  - [ ] settings
-  - [ ] error states (“Report this issue”)
-- [ ] Auto-attach diagnostics:
-  - [ ] org id, user id
-  - [ ] current route
-  - [ ] last API request id / endpoint (if available)
-  - [ ] connector statuses snapshot
+- [x] Add a support modal accessible from:
+  - [x] settings
+  - [x] error states (“Report this issue”)
+- [x] Auto-attach diagnostics:
+  - [x] org id, user id
+  - [x] current route
+  - [x] last API request id / endpoint (if available)
+  - [x] connector statuses snapshot
 
 ### 5.3 Inbound email -> tickets
-- [ ] Choose inbound email strategy and implement:
-  - [ ] inbound webhook endpoint that receives emails
-  - [ ] parsing and threading (match `[#ticket-123]` in subject or headers)
-  - [ ] spam filtering and basic validation
+- [x] Choose inbound email strategy and implement:
+  - [x] inbound webhook endpoint that receives emails
+  - [x] parsing and threading (match `[#ticket-123]` in subject or headers)
+  - [x] spam filtering and basic validation
 
 ### 5.4 Outbound ticket notifications
-- [ ] Implement outbound email sending for ticket updates via Resend.
-- [ ] Add templates (FR/EN) and link back to the app ticket view.
+- [x] Implement outbound email sending for ticket updates via Resend.
+- [x] Add templates (FR/EN) and link back to the app ticket view.
 
 **Acceptance**
 - Creating a ticket from the web app appears immediately in admin and sends a confirmation email.

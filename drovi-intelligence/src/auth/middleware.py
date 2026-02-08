@@ -25,6 +25,7 @@ from fastapi import Cookie, Depends, HTTPException, Request, Header
 from fastapi.security import APIKeyHeader
 
 from src.auth.api_key import validate_api_key, APIKeyInfo
+from src.auth.admin_accounts import verify_admin_jwt, validate_admin_email
 from src.auth.context import AuthContext, AuthMetadata, AuthType, get_scopes_for_role
 from src.auth.pilot_accounts import verify_jwt
 from src.auth.scopes import has_scope, Scope
@@ -39,6 +40,7 @@ DEFAULT_RATE_LIMIT = 100
 # Headers
 API_KEY_HEADER = "X-API-Key"
 INTERNAL_SERVICE_HEADER = "X-Internal-Service-Token"
+ADMIN_SESSION_COOKIE = "admin_session"
 
 # Internal service token (shared secret with Drovi TypeScript app)
 # Try os.getenv first, then fall back to hardcoded dev token for local development
@@ -165,17 +167,53 @@ async def get_api_key_context(
     # Internal service token (Drovi app bypass)
     internal_token = request.headers.get(INTERNAL_SERVICE_HEADER)
 
+    # 0. Admin session (admin.drovi.co)
+    #
+    # Admin auth is separate from pilot sessions and uses a distinct secret.
+    is_admin_client = request.headers.get("X-Drovi-Client") == "admin"
+    path_is_admin = request.url.path.startswith("/api/v1/admin")
+    admin_cookie_token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if admin_cookie_token and (is_admin_client or path_is_admin):
+        admin_token = verify_admin_jwt(admin_cookie_token)
+        if admin_token and validate_admin_email(admin_token.email):
+            set_rls_context("internal", is_internal=True)
+            return APIKeyContext(
+                organization_id="internal",
+                scopes=[Scope.ADMIN.value, Scope.INTERNAL.value],
+                key_id=f"admin:{admin_token.email}",
+                key_name=f"Admin: {admin_token.email}",
+                is_internal=True,
+                rate_limit_per_minute=10000,
+            )
+        # Invalid admin cookie. If no alternative auth method is present, fail
+        # with a session-style 401 (instead of falling through to "Missing API key").
+        if not internal_token and not api_key and not (session or authorization):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired admin session",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     # 1. Check for session cookie or Authorization bearer (Pilot Surface frontend)
     #
     # NOTE: In normal FastAPI operation, `session` and `authorization` will be
     # either `str` or `None`. When unit-testing this dependency by calling it
     # directly, the default values may be the `Cookie(...)` / `Header(...)`
     # parameter objects; treat non-strings as missing.
+    #
+    # When the admin client sends an Authorization header, prefer it over the
+    # session cookie. On localhost the web-app session cookie leaks across
+    # ports and would otherwise shadow the admin Bearer token.
     token_str = session if isinstance(session, str) else None
     auth_header = authorization if isinstance(authorization, str) else None
 
-    if not token_str and auth_header:
-        if auth_header.startswith("Bearer "):
+    # Admin clients must never authenticate via the pilot session cookie.
+    # On localhost, the pilot cookie leaks across ports and would otherwise
+    # trick the admin app into thinking it is logged in.
+    if is_admin_client and not (auth_header and auth_header.startswith("Bearer ")):
+        token_str = None
+    if auth_header and auth_header.startswith("Bearer "):
+        if is_admin_client or not token_str:
             token_str = auth_header[7:]
 
     if token_str:
@@ -203,6 +241,19 @@ async def get_api_key_context(
                 key_name=f"Session: {token.email}",
                 is_internal=False,
                 rate_limit_per_minute=1000,
+            )
+        # If the Bearer token is not a pilot JWT, it may be an admin session JWT.
+        # Try admin verification before failing with a session-style 401.
+        admin_token = verify_admin_jwt(token_str)
+        if admin_token and validate_admin_email(admin_token.email):
+            set_rls_context("internal", is_internal=True)
+            return APIKeyContext(
+                organization_id="internal",
+                scopes=[Scope.ADMIN.value, Scope.INTERNAL.value],
+                key_id=f"admin:{admin_token.email}",
+                key_name=f"Admin: {admin_token.email}",
+                is_internal=True,
+                rate_limit_per_minute=10000,
             )
         # Invalid session token. If no alternative auth method is present, fail
         # with a session-style 401 (instead of falling through to "Missing API key").
@@ -347,10 +398,46 @@ async def get_auth_context(
     Raises:
         HTTPException: If authentication fails
     """
+    # 0. Admin session (admin.drovi.co)
+    is_admin_client = request.headers.get("X-Drovi-Client") == "admin"
+    path_is_admin = request.url.path.startswith("/api/v1/admin")
+    admin_cookie_token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    auth_header: str | None = authorization
+    if admin_cookie_token and (is_admin_client or path_is_admin):
+        admin_token = verify_admin_jwt(admin_cookie_token)
+        if admin_token and validate_admin_email(admin_token.email):
+            set_rls_context("internal", is_internal=True)
+            return AuthContext(
+                organization_id="internal",
+                auth_subject_id=f"admin_{admin_token.email}",
+                scopes=[Scope.ADMIN.value, Scope.INTERNAL.value],
+                metadata=AuthMetadata(
+                    auth_type=AuthType.INTERNAL_SERVICE,
+                    user_email=admin_token.email,
+                    user_id=admin_token.sub,
+                    service_name="Drovi Admin Session",
+                ),
+                rate_limit_per_minute=10000,
+                is_internal=True,
+            )
+        if not api_key and not session and not auth_header and not request.headers.get(INTERNAL_SERVICE_HEADER):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired admin session",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     # 1. Check for session cookie / Authorization bearer first (Pilot Surface frontend)
+    #
+    # When the admin client sends an Authorization header, prefer it over the
+    # session cookie. On localhost the web-app session cookie leaks across
+    # ports and would otherwise shadow the admin Bearer token.
     token_str: str | None = session
-    if not token_str and authorization:
-        if authorization.startswith("Bearer "):
+    # Admin clients must never authenticate via the pilot session cookie.
+    if is_admin_client and not (authorization and authorization.startswith("Bearer ")):
+        token_str = None
+    if authorization and authorization.startswith("Bearer "):
+        if is_admin_client or not token_str:
             token_str = authorization[7:]
 
     if token_str:
@@ -388,6 +475,25 @@ async def get_auth_context(
                 ),
                 rate_limit_per_minute=1000,
                 is_internal=False,  # Session users are not internal
+            )
+
+    # Also allow admin tokens via Authorization header.
+    if authorization and authorization.startswith("Bearer "):
+        admin_token = verify_admin_jwt(authorization[7:])
+        if admin_token and validate_admin_email(admin_token.email):
+            set_rls_context("internal", is_internal=True)
+            return AuthContext(
+                organization_id="internal",
+                auth_subject_id=f"admin_{admin_token.email}",
+                scopes=[Scope.ADMIN.value, Scope.INTERNAL.value],
+                metadata=AuthMetadata(
+                    auth_type=AuthType.INTERNAL_SERVICE,
+                    user_email=admin_token.email,
+                    user_id=admin_token.sub,
+                    service_name="Drovi Admin Session",
+                ),
+                rate_limit_per_minute=10000,
+                is_internal=True,
             )
 
     # 2. Check for internal service token (Drovi app)

@@ -2992,6 +2992,39 @@ export const patternsAPI = {
 };
 
 // =============================================================================
+// SUPPORT API
+// =============================================================================
+
+export interface SupportTicketCreated {
+  ticket_id: string;
+  status: string;
+  created_at: string;
+}
+
+export const supportAPI = {
+  async createTicket(params: {
+    subject: string;
+    message: string;
+    messageHtml?: string;
+    route?: string;
+    locale?: string;
+    diagnostics?: Record<string, unknown>;
+  }): Promise<SupportTicketCreated> {
+    return apiFetch<SupportTicketCreated>("/support/tickets", {
+      method: "POST",
+      body: JSON.stringify({
+        subject: params.subject,
+        message: params.message,
+        message_html: params.messageHtml,
+        route: params.route,
+        locale: params.locale,
+        diagnostics: params.diagnostics ?? {},
+      }),
+    });
+  },
+};
+
+// =============================================================================
 // CONVENIENCE EXPORTS
 // =============================================================================
 
@@ -3007,6 +3040,7 @@ export const api = {
   orgSSE: orgSSE,
   contacts: contactsAPI,
   customer: customerAPI,
+  support: supportAPI,
 };
 
 export default api;

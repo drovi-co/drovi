@@ -367,6 +367,22 @@ services:
     ports:
       - "3001:80"
 
+  # ---------------------------------------------------------------------------
+  # Admin App (Vite build + Nginx)
+  # ---------------------------------------------------------------------------
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        VITE_SERVER_URL: http://localhost:3003
+    container_name: drovi-admin
+    restart: unless-stopped
+    depends_on:
+      - drovi-intelligence
+    ports:
+      - "3003:80"
+
 volumes:
   drovi_postgres_data:
     driver: local

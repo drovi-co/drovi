@@ -30,6 +30,7 @@ from src.api.routes import (
     analyze,
     analytics,
     actuations,
+    admin,
     audit,
     api_keys,
     ask,
@@ -60,6 +61,7 @@ from src.api.routes import (
     sensors,
     sessions,
     signals,
+    support,
     stream,
     uios,
     workflows,
@@ -254,10 +256,12 @@ app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"]
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(org.router, prefix="/api/v1", tags=["Organization Management"])
+app.include_router(admin.router, prefix="/api/v1", tags=["Admin"])
 app.include_router(patterns.router, prefix="/api/v1", tags=["Patterns"])
 app.include_router(personalization.router, prefix="/api/v1", tags=["Personalization"])
 app.include_router(guardrails.router, prefix="/api/v1", tags=["Guardrails"])
 app.include_router(sensors.router, prefix="/api/v1", tags=["Sensors"])
+app.include_router(support.router, prefix="/api/v1", tags=["Support"])
 app.include_router(trust.router, prefix="/api/v1", tags=["Trust"])
 app.include_router(simulations.router, prefix="/api/v1", tags=["Simulations"])
 

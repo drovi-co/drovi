@@ -276,6 +276,11 @@ class Settings(BaseSettings):
     resend_api_url: str = Field(default="https://api.resend.com")
     resend_timeout_seconds: float = Field(default=10.0)
 
+    # Support tooling (tickets + inbound email)
+    support_inbound_token: str | None = Field(default=None)
+    support_inbox_email: str = Field(default="support@drovi.co")
+    support_portal_url: str | None = Field(default=None)
+
     # Orchestrator
     orchestrator_timeout_seconds: int = Field(default=60)
     auto_approval_threshold: float = Field(default=0.85)
