@@ -20,6 +20,7 @@ import { AssigneeIcon } from "@/components/ui/assignee-icon";
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { useI18n, useT } from "@/i18n";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +173,7 @@ interface GroupHeaderProps {
 }
 
 function GroupHeader({ status, count }: GroupHeaderProps) {
+  const t = useT();
   const config = STATUS_CONFIG[status];
   // Map our status to the StatusIcon status type
   const iconStatus: Status =
@@ -191,7 +193,7 @@ function GroupHeader({ status, count }: GroupHeaderProps) {
     <div className="flex items-center gap-2 bg-muted px-4 py-1">
       <StatusIcon size="md" status={iconStatus} />
       <span className="font-medium text-[13px] text-foreground">
-        {config.label}
+        {t(config.label)}
       </span>
       <span className="text-[13px] text-muted-foreground">{count}</span>
       <button className="ml-auto rounded p-1.5 transition-colors hover:bg-accent">
@@ -294,7 +296,8 @@ function VirtualTaskRow({
   onSelect,
   onClick,
 }: VirtualTaskRowProps) {
-  const dueInfo = formatDueDate(task.dueDate);
+  const { locale, t } = useI18n();
+  const dueInfo = formatDueDate(task.dueDate, { locale, t });
   const iconStatus = mapStatus(task.status);
   const iconPriority = mapPriority(task.priority);
   const sourceType = mapSourceTypeToSourceType(task.sourceType);

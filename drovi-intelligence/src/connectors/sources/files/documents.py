@@ -25,7 +25,12 @@ import httpx
 import structlog
 
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
-from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
+from src.connectors.base.connector import (
+    BaseConnector,
+    ConnectorCapabilities,
+    RecordBatch,
+    ConnectorRegistry,
+)
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
 from src.connectors.http import request_with_retry
@@ -65,6 +70,20 @@ class DocumentConnector(BaseConnector):
     - URLs
     - S3-style paths (with appropriate credentials)
     """
+
+    connector_type = "documents"
+
+    capabilities = ConnectorCapabilities(
+        supports_incremental=False,
+        supports_full_refresh=True,
+        supports_backfill=True,
+        supports_webhooks=False,
+        supports_real_time=False,
+        default_rate_limit_per_minute=60,
+        supports_concurrency=True,
+        max_concurrent_streams=1,
+        supports_schema_discovery=True,
+    )
 
     SUPPORTED_EXTENSIONS = {
         ".pdf": "pdf",

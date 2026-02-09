@@ -79,6 +79,9 @@ class Organization(Base):
         default="org_shared",
     )
 
+    # Locale defaults for the org (user can override).
+    default_locale = Column(String(10), nullable=False, default="en")
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -113,6 +116,9 @@ class User(Base):
 
     # Profile
     name = Column(String(255), nullable=True)
+
+    # User-preferred locale (overrides org default).
+    locale = Column(String(10), nullable=True)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

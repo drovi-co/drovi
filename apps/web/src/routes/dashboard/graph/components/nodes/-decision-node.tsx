@@ -13,19 +13,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useI18n, useT } from "@/i18n";
 import type { DecisionNodeData } from "../../-types";
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
+  }).format(date);
 }
 
 // =============================================================================
@@ -34,6 +35,8 @@ function formatDate(dateStr: string): string {
 
 function DecisionNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as DecisionNodeData;
+  const t = useT();
+  const { locale } = useI18n();
 
   return (
     <TooltipProvider>
@@ -108,12 +111,12 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
                   {nodeData.isSuperseded ? (
                     <>
                       <RotateCcw className="mr-1 h-3 w-3" />
-                      Superseded
+                      {t("pages.dashboard.graph.nodes.decision.superseded")}
                     </>
                   ) : (
                     <>
                       <Check className="mr-1 h-3 w-3" />
-                      Active
+                      {t("pages.dashboard.graph.nodes.decision.active")}
                     </>
                   )}
                 </Badge>
@@ -121,7 +124,7 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
                 {/* Decision date */}
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  {formatDate(nodeData.decidedAt)}
+                  {formatDate(nodeData.decidedAt, locale)}
                 </span>
               </div>
 
@@ -150,11 +153,11 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
               </p>
             )}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Decided:</span>
-              <span>{formatDate(nodeData.decidedAt)}</span>
+              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.decision.decided")}</span>
+              <span>{formatDate(nodeData.decidedAt, locale)}</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Confidence:</span>
+              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.decision.confidence")}</span>
               <div className="h-1.5 w-16 rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-purple-500"

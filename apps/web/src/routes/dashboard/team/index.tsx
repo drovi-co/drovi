@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useT } from "@/i18n";
 import { orgAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/team/")({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/dashboard/team/")({
 });
 
 function TeamPage() {
+  const t = useT();
   const {
     data: orgInfo,
     isLoading,
@@ -48,12 +50,12 @@ function TeamPage() {
   if (!orgInfo) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <h2 className="font-semibold text-xl">No Organization Selected</h2>
+        <h2 className="font-semibold text-xl">{t("pages.dashboard.team.noOrg.title")}</h2>
         <p className="mt-2 text-muted-foreground">
-          Create or select an organization to manage your team
+          {t("pages.dashboard.team.noOrg.description")}
         </p>
         <Link to="/onboarding/create-org">
-          <Button className="mt-4">Create Organization</Button>
+          <Button className="mt-4">{t("pages.dashboard.team.noOrg.cta")}</Button>
         </Link>
       </div>
     );
@@ -62,9 +64,9 @@ function TeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">Team</h1>
+        <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.team")}</h1>
         <p className="text-muted-foreground">
-          Manage your organization and team members
+          {t("pages.dashboard.team.subtitle")}
         </p>
       </div>
 
@@ -73,20 +75,26 @@ function TeamPage() {
         <CardHeader>
           <CardTitle>{orgInfo.name}</CardTitle>
           <CardDescription>
-            Region: {orgInfo.region ?? "Default"}
+            {t("pages.dashboard.team.org.region", {
+              region: orgInfo.region ?? t("pages.dashboard.team.org.defaultRegion"),
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
             <div>
               <p className="text-muted-foreground text-sm">
-                Created:{" "}
-                {orgInfo.created_at
-                  ? new Date(orgInfo.created_at).toLocaleDateString()
-                  : "—"}
+                {t("pages.dashboard.team.org.created", {
+                  date: orgInfo.created_at
+                    ? new Date(orgInfo.created_at).toLocaleDateString()
+                    : "—",
+                })}
               </p>
               <p className="text-muted-foreground text-sm">
-                {orgInfo.member_count} members · {orgInfo.connection_count} connections
+                {t("pages.dashboard.team.org.stats", {
+                  members: orgInfo.member_count,
+                  connections: orgInfo.connection_count,
+                })}
               </p>
             </div>
           </div>
@@ -100,8 +108,8 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Users className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">Members</CardTitle>
-                <CardDescription>Manage team members</CardDescription>
+                <CardTitle className="text-lg">{t("nav.items.members")}</CardTitle>
+                <CardDescription>{t("pages.dashboard.team.quickActions.members")}</CardDescription>
               </div>
             </CardHeader>
           </Link>
@@ -112,8 +120,8 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Mail className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">Invitations</CardTitle>
-                <CardDescription>Invite new members</CardDescription>
+                <CardTitle className="text-lg">{t("nav.items.invitations")}</CardTitle>
+                <CardDescription>{t("pages.dashboard.team.quickActions.invitations")}</CardDescription>
               </div>
             </CardHeader>
           </Link>
@@ -124,8 +132,8 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Settings className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">Settings</CardTitle>
-                <CardDescription>Organization settings</CardDescription>
+                <CardTitle className="text-lg">{t("nav.items.settings")}</CardTitle>
+                <CardDescription>{t("pages.dashboard.team.quickActions.settings")}</CardDescription>
               </div>
             </CardHeader>
           </Link>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Download, LifeBuoy, Shield, Sparkles } from "lucide-react";
+import { Building2, Download, LifeBuoy, Shield, Sparkles, Languages } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
@@ -17,23 +17,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
-import { orgAPI, type OrgInfo } from "@/lib/api";
+import { authAPI, orgAPI, type OrgInfo } from "@/lib/api";
 import { useSupportModalStore } from "@/lib/support-modal";
+import { useI18n, useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/settings")({
   component: SettingsPage,
 });
 
 const REGIONS = [
-  { id: "us-west", label: "US West" },
-  { id: "us-east", label: "US East" },
-  { id: "eu-central", label: "EU Central" },
+  { id: "us-west", labelKey: "settings.regions.usWest" },
+  { id: "us-east", labelKey: "settings.regions.usEast" },
+  { id: "eu-central", labelKey: "settings.regions.euCentral" },
 ];
 
 function SettingsPage() {
   const { data: session } = authClient.useSession();
   const user = session?.user;
   const openSupport = useSupportModalStore((s) => s.openWith);
+  const { locale, setLocale } = useI18n();
+  const t = useT();
+  const isOrgAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
 
   const {
     data: orgInfo,
@@ -67,9 +71,9 @@ function SettingsPage() {
     }) => orgAPI.updateOrgInfo(payload),
     onSuccess: (updated) => {
       setOrgDraft(updated);
-      toast.success("Organization settings updated");
+      toast.success(t("settings.orgProfile.toastSaved"));
     },
-    onError: () => toast.error("Failed to update organization"),
+    onError: () => toast.error(t("settings.orgProfile.toastSaveFailed")),
   });
 
   const handleOrgSave = () => {
@@ -81,6 +85,20 @@ function SettingsPage() {
       notificationEmails: activeOrg.notification_emails ?? undefined,
     });
   };
+
+  const updateLocaleMutation = useMutation({
+    mutationFn: (next: "en" | "fr") => authAPI.updateMyLocale(next),
+    onError: () => toast.error(t("settings.languageSaveError")),
+  });
+
+  const updateOrgLocaleMutation = useMutation({
+    mutationFn: (next: "en" | "fr") => orgAPI.updateOrgInfo({ defaultLocale: next }),
+    onSuccess: (updated) => {
+      setOrgDraft(updated);
+      toast.success(t("settings.orgLanguageSaved"));
+    },
+    onError: () => toast.error(t("settings.orgLanguageSaveError")),
+  });
 
   const handleDomainChange = (value: string) => {
     if (!activeOrg) return;
@@ -107,9 +125,9 @@ function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">Settings</h1>
+        <h1 className="font-bold text-3xl tracking-tight">{t("settings.pageTitle")}</h1>
         <p className="text-muted-foreground">
-          Configure your organization and security posture.
+          {t("settings.pageDescription")}
         </p>
       </div>
 
@@ -118,23 +136,23 @@ function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
-              Organization profile
+              {t("settings.orgProfile.title")}
             </CardTitle>
             <CardDescription>
-              Control identity, domains, and routing policies for your org.
+              {t("settings.orgProfile.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             {orgLoading ? (
               <div className="text-muted-foreground text-sm">
-                Loading organization…
+                {t("settings.orgProfile.loading")}
               </div>
             ) : orgError ? (
               <ApiErrorPanel error={orgErrorObj} onRetry={() => refetchOrg()} />
             ) : (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="org-name">Organization name</Label>
+                  <Label htmlFor="org-name">{t("settings.orgProfile.fields.name")}</Label>
                   <Input
                     id="org-name"
                     value={activeOrg?.name ?? ""}
@@ -152,7 +170,7 @@ function SettingsPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="org-region">Data region</Label>
+                  <Label htmlFor="org-region">{t("settings.orgProfile.fields.region")}</Label>
                   <Select
                     value={activeOrg?.region ?? "us-west"}
                     onValueChange={(value) =>
@@ -166,12 +184,12 @@ function SettingsPage() {
                     }
                   >
                     <SelectTrigger id="org-region">
-                      <SelectValue placeholder="Select region" />
+                      <SelectValue placeholder={t("settings.orgProfile.regionPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {REGIONS.map((region) => (
                         <SelectItem key={region.id} value={region.id}>
-                          {region.label}
+                          {t(region.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -179,23 +197,23 @@ function SettingsPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="allowed-domains">Allowed domains</Label>
+                  <Label htmlFor="allowed-domains">{t("settings.orgProfile.fields.allowedDomains")}</Label>
                   <Input
                     id="allowed-domains"
-                    placeholder="example.com, partner.org"
+                    placeholder={t("settings.orgProfile.allowedDomainsPlaceholder")}
                     value={allowedDomains}
                     onChange={(event) => handleDomainChange(event.target.value)}
                   />
                   <p className="text-muted-foreground text-xs">
-                    Leave empty to allow any domain for invites.
+                    {t("settings.orgProfile.allowedDomainsHint")}
                   </p>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="notification-emails">Notification emails</Label>
+                  <Label htmlFor="notification-emails">{t("settings.orgProfile.fields.notificationEmails")}</Label>
                   <Input
                     id="notification-emails"
-                    placeholder="ops@company.com, security@company.com"
+                    placeholder={t("settings.orgProfile.notificationEmailsPlaceholder")}
                     value={notificationEmails}
                     onChange={(event) =>
                       handleNotificationEmails(event.target.value)
@@ -205,10 +223,13 @@ function SettingsPage() {
 
                 <div className="flex items-center justify-between">
                   <div className="text-muted-foreground text-xs">
-                    {activeOrg?.member_count ?? 0} members · {activeOrg?.connection_count ?? 0} connections
+                    {t("settings.orgProfile.stats", {
+                      members: activeOrg?.member_count ?? 0,
+                      connections: activeOrg?.connection_count ?? 0,
+                    })}
                   </div>
                   <Button onClick={handleOrgSave} disabled={updateOrgMutation.isPending}>
-                    {updateOrgMutation.isPending ? "Saving…" : "Save changes"}
+                    {updateOrgMutation.isPending ? t("settings.orgProfile.saving") : t("settings.orgProfile.save")}
                   </Button>
                 </div>
               </>
@@ -220,24 +241,84 @@ function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Account summary
+                <Languages className="h-5 w-5 text-primary" />
+                {t("settings.language")}
               </CardTitle>
               <CardDescription>
-                Your identity and access level inside Drovi.
+                {t("settings.languageDescription")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label>{t("settings.yourLanguage")}</Label>
+                  <Select
+                    value={locale}
+                    onValueChange={(value) => {
+                      const next = value === "fr" ? "fr" : "en";
+                      setLocale(next);
+                      updateLocaleMutation.mutate(next);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">{t("settings.english")}</SelectItem>
+                      <SelectItem value="fr">{t("settings.french")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {isOrgAdmin ? (
+                  <div className="grid gap-2">
+                    <Label>{t("settings.orgDefaultLanguage")}</Label>
+                    <Select
+                      value={activeOrg?.default_locale ?? "en"}
+                      onValueChange={(value) => {
+                        const next = value === "fr" ? "fr" : "en";
+                        updateOrgLocaleMutation.mutate(next);
+                      }}
+                      disabled={!activeOrg}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">{t("settings.english")}</SelectItem>
+                        <SelectItem value="fr">{t("settings.french")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-muted-foreground text-xs">
+                      {t("settings.orgDefaultLanguageHint")}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                {t("settings.account.title")}
+              </CardTitle>
+              <CardDescription>
+                {t("settings.account.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/40 p-4">
-                <p className="text-xs uppercase text-muted-foreground">Email</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("settings.account.emailLabel")}</p>
                 <p className="mt-1 font-medium text-sm">
                   {user?.email ?? "—"}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-muted/40 p-4">
-                <p className="text-xs uppercase text-muted-foreground">Role</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("settings.account.roleLabel")}</p>
                 <p className="mt-1 font-medium text-sm">
-                  {user?.role ?? "Member"}
+                  {user?.role ?? t("settings.account.roleFallback")}
                 </p>
               </div>
               <Button
@@ -245,7 +326,7 @@ function SettingsPage() {
                 variant="outline"
                 onClick={() => authClient.signOut()}
               >
-                Sign out
+                {t("common.actions.signOut")}
               </Button>
             </CardContent>
           </Card>
@@ -254,19 +335,18 @@ function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
-                Security posture
+                {t("settings.security.title")}
               </CardTitle>
               <CardDescription>
-                Credentials and audit readiness for your org.
+                {t("settings.security.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                Password resets, MFA, and device policies are available in the
-                enterprise security console.
+                {t("settings.security.note")}
               </div>
               <Button variant="outline" disabled className="w-full">
-                Manage security (coming soon)
+                {t("settings.security.manageSoon")}
               </Button>
             </CardContent>
           </Card>
@@ -275,10 +355,10 @@ function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5 text-primary" />
-                Data export
+                {t("settings.export.title")}
               </CardTitle>
               <CardDescription>
-                Export your intelligence graph for compliance or migrations.
+                {t("settings.export.description")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -288,19 +368,19 @@ function SettingsPage() {
                 onClick={async () => {
                   try {
                     const result = await orgAPI.exportData({ format: "json" });
-                    toast.success("Export started", {
-                      description: `Job ${result.export_job_id} is processing.`,
+                    toast.success(t("settings.export.toastStarted"), {
+                      description: t("settings.export.toastStartedDescription", { jobId: result.export_job_id }),
                     });
                   } catch (error) {
-                    toast.error("Failed to start export");
+                    toast.error(t("settings.export.toastFailed"));
                   }
                 }}
               >
-                Start export
+                {t("settings.export.start")}
               </Button>
               <Separator className="my-4" />
               <p className="text-muted-foreground text-xs">
-                Exports are processed asynchronously and expire after 24 hours.
+                {t("settings.export.hint")}
               </p>
             </CardContent>
           </Card>
@@ -309,15 +389,15 @@ function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LifeBuoy className="h-5 w-5 text-primary" />
-                Support
+                {t("settings.support.title")}
               </CardTitle>
               <CardDescription>
-                Report a bug, request help, or ask for onboarding support.
+                {t("settings.support.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                Drovi can attach diagnostics (route + recent API errors) to help us resolve issues faster.
+                {t("settings.support.diagnosticsNote")}
               </div>
               <Button
                 className="w-full"
@@ -329,7 +409,7 @@ function SettingsPage() {
                   })
                 }
               >
-                Contact support
+                {t("settings.support.contact")}
               </Button>
             </CardContent>
           </Card>

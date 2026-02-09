@@ -13,6 +13,7 @@ import type {
   FilterConfig,
   HeaderTab,
 } from "@/components/layout/interactive-header";
+import { useT } from "@/i18n";
 import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
 import {
@@ -60,121 +61,124 @@ export const Route = createFileRoute("/dashboard")({
   },
 });
 
-function getBreadcrumbs(pathname: string) {
+function getBreadcrumbs(
+  pathname: string,
+  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+) {
   const breadcrumbs: Array<{ label: string; href?: string }> = [];
 
   // Dashboard root
   if (pathname === "/dashboard") {
-    breadcrumbs.push({ label: "Dashboard" });
+    breadcrumbs.push({ label: t("pages.dashboard.home.breadcrumb") });
     return breadcrumbs;
   }
 
   // Settings
   if (pathname === "/dashboard/settings") {
-    breadcrumbs.push({ label: "Settings" });
+    breadcrumbs.push({ label: t("nav.items.settings") });
     return breadcrumbs;
   }
 
   // Billing
   if (pathname === "/dashboard/actuations") {
-    breadcrumbs.push({ label: "Actuations" });
+    breadcrumbs.push({ label: t("nav.items.actuations") });
     return breadcrumbs;
   }
 
   // Console (primary view)
   if (pathname === "/dashboard/console") {
-    breadcrumbs.push({ label: "Console" });
+    breadcrumbs.push({ label: t("nav.items.console") });
     return breadcrumbs;
   }
 
   // Graph
   if (pathname === "/dashboard/graph") {
-    breadcrumbs.push({ label: "Graph" });
+    breadcrumbs.push({ label: t("nav.items.graph") });
     return breadcrumbs;
   }
 
   // AI Chat
   if (pathname === "/dashboard/builder") {
-    breadcrumbs.push({ label: "Continuum Builder" });
+    breadcrumbs.push({ label: t("nav.items.builder") });
     return breadcrumbs;
   }
 
   // Continuum Exchange
   if (pathname === "/dashboard/exchange") {
-    breadcrumbs.push({ label: "Continuum Exchange" });
+    breadcrumbs.push({ label: t("nav.items.exchange") });
     return breadcrumbs;
   }
 
   // Today section
   if (pathname === "/dashboard/reality-stream") {
-    breadcrumbs.push({ label: "Reality Stream" });
+    breadcrumbs.push({ label: t("nav.items.realityStream") });
     return breadcrumbs;
   }
 
   // Calendar section
   if (pathname === "/dashboard/schedule") {
-    breadcrumbs.push({ label: "Schedule" });
+    breadcrumbs.push({ label: t("nav.items.schedule") });
     return breadcrumbs;
   }
 
   // Continuums
   if (pathname === "/dashboard/continuums") {
-    breadcrumbs.push({ label: "Continuums" });
+    breadcrumbs.push({ label: t("nav.items.continuums") });
     return breadcrumbs;
   }
 
   // Simulations
   if (pathname === "/dashboard/simulations") {
-    breadcrumbs.push({ label: "Simulations" });
+    breadcrumbs.push({ label: t("nav.items.simulations") });
     return breadcrumbs;
   }
 
   // Trust & Audit
   if (pathname === "/dashboard/trust") {
-    breadcrumbs.push({ label: "Trust & Audit" });
+    breadcrumbs.push({ label: t("nav.items.trustAudit") });
     return breadcrumbs;
   }
 
   // Patterns
   if (pathname === "/dashboard/patterns") {
-    breadcrumbs.push({ label: "Patterns" });
+    breadcrumbs.push({ label: t("nav.items.patterns") });
     return breadcrumbs;
   }
 
   // Decisions section
   if (pathname === "/dashboard/decisions") {
-    breadcrumbs.push({ label: "Decisions" });
+    breadcrumbs.push({ label: t("nav.items.decisions") });
     return breadcrumbs;
   }
 
   // Commitments section
   if (pathname === "/dashboard/commitments") {
-    breadcrumbs.push({ label: "Commitments" });
+    breadcrumbs.push({ label: t("nav.items.commitments") });
     return breadcrumbs;
   }
 
   // Contacts section
   if (pathname === "/dashboard/contacts") {
-    breadcrumbs.push({ label: "Contacts" });
+    breadcrumbs.push({ label: t("nav.items.people") });
     return breadcrumbs;
   }
 
   // Tasks section
   if (pathname === "/dashboard/tasks") {
-    breadcrumbs.push({ label: "Tasks" });
+    breadcrumbs.push({ label: t("nav.items.tasks") });
     return breadcrumbs;
   }
 
   // Contact detail page
   if (pathname.startsWith("/dashboard/contacts/")) {
-    breadcrumbs.push({ label: "Contacts", href: "/dashboard/contacts" });
-    breadcrumbs.push({ label: "Profile" });
+    breadcrumbs.push({ label: t("nav.items.people"), href: "/dashboard/contacts" });
+    breadcrumbs.push({ label: t("pages.dashboard.contacts.profile") });
     return breadcrumbs;
   }
 
   // Sources section
   if (pathname === "/dashboard/sources") {
-    breadcrumbs.push({ label: "Connected Sources" });
+    breadcrumbs.push({ label: t("nav.items.connectedSources") });
     return breadcrumbs;
   }
 
@@ -182,16 +186,16 @@ function getBreadcrumbs(pathname: string) {
   // Team section
   if (pathname.startsWith("/dashboard/team")) {
     if (pathname === "/dashboard/team") {
-      breadcrumbs.push({ label: "Team" });
+      breadcrumbs.push({ label: t("nav.items.team") });
     } else {
-      breadcrumbs.push({ label: "Team", href: "/dashboard/team" });
+      breadcrumbs.push({ label: t("nav.items.team"), href: "/dashboard/team" });
 
       if (pathname === "/dashboard/team/members") {
-        breadcrumbs.push({ label: "Members" });
+        breadcrumbs.push({ label: t("nav.items.members") });
       } else if (pathname === "/dashboard/team/invitations") {
-        breadcrumbs.push({ label: "Invitations" });
+        breadcrumbs.push({ label: t("nav.items.invitations") });
       } else if (pathname === "/dashboard/team/settings") {
-        breadcrumbs.push({ label: "Settings" });
+        breadcrumbs.push({ label: t("nav.items.settings") });
       }
     }
 
@@ -227,7 +231,7 @@ function getHeaderConfig(
   return {
     primaryAction: {
       id: "primary",
-      label: "New Continuum",
+      label: "pages.dashboard.home.primaryAction.newContinuum",
       icon: Plus,
       onClick: handlers.onPrimaryAction,
     },
@@ -236,9 +240,10 @@ function getHeaderConfig(
 
 function DashboardLayout() {
   // Admin section is intentionally hidden for now.
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
-  const breadcrumbs = getBreadcrumbs(location.pathname);
+  const breadcrumbs = getBreadcrumbs(location.pathname, t);
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
@@ -250,7 +255,14 @@ function DashboardLayout() {
       actions={headerConfig.actions}
       breadcrumbs={breadcrumbs}
       filters={headerConfig.filters}
-      primaryAction={headerConfig.primaryAction}
+      primaryAction={
+        headerConfig.primaryAction
+          ? {
+              ...headerConfig.primaryAction,
+              label: t(headerConfig.primaryAction.label),
+            }
+          : undefined
+      }
       tabs={headerConfig.tabs}
     >
       <Outlet />

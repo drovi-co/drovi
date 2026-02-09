@@ -18,6 +18,9 @@ export interface User {
   role: string;
   email: string;
   exp: string;
+  locale?: string;
+  user_locale?: string | null;
+  org_default_locale?: string;
 }
 
 export interface OrgInfo {
@@ -29,6 +32,7 @@ export interface OrgInfo {
   notification_emails: string[] | null;
   allowed_connectors: string[] | null;
   default_connection_visibility: "org_shared" | "private";
+  default_locale?: string;
   expires_at: string | null;
   created_at: string | null;
   member_count: number;
@@ -726,12 +730,13 @@ export const authAPI = {
    * Login with email and password.
    * Sets a session cookie on success.
    */
-  async loginWithEmail(params: { email: string; password: string }): Promise<EmailAuthResponse> {
+  async loginWithEmail(params: { email: string; password: string; inviteToken?: string }): Promise<EmailAuthResponse> {
     return apiFetch<EmailAuthResponse>("/auth/login/email", {
       method: "POST",
       body: JSON.stringify({
         email: params.email,
         password: params.password,
+        invite_token: params.inviteToken ?? null,
       }),
     });
   },
@@ -772,6 +777,13 @@ export const authAPI = {
       }
       throw e;
     }
+  },
+
+  async updateMyLocale(locale: string | null): Promise<{ ok: boolean; locale: string | null }> {
+    return apiFetch<{ ok: boolean; locale: string | null }>("/auth/me/locale", {
+      method: "PATCH",
+      body: JSON.stringify({ locale }),
+    });
   },
 
   /**
@@ -1190,6 +1202,298 @@ export const contentAPI = {
 };
 
 // =============================================================================
+// SMART DRIVE (Documents)
+// =============================================================================
+
+export interface DriveDocument {
+  id: string;
+  title: string | null;
+  fileName: string;
+  mimeType: string | null;
+  byteSize: number | null;
+  sha256: string;
+  status: string;
+  folderPath: string;
+  tags: string[];
+  pageCount: number | null;
+  evidenceArtifactId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface DriveDocumentChunk {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  pageIndex: number | null;
+  snippet: string;
+  imageArtifactId: string | null;
+}
+
+export interface DriveDocumentChunkDetail {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  pageIndex: number | null;
+  text: string;
+  layoutBlocks: Array<Record<string, unknown>>;
+  imageArtifactId: string | null;
+}
+
+export interface DriveUploadCreateResponse {
+  document_id: string;
+  upload_session_id: string | null;
+  multipart_upload_id: string | null;
+  s3_key: string | null;
+  part_size_bytes: number | null;
+  presign_expires_in: number;
+  already_exists: boolean;
+}
+
+export interface DriveUploadPartsResponse {
+  upload_session_id: string;
+  urls: Record<string, string>;
+}
+
+export interface DriveUploadCompleteResponse {
+  document_id: string;
+  queued_job_id: string | null;
+  status: string;
+}
+
+export interface DriveSearchHit {
+  chunk_id: string;
+  document_id: string;
+  file_name: string;
+  title: string | null;
+  folder_path: string;
+  page_index: number | null;
+  snippet: string;
+  score: number | null;
+}
+
+export interface DriveSearchResponse {
+  success: boolean;
+  results: DriveSearchHit[];
+}
+
+export interface DriveAskResponse {
+  success: boolean;
+  answer: string;
+  sources: DriveSearchHit[];
+}
+
+export interface EvidenceArtifact {
+  id: string;
+  artifact_type: string;
+  mime_type: string | null;
+  storage_backend: string;
+  storage_path: string;
+  storage_uri: string | null;
+  byte_size: number | null;
+  sha256: string | null;
+  created_at: string;
+  retention_until: string | null;
+  immutable: boolean | null;
+  legal_hold: boolean | null;
+  metadata: Record<string, unknown>;
+  presigned_url: string | null;
+}
+
+function transformDriveDocument(raw: Record<string, unknown>): DriveDocument {
+  return {
+    id: String(raw.id ?? ""),
+    title: (raw.title as string | null) ?? null,
+    fileName: String(raw.file_name ?? raw.fileName ?? ""),
+    mimeType: (raw.mime_type as string | null) ?? null,
+    byteSize: raw.byte_size == null ? null : Number(raw.byte_size),
+    sha256: String(raw.sha256 ?? ""),
+    status: String(raw.status ?? ""),
+    folderPath: String(raw.folder_path ?? "/"),
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+    pageCount: raw.page_count == null ? null : Number(raw.page_count),
+    evidenceArtifactId: (raw.evidence_artifact_id as string | null) ?? null,
+    createdAt: (raw.created_at as string | null) ?? null,
+    updatedAt: (raw.updated_at as string | null) ?? null,
+  };
+}
+
+function transformDriveChunk(raw: Record<string, unknown>): DriveDocumentChunk {
+  return {
+    id: String(raw.id ?? ""),
+    documentId: String(raw.document_id ?? ""),
+    chunkIndex: Number(raw.chunk_index ?? 0),
+    pageIndex: raw.page_index == null ? null : Number(raw.page_index),
+    snippet: String(raw.snippet ?? ""),
+    imageArtifactId: (raw.image_artifact_id as string | null) ?? null,
+  };
+}
+
+function transformDriveChunkDetail(raw: Record<string, unknown>): DriveDocumentChunkDetail {
+  return {
+    id: String(raw.id ?? ""),
+    documentId: String(raw.document_id ?? ""),
+    chunkIndex: Number(raw.chunk_index ?? 0),
+    pageIndex: raw.page_index == null ? null : Number(raw.page_index),
+    text: String(raw.text ?? ""),
+    layoutBlocks: Array.isArray(raw.layout_blocks) ? (raw.layout_blocks as Array<Record<string, unknown>>) : [],
+    imageArtifactId: (raw.image_artifact_id as string | null) ?? null,
+  };
+}
+
+export const documentsAPI = {
+  async createUpload(params: {
+    organizationId?: string;
+    fileName: string;
+    mimeType?: string | null;
+    byteSize: number;
+    sha256: string;
+    title?: string | null;
+    folderPath?: string | null;
+    tags?: string[] | null;
+  }): Promise<DriveUploadCreateResponse> {
+    return apiFetch<DriveUploadCreateResponse>("/documents/uploads", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: params.organizationId ?? null,
+        file_name: params.fileName,
+        mime_type: params.mimeType ?? null,
+        byte_size: params.byteSize,
+        sha256: params.sha256,
+        title: params.title ?? null,
+        folder_path: params.folderPath ?? "/",
+        tags: params.tags ?? [],
+      }),
+    });
+  },
+
+  async presignParts(params: {
+    uploadSessionId: string;
+    partNumbers: number[];
+  }): Promise<DriveUploadPartsResponse> {
+    return apiFetch<DriveUploadPartsResponse>(
+      `/documents/uploads/${params.uploadSessionId}/parts`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          part_numbers: params.partNumbers,
+        }),
+      }
+    );
+  },
+
+  async completeUpload(params: {
+    uploadSessionId: string;
+    parts: Array<{ partNumber: number; etag: string }>;
+  }): Promise<DriveUploadCompleteResponse> {
+    return apiFetch<DriveUploadCompleteResponse>(
+      `/documents/uploads/${params.uploadSessionId}/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          parts: params.parts.map((p) => ({
+            part_number: p.partNumber,
+            etag: p.etag,
+          })),
+        }),
+      }
+    );
+  },
+
+  async list(params: {
+    organizationId?: string;
+    limit?: number;
+  }): Promise<{ success: boolean; items: DriveDocument[] }> {
+    const query = new URLSearchParams();
+    if (params.organizationId) query.set("organization_id", params.organizationId);
+    if (params.limit) query.set("limit", String(params.limit));
+    const raw = await apiFetch<{ success: boolean; items: Array<Record<string, unknown>> }>(
+      `/documents?${query.toString()}`
+    );
+    return {
+      success: raw.success,
+      items: (raw.items ?? []).map(transformDriveDocument),
+    };
+  },
+
+  async listChunks(params: {
+    documentId: string;
+    organizationId?: string;
+    limit?: number;
+  }): Promise<{ success: boolean; items: DriveDocumentChunk[] }> {
+    const query = new URLSearchParams();
+    if (params.organizationId) query.set("organization_id", params.organizationId);
+    if (params.limit) query.set("limit", String(params.limit));
+    const raw = await apiFetch<{ success: boolean; items: Array<Record<string, unknown>> }>(
+      `/documents/${params.documentId}/chunks?${query.toString()}`
+    );
+    return {
+      success: raw.success,
+      items: (raw.items ?? []).map(transformDriveChunk),
+    };
+  },
+
+  async getChunk(params: {
+    chunkId: string;
+    organizationId?: string;
+  }): Promise<DriveDocumentChunkDetail> {
+    const query = new URLSearchParams();
+    if (params.organizationId) query.set("organization_id", params.organizationId);
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/documents/chunks/${params.chunkId}?${query.toString()}`
+    );
+    return transformDriveChunkDetail(raw);
+  },
+
+  async search(params: {
+    query: string;
+    organizationId?: string;
+    folderPrefix?: string | null;
+    limit?: number;
+  }): Promise<DriveSearchResponse> {
+    return apiFetch<DriveSearchResponse>("/documents/search", {
+      method: "POST",
+      body: JSON.stringify({
+        query: params.query,
+        organization_id: params.organizationId ?? null,
+        folder_prefix: params.folderPrefix ?? null,
+        limit: params.limit ?? 20,
+      }),
+    });
+  },
+
+  async ask(params: {
+    question: string;
+    organizationId?: string;
+    folderPrefix?: string | null;
+    limit?: number;
+  }): Promise<DriveAskResponse> {
+    return apiFetch<DriveAskResponse>("/documents/ask", {
+      method: "POST",
+      body: JSON.stringify({
+        question: params.question,
+        organization_id: params.organizationId ?? null,
+        folder_prefix: params.folderPrefix ?? null,
+        limit: params.limit ?? 8,
+      }),
+    });
+  },
+
+  async getEvidenceArtifact(params: {
+    organizationId: string;
+    artifactId: string;
+    includeUrl?: boolean;
+  }): Promise<EvidenceArtifact> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    if (params.includeUrl === false) query.set("include_url", "false");
+    return apiFetch<EvidenceArtifact>(
+      `/evidence/artifacts/${params.artifactId}?${query.toString()}`
+    );
+  },
+};
+
+// =============================================================================
 // BRIEF API
 // =============================================================================
 
@@ -1530,6 +1834,7 @@ export const orgAPI = {
     region?: string;
     allowedConnectors?: string[] | null;
     defaultConnectionVisibility?: "org_shared" | "private" | null;
+    defaultLocale?: string | null;
   }): Promise<OrgInfo> {
     return apiFetch<OrgInfo>("/org/info", {
       method: "PATCH",
@@ -1540,6 +1845,7 @@ export const orgAPI = {
         region: params.region ?? null,
         allowed_connectors: params.allowedConnectors ?? null,
         default_connection_visibility: params.defaultConnectionVisibility ?? null,
+        default_locale: params.defaultLocale ?? null,
       }),
     });
   },

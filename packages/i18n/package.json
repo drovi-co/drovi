@@ -1,0 +1,17 @@
+{
+  "name": "@memorystack/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "@types/react": "19.2.7",
+    "typescript": "catalog:"
+  }
+}

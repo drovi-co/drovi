@@ -373,6 +373,7 @@ def _event_type_for_source(source_type: str) -> str:
         "transcript": UnifiedEventType.TRANSCRIPT.value,
         "notion": UnifiedEventType.DOCUMENT.value,
         "google_docs": UnifiedEventType.DOCUMENT.value,
+        "document": UnifiedEventType.DOCUMENT.value,
         "api": UnifiedEventType.NOTE.value,
         "manual": UnifiedEventType.NOTE.value,
         "desktop": UnifiedEventType.DESKTOP_CONTEXT.value,

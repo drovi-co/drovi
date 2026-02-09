@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useT } from "@/i18n";
 import { useAdminAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/login")({
 function AdminLoginPage() {
   const navigate = useNavigate();
   const { isLoading, error, loginWithEmail, clearError } = useAdminAuthStore();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [persist, setPersist] = useState(true);
@@ -41,10 +43,12 @@ function AdminLoginPage() {
     clearError();
     try {
       await loginWithEmail(email, password, { persist });
-      toast.success("Signed in");
+      toast.success(t("admin.login.toasts.signedIn"));
       navigate({ to: "/dashboard" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      toast.error(
+        err instanceof Error ? err.message : t("admin.login.toasts.signInFailed")
+      );
     }
   };
 
@@ -64,34 +68,34 @@ function AdminLoginPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-foreground" />
-              <div className="text-sm font-medium tracking-tight">Drovi Admin</div>
+              <div className="text-sm font-medium tracking-tight">{t("admin.appName")}</div>
             </div>
             <div className="text-muted-foreground text-xs">
-              Operator access only. Email/password, `@drovi.co`.
+              {t("admin.login.operatorOnly")}
             </div>
           </div>
           <div className="hidden text-right text-xs text-muted-foreground sm:block">
-            <div>Live KPIs</div>
-            <div>Jobs and Connectors</div>
+            <div>{t("admin.login.kpiHint")}</div>
+            <div>{t("admin.login.opsHint")}</div>
           </div>
         </div>
 
         <Card className="border-border/70 bg-card/70 backdrop-blur">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-[15px]">Sign in</CardTitle>
+            <CardTitle className="text-[15px]">{t("admin.login.title")}</CardTitle>
             <div className="text-muted-foreground text-xs">
-              Use your `@drovi.co` email and the current admin password.
+              {t("admin.login.description")}
             </div>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={onSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("admin.login.fields.email")}</Label>
                 <Input
                   id="email"
                   autoComplete="email"
                   inputMode="email"
-                  placeholder="you@drovi.co"
+                  placeholder={t("admin.login.placeholders.email")}
                   value={email}
                   onChange={(ev) => setEmail(ev.target.value)}
                 />
@@ -102,14 +106,14 @@ function AdminLoginPage() {
                       domainHint.ok ? "text-muted-foreground" : "text-destructive"
                     )}
                   >
-                    Domain: {domainHint.text}
-                    {!domainHint.ok ? " (not allowed)" : ""}
+                    {t("admin.login.domain.label", { domain: domainHint.text })}
+                    {!domainHint.ok ? ` (${t("admin.login.domain.notAllowed")})` : ""}
                   </div>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("admin.login.fields.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -127,7 +131,7 @@ function AdminLoginPage() {
                   onChange={(ev) => setPersist(ev.target.checked)}
                   type="checkbox"
                 />
-                Keep me signed in on this device
+                {t("admin.login.keepSignedIn")}
               </label>
 
               {error ? (
@@ -137,15 +141,14 @@ function AdminLoginPage() {
               ) : null}
 
               <Button className="w-full" disabled={isLoading} type="submit">
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? t("admin.login.submitting") : t("common.actions.signIn")}
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <div className="mt-4 text-center text-muted-foreground text-[11px]">
-          If you can’t sign in, set `ADMIN_PASSWORD` in `drovi-intelligence/.env`
-          and restart the stack.
+          {t("admin.login.troubleshoot")}
         </div>
       </div>
     </div>

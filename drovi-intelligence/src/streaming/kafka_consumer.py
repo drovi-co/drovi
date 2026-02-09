@@ -402,11 +402,18 @@ class DroviKafkaConsumer:
             return
 
         try:
-            from confluent_kafka import TopicPartition
+            try:
+                from confluent_kafka import TopicPartition  # type: ignore
+
+                offsets = [TopicPartition(topic, partition, commit_offset)]
+            except Exception:
+                # In unit tests (or minimal environments) confluent-kafka may be absent.
+                # The fake consumer only needs "some" offsets payload to record commits.
+                offsets = [(topic, partition, commit_offset)]
 
             await asyncio.to_thread(
                 self._consumer.commit,
-                offsets=[TopicPartition(topic, partition, commit_offset)],
+                offsets=offsets,
                 asynchronous=False,
             )
         except Exception as exc:

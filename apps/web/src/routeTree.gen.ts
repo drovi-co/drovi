@@ -27,6 +27,7 @@ import { Route as DashboardTrustRouteImport } from './routes/dashboard/trust'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardScheduleRouteImport } from './routes/dashboard/schedule'
 import { Route as DashboardExchangeRouteImport } from './routes/dashboard/exchange'
+import { Route as DashboardDriveRouteImport } from './routes/dashboard/drive'
 import { Route as DashboardContinuumsRouteImport } from './routes/dashboard/continuums'
 import { Route as DashboardConsoleRouteImport } from './routes/dashboard/console'
 import { Route as DashboardBuilderRouteImport } from './routes/dashboard/builder'
@@ -138,6 +139,11 @@ const DashboardScheduleRoute = DashboardScheduleRouteImport.update({
 const DashboardExchangeRoute = DashboardExchangeRouteImport.update({
   id: '/exchange',
   path: '/exchange',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardDriveRoute = DashboardDriveRouteImport.update({
+  id: '/drive',
+  path: '/drive',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardContinuumsRoute = DashboardContinuumsRouteImport.update({
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
   '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/drive': typeof DashboardDriveRoute
   '/dashboard/exchange': typeof DashboardExchangeRoute
   '/dashboard/schedule': typeof DashboardScheduleRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByTo {
   '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
   '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/drive': typeof DashboardDriveRoute
   '/dashboard/exchange': typeof DashboardExchangeRoute
   '/dashboard/schedule': typeof DashboardScheduleRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/dashboard/builder': typeof DashboardBuilderRoute
   '/dashboard/console': typeof DashboardConsoleRoute
   '/dashboard/continuums': typeof DashboardContinuumsRoute
+  '/dashboard/drive': typeof DashboardDriveRoute
   '/dashboard/exchange': typeof DashboardExchangeRoute
   '/dashboard/schedule': typeof DashboardScheduleRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
     | '/dashboard/builder'
     | '/dashboard/console'
     | '/dashboard/continuums'
+    | '/dashboard/drive'
     | '/dashboard/exchange'
     | '/dashboard/schedule'
     | '/dashboard/settings'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/dashboard/builder'
     | '/dashboard/console'
     | '/dashboard/continuums'
+    | '/dashboard/drive'
     | '/dashboard/exchange'
     | '/dashboard/schedule'
     | '/dashboard/settings'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/dashboard/builder'
     | '/dashboard/console'
     | '/dashboard/continuums'
+    | '/dashboard/drive'
     | '/dashboard/exchange'
     | '/dashboard/schedule'
     | '/dashboard/settings'
@@ -637,6 +649,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardExchangeRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/drive': {
+      id: '/dashboard/drive'
+      path: '/drive'
+      fullPath: '/dashboard/drive'
+      preLoaderRoute: typeof DashboardDriveRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/continuums': {
       id: '/dashboard/continuums'
       path: '/continuums'
@@ -792,6 +811,7 @@ interface DashboardRouteRouteChildren {
   DashboardBuilderRoute: typeof DashboardBuilderRoute
   DashboardConsoleRoute: typeof DashboardConsoleRoute
   DashboardContinuumsRoute: typeof DashboardContinuumsRoute
+  DashboardDriveRoute: typeof DashboardDriveRoute
   DashboardExchangeRoute: typeof DashboardExchangeRoute
   DashboardScheduleRoute: typeof DashboardScheduleRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -821,6 +841,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardBuilderRoute: DashboardBuilderRoute,
   DashboardConsoleRoute: DashboardConsoleRoute,
   DashboardContinuumsRoute: DashboardContinuumsRoute,
+  DashboardDriveRoute: DashboardDriveRoute,
   DashboardExchangeRoute: DashboardExchangeRoute,
   DashboardScheduleRoute: DashboardScheduleRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,

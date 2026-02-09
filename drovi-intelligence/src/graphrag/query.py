@@ -21,9 +21,10 @@ from typing import Any
 
 import structlog
 
-from src.config import get_settings
 from src.memory import MemoryService, get_memory_service
 from src.memory.fast_memory import get_fast_memory
+
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 
@@ -34,6 +35,21 @@ _graphrag: "DroviGraphRAG | None" = None
 def utc_now() -> datetime:
     """Get current UTC time."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+class GraphRAGIntentClassification(BaseModel):
+    """
+    Structured intent classification output for GraphRAG.
+
+    This intentionally differs from pipeline extraction classification; it is tuned for
+    user query routing and safe fallback behavior.
+    """
+
+    primary_intent: str = Field(description="Primary intent label")
+    secondary_intents: list[str] = Field(default_factory=list)
+    entity_name: str | None = None
+    topic_filter: str | None = None
+    is_cross_entity: bool = False
 
 
 # =============================================================================
@@ -343,7 +359,7 @@ class DroviGraphRAG:
     """
 
     def __init__(self):
-        self._llm_client = None
+        self._llm_service = None
         self._memory_services: dict[str, Any] = {}
 
     async def _get_memory_service(self, organization_id: str):
@@ -351,16 +367,13 @@ class DroviGraphRAG:
             self._memory_services[organization_id] = await get_memory_service(organization_id)
         return self._memory_services[organization_id]
 
-    async def _get_llm_client(self):
-        if self._llm_client is None:
-            settings = get_settings()
-            if settings.together_api_key:
-                try:
-                    from together import Together
-                    self._llm_client = Together(api_key=settings.together_api_key)
-                except ImportError:
-                    logger.warning("together package not installed")
-        return self._llm_client
+    async def _get_llm_service(self):
+        # Import here to avoid import cycles during startup.
+        if self._llm_service is None:
+            from src.llm import get_llm_service
+
+            self._llm_service = get_llm_service()
+        return self._llm_service
 
     # =========================================================================
     # Intent Classification
@@ -386,45 +399,33 @@ class DroviGraphRAG:
 
     async def _classify_intent_llm(self, question: str) -> dict[str, Any] | None:
         """Classify intent using LLM."""
-        llm = await self._get_llm_client()
-        if not llm:
+        llm = await self._get_llm_service()
+        if not getattr(getattr(llm, "router", None), "providers", None):
             return None
 
-        settings = get_settings()
-
         try:
-            response = llm.chat.completions.create(
-                model=settings.default_model_fast,
+            classified, _call = await llm.complete_structured(
                 messages=[
                     {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
                     {"role": "user", "content": question},
                 ],
-                max_tokens=200,
+                output_schema=GraphRAGIntentClassification,
+                model_tier="fast",
                 temperature=0.0,
+                max_tokens=250,
+                timeout_seconds=8.0,
+                node_name="graphrag.classify_intent",
             )
-            content = response.choices[0].message.content.strip()
-
-            # Strip markdown fences if present
-            if content.startswith("```"):
-                content = re.sub(r"^```(?:json)?\s*", "", content)
-                content = re.sub(r"\s*```$", "", content)
-
-            result = json.loads(content)
-
-            # Validate required fields
-            if "primary_intent" not in result:
-                return None
-
+            primary = (classified.primary_intent or "general").strip()
             return {
-                "primary_intent": result.get("primary_intent", "general"),
-                "secondary_intents": result.get("secondary_intents", []),
-                "entity_name": result.get("entity_name"),
-                "topic_filter": result.get("topic_filter"),
-                "is_cross_entity": result.get("is_cross_entity", False),
+                "primary_intent": primary,
+                "secondary_intents": list(classified.secondary_intents or []),
+                "entity_name": classified.entity_name,
+                "topic_filter": classified.topic_filter,
+                "is_cross_entity": bool(classified.is_cross_entity),
             }
-
         except Exception as e:
-            logger.warning("LLM classification parse failed", error=str(e))
+            logger.warning("LLM intent classification failed", error=str(e))
             return None
 
     def _classify_intent_keywords(self, question: str) -> dict[str, Any]:
@@ -572,6 +573,7 @@ class DroviGraphRAG:
         organization_id: str,
         include_evidence: bool = True,
         max_results: int = 20,
+        llm_enabled: bool = True,
         user_id: str | None = None,
         visibility_user_id: str | None = None,
         visibility_is_admin: bool = False,
@@ -599,7 +601,13 @@ class DroviGraphRAG:
                 logger.warning("Failed to load user context", error=str(exc))
 
         # Step 1: Classify intent
-        classification = await self._classify_intent(question)
+        #
+        # Truth-first paths (pilot surface) must be able to run without any LLM
+        # dependency to hit sub-200ms latency targets.
+        if llm_enabled:
+            classification = await self._classify_intent(question)
+        else:
+            classification = self._classify_intent_keywords(question)
         intent = classification["primary_intent"]
         entity_name = classification.get("entity_name")
         topic_filter = classification.get("topic_filter")
@@ -640,7 +648,11 @@ class DroviGraphRAG:
         # Step 4: Fallback chain if empty
         fallback_used = False
         if not graph_results:
-            graph_results = await self._fallback_chain(question, organization_id)
+            graph_results = await self._fallback_chain(
+                question,
+                organization_id,
+                llm_enabled=llm_enabled,
+            )
             fallback_used = bool(graph_results)
 
         # Step 4.2: Closest-match fallback if still empty
@@ -695,15 +707,27 @@ class DroviGraphRAG:
         temporal_note = self._format_temporal_note(temporal_context["summary"])
 
         # Step 6: Synthesize response
-        answer = await self._synthesize_response(
-            question=question,
-            intent=intent,
-            results=synthesis_results,
-            include_evidence=include_evidence,
-            temporal_note=temporal_note,
-            user_context=user_context,
-            closest_matches=closest_matches_used,
-        )
+        #
+        # When LLMs are disabled (truth-first mode), we still generate a
+        # deterministic, evidence-first summary via templates.
+        if llm_enabled:
+            answer = await self._synthesize_response(
+                question=question,
+                intent=intent,
+                results=synthesis_results,
+                include_evidence=include_evidence,
+                temporal_note=temporal_note,
+                user_context=user_context,
+                closest_matches=closest_matches_used,
+            )
+        else:
+            answer = self._template_synthesize(
+                intent=intent,
+                results=synthesis_results,
+                include_evidence=include_evidence,
+                temporal_note=temporal_note,
+                closest_matches=closest_matches_used,
+            )
 
         # Step 7: Extract sources (include historical context for auditability)
         sources_input = synthesis_results
@@ -886,17 +910,19 @@ class DroviGraphRAG:
         self,
         question: str,
         organization_id: str,
+        llm_enabled: bool = True,
     ) -> list[dict[str, Any]]:
         """
         Fallback chain when template query returns empty:
         1. Dynamic Cypher generation via LLM
         2. Fulltext search across all node types
         """
-        # Level 2: Dynamic Cypher
-        results = await self._dynamic_cypher_query(question, organization_id)
-        if results:
-            logger.info("Fallback: dynamic Cypher returned results", count=len(results))
-            return results
+        # Level 2: Dynamic Cypher (LLM-only)
+        if llm_enabled:
+            results = await self._dynamic_cypher_query(question, organization_id)
+            if results:
+                logger.info("Fallback: dynamic Cypher returned results", count=len(results))
+                return results
 
         # Level 3: Fulltext search
         results = await self._fulltext_fallback(question, organization_id)
@@ -1031,23 +1057,23 @@ class DroviGraphRAG:
         organization_id: str,
     ) -> list[dict[str, Any]]:
         """Generate and execute a dynamic Cypher query using LLM."""
-        llm = await self._get_llm_client()
-        if not llm:
-            return []
-
-        settings = get_settings()
-
         try:
-            response = llm.chat.completions.create(
-                model=settings.default_model_balanced,
+            llm = await self._get_llm_service()
+            if not getattr(getattr(llm, "router", None), "providers", None):
+                return []
+
+            cypher, _call = await llm.complete(
                 messages=[
                     {"role": "system", "content": GRAPH_SCHEMA_PROMPT},
                     {"role": "user", "content": question},
                 ],
-                max_tokens=300,
+                model_tier="fast",
                 temperature=0.0,
+                max_tokens=300,
+                timeout_seconds=8.0,
+                node_name="graphrag.dynamic_cypher",
             )
-            cypher = response.choices[0].message.content.strip()
+            cypher = cypher.strip()
 
             # Strip markdown fences if present
             if cypher.startswith("```"):
@@ -1158,13 +1184,12 @@ class DroviGraphRAG:
             return self._generate_no_results_response(intent)
 
         # Try LLM synthesis
-        llm = await self._get_llm_client()
-        if llm:
+        llm = await self._get_llm_service()
+        if getattr(getattr(llm, "router", None), "providers", None):
             return await self._llm_synthesize(
                 question,
                 intent,
                 results,
-                llm,
                 temporal_note,
                 user_context=user_context,
                 closest_matches=closest_matches,
@@ -1178,14 +1203,11 @@ class DroviGraphRAG:
         question: str,
         intent: str,
         results: list[dict[str, Any]],
-        llm: Any,
         temporal_note: str | None,
         user_context: Any | None = None,
         closest_matches: bool = False,
     ) -> str:
         """Use LLM for rich response synthesis."""
-        settings = get_settings()
-
         results_json = json.dumps(results[:15], indent=2, default=str)
         temporal_context = temporal_note or "No superseded or future-dated items detected."
         user_context_str = self._format_user_context(user_context)
@@ -1204,19 +1226,22 @@ User context: {user_context_str or "None"}
 Results ({len(results)} total):
 {results_json}
 
-Provide a structured, insightful answer based on these results."""
+	Provide a structured, insightful answer based on these results."""
 
         try:
-            response = llm.chat.completions.create(
-                model=settings.default_model_balanced,
+            llm = await self._get_llm_service()
+            text, _call = await llm.complete(
                 messages=[
                     {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
+                model_tier="balanced",
                 max_tokens=800,
                 temperature=0.3,
+                timeout_seconds=18.0,
+                node_name="graphrag.synthesize",
             )
-            return response.choices[0].message.content.strip()
+            return text.strip()
         except Exception as e:
             logger.warning("LLM synthesis failed", error=str(e))
             return self._template_synthesize(intent, results, True, temporal_note, closest_matches)
@@ -1526,6 +1551,7 @@ async def query_graph(
     question: str,
     organization_id: str,
     include_evidence: bool = True,
+    llm_enabled: bool = True,
     user_id: str | None = None,
     visibility_user_id: str | None = None,
     visibility_is_admin: bool = False,
@@ -1536,6 +1562,7 @@ async def query_graph(
         question=question,
         organization_id=organization_id,
         include_evidence=include_evidence,
+        llm_enabled=llm_enabled,
         user_id=user_id,
         visibility_user_id=visibility_user_id,
         visibility_is_admin=visibility_is_admin,

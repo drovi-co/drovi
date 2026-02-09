@@ -26,6 +26,7 @@ import { CommitmentNode } from "./nodes/-commitment-node";
 import { ContactNode } from "./nodes/-contact-node";
 import { DecisionNode } from "./nodes/-decision-node";
 import { TaskNode } from "./nodes/-task-node";
+import { useT } from "@/i18n";
 
 // =============================================================================
 // NODE TYPES REGISTRATION
@@ -62,6 +63,7 @@ export function KnowledgeGraph({
   onNodeSelect,
   searchQuery,
 }: KnowledgeGraphProps) {
+  const t = useT();
   // Give nodes random positions if they don't have them
   const nodesWithPositions = useMemo(() => {
     return initialNodes.map((node, index) => {
@@ -205,25 +207,25 @@ export function KnowledgeGraph({
               className="border-blue-500 bg-blue-500/10 text-blue-700"
               variant="outline"
             >
-              Contacts
+              {t("pages.dashboard.graph.legend.contacts")}
             </Badge>
             <Badge
               className="border-violet-500 bg-violet-500/10 text-violet-700"
               variant="outline"
             >
-              Commitments
+              {t("pages.dashboard.graph.legend.commitments")}
             </Badge>
             <Badge
               className="border-purple-500 bg-purple-500/10 text-purple-700"
               variant="outline"
             >
-              Decisions
+              {t("pages.dashboard.graph.legend.decisions")}
             </Badge>
             <Badge
               className="border-green-500 bg-green-500/10 text-green-700"
               variant="outline"
             >
-              Tasks
+              {t("pages.dashboard.graph.legend.tasks")}
             </Badge>
           </div>
         </Panel>

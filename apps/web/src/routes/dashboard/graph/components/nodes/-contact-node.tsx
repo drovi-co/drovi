@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useT } from "@/i18n";
 import type { ContactNodeData } from "../../-types";
 
 // =============================================================================
@@ -21,6 +22,7 @@ import type { ContactNodeData } from "../../-types";
 
 function ContactNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as ContactNodeData;
+  const t = useT();
   const initials = nodeData.label
     .split(" ")
     .map((n: string) => n[0])
@@ -119,7 +121,7 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
             )}
             {nodeData.importanceScore !== undefined && (
               <div className="mt-1 flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Importance:</span>
+                <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.contact.importance")}</span>
                 <div className="h-1.5 w-16 rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-blue-500"

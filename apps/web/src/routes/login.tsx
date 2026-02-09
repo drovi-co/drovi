@@ -6,6 +6,7 @@ import {
   SignUpForm,
 } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -24,23 +25,31 @@ export const Route = createFileRoute("/login")({
 type AuthView = "sign-in" | "sign-up";
 
 function LoginPage() {
-  const [view, setView] = useState<AuthView>("sign-in");
+  const [view, setView] = useState<AuthView>(() => {
+    if (typeof window === "undefined") return "sign-in";
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const invite = params.get("invite");
+    if (mode === "sign-up" || invite) return "sign-up";
+    return "sign-in";
+  });
+  const t = useT();
 
   const getTitle = () => {
     switch (view) {
       case "sign-in":
-        return "Welcome back";
+        return t("auth.signInTitle");
       case "sign-up":
-        return "Create an account";
+        return t("auth.signUpTitle");
     }
   };
 
   const getDescription = () => {
     switch (view) {
       case "sign-in":
-        return "Enter your credentials to access your account";
+        return t("auth.signInDescription");
       case "sign-up":
-        return "Get started with your free account today";
+        return t("auth.signUpDescription");
     }
   };
 

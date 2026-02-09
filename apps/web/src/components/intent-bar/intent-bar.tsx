@@ -40,6 +40,7 @@ import {
 import { useAuthStore } from "@/lib/auth";
 import { useApiTraceStore } from "@/lib/api-trace";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 type IntentBarMode = "ask" | "find" | "build" | "act" | "inspect";
 
@@ -68,44 +69,49 @@ function IntentBarHint({ children }: { children: ReactNode }) {
   );
 }
 
-function getModeMeta(mode: IntentBarMode) {
-  switch (mode) {
-    case "ask":
-      return {
-        label: "Ask",
-        icon: Sparkles,
-        hint: "Evidence-first answers",
-        placeholder: "Ask Drovi. It will only answer with citations.",
-      };
-    case "find":
-      return {
-        label: "Find",
-        icon: Search,
-        hint: "Hybrid search across memory",
-        placeholder: "Search commitments, decisions, messages, continuums…",
-      };
-    case "build":
-      return {
-        label: "Build",
-        icon: Code2,
-        hint: "Continuum creation and editing",
-        placeholder: "Create or edit a continuum…",
-      };
-    case "act":
-      return {
-        label: "Act",
-        icon: Zap,
-        hint: "Stage and execute actuations",
-        placeholder: "Run a simulation or stage an actuation…",
-      };
-    case "inspect":
-      return {
-        label: "Inspect",
-        icon: Eye,
-        hint: "Timelines, trust, contradictions",
-        placeholder: "Jump to an inspection surface…",
-      };
+const MODE_META: Record<
+  IntentBarMode,
+  {
+    labelKey: string;
+    hintKey: string;
+    placeholderKey: string;
+    icon: ElementType;
   }
+> = {
+  ask: {
+    labelKey: "intentBar.modes.ask.label",
+    hintKey: "intentBar.modes.ask.hint",
+    placeholderKey: "intentBar.modes.ask.placeholder",
+    icon: Sparkles,
+  },
+  find: {
+    labelKey: "intentBar.modes.find.label",
+    hintKey: "intentBar.modes.find.hint",
+    placeholderKey: "intentBar.modes.find.placeholder",
+    icon: Search,
+  },
+  build: {
+    labelKey: "intentBar.modes.build.label",
+    hintKey: "intentBar.modes.build.hint",
+    placeholderKey: "intentBar.modes.build.placeholder",
+    icon: Code2,
+  },
+  act: {
+    labelKey: "intentBar.modes.act.label",
+    hintKey: "intentBar.modes.act.hint",
+    placeholderKey: "intentBar.modes.act.placeholder",
+    icon: Zap,
+  },
+  inspect: {
+    labelKey: "intentBar.modes.inspect.label",
+    hintKey: "intentBar.modes.inspect.hint",
+    placeholderKey: "intentBar.modes.inspect.placeholder",
+    icon: Eye,
+  },
+};
+
+function getModeMeta(mode: IntentBarMode) {
+  return MODE_META[mode];
 }
 
 function shouldOpenWithCtrl(e: KeyboardEvent) {
@@ -141,7 +147,7 @@ function resultToRoute(result: SearchResult): string | null {
   return null;
 }
 
-function getResultTitle(result: SearchResult): string {
+function getResultTitle(result: SearchResult, fallbackTitle: string): string {
   if (result.title) {
     return result.title;
   }
@@ -152,7 +158,7 @@ function getResultTitle(result: SearchResult): string {
     return name;
   }
 
-  return result.id ?? "Result";
+  return result.id ?? fallbackTitle;
 }
 
 function getResultSubtitle(result: SearchResult): string | null {
@@ -168,7 +174,11 @@ function getResultSubtitle(result: SearchResult): string | null {
   return null;
 }
 
-function formatContentTitle(result: ContentSearchResult): string {
+function formatContentTitle(
+  result: ContentSearchResult,
+  fallbackDocument: string,
+  fallbackMessage: string
+): string {
   if (typeof result.title === "string" && result.title.trim().length > 0) {
     return result.title;
   }
@@ -176,7 +186,7 @@ function formatContentTitle(result: ContentSearchResult): string {
     const trimmed = result.snippet.trim();
     return trimmed.length > 64 ? `${trimmed.slice(0, 64)}…` : trimmed;
   }
-  return result.kind === "document" ? "Document" : "Message";
+  return result.kind === "document" ? fallbackDocument : fallbackMessage;
 }
 
 function formatContentSubtitle(result: ContentSearchResult): string | null {
@@ -204,6 +214,7 @@ function ModePill({
   onSelect: (mode: IntentBarMode) => void;
   shortcut: string;
 }) {
+  const t = useT();
   const meta = getModeMeta(mode);
   const Icon = meta.icon;
   const active = mode === current;
@@ -219,7 +230,7 @@ function ModePill({
       type="button"
     >
       <Icon className="h-3.5 w-3.5" />
-      <span>{meta.label}</span>
+      <span>{t(meta.labelKey)}</span>
       <span className="ml-1 hidden sm:inline-flex">
         <Kbd>{shortcut}</Kbd>
       </span>
@@ -261,6 +272,7 @@ export function IntentBar() {
   const location = useLocation();
   const { user } = useAuthStore();
   const traces = useApiTraceStore((state) => state.traces);
+  const t = useT();
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<IntentBarMode>("ask");
@@ -473,7 +485,7 @@ export function IntentBar() {
 
   const handleAsk = async (overrideQuestion?: string) => {
     if (!user?.org_id) {
-      toast.error("Sign in to ask questions.");
+      toast.error(t("intentBar.errors.signInToAsk"));
       return;
     }
 
@@ -491,7 +503,9 @@ export function IntentBar() {
       });
       setAskResult(res);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Ask failed");
+      toast.error(
+        error instanceof Error ? error.message : t("intentBar.errors.askFailed")
+      );
     } finally {
       setAsking(false);
     }
@@ -527,30 +541,30 @@ export function IntentBar() {
     const global: IntentCommand[] = [
       {
         id: "go-console",
-        title: "Open Console",
-        description: "Primary intelligence view",
+        title: t("intentBar.commands.goConsole.title"),
+        description: t("intentBar.commands.goConsole.description"),
         icon: Gauge,
         to: "/dashboard/console",
       },
       {
         id: "go-sources",
-        title: "Connected Sources",
-        description: "Connect, backfill, and monitor ingestion",
+        title: t("intentBar.commands.goSources.title"),
+        description: t("intentBar.commands.goSources.description"),
         icon: Activity,
         to: "/dashboard/sources",
       },
       {
         id: "go-team",
-        title: "Team members",
-        description: "Roles, invitations, org policies",
+        title: t("intentBar.commands.goTeam.title"),
+        description: t("intentBar.commands.goTeam.description"),
         icon: Eye,
         to: "/dashboard/team/members",
         when: () => isAdmin,
       },
       {
         id: "copy-link",
-        title: "Copy link to current page",
-        description: "Share this exact view with a teammate",
+        title: t("intentBar.commands.copyLink.title"),
+        description: t("intentBar.commands.copyLink.description"),
         icon: ArrowRight,
         shortcut: "⌘C",
         when: () => pathname.startsWith("/dashboard/"),
@@ -561,22 +575,22 @@ export function IntentBar() {
               : pathname;
           void navigator.clipboard
             .writeText(url)
-            .then(() => toast.success("Link copied"))
-            .catch(() => toast.error("Failed to copy link"));
+            .then(() => toast.success(t("intentBar.toasts.linkCopied")))
+            .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
         },
       },
       {
         id: "copy-uio-id",
-        title: "Copy selected UIO id",
-        description: "Copy the UIO id from the current page",
+        title: t("intentBar.commands.copyUioId.title"),
+        description: t("intentBar.commands.copyUioId.description"),
         icon: ClipboardList,
         when: () => Boolean(currentUioId),
         action: () => {
           if (!currentUioId) return;
           void navigator.clipboard
             .writeText(currentUioId)
-            .then(() => toast.success("UIO id copied"))
-            .catch(() => toast.error("Failed to copy"));
+            .then(() => toast.success(t("intentBar.toasts.uioIdCopied")))
+            .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
         },
       },
     ];
@@ -584,23 +598,23 @@ export function IntentBar() {
     const build: IntentCommand[] = [
       {
         id: "go-builder",
-        title: "Open Continuum Builder",
-        description: "Create or update a continuum definition",
+        title: t("intentBar.commands.goBuilder.title"),
+        description: t("intentBar.commands.goBuilder.description"),
         icon: Code2,
         to: "/dashboard/builder",
         shortcut: "⌥3",
       },
       {
         id: "go-continuums",
-        title: "Open Continuums runtime",
-        description: "Runs, schedules, previews, and rollbacks",
+        title: t("intentBar.commands.goContinuums.title"),
+        description: t("intentBar.commands.goContinuums.description"),
         icon: Sparkles,
         to: "/dashboard/continuums",
       },
       {
         id: "go-exchange",
-        title: "Browse Continuum Exchange",
-        description: "Install curated playbooks",
+        title: t("intentBar.commands.goExchange.title"),
+        description: t("intentBar.commands.goExchange.description"),
         icon: ClipboardList,
         to: "/dashboard/exchange",
       },
@@ -609,15 +623,15 @@ export function IntentBar() {
     const act: IntentCommand[] = [
       {
         id: "go-simulations",
-        title: "Open Simulations",
-        description: "Preview outcomes before acting",
+        title: t("intentBar.commands.goSimulations.title"),
+        description: t("intentBar.commands.goSimulations.description"),
         icon: Activity,
         to: "/dashboard/simulations",
       },
       {
         id: "go-actuations",
-        title: "Open Actuations",
-        description: "Stage, approve, execute",
+        title: t("intentBar.commands.goActuations.title"),
+        description: t("intentBar.commands.goActuations.description"),
         icon: Zap,
         to: "/dashboard/actuations",
       },
@@ -626,22 +640,22 @@ export function IntentBar() {
     const inspect: IntentCommand[] = [
       {
         id: "go-reality",
-        title: "Reality Stream",
-        description: "Every change, chronologically",
+        title: t("intentBar.commands.goReality.title"),
+        description: t("intentBar.commands.goReality.description"),
         icon: Activity,
         to: "/dashboard/reality-stream",
       },
       {
         id: "go-graph",
-        title: "Graph",
-        description: "Explore the memory graph",
+        title: t("intentBar.commands.goGraph.title"),
+        description: t("intentBar.commands.goGraph.description"),
         icon: Activity,
         to: "/dashboard/graph",
       },
       {
         id: "go-trust",
-        title: "Trust & Audit",
-        description: "Evidence, guardrails, and audit trails",
+        title: t("intentBar.commands.goTrust.title"),
+        description: t("intentBar.commands.goTrust.description"),
         icon: Eye,
         to: "/dashboard/trust",
       },
@@ -656,17 +670,17 @@ export function IntentBar() {
       act: filtered(act),
       inspect: filtered(inspect),
     };
-  }, [currentUioId, isAdmin, pathname, userRole]);
+  }, [currentUioId, isAdmin, pathname, t, userRole]);
 
   const renderBody = () => {
     if (!user) {
       return (
         <>
-          <IntentBarHint>Sign in to use the Intent Bar.</IntentBarHint>
-          <CommandGroup heading="Session">
+          <IntentBarHint>{t("intentBar.hints.signIn")}</IntentBarHint>
+          <CommandGroup heading={t("intentBar.groups.session")}>
             <CommandItem onSelect={() => handleNavigate("/login")}>
               <ArrowRight className="h-4 w-4" />
-              Sign in
+              {t("common.actions.signIn")}
             </CommandItem>
           </CommandGroup>
         </>
@@ -679,7 +693,13 @@ export function IntentBar() {
         const hasEvidence = citations.length > 0;
         return (
           <>
-            <CommandGroup heading={hasEvidence ? "Answer" : "Answer (no evidence)"}>
+            <CommandGroup
+              heading={
+                hasEvidence
+                  ? t("intentBar.answer.heading")
+                  : t("intentBar.answer.headingNoEvidence")
+              }
+            >
               <div className="px-2 py-2 text-[13px] leading-relaxed text-foreground">
                 <div className="whitespace-pre-wrap">{askResult.answer}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -687,7 +707,11 @@ export function IntentBar() {
                     {askResult.intent}
                   </span>
                   <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
-                    {citations.length} cite{citations.length === 1 ? "" : "s"}
+                    {citations.length === 1
+                      ? t("intentBar.answer.citationsOne")
+                      : t("intentBar.answer.citationsMany", {
+                          count: citations.length,
+                        })}
                   </span>
                   <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
                     {Math.round((askResult.duration_seconds ?? 0) * 1000)}ms
@@ -701,15 +725,15 @@ export function IntentBar() {
               </div>
             </CommandGroup>
             <CommandSeparator />
-            <CommandGroup heading="Evidence">
+            <CommandGroup heading={t("intentBar.evidence.heading")}>
               {!hasEvidence ? (
                 <>
                   <IntentBarHint>
-                    No evidence found. Drovi will not guess.
+                    {t("intentBar.evidence.noEvidence")}
                   </IntentBarHint>
                   <CommandItem onSelect={() => handleNavigate("/dashboard/sources")}>
                     <ArrowRight className="h-4 w-4" />
-                    Check ingestion status in Connected Sources
+                    {t("intentBar.evidence.checkSources")}
                   </CommandItem>
                 </>
               ) : (
@@ -731,7 +755,9 @@ export function IntentBar() {
                         <span className="truncate font-medium">
                           {(source.name as string | undefined) ||
                             (source.title as string | undefined) ||
-                            `Source ${idx + 1}`}
+                            t("intentBar.evidence.sourceFallback", {
+                              index: idx + 1,
+                            })}
                         </span>
                         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                           #{idx + 1}
@@ -750,7 +776,7 @@ export function IntentBar() {
             {showDebug ? (
               <>
                 <CommandSeparator />
-                <CommandGroup heading="Debug">
+                <CommandGroup heading={t("intentBar.groups.debug")}>
                   <DebugTraceItem
                     label="ask"
                     trace={latestTraces.ask}
@@ -770,18 +796,20 @@ export function IntentBar() {
         );
       }
 
+      const askExamples = [
+        t("intentBar.ask.examples.risks"),
+        t("intentBar.ask.examples.changes"),
+        t("intentBar.ask.examples.decisions"),
+        t("intentBar.ask.examples.unresolvedRisks"),
+      ];
+
       return (
         <>
           <IntentBarHint>
-            {asking ? "Asking…" : "Type a question and press Enter."}
+            {asking ? t("intentBar.ask.hintAsking") : t("intentBar.ask.hintIdle")}
           </IntentBarHint>
-          <CommandGroup heading="Examples">
-            {[
-              "What commitments are at risk right now?",
-              "What changed in the last 24 hours?",
-              "Show me decisions about the pilot rollout.",
-              "What are the unresolved risks for this week?",
-            ].map((example) => (
+          <CommandGroup heading={t("intentBar.ask.examplesHeading")}>
+            {askExamples.map((example) => (
               <CommandItem
                 key={example}
                 onSelect={() => {
@@ -808,11 +836,12 @@ export function IntentBar() {
       return (
         <>
           {q.length < 2 ? (
-            <IntentBarHint>Type at least 2 characters to search.</IntentBarHint>
+            <IntentBarHint>{t("intentBar.find.hintMinChars")}</IntentBarHint>
           ) : anyLoading && totalResults === 0 ? (
             <IntentBarHint>
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                {t("intentBar.find.searching")}
               </span>
             </IntentBarHint>
           ) : anyError && totalResults === 0 ? (
@@ -821,16 +850,19 @@ export function IntentBar() {
                 ? uioSearchErrorObj.message
                 : contentSearchErrorObj instanceof Error
                   ? contentSearchErrorObj.message
-                  : "Search failed"}
+                  : t("intentBar.find.failed")}
             </IntentBarHint>
           ) : totalResults === 0 ? (
-            <IntentBarHint>No results.</IntentBarHint>
+            <IntentBarHint>{t("intentBar.find.noResults")}</IntentBarHint>
           ) : null}
 
           {uioResults.length > 0 ? (
-            <CommandGroup heading="Memory (UIOs)">
+            <CommandGroup heading={t("intentBar.find.groups.memory")}>
               {uioResults.map((result) => {
-                const title = getResultTitle(result);
+                const title = getResultTitle(
+                  result,
+                  t("intentBar.results.fallbackTitle")
+                );
                 const subtitle = getResultSubtitle(result);
                 const to = resultToRoute(result);
                 return (
@@ -865,12 +897,16 @@ export function IntentBar() {
           {contentResults.filter((r) => r.kind === "message").length > 0 ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Messages (UEM)">
+              <CommandGroup heading={t("intentBar.find.groups.messages")}>
                 {contentResults
                   .filter((r) => r.kind === "message")
                   .slice(0, 8)
                   .map((result) => {
-                    const title = formatContentTitle(result);
+                    const title = formatContentTitle(
+                      result,
+                      t("intentBar.content.fallbackDocument"),
+                      t("intentBar.content.fallbackMessage")
+                    );
                     const subtitle = formatContentSubtitle(result);
                     const snippet =
                       typeof result.snippet === "string" ? result.snippet : "";
@@ -880,8 +916,12 @@ export function IntentBar() {
                         onSelect={() => {
                           void navigator.clipboard
                             .writeText(snippet || title)
-                            .then(() => toast.success("Copied snippet"))
-                            .catch(() => toast.error("Failed to copy"));
+                            .then(() =>
+                              toast.success(t("intentBar.toasts.copiedSnippet"))
+                            )
+                            .catch(() =>
+                              toast.error(t("intentBar.toasts.copyFailed"))
+                            );
                         }}
                         value={`message ${title} ${snippet}`}
                       >
@@ -909,12 +949,16 @@ export function IntentBar() {
           {contentResults.filter((r) => r.kind === "document").length > 0 ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Documents (UEM)">
+              <CommandGroup heading={t("intentBar.find.groups.documents")}>
                 {contentResults
                   .filter((r) => r.kind === "document")
                   .slice(0, 8)
                   .map((result) => {
-                    const title = formatContentTitle(result);
+                    const title = formatContentTitle(
+                      result,
+                      t("intentBar.content.fallbackDocument"),
+                      t("intentBar.content.fallbackMessage")
+                    );
                     const subtitle = formatContentSubtitle(result);
                     const snippet =
                       typeof result.snippet === "string" ? result.snippet : "";
@@ -924,8 +968,12 @@ export function IntentBar() {
                         onSelect={() => {
                           void navigator.clipboard
                             .writeText(snippet || title)
-                            .then(() => toast.success("Copied snippet"))
-                            .catch(() => toast.error("Failed to copy"));
+                            .then(() =>
+                              toast.success(t("intentBar.toasts.copiedSnippet"))
+                            )
+                            .catch(() =>
+                              toast.error(t("intentBar.toasts.copyFailed"))
+                            );
                         }}
                         value={`doc ${title} ${snippet}`}
                       >
@@ -953,7 +1001,7 @@ export function IntentBar() {
           {continuumResults.length > 0 ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Continuums">
+              <CommandGroup heading={t("intentBar.find.groups.continuums")}>
                 {continuumResults.map((continuum) => (
                   <CommandItem
                     key={`continuum:${continuum.id}`}
@@ -978,7 +1026,7 @@ export function IntentBar() {
           ) : null}
 
           <CommandSeparator />
-          <CommandGroup heading="Commands">
+          <CommandGroup heading={t("intentBar.find.groups.commands")}>
             {registry.global.map((cmd) => (
               <CommandItem
                 key={cmd.id}
@@ -1005,7 +1053,7 @@ export function IntentBar() {
           {showDebug ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Debug">
+              <CommandGroup heading={t("intentBar.groups.debug")}>
                 <DebugTraceItem label="search" trace={latestTraces.search} />
                 <DebugTraceItem label="content" trace={latestTraces.content} />
                 <DebugTraceItem
@@ -1023,10 +1071,10 @@ export function IntentBar() {
       {
         heading:
           mode === "build"
-            ? "Continuums"
+            ? t("intentBar.groups.continuums")
             : mode === "act"
-              ? "Execution"
-              : "Surfaces",
+              ? t("intentBar.groups.execution")
+              : t("intentBar.groups.surfaces"),
         items:
           mode === "build"
             ? registry.build
@@ -1065,7 +1113,7 @@ export function IntentBar() {
           </CommandGroup>
         ))}
         <CommandSeparator />
-        <CommandGroup heading="Global">
+        <CommandGroup heading={t("intentBar.groups.global")}>
           {registry.global.map((cmd) => (
             <CommandItem
               key={cmd.id}
@@ -1091,7 +1139,7 @@ export function IntentBar() {
         {showDebug ? (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Debug">
+            <CommandGroup heading={t("intentBar.groups.debug")}>
               <DebugTraceItem label="ask" trace={latestTraces.ask} />
               <DebugTraceItem label="search" trace={latestTraces.search} />
               <DebugTraceItem label="content" trace={latestTraces.content} />
@@ -1121,7 +1169,7 @@ export function IntentBar() {
             <ModePill current={mode} mode="inspect" onSelect={setMode} shortcut="⌥5" />
             <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
               <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
-                {modeMeta.hint}
+                {t(modeMeta.hintKey)}
               </span>
               <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
                 esc
@@ -1133,14 +1181,14 @@ export function IntentBar() {
             <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
               <FilterPill
                 active={findFilters.uios}
-                label="UIOs"
+                label={t("intentBar.filters.uios")}
                 onClick={() =>
                   setFindFilters((prev) => ({ ...prev, uios: !prev.uios }))
                 }
               />
               <FilterPill
                 active={findFilters.messages}
-                label="Messages"
+                label={t("intentBar.filters.messages")}
                 onClick={() =>
                   setFindFilters((prev) => ({
                     ...prev,
@@ -1150,14 +1198,14 @@ export function IntentBar() {
               />
               <FilterPill
                 active={findFilters.docs}
-                label="Docs"
+                label={t("intentBar.filters.docs")}
                 onClick={() =>
                   setFindFilters((prev) => ({ ...prev, docs: !prev.docs }))
                 }
               />
               <FilterPill
                 active={findFilters.continuums}
-                label="Continuums"
+                label={t("intentBar.filters.continuums")}
                 onClick={() =>
                   setFindFilters((prev) => ({
                     ...prev,
@@ -1168,7 +1216,7 @@ export function IntentBar() {
               <div className="ml-auto flex items-center gap-2">
                 <FilterPill
                   active={showDebug}
-                  label="Debug"
+                  label={t("intentBar.filters.debug")}
                   onClick={() => setShowDebug((prev) => !prev)}
                 />
               </div>
@@ -1177,7 +1225,7 @@ export function IntentBar() {
             <div className="flex items-center justify-end px-3 pb-2">
               <FilterPill
                 active={showDebug}
-                label="Debug"
+                label={t("intentBar.filters.debug")}
                 onClick={() => setShowDebug((prev) => !prev)}
               />
             </div>
@@ -1207,7 +1255,7 @@ export function IntentBar() {
               setQuery(value);
               setAskResult(null);
             }}
-            placeholder={modeMeta.placeholder}
+            placeholder={t(modeMeta.placeholderKey)}
             value={query}
           />
           <CommandList>
@@ -1217,12 +1265,14 @@ export function IntentBar() {
 
         <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">Open with</span>
+            <span className="hidden sm:inline">
+              {t("intentBar.footer.openWith")}
+            </span>
             <span className="inline-flex items-center gap-1 font-mono">
               <Kbd>⌘</Kbd>
               <Kbd>K</Kbd>
             </span>
-            <span className="hidden sm:inline">or</span>
+            <span className="hidden sm:inline">{t("intentBar.footer.or")}</span>
             <span className="inline-flex items-center gap-1 font-mono sm:hidden">
               <Kbd>Ctrl</Kbd>
               <Kbd>K</Kbd>
@@ -1230,7 +1280,7 @@ export function IntentBar() {
           </div>
           <div className="hidden items-center gap-2 sm:flex">
             <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
-              {user?.org_id ?? "org"}
+              {user?.org_id ?? t("intentBar.footer.orgFallback")}
             </span>
             {showDebug ? (
               <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
@@ -1251,6 +1301,8 @@ function DebugTraceItem({
   label: string;
   trace?: TraceSnapshot;
 }) {
+  const t = useT();
+
   if (!trace) {
     return (
       <CommandItem disabled value={`trace ${label} none`}>
@@ -1276,8 +1328,8 @@ function DebugTraceItem({
         if (!requestId) return;
         void navigator.clipboard
           .writeText(requestId)
-          .then(() => toast.success("Request ID copied"))
-          .catch(() => toast.error("Failed to copy"));
+          .then(() => toast.success(t("intentBar.toasts.requestIdCopied")))
+          .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
       }}
       disabled={!requestId}
       value={`trace ${label} ${requestId} ${statusLabel}`}

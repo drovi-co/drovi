@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/i18n";
 
 // Password validation regex patterns
 const UPPERCASE_REGEX = /[A-Z]/;
@@ -26,15 +27,15 @@ interface SignUpFormProps {
 // Password strength calculation
 function calculatePasswordStrength(password: string): {
   score: number;
-  requirements: { label: string; met: boolean }[];
+  requirements: { key: string; met: boolean }[];
 } {
   const requirements = [
-    { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "Contains uppercase letter", met: UPPERCASE_REGEX.test(password) },
-    { label: "Contains lowercase letter", met: LOWERCASE_REGEX.test(password) },
-    { label: "Contains number", met: NUMBER_REGEX.test(password) },
+    { key: "auth.passwordRequirements.minChars", met: password.length >= 8 },
+    { key: "auth.passwordRequirements.uppercase", met: UPPERCASE_REGEX.test(password) },
+    { key: "auth.passwordRequirements.lowercase", met: LOWERCASE_REGEX.test(password) },
+    { key: "auth.passwordRequirements.number", met: NUMBER_REGEX.test(password) },
     {
-      label: "Contains special character",
+      key: "auth.passwordRequirements.special",
       met: SPECIAL_CHAR_REGEX.test(password),
     },
   ];
@@ -61,21 +62,24 @@ function getStrengthColor(score: number): string {
 
 function getStrengthLabel(score: number): string {
   if (score <= 20) {
-    return "Very weak";
+    return "auth.passwordStrength.veryWeak";
   }
   if (score <= 40) {
-    return "Weak";
+    return "auth.passwordStrength.weak";
   }
   if (score <= 60) {
-    return "Fair";
+    return "auth.passwordStrength.fair";
   }
   if (score <= 80) {
-    return "Good";
+    return "auth.passwordStrength.good";
   }
-  return "Strong";
+  return "auth.passwordStrength.strong";
 }
 
-function formatFieldError(error: unknown): string {
+function formatFieldError(
+  error: unknown,
+  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+): string {
   if (typeof error === "string") {
     return error;
   }
@@ -87,7 +91,7 @@ function formatFieldError(error: unknown): string {
   ) {
     return (error as { message: string }).message;
   }
-  return "Invalid value";
+  return t("common.validation.invalidValue");
 }
 
 export function SignUpForm({
@@ -96,6 +100,7 @@ export function SignUpForm({
   defaultName,
 }: SignUpFormProps) {
   const navigate = useNavigate();
+  const t = useT();
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [password, setPassword] = useState("");
@@ -119,7 +124,7 @@ export function SignUpForm({
     },
     onSubmit: async ({ value }) => {
       if (!acceptTerms) {
-        toast.error("Please accept the terms and conditions");
+        toast.error(t("auth.signUp.acceptTermsError"));
         return;
       }
 
@@ -133,7 +138,7 @@ export function SignUpForm({
         },
         {
           onSuccess: () => {
-            toast.success("Account created successfully!");
+            toast.success(t("auth.signUp.toastSuccess"));
             if (typeof window !== "undefined") {
               window.localStorage.setItem(
                 "drovi:onboarding",
@@ -143,24 +148,24 @@ export function SignUpForm({
             navigate({ to: hasInvite ? "/dashboard" : "/onboarding" });
           },
           onError: (error) => {
-            toast.error(error.error.message || "Failed to create account");
+            toast.error(error.error.message || t("auth.signUp.toastError"));
           },
         }
       );
     },
     validators: {
       onSubmit: z.object({
-        name: z.string().min(2, "Name must be at least 2 characters"),
+        name: z.string().min(2, t("auth.validation.nameTooShort")),
         organizationName: hasInvite
           ? z.string().optional()
-          : z.string().min(2, "Organization name is required"),
-        email: z.string().email("Please enter a valid email address"),
+          : z.string().min(2, t("auth.validation.organizationRequired")),
+        email: z.string().email(t("auth.validation.emailInvalid")),
         password: z
           .string()
-          .min(8, "Password must be at least 8 characters")
-          .regex(UPPERCASE_REGEX, "Password must contain an uppercase letter")
-          .regex(LOWERCASE_REGEX, "Password must contain a lowercase letter")
-          .regex(NUMBER_REGEX, "Password must contain a number"),
+          .min(8, t("auth.validation.passwordMinChars"))
+          .regex(UPPERCASE_REGEX, t("auth.validation.passwordUppercase"))
+          .regex(LOWERCASE_REGEX, t("auth.validation.passwordLowercase"))
+          .regex(NUMBER_REGEX, t("auth.validation.passwordNumber")),
       }),
     },
   });
@@ -179,7 +184,7 @@ export function SignUpForm({
           {(field) => (
             <div className="space-y-2">
               <Label className="text-foreground" htmlFor={field.name}>
-                Full name
+                {t("auth.signUp.fullName")}
               </Label>
               <Input
                 autoComplete="name"
@@ -189,18 +194,18 @@ export function SignUpForm({
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="John Doe"
+                placeholder={t("auth.placeholders.name")}
                 type="text"
                 value={field.state.value}
               />
-              {field.state.meta.errors.map((error, index) => (
-                <p
-                  className="text-destructive text-sm"
-                  key={`${field.name}-${index}`}
-                >
-                  {formatFieldError(error)}
-                </p>
-              ))}
+                {field.state.meta.errors.map((error, index) => (
+                  <p
+                    className="text-destructive text-sm"
+                    key={`${field.name}-${index}`}
+                  >
+                  {formatFieldError(error, t)}
+                  </p>
+                ))}
             </div>
           )}
         </form.Field>
@@ -210,7 +215,7 @@ export function SignUpForm({
             {(field) => (
               <div className="space-y-2">
                 <Label className="text-foreground" htmlFor={field.name}>
-                  Organization
+                  {t("auth.signUp.organization")}
                 </Label>
                 <Input
                   autoComplete="organization"
@@ -222,7 +227,7 @@ export function SignUpForm({
                   id={field.name}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Drovi Labs"
+                  placeholder={t("auth.placeholders.organization")}
                   type="text"
                   value={field.state.value}
                 />
@@ -231,7 +236,7 @@ export function SignUpForm({
                     className="text-destructive text-sm"
                     key={`${field.name}-${index}`}
                   >
-                    {formatFieldError(error)}
+                  {formatFieldError(error, t)}
                   </p>
                 ))}
               </div>
@@ -243,7 +248,7 @@ export function SignUpForm({
           {(field) => (
             <div className="space-y-2">
               <Label className="text-foreground" htmlFor={field.name}>
-                Email
+                {t("auth.email")}
               </Label>
               <Input
                 autoComplete="email"
@@ -253,7 +258,7 @@ export function SignUpForm({
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="name@example.com"
+                placeholder={t("auth.placeholders.email")}
                 type="email"
                 value={field.state.value}
               />
@@ -262,7 +267,7 @@ export function SignUpForm({
                   className="text-destructive text-sm"
                   key={`${field.name}-${index}`}
                 >
-                  {formatFieldError(error)}
+                  {formatFieldError(error, t)}
                 </p>
               ))}
             </div>
@@ -273,7 +278,7 @@ export function SignUpForm({
           {(field) => (
             <div className="space-y-2">
               <Label className="text-foreground" htmlFor={field.name}>
-                Password
+                {t("auth.password")}
               </Label>
               <div className="relative">
                 <Input
@@ -285,7 +290,7 @@ export function SignUpForm({
                     field.handleChange(e.target.value);
                     setPassword(e.target.value);
                   }}
-                  placeholder="Create a strong password"
+                  placeholder={t("auth.placeholders.passwordCreate")}
                   type={showPassword ? "text" : "password"}
                   value={field.state.value}
                 />
@@ -313,7 +318,7 @@ export function SignUpForm({
                       value={passwordStrength.score}
                     />
                     <span className="text-muted-foreground text-xs">
-                      {getStrengthLabel(passwordStrength.score)}
+                      {t(getStrengthLabel(passwordStrength.score))}
                     </span>
                   </div>
                   <ul className="grid grid-cols-2 gap-1 text-xs">
@@ -322,14 +327,14 @@ export function SignUpForm({
                         className={`flex items-center gap-1 ${
                           req.met ? "text-green-500" : "text-muted-foreground"
                         }`}
-                        key={req.label}
+                        key={req.key}
                       >
                         {req.met ? (
                           <Check className="h-3 w-3" />
                         ) : (
                           <X className="h-3 w-3" />
                         )}
-                        {req.label}
+                        {t(req.key)}
                       </li>
                     ))}
                   </ul>
@@ -341,7 +346,7 @@ export function SignUpForm({
                   className="text-destructive text-sm"
                   key={`${field.name}-${index}`}
                 >
-                  {formatFieldError(error)}
+                  {formatFieldError(error, t)}
                 </p>
               ))}
             </div>
@@ -359,19 +364,19 @@ export function SignUpForm({
             className="cursor-pointer font-normal text-muted-foreground text-sm leading-snug"
             htmlFor="terms"
           >
-            I agree to the{" "}
+            {t("auth.signUp.termsPrefix")}{" "}
             <Link
               className="text-primary transition-colors hover:text-primary/80"
               to="/"
             >
-              Terms of Service
+              {t("auth.links.terms")}
             </Link>{" "}
-            and{" "}
+            {t("auth.signUp.termsAnd")}{" "}
             <Link
               className="text-primary transition-colors hover:text-primary/80"
               to="/"
             >
-              Privacy Policy
+              {t("auth.links.privacy")}
             </Link>
           </Label>
         </div>
@@ -386,10 +391,10 @@ export function SignUpForm({
               {state.isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
+                  {t("auth.signUp.submitting")}
                 </>
               ) : (
-                "Create account"
+                t("common.actions.signUp")
               )}
             </Button>
           )}
@@ -397,13 +402,13 @@ export function SignUpForm({
       </form>
 
       <p className="text-center text-muted-foreground text-sm">
-        Already have an account?{" "}
+        {t("auth.haveAccount")}{" "}
         <button
           className="font-medium text-primary transition-colors hover:text-primary/80"
           onClick={onSwitchToSignIn}
           type="button"
         >
-          Sign in
+          {t("common.actions.signIn")}
         </button>
       </p>
     </div>

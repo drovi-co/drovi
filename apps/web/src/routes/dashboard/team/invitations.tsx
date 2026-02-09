@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/i18n";
 import { orgAPI, type OrgInvite } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/dashboard/team/invitations")({
 function InvitationsPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const t = useT();
   const organizationId = user?.org_id ?? "";
   const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
   const [email, setEmail] = useState("");
@@ -53,12 +55,12 @@ function InvitationsPage() {
       await orgAPI.createInvite({ email: params.email, role: params.role });
     },
     onSuccess: () => {
-      toast.success("Invitation sent");
+      toast.success(t("pages.dashboard.team.invitationsPage.toasts.sent"));
       setEmail("");
       queryClient.invalidateQueries({ queryKey: ["org-invites", organizationId] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to send invitation");
+      toast.error(err.message || t("pages.dashboard.team.invitationsPage.toasts.sendFailed"));
     },
   });
 
@@ -67,11 +69,11 @@ function InvitationsPage() {
       await orgAPI.revokeInvite(token);
     },
     onSuccess: () => {
-      toast.success("Invitation revoked");
+      toast.success(t("pages.dashboard.team.invitationsPage.toasts.revoked"));
       queryClient.invalidateQueries({ queryKey: ["org-invites", organizationId] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to revoke invitation");
+      toast.error(err.message || t("pages.dashboard.team.invitationsPage.toasts.revokeFailed"));
     },
   });
 
@@ -99,7 +101,9 @@ function InvitationsPage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">Sign in to invite team members.</p>
+        <p className="text-muted-foreground">
+          {t("pages.dashboard.team.invitationsPage.notSignedIn")}
+        </p>
       </div>
     );
   }
@@ -122,30 +126,30 @@ function InvitationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">Invitations</h1>
+        <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.invitations")}</h1>
         <p className="text-muted-foreground">
-          Invite new members to {user.org_name}
+          {t("pages.dashboard.team.invitationsPage.subtitle", { org: user.org_name })}
         </p>
       </div>
 
       {/* Invite form */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite a Member</CardTitle>
+          <CardTitle>{t("pages.dashboard.team.invitationsPage.form.title")}</CardTitle>
           <CardDescription>
-            Send an invitation email to add someone to your team
+            {t("pages.dashboard.team.invitationsPage.form.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex gap-4" onSubmit={handleInvite}>
             <div className="flex-1">
               <Label className="sr-only" htmlFor="email">
-                Email
+                {t("auth.email")}
               </Label>
               <Input
                 id="email"
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="colleague@company.com"
+                placeholder={t("pages.dashboard.team.invitationsPage.form.emailPlaceholder")}
                 required
                 type="email"
                 value={email}
@@ -154,27 +158,29 @@ function InvitationsPage() {
             </div>
             <div className="w-32">
               <Label className="sr-only" htmlFor="role">
-                Role
+                {t("pages.dashboard.team.invitationsPage.form.roleLabel")}
               </Label>
               <Select onValueChange={(val) => val && setRole(val)} value={role}>
                 <SelectTrigger disabled={!isAdmin}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">{t("pages.dashboard.team.roles.member")}</SelectItem>
+                  <SelectItem value="viewer">{t("pages.dashboard.team.roles.viewer")}</SelectItem>
+                  <SelectItem value="admin">{t("pages.dashboard.team.roles.admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <Button disabled={!isAdmin || inviteMutation.isPending} type="submit">
               <Mail className="mr-2 h-4 w-4" />
-              {inviteMutation.isPending ? "Sending..." : "Send Invite"}
+              {inviteMutation.isPending
+                ? t("pages.dashboard.team.invitationsPage.form.sending")
+                : t("pages.dashboard.team.invitationsPage.form.send")}
             </Button>
           </form>
           {!isAdmin ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Admin access is required to invite members.
+              {t("pages.dashboard.team.invitationsPage.form.adminRequired")}
             </p>
           ) : null}
         </CardContent>
@@ -183,9 +189,9 @@ function InvitationsPage() {
       {/* Pending invitations */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
+          <CardTitle>{t("pages.dashboard.team.invitationsPage.pending.title")}</CardTitle>
           <CardDescription>
-            Invitations that haven't been accepted yet
+            {t("pages.dashboard.team.invitationsPage.pending.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -199,7 +205,7 @@ function InvitationsPage() {
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : pendingInvitations.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              No pending invitations
+              {t("pages.dashboard.team.invitationsPage.pending.empty")}
             </p>
           ) : (
             <div className="space-y-4">
@@ -215,16 +221,27 @@ function InvitationsPage() {
                     <div>
                       <p className="font-medium">{invitation.email ?? "—"}</p>
                       <p className="text-muted-foreground text-sm">
-                        Invited{" "}
-                        {new Date(invitation.created_at ?? new Date()).toLocaleDateString()}
+                        {t("pages.dashboard.team.invitationsPage.pending.invitedOn", {
+                          date: new Date(invitation.created_at ?? new Date()).toLocaleDateString(),
+                        })}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
-                      {invitation.role.replace("pilot_", "")}
+                      {invitation.role === "pilot_admin"
+                        ? t("pages.dashboard.team.roles.admin")
+                        : invitation.role === "pilot_viewer"
+                          ? t("pages.dashboard.team.roles.viewer")
+                          : t("pages.dashboard.team.roles.member")}
                     </Badge>
-                    <Badge variant="secondary">{getStatus(invitation)}</Badge>
+                    <Badge variant="secondary">
+                      {getStatus(invitation) === "accepted"
+                        ? t("pages.dashboard.team.invitationsPage.status.accepted")
+                        : getStatus(invitation) === "expired"
+                          ? t("pages.dashboard.team.invitationsPage.status.expired")
+                          : t("pages.dashboard.team.invitationsPage.status.pending")}
+                    </Badge>
                     <Button
                       disabled={revokeMutation.isPending}
                       onClick={() => handleCancelInvitation(invitation.token)}

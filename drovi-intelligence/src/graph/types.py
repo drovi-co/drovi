@@ -84,6 +84,8 @@ class GraphNodeType(str, Enum):
     GOOGLE_DOC = "GoogleDoc"
     WHATSAPP_GROUP = "WhatsAppGroup"
     CALENDAR_EVENT = "CalendarEvent"
+    DOCUMENT = "Document"
+    DOCUMENT_CHUNK = "DocumentChunk"
 
     # Memory System (from Supermemory/Context Graph research)
     USER_PROFILE = "UserProfile"  # User's memory profile (RAM layer)

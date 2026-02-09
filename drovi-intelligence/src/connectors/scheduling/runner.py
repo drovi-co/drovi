@@ -54,6 +54,9 @@ async def _run() -> None:
 
 
 def main() -> None:
+    from src.monitoring.prometheus_server import maybe_start_prometheus_http_server
+
+    maybe_start_prometheus_http_server(component="drovi-scheduler")
     asyncio.run(_run())
 
 

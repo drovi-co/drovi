@@ -8,6 +8,7 @@ Performance target: < 100ms p95 for snippet mode, < 200ms p95 for full mode
 """
 
 import base64
+import json
 import time
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -661,7 +662,7 @@ async def create_evidence_artifact(
                 ) VALUES (
                     :id, :org_id, :session_id, :source_type, :source_id,
                     :artifact_type, :mime_type, :storage_backend, :storage_path,
-                    :byte_size, :sha256, :metadata, :created_at,
+                    :byte_size, :sha256, CAST(:metadata AS jsonb), :created_at,
                     :retention_until, :immutable, :legal_hold,
                     :chain_id, :chain_sequence, :chain_prev_hash, :chain_hash
                 )
@@ -679,7 +680,8 @@ async def create_evidence_artifact(
                 "storage_path": stored.storage_path,
                 "byte_size": stored.byte_size,
                 "sha256": stored.sha256,
-                "metadata": metadata,
+                # evidence_artifact.metadata is JSONB. Serialize explicitly for raw SQL.
+                "metadata": json.dumps(metadata),
                 "created_at": created_at,
                 "retention_until": retention_until,
                 "immutable": immutable,

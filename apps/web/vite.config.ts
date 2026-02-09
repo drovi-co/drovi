@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@memorystack/i18n": path.resolve(__dirname, "../../packages/i18n/src/index.tsx"),
     },
   },
   server: {

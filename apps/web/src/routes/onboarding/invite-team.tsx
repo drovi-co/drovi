@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/onboarding/invite-team")({
@@ -27,6 +28,7 @@ interface PendingInvite {
 
 function InviteTeamPage() {
   const navigate = useNavigate();
+  const t = useT();
   const { data: activeOrg } = authClient.useActiveOrganization();
   const [email, setEmail] = useState("");
   const [invites, setInvites] = useState<PendingInvite[]>([]);
@@ -41,7 +43,7 @@ function InviteTeamPage() {
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
+      toast.error(t("onboarding.inviteTeam.toasts.invalidEmail"));
       return;
     }
 
@@ -49,7 +51,7 @@ function InviteTeamPage() {
     if (
       invites.some((inv) => inv.email.toLowerCase() === email.toLowerCase())
     ) {
-      toast.error("This email has already been added");
+      toast.error(t("onboarding.inviteTeam.toasts.duplicateEmail"));
       return;
     }
 
@@ -90,11 +92,13 @@ function InviteTeamPage() {
       );
 
       toast.success(
-        `${invites.length} invitation${invites.length > 1 ? "s" : ""} sent!`
+        invites.length === 1
+          ? t("onboarding.inviteTeam.toasts.sentOne")
+          : t("onboarding.inviteTeam.toasts.sentMany", { count: invites.length })
       );
       navigate({ to: "/onboarding/complete" });
     } catch {
-      toast.error("Failed to send some invitations. Please try again.");
+      toast.error(t("onboarding.inviteTeam.toasts.sendFailed"));
     } finally {
       setIsInviting(false);
     }
@@ -121,9 +125,9 @@ function InviteTeamPage() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Users className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Invite Your Team</CardTitle>
+          <CardTitle className="text-2xl">{t("onboarding.inviteTeam.title")}</CardTitle>
           <CardDescription className="text-base">
-            Add team members to{" "}
+            {t("onboarding.inviteTeam.descriptionPrefix")}{" "}
             <span className="font-medium">{activeOrg.name}</span>
           </CardDescription>
         </CardHeader>
@@ -135,7 +139,7 @@ function InviteTeamPage() {
               <Input
                 className="h-11 pl-10"
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="colleague@company.com"
+                placeholder={t("onboarding.inviteTeam.emailPlaceholder")}
                 type="email"
                 value={email}
               />
@@ -149,9 +153,11 @@ function InviteTeamPage() {
           {invites.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Pending Invites</Label>
+                <Label>{t("onboarding.inviteTeam.pending.title")}</Label>
                 <span className="text-muted-foreground text-xs">
-                  {invites.length} member{invites.length > 1 ? "s" : ""}
+                  {invites.length === 1
+                    ? t("onboarding.inviteTeam.pending.countOne")
+                    : t("onboarding.inviteTeam.pending.countMany", { count: invites.length })}
                 </span>
               </div>
               <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
@@ -177,7 +183,9 @@ function InviteTeamPage() {
                         {invite.role === "admin" && (
                           <Crown className="h-3 w-3" />
                         )}
-                        {invite.role}
+                        {invite.role === "admin"
+                          ? t("onboarding.inviteTeam.roles.admin")
+                          : t("onboarding.inviteTeam.roles.member")}
                       </Badge>
                       <Button
                         className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
@@ -193,7 +201,7 @@ function InviteTeamPage() {
                 ))}
               </div>
               <p className="text-muted-foreground text-xs">
-                Click the role badge to toggle between admin and member
+                {t("onboarding.inviteTeam.pending.roleHint")}
               </p>
             </div>
           )}
@@ -203,7 +211,7 @@ function InviteTeamPage() {
             <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center">
               <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
               <p className="text-muted-foreground text-sm">
-                Add email addresses above to invite your team members
+                {t("onboarding.inviteTeam.empty")}
               </p>
             </div>
           )}
@@ -217,10 +225,12 @@ function InviteTeamPage() {
               {isInviting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending invites...
+                  {t("onboarding.inviteTeam.sending")}
                 </>
               ) : (
-                `Send ${invites.length || ""} Invite${invites.length !== 1 ? "s" : ""}`
+                invites.length === 1
+                  ? t("onboarding.inviteTeam.sendOne")
+                  : t("onboarding.inviteTeam.sendMany", { count: invites.length || 0 })
               )}
             </Button>
             <Button
@@ -229,14 +239,14 @@ function InviteTeamPage() {
               type="button"
               variant="ghost"
             >
-              Skip for now
+              {t("onboarding.inviteTeam.skip")}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <p className="mt-6 text-center text-muted-foreground text-sm">
-        You can always invite more team members from your dashboard
+        {t("onboarding.inviteTeam.footerNote")}
       </p>
     </OnboardingLayout>
   );

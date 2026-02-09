@@ -427,8 +427,43 @@ async def update_sync_status(
     error: str | None = None,
 ) -> None:
     """Update connection sync status after a sync job."""
+    first_success_observation: tuple[str, float] | None = None  # (connector_type, seconds)
     async with get_db_session() as session:
         if status == "success":
+            # For time-to-first-data SLOs, capture the first successful sync latency once.
+            try:
+                from datetime import datetime, timezone
+
+                row = (
+                    await session.execute(
+                        text(
+                            """
+                            SELECT connector_type, created_at, last_sync_status
+                            FROM connections
+                            WHERE id = :connection_id
+                            FOR UPDATE
+                            """
+                        ),
+                        {"connection_id": connection_id},
+                    )
+                ).fetchone()
+
+                if row and getattr(row, "connector_type", None):
+                    last_status = getattr(row, "last_sync_status", None)
+                    if last_status != "success":
+                        created_at = getattr(row, "created_at", None)
+                        if created_at is not None:
+                            if getattr(created_at, "tzinfo", None) is not None:
+                                created_at = created_at.astimezone(timezone.utc).replace(tzinfo=None)
+                            now = datetime.utcnow()
+                            first_success_observation = (
+                                str(getattr(row, "connector_type")),
+                                max((now - created_at).total_seconds(), 0.0),
+                            )
+            except Exception:
+                # This is best-effort; never block sync status updates.
+                first_success_observation = None
+
             # Update both the sync status and the main connection status to 'connected'
             await session.execute(
                 text("""
@@ -458,6 +493,18 @@ async def update_sync_status(
                 {"connection_id": connection_id, "error": error},
             )
         await session.commit()
+
+    if first_success_observation:
+        try:
+            from src.monitoring import get_metrics
+
+            connector_type, seconds = first_success_observation
+            get_metrics().observe_connector_time_to_first_data(
+                connector_type=connector_type,
+                seconds=seconds,
+            )
+        except Exception:
+            pass
 
     logger.info(
         "Updated sync status",

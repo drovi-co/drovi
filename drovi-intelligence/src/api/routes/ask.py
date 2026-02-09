@@ -291,6 +291,9 @@ async def ask_knowledge_graph(
             question=augmented_question,
             organization_id=org_id,
             include_evidence=request.include_evidence,
+            # Keep the non-streaming endpoint fast and deterministic. For rich
+            # narrative reasoning, the UI should use /ask/stream.
+            llm_enabled=False,
             user_id=effective_user_id,
             visibility_user_id=session_user_id,
             visibility_is_admin=is_admin,
@@ -609,6 +612,7 @@ async def _retrieve_truth(
             question=query,
             organization_id=organization_id,
             include_evidence=True,
+            llm_enabled=False,
             user_id=user_id,
             visibility_user_id=visibility_user_id,
             visibility_is_admin=visibility_is_admin,
@@ -686,51 +690,66 @@ async def _stream_reasoning(
 
     Synthesizes natural language explanation based on truth.
     """
-    from src.graphrag import get_graphrag
-
     try:
-        graphrag = await get_graphrag()
-        llm = await graphrag._get_llm_client()
+        from src.llm import get_llm_service
 
-        if not llm:
-            # No LLM configured, return simple summary
+        llm = get_llm_service()
+
+        def _fallback_summary() -> str:
             summary = f"Found {len(truth.results)} results for your query about {truth.query_understood}."
             if truth.results:
-                summary += " The top results include: "
-                summary += ", ".join(r.title for r in truth.results[:3])
-                summary += "."
+                summary += " Top items: " + ", ".join(r.title for r in truth.results[:3]) + "."
+            return summary
 
-            for char in summary:
-                yield char
-                await asyncio.sleep(0.01)
+        # If no providers are configured, fall back to a deterministic summary.
+        if not getattr(getattr(llm, "router", None), "providers", None):
+            yield _fallback_summary()
             return
 
         # Build context from truth
         context = f"Query: {query}\n\nResults found:\n"
-        for i, result in enumerate(truth.results[:5]):
-            context += f"{i+1}. [{result.type}] {result.title} (status: {result.status}, confidence: {result.confidence:.0%})\n"
+        for i, result in enumerate(truth.results[:7]):
+            context += (
+                f"{i+1}. [{result.type}] {result.title} "
+                f"(status: {result.status}, confidence: {result.confidence:.0%})\n"
+            )
 
         if truth.citations:
             context += "\nEvidence citations:\n"
-            for citation in truth.citations[:5]:
+            for citation in truth.citations[:8]:
                 context += f"[{citation.index}] {citation.snippet} ({citation.source}, {citation.date})\n"
 
-        # Stream from LLM
-        prompt = f"""Based on the following search results, provide a concise analysis for the user.
-Reference citations using [1], [2] etc format when mentioning specific items.
+        system = (
+            "You are Drovi. Provide a concise, high-signal analysis based only on the provided results and citations. "
+            "When you reference a specific item, cite the supporting evidence as [1], [2], etc. "
+            "If the evidence is insufficient, say so explicitly."
+        )
+        user = (
+            "Based on the following search results, produce a short answer with:\n"
+            "1) What matters\n"
+            "2) Top risks or blockers\n"
+            "3) Suggested next actions\n\n"
+            f"{context}"
+        )
 
-{context}
+        text, _call = await llm.complete(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            model_tier="balanced",
+            temperature=0.2,
+            max_tokens=700,
+            timeout_seconds=18.0,
+            node_name="ask.stream.reasoning",
+        )
 
-Provide a helpful, conversational summary:"""
+        rendered = (text or "").strip() or _fallback_summary()
 
-        # Use streaming if available
-        response = await llm.agenerate([prompt])
-        text = response.generations[0][0].text
-
-        # Simulate streaming by yielding character by character
-        for char in text:
-            yield char
-            await asyncio.sleep(0.005)
+        # Emit in chunks to keep SSE responsive without artificial delays.
+        chunk_size = 80
+        for i in range(0, len(rendered), chunk_size):
+            yield rendered[i : i + chunk_size]
 
     except Exception as e:
         logger.error("Reasoning phase failed", error=str(e))

@@ -8,23 +8,26 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-function getTitleForPath(pathname: string): string {
-  if (pathname === "/dashboard") return "Overview";
-  if (pathname === "/dashboard/orgs") return "Organizations";
-  if (pathname === "/dashboard/users") return "Users";
-  if (pathname === "/dashboard/connectors") return "Connectors";
-  if (pathname === "/dashboard/jobs") return "Jobs";
-  if (pathname === "/dashboard/exchange") return "Exchange";
-  return "Admin";
+function getTitleKeyForPath(pathname: string): string {
+  if (pathname === "/dashboard") return "admin.nav.items.overview";
+  if (pathname === "/dashboard/orgs") return "admin.nav.items.organizations";
+  if (pathname === "/dashboard/users") return "admin.nav.items.users";
+  if (pathname === "/dashboard/connectors") return "admin.nav.items.connectors";
+  if (pathname === "/dashboard/jobs") return "admin.nav.items.jobs";
+  if (pathname === "/dashboard/exchange") return "admin.nav.items.exchange";
+  if (pathname === "/dashboard/tickets") return "admin.nav.items.tickets";
+  return "admin.shell.titleFallback";
 }
 
 export function AppShell(props: { children: React.ReactNode }) {
   const location = useLocation();
+  const t = useT();
   const title = useMemo(
-    () => getTitleForPath(location.pathname),
-    [location.pathname]
+    () => t(getTitleKeyForPath(location.pathname)),
+    [location.pathname, t]
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -60,7 +63,7 @@ export function AppShell(props: { children: React.ReactNode }) {
         <AdminSidebar />
 
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex h-14 items-center gap-3 border-b border-shell-border bg-shell px-4">
+          <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-shell-border bg-shell px-4">
             <SidebarTrigger className="text-muted-foreground" variant="ghost" />
             <div className="flex flex-1 items-center justify-between gap-3">
               <div className="min-w-0 flex flex-col gap-0.5">
@@ -68,7 +71,7 @@ export function AppShell(props: { children: React.ReactNode }) {
                   {title}
                 </div>
                 <div className="truncate text-muted-foreground text-xs leading-none">
-                  Live, no-refresh operations view
+                  {t("admin.shell.subtitle")}
                 </div>
               </div>
 
@@ -83,7 +86,9 @@ export function AppShell(props: { children: React.ReactNode }) {
                 variant="secondary"
               >
                 <MonitorUp className="size-4" />
-                {isFullscreen ? "Exit TV mode" : "TV mode"}
+                {isFullscreen
+                  ? t("admin.shell.exitTvMode")
+                  : t("admin.shell.tvMode")}
               </Button>
             </div>
           </div>

@@ -13,6 +13,7 @@ import {
   CirclePause,
   XCircle,
 } from "lucide-react";
+import type { TFunction } from "@/i18n";
 
 // =============================================================================
 // TYPES
@@ -99,42 +100,42 @@ export const STATUS_CONFIG: Record<
   }
 > = {
   backlog: {
-    label: "Backlog",
+    label: "components.tasks.status.backlog",
     icon: CircleDashed,
     color: "text-muted-foreground",
     bgColor: "bg-muted",
     borderColor: "border-muted-foreground/30",
   },
   todo: {
-    label: "Todo",
+    label: "components.tasks.status.todo",
     icon: Circle,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     borderColor: "border-blue-500/30",
   },
   in_progress: {
-    label: "In Progress",
+    label: "components.tasks.status.inProgress",
     icon: CircleDot,
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
     borderColor: "border-amber-500/30",
   },
   in_review: {
-    label: "In Review",
+    label: "components.tasks.status.inReview",
     icon: CirclePause,
     color: "text-violet-500",
     bgColor: "bg-violet-500/10",
     borderColor: "border-violet-500/30",
   },
   done: {
-    label: "Done",
+    label: "components.tasks.status.done",
     icon: CheckCircle2,
     color: "text-emerald-500",
     bgColor: "bg-emerald-500/10",
     borderColor: "border-emerald-500/30",
   },
   cancelled: {
-    label: "Cancelled",
+    label: "components.tasks.status.cancelled",
     icon: XCircle,
     color: "text-red-500",
     bgColor: "bg-red-500/10",
@@ -165,31 +166,31 @@ export const PRIORITY_CONFIG: Record<
   }
 > = {
   urgent: {
-    label: "Urgent",
+    label: "components.tasks.priority.urgent",
     color: "text-red-500",
     bgColor: "bg-red-500/10",
     dotColor: "bg-red-500",
   },
   high: {
-    label: "High",
+    label: "components.tasks.priority.high",
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
     dotColor: "bg-orange-500",
   },
   medium: {
-    label: "Medium",
+    label: "components.tasks.priority.medium",
     color: "text-yellow-500",
     bgColor: "bg-yellow-500/10",
     dotColor: "bg-yellow-400",
   },
   low: {
-    label: "Low",
+    label: "components.tasks.priority.low",
     color: "text-muted-foreground",
     bgColor: "bg-muted",
     dotColor: "bg-muted-foreground",
   },
   no_priority: {
-    label: "No Priority",
+    label: "components.tasks.priority.none",
     color: "text-muted-foreground/50",
     bgColor: "bg-muted/50",
     dotColor: "bg-muted-foreground/30",
@@ -217,22 +218,22 @@ export const SOURCE_TYPE_CONFIG: Record<
   }
 > = {
   conversation: {
-    label: "Conversation",
+    label: "components.tasks.sourceType.conversation",
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
   },
   commitment: {
-    label: "Commitment",
+    label: "components.tasks.sourceType.commitment",
     color: "text-purple-500",
     bgColor: "bg-purple-500/10",
   },
   decision: {
-    label: "Decision",
+    label: "components.tasks.sourceType.decision",
     color: "text-green-500",
     bgColor: "bg-green-500/10",
   },
   manual: {
-    label: "Manual",
+    label: "components.tasks.sourceType.manual",
     color: "text-muted-foreground",
     bgColor: "bg-muted",
   },
@@ -242,7 +243,10 @@ export const SOURCE_TYPE_CONFIG: Record<
 // UTILITY FUNCTIONS
 // =============================================================================
 
-export function formatDueDate(date: Date | null): {
+export function formatDueDate(
+  date: Date | null,
+  options: { locale: string; t: TFunction }
+): {
   text: string;
   className: string;
   isOverdue: boolean;
@@ -261,38 +265,48 @@ export function formatDueDate(date: Date | null): {
 
   if (diffDays < 0) {
     return {
-      text: `${Math.abs(diffDays)}d overdue`,
+      text: options.t("components.tasks.due.overdueShort", { days: Math.abs(diffDays) }),
       className: "text-red-500 font-medium",
       isOverdue: true,
     };
   }
   if (diffDays === 0) {
     return {
-      text: "Today",
+      text: options.t("components.tasks.due.today"),
       className: "text-amber-500 font-medium",
       isOverdue: false,
     };
   }
   if (diffDays === 1) {
     return {
-      text: "Tomorrow",
+      text: options.t("components.tasks.due.tomorrow"),
       className: "text-amber-500",
       isOverdue: false,
     };
   }
   if (diffDays < 7) {
     return {
-      text: `${diffDays}d`,
+      text: options.t("components.tasks.due.inDaysShort", { days: diffDays }),
       className: "text-muted-foreground",
       isOverdue: false,
     };
   }
 
-  return {
-    text: dueDate.toLocaleDateString("en-US", {
+  let formattedDate: string;
+  try {
+    formattedDate = new Intl.DateTimeFormat(options.locale, {
       month: "short",
       day: "numeric",
-    }),
+    }).format(dueDate);
+  } catch {
+    formattedDate = dueDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  return {
+    text: formattedDate,
     className: "text-muted-foreground",
     isOverdue: false,
   };

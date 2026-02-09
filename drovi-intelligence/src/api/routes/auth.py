@@ -130,6 +130,9 @@ class UserResponse(BaseModel):
     role: str
     email: str
     exp: datetime
+    locale: str = "en"
+    user_locale: str | None = None
+    org_default_locale: str = "en"
 
 
 class CallbackQuery(BaseModel):
@@ -144,6 +147,7 @@ class EmailLoginRequest(BaseModel):
 
     email: str
     password: str
+    invite_token: str | None = None
 
 
 class EmailSignupRequest(BaseModel):
@@ -163,6 +167,12 @@ class EmailAuthResponse(BaseModel):
     session_token: str
     organization: dict | None = None
     organizations: list[dict] | None = None
+
+
+class UpdateLocaleRequest(BaseModel):
+    """Update the user's preferred locale (overrides org default)."""
+
+    locale: str | None = None
 
 
 # =============================================================================
@@ -315,7 +325,11 @@ async def login_with_email(
     Returns session token and user info.
     """
     try:
-        auth_result = await handle_email_login(request.email, request.password)
+        auth_result = await handle_email_login(
+            request.email,
+            request.password,
+            invite_token=request.invite_token,
+        )
 
         # Get organization info
         from src.auth.pilot_accounts import get_org_by_id
@@ -547,6 +561,24 @@ async def get_me(
 
     org = await get_org_by_id(token.org_id)
     org_name = org["name"] if org else "Unknown Organization"
+    org_default_locale = (org or {}).get("default_locale") or "en"
+
+    # Resolve user locale override (if set).
+    user_locale = None
+    try:
+        from src.db.client import get_db_session
+
+        async with get_db_session() as session:
+            result = await session.execute(
+                text("SELECT locale FROM users WHERE id = :user_id"),
+                {"user_id": token.sub},
+            )
+            row = result.fetchone()
+            user_locale = getattr(row, "locale", None) if row else None
+    except Exception as exc:
+        logger.warning("Failed to resolve user locale", error=str(exc))
+
+    effective_locale = str(user_locale or org_default_locale or "en")
 
     return UserResponse(
         user_id=token.sub,
@@ -555,7 +587,40 @@ async def get_me(
         role=token.role,
         email=token.email,
         exp=token.exp,
+        locale=effective_locale,
+        user_locale=user_locale,
+        org_default_locale=str(org_default_locale or "en"),
     )
+
+
+@router.patch("/me/locale")
+async def update_my_locale(
+    request: UpdateLocaleRequest,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> dict:
+    """Update the authenticated user's locale preference."""
+    locale = (request.locale or "").strip().lower()
+    if locale and not (locale.startswith("en") or locale.startswith("fr")):
+        raise HTTPException(status_code=400, detail="Unsupported locale")
+
+    value = None
+    if locale:
+        value = "fr" if locale.startswith("fr") else "en"
+
+    try:
+        from src.db.client import get_db_session
+
+        async with get_db_session() as session:
+            await session.execute(
+                text("UPDATE users SET locale = :locale WHERE id = :user_id"),
+                {"locale": value, "user_id": token.sub},
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.error("Failed to update user locale", error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to update locale") from exc
+
+    return {"ok": True, "locale": value}
 
 
 @router.post("/logout")

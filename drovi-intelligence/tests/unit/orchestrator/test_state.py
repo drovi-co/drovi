@@ -65,7 +65,7 @@ class TestAnalysisInput:
 
     def test_source_type_validation(self, factory):
         """Test that source_type accepts valid values."""
-        valid_types = ["email", "slack", "notion", "google_docs", "whatsapp", "calendar", "api", "manual"]
+        valid_types = ["email", "slack", "notion", "google_docs", "document", "whatsapp", "calendar", "api", "manual"]
 
         for source_type in valid_types:
             input_data = AnalysisInput(

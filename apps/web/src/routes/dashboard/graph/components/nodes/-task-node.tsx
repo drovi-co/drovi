@@ -22,18 +22,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useI18n, useT } from "@/i18n";
 import type { TaskNodeData } from "../../-types";
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr: string | undefined, locale: string): string {
   if (!dateStr) {
     return "";
   }
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
 }
 
 function getSourceIcon(sourceType?: string) {
@@ -55,6 +56,8 @@ function getSourceIcon(sourceType?: string) {
 
 function TaskNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as TaskNodeData;
+  const t = useT();
+  const { locale } = useI18n();
 
   // Status configuration
   const statusConfig: Record<
@@ -165,7 +168,7 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
                 {nodeData.dueDate ? (
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Calendar className="h-3 w-3" />
-                    {formatDate(nodeData.dueDate)}
+                    {formatDate(nodeData.dueDate, locale)}
                   </span>
                 ) : nodeData.sourceType ? (
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -190,16 +193,22 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
               <Badge className={config.text} variant="outline">
                 {nodeData.status.replace("_", " ")}
               </Badge>
-              <Badge variant="outline">{nodeData.priority} priority</Badge>
+              <Badge variant="outline">
+                {t("pages.dashboard.graph.nodes.task.priority", { priority: nodeData.priority })}
+              </Badge>
             </div>
             {nodeData.dueDate && (
               <p className="text-muted-foreground text-xs">
-                Due: {new Date(nodeData.dueDate).toLocaleDateString()}
+                {t("pages.dashboard.graph.nodes.task.due", {
+                  date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
+                    new Date(nodeData.dueDate)
+                  ),
+                })}
               </p>
             )}
             {nodeData.sourceType && (
               <p className="text-muted-foreground text-xs">
-                Source: {nodeData.sourceType}
+                {t("pages.dashboard.graph.nodes.task.source", { source: nodeData.sourceType })}
               </p>
             )}
           </div>

@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import {
   continuumExchangeAPI,
@@ -72,15 +73,9 @@ const GOVERNANCE_BADGES: Record<string, string> = {
   rejected: "border-red-500/30 bg-red-500/10 text-red-600",
 };
 
-function formatPrice(bundle: ContinuumBundle) {
-  if (!bundle.priceCents || !bundle.currency) {
-    return "Free";
-  }
-  return `${(bundle.priceCents / 100).toFixed(2)} ${bundle.currency}`;
-}
-
 function ContinuumExchangePage() {
   const queryClient = useQueryClient();
+  const t = useT();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -140,10 +135,10 @@ function ContinuumExchangePage() {
         bundleId: bundle.id,
       }),
     onSuccess: () => {
-      toast.success("Bundle installed");
+      toast.success(t("pages.dashboard.exchange.toasts.installed"));
       queryClient.invalidateQueries({ queryKey: ["continuum-exchange"] });
     },
-    onError: () => toast.error("Failed to install bundle"),
+    onError: () => toast.error(t("pages.dashboard.exchange.toasts.installFailed")),
   });
 
   const publishMutation = useMutation({
@@ -155,11 +150,11 @@ function ContinuumExchangePage() {
         governanceStatus: "pending",
       }),
     onSuccess: () => {
-      toast.success("Bundle submitted for review");
+      toast.success(t("pages.dashboard.exchange.toasts.submitted"));
       setPublishOpen(false);
       queryClient.invalidateQueries({ queryKey: ["continuum-exchange"] });
     },
-    onError: () => toast.error("Failed to publish bundle"),
+    onError: () => toast.error(t("pages.dashboard.exchange.toasts.publishFailed")),
   });
 
   const curatedBundles = useMemo(() => {
@@ -174,7 +169,9 @@ function ContinuumExchangePage() {
       publishMutation.mutate(parsed);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Invalid JSON manifest"
+        error instanceof Error
+          ? error.message
+          : t("pages.dashboard.exchange.toasts.invalidManifest")
       );
     }
   };
@@ -190,7 +187,7 @@ function ContinuumExchangePage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to browse the Exchange
+        {t("pages.dashboard.exchange.selectOrg")}
       </div>
     );
   }
@@ -217,20 +214,19 @@ function ContinuumExchangePage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Store className="h-3 w-3" />
-              Continuum Exchange
+              {t("pages.dashboard.exchange.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Install proven intelligence playbooks
+              {t("pages.dashboard.exchange.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Discover curated Continuums, publish your own playbooks, and keep
-              governance tight.
+              {t("pages.dashboard.exchange.description")}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={() => setPublishOpen(true)} size="sm">
               <Plus className="mr-2 h-4 w-4" />
-              Publish bundle
+              {t("pages.dashboard.exchange.actions.publish")}
             </Button>
           </div>
         </div>
@@ -242,15 +238,15 @@ function ContinuumExchangePage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Discovery Filters
+                {t("pages.dashboard.exchange.filters.title")}
               </CardTitle>
               <CardDescription>
-                Narrow the marketplace to the bundles you want now.
+                {t("pages.dashboard.exchange.filters.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Visibility</Label>
+                <Label>{t("pages.dashboard.exchange.filters.visibility.label")}</Label>
                 <Select
                   onValueChange={(value) =>
                     setFilters((prev) => ({ ...prev, visibility: value }))
@@ -261,15 +257,15 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="curated">Curated</SelectItem>
+                    <SelectItem value="all">{t("pages.dashboard.exchange.filters.visibility.all")}</SelectItem>
+                    <SelectItem value="private">{t("pages.dashboard.exchange.filters.visibility.private")}</SelectItem>
+                    <SelectItem value="public">{t("pages.dashboard.exchange.filters.visibility.public")}</SelectItem>
+                    <SelectItem value="curated">{t("pages.dashboard.exchange.filters.visibility.curated")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Governance</Label>
+                <Label>{t("pages.dashboard.exchange.filters.governance.label")}</Label>
                 <Select
                   onValueChange={(value) =>
                     setFilters((prev) => ({ ...prev, governance: value }))
@@ -280,10 +276,10 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="all">{t("pages.dashboard.exchange.filters.governance.all")}</SelectItem>
+                    <SelectItem value="pending">{t("pages.dashboard.exchange.filters.governance.pending")}</SelectItem>
+                    <SelectItem value="approved">{t("pages.dashboard.exchange.filters.governance.approved")}</SelectItem>
+                    <SelectItem value="rejected">{t("pages.dashboard.exchange.filters.governance.rejected")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -301,9 +297,9 @@ function ContinuumExchangePage() {
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
                   <Box className="h-10 w-10" />
-                  <p className="font-medium">No bundles yet</p>
+                  <p className="font-medium">{t("pages.dashboard.exchange.empty.title")}</p>
                   <p className="text-sm">
-                    Publish your first bundle to bootstrap the Exchange.
+                    {t("pages.dashboard.exchange.empty.description")}
                   </p>
                 </CardContent>
               </Card>
@@ -315,7 +311,7 @@ function ContinuumExchangePage() {
                       <div className="space-y-1">
                         <CardTitle className="text-lg">{bundle.name}</CardTitle>
                         <CardDescription>
-                          {bundle.description ?? "No description"}
+                          {bundle.description ?? t("pages.dashboard.exchange.noDescription")}
                         </CardDescription>
                       </div>
                       <Badge
@@ -326,7 +322,11 @@ function ContinuumExchangePage() {
                         )}
                         variant="outline"
                       >
-                        {bundle.visibility}
+                        {bundle.visibility === "private"
+                          ? t("pages.dashboard.exchange.filters.visibility.private")
+                          : bundle.visibility === "public"
+                            ? t("pages.dashboard.exchange.filters.visibility.public")
+                            : t("pages.dashboard.exchange.filters.visibility.curated")}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -340,10 +340,18 @@ function ContinuumExchangePage() {
                         )}
                         variant="outline"
                       >
-                        {bundle.governanceStatus}
+                        {bundle.governanceStatus === "pending"
+                          ? t("pages.dashboard.exchange.filters.governance.pending")
+                          : bundle.governanceStatus === "approved"
+                            ? t("pages.dashboard.exchange.filters.governance.approved")
+                            : t("pages.dashboard.exchange.filters.governance.rejected")}
                       </Badge>
                       <Badge variant="secondary">v{bundle.version}</Badge>
-                      <Badge variant="secondary">{formatPrice(bundle)}</Badge>
+                      <Badge variant="secondary">
+                        {!bundle.priceCents || !bundle.currency
+                          ? t("pages.dashboard.exchange.price.free")
+                          : `${(bundle.priceCents / 100).toFixed(2)} ${bundle.currency}`}
+                      </Badge>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -352,11 +360,11 @@ function ContinuumExchangePage() {
                         size="sm"
                       >
                         <CloudDownload className="mr-2 h-4 w-4" />
-                        Install
+                        {t("pages.dashboard.exchange.actions.install")}
                       </Button>
                       <Button size="sm" variant="ghost">
                         <FileCode2 className="mr-2 h-4 w-4" />
-                        View manifest
+                        {t("pages.dashboard.exchange.actions.viewManifest")}
                       </Button>
                     </div>
                   </CardContent>
@@ -371,16 +379,16 @@ function ContinuumExchangePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Crown className="h-4 w-4 text-primary" />
-                Curated picks
+                {t("pages.dashboard.exchange.curated.title")}
               </CardTitle>
               <CardDescription>
-                Reviewed by Drovi governance for immediate adoption.
+                {t("pages.dashboard.exchange.curated.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {curatedBundles.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-center text-muted-foreground">
-                  No curated bundles yet.
+                  {t("pages.dashboard.exchange.curated.empty")}
                 </div>
               ) : (
                 curatedBundles.map((bundle) => (
@@ -396,7 +404,7 @@ function ContinuumExchangePage() {
                         </p>
                       </div>
                       <Badge className="border border-emerald-500/30 bg-emerald-500/10 text-emerald-600">
-                        Approved
+                        {t("pages.dashboard.exchange.filters.governance.approved")}
                       </Badge>
                     </div>
                     <Button
@@ -405,7 +413,7 @@ function ContinuumExchangePage() {
                       size="sm"
                       variant="outline"
                     >
-                      Install curated bundle
+                      {t("pages.dashboard.exchange.curated.install")}
                     </Button>
                   </div>
                 ))
@@ -417,17 +425,26 @@ function ContinuumExchangePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Governance signals
+                {t("pages.dashboard.exchange.governanceSignals.title")}
               </CardTitle>
               <CardDescription>
-                Keep approvals and governance visible.
+                {t("pages.dashboard.exchange.governanceSignals.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: "Pending review", value: "Autopilot rules" },
-                { label: "Approved", value: "Executive cadence" },
-                { label: "Rejected", value: "Noisy intents" },
+                {
+                  label: t("pages.dashboard.exchange.governanceSignals.items.pending"),
+                  value: t("pages.dashboard.exchange.governanceSignals.values.autopilotRules"),
+                },
+                {
+                  label: t("pages.dashboard.exchange.governanceSignals.items.approved"),
+                  value: t("pages.dashboard.exchange.governanceSignals.values.executiveCadence"),
+                },
+                {
+                  label: t("pages.dashboard.exchange.governanceSignals.items.rejected"),
+                  value: t("pages.dashboard.exchange.governanceSignals.values.noisyIntents"),
+                },
               ].map((item) => (
                 <div
                   className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-sm"
@@ -445,23 +462,22 @@ function ContinuumExchangePage() {
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Publish Continuum Bundle</DialogTitle>
+            <DialogTitle>{t("pages.dashboard.exchange.publishDialog.title")}</DialogTitle>
             <DialogDescription>
-              Upload a manifest. Governance review is required before public
-              listing.
+              {t("pages.dashboard.exchange.publishDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>{t("pages.dashboard.exchange.publishDialog.fields.name")}</Label>
                 <Input
                   onChange={(event) => setBundleName(event.target.value)}
                   value={bundleName}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Visibility</Label>
+                <Label>{t("pages.dashboard.exchange.publishDialog.fields.visibility")}</Label>
                 <Select
                   onValueChange={(value) =>
                     setBundleVisibility(value as "private" | "public" | "curated")
@@ -472,22 +488,22 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="curated">Curated</SelectItem>
+                    <SelectItem value="private">{t("pages.dashboard.exchange.filters.visibility.private")}</SelectItem>
+                    <SelectItem value="public">{t("pages.dashboard.exchange.filters.visibility.public")}</SelectItem>
+                    <SelectItem value="curated">{t("pages.dashboard.exchange.filters.visibility.curated")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>{t("pages.dashboard.exchange.publishDialog.fields.description")}</Label>
               <Input
                 onChange={(event) => setBundleDescription(event.target.value)}
                 value={bundleDescription}
               />
             </div>
             <div className="space-y-2">
-              <Label>Bundle manifest (JSON)</Label>
+              <Label>{t("pages.dashboard.exchange.publishDialog.fields.manifest")}</Label>
               <Textarea
                 className="min-h-[220px] font-mono text-xs"
                 onChange={(event) => setManifestText(event.target.value)}
@@ -504,12 +520,12 @@ function ContinuumExchangePage() {
                 ) : (
                   <BadgeCheck className="mr-2 h-4 w-4" />
                 )}
-                Submit for review
+                {t("pages.dashboard.exchange.publishDialog.submit")}
               </Button>
               <Badge variant="secondary">
                 {bundleVisibility === "curated"
-                  ? "Requires admin approval"
-                  : "Draft review"}
+                  ? t("pages.dashboard.exchange.publishDialog.requiresApproval")
+                  : t("pages.dashboard.exchange.publishDialog.draftReview")}
               </Badge>
             </div>
           </div>

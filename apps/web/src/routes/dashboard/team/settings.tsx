@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { connectionsAPI, orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,6 +30,7 @@ function TeamSettingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const t = useT();
   const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
   const { data: orgInfo, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["org-info"],
@@ -65,11 +67,11 @@ function TeamSettingsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Org policies updated");
+      toast.success(t("pages.dashboard.team.settingsPage.toasts.updated"));
       queryClient.invalidateQueries({ queryKey: ["org-info"] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to update org policies");
+      toast.error(err.message || t("pages.dashboard.team.settingsPage.toasts.updateFailed"));
     },
   });
 
@@ -89,7 +91,7 @@ function TeamSettingsPage() {
   if (!orgInfo) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">No organization selected</p>
+        <p className="text-muted-foreground">{t("pages.dashboard.team.noOrg.title")}</p>
       </div>
     );
   }
@@ -97,9 +99,11 @@ function TeamSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">Team Settings</h1>
+        <h1 className="font-bold text-3xl tracking-tight">
+          {t("pages.dashboard.team.settingsPage.title")}
+        </h1>
         <p className="text-muted-foreground">
-          Organization identity and policy controls live in Settings.
+          {t("pages.dashboard.team.settingsPage.subtitle")}
         </p>
       </div>
 
@@ -107,17 +111,19 @@ function TeamSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
-            Organization profile
+            {t("pages.dashboard.team.settingsPage.profile.title")}
           </CardTitle>
           <CardDescription>
-            Manage identity, domains, and routing policies.
+            {t("pages.dashboard.team.settingsPage.profile.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-xs uppercase">Name</p>
+                <p className="text-muted-foreground text-xs uppercase">
+                  {t("pages.dashboard.team.settingsPage.profile.nameLabel")}
+                </p>
                 <p className="mt-1 font-medium">{orgInfo.name}</p>
               </div>
               <Button
@@ -125,14 +131,13 @@ function TeamSettingsPage() {
                 variant="outline"
                 size="sm"
               >
-                Open settings
+                {t("pages.dashboard.team.settingsPage.profile.openSettings")}
                 <ExternalLink className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
           <div className="text-muted-foreground text-xs">
-            Use the main Settings page to update domains, notification emails,
-            or data region.
+            {t("pages.dashboard.team.settingsPage.profile.hint")}
           </div>
         </CardContent>
       </Card>
@@ -141,22 +146,24 @@ function TeamSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Org policies
+            {t("pages.dashboard.team.settingsPage.policies.title")}
           </CardTitle>
           <CardDescription>
-            Control which sources can be connected and the default visibility for new connections.
+            {t("pages.dashboard.team.settingsPage.policies.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {!isAdmin ? (
             <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-              Admin access is required to edit org policies. You can still view the current policy state below.
+              {t("pages.dashboard.team.settingsPage.policies.adminRequired")}
             </div>
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="text-sm">Default visibility for new sources</Label>
+              <Label className="text-sm">
+                {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.label")}
+              </Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -169,9 +176,11 @@ function TeamSettingsPage() {
                       : "border-border/60 bg-muted/30 hover:bg-muted/40"
                   )}
                 >
-                  <div className="font-medium">Shared</div>
+                  <div className="font-medium">
+                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.title")}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    Visible to the org by default
+                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.description")}
                   </div>
                 </button>
                 <button
@@ -185,9 +194,11 @@ function TeamSettingsPage() {
                       : "border-border/60 bg-muted/30 hover:bg-muted/40"
                   )}
                 >
-                  <div className="font-medium">Private</div>
+                  <div className="font-medium">
+                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.private.title")}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    Only visible to the connector owner
+                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.private.description")}
                   </div>
                 </button>
               </div>
@@ -195,9 +206,13 @@ function TeamSettingsPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Allowed connectors</Label>
+                <Label className="text-sm">
+                  {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.title")}
+                </Label>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">Allow all</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.allowAll")}
+                  </Label>
                   <Switch
                     checked={allowAllConnectors}
                     disabled={!isAdmin || updatePolicyMutation.isPending}
@@ -206,7 +221,7 @@ function TeamSettingsPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                When disabled, only selected connectors can be added. Existing connections remain unaffected.
+                {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.hint")}
               </p>
             </div>
           </div>
@@ -214,7 +229,9 @@ function TeamSettingsPage() {
           <Separator />
 
           <div className={cn("grid gap-2", allowAllConnectors ? "opacity-60" : "")}>
-            <div className="text-sm font-medium">Connector catalog</div>
+            <div className="text-sm font-medium">
+              {t("pages.dashboard.team.settingsPage.policies.connectorCatalog.title")}
+            </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {connectorTypes.map((c) => {
                 const enabled = allowAllConnectors || allowedConnectors.has(c.type);
@@ -238,29 +255,40 @@ function TeamSettingsPage() {
                         ? "border-border bg-background hover:bg-muted/20"
                         : "border-border/60 bg-muted/20"
                     )}
-                    title={allowAllConnectors ? "Disable Allow all to edit" : undefined}
+                    title={
+                      allowAllConnectors
+                        ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.disableAllowAllHint")
+                        : undefined
+                    }
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{c.type}</div>
                       <div className="flex items-center gap-2">
                         <Badge variant={c.configured ? "secondary" : "outline"}>
-                          {c.configured ? "configured" : "needs env"}
+                          {c.configured
+                            ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.configured")
+                            : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.needsEnv")}
                         </Badge>
                         {!allowAllConnectors ? (
                           <Badge variant={selected ? "default" : "outline"}>
-                            {selected ? "allowed" : "blocked"}
+                            {selected
+                              ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.allowed")
+                              : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.blocked")}
                           </Badge>
                         ) : null}
                       </div>
                     </div>
                     {!c.configured && c.missing_env?.length ? (
                       <div className="mt-2 text-xs text-muted-foreground">
-                        Missing: {c.missing_env.slice(0, 3).join(", ")}
+                        {t("pages.dashboard.team.settingsPage.policies.connectorCatalog.missingEnv")}{" "}
+                        {c.missing_env.slice(0, 3).join(", ")}
                         {c.missing_env.length > 3 ? "…" : ""}
                       </div>
                     ) : (
                       <div className="mt-2 text-xs text-muted-foreground">
-                        {c.capabilities?.supports_real_time ? "Real-time capable" : "Batch sync"}
+                        {c.capabilities?.supports_real_time
+                          ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.realTime")
+                          : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.batch")}
                       </div>
                     )}
                   </button>
@@ -275,13 +303,15 @@ function TeamSettingsPage() {
               disabled={updatePolicyMutation.isPending}
               onClick={() => refetch()}
             >
-              Reset
+              {t("pages.dashboard.team.settingsPage.actions.reset")}
             </Button>
             <Button
               disabled={!isAdmin || updatePolicyMutation.isPending}
               onClick={() => updatePolicyMutation.mutate()}
             >
-              {updatePolicyMutation.isPending ? "Saving…" : "Save policies"}
+              {updatePolicyMutation.isPending
+                ? t("pages.dashboard.team.settingsPage.actions.saving")
+                : t("pages.dashboard.team.settingsPage.actions.savePolicies")}
             </Button>
           </div>
         </CardContent>

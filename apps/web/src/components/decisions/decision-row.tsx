@@ -1,6 +1,5 @@
 "use client";
 
-import { format, isToday, isYesterday } from "date-fns";
 import { Copy, Eye, MoreHorizontal } from "lucide-react";
 import type * as React from "react";
 import { toast } from "sonner";
@@ -18,6 +17,7 @@ import {
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { useI18n, type TFunction } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
@@ -96,21 +96,39 @@ function getOwnerName(
     | { displayName?: string | null; primaryEmail: string }
     | null
     | undefined
+  ,
+  t: TFunction
 ): string {
   if (!owner) {
-    return "Unknown";
+    return t("common.messages.unknown");
   }
-  return owner.displayName || owner.primaryEmail.split("@")[0] || "Unknown";
+  return owner.displayName || owner.primaryEmail.split("@")[0] || t("common.messages.unknown");
 }
 
-function formatDecisionDate(date: Date): string {
-  if (isToday(date)) {
-    return "Today";
+function formatDecisionDate(date: Date, options: { locale: string; t: TFunction }): string {
+  const diffDays = getLocalDayDiff(date);
+  if (diffDays === 0) {
+    return options.t("components.decisions.date.today");
   }
-  if (isYesterday(date)) {
-    return "Yesterday";
+  if (diffDays === -1) {
+    return options.t("components.decisions.date.yesterday");
   }
-  return format(date, "MMM d");
+  try {
+    return new Intl.DateTimeFormat(options.locale, {
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  } catch {
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+}
+
+function getLocalDayDiff(date: Date): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function DecisionRow({
@@ -127,10 +145,11 @@ function DecisionRow({
   className,
   ...props
 }: DecisionRowProps) {
+  const { locale, t } = useI18n();
   const status = getStatus(decision);
   const firstOwner = decision.owners?.[0];
-  const ownerName = getOwnerName(firstOwner);
-  const dateDisplay = formatDecisionDate(decision.decidedAt);
+  const ownerName = getOwnerName(firstOwner, t);
+  const dateDisplay = formatDecisionDate(decision.decidedAt, { locale, t });
   const firstTopic = decision.topics?.[0];
 
   const isSuperseded = decision.isSuperseded || !!decision.supersededBy;
@@ -155,7 +174,7 @@ function DecisionRow({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(decision.statement);
-    toast.success("Decision statement copied");
+    toast.success(t("components.decisions.toasts.statementCopied"));
     onCopy?.();
   };
 
@@ -284,7 +303,7 @@ function DecisionRow({
         <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           {/* Copy button */}
           <button
-            aria-label="Copy statement"
+            aria-label={t("components.decisions.actions.copyStatement")}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-[4px]",
               "transition-colors duration-100",
@@ -308,7 +327,7 @@ function DecisionRow({
               side="left"
             >
               <button
-                aria-label="Show evidence"
+                aria-label={t("components.decisions.actions.showEvidence")}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-[4px]",
                   "transition-colors duration-100",
@@ -330,7 +349,7 @@ function DecisionRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label="More actions"
+                aria-label={t("components.decisions.actions.moreActions")}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-[4px]",
                   "transition-colors duration-100",
@@ -345,27 +364,27 @@ function DecisionRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleCopy}>
-                Copy Statement
+                {t("components.decisions.menu.copyStatement")}
               </DropdownMenuItem>
               {onShowEvidence && (
                 <DropdownMenuItem onClick={onShowEvidence}>
-                  Show Evidence
+                  {t("components.decisions.menu.showEvidence")}
                 </DropdownMenuItem>
               )}
               {onViewSupersession && (
                 <DropdownMenuItem onClick={onViewSupersession}>
-                  View Decision History
+                  {t("components.decisions.menu.viewHistory")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               {!decision.isUserVerified && onVerify && (
                 <DropdownMenuItem onClick={onVerify}>
-                  Verify (Correct)
+                  {t("components.decisions.menu.verifyCorrect")}
                 </DropdownMenuItem>
               )}
               {onDismiss && (
                 <DropdownMenuItem className="text-red-400" onClick={onDismiss}>
-                  Dismiss (Incorrect)
+                  {t("components.decisions.menu.dismissIncorrect")}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -392,6 +411,7 @@ function DecisionListHeader({
   className,
   ...props
 }: DecisionListHeaderProps) {
+  const t = useI18n().t;
   return (
     <div
       className={cn(
@@ -427,15 +447,15 @@ function DecisionListHeader({
       <div className={cn(COL.status, "shrink-0")} />
 
       {/* Owner */}
-      <div className={cn(COL.owner, "shrink-0 px-1")}>Owner</div>
+      <div className={cn(COL.owner, "shrink-0 px-1")}>{t("components.decisions.listHeader.owner")}</div>
 
       {/* Title */}
-      <div className="flex-1 px-2">Decision</div>
+      <div className="flex-1 px-2">{t("components.decisions.listHeader.decision")}</div>
 
       {/* Right section */}
       <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 whitespace-nowrap text-right">Date</span>
+          <span className="w-14 whitespace-nowrap text-right">{t("components.decisions.listHeader.date")}</span>
           <div className="w-7" />
           <div className="w-7" />
         </div>

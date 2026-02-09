@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, Loader2, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/i18n";
 
 interface SignInFormProps {
   onSwitchToSignUp: () => void;
@@ -18,8 +19,13 @@ export function SignInForm({
   onSwitchToSignUp,
 }: SignInFormProps) {
   const navigate = useNavigate();
+  const t = useT();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const inviteToken =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("invite") ?? undefined
+      : undefined;
 
   const form = useForm({
     defaultValues: {
@@ -32,22 +38,23 @@ export function SignInForm({
           email: value.email,
           password: value.password,
           rememberMe,
+          inviteToken,
         },
         {
           onSuccess: () => {
-            toast.success("Welcome back!");
+            toast.success(t("auth.signIn.toastSuccess"));
             navigate({ to: "/dashboard" });
           },
           onError: (error) => {
-            toast.error(error.error.message || "Invalid email or password");
+            toast.error(error.error.message || t("auth.signIn.invalidCredentials"));
           },
         }
       );
     },
     validators: {
       onSubmit: z.object({
-        email: z.string().email("Please enter a valid email address"),
-        password: z.string().min(1, "Password is required"),
+        email: z.string().email(t("auth.validation.emailInvalid")),
+        password: z.string().min(1, t("auth.validation.passwordRequired")),
       }),
     },
   });
@@ -66,7 +73,7 @@ export function SignInForm({
           {(field) => (
             <div className="space-y-2">
               <Label className="text-foreground" htmlFor={field.name}>
-                Email
+                {t("auth.email")}
               </Label>
               <Input
                 autoComplete="email"
@@ -76,7 +83,7 @@ export function SignInForm({
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="name@example.com"
+                placeholder={t("auth.placeholders.email")}
                 type="email"
                 value={field.state.value}
               />
@@ -94,10 +101,10 @@ export function SignInForm({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-foreground" htmlFor={field.name}>
-                  Password
+                  {t("auth.password")}
                 </Label>
                 <span className="text-muted-foreground text-xs">
-                  Contact your admin to reset
+                  {t("auth.signIn.passwordResetHint")}
                 </span>
               </div>
               <div className="relative">
@@ -107,7 +114,7 @@ export function SignInForm({
                   id={field.name}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t("auth.placeholders.password")}
                   type={showPassword ? "text" : "password"}
                   value={field.state.value}
                 />
@@ -141,10 +148,10 @@ export function SignInForm({
             onCheckedChange={(checked) => setRememberMe(checked === true)}
           />
           <Label
-            className="cursor-pointer font-normal text-muted-foreground text-sm"
-            htmlFor="remember"
-          >
-            Remember me for 30 days
+          className="cursor-pointer font-normal text-muted-foreground text-sm"
+          htmlFor="remember"
+        >
+            {t("auth.signIn.rememberMe")}
           </Label>
         </div>
 
@@ -158,10 +165,10 @@ export function SignInForm({
               {state.isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {t("auth.signIn.submitting")}
                 </>
               ) : (
-                "Sign in"
+                t("common.actions.signIn")
               )}
             </Button>
           )}
@@ -169,13 +176,13 @@ export function SignInForm({
       </form>
 
       <p className="text-center text-muted-foreground text-sm">
-        Don't have an account?{" "}
+        {t("auth.signIn.noAccount")}{" "}
         <button
           className="font-medium text-primary transition-colors hover:text-primary/80"
           onClick={onSwitchToSignUp}
           type="button"
         >
-          Sign up
+          {t("common.actions.signUp")}
         </button>
       </p>
     </div>

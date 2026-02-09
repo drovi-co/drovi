@@ -125,19 +125,31 @@ interface AttributeRowProps {
 }
 
 function AttributeRow({ label, value, copyable, copyValue }: AttributeRowProps) {
+  const resolvedCopyValue =
+    typeof copyValue === "string"
+      ? copyValue
+      : typeof value === "string"
+        ? value
+        : null;
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(copyValue ?? String(value));
+    if (!resolvedCopyValue) {
+      toast.error("Nothing to copy");
+      return;
+    }
+    navigator.clipboard.writeText(resolvedCopyValue);
     toast.success("Copied to clipboard");
-  }, [copyValue, value]);
+  }, [resolvedCopyValue]);
 
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5 text-sm">
+    <div className="group/attr grid grid-cols-[auto,minmax(0,1fr)] items-start gap-x-4 py-1.5 text-sm">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-1.5 text-right">
-        <span className="break-all">{value}</span>
+      <div className="min-w-0 flex items-start justify-end gap-1.5 text-right">
+        <div className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+          {value}
+        </div>
         {copyable && (
           <button
-            className="shrink-0 rounded p-0.5 opacity-0 hover:bg-accent group-hover:opacity-100"
+            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover/attr:opacity-100"
             onClick={handleCopy}
             type="button"
           >

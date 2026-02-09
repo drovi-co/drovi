@@ -39,6 +39,7 @@ import {
   simulationsAPI,
   type SimulationResult,
 } from "@/lib/api";
+import { useI18n } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/simulations/")({
   component: SimulationPage,
@@ -48,6 +49,7 @@ function SimulationPage() {
   const queryClient = useQueryClient();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const { locale, t } = useI18n();
   const organizationId = activeOrg?.id ?? "";
 
   const [scenarioName, setScenarioName] = useState("Quarterly stress test");
@@ -92,10 +94,10 @@ function SimulationPage() {
       }),
     onSuccess: (result) => {
       setLatestResult(result);
-      toast.success("Simulation completed");
+      toast.success(t("pages.dashboard.simulations.toasts.completed"));
       queryClient.invalidateQueries({ queryKey: ["simulation-history"] });
     },
-    onError: () => toast.error("Simulation failed"),
+    onError: () => toast.error(t("pages.dashboard.simulations.toasts.failed")),
   });
 
   const handleRun = () => {
@@ -104,7 +106,7 @@ function SimulationPage() {
       overrides = JSON.parse(overridesText) as Record<string, unknown>;
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Invalid overrides JSON"
+        error instanceof Error ? error.message : t("pages.dashboard.simulations.toasts.invalidOverrides")
       );
       return;
     }
@@ -132,7 +134,7 @@ function SimulationPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to run simulations
+        {t("pages.dashboard.simulations.noOrg")}
       </div>
     );
   }
@@ -144,14 +146,13 @@ function SimulationPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Activity className="h-3 w-3" />
-              Simulation Engine
+              {t("pages.dashboard.simulations.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Model the impact before reality does
+              {t("pages.dashboard.simulations.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Run scenarios against the memory graph, quantify risk deltas, and
-              commit to the safest next move.
+              {t("pages.dashboard.simulations.description")}
             </p>
           </div>
           <Button onClick={handleRun} size="sm">
@@ -160,7 +161,7 @@ function SimulationPage() {
             ) : (
               <Play className="mr-2 h-4 w-4" />
             )}
-            Run simulation
+            {t("pages.dashboard.simulations.actions.run")}
           </Button>
         </div>
       </div>
@@ -170,23 +171,23 @@ function SimulationPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Scenario Controls
+              {t("pages.dashboard.simulations.controls.title")}
             </CardTitle>
             <CardDescription>
-              Tune horizon, overrides, and commitment changes.
+              {t("pages.dashboard.simulations.controls.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Scenario name</Label>
+                <Label>{t("pages.dashboard.simulations.fields.scenarioName")}</Label>
                 <Input
                   onChange={(event) => setScenarioName(event.target.value)}
                   value={scenarioName}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Horizon (days)</Label>
+                <Label>{t("pages.dashboard.simulations.fields.horizonDays")}</Label>
                 <Input
                   onChange={(event) => setHorizonDays(event.target.value)}
                   type="number"
@@ -195,7 +196,7 @@ function SimulationPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Overrides (JSON)</Label>
+              <Label>{t("pages.dashboard.simulations.fields.overrides")}</Label>
               <Textarea
                 className="min-h-[180px] font-mono text-xs"
                 onChange={(event) => setOverridesText(event.target.value)}
@@ -204,7 +205,7 @@ function SimulationPage() {
             </div>
             <Button onClick={handleRun} variant="outline">
               <Play className="mr-2 h-4 w-4" />
-              Simulate
+              {t("pages.dashboard.simulations.actions.simulate")}
             </Button>
           </CardContent>
         </Card>
@@ -213,27 +214,27 @@ function SimulationPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Latest Outcome
+              {t("pages.dashboard.simulations.latest.title")}
             </CardTitle>
             <CardDescription>
-              Compare baseline vs simulated risk posture.
+              {t("pages.dashboard.simulations.latest.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!latestResult ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                Run a simulation to populate results.
+                {t("pages.dashboard.simulations.latest.empty")}
               </div>
             ) : (
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     {
-                      label: "Baseline risk",
+                      label: t("pages.dashboard.simulations.latest.baselineRisk"),
                       value: latestResult.baseline.risk_score,
                     },
                     {
-                      label: "Simulated risk",
+                      label: t("pages.dashboard.simulations.latest.simulatedRisk"),
                       value: latestResult.simulated.risk_score,
                     },
                   ].map((item) => (
@@ -252,7 +253,7 @@ function SimulationPage() {
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <div className="flex items-center justify-between">
                     <p className="text-muted-foreground text-xs uppercase">
-                      Delta
+                      {t("pages.dashboard.simulations.latest.delta")}
                     </p>
                     <Badge
                       className={
@@ -280,14 +281,14 @@ function SimulationPage() {
                 <Separator />
 
                 <div className="space-y-2 text-sm">
-                  <p className="font-medium">Narrative</p>
+                  <p className="font-medium">{t("pages.dashboard.simulations.latest.narrative")}</p>
                   <p className="text-muted-foreground">
                     {latestResult.narrative}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <p className="font-medium text-sm">Sensitivity</p>
+                  <p className="font-medium text-sm">{t("pages.dashboard.simulations.latest.sensitivity")}</p>
                   <div className="space-y-2">
                     {latestResult.sensitivity.map((item) => (
                       <div
@@ -304,7 +305,7 @@ function SimulationPage() {
                     ))}
                     {latestResult.sensitivity.length === 0 && (
                       <p className="text-muted-foreground text-xs">
-                        No sensitivity data for this run.
+                        {t("pages.dashboard.simulations.latest.noSensitivity")}
                       </p>
                     )}
                   </div>
@@ -319,10 +320,10 @@ function SimulationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-primary" />
-            Simulation History
+            {t("pages.dashboard.simulations.history.title")}
           </CardTitle>
           <CardDescription>
-            Recent what-if runs and their stored outputs.
+            {t("pages.dashboard.simulations.history.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -334,7 +335,7 @@ function SimulationPage() {
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : (history ?? []).length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-              No simulations recorded yet.
+              {t("pages.dashboard.simulations.history.empty")}
             </div>
           ) : (
             (history ?? []).map((run: any) => (
@@ -345,7 +346,7 @@ function SimulationPage() {
                 <div>
                   <p className="font-medium text-sm">{run.scenario_name}</p>
                   <p className="text-muted-foreground text-xs">
-                    {new Date(run.created_at).toLocaleString()}
+                    {new Date(run.created_at).toLocaleString(locale)}
                   </p>
                 </div>
                 <Button
@@ -357,13 +358,13 @@ function SimulationPage() {
                           : (run.output_payload as SimulationResult);
                       setLatestResult(payload);
                     } catch {
-                      toast.error("Failed to parse simulation output");
+                      toast.error(t("pages.dashboard.simulations.toasts.parseFailed"));
                     }
                   }}
                   size="sm"
                   variant="ghost"
                 >
-                  View
+                  {t("pages.dashboard.simulations.history.view")}
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>

@@ -34,7 +34,7 @@ interface AuthState {
   loginWithEmail: (
     email: string,
     password: string,
-    options?: { persist?: boolean }
+    options?: { persist?: boolean; inviteToken?: string }
   ) => Promise<void>;
   signupWithEmail: (params: {
     email: string;
@@ -101,7 +101,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const opSeq = ++interactiveAuthSeq;
     set({ isLoading: true, error: null });
     try {
-      const response = await authAPI.loginWithEmail({ email, password });
+      const response = await authAPI.loginWithEmail({
+        email,
+        password,
+        inviteToken: options?.inviteToken,
+      });
       setSessionToken(response.session_token, { persist: options?.persist ?? true });
       const user = await authAPI.getMe();
       if (!user) {

@@ -9,6 +9,7 @@ DEFAULT_FULLTEXT_INDEXES: list[str] = [
     "CALL db.idx.fulltext.createNodeIndex('Contact','displayName','primaryEmail')",
     "CALL db.idx.fulltext.createNodeIndex('Message','text','subject')",
     "CALL db.idx.fulltext.createNodeIndex('TranscriptSegment','text')",
+    "CALL db.idx.fulltext.createNodeIndex('DocumentChunk','text')",
 ]
 
 def build_default_vector_indexes(dimension: int) -> list[str]:
@@ -20,6 +21,7 @@ def build_default_vector_indexes(dimension: int) -> list[str]:
         f"CREATE VECTOR INDEX FOR (n:Risk) ON (n.embedding) OPTIONS {{dimension: {dimension}, similarityFunction: 'cosine'}}",
         f"CREATE VECTOR INDEX FOR (n:Task) ON (n.embedding) OPTIONS {{dimension: {dimension}, similarityFunction: 'cosine'}}",
         f"CREATE VECTOR INDEX FOR (n:Claim) ON (n.embedding) OPTIONS {{dimension: {dimension}, similarityFunction: 'cosine'}}",
+        f"CREATE VECTOR INDEX FOR (n:DocumentChunk) ON (n.embedding) OPTIONS {{dimension: {dimension}, similarityFunction: 'cosine'}}",
     ]
 
 

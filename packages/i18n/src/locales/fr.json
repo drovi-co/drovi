@@ -1,0 +1,2193 @@
+{
+  "common": {
+    "app": "Drovi",
+    "actions": {
+      "continue": "Continuer",
+      "back": "Retour",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "close": "Fermer",
+      "refresh": "Actualiser",
+      "retry": "Reessayer",
+      "search": "Rechercher",
+      "create": "Creer",
+      "update": "Mettre a jour",
+      "delete": "Supprimer",
+      "connect": "Connecter",
+      "disconnect": "Deconnecter",
+      "signIn": "Se connecter",
+      "signUp": "S'inscrire",
+      "signOut": "Se deconnecter"
+    },
+    "status": {
+      "loading": "Chargement…",
+      "offline": "Hors ligne"
+    },
+    "messages": {
+      "unknown": "Inconnu",
+      "unknownError": "Erreur inconnue"
+    },
+    "labels": {
+      "onDemand": "A la demande"
+    },
+    "validation": {
+      "invalidValue": "Valeur invalide"
+    }
+  },
+  "errors": {
+    "apiUnreachable": "API Drovi injoignable. Verifiez que la stack intelligence est demarree.",
+    "notAuthenticated": "Non authentifie",
+    "missingApiKey": "Cle API manquante. Ajoutez l'en-tete X-API-Key.",
+    "internalServerError": "Erreur interne du serveur"
+  },
+  "auth": {
+    "welcomeBack": "Bon retour",
+    "signInTitle": "Bon retour",
+    "signInDescription": "Entrez vos identifiants pour acceder a votre espace.",
+    "createAccount": "Creez votre compte",
+    "signUpTitle": "Creer un compte",
+    "signUpDescription": "Demarrez avec Drovi en quelques minutes.",
+    "email": "Email",
+    "password": "Mot de passe",
+    "nameOptional": "Nom (optionnel)",
+    "organizationNameOptional": "Organisation (optionnel)",
+    "forgotPassword": "Mot de passe oublie ?",
+    "noAccount": "Pas encore de compte ?",
+    "haveAccount": "Vous avez deja un compte ?",
+    "testimonial": {
+      "quote": "\"Drovi a transforme ma facon de gerer ma boite mail. Je ne rate plus aucun engagement, et les resumes IA me font gagner des heures chaque semaine. C'est comme avoir une memoire parfaite de toutes mes conversations.\"",
+      "name": "Michael Kim",
+      "role": "Product Lead chez Stripe"
+    },
+    "links": {
+      "privacy": "Politique de confidentialite",
+      "terms": "Conditions d'utilisation"
+    },
+    "placeholders": {
+      "name": "Jean Dupont",
+      "organization": "Drovi Labs",
+      "email": "nom@exemple.com",
+      "password": "Entrez votre mot de passe",
+      "passwordCreate": "Creez un mot de passe solide"
+    },
+    "validation": {
+      "emailInvalid": "Veuillez entrer une adresse email valide",
+      "passwordRequired": "Le mot de passe est requis",
+      "nameTooShort": "Le nom doit contenir au moins 2 caracteres",
+      "organizationRequired": "Le nom de l'organisation est requis",
+      "passwordMinChars": "Le mot de passe doit contenir au moins 8 caracteres",
+      "passwordUppercase": "Le mot de passe doit contenir une majuscule",
+      "passwordLowercase": "Le mot de passe doit contenir une minuscule",
+      "passwordNumber": "Le mot de passe doit contenir un chiffre"
+    },
+    "signIn": {
+      "toastSuccess": "Bon retour !",
+      "invalidCredentials": "Email ou mot de passe invalide",
+      "passwordResetHint": "Contactez votre admin pour reinitialiser",
+      "rememberMe": "Se souvenir de moi pendant 30 jours",
+      "submitting": "Connexion…",
+      "noAccount": "Pas encore de compte ?"
+    },
+    "signUp": {
+      "acceptTermsError": "Veuillez accepter les conditions",
+      "toastSuccess": "Compte cree avec succes !",
+      "toastError": "Impossible de creer le compte",
+      "submitting": "Creation du compte…",
+      "fullName": "Nom complet",
+      "organization": "Organisation",
+      "termsPrefix": "J'accepte les",
+      "termsAnd": "et"
+    },
+    "passwordStrength": {
+      "veryWeak": "Tres faible",
+      "weak": "Faible",
+      "fair": "Correct",
+      "good": "Bon",
+      "strong": "Fort"
+    },
+    "passwordRequirements": {
+      "minChars": "Au moins 8 caracteres",
+      "uppercase": "Contient une majuscule",
+      "lowercase": "Contient une minuscule",
+      "number": "Contient un chiffre",
+      "special": "Contient un caractere special"
+    },
+    "passwordReset": {
+      "layoutTitle": "Reinitialiser l'acces",
+      "layoutDescription": "Les reinitialisations de mot de passe sont gerees par l'administrateur de votre espace",
+      "supportEmail": "support@drovi.co",
+      "backToSignIn": "Retour a la connexion",
+      "forgot": {
+        "title": "Les reinitialisations sont gerees par votre admin",
+        "description": "Pour les workspaces pilote, les administrateurs gerent les reinitialisations directement. Contactez votre admin ou le support pour recuperer l'acces.",
+        "helpPrefix": "Besoin d'aide ? Ecrivez a",
+        "helpSuffix": "et indiquez le nom de votre workspace."
+      },
+      "reset": {
+        "title": "Les liens de reinitialisation ne sont pas encore actives",
+        "description": "Votre admin peut reinitialiser votre mot de passe ou vous renvoyer une invitation. Si besoin, contactez le support.",
+        "helpPrefix": "Ecrivez a",
+        "helpSuffix": "avec le nom de votre workspace et nous vous aiderons."
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Onboarding",
+    "steps": {
+      "createOrg": "Creer l'organisation",
+      "inviteTeam": "Inviter l'equipe",
+      "connectSources": "Connecter des sources",
+      "complete": "Demarrer"
+    },
+    "createOrg": {
+      "title": "Configurez votre organisation",
+      "description": "Confirmez les details de l'espace de travail pour votre equipe",
+      "fields": {
+        "name": {
+          "label": "Nom de l'organisation",
+          "placeholder": "Acme Inc.",
+          "hint": "C'est le nom qui sera affiche a votre equipe"
+        },
+        "region": {
+          "label": "Region principale",
+          "options": {
+            "usWest": "US Ouest",
+            "usEast": "US Est",
+            "euWest": "EU Ouest"
+          },
+          "hint": "Utilise pour les parametres de conformite et la residence des donnees"
+        }
+      },
+      "saving": "Enregistrement de l'organisation...",
+      "footerNote": "Vous pouvez toujours modifier ces parametres plus tard dans les parametres de l'organisation",
+      "toasts": {
+        "updated": "Organisation mise a jour !",
+        "failed": "Impossible de mettre a jour l'organisation"
+      }
+    },
+    "inviteTeam": {
+      "title": "Invitez votre equipe",
+      "descriptionPrefix": "Ajoutez des membres a",
+      "emailPlaceholder": "collegue@entreprise.com",
+      "pending": {
+        "title": "Invitations en attente",
+        "countOne": "1 membre",
+        "countMany": "{{count}} membres",
+        "roleHint": "Cliquez sur le badge de role pour basculer entre admin et membre"
+      },
+      "roles": {
+        "admin": "Admin",
+        "member": "Membre"
+      },
+      "empty": "Ajoutez des adresses email ci-dessus pour inviter votre equipe",
+      "sending": "Envoi des invitations...",
+      "sendOne": "Envoyer 1 invitation",
+      "sendMany": "Envoyer {{count}} invitations",
+      "skip": "Passer pour l'instant",
+      "footerNote": "Vous pouvez toujours inviter plus de membres depuis votre dashboard",
+      "toasts": {
+        "invalidEmail": "Veuillez entrer une adresse email valide",
+        "duplicateEmail": "Cet email a deja ete ajoute",
+        "sentOne": "1 invitation envoyee !",
+        "sentMany": "{{count}} invitations envoyees !",
+        "sendFailed": "Echec d'envoi de certaines invitations. Veuillez reessayer."
+      }
+    },
+    "complete": {
+      "title": "Tout est pret !",
+      "welcomeTo": "Bienvenue sur",
+      "welcomeCard": {
+        "line1": "Bienvenue a bord, {{name}} !",
+        "fallbackName": "vous",
+        "line2": "Votre espace est pret a etre utilise."
+      },
+      "next": {
+        "title": "Que faire ensuite"
+      },
+      "features": {
+        "quickStart": {
+          "title": "Guide de demarrage rapide",
+          "description": "Apprenez les bases et soyez productif en quelques minutes"
+        },
+        "teamCollaboration": {
+          "title": "Collaboration d'equipe",
+          "description": "Invitez des membres et travaillez ensemble simplement"
+        },
+        "aiInsights": {
+          "title": "Insights IA",
+          "description": "L'IA vous aide a decouvrir plus vite des opportunites"
+        }
+      },
+      "goToDashboard": "Aller au dashboard",
+      "redirecting": "Redirection automatique..."
+    },
+    "connectSources": {
+      "title": {
+        "connected": "Sources connectees",
+        "connect": "Connectez vos sources"
+      },
+      "description": {
+        "connected": "Ajoutez des sources pour approfondir le graphe de memoire et accelerer les briefs.",
+        "connect": "Choisissez les sources les plus importantes. Nous backfillons l'historique et gardons tout synchronise."
+      },
+      "toasts": {
+        "connected": "Source connectee ! Synchronisation initiale enfilee.",
+        "failedToConnect": "Echec de connexion : {{error}}"
+      },
+      "reloadConnectors": "Recharger les connecteurs",
+      "reloadConnections": "Recharger les connexions",
+      "badges": {
+        "comingSoon": "Bientot"
+      },
+      "missingConfig": {
+        "title": "Configuration du connecteur manquante"
+      },
+      "lastSync": "Derniere synchronisation {{date}}",
+      "initialSyncQueued": "Synchronisation initiale enfilee",
+      "progress": "Progression",
+      "backfill": "Backfill",
+      "recordsSynced": "{{count}} enregistrements synchronises",
+      "noRecordsYet": "Aucun enregistrement pour l'instant",
+      "skip": "Passer pour l'instant"
+    },
+    "layout": {
+      "needHelp": {
+        "title": "Besoin d'aide ?",
+        "description": "Notre equipe support est la pour vous aider pendant l'installation.",
+        "contact": "Contacter le support"
+      },
+      "footer": {
+        "rights": "Tous droits reserves."
+      },
+      "mobile": {
+        "stepOf": "Etape {{current}} sur {{total}}"
+      }
+    }
+  },
+  "settings": {
+    "pageTitle": "Parametres",
+    "pageDescription": "Configurez votre organisation et votre posture de securite.",
+    "language": "Langue",
+    "languageDescription": "Choisissez votre langue.",
+    "yourLanguage": "Votre langue",
+    "orgDefaultLanguage": "Langue par defaut de l'organisation",
+    "orgDefaultLanguageHint": "Ceci devient la langue par defaut pour les nouveaux membres. Les membres peuvent toujours la remplacer.",
+    "english": "Anglais",
+    "french": "Francais",
+    "languageSaveError": "Impossible d'enregistrer la preference de langue",
+    "orgLanguageSaved": "Langue de l'organisation mise a jour",
+    "orgLanguageSaveError": "Impossible de mettre a jour la langue de l'organisation",
+    "regions": {
+      "usWest": "US Ouest",
+      "usEast": "US Est",
+      "euCentral": "UE Central"
+    },
+    "orgProfile": {
+      "title": "Profil de l'organisation",
+      "description": "Controlez l'identite, les domaines et les politiques de routage de votre organisation.",
+      "loading": "Chargement de l'organisation…",
+      "regionPlaceholder": "Choisir une region",
+      "allowedDomainsPlaceholder": "exemple.com, partenaire.org",
+      "allowedDomainsHint": "Laissez vide pour autoriser n'importe quel domaine pour les invitations.",
+      "notificationEmailsPlaceholder": "ops@entreprise.com, securite@entreprise.com",
+      "stats": "{{members}} membres · {{connections}} connexions",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "toastSaved": "Parametres de l'organisation mis a jour",
+      "toastSaveFailed": "Impossible de mettre a jour l'organisation",
+      "fields": {
+        "name": "Nom de l'organisation",
+        "region": "Region de donnees",
+        "allowedDomains": "Domaines autorises",
+        "notificationEmails": "Emails de notification"
+      }
+    },
+    "account": {
+      "title": "Resume du compte",
+      "description": "Votre identite et votre niveau d'acces dans Drovi.",
+      "emailLabel": "Email",
+      "roleLabel": "Role",
+      "roleFallback": "Membre"
+    },
+    "security": {
+      "title": "Posture de securite",
+      "description": "Identifiants et preparation a l'audit pour votre organisation.",
+      "note": "Les reinitialisations de mot de passe, MFA et politiques d'appareil sont disponibles dans la console de securite entreprise.",
+      "manageSoon": "Gerer la securite (bientot)"
+    },
+    "export": {
+      "title": "Export des donnees",
+      "description": "Exportez votre graphe d'intelligence pour la conformite ou des migrations.",
+      "start": "Demarrer l'export",
+      "toastStarted": "Export demarre",
+      "toastStartedDescription": "Job {{jobId}} en cours.",
+      "toastFailed": "Impossible de demarrer l'export",
+      "hint": "Les exports sont traites en arriere-plan et expirent apres 24 heures."
+    },
+    "support": {
+      "title": "Support",
+      "description": "Signalez un bug, demandez de l'aide, ou demandez de l'aide d'onboarding.",
+      "diagnosticsNote": "Drovi peut joindre des diagnostics (route + erreurs API recentes) pour nous aider a resoudre plus vite.",
+      "contact": "Contacter le support"
+    }
+  },
+  "drive": {
+    "label": "Drive",
+    "header": {
+      "kicker": "Smart Drive",
+      "title": "Documents, preuve a l'appui",
+      "description": "Importez n'importe quoi. Drovi transforme vos fichiers en memoire consultable et ancree sur des preuves. Cliquez depuis un engagement vers la region exacte de la page.",
+      "folderPlaceholder": "Prefixe de dossier (ex: /clients/acme)",
+      "uploadFiles": "Importer des fichiers",
+      "selectOrg": "Selectionnez une organisation pour utiliser Smart Drive",
+      "queuedUploadsOne": "{{count}} import mis en file",
+      "queuedUploadsMany": "{{count}} imports mis en file"
+    },
+    "tabs": {
+      "browse": "Parcourir",
+      "search": "Rechercher",
+      "ask": "Demander"
+    },
+    "scope": {
+      "title": "Portee",
+      "description": "Parcourez, recherchez et questionnez dans un prefixe de dossier. Les imports heritent de la portee courante.",
+      "clear": "Reinitialiser",
+      "folders": "Dossiers",
+      "tags": "Etiquettes",
+      "allDocuments": "Tous les documents",
+      "expandFolder": "Deplier le dossier",
+      "collapseFolder": "Replier le dossier",
+      "tagsCountOne": "{{count}} etiquette",
+      "tagsCountMany": "{{count}} etiquettes",
+      "noDocuments": "Importez un document pour commencer a organiser votre Drive.",
+      "noTags": "Aucune etiquette pour l'instant. Ajoutez des etiquettes lors de l'import ou via les metadonnees plus tard."
+    },
+    "library": {
+      "title": "Bibliotheque",
+      "description": "Documents de votre organisation. Le traitement s'execute automatiquement en arriere-plan.",
+      "emptyScoped": "Aucun document dans cette portee. Importez un PDF ou elargissez le prefixe de dossier."
+    },
+    "pages": {
+      "title": "Pages",
+      "description": "Selectionnez une page a afficher. Les citations de preuve sont surlignees automatiquement.",
+      "openPdf": "Ouvrir le PDF",
+      "selectDocument": "Selectionnez un document pour parcourir ses pages.",
+      "noParsedPages": "Aucune page analysee pour l'instant. Si le document est en cours de traitement, cela se remplira automatiquement.",
+      "chunk": "Extrait",
+      "page": "Page",
+      "pagesCountOne": "{{count}} page",
+      "pagesCountMany": "{{count}} pages"
+    },
+    "search": {
+      "title": "Rechercher dans ce dossier",
+      "description": "Recherche par mots-cles maintenant, recherche semantique quand les embeddings sont disponibles. Les resultats sont des extraits de preuve.",
+      "placeholder": "ex: lettre de mission, approbation client, indemnisation",
+      "button": "Rechercher",
+      "noResults": "Aucun resultat pour l'instant. Essayez une autre requete ou importez plus de documents.",
+      "chunk": "Extrait"
+    },
+    "ask": {
+      "title": "Questionner ce dossier",
+      "description": "Reponses preuve-first uniquement. S'il n'y a pas de preuve dans le dossier selectionne, Drovi refusera.",
+      "placeholder": "ex: Ou le client a-t-il approuve les changements de perimetre ?",
+      "button": "Demander",
+      "answer": "Reponse",
+      "sources": "Sources",
+      "emptyAnswer": "Posez une question pour generer une reponse basee sur des preuves.",
+      "copy": "Copier",
+      "copyBrief": "Copier le brief",
+      "copiedAnswer": "Reponse copiee",
+      "copiedBrief": "Brief copie"
+    },
+    "viewer": {
+      "title": "Visionneuse",
+      "selectPrompt": "Selectionnez une page pour previsualiser la preuve.",
+      "pagePreview": "Apercu de page",
+      "pageAlt": "Page du document",
+      "open": "Ouvrir",
+      "loadingPageImage": "Chargement de l'image de page…",
+      "failedPageImage": "Impossible de charger l'image de la page",
+      "textPreview": "Apercu texte",
+      "evidenceQuote": "Citation de preuve:"
+    },
+    "uploads": {
+      "title": "Televersements",
+      "retry": "Reessayer",
+      "parts": "{{done}}/{{total}} parties",
+      "status": {
+        "queued": "En attente",
+        "hashing": "Hachage",
+        "starting": "Demarrage",
+        "uploading": "Televersement",
+        "finalizing": "Finalisation",
+        "processing": "Traitement",
+        "done": "Termine",
+        "failed": "Echec"
+      }
+    },
+    "status": {
+      "processed": "Traite",
+      "processing": "Traitement",
+      "uploading": "Televersement",
+      "failed": "Echec",
+      "unknown": "Inconnu"
+    }
+  },
+  "connectors": {
+    "gmail": {
+      "description": "Messages et fils d'emails depuis Gmail"
+    },
+    "outlook": {
+      "description": "Messages email depuis Microsoft Outlook"
+    },
+    "slack": {
+      "description": "Messages et canaux depuis des workspaces Slack"
+    },
+    "teams": {
+      "description": "Discussions et messages de canal depuis Teams"
+    },
+    "whatsapp": {
+      "description": "Messages professionnels depuis WhatsApp"
+    },
+    "googleCalendar": {
+      "description": "Evenements et reunions depuis Google Calendar"
+    },
+    "notion": {
+      "description": "Pages et bases de donnees depuis Notion"
+    },
+    "googleDocs": {
+      "description": "Documents depuis Google Drive"
+    },
+    "hubspot": {
+      "description": "Contacts, deals et interactions depuis HubSpot CRM"
+    }
+  },
+  "pages": {
+    "dashboard": {
+      "sources": {
+        "subtitle": "Gerez les sources de donnees pour votre plateforme d'intelligence",
+        "connectSource": "Connecter une source",
+        "viewerNoConnect": "Le role Lecteur ne peut pas connecter de sources",
+        "authRequired": {
+          "title": "Non authentifie",
+          "description": "Veuillez vous connecter pour gerer vos sources de donnees"
+        },
+        "stats": {
+          "totalSources": "Sources au total",
+          "messagesSynced": "Messages synchronises",
+          "activeSyncs": "Synchronisations actives"
+        },
+        "tabs": {
+          "all": "Toutes les sources",
+          "email": "Email",
+          "messaging": "Messagerie",
+          "calendar": "Calendrier"
+        },
+        "connectDialog": {
+          "title": "Connecter une source",
+          "description": "Choisissez une source de donnees a connecter a votre plateforme d'intelligence",
+          "reloadConnectors": "Recharger les connecteurs"
+        },
+        "categories": {
+          "email": "Email",
+          "messaging": "Messagerie",
+          "calendar": "Calendrier",
+          "knowledge": "Base de connaissances",
+          "crm": "CRM"
+        },
+        "customConnector": "Connecteur personnalise",
+        "badges": {
+          "unavailable": "Indisponible",
+          "notConfigured": "Non configure",
+          "ready": "Pret",
+          "live": "Live : {{status}}",
+          "backfill": "Backfill : {{status}}"
+        },
+        "missingEnv": "Manquant",
+        "backfillDialog": {
+          "title": "Backfill historique",
+          "descriptionPrefix": "Re-ingester les donnees historiques pour",
+          "thisSource": "cette source",
+          "descriptionSuffix": "Drovi decoupera le backfill pour respecter les limites de taux.",
+          "startDate": "Date de debut",
+          "endDate": "Date de fin",
+          "windowDays": "Taille de fenetre (jours)",
+          "throttleSeconds": "Throttle (secondes)",
+          "note": "Les backfills s'executent sequentiellement. Vous pouvez continuer a travailler pendant l'ingestion.",
+          "startBackfill": "Demarrer le backfill",
+          "starting": "Demarrage..."
+        },
+        "disconnectDialog": {
+          "title": "Deconnecter la source",
+          "description": "Etes-vous sur de vouloir deconnecter {{source}} ? Cela arretera la synchronisation des donnees depuis cette source. Les donnees existantes seront conservees.",
+          "disconnect": "Deconnecter"
+        },
+        "status": {
+          "connected": "Connecte",
+          "active": "Actif",
+          "syncing": "Synchronisation",
+          "pendingAuth": "Autorisation requise",
+          "error": "Erreur"
+        },
+        "connectedBy": {
+          "you": "Connecte par vous",
+          "name": "Connecte par {{name}}",
+          "email": "Connecte par {{email}}",
+          "teammate": "Connecte par un membre de l'equipe"
+        },
+        "liveStatus": {
+          "running": "En cours",
+          "paused": "En pause",
+          "error": "Erreur"
+        },
+        "backfillStatus": {
+          "notStarted": "Non demarre",
+          "running": "En cours",
+          "paused": "En pause",
+          "done": "Termine",
+          "error": "Erreur"
+        },
+        "visibility": {
+          "private": "Prive",
+          "orgShared": "Partage orga"
+        },
+        "menu": {
+          "settings": "Parametres",
+          "shareWithOrg": "Partager avec l'orga",
+          "makePrivate": "Rendre prive",
+          "backfillHistory": "Backfill historique",
+          "syncNow": "Synchroniser",
+          "disconnect": "Deconnecter"
+        },
+        "backfillWindow": "Fenetre de backfill",
+        "syncedCount": "{{count}} synchronises",
+        "empty": {
+          "all": {
+            "title": "Aucune source connectee",
+            "description": "Connectez votre email, Slack, calendrier et autres sources pour construire votre plateforme d'intelligence unifiee",
+            "cta": "Connecter votre premiere source"
+          },
+          "email": {
+            "title": "Aucun email connecte",
+            "description": "Connectez une source email pour commencer",
+            "cta": "Connecter Email"
+          },
+          "messaging": {
+            "title": "Aucune messagerie connectee",
+            "description": "Connectez une source de messagerie pour commencer",
+            "cta": "Connecter Messagerie"
+          },
+          "calendar": {
+            "title": "Aucun calendrier connecte",
+            "description": "Connectez une source calendrier pour commencer",
+            "cta": "Connecter Calendrier"
+          },
+          "knowledge": {
+            "title": "Aucune base de connaissances connectee",
+            "description": "Connectez une base de connaissances pour commencer",
+            "cta": "Connecter Base de connaissances"
+          },
+          "crm": {
+            "title": "Aucun CRM connecte",
+            "description": "Connectez une source CRM pour commencer",
+            "cta": "Connecter CRM"
+          }
+        },
+        "toasts": {
+          "connected": "Source connectee avec succes !",
+          "failedToConnect": "Echec de connexion : {{error}}",
+          "syncCompleted": "Synchronisation terminee !",
+          "syncFailed": "Echec de synchronisation : {{error}}",
+          "syncStarted": "Synchronisation demarree !",
+          "syncTriggerFailed": "Impossible de lancer la synchronisation : {{error}}",
+          "backfillQueued": "Backfill enfile",
+          "backfillFailed": "Impossible de lancer le backfill : {{error}}",
+          "disconnected": "Source deconnectee",
+          "disconnectFailed": "Impossible de deconnecter : {{error}}",
+          "visibilityPrivate": "La source est maintenant privee",
+          "visibilityShared": "Source partagee avec l'orga",
+          "visibilityFailed": "Impossible de mettre a jour la visibilite : {{error}}"
+        }
+      },
+      "exchange": {
+        "kicker": "Echange Continuum",
+        "title": "Installez des playbooks d'intelligence prouves",
+        "description": "Decouvrez des Continuums selectionnes, publiez vos playbooks, et gardez une gouvernance stricte.",
+        "selectOrg": "Selectionnez une organisation pour parcourir l'Echange",
+        "actions": {
+          "publish": "Publier un bundle",
+          "install": "Installer",
+          "viewManifest": "Voir le manifeste"
+        },
+        "filters": {
+          "title": "Filtres de decouverte",
+          "description": "Affinez la marketplace aux bundles qui vous interessent maintenant.",
+          "visibility": {
+            "label": "Visibilite",
+            "all": "Tous",
+            "private": "Prive",
+            "public": "Public",
+            "curated": "Curate"
+          },
+          "governance": {
+            "label": "Gouvernance",
+            "all": "Tous",
+            "pending": "En attente",
+            "approved": "Approuve",
+            "rejected": "Rejete"
+          }
+        },
+        "empty": {
+          "title": "Aucun bundle pour l'instant",
+          "description": "Publiez votre premier bundle pour lancer l'Echange."
+        },
+        "noDescription": "Aucune description",
+        "price": {
+          "free": "Gratuit"
+        },
+        "curated": {
+          "title": "Selections",
+          "description": "Revu par la gouvernance Drovi pour une adoption immediate.",
+          "empty": "Aucun bundle selectionne.",
+          "install": "Installer le bundle selectionne"
+        },
+        "governanceSignals": {
+          "title": "Signaux de gouvernance",
+          "description": "Gardez les approvals et la gouvernance visibles.",
+          "items": {
+            "pending": "En attente de revue",
+            "approved": "Approuve",
+            "rejected": "Rejete"
+          },
+          "values": {
+            "autopilotRules": "Regles autopilot",
+            "executiveCadence": "Cadence executive",
+            "noisyIntents": "Intents bruyants"
+          }
+        },
+        "publishDialog": {
+          "title": "Publier un bundle Continuum",
+          "description": "Uploadez un manifeste. Une revue de gouvernance est requise avant la publication.",
+          "fields": {
+            "name": "Nom",
+            "visibility": "Visibilite",
+            "description": "Description",
+            "manifest": "Manifeste du bundle (JSON)"
+          },
+          "submit": "Soumettre pour revue",
+          "requiresApproval": "Necessite une approbation admin",
+          "draftReview": "Revue brouillon"
+        },
+        "toasts": {
+          "installed": "Bundle installe",
+          "installFailed": "Echec d'installation du bundle",
+          "submitted": "Bundle soumis pour revue",
+          "publishFailed": "Echec de publication du bundle",
+          "invalidManifest": "Manifeste JSON invalide"
+        }
+      },
+      "team": {
+        "subtitle": "Gerez votre organisation et les membres de l'equipe",
+        "noOrg": {
+          "title": "Aucune organisation selectionnee",
+          "description": "Creez ou selectionnez une organisation pour gerer votre equipe",
+          "cta": "Creer une organisation"
+        },
+        "org": {
+          "region": "Region : {{region}}",
+          "defaultRegion": "Defaut",
+          "created": "Creee : {{date}}",
+          "stats": "{{members}} membres · {{connections}} connexions"
+        },
+        "quickActions": {
+          "members": "Gerer les membres",
+          "invitations": "Inviter de nouveaux membres",
+          "settings": "Parametres de l'organisation"
+        },
+        "roles": {
+          "owner": "Proprietaire",
+          "admin": "Admin",
+          "member": "Membre",
+          "viewer": "Lecteur"
+        },
+        "membersPage": {
+          "notSignedIn": "Connectez-vous pour gerer votre equipe.",
+          "subtitle": "Gerez les membres de {{org}}",
+          "fallbackUser": "Utilisateur",
+          "actions": {
+            "inviteMembers": "Inviter des membres",
+            "adminRequired": "Acces admin requis"
+          },
+          "card": {
+            "title": "Membres de l'equipe",
+            "countOne": "1 membre dans cette organisation",
+            "countMany": "{{count}} membres dans cette organisation"
+          },
+          "empty": "Aucun membre trouve. Invitez des membres pour commencer.",
+          "menu": {
+            "makeAdmin": "Rendre admin",
+            "makeMember": "Rendre membre",
+            "makeViewer": "Rendre lecteur",
+            "removeMember": "Retirer le membre"
+          },
+          "toasts": {
+            "roleUpdated": "Role mis a jour",
+            "roleUpdateFailed": "Impossible de mettre a jour le role",
+            "memberRemoved": "Membre retire",
+            "memberRemoveFailed": "Impossible de retirer le membre"
+          }
+        },
+        "invitationsPage": {
+          "notSignedIn": "Connectez-vous pour inviter des membres.",
+          "subtitle": "Invitez de nouveaux membres a {{org}}",
+          "form": {
+            "title": "Inviter un membre",
+            "description": "Envoyez un email d'invitation pour ajouter quelqu'un a votre equipe",
+            "emailPlaceholder": "collegue@entreprise.com",
+            "roleLabel": "Role",
+            "send": "Envoyer l'invitation",
+            "sending": "Envoi...",
+            "adminRequired": "Un acces admin est requis pour inviter des membres."
+          },
+          "pending": {
+            "title": "Invitations en attente",
+            "description": "Invitations pas encore acceptees",
+            "empty": "Aucune invitation en attente",
+            "invitedOn": "Invite {{date}}"
+          },
+          "status": {
+            "accepted": "Acceptee",
+            "expired": "Expiree",
+            "pending": "En attente"
+          },
+          "toasts": {
+            "sent": "Invitation envoyee",
+            "sendFailed": "Impossible d'envoyer l'invitation",
+            "revoked": "Invitation revoquee",
+            "revokeFailed": "Impossible de revoquer l'invitation"
+          }
+        },
+        "settingsPage": {
+          "title": "Parametres d'equipe",
+          "subtitle": "L'identite et les politiques de l'organisation se gerent dans Parametres.",
+          "profile": {
+            "title": "Profil de l'organisation",
+            "description": "Gerez l'identite, les domaines et les politiques de routage.",
+            "nameLabel": "Nom",
+            "openSettings": "Ouvrir les parametres",
+            "hint": "Utilisez la page Parametres principale pour mettre a jour les domaines, emails de notification, ou la region de donnees."
+          },
+          "policies": {
+            "title": "Politiques orga",
+            "description": "Controlez quelles sources peuvent etre connectees et la visibilite par defaut des nouvelles connexions.",
+            "adminRequired": "Un acces admin est requis pour modifier les politiques. Vous pouvez toujours consulter l'etat actuel ci-dessous.",
+            "defaultVisibility": {
+              "label": "Visibilite par defaut des nouvelles sources",
+              "shared": {
+                "title": "Partage",
+                "description": "Visible par defaut pour l'orga"
+              },
+              "private": {
+                "title": "Prive",
+                "description": "Visible uniquement pour le proprietaire du connecteur"
+              }
+            },
+            "allowedConnectors": {
+              "title": "Connecteurs autorises",
+              "allowAll": "Tout autoriser",
+              "hint": "Quand desactive, seuls les connecteurs selectionnes peuvent etre ajoutes. Les connexions existantes ne changent pas."
+            },
+            "connectorCatalog": {
+              "title": "Catalogue des connecteurs",
+              "disableAllowAllHint": "Desactivez Tout autoriser pour modifier",
+              "configured": "configure",
+              "needsEnv": "besoin d'env",
+              "allowed": "autorise",
+              "blocked": "bloque",
+              "missingEnv": "Manquant :",
+              "realTime": "Compatible temps reel",
+              "batch": "Sync batch"
+            }
+          },
+          "actions": {
+            "reset": "Reinitialiser",
+            "saving": "Enregistrement…",
+            "savePolicies": "Enregistrer les politiques"
+          },
+          "toasts": {
+            "updated": "Politiques orga mises a jour",
+            "updateFailed": "Impossible de mettre a jour les politiques orga"
+          }
+        }
+      },
+      "realityStream": {
+        "selectOrg": "Selectionnez une organisation pour voir le Flux de realite",
+        "kicker": "Flux de realite",
+        "title": "Tous les signaux, tous les changements, sur une seule timeline",
+        "description": "Suivez ce qui change sur les engagements, decisions, taches et signaux sans perdre le contexte important.",
+        "actions": {
+          "refresh": "Actualiser"
+        },
+        "filters": {
+          "title": "Filtres du flux",
+          "description": "Ajustez le flux par type d'entite et periode.",
+          "entity": {
+            "label": "Type d'entite",
+            "all": "Tous",
+            "commitment": "Engagements",
+            "decision": "Decisions",
+            "task": "Taches",
+            "risk": "Risques",
+            "brief": "Briefs"
+          },
+          "range": {
+            "label": "Periode",
+            "last24h": "Dernieres 24h",
+            "last7d": "7 derniers jours",
+            "last30d": "30 derniers jours"
+          }
+        },
+        "timeline": {
+          "title": "Timeline des changements",
+          "count": "{{count}} changements captures sur cette periode.",
+          "empty": "Aucun changement sur cette periode."
+        }
+      },
+      "console": {
+        "noOrg": {
+          "title": "Aucune organisation selectionnee",
+          "description": "Selectionnez une organisation dans la sidebar pour voir la Console."
+        },
+        "metrics": {
+          "total": "Total",
+          "active": "Actifs",
+          "atRisk": "A risque",
+          "overdue": "En retard",
+          "avgConfidence": "Confiance moyenne"
+        },
+        "controls": {
+          "groupBy": "Grouper par :",
+          "visualizeAs": "Visualiser en :"
+        },
+        "groupBy": {
+          "none": "Aucun",
+          "type": "Type",
+          "status": "Statut",
+          "priority": "Priorite",
+          "owner": "Responsable",
+          "source": "Source",
+          "date": "Date"
+        },
+        "viz": {
+          "list": "Liste",
+          "timeseries": "Serie temporelle",
+          "topList": "Top liste",
+          "table": "Table",
+          "pie": "Camembert"
+        },
+        "results": {
+          "count": "{{shown}} sur {{total}} resultats"
+        },
+        "errors": {
+          "failedToLoad": "Echec de chargement des donnees"
+        },
+        "empty": {
+          "title": "Aucun resultat",
+          "description": "Essayez d'ajuster vos filtres ou vos termes de recherche."
+        },
+        "emptyChart": "Selectionnez une option \"Grouper par\" pour voir les charts"
+      },
+      "uioDetail": {
+        "types": {
+          "commitment": "Engagement",
+          "decision": "Decision",
+          "topic": "Sujet"
+        },
+        "status": {
+          "active": "Actif",
+          "archived": "Archive",
+          "dismissed": "Ecarte",
+          "merged": "Fusionne"
+        },
+        "verified": "Verifie",
+        "actions": {
+          "verify": "Verifier",
+          "unverify": "Deverifier",
+          "archive": "Archiver",
+          "dismiss": "Ecarter"
+        },
+        "toasts": {
+          "updated": "Mis a jour",
+          "updateFailed": "Echec de la mise a jour",
+          "orgUnavailable": "Organisation indisponible",
+          "titleUpdated": "Titre mis a jour",
+          "sourceViewerSoon": "Viewer de source bientot disponible"
+        },
+        "notFound": {
+          "title": "Introuvable",
+          "description": "Cet objet unifie n'existe pas ou vous n'y avez pas acces.",
+          "back": "Retour"
+        },
+        "timeline": {
+          "extracted": "Intelligence extraite"
+        },
+        "evidence": {
+          "short": "Preuve : {{id}}…"
+        },
+        "meta": {
+          "dueDate": "Echeance",
+          "from": "De",
+          "to": "A",
+          "confidence": "Confiance",
+          "created": "Cree"
+        },
+        "confidenceTier": {
+          "low": "faible",
+          "medium": "moyen",
+          "high": "eleve",
+          "unknown": "inconnu"
+        },
+        "sections": {
+          "description": "Description",
+          "historyOne": "Historique (1 evenement)",
+          "historyMany": "Historique ({{count}} evenements)",
+          "discussion": "Discussion"
+        },
+        "discussion": {
+          "placeholder": "Les threads collaboratifs arrivent bientot. Capturez les decisions dans les notes ou attachez des preuves depuis les sources."
+        }
+      },
+      "tasks": {
+        "noOrg": "Selectionnez une organisation pour voir les taches",
+        "tabs": {
+          "all": "Toutes"
+        },
+        "filters": {
+          "source": {
+            "placeholder": "Source",
+            "all": "Toutes les sources",
+            "conversation": "Conversations",
+            "commitment": "Engagements",
+            "decision": "Decisions",
+            "manual": "Manuel"
+          },
+          "priority": {
+            "placeholder": "Priorite",
+            "all": "Toutes les priorites"
+          }
+        },
+        "search": {
+          "placeholder": "Rechercher des taches..."
+        },
+        "keyboard": {
+          "nav": "nav",
+          "view": "vue"
+        },
+        "table": {
+          "task": "Tache",
+          "title": "Titre",
+          "due": "Echeance",
+          "showingCount": "Affichage de {{shown}} sur {{total}} taches"
+        },
+        "empty": {
+          "title": "Aucune tache trouvee",
+          "description": "Les taches sont creees automatiquement depuis les conversations, engagements et decisions."
+        },
+        "actions": {
+          "star": "Favori",
+          "archive": "Archiver"
+        },
+        "toasts": {
+          "statusUpdated": "Statut mis a jour",
+          "statusUpdateFailed": "Echec de mise a jour du statut",
+          "priorityUpdated": "Priorite mise a jour",
+          "priorityUpdateFailed": "Echec de mise a jour de la priorite",
+          "starHint": "Utilisez les niveaux de priorite pour mettre en avant les taches importantes",
+          "archived": "Tache archivee"
+        },
+        "detail": {
+          "tooltips": {
+            "back": "Retour"
+          },
+          "actions": {
+            "deleteTask": "Supprimer la tache"
+          },
+          "confirmDelete": "Supprimer cette tache ? Cette action est irreversible.",
+          "fields": {
+            "title": {
+              "placeholder": "Titre de la tache"
+            },
+            "description": {
+              "label": "Description",
+              "placeholder": "Ajouter une description...",
+              "emptyHint": "Cliquez pour ajouter une description"
+            }
+          },
+          "sections": {
+            "sourcePreview": "Apercu de la source",
+            "sources": "Sources ({{count}})",
+            "timeline": "Chronologie",
+            "teamDiscussion": "Discussion d'equipe"
+          },
+          "sources": {
+            "fallback": "Source {{index}}"
+          },
+          "timeline": {
+            "created": "Cree",
+            "updated": "Mis a jour",
+            "dueDateSet": "Echeance fixee",
+            "completed": "Terminee"
+          },
+          "teamDiscussion": {
+            "placeholder": "La discussion d'equipe arrive bientot. Pour l'instant, capturez le contexte dans la description et attachez des preuves depuis les sources."
+          },
+          "properties": {
+            "status": "Statut",
+            "priority": "Priorite",
+            "assignee": "Assigne",
+            "noAssignee": "Non assigne",
+            "labels": "Etiquettes",
+            "noLabels": "Aucune etiquette",
+            "dueDate": "Echeance",
+            "source": "Source"
+          },
+          "keyboard": {
+            "setStatus": "Changer le statut",
+            "goBack": "Retour"
+          },
+          "meta": {
+            "created": "Cree",
+            "updated": "Mis a jour"
+          },
+          "notFound": {
+            "title": "Tache introuvable",
+            "description": "Cette tache n'existe pas ou vous n'y avez pas acces.",
+            "back": "Retour aux taches"
+          },
+          "toasts": {
+            "updateFailed": "Echec de mise a jour de la tache",
+            "archiveFailed": "Echec de suppression de la tache",
+            "sourceViewerSoon": "Lecteur de source bientot disponible"
+          }
+        }
+      },
+      "commitments": {
+        "noOrg": "Selectionnez une organisation pour voir les engagements",
+        "tabs": {
+          "all": "Tous",
+          "owedByMe": "Je dois",
+          "owedToMe": "On me doit"
+        },
+        "filters": {
+          "status": {
+            "placeholder": "Statut",
+            "active": "Actifs",
+            "overdue": "En retard",
+            "completed": "Termines",
+            "snoozed": "Reportes"
+          }
+        },
+        "search": {
+          "placeholder": "Rechercher..."
+        },
+        "empty": {
+          "title": "Aucun engagement trouve",
+          "description": "Les engagements sont extraits automatiquement depuis vos emails"
+        },
+        "followUp": {
+          "fallbackTitle": "Engagement",
+          "ourCommitment": "notre engagement",
+          "subject": "Relance : {{title}}",
+          "body": "Bonjour{{name}},\n\nJe fais suite a : {{title}}.\n\nPouvez-vous me donner un point de statut ?\n\nCordialement",
+          "draft": "Objet : {{subject}}\n\n{{body}}"
+        },
+        "toasts": {
+          "markComplete": "Engagement marque termine",
+          "markCompleteFailed": "Echec de completion de l'engagement",
+          "snoozed": "Engagement reporte",
+          "snoozeFailed": "Echec du report de l'engagement",
+          "dismissed": "Engagement rejete",
+          "dismissFailed": "Echec du rejet",
+          "verified": "Engagement verifie",
+          "verifyFailed": "Echec de verification",
+          "notFound": "Engagement introuvable",
+          "followUpCopied": "Relance copiee dans le presse-papiers",
+          "followUpCopyFailed": "Echec de copie de la relance",
+          "followUpGenerated": "Relance generee",
+          "followUpGeneratedDescription": "Copiez-la depuis le panneau de detail.",
+          "sourceViewerSoon": "Viewer source bientot disponible"
+        }
+      },
+      "decisions": {
+        "noOrg": "Selectionnez une organisation pour voir les decisions",
+        "tabs": {
+          "all": "Toutes",
+          "thisWeek": "Cette semaine",
+          "thisMonth": "Ce mois",
+          "last3Months": "3 derniers mois"
+        },
+        "search": {
+          "placeholder": "Rechercher des decisions..."
+        },
+        "filters": {
+          "superseded": "Remplacees"
+        },
+        "keyboard": {
+          "search": "recherche",
+          "nav": "nav"
+        },
+        "empty": {
+          "title": "Aucune decision trouvee",
+          "searchTitle": "Aucune decision ne correspond a la recherche",
+          "description": "Les decisions sont extraites automatiquement depuis vos emails"
+        },
+        "history": {
+          "dialog": {
+            "title": "Evolution de la decision",
+            "description": "Voir comment cette decision a evolue dans le temps"
+          },
+          "current": "Actuelle",
+          "superseded": "Remplacee",
+          "empty": "Aucune chaine de remplacement"
+        },
+        "export": {
+          "statementLabel": "Enonce",
+          "dateLabel": "Date",
+          "rationaleLabel": "Justification",
+          "filename": "export-decisions-{{date}}.md"
+        },
+        "toasts": {
+          "exported": "Decisions exportees",
+          "sourceViewerSoon": "Viewer source bientot disponible"
+        }
+      },
+      "home": {
+        "breadcrumb": "Tableau de bord",
+        "primaryAction": {
+          "newContinuum": "Nouveau Continuum"
+        }
+      },
+      "contacts": {
+        "profile": "Profil",
+        "selectOrg": "Selectionnez une organisation pour voir les contacts",
+        "tabs": {
+          "all": "Tous",
+          "vip": "VIP",
+          "atRisk": "A risque"
+        },
+        "search": {
+          "placeholder": "Rechercher des contacts..."
+        },
+        "hints": {
+          "search": "recherche",
+          "nav": "nav",
+          "tabs": "onglets"
+        },
+        "empty": {
+          "search": "Aucun contact ne correspond a votre recherche",
+          "vip": "Aucun contact VIP pour le moment",
+          "atRisk": "Aucune relation a risque",
+          "all": "Aucun contact trouve",
+          "description": "Les contacts sont extraits automatiquement de vos emails"
+        },
+        "toasts": {
+          "vipUpdated": "Statut VIP mis a jour",
+          "vipFailed": "Echec de mise a jour du statut VIP",
+          "briefGenerated": "Brief de reunion genere",
+          "briefGeneratedHint": "Verifiez vos telechargements",
+          "briefFailed": "Echec de generation du brief de reunion"
+        }
+      },
+      "schedule": {
+        "kicker": "Planning",
+        "title": "Chronologie des engagements et des runs de Continuum",
+        "description": "Alignez les obligations avec des missions automatisees pour que rien ne depasse l'horizon.",
+        "selectOrg": "Selectionnez une organisation pour voir le planning",
+        "commitments": {
+          "title": "Chronologie des engagements",
+          "description": "Dates d'echeance et urgence sur la semaine a venir."
+        },
+        "continuums": {
+          "title": "Cadence Continuum",
+          "description": "Prochains runs et signaux de statut.",
+          "empty": "Aucun Continuum planifie pour le moment.",
+          "nextRun": "Prochain run :",
+          "note": "Alignez les runs planifies avec les missions critiques pour plus de responsabilite."
+        }
+      },
+      "trust": {
+        "kicker": "Confiance & Audit",
+        "title": "Preuve d'abord. Confiance toujours.",
+        "description": "Chaque decision est fondee sur des preuves verifiees, avec des pistes d'audit que vous pouvez prouver en quelques secondes.",
+        "selectOrg": "Selectionnez une organisation pour voir les signaux de confiance",
+        "actions": {
+          "verifyLedger": "Verifier le registre"
+        },
+        "indicators": {
+          "title": "Indicateurs de confiance",
+          "description": "Confiance basee sur des preuves pour les UIOs les plus critiques.",
+          "empty": "Aucun indicateur de confiance pour le moment."
+        },
+        "ledger": {
+          "title": "Registre d'audit",
+          "description": "Validation cryptographique de la chaine pour chaque action.",
+          "statusLabel": "Statut",
+          "status": {
+            "valid": "Valide",
+            "needsReview": "A revoir"
+          },
+          "metrics": {
+            "totalEntries": "Total des entrees",
+            "legacyEntries": "Entrees legacy",
+            "headCheck": "Verification head",
+            "aligned": "Aligne",
+            "mismatch": "Non aligne"
+          },
+          "invalidEntries": "{{count}} entrees invalides detectees",
+          "empty": "Aucune donnee d'audit pour le moment."
+        },
+        "card": {
+          "untitled": "UIO sans titre",
+          "evidenceCount": "{{count}} preuves",
+          "beliefState": "Etat de croyance",
+          "truthState": "Etat de verite",
+          "unverified": "non verifie",
+          "confidenceReasoning": "Raisonnement de confiance",
+          "evidenceSnapshot": "Apercu des preuves",
+          "evidenceReference": "Reference de preuve"
+        }
+      },
+      "graph": {
+        "title": "Graphe de connaissances",
+        "counts": "{{nodes}} noeuds · {{edges}} connexions",
+        "untitled": "Sans titre",
+        "search": {
+          "placeholder": "Rechercher dans le graphe..."
+        },
+        "filters": {
+          "all": "Tous les noeuds",
+          "contacts": "Contacts",
+          "commitments": "Engagements",
+          "decisions": "Decisions",
+          "tasks": "Taches"
+        },
+        "actions": {
+          "refresh": "Actualiser le graphe",
+          "fullscreen": "Plein ecran",
+          "exitFullscreen": "Quitter le plein ecran"
+        },
+        "legend": {
+          "contacts": "Contacts",
+          "commitments": "Engagements",
+          "decisions": "Decisions",
+          "tasks": "Taches"
+        },
+        "sidebar": {
+          "title": "Details du noeud",
+          "aiConfidence": "Confiance IA",
+          "contact": {
+            "relationshipHealth": "Sante de la relation",
+            "importance": "Importance",
+            "vip": "VIP",
+            "atRisk": "A risque"
+          },
+          "commitment": {
+            "iOwe": "Je dois",
+            "owedToMe": "Du a moi",
+            "due": "Echeance {{date}}",
+            "overdue": "En retard"
+          },
+          "decision": {
+            "badge": "Decision",
+            "decided": "Decidee {{date}}",
+            "superseded": "Remplacee",
+            "active": "Active",
+            "rationale": "Justification"
+          },
+          "task": {
+            "badge": "Tache",
+            "done": "Terminee",
+            "due": "Echeance {{date}}",
+            "source": "Source :"
+          }
+        },
+        "nodes": {
+          "commitment": {
+            "youOweThis": "Vous devez ceci",
+            "owedToYou": "Du a vous",
+            "priority": "Priorite {{priority}}",
+            "due": "Echeance : {{date}}",
+            "confidence": "Confiance :"
+          },
+          "decision": {
+            "superseded": "Remplacee",
+            "active": "Active",
+            "decided": "Decidee :",
+            "confidence": "Confiance :"
+          },
+          "contact": {
+            "importance": "Importance :"
+          },
+          "task": {
+            "priority": "Priorite {{priority}}",
+            "due": "Echeance : {{date}}",
+            "source": "Source : {{source}}"
+          }
+        }
+      },
+      "continuums": {
+        "selectOrg": "Selectionnez une organisation pour voir les Continuums",
+        "kicker": "Runtime Continuum",
+        "title": "Orchestrer l'intelligence sur le long terme",
+        "description": "Les Continuums sont des missions auto-soutenues. Gardez-les actives, previsualisez les prochaines actions et auditez chaque run en toute confiance.",
+        "actions": {
+          "create": "Creer un Continuum",
+          "runNow": "Executer maintenant",
+          "preview": "Previsualiser",
+          "pause": "Pause",
+          "activate": "Activer",
+          "rollback": "Rollback"
+        },
+        "stats": {
+          "active": "Actifs",
+          "paused": "En pause",
+          "drafts": "Brouillons",
+          "escalated": "Escalades"
+        },
+        "empty": {
+          "title": "Aucun Continuum pour le moment",
+          "description": "Definissez votre premiere mission dans Continuum Builder.",
+          "openBuilder": "Ouvrir Builder"
+        },
+        "noDescription": "Pas de description pour le moment — affinez dans Builder.",
+        "fields": {
+          "version": "Version",
+          "nextRun": "Prochain run",
+          "updated": "Mis a jour"
+        },
+        "ledger": {
+          "kicker": "Registre des runs",
+          "selectPrompt": "Selectionnez un continuum",
+          "runsCount": "{{count}} runs",
+          "pickPrompt": "Choisissez un continuum pour inspecter son historique et ses alertes.",
+          "empty": "Aucun run pour le moment. Lancez le premier run depuis la liste."
+        },
+        "preview": {
+          "title": "Apercu Continuum",
+          "description": "{{name}} · Horizon {{days}} jours",
+          "unknownContinuum": "Continuum",
+          "expectedActions": {
+            "title": "Actions attendues",
+            "description": "Cadence d'execution projete.",
+            "empty": "Aucune action projete sur cet horizon."
+          },
+          "riskSnapshot": {
+            "title": "Instantane de risque",
+            "description": "Impact du continuum sur les engagements.",
+            "open": "Ouverts",
+            "overdue": "En retard",
+            "atRisk": "A risque",
+            "outlook": "Perspective de risque"
+          },
+          "proof": {
+            "title": "Exigences de preuve",
+            "description": "Gates de preuve requis avant execution.",
+            "empty": "Aucune gate de preuve explicite definie."
+          },
+          "proofFallbackType": "Exigence de preuve",
+          "proofFallbackCriteria": "Aucun critere defini"
+        },
+        "toasts": {
+          "runQueued": "Run du continuum mis en file",
+          "runFailed": "Echec d'execution du continuum",
+          "paused": "Continuum mis en pause",
+          "pauseFailed": "Echec de mise en pause du continuum",
+          "activated": "Continuum active",
+          "activateFailed": "Echec d'activation du continuum",
+          "rollbackQueued": "Rollback mis en file",
+          "rollbackFailed": "Echec du rollback du continuum",
+          "previewFailed": "Echec de generation de l'apercu"
+        },
+        "runRow": {
+          "runId": "ID du run",
+          "version": "Version",
+          "started": "Demarre",
+          "completed": "Termine"
+        }
+      },
+      "actuations": {
+        "kicker": "Plan d'execution",
+        "title": "Actuations",
+        "description": "Executez des actions declenchees par les Continuums et auditez les resultats, approvals et rollbacks.",
+        "noOrg": "Selectionnez une organisation pour executer des actuations",
+        "actions": {
+          "execute": "Executer"
+        },
+        "newActuation": {
+          "title": "Nouvelle actuation",
+          "description": "Mettre en file une action driver avec tiers, approvals, et un payload auditable."
+        },
+        "drivers": {
+          "reload": "Recharger les drivers"
+        },
+        "fields": {
+          "driver": "Driver",
+          "driverPlaceholder": "Selectionnez un driver",
+          "action": "Action",
+          "tier": "Tier",
+          "payload": "Payload (JSON)"
+        },
+        "tierOptions": {
+          "tier1": "Tier 1 (sur)",
+          "tier2": "Tier 2 (approval manuel)",
+          "tier3": "Tier 3 (haut risque)"
+        },
+        "ledger": {
+          "title": "Journal",
+          "description": "Executions recentes et actions de revue.",
+          "empty": "Aucune actuation pour l'instant."
+        },
+        "row": {
+          "approve": "Approuver",
+          "rollback": "Rollback"
+        },
+        "toasts": {
+          "queued": "Actuation mise en file",
+          "runFailed": "Echec de mise en file de l'actuation",
+          "approved": "Actuation approuvee",
+          "approveFailed": "Echec d'approbation de l'actuation",
+          "rolledBack": "Actuation rollback",
+          "rollbackFailed": "Echec du rollback",
+          "selectDriver": "Selectionnez un driver d'abord",
+          "invalidPayloadJson": "Le payload doit etre un JSON valide"
+        }
+      },
+      "builder": {
+        "kicker": "Builder Continuum",
+        "title": "Builder",
+        "description": "Redigez des Continuums avec une intention, validez la definition, puis publiez en runtime.",
+        "noOrg": "Selectionnez une organisation pour construire des Continuums",
+        "badges": {
+          "dsl": "DSL"
+        },
+        "actions": {
+          "validateJson": "Valider JSON",
+          "publishContinuum": "Publier le continuum",
+          "publishVersion": "Publier la version"
+        },
+        "publishMode": {
+          "label": "Mode de publication",
+          "placeholder": "Selectionnez un mode",
+          "options": {
+            "create": "Creer un nouveau continuum",
+            "update": "Mettre a jour l'existant"
+          }
+        },
+        "target": {
+          "label": "Cible",
+          "selectPlaceholder": "Selectionnez un continuum",
+          "reload": "Recharger",
+          "badge": "Optionnel",
+          "notRequired": "Non requis",
+          "hint": "Necessaire uniquement pour mettre a jour un continuum existant."
+        },
+        "intent": {
+          "title": "Intention",
+          "description": "Decrivez ce que vous voulez. Le template auto-remplira le squelette DSL.",
+          "fields": {
+            "intent": {
+              "label": "Intention",
+              "placeholder": "ex : Detecter la derive d'avis juridiques et escalader les contradictions"
+            }
+          },
+          "badges": {
+            "autoPopulates": "Auto-rempli"
+          },
+          "actions": {
+            "draft": "Generer le template"
+          }
+        },
+        "definition": {
+          "title": "Definition",
+          "description": "Editez la definition DSL/JSON. Validez avant de publier.",
+          "readyTitle": "Pret a publier",
+          "readyDescription": "Votre definition semble valide. Publiez pour creer une version runtime.",
+          "invalidTitle": "Definition invalide"
+        },
+        "activation": {
+          "title": "Activation",
+          "description": "Activer immediatement apres publication."
+        },
+        "validation": {
+          "invalidJson": "JSON invalide",
+          "missingFields": "Champs requis manquants"
+        },
+        "toasts": {
+          "created": "Continuum publie",
+          "createFailed": "Echec de publication du continuum",
+          "versionAdded": "Version publiee",
+          "versionAddFailed": "Echec de publication de la version",
+          "selectToUpdate": "Selectionnez un continuum a mettre a jour"
+        }
+      },
+      "patterns": {
+        "kicker": "Intelligence de patterns",
+        "title": "Patterns",
+        "description": "Decouvrez des clusters recurrents d'engagements et decisions, puis promouvez-les en patterns haute precision.",
+        "noOrg": "Selectionnez une organisation pour voir les patterns",
+        "actions": {
+          "discover": "Decouvrir des candidats"
+        },
+        "active": {
+          "title": "Patterns actifs",
+          "description": "Patterns promus utilises pour booster l'extraction et la priorisation.",
+          "empty": "Aucun pattern actif pour l'instant."
+        },
+        "candidates": {
+          "title": "Candidats",
+          "description": "Clusters decouverts depuis la memoire. Promouvez les meilleurs.",
+          "empty": "Aucun candidat pour l'instant. Lancez la decouverte pour trouver des clusters.",
+          "members": "{{count}} membres",
+          "promote": "Promouvoir"
+        },
+        "dialog": {
+          "title": "Promouvoir un pattern",
+          "description": "Donnez un nom et un domaine. Cela impactera l'extraction immediatement.",
+          "fields": {
+            "name": "Nom",
+            "description": "Description",
+            "domain": "Domaine"
+          },
+          "actions": {
+            "promote": "Promouvoir"
+          }
+        },
+        "fallback": {
+          "untitledPattern": "Pattern sans titre",
+          "patternName": "Pattern {{index}}",
+          "cluster": "Cluster",
+          "autoPromotedDescription": "Auto-promu depuis les candidats cluster."
+        },
+        "toasts": {
+          "discoveryComplete": "Decouverte terminee",
+          "discoveryFailed": "Echec de la decouverte",
+          "promoted": "Pattern promu",
+          "promoteFailed": "Echec de promotion du pattern"
+        }
+      },
+      "simulations": {
+        "kicker": "Moteur de simulation",
+        "title": "Simulations",
+        "description": "Executez des scenarios what-if sur les engagements et le niveau de risque.",
+        "noOrg": "Selectionnez une organisation pour lancer des simulations",
+        "actions": {
+          "run": "Lancer",
+          "simulate": "Simuler"
+        },
+        "controls": {
+          "title": "Controles",
+          "description": "Definissez le scenario et les overrides, puis simulez l'impact risque."
+        },
+        "fields": {
+          "scenarioName": "Nom du scenario",
+          "horizonDays": "Horizon (jours)",
+          "overrides": "Overrides (JSON)"
+        },
+        "latest": {
+          "title": "Dernier resultat",
+          "description": "Sortie de simulation la plus recente pour cette session.",
+          "empty": "Lancez une simulation pour voir les resultats.",
+          "baselineRisk": "Risque baseline",
+          "simulatedRisk": "Risque simule",
+          "delta": "Delta",
+          "narrative": "Narratif",
+          "sensitivity": "Sensibilite",
+          "noSensitivity": "Aucun resultat de sensibilite"
+        },
+        "history": {
+          "title": "Historique",
+          "description": "Simulations recentes pour cette organisation.",
+          "empty": "Aucune simulation pour l'instant.",
+          "view": "Voir"
+        },
+        "toasts": {
+          "completed": "Simulation terminee",
+          "failed": "Echec de la simulation",
+          "invalidOverrides": "Les overrides doivent etre un JSON valide",
+          "parseFailed": "Echec de parsing de l'historique de simulation"
+        }
+      }
+    },
+    "success": {
+      "title": "Succes",
+      "checkoutId": "Checkout id : {{id}}"
+    }
+  },
+  "intentBar": {
+    "modes": {
+      "ask": {
+        "label": "Question",
+        "hint": "Reponses preuve d'abord depuis votre graphe memoire",
+        "placeholder": "Posez une question (ex : \"qu'est-ce qui a change cette semaine ?\")"
+      },
+      "find": {
+        "label": "Trouver",
+        "hint": "Rechercher UIOs, messages, documents et continuums",
+        "placeholder": "Rechercher dans la memoire, les messages, les documents…"
+      },
+      "build": {
+        "label": "Construire",
+        "hint": "Creer ou editer des continuums et de la logique d'automatisation",
+        "placeholder": "Rechercher les surfaces build ou taper une commande…"
+      },
+      "act": {
+        "label": "Agir",
+        "hint": "Lancer des simulations et des actuations",
+        "placeholder": "Rechercher les surfaces execution ou taper une commande…"
+      },
+      "inspect": {
+        "label": "Auditer",
+        "hint": "Auditer la confiance, les preuves et le graphe",
+        "placeholder": "Rechercher les surfaces audit ou taper une commande…"
+      }
+    },
+    "hints": {
+      "signIn": "Connectez-vous pour utiliser l'Intent Bar."
+    },
+    "errors": {
+      "signInToAsk": "Connectez-vous pour poser des questions.",
+      "askFailed": "Echec de la question."
+    },
+    "answer": {
+      "heading": "Reponse",
+      "headingNoEvidence": "Reponse (sans preuve)",
+      "citationsOne": "1 citation",
+      "citationsMany": "{{count}} citations"
+    },
+    "evidence": {
+      "heading": "Preuves",
+      "noEvidence": "Aucune preuve trouvee. Drovi ne devinera pas.",
+      "checkSources": "Verifier l'ingestion dans Sources connectees",
+      "sourceFallback": "Source {{index}}"
+    },
+    "ask": {
+      "hintAsking": "Question…",
+      "hintIdle": "Tapez une question puis appuyez sur Entree.",
+      "examplesHeading": "Exemples",
+      "examples": {
+        "risks": "Quels engagements sont a risque maintenant ?",
+        "changes": "Qu'est-ce qui a change sur les dernieres 24 heures ?",
+        "decisions": "Montre-moi les decisions sur le deploiement du pilote.",
+        "unresolvedRisks": "Quels sont les risques non resolus pour cette semaine ?"
+      }
+    },
+    "find": {
+      "hintMinChars": "Tapez au moins 2 caracteres pour chercher.",
+      "searching": "Recherche…",
+      "failed": "Recherche echouee.",
+      "noResults": "Aucun resultat.",
+      "groups": {
+        "memory": "Memoire (UIOs)",
+        "messages": "Messages (UEM)",
+        "documents": "Documents (UEM)",
+        "continuums": "Continuums",
+        "commands": "Commandes"
+      }
+    },
+    "filters": {
+      "uios": "UIOs",
+      "messages": "Messages",
+      "docs": "Docs",
+      "continuums": "Continuums",
+      "debug": "Debug"
+    },
+    "groups": {
+      "session": "Session",
+      "debug": "Debug",
+      "continuums": "Continuums",
+      "execution": "Execution",
+      "surfaces": "Surfaces",
+      "global": "Global"
+    },
+    "results": {
+      "fallbackTitle": "Sans titre"
+    },
+    "content": {
+      "fallbackDocument": "Document sans titre",
+      "fallbackMessage": "Message sans titre"
+    },
+    "commands": {
+      "goConsole": {
+        "title": "Console",
+        "description": "Ouvrir la console de sante pilot et des KPIs."
+      },
+      "goSources": {
+        "title": "Sources connectees",
+        "description": "Voir l'ingestion, les backfills et le statut live sync."
+      },
+      "goTeam": {
+        "title": "Equipe",
+        "description": "Gerer les membres, les invitations et les parametres."
+      },
+      "goBuilder": {
+        "title": "Continuum Builder",
+        "description": "Construire et iterer sur la logique continuum."
+      },
+      "goContinuums": {
+        "title": "Continuums",
+        "description": "Parcourir et lancer des bundles de continuums."
+      },
+      "goExchange": {
+        "title": "Echange",
+        "description": "Installer ou publier des bundles de continuums."
+      },
+      "goSimulations": {
+        "title": "Simulations",
+        "description": "Modeliser des scenarios avec des inputs preuves."
+      },
+      "goActuations": {
+        "title": "Actuations",
+        "description": "Executer des actions et suivre les resultats."
+      },
+      "goReality": {
+        "title": "Flux de realite",
+        "description": "Voir chaque changement capture dans l'organisation."
+      },
+      "goGraph": {
+        "title": "Graphe",
+        "description": "Inspecter entites, relations et preuves."
+      },
+      "goTrust": {
+        "title": "Confiance & Audit",
+        "description": "Verifier confiance, drift et contradictions."
+      },
+      "copyLink": {
+        "title": "Copier le lien",
+        "description": "Copier un lien partageable vers la page courante."
+      },
+      "copyUioId": {
+        "title": "Copier l'ID UIO",
+        "description": "Copier l'ID de l'UIO courant."
+      }
+    },
+    "toasts": {
+      "linkCopied": "Lien copie.",
+      "uioIdCopied": "ID UIO copie.",
+      "copiedSnippet": "Extrait copie.",
+      "requestIdCopied": "ID requete copie.",
+      "copyFailed": "Copie echouee."
+    },
+    "footer": {
+      "openWith": "Ouvrir avec",
+      "or": "ou",
+      "orgFallback": "orga"
+    }
+  },
+  "evidenceChain": {
+    "headingOne": "Chaine de preuves (1 source)",
+    "headingMany": "Chaine de preuves ({{count}} sources)",
+    "empty": "Aucune source de preuve.",
+    "labels": {
+      "segmentHash": "Hash du segment :"
+    },
+    "actions": {
+      "viewIn": "Voir dans {{source}}"
+    },
+    "roles": {
+      "origin": "Source originale",
+      "update": "Mise a jour",
+      "confirmation": "Confirmation",
+      "context": "Contexte"
+    },
+    "sources": {
+      "email": "Email",
+      "slack": "Slack",
+      "calendar": "Calendrier",
+      "notion": "Notion",
+      "googleDocs": "Google Docs",
+      "googleSheets": "Google Sheets",
+      "document": "Document",
+      "meeting": "Reunion",
+      "teams": "Teams",
+      "discord": "Discord",
+      "whatsapp": "WhatsApp",
+      "github": "GitHub",
+      "linear": "Linear"
+    }
+  },
+  "components": {
+    "timeline": {
+      "empty": "Aucun evenement pour le moment.",
+      "confidentPct": "{{pct}}% de confiance",
+      "confidenceTooltip": "Score de confiance IA pour cette detection.",
+      "actions": {
+        "viewSource": "Voir la source"
+      },
+      "by": "par {{who}}"
+    },
+    "tasks": {
+      "status": {
+        "backlog": "Backlog",
+        "todo": "A faire",
+        "inProgress": "En cours",
+        "inReview": "En revue",
+        "done": "Termine",
+        "cancelled": "Annule"
+      },
+      "priority": {
+        "urgent": "Urgent",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse",
+        "none": "Sans priorite"
+      },
+      "sourceType": {
+        "conversation": "Conversation",
+        "commitment": "Engagement",
+        "decision": "Decision",
+        "manual": "Manuel"
+      },
+      "due": {
+        "overdueShort": "{{days}}j de retard",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "inDaysShort": "{{days}}j"
+      },
+      "pagination": {
+        "showMore": "Afficher {{count}} de plus ({{remaining}})"
+      },
+      "kanban": {
+        "dropHere": "Deposer ici",
+        "emptyColumn": "Aucune tache",
+        "addTask": "Ajouter une tache"
+      },
+      "toasts": {
+        "statusChanged": "Statut change en {{status}}",
+        "statusChangeFailed": "Echec de mise a jour du statut",
+        "priorityChanged": "Priorite changee en {{priority}}",
+        "priorityChangeFailed": "Echec de mise a jour de la priorite",
+        "moveFailed": "Echec du deplacement de la tache"
+      }
+    },
+    "commitments": {
+      "due": {
+        "none": "Aucune echeance",
+        "overdueShort": "{{days}}j en retard",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain"
+      },
+      "directionBadge": {
+        "owedByMe": "Je",
+        "owedToMe": "Moi"
+      },
+      "actions": {
+        "markComplete": "Marquer termine",
+        "snooze": "Reporter",
+        "showEvidence": "Voir les preuves",
+        "moreActions": "Plus d'actions"
+      },
+      "menu": {
+        "snooze1d": "Reporter 1 jour",
+        "snooze3d": "Reporter 3 jours",
+        "snooze1w": "Reporter 1 semaine",
+        "showEvidence": "Voir les preuves",
+        "verifyCorrect": "Verifier (Correct)",
+        "dismissIncorrect": "Rejeter (Incorrect)"
+      },
+      "listHeader": {
+        "person": "Personne",
+        "commitment": "Engagement",
+        "due": "Echeance"
+      }
+    },
+    "decisions": {
+      "date": {
+        "today": "Aujourd'hui",
+        "yesterday": "Hier"
+      },
+      "actions": {
+        "copyStatement": "Copier l'enonce",
+        "showEvidence": "Voir les preuves",
+        "moreActions": "Plus d'actions"
+      },
+      "menu": {
+        "copyStatement": "Copier l'enonce",
+        "showEvidence": "Voir les preuves",
+        "viewHistory": "Voir l'historique",
+        "verifyCorrect": "Verifier (Correct)",
+        "dismissIncorrect": "Rejeter (Incorrect)"
+      },
+      "listHeader": {
+        "owner": "Auteur",
+        "decision": "Decision",
+        "date": "Date"
+      },
+      "toasts": {
+        "statementCopied": "Enonce de decision copie"
+      }
+    },
+    "commitmentDetailSheet": {
+      "direction": {
+        "owedByMe": "Je dois",
+        "owedToMe": "On me doit"
+      },
+      "verified": "Verifie",
+      "aiConfidence": "Confiance IA",
+      "sections": {
+        "peopleInvolved": "Personnes impliquees",
+        "timeline": "Chronologie",
+        "details": "Details",
+        "evidence": "Preuves",
+        "source": "Source"
+      },
+      "people": {
+        "you": "Vous",
+        "owesThis": "Doit cet engagement",
+        "expectingThis": "Attend cet engagement"
+      },
+      "timeline": {
+        "wasDue": "Etait du",
+        "due": "Echeance",
+        "snoozedUntil": "Reporte jusqu'au {{date}}",
+        "completed": "Termine le {{date}}"
+      },
+      "evidence": {
+        "extracted": "Extrait {{time}}"
+      },
+      "sourceThread": {
+        "emailThreadFallback": "Thread email"
+      },
+      "actions": {
+        "markComplete": "Marquer termine",
+        "sendFollowUp": "Envoyer une relance",
+        "snooze1d": "1 jour",
+        "snooze3d": "3 jours",
+        "snooze1w": "1 semaine",
+        "verify": "Verifier",
+        "dismiss": "Rejeter"
+      },
+      "status": {
+        "overdue": "En retard",
+        "completed": "Termine",
+        "inProgress": "En cours",
+        "waiting": "En attente",
+        "snoozed": "Reporte",
+        "cancelled": "Annule",
+        "pending": "En attente"
+      }
+    },
+    "decisionDetailSheet": {
+      "badges": {
+        "superseded": "Remplacee",
+        "activeDecision": "Decision active",
+        "verified": "Verifie"
+      },
+      "aiConfidence": "Confiance IA",
+      "sections": {
+        "statement": "Enonce",
+        "rationale": "Justification",
+        "alternatives": "Alternatives considerees",
+        "decisionMakers": "Decideurs",
+        "evidence": "Preuves",
+        "chain": "Remplace une decision precedente",
+        "source": "Source"
+      },
+      "actions": {
+        "copy": "Copier",
+        "copyStatement": "Copier l'enonce",
+        "viewSource": "Voir la source",
+        "verify": "Verifier",
+        "dismiss": "Rejeter"
+      },
+      "supersession": {
+        "title": "Cette decision a ete remplacee",
+        "view": "Voir : {{title}}"
+      },
+      "evidence": {
+        "extracted": "Extrait {{time}}"
+      },
+      "chain": {
+        "madeOn": "Fait le {{date}}"
+      },
+      "sourceThread": {
+        "emailThreadFallback": "Thread email"
+      },
+      "toasts": {
+        "statementCopied": "Enonce copie dans le presse-papiers"
+      }
+    }
+  },
+  "admin": {
+    "appName": "Drovi Admin",
+    "tagline": "Operations live",
+    "userFallback": "Admin",
+    "actions": {
+      "logout": "Se deconnecter"
+    },
+    "shell": {
+      "titleFallback": "Admin",
+      "subtitle": "Vue operations live, sans refresh",
+      "tvMode": "Mode TV",
+      "exitTvMode": "Quitter mode TV"
+    },
+    "nav": {
+      "groups": {
+        "platform": "Plateforme",
+        "dashboard": "Dashboard",
+        "operations": "Operations"
+      },
+      "items": {
+        "overview": "Vue d'ensemble",
+        "organizations": "Organisations",
+        "users": "Utilisateurs",
+        "connectors": "Connecteurs",
+        "jobs": "Jobs",
+        "tickets": "Tickets",
+        "exchange": "Echange"
+      }
+    },
+    "login": {
+      "operatorOnly": "Acces operateur uniquement. Email/mot de passe, `@drovi.co`.",
+      "kpiHint": "KPIs live",
+      "opsHint": "Jobs et Connecteurs",
+      "title": "Connexion",
+      "description": "Utilisez votre email `@drovi.co` et le mot de passe admin actuel.",
+      "fields": {
+        "email": "Email",
+        "password": "Mot de passe"
+      },
+      "placeholders": {
+        "email": "vous@drovi.co"
+      },
+      "domain": {
+        "label": "Domaine : {{domain}}",
+        "notAllowed": "interdit"
+      },
+      "keepSignedIn": "Rester connecte sur cet appareil",
+      "submitting": "Connexion...",
+      "troubleshoot": "Si vous ne pouvez pas vous connecter, definissez `ADMIN_PASSWORD` dans `drovi-intelligence/.env` puis redemarrez la stack.",
+      "toasts": {
+        "signedIn": "Connecte",
+        "signInFailed": "Echec de connexion"
+      }
+    },
+    "overview": {
+      "errors": {
+        "failedToLoadKpis": "Impossible de charger les KPIs"
+      },
+      "live": "live",
+      "deltaTitle": "Delta (5m)",
+      "sections": {
+        "connectionsByType": "Connexions par type",
+        "noConnections": "Aucune connexion pour l'instant.",
+        "notesTitle": "Notes"
+      },
+      "notes": {
+        "kpisRefresh": "Les KPIs se mettent a jour toutes les 5 secondes. Le mode TV utilise le fullscreen pour les ecrans.",
+        "opsControls": "Pour des controles operations plus profonds, utilisez les pages Jobs et Connecteurs."
+      }
+    },
+    "connectors": {
+      "title": "Connecteurs",
+      "description": "Etat de configuration et capacites. Refresh toutes les 15s.",
+      "empty": "Aucun connecteur trouve.",
+      "badges": {
+        "configured": "Configure",
+        "notConfigured": "Non configure"
+      },
+      "table": {
+        "type": "Type",
+        "status": "Statut",
+        "capabilities": "Capacites",
+        "missingEnv": "Env manquantes"
+      }
+    },
+    "jobs": {
+      "title": "Jobs",
+      "description": "Queue de jobs durable. Refresh toutes les 5s.",
+      "empty": "Aucun job.",
+      "filters": {
+        "orgId": "Filtrer org id (optionnel)",
+        "status": "Filtrer statut (queued/running/failed...)",
+        "jobType": "Filtrer job_type (connector.sync, ...)"
+      },
+      "table": {
+        "id": "ID",
+        "org": "Orga",
+        "type": "Type",
+        "status": "Statut",
+        "attempts": "Tentatives",
+        "actions": "Actions"
+      },
+      "toasts": {
+        "cancelled": "Job annule",
+        "cancelFailed": "Annulation echouee",
+        "retried": "Job relance",
+        "retryFailed": "Relance echouee"
+      }
+    },
+    "exchange": {
+      "title": "Moderation Echange",
+      "description": "Approuver/rejeter les bundles par organisation.",
+      "selectOrg": "Selectionnez une organisation pour voir les bundles.",
+      "empty": "Aucun bundle.",
+      "fields": {
+        "organization": "Organisation",
+        "governance": "Filtre governance"
+      },
+      "placeholders": {
+        "organization": "org id (selectionner ou coller)",
+        "governance": "pending | approved | rejected | (vide)"
+      },
+      "table": {
+        "name": "Nom",
+        "version": "Version",
+        "visibility": "Visibilite",
+        "governance": "Governance",
+        "actions": "Actions"
+      },
+      "actions": {
+        "approve": "Approuver",
+        "reject": "Rejeter"
+      },
+      "toasts": {
+        "updated": "Governance mise a jour",
+        "updateFailed": "Echec de mise a jour"
+      }
+    }
+  },
+  "nav": {
+    "groups": {
+      "console": "Console",
+      "memory": "Memoire",
+      "discovery": "Decouverte",
+      "continuums": "Continuums",
+      "execution": "Execution",
+      "sources": "Sources",
+      "management": "Gestion"
+    },
+    "items": {
+      "console": "Console",
+      "realityStream": "Flux de realite",
+      "graph": "Graphe",
+      "commitments": "Engagements",
+      "decisions": "Decisions",
+      "tasks": "Taches",
+      "schedule": "Planning",
+      "drive": "Drive",
+      "people": "Personnes",
+      "patterns": "Patterns",
+      "continuums": "Continuums",
+      "builder": "Constructeur",
+      "exchange": "Echange",
+      "simulations": "Simulations",
+      "actuations": "Actuations",
+      "trustAudit": "Confiance & Audit",
+      "connectedSources": "Sources connectees",
+      "team": "Equipe",
+      "members": "Membres",
+      "invitations": "Invitations",
+      "settings": "Parametres"
+    }
+  }
+}

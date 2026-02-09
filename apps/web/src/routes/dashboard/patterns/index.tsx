@@ -47,6 +47,7 @@ import {
   patternsAPI,
   type PatternCandidate,
 } from "@/lib/api";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/patterns/")({
   component: PatternsPage,
@@ -75,10 +76,13 @@ ORDER BY p.updatedAt DESC
 LIMIT 100
 `;
 
-function toPattern(raw: Record<string, unknown>): Pattern {
+function toPattern(
+  raw: Record<string, unknown>,
+  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+): Pattern {
   return {
     id: raw.id as string,
-    name: (raw.name as string) ?? "Untitled Pattern",
+    name: (raw.name as string) ?? t("pages.dashboard.patterns.fallback.untitledPattern"),
     description: (raw.description as string) ?? "",
     domain: (raw.domain as string) ?? "general",
     salientFeatures: (raw.salient_features as string[]) ?? [],
@@ -100,6 +104,7 @@ function toPattern(raw: Record<string, unknown>): Pattern {
 function PatternsPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
@@ -142,10 +147,10 @@ function PatternsPage() {
         maxNodes: 500,
       }),
     onSuccess: () => {
-      toast.success("Pattern discovery complete");
+      toast.success(t("pages.dashboard.patterns.toasts.discoveryComplete"));
       refetchCandidates();
     },
-    onError: () => toast.error("Pattern discovery failed"),
+    onError: () => toast.error(t("pages.dashboard.patterns.toasts.discoveryFailed")),
   });
 
   const promoteMutation = useMutation({
@@ -158,17 +163,17 @@ function PatternsPage() {
         domain: promotionDomain,
       }),
     onSuccess: () => {
-      toast.success("Pattern promoted");
+      toast.success(t("pages.dashboard.patterns.toasts.promoted"));
       setPromotionTarget(null);
       refetch();
       refetchCandidates();
     },
-    onError: () => toast.error("Failed to promote pattern"),
+    onError: () => toast.error(t("pages.dashboard.patterns.toasts.promoteFailed")),
   });
 
   const patterns = useMemo(() => {
-    return (patternsData?.results ?? []).map((item) => toPattern(item));
-  }, [patternsData]);
+    return (patternsData?.results ?? []).map((item) => toPattern(item, t));
+  }, [patternsData, t]);
 
   if (orgLoading) {
     return (
@@ -181,7 +186,7 @@ function PatternsPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to manage patterns
+        {t("pages.dashboard.patterns.noOrg")}
       </div>
     );
   }
@@ -193,14 +198,13 @@ function PatternsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Brain className="h-3 w-3" />
-              Pattern Intelligence
+              {t("pages.dashboard.patterns.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Promote the patterns your organization repeats
+              {t("pages.dashboard.patterns.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Cluster commitments, detect repeated playbooks, and teach Drovi to
-              act faster with confidence boosts.
+              {t("pages.dashboard.patterns.description")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -214,7 +218,7 @@ function PatternsPage() {
               ) : (
                 <Sparkles className="mr-2 h-4 w-4" />
               )}
-              Discover patterns
+              {t("pages.dashboard.patterns.actions.discover")}
             </Button>
           </div>
         </div>
@@ -225,10 +229,10 @@ function PatternsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              Active Patterns
+              {t("pages.dashboard.patterns.active.title")}
             </CardTitle>
             <CardDescription>
-              Governed patterns already boosting intelligence extraction.
+              {t("pages.dashboard.patterns.active.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -240,7 +244,7 @@ function PatternsPage() {
               <ApiErrorPanel error={patternsErrorObj} onRetry={() => refetch()} />
             ) : patterns.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                No patterns promoted yet.
+                {t("pages.dashboard.patterns.active.empty")}
               </div>
             ) : (
               <div className="grid gap-3">
@@ -260,10 +264,10 @@ function PatternsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lightbulb className="h-5 w-5 text-primary" />
-              Candidate Clusters
+              {t("pages.dashboard.patterns.candidates.title")}
             </CardTitle>
             <CardDescription>
-              Clusters discovered from the memory graph.
+              {t("pages.dashboard.patterns.candidates.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -275,7 +279,7 @@ function PatternsPage() {
               <ApiErrorPanel error={candidatesErrorObj} onRetry={() => refetchCandidates()} />
             ) : (candidates ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                No candidates yet. Run discovery to generate clusters.
+                {t("pages.dashboard.patterns.candidates.empty")}
               </div>
             ) : (
               (candidates ?? []).map((candidate) => (
@@ -284,9 +288,9 @@ function PatternsPage() {
                   key={candidate.id}
                   onPromote={() => {
                     setPromotionTarget(candidate);
-                    setPromotionName(candidate.sample_titles?.[0] ?? "Pattern");
+                    setPromotionName(candidate.sample_titles?.[0] ?? t("pages.dashboard.patterns.fallback.patternName"));
                     setPromotionDescription(
-                      candidate.top_terms?.join(", ") ?? "Auto-promoted pattern"
+                      candidate.top_terms?.join(", ") ?? t("pages.dashboard.patterns.fallback.autoPromotedDescription")
                     );
                     setPromotionDomain("general");
                   }}
@@ -314,21 +318,21 @@ function PatternsPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Promote Pattern</DialogTitle>
+            <DialogTitle>{t("pages.dashboard.patterns.dialog.title")}</DialogTitle>
             <DialogDescription>
-              Turn this candidate into a governed pattern with confidence boosts.
+              {t("pages.dashboard.patterns.dialog.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>{t("pages.dashboard.patterns.dialog.fields.name")}</Label>
               <Input
                 onChange={(event) => setPromotionName(event.target.value)}
                 value={promotionName}
               />
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>{t("pages.dashboard.patterns.dialog.fields.description")}</Label>
               <Textarea
                 onChange={(event) =>
                   setPromotionDescription(event.target.value)
@@ -337,7 +341,7 @@ function PatternsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Domain</Label>
+              <Label>{t("pages.dashboard.patterns.dialog.fields.domain")}</Label>
               <Input
                 onChange={(event) => setPromotionDomain(event.target.value)}
                 value={promotionDomain}
@@ -352,7 +356,7 @@ function PatternsPage() {
               ) : (
                 <Plus className="mr-2 h-4 w-4" />
               )}
-              Promote pattern
+              {t("pages.dashboard.patterns.dialog.actions.promote")}
             </Button>
           </div>
         </DialogContent>
@@ -368,15 +372,16 @@ function CandidateCard({
   candidate: PatternCandidate;
   onPromote: () => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-sm">
-            {candidate.sample_titles?.[0] ?? "Cluster"}
+            {candidate.sample_titles?.[0] ?? t("pages.dashboard.patterns.fallback.cluster")}
           </p>
           <p className="text-muted-foreground text-xs">
-            {candidate.member_count} members
+            {t("pages.dashboard.patterns.candidates.members", { count: candidate.member_count })}
           </p>
         </div>
         <Badge variant="secondary">+{candidate.confidence_boost}</Badge>
@@ -391,7 +396,7 @@ function CandidateCard({
         </div>
       )}
       <Button className="mt-3 w-full" onClick={onPromote} size="sm">
-        Promote
+        {t("pages.dashboard.patterns.candidates.promote")}
       </Button>
     </div>
   );

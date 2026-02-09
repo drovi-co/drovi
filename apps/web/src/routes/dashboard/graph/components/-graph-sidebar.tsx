@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useI18n, useT } from "@/i18n";
 import type { GraphNodeData } from "../-types";
 
 // =============================================================================
@@ -28,11 +29,12 @@ interface GraphSidebarProps {
 // =============================================================================
 
 export function GraphSidebar({ node, onClose }: GraphSidebarProps) {
+  const t = useT();
   return (
     <div className="w-80 border-l bg-background">
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
-        <h2 className="font-semibold text-sm">Node Details</h2>
+        <h2 className="font-semibold text-sm">{t("pages.dashboard.graph.sidebar.title")}</h2>
         <Button onClick={onClose} size="icon" variant="ghost">
           <X className="h-4 w-4" />
         </Button>
@@ -60,6 +62,7 @@ function ContactDetails({
 }: {
   node: GraphNodeData & { nodeType: "contact" };
 }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -102,7 +105,7 @@ function ContactDetails({
       {node.healthScore !== undefined && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Relationship Health</span>
+            <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.contact.relationshipHealth")}</span>
             <span className="font-medium">
               {Math.round(node.healthScore * 100)}%
             </span>
@@ -115,7 +118,7 @@ function ContactDetails({
       {node.importanceScore !== undefined && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Importance</span>
+            <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.contact.importance")}</span>
             <span className="font-medium">
               {Math.round(node.importanceScore * 100)}%
             </span>
@@ -129,13 +132,13 @@ function ContactDetails({
         {node.isVip && (
           <Badge className="bg-yellow-100 text-yellow-800" variant="secondary">
             <Star className="mr-1 h-3 w-3" />
-            VIP
+            {t("pages.dashboard.graph.sidebar.contact.vip")}
           </Badge>
         )}
         {node.isAtRisk && (
           <Badge variant="destructive">
             <AlertTriangle className="mr-1 h-3 w-3" />
-            At Risk
+            {t("pages.dashboard.graph.sidebar.contact.atRisk")}
           </Badge>
         )}
       </div>
@@ -152,6 +155,8 @@ function CommitmentDetails({
 }: {
   node: GraphNodeData & { nodeType: "commitment" };
 }) {
+  const t = useT();
+  const { locale } = useI18n();
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-100 text-yellow-800",
     in_progress: "bg-blue-100 text-blue-800",
@@ -177,7 +182,9 @@ function CommitmentDetails({
               : "bg-green-100 text-green-800"
           }
         >
-          {node.direction === "owed_by_me" ? "I Owe" : "Owed To Me"}
+          {node.direction === "owed_by_me"
+            ? t("pages.dashboard.graph.sidebar.commitment.iOwe")
+            : t("pages.dashboard.graph.sidebar.commitment.owedToMe")}
         </Badge>
         <h3 className="mt-2 font-semibold">{node.label}</h3>
       </div>
@@ -198,10 +205,16 @@ function CommitmentDetails({
       {node.dueDate && (
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span>Due {new Date(node.dueDate).toLocaleDateString()}</span>
+          <span>
+            {t("pages.dashboard.graph.sidebar.commitment.due", {
+              date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
+                new Date(node.dueDate)
+              ),
+            })}
+          </span>
           {node.isOverdue && (
             <Badge className="ml-auto" variant="destructive">
-              Overdue
+              {t("pages.dashboard.graph.sidebar.commitment.overdue")}
             </Badge>
           )}
         </div>
@@ -210,7 +223,7 @@ function CommitmentDetails({
       {/* Confidence */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">AI Confidence</span>
+          <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.aiConfidence")}</span>
           <span className="font-medium">
             {Math.round(node.confidence * 100)}%
           </span>
@@ -230,12 +243,14 @@ function DecisionDetails({
 }: {
   node: GraphNodeData & { nodeType: "decision" };
 }) {
+  const t = useT();
+  const { locale } = useI18n();
   return (
     <div className="space-y-4">
       {/* Title */}
       <div>
         <Badge className="bg-purple-100 text-purple-800" variant="secondary">
-          Decision
+          {t("pages.dashboard.graph.sidebar.decision.badge")}
         </Badge>
         <h3 className="mt-2 font-semibold">{node.label}</h3>
       </div>
@@ -245,7 +260,13 @@ function DecisionDetails({
       {/* Decided at */}
       <div className="flex items-center gap-2 text-sm">
         <Clock className="h-4 w-4 text-muted-foreground" />
-        <span>Decided {new Date(node.decidedAt).toLocaleDateString()}</span>
+        <span>
+          {t("pages.dashboard.graph.sidebar.decision.decided", {
+            date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
+              new Date(node.decidedAt)
+            ),
+          })}
+        </span>
       </div>
 
       {/* Status */}
@@ -257,14 +278,16 @@ function DecisionDetails({
               : "bg-green-100 text-green-800"
           }
         >
-          {node.isSuperseded ? "Superseded" : "Active"}
+          {node.isSuperseded
+            ? t("pages.dashboard.graph.sidebar.decision.superseded")
+            : t("pages.dashboard.graph.sidebar.decision.active")}
         </Badge>
       </div>
 
       {/* Rationale */}
       {node.rationale && (
         <div className="text-sm">
-          <p className="font-medium text-muted-foreground">Rationale</p>
+          <p className="font-medium text-muted-foreground">{t("pages.dashboard.graph.sidebar.decision.rationale")}</p>
           <p className="mt-1">{node.rationale}</p>
         </div>
       )}
@@ -272,7 +295,7 @@ function DecisionDetails({
       {/* Confidence */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">AI Confidence</span>
+          <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.aiConfidence")}</span>
           <span className="font-medium">
             {Math.round(node.confidence * 100)}%
           </span>
@@ -288,6 +311,8 @@ function DecisionDetails({
 // =============================================================================
 
 function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
+  const t = useT();
+  const { locale } = useI18n();
   const statusColors: Record<string, string> = {
     backlog: "bg-gray-100 text-gray-800",
     todo: "bg-yellow-100 text-yellow-800",
@@ -300,7 +325,7 @@ function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
       {/* Title */}
       <div>
         <Badge className="bg-green-100 text-green-800" variant="secondary">
-          Task
+          {t("pages.dashboard.graph.sidebar.task.badge")}
         </Badge>
         <h3 className="mt-2 font-semibold">{node.label}</h3>
       </div>
@@ -313,7 +338,7 @@ function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
           {node.status === "done" ? (
             <>
               <Check className="mr-1 h-3 w-3" />
-              Done
+              {t("pages.dashboard.graph.sidebar.task.done")}
             </>
           ) : (
             node.status.replace("_", " ")
@@ -326,7 +351,13 @@ function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
       {node.dueDate && (
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span>Due {new Date(node.dueDate).toLocaleDateString()}</span>
+          <span>
+            {t("pages.dashboard.graph.sidebar.task.due", {
+              date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
+                new Date(node.dueDate)
+              ),
+            })}
+          </span>
         </div>
       )}
 
@@ -334,7 +365,8 @@ function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
       {node.sourceType && (
         <div className="text-sm">
           <p className="text-muted-foreground">
-            Source: <span className="font-medium">{node.sourceType}</span>
+            {t("pages.dashboard.graph.sidebar.task.source")}{" "}
+            <span className="font-medium">{node.sourceType}</span>
           </p>
         </div>
       )}

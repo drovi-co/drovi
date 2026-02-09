@@ -18,6 +18,7 @@ import {
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 import {
   PRIORITY_CONFIG,
@@ -75,6 +76,7 @@ export function TaskPriorityDropdown({
   trigger,
   align = "start",
 }: TaskPriorityDropdownProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const config = PRIORITY_CONFIG[currentPriority];
 
@@ -90,13 +92,15 @@ export function TaskPriorityDropdown({
       {
         onSuccess: () => {
           toast.success(
-            `Priority changed to ${PRIORITY_CONFIG[newPriority].label}`
+            t("components.tasks.toasts.priorityChanged", {
+              priority: t(PRIORITY_CONFIG[newPriority].label),
+            })
           );
           onPriorityChange?.(newPriority);
           queryClient.invalidateQueries({ queryKey: [["uio"]] });
         },
         onError: () => {
-          toast.error("Failed to update priority");
+          toast.error(t("components.tasks.toasts.priorityChangeFailed"));
         },
       }
     );
@@ -123,7 +127,7 @@ export function TaskPriorityDropdown({
       variant="outline"
     >
       <PriorityIcon priority={iconPriority} size="sm" />
-      <span className="text-xs">{config.label}</span>
+      <span className="text-xs">{t(config.label)}</span>
     </Button>
   );
 
@@ -149,7 +153,7 @@ export function TaskPriorityDropdown({
                 priority={menuIconPriority}
                 size="sm"
               />
-              <span>{priorityConfig.label}</span>
+              <span>{t(priorityConfig.label)}</span>
             </DropdownMenuItem>
           );
         })}
@@ -175,6 +179,7 @@ export function TaskPriorityIndicator({
   showLabel = false,
   size = "md",
 }: TaskPriorityIndicatorProps) {
+  const t = useT();
   const config = PRIORITY_CONFIG[priority];
 
   const dotSizes = {
@@ -193,7 +198,7 @@ export function TaskPriorityIndicator({
       )}
     >
       <div className={cn("rounded-full", dotSizes[size], config.dotColor)} />
-      {showLabel && <span className={config.color}>{config.label}</span>}
+      {showLabel && <span className={config.color}>{t(config.label)}</span>}
     </div>
   );
 }

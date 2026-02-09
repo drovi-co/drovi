@@ -20,7 +20,7 @@ export interface ConnectorMeta {
   name: string;
   icon: typeof Mail;
   color: string;
-  description: string;
+  descriptionKey: string;
   category: ConnectorCategory;
 }
 
@@ -30,7 +30,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Gmail",
     icon: Mail,
     color: "#EA4335",
-    description: "Email messages and threads from Gmail",
+    descriptionKey: "connectors.gmail.description",
     category: "email",
   },
   {
@@ -38,7 +38,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Outlook",
     icon: Mail,
     color: "#0078D4",
-    description: "Email messages from Microsoft Outlook",
+    descriptionKey: "connectors.outlook.description",
     category: "email",
   },
   {
@@ -46,7 +46,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Slack",
     icon: Hash,
     color: "#4A154B",
-    description: "Messages and channels from Slack workspaces",
+    descriptionKey: "connectors.slack.description",
     category: "messaging",
   },
   {
@@ -54,7 +54,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Microsoft Teams",
     icon: Users,
     color: "#6264A7",
-    description: "Chats and channel messages from Teams",
+    descriptionKey: "connectors.teams.description",
     category: "messaging",
   },
   {
@@ -62,7 +62,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "WhatsApp Business",
     icon: MessageCircle,
     color: "#25D366",
-    description: "Business messages from WhatsApp",
+    descriptionKey: "connectors.whatsapp.description",
     category: "messaging",
   },
   {
@@ -70,7 +70,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Google Calendar",
     icon: Calendar,
     color: "#4285F4",
-    description: "Events and meetings from Google Calendar",
+    descriptionKey: "connectors.googleCalendar.description",
     category: "calendar",
   },
   {
@@ -78,7 +78,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Notion",
     icon: FileText,
     color: "#000000",
-    description: "Pages and databases from Notion",
+    descriptionKey: "connectors.notion.description",
     category: "knowledge",
   },
   {
@@ -86,7 +86,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "Google Docs",
     icon: FileText,
     color: "#4285F4",
-    description: "Documents from Google Drive",
+    descriptionKey: "connectors.googleDocs.description",
     category: "knowledge",
   },
   {
@@ -94,7 +94,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     name: "HubSpot",
     icon: Target,
     color: "#FF7A59",
-    description: "Contacts, deals, and engagements from HubSpot CRM",
+    descriptionKey: "connectors.hubspot.description",
     category: "crm",
   },
 ];

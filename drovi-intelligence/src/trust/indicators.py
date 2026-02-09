@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import structlog
@@ -26,6 +26,20 @@ def _parse_datetime(value: str | datetime | None) -> datetime | None:
         return None
 
 
+def _to_utc_naive(value: datetime) -> datetime:
+    """
+    Convert a datetime into naive UTC.
+
+    Our DB layer sometimes returns offset-aware timestamps (timestamptz) while other parts
+    of the codebase (and `utc_now()` in particular) use naive datetimes for Postgres.
+    Normalizing here prevents "can't subtract offset-naive and offset-aware datetimes".
+    """
+
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def _compute_trust_score(
     confidence: float,
     evidence_count: int,
@@ -40,7 +54,8 @@ def _compute_trust_score(
     if is_contradicted:
         score -= 0.2
     if last_updated_at:
-        age_days = max((utc_now() - last_updated_at).days, 0)
+        normalized_last_updated_at = _to_utc_naive(last_updated_at)
+        age_days = max((utc_now() - normalized_last_updated_at).days, 0)
         if age_days > 180:
             score -= 0.1
         elif age_days > 30:

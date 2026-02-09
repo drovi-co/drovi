@@ -32,7 +32,7 @@ from src.streaming.ingestion_pipeline import (
     normalize_raw_event_payload,
 )
 from src.monitoring import get_metrics
-from src.db import get_db_pool
+from src.db import close_db, close_db_pool, get_db_pool, init_db
 
 # Configure structured logging
 structlog.configure(
@@ -258,7 +258,9 @@ class KafkaWorker:
                 )
 
             duration = (datetime.utcnow() - started_at).total_seconds()
-            output = result_state.output.model_dump() if result_state else {}
+            # Use JSON mode to ensure everything we publish to Kafka is JSON-serializable
+            # (e.g. datetimes become ISO strings).
+            output = result_state.output.model_dump(mode="json") if result_state else {}
             uios = output.get("uios") or output.get("uios_created") or []
 
             metrics.track_extraction(
@@ -325,11 +327,19 @@ class KafkaWorker:
 
 async def main() -> None:
     """Main entry point for the Kafka worker."""
+    from src.monitoring.prometheus_server import maybe_start_prometheus_http_server
+
     settings = get_settings()
 
     if not settings.kafka_enabled:
         logger.error("Kafka is not enabled. Set KAFKA_ENABLED=true to run the worker.")
         sys.exit(1)
+
+    maybe_start_prometheus_http_server(component="drovi-worker")
+
+    # The worker persists unified events and extracted intelligence into Postgres.
+    # Ensure the DB pool is initialized before consuming any Kafka messages.
+    await init_db()
 
     worker = KafkaWorker()
 
@@ -349,6 +359,8 @@ async def main() -> None:
         logger.info("Keyboard interrupt received")
     finally:
         await worker.stop()
+        await close_db_pool()
+        await close_db()
 
 
 if __name__ == "__main__":

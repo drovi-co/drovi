@@ -206,6 +206,8 @@ class JobsWorker:
             return await self._run_memory_decay(job)
         if job.job_type == "evidence.retention":
             return await self._run_evidence_retention(job)
+        if job.job_type == "documents.process":
+            return await self._run_documents_process(job)
 
         raise ValueError(f"Unknown job_type: {job.job_type}")
 
@@ -454,6 +456,21 @@ class JobsWorker:
         )
         return result or {}
 
+    async def _run_documents_process(self, job: ClaimedJob) -> dict:
+        from src.documents.jobs import process_document_job
+
+        payload = job.payload or {}
+        organization_id = payload.get("organization_id") or job.organization_id
+        document_id = payload.get("document_id")
+
+        if not organization_id or not document_id:
+            raise ValueError("documents.process missing organization_id/document_id")
+
+        return await process_document_job(
+            organization_id=str(organization_id),
+            document_id=str(document_id),
+        )
+
 
 async def _run() -> None:
     await init_db()
@@ -475,6 +492,9 @@ async def _run() -> None:
 
 
 def main() -> None:
+    from src.monitoring.prometheus_server import maybe_start_prometheus_http_server
+
+    maybe_start_prometheus_http_server(component="drovi-jobs-worker")
     asyncio.run(_run())
 
 

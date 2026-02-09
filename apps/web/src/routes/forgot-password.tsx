@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AuthLayout, ForgotPasswordForm } from "@/components/auth";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/forgot-password")({
   component: ForgotPasswordPage,
@@ -8,11 +9,12 @@ export const Route = createFileRoute("/forgot-password")({
 
 function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <AuthLayout
-      description="Password resets are handled by your workspace admin"
-      title="Reset access"
+      description={t("auth.passwordReset.layoutDescription")}
+      title={t("auth.passwordReset.layoutTitle")}
     >
       <ForgotPasswordForm onBack={() => navigate({ to: "/login" })} />
     </AuthLayout>

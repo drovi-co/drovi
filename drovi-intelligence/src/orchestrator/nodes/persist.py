@@ -24,6 +24,7 @@ from src.evidence.audit import record_evidence_audit
 from src.ingestion.unified_event import build_segment_hash
 from src.uio.manager import get_uio_manager
 from src.orchestrator.context_cache import get_context_cache
+from src.monitoring import get_metrics
 
 logger = structlog.get_logger()
 
@@ -619,6 +620,7 @@ async def persist_node(state: IntelligenceState) -> dict:
     claims_created: list[dict] = []
     contacts_created: list[dict] = []
     created_uio_by_extracted_id: dict[str, dict] = {}
+    metrics = get_metrics()
 
     if not state.candidates_persisted and (
         state.extracted.commitments
@@ -803,7 +805,13 @@ async def persist_node(state: IntelligenceState) -> dict:
         # Persist commitments (filtered by confidence)
         async with get_db_session() as session:
             for commitment in commitments_to_persist:
-                if not _has_evidence(getattr(commitment, "quoted_text", None)):
+                has_evidence = _has_evidence(getattr(commitment, "quoted_text", None))
+                metrics.track_evidence_completeness(
+                    organization_id=state.input.organization_id,
+                    uio_type="commitment",
+                    status="present" if has_evidence else "missing",
+                )
+                if not has_evidence:
                     logger.info(
                         "Skipping commitment without evidence",
                         title=commitment.title,
@@ -1307,7 +1315,13 @@ async def persist_node(state: IntelligenceState) -> dict:
         # Persist decisions (filtered by confidence)
         async with get_db_session() as session:
             for decision in decisions_to_persist:
-                if not _has_evidence(getattr(decision, "quoted_text", None)):
+                has_evidence = _has_evidence(getattr(decision, "quoted_text", None))
+                metrics.track_evidence_completeness(
+                    organization_id=state.input.organization_id,
+                    uio_type="decision",
+                    status="present" if has_evidence else "missing",
+                )
+                if not has_evidence:
                     logger.info(
                         "Skipping decision without evidence",
                         title=decision.title,
@@ -1758,7 +1772,13 @@ async def persist_node(state: IntelligenceState) -> dict:
 
         async with get_db_session() as session:
             for risk in risks_to_persist:
-                if not _has_evidence(getattr(risk, "quoted_text", None)):
+                has_evidence = _has_evidence(getattr(risk, "quoted_text", None))
+                metrics.track_evidence_completeness(
+                    organization_id=state.input.organization_id,
+                    uio_type="risk",
+                    status="present" if has_evidence else "missing",
+                )
+                if not has_evidence:
                     logger.info(
                         "Skipping risk without evidence",
                         title=risk.title,
@@ -2188,7 +2208,13 @@ async def persist_node(state: IntelligenceState) -> dict:
                     )
                     continue
 
-                if not _has_evidence(getattr(task, "quoted_text", None)):
+                has_evidence = _has_evidence(getattr(task, "quoted_text", None))
+                metrics.track_evidence_completeness(
+                    organization_id=state.input.organization_id,
+                    uio_type="task",
+                    status="present" if has_evidence else "missing",
+                )
+                if not has_evidence:
                     logger.info(
                         "Skipping task without evidence",
                         title=task.title,
@@ -2611,7 +2637,13 @@ async def persist_node(state: IntelligenceState) -> dict:
         async with get_db_session() as session:
             claim_graph_entries: list[dict] = []
             for claim in claims_to_persist:
-                if not _has_evidence(getattr(claim, "quoted_text", None)):
+                has_evidence = _has_evidence(getattr(claim, "quoted_text", None))
+                metrics.track_evidence_completeness(
+                    organization_id=state.input.organization_id,
+                    uio_type="claim",
+                    status="present" if has_evidence else "missing",
+                )
+                if not has_evidence:
                     logger.info(
                         "Skipping claim without evidence",
                         content=claim.content[:50] if claim.content else None,

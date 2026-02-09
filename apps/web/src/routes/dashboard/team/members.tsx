@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useT } from "@/i18n";
 import { orgAPI, type OrgMember } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/dashboard/team/members")({
 function MembersPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const t = useT();
   const organizationId = user?.org_id ?? "";
   const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
 
@@ -50,11 +52,11 @@ function MembersPage() {
       await orgAPI.updateMemberRole({ userId: params.userId, role: params.role });
     },
     onSuccess: () => {
-      toast.success("Role updated");
+      toast.success(t("pages.dashboard.team.membersPage.toasts.roleUpdated"));
       queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to update role");
+      toast.error(err.message || t("pages.dashboard.team.membersPage.toasts.roleUpdateFailed"));
     },
   });
 
@@ -63,11 +65,11 @@ function MembersPage() {
       await orgAPI.removeMember(userId);
     },
     onSuccess: () => {
-      toast.success("Member removed");
+      toast.success(t("pages.dashboard.team.membersPage.toasts.memberRemoved"));
       queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to remove member");
+      toast.error(err.message || t("pages.dashboard.team.membersPage.toasts.memberRemoveFailed"));
     },
   });
 
@@ -78,7 +80,7 @@ function MembersPage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">Sign in to manage your team.</p>
+        <p className="text-muted-foreground">{t("pages.dashboard.team.membersPage.notSignedIn")}</p>
       </div>
     );
   }
@@ -87,28 +89,29 @@ function MembersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">Members</h1>
+          <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.members")}</h1>
           <p className="text-muted-foreground">
-            Manage members in {user.org_name}
+            {t("pages.dashboard.team.membersPage.subtitle", { org: user.org_name })}
           </p>
         </div>
         {isAdmin ? (
           <Link to="/dashboard/team/invitations">
-            <Button>Invite members</Button>
+            <Button>{t("pages.dashboard.team.membersPage.actions.inviteMembers")}</Button>
           </Link>
         ) : (
-          <Button disabled title="Admin access required">
-            Invite members
+          <Button disabled title={t("pages.dashboard.team.membersPage.actions.adminRequired")}>
+            {t("pages.dashboard.team.membersPage.actions.inviteMembers")}
           </Button>
         )}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Team Members</CardTitle>
+          <CardTitle>{t("pages.dashboard.team.membersPage.card.title")}</CardTitle>
           <CardDescription>
-            {memberList.length} member{memberList.length !== 1 ? "s" : ""} in this
-            organization
+            {memberList.length === 1
+              ? t("pages.dashboard.team.membersPage.card.countOne")
+              : t("pages.dashboard.team.membersPage.card.countMany", { count: memberList.length })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -128,13 +131,13 @@ function MembersPage() {
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : memberList.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              No members found. Invite team members to get started.
+              {t("pages.dashboard.team.membersPage.empty")}
             </p>
           ) : (
             <div className="space-y-4">
               {memberList.map((member) => {
                 const displayName =
-                  member.name ?? member.email?.split("@")[0] ?? "User";
+                  member.name ?? member.email?.split("@")[0] ?? t("pages.dashboard.team.membersPage.fallbackUser");
                 const displayInitials = displayName
                   .split(" ")
                   .map((n) => n[0])
@@ -144,6 +147,15 @@ function MembersPage() {
 
                 const isOwner =
                   member.role === "pilot_owner" || member.role === "owner";
+                const roleLabel = isOwner
+                  ? t("pages.dashboard.team.roles.owner")
+                  : member.role === "pilot_admin"
+                    ? t("pages.dashboard.team.roles.admin")
+                    : member.role === "pilot_member"
+                      ? t("pages.dashboard.team.roles.member")
+                      : member.role === "pilot_viewer"
+                        ? t("pages.dashboard.team.roles.viewer")
+                        : member.role.replace("pilot_", "");
 
                 return (
                   <div
@@ -171,7 +183,7 @@ function MembersPage() {
                               : "outline"
                         }
                       >
-                        {member.role.replace("pilot_", "")}
+                        {roleLabel}
                       </Badge>
                       {isAdmin && !isOwner && (
                         <DropdownMenu>
@@ -195,7 +207,7 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                Make Admin
+                                {t("pages.dashboard.team.membersPage.menu.makeAdmin")}
                               </DropdownMenuItem>
                             )}
                             {member.role !== "pilot_member" && (
@@ -208,7 +220,7 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                Make Member
+                                {t("pages.dashboard.team.membersPage.menu.makeMember")}
                               </DropdownMenuItem>
                             )}
                             {member.role !== "pilot_viewer" && (
@@ -221,7 +233,7 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                Make Viewer
+                                {t("pages.dashboard.team.membersPage.menu.makeViewer")}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
@@ -229,7 +241,7 @@ function MembersPage() {
                               onClick={() => removeMemberMutation.mutate(member.id)}
                             >
                               <UserMinus className="mr-2 h-4 w-4" />
-                              Remove Member
+                              {t("pages.dashboard.team.membersPage.menu.removeMember")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

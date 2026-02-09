@@ -20,18 +20,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useI18n, useT } from "@/i18n";
 import type { CommitmentNodeData } from "../../-types";
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr: string | undefined, locale: string): string {
   if (!dateStr) {
     return "";
   }
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
 }
 
 // =============================================================================
@@ -41,6 +42,8 @@ function formatDate(dateStr?: string): string {
 function CommitmentNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as CommitmentNodeData;
   const isOwedByMe = nodeData.direction === "owed_by_me";
+  const t = useT();
+  const { locale } = useI18n();
 
   // Status-based styling
   const statusConfig: Record<
@@ -157,7 +160,7 @@ function CommitmentNodeComponent({ data, selected }: NodeProps) {
                 {nodeData.dueDate && (
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Calendar className="h-3 w-3" />
-                    {formatDate(nodeData.dueDate)}
+                    {formatDate(nodeData.dueDate, locale)}
                   </span>
                 )}
               </div>
@@ -188,17 +191,25 @@ function CommitmentNodeComponent({ data, selected }: NodeProps) {
                 }
                 variant="outline"
               >
-                {isOwedByMe ? "You owe this" : "Owed to you"}
+                {isOwedByMe
+                  ? t("pages.dashboard.graph.nodes.commitment.youOweThis")
+                  : t("pages.dashboard.graph.nodes.commitment.owedToYou")}
               </Badge>
-              <Badge variant="outline">{nodeData.priority} priority</Badge>
+              <Badge variant="outline">
+                {t("pages.dashboard.graph.nodes.commitment.priority", { priority: nodeData.priority })}
+              </Badge>
             </div>
             {nodeData.dueDate && (
               <p className="text-muted-foreground text-xs">
-                Due: {new Date(nodeData.dueDate).toLocaleDateString()}
+                {t("pages.dashboard.graph.nodes.commitment.due", {
+                  date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
+                    new Date(nodeData.dueDate)
+                  ),
+                })}
               </p>
             )}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Confidence:</span>
+              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.commitment.confidence")}</span>
               <div className="h-1.5 w-16 rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-violet-500"

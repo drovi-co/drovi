@@ -115,6 +115,7 @@ class S3EvidenceStorage(EvidenceStorage):
         bucket: str,
         region: str,
         endpoint_url: str | None,
+        public_endpoint_url: str | None,
         access_key_id: str | None,
         secret_access_key: str | None,
         prefix: str,
@@ -124,12 +125,15 @@ class S3EvidenceStorage(EvidenceStorage):
         kms_key_map: dict[str, str],
         object_lock: bool,
         require_kms: bool,
+        force_path_style: bool,
     ) -> None:
         import boto3
+        from botocore.config import Config
 
         self.bucket = bucket
         self.region = region
         self.endpoint_url = endpoint_url
+        self.public_endpoint_url = public_endpoint_url
         self.prefix = prefix.strip("/")
         self.presign_expiry_seconds = presign_expiry_seconds
         self.sse = sse
@@ -138,13 +142,31 @@ class S3EvidenceStorage(EvidenceStorage):
         self.object_lock = object_lock
         if require_kms and sse != "aws:kms":
             raise ValueError("Evidence storage requires SSE-KMS but it is not configured")
+
+        config = None
+        if force_path_style:
+            config = Config(s3={"addressing_style": "path"})
+
         self._client = boto3.client(
             "s3",
             region_name=region or None,
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
+            config=config,
         )
+        # Presigned URLs must be reachable from the caller (typically a browser on
+        # the host network). In Docker dev this differs from the internal endpoint.
+        self._presign_client = self._client
+        if public_endpoint_url and public_endpoint_url != endpoint_url:
+            self._presign_client = boto3.client(
+                "s3",
+                region_name=region or None,
+                endpoint_url=public_endpoint_url,
+                aws_access_key_id=access_key_id,
+                aws_secret_access_key=secret_access_key,
+                config=config,
+            )
 
     def _object_key(self, artifact_id: str, extension: str, organization_id: str | None) -> str:
         extension = extension if extension.startswith(".") or extension == "" else f".{extension}"
@@ -206,7 +228,7 @@ class S3EvidenceStorage(EvidenceStorage):
         import anyio
 
         def _presign() -> str:
-            return self._client.generate_presigned_url(
+            return self._presign_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": self.bucket, "Key": storage_path},
                 ExpiresIn=self.presign_expiry_seconds,
@@ -249,6 +271,7 @@ def get_evidence_storage() -> EvidenceStorage:
             bucket=settings.evidence_s3_bucket,
             region=settings.evidence_s3_region,
             endpoint_url=settings.evidence_s3_endpoint_url,
+            public_endpoint_url=settings.evidence_s3_public_endpoint_url,
             access_key_id=settings.evidence_s3_access_key_id,
             secret_access_key=settings.evidence_s3_secret_access_key,
             prefix=settings.evidence_s3_prefix,
@@ -258,6 +281,7 @@ def get_evidence_storage() -> EvidenceStorage:
             kms_key_map=settings.evidence_s3_kms_key_map,
             object_lock=settings.evidence_s3_object_lock,
             require_kms=settings.evidence_require_kms,
+            force_path_style=settings.s3_force_path_style,
         )
     else:
         raise ValueError(f"Unsupported evidence storage backend: {settings.evidence_storage_backend}")

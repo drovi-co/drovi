@@ -73,6 +73,7 @@ class AnalysisInput(BaseModel):
         "slack",
         "notion",
         "google_docs",
+        "document",
         "whatsapp",
         "calendar",
         "meeting",

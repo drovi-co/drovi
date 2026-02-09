@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import { contactsAPI, type ContactSummary } from "@/lib/api";
+import { useT } from "@/i18n";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -45,6 +46,7 @@ type ViewFilter = "all" | "vip" | "at_risk";
 function ContactsPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   // State
@@ -151,11 +153,11 @@ function ContactsPage() {
     mutationFn: async ({ contactId, isVip }: { contactId: string; isVip: boolean }) =>
       contactsAPI.toggleVip(contactId, organizationId, isVip),
     onSuccess: () => {
-      toast.success("VIP status updated");
+      toast.success(t("pages.dashboard.contacts.toasts.vipUpdated"));
       void handleRefresh();
     },
     onError: () => {
-      toast.error("Failed to update VIP status");
+      toast.error(t("pages.dashboard.contacts.toasts.vipFailed"));
     },
   });
 
@@ -163,12 +165,12 @@ function ContactsPage() {
     mutationFn: async (contactId: string) =>
       contactsAPI.generateMeetingBrief(contactId, organizationId),
     onSuccess: (_data) => {
-      toast.success("Meeting brief generated", {
-        description: "Check your downloads",
+      toast.success(t("pages.dashboard.contacts.toasts.briefGenerated"), {
+        description: t("pages.dashboard.contacts.toasts.briefGeneratedHint"),
       });
     },
     onError: () => {
-      toast.error("Failed to generate meeting brief");
+      toast.error(t("pages.dashboard.contacts.toasts.briefFailed"));
     },
   });
 
@@ -339,7 +341,7 @@ function ContactsPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">
-          Select an organization to view contacts
+          {t("pages.dashboard.contacts.selectOrg")}
         </p>
       </div>
     );
@@ -362,7 +364,7 @@ function ContactsPage() {
                   value="all"
                 >
                   <Users className="h-4 w-4" />
-                  All
+                  {t("pages.dashboard.contacts.tabs.all")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -375,7 +377,7 @@ function ContactsPage() {
                   value="vip"
                 >
                   <Star className="h-4 w-4" />
-                  VIPs
+                  {t("pages.dashboard.contacts.tabs.vip")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -388,7 +390,7 @@ function ContactsPage() {
                   value="at_risk"
                 >
                   <AlertTriangle className="h-4 w-4" />
-                  At Risk
+                  {t("pages.dashboard.contacts.tabs.atRisk")}
                   {stats.atRiskCount > 0 && (
                     <Badge
                       className="ml-1 px-1.5 py-0 text-[10px]"
@@ -410,7 +412,7 @@ function ContactsPage() {
                   className="h-8 w-[200px] pl-8 text-sm"
                   id="contact-search"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search contacts..."
+                  placeholder={t("pages.dashboard.contacts.search.placeholder")}
                   value={searchQuery}
                 />
               </div>
@@ -427,11 +429,11 @@ function ContactsPage() {
               {/* Keyboard hints */}
               <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
                 <kbd className="rounded bg-muted px-1.5 py-0.5">/</kbd>
-                <span>search</span>
+                <span>{t("pages.dashboard.contacts.hints.search")}</span>
                 <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
-                <span>nav</span>
+                <span>{t("pages.dashboard.contacts.hints.nav")}</span>
                 <kbd className="rounded bg-muted px-1.5 py-0.5">1-3</kbd>
-                <span>tabs</span>
+                <span>{t("pages.dashboard.contacts.hints.tabs")}</span>
               </div>
             </div>
           </div>
@@ -473,15 +475,15 @@ function ContactsPage() {
               </div>
               <h3 className="font-medium text-lg">
                 {searchQuery.length > 2
-                  ? "No contacts match your search"
+                  ? t("pages.dashboard.contacts.empty.search")
                   : viewFilter === "vip"
-                    ? "No VIP contacts yet"
+                    ? t("pages.dashboard.contacts.empty.vip")
                     : viewFilter === "at_risk"
-                      ? "No at-risk relationships"
-                      : "No contacts found"}
+                      ? t("pages.dashboard.contacts.empty.atRisk")
+                      : t("pages.dashboard.contacts.empty.all")}
               </h3>
               <p className="mt-1 text-muted-foreground text-sm">
-                Contacts are automatically extracted from your emails
+                {t("pages.dashboard.contacts.empty.description")}
               </p>
             </div>
           ) : (

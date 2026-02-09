@@ -23,155 +23,163 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useT } from "@/i18n";
 import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { TeamSwitcher } from "./team-switcher";
 
-// Console - Primary Intelligence View (Datadog-like)
-const consoleNavItems: NavItem[] = [
-  {
-    title: "Console",
-    url: "/dashboard/console",
-    icon: Terminal,
-  },
-  {
-    title: "Reality Stream",
-    url: "/dashboard/reality-stream",
-    icon: Activity,
-  },
-  {
-    title: "Graph",
-    url: "/dashboard/graph",
-    icon: Network,
-  },
-];
-
-// Memory & Intelligence items
-const memoryNavItems: NavItem[] = [
-  {
-    title: "Commitments",
-    url: "/dashboard/commitments",
-    icon: CheckCircle2,
-  },
-  {
-    title: "Decisions",
-    url: "/dashboard/decisions",
-    icon: BookOpen,
-  },
-  {
-    title: "Tasks",
-    url: "/dashboard/tasks",
-    icon: ListTodo,
-  },
-  {
-    title: "Schedule",
-    url: "/dashboard/schedule",
-    icon: Calendar,
-  },
-];
-
-// People and discovery
-const discoveryNavItems: NavItem[] = [
-  {
-    title: "People",
-    url: "/dashboard/contacts",
-    icon: Users,
-  },
-  {
-    title: "Patterns",
-    url: "/dashboard/patterns",
-    icon: Sparkles,
-  },
-];
-
-// Continuums and execution
-const continuumNavItems: NavItem[] = [
-  {
-    title: "Continuums",
-    url: "/dashboard/continuums",
-    icon: Sparkles,
-  },
-  {
-    title: "Builder",
-    url: "/dashboard/builder",
-    icon: FileText,
-  },
-  {
-    title: "Exchange",
-    url: "/dashboard/exchange",
-    icon: Store,
-  },
-];
-
-const executionNavItems: NavItem[] = [
-  {
-    title: "Simulations",
-    url: "/dashboard/simulations",
-    icon: Activity,
-  },
-  {
-    title: "Actuations",
-    url: "/dashboard/actuations",
-    icon: Zap,
-  },
-  {
-    title: "Trust & Audit",
-    url: "/dashboard/trust",
-    icon: Shield,
-  },
-];
-
-// Sources items
-const sourcesNavItems: NavItem[] = [
-  {
-    title: "Connected Sources",
-    url: "/dashboard/sources",
-    icon: Link2,
-  },
-];
-
-// Team management items
-const teamNavItems: NavItem[] = [
-  {
-    title: "Team",
-    url: "/dashboard/team",
-    icon: Users,
-    items: [
-      {
-        title: "Members",
-        url: "/dashboard/team/members",
-      },
-      {
-        title: "Invitations",
-        url: "/dashboard/team/invitations",
-      },
-      {
-        title: "Settings",
-        url: "/dashboard/team/settings",
-      },
-    ],
-  },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
-  },
-];
-
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const t = useT();
+
+  // Console - Primary Intelligence View (Datadog-like)
+  const consoleNavItems: NavItem[] = [
+    {
+      title: t("nav.items.console"),
+      url: "/dashboard/console",
+      icon: Terminal,
+    },
+    {
+      title: t("nav.items.realityStream"),
+      url: "/dashboard/reality-stream",
+      icon: Activity,
+    },
+    {
+      title: t("nav.items.graph"),
+      url: "/dashboard/graph",
+      icon: Network,
+    },
+  ];
+
+  // Memory & Intelligence items
+  const memoryNavItems: NavItem[] = [
+    {
+      title: t("nav.items.commitments"),
+      url: "/dashboard/commitments",
+      icon: CheckCircle2,
+    },
+    {
+      title: t("nav.items.decisions"),
+      url: "/dashboard/decisions",
+      icon: BookOpen,
+    },
+    {
+      title: t("nav.items.tasks"),
+      url: "/dashboard/tasks",
+      icon: ListTodo,
+    },
+    {
+      title: t("nav.items.schedule"),
+      url: "/dashboard/schedule",
+      icon: Calendar,
+    },
+    {
+      title: t("nav.items.drive"),
+      url: "/dashboard/drive",
+      icon: FileText,
+    },
+  ];
+
+  // People and discovery
+  const discoveryNavItems: NavItem[] = [
+    {
+      title: t("nav.items.people"),
+      url: "/dashboard/contacts",
+      icon: Users,
+    },
+    {
+      title: t("nav.items.patterns"),
+      url: "/dashboard/patterns",
+      icon: Sparkles,
+    },
+  ];
+
+  // Continuums and execution
+  const continuumNavItems: NavItem[] = [
+    {
+      title: t("nav.items.continuums"),
+      url: "/dashboard/continuums",
+      icon: Sparkles,
+    },
+    {
+      title: t("nav.items.builder"),
+      url: "/dashboard/builder",
+      icon: FileText,
+    },
+    {
+      title: t("nav.items.exchange"),
+      url: "/dashboard/exchange",
+      icon: Store,
+    },
+  ];
+
+  const executionNavItems: NavItem[] = [
+    {
+      title: t("nav.items.simulations"),
+      url: "/dashboard/simulations",
+      icon: Activity,
+    },
+    {
+      title: t("nav.items.actuations"),
+      url: "/dashboard/actuations",
+      icon: Zap,
+    },
+    {
+      title: t("nav.items.trustAudit"),
+      url: "/dashboard/trust",
+      icon: Shield,
+    },
+  ];
+
+  // Sources items
+  const sourcesNavItems: NavItem[] = [
+    {
+      title: t("nav.items.connectedSources"),
+      url: "/dashboard/sources",
+      icon: Link2,
+    },
+  ];
+
+  // Team management items
+  const teamNavItems: NavItem[] = [
+    {
+      title: t("nav.items.team"),
+      url: "/dashboard/team",
+      icon: Users,
+      items: [
+        {
+          title: t("nav.items.members"),
+          url: "/dashboard/team/members",
+        },
+        {
+          title: t("nav.items.invitations"),
+          url: "/dashboard/team/invitations",
+        },
+        {
+          title: t("nav.items.settings"),
+          url: "/dashboard/team/settings",
+        },
+      ],
+    },
+    {
+      title: t("nav.items.settings"),
+      url: "/dashboard/settings",
+      icon: Settings,
+    },
+  ];
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-14 justify-center">
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={consoleNavItems} label="Console" />
-        <NavMain items={memoryNavItems} label="Memory" />
-        <NavMain items={discoveryNavItems} label="Discovery" />
-        <NavMain items={continuumNavItems} label="Continuums" />
-        <NavMain items={executionNavItems} label="Execution" />
-        <NavMain items={sourcesNavItems} label="Sources" />
-        <NavMain items={teamNavItems} label="Management" />
+        <NavMain items={consoleNavItems} label={t("nav.groups.console")} />
+        <NavMain items={memoryNavItems} label={t("nav.groups.memory")} />
+        <NavMain items={discoveryNavItems} label={t("nav.groups.discovery")} />
+        <NavMain items={continuumNavItems} label={t("nav.groups.continuums")} />
+        <NavMain items={executionNavItems} label={t("nav.groups.execution")} />
+        <NavMain items={sourcesNavItems} label={t("nav.groups.sources")} />
+        <NavMain items={teamNavItems} label={t("nav.groups.management")} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

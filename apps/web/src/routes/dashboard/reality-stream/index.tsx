@@ -32,23 +32,16 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { changesAPI, type ChangeRecord } from "@/lib/api";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/reality-stream/")({
   component: RealityStreamPage,
 });
 
-const ENTITY_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "commitment", label: "Commitments" },
-  { value: "decision", label: "Decisions" },
-  { value: "task", label: "Tasks" },
-  { value: "risk", label: "Risks" },
-  { value: "brief", label: "Briefs" },
-];
-
 function RealityStreamPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   const [entityFilter, setEntityFilter] = useState("all");
@@ -96,10 +89,19 @@ function RealityStreamPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to view the Reality Stream
+        {t("pages.dashboard.realityStream.selectOrg")}
       </div>
     );
   }
+
+  const entityFilters = [
+    { value: "all", label: t("pages.dashboard.realityStream.filters.entity.all") },
+    { value: "commitment", label: t("pages.dashboard.realityStream.filters.entity.commitment") },
+    { value: "decision", label: t("pages.dashboard.realityStream.filters.entity.decision") },
+    { value: "task", label: t("pages.dashboard.realityStream.filters.entity.task") },
+    { value: "risk", label: t("pages.dashboard.realityStream.filters.entity.risk") },
+    { value: "brief", label: t("pages.dashboard.realityStream.filters.entity.brief") },
+  ];
 
   return (
     <div className="flex h-full flex-col gap-6 p-6" data-no-shell-padding>
@@ -108,19 +110,18 @@ function RealityStreamPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Activity className="h-3 w-3" />
-              Reality Stream
+              {t("pages.dashboard.realityStream.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Every signal, every shift, in one timeline
+              {t("pages.dashboard.realityStream.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Track what changed across commitments, decisions, tasks, and
-              signals—without losing the context that matters.
+              {t("pages.dashboard.realityStream.description")}
             </p>
           </div>
           <Button onClick={() => refetch()} size="sm" variant="outline">
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            {t("pages.dashboard.realityStream.actions.refresh")}
           </Button>
         </div>
       </div>
@@ -129,21 +130,23 @@ function RealityStreamPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4 text-primary" />
-            Stream filters
+            {t("pages.dashboard.realityStream.filters.title")}
           </CardTitle>
           <CardDescription>
-            Tune the stream by entity type and time range.
+            {t("pages.dashboard.realityStream.filters.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Entity type</label>
+            <label className="text-sm font-medium">
+              {t("pages.dashboard.realityStream.filters.entity.label")}
+            </label>
             <Select onValueChange={setEntityFilter} value={entityFilter}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ENTITY_FILTERS.map((filter) => (
+                {entityFilters.map((filter) => (
                   <SelectItem key={filter.value} value={filter.value}>
                     {filter.label}
                   </SelectItem>
@@ -152,15 +155,17 @@ function RealityStreamPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Time range</label>
+            <label className="text-sm font-medium">
+              {t("pages.dashboard.realityStream.filters.range.label")}
+            </label>
             <Select onValueChange={setRangeDays} value={rangeDays}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Last 24h</SelectItem>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="1">{t("pages.dashboard.realityStream.filters.range.last24h")}</SelectItem>
+                <SelectItem value="7">{t("pages.dashboard.realityStream.filters.range.last7d")}</SelectItem>
+                <SelectItem value="30">{t("pages.dashboard.realityStream.filters.range.last30d")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -169,9 +174,11 @@ function RealityStreamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Change timeline</CardTitle>
+          <CardTitle className="text-base">{t("pages.dashboard.realityStream.timeline.title")}</CardTitle>
           <CardDescription>
-            {data?.total_count ?? 0} changes captured in this window.
+            {t("pages.dashboard.realityStream.timeline.count", {
+              count: data?.total_count ?? 0,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -181,7 +188,7 @@ function RealityStreamPage() {
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : grouped.length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-              No changes yet in this window.
+              {t("pages.dashboard.realityStream.timeline.empty")}
             </div>
           ) : (
             grouped.map(([day, changes]) => (

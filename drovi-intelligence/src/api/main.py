@@ -10,6 +10,7 @@ Provides:
 """
 
 import logging
+import time
 import structlog
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -17,6 +18,8 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
+from starlette.requests import Request
+from starlette.responses import Response
 
 from src.api.middleware import (
     SecurityHeadersMiddleware,
@@ -37,6 +40,7 @@ from src.api.routes import (
     auth,
     brief,
     content,
+    documents,
     changes,
     jobs,
     connections,
@@ -213,6 +217,43 @@ app.add_middleware(
     expose_headers=["X-Request-ID"],
 )
 
+# -----------------------------------------------------------------------------
+# Prometheus HTTP instrumentation
+#
+# We intentionally use the route template (e.g. "/api/v1/evidence/{evidence_id}")
+# to keep label cardinality bounded.
+# -----------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def prometheus_http_middleware(request: Request, call_next) -> Response:
+    from src.monitoring import get_metrics
+
+    metrics = get_metrics()
+    started = time.perf_counter()
+    status_code = 500
+
+    try:
+        response: Response = await call_next(request)
+        status_code = int(getattr(response, "status_code", 200))
+        return response
+    except Exception:
+        status_code = 500
+        raise
+    finally:
+        duration = time.perf_counter() - started
+        route = request.scope.get("route")
+        endpoint = getattr(route, "path", None) or request.url.path
+        # Avoid noisy high-cardinality suffixes for static assets.
+        if endpoint.startswith("/assets/"):
+            endpoint = "/assets/*"
+        metrics.track_http_request(
+            method=request.method,
+            endpoint=endpoint,
+            status_code=status_code,
+            duration=duration,
+        )
+
 # Note: CSRF middleware is optional - pilot surface uses httpOnly cookies
 # which provide CSRF protection via SameSite=Lax. Enable if needed:
 # app.add_middleware(CSRFMiddleware)
@@ -235,6 +276,7 @@ app.include_router(graph.router, prefix="/api/v1", tags=["Graph"])
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory"])
 app.include_router(search.router, prefix="/api/v1", tags=["Search"])
 app.include_router(content.router, prefix="/api/v1", tags=["Content"])
+app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
 app.include_router(uios.router, prefix="/api/v1", tags=["UIOs"])
 app.include_router(mcp_router, prefix="/api/v1", tags=["MCP"])
 app.include_router(connections.router, prefix="/api/v1", tags=["Connections"])

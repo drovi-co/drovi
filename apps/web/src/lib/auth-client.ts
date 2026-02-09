@@ -182,7 +182,7 @@ export const authClient = {
    */
   signIn: {
     async email(
-      params: { email: string; password: string; rememberMe?: boolean },
+      params: { email: string; password: string; rememberMe?: boolean; inviteToken?: string },
       callbacks?: {
         onSuccess?: () => void;
         onError?: (error: { error: { message: string; status?: number; statusText?: string } }) => void;
@@ -192,6 +192,7 @@ export const authClient = {
       try {
         await store.loginWithEmail(params.email, params.password, {
           persist: params.rememberMe ?? true,
+          inviteToken: params.inviteToken,
         });
         callbacks?.onSuccess?.();
         return { data: true };

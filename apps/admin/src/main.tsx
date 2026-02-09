@@ -3,12 +3,19 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 import { ErrorBoundary } from "./components/error-boundary";
 import Loader from "./components/loader";
+import { I18nProvider, normalizeLocale } from "./i18n";
 import { queryClient } from "./lib/query-client";
 import { initSentry } from "./lib/sentry";
 import { routeTree } from "./routeTree.gen";
 
 // Initialize Sentry for error tracking
 initSentry();
+
+const INITIAL_LOCALE = normalizeLocale(
+  typeof window === "undefined"
+    ? "en"
+    : window.localStorage.getItem("drovi.admin.locale") || window.navigator.language
+);
 
 const router = createRouter({
   routeTree,
@@ -18,9 +25,19 @@ const router = createRouter({
   Wrap({ children }) {
     return (
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <I18nProvider
+          initialLocale={INITIAL_LOCALE}
+          onLocaleChange={(locale: string) => {
+            try {
+              window.localStorage.setItem("drovi.admin.locale", locale);
+              document.documentElement.lang = locale;
+            } catch {
+              // Ignore storage failures.
+            }
+          }}
+        >
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </I18nProvider>
       </ErrorBoundary>
     );
   },

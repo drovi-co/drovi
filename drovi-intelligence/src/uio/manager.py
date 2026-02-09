@@ -310,7 +310,7 @@ class UIOManager:
                         :is_conditional, :condition,
                         :completed_at, :completed_via, :snoozed_until,
                         :supersedes_uio_id, :superseded_by_uio_id,
-                        :extraction_context::jsonb,
+                        CAST(:extraction_context AS jsonb),
                         :created_at, :updated_at
                     )
                 """),
@@ -473,11 +473,11 @@ class UIOManager:
                         created_at, updated_at
                     ) VALUES (
                         :id, :uio_id,
-                        :statement, :rationale, :alternatives::jsonb,
+                        :statement, :rationale, CAST(:alternatives AS jsonb),
                         :decision_maker_contact_id, :stakeholder_contact_ids, :impact_areas,
                         :status, :decided_at,
                         :supersedes_uio_id, :superseded_by_uio_id,
-                        :extraction_context::jsonb,
+                        CAST(:extraction_context AS jsonb),
                         :created_at, :updated_at
                     )
                 """),
@@ -626,7 +626,7 @@ class UIOManager:
                         :id, :uio_id,
                         :claim_type, :quoted_text, :quoted_text_start, :quoted_text_end,
                         :normalized_text, :importance, :source_message_index,
-                        :extraction_context::jsonb,
+                        CAST(:extraction_context AS jsonb),
                         :created_at, :updated_at
                     )
                 """),
@@ -776,7 +776,7 @@ class UIOManager:
                         :estimated_effort, :completed_at,
                         :depends_on_uio_ids, :blocks_uio_ids,
                         :parent_task_uio_id, :commitment_uio_id,
-                        :project, :tags, :user_overrides::jsonb, :extraction_context::jsonb,
+                        :project, :tags, CAST(:user_overrides AS jsonb), CAST(:extraction_context AS jsonb),
                         :supersedes_uio_id, :superseded_by_uio_id,
                         :created_at, :updated_at
                     )
@@ -937,7 +937,7 @@ class UIOManager:
                         :id, :uio_id,
                         :risk_type, :severity,
                         :related_commitment_uio_ids, :related_decision_uio_ids,
-                        :suggested_action, :findings::jsonb, :extraction_context::jsonb,
+                        :suggested_action, CAST(:findings AS jsonb), CAST(:extraction_context AS jsonb),
                         :supersedes_uio_id, :superseded_by_uio_id,
                         :created_at, :updated_at
                     )
@@ -1087,7 +1087,7 @@ class UIOManager:
                         :id, :uio_id,
                         :summary, :why_this_matters, :what_changed,
                         :suggested_action, :action_reasoning,
-                        :open_loops::jsonb, :priority_tier,
+                        CAST(:open_loops AS jsonb), :priority_tier,
                         :urgency_score, :importance_score, :sentiment_score,
                         :intent_classification, :conversation_id,
                         :created_at, :updated_at
@@ -1187,8 +1187,10 @@ class UIOManager:
                 "conversation_id": source.conversation_id,
                 "message_id": source.message_id,
                 "quoted_text": source.quoted_text,
-                "quoted_text_start": source.quoted_text_start,
-                "quoted_text_end": source.quoted_text_end,
+                # The unified_object_source schema stores spans as text (historical schema choice).
+                # Normalize to strings so asyncpg doesn't reject ints.
+                "quoted_text_start": str(source.quoted_text_start) if source.quoted_text_start is not None else None,
+                "quoted_text_end": str(source.quoted_text_end) if source.quoted_text_end is not None else None,
                 "segment_hash": source.segment_hash,
                 "confidence": source.confidence,
                 "added_at": now,

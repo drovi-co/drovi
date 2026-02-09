@@ -8,7 +8,7 @@
 //
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { format, startOfMonth, subMonths } from "date-fns";
+import { startOfMonth, subMonths } from "date-fns";
 import { Download, GitBranch, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDecisionStats, useDecisionUIOs, useUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -62,6 +63,7 @@ function DecisionsPage() {
   const navigate = useNavigate();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const { locale, t } = useI18n();
   const organizationId = activeOrg?.id ?? "";
 
   // State
@@ -231,9 +233,9 @@ function DecisionsPage() {
 
   const handleThreadClick = useCallback(
     () => {
-      toast.message("Source viewer coming soon");
+      toast.message(t("pages.dashboard.decisions.toasts.sourceViewerSoon"));
     },
-    []
+    [t]
   );
 
   const handleContactClick = useCallback(
@@ -255,6 +257,11 @@ function DecisionsPage() {
 
   const handleExport = useCallback(() => {
     const uioDecisions = decisionsData?.items ?? [];
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
     const markdown = uioDecisions
       .map((d) => {
         const title = d.userCorrectedTitle ?? d.canonicalTitle ?? "";
@@ -262,7 +269,7 @@ function DecisionsPage() {
           d.decisionDetails?.statement ?? d.canonicalDescription ?? "";
         const decidedAt = d.decisionDetails?.decidedAt ?? d.createdAt;
         const rationale = d.decisionDetails?.rationale ?? null;
-        return `## ${title}\n\n**Statement:** ${statement}\n\n**Date:** ${format(new Date(decidedAt), "MMMM d, yyyy")}\n\n${rationale ? `**Rationale:** ${rationale}\n\n` : ""}---\n`;
+        return `## ${title}\n\n**${t("pages.dashboard.decisions.export.statementLabel")}:** ${statement}\n\n**${t("pages.dashboard.decisions.export.dateLabel")}:** ${dateFormatter.format(new Date(decidedAt))}\n\n${rationale ? `**${t("pages.dashboard.decisions.export.rationaleLabel")}:** ${rationale}\n\n` : ""}---\n`;
       })
       .join("\n");
 
@@ -270,11 +277,12 @@ function DecisionsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `decisions-export-${format(new Date(), "yyyy-MM-dd")}.md`;
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    a.download = t("pages.dashboard.decisions.export.filename", { date: dateStamp });
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Decisions exported");
-  }, [decisionsData]);
+    toast.success(t("pages.dashboard.decisions.toasts.exported"));
+  }, [decisionsData, locale, t]);
 
   // Transform UIO data for DecisionRow
   const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map((d) => {
@@ -500,7 +508,7 @@ function DecisionsPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">
-          Select an organization to view decisions
+          {t("pages.dashboard.decisions.noOrg")}
         </p>
       </div>
     );
@@ -522,7 +530,7 @@ function DecisionsPage() {
                   className="px-3 text-sm data-[state=active]:bg-accent"
                   value="all"
                 >
-                  All
+                  {t("pages.dashboard.decisions.tabs.all")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -534,7 +542,7 @@ function DecisionsPage() {
                   className="px-3 text-sm data-[state=active]:bg-accent"
                   value="this_week"
                 >
-                  This Week
+                  {t("pages.dashboard.decisions.tabs.thisWeek")}
                   {timeCounts.thisWeek > 0 && (
                     <Badge
                       className="ml-1 px-1.5 py-0 text-[10px]"
@@ -548,13 +556,13 @@ function DecisionsPage() {
                   className="px-3 text-sm data-[state=active]:bg-accent"
                   value="this_month"
                 >
-                  This Month
+                  {t("pages.dashboard.decisions.tabs.thisMonth")}
                 </TabsTrigger>
                 <TabsTrigger
                   className="px-3 text-sm data-[state=active]:bg-accent"
                   value="last_3_months"
                 >
-                  Last 3 Months
+                  {t("pages.dashboard.decisions.tabs.last3Months")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -568,7 +576,7 @@ function DecisionsPage() {
                   className="h-8 w-[200px] pl-8 text-sm"
                   id="decision-search"
                   onChange={(e) => handleSearch(e.target.value)}
-                  placeholder="Search decisions..."
+                  placeholder={t("pages.dashboard.decisions.search.placeholder")}
                   value={searchQuery}
                 />
                 {searchQuery && (
@@ -594,7 +602,7 @@ function DecisionsPage() {
                 variant={includeSuperseded ? "secondary" : "ghost"}
               >
                 <GitBranch className="mr-1 h-4 w-4" />
-                Superseded
+                {t("pages.dashboard.decisions.filters.superseded")}
               </Button>
 
               <Button
@@ -618,9 +626,9 @@ function DecisionsPage() {
               {/* Keyboard hints */}
               <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
                 <kbd className="rounded bg-muted px-1.5 py-0.5">/</kbd>
-                <span>search</span>
+                <span>{t("pages.dashboard.decisions.keyboard.search")}</span>
                 <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
-                <span>nav</span>
+                <span>{t("pages.dashboard.decisions.keyboard.nav")}</span>
               </div>
             </div>
           </div>
@@ -683,11 +691,11 @@ function DecisionsPage() {
               </div>
               <h3 className="font-medium text-lg">
                 {isSearching
-                  ? "No decisions match your search"
-                  : "No decisions found"}
+                  ? t("pages.dashboard.decisions.empty.searchTitle")
+                  : t("pages.dashboard.decisions.empty.title")}
               </h3>
               <p className="mt-1 text-muted-foreground text-sm">
-                Decisions are automatically extracted from your emails
+                {t("pages.dashboard.decisions.empty.description")}
               </p>
             </div>
           ) : (
@@ -736,10 +744,10 @@ function DecisionsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitBranch className="h-5 w-5" />
-              Decision Evolution
+              {t("pages.dashboard.decisions.history.dialog.title")}
             </DialogTitle>
             <DialogDescription>
-              See how this decision has evolved over time
+              {t("pages.dashboard.decisions.history.dialog.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -792,7 +800,7 @@ function DecisionsPage() {
                           </h4>
                           {item.isCurrent && (
                             <Badge className="bg-purple-500" variant="default">
-                              Current
+                              {t("pages.dashboard.decisions.history.current")}
                             </Badge>
                           )}
                         </div>
@@ -805,15 +813,20 @@ function DecisionsPage() {
                           {item.statement}
                         </p>
                         <p className="mt-2 text-muted-foreground text-xs">
-                          {format(new Date(item.decidedAt), "MMMM d, yyyy")}
+                          {new Intl.DateTimeFormat(locale, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }).format(new Date(item.decidedAt))}
                           {item.supersededAt && (
                             <>
                               {" "}
-                              • Superseded{" "}
-                              {format(
-                                new Date(item.supersededAt),
-                                "MMMM d, yyyy"
-                              )}
+                              • {t("pages.dashboard.decisions.history.superseded")}{" "}
+                              {new Intl.DateTimeFormat(locale, {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              }).format(new Date(item.supersededAt))}
                             </>
                           )}
                         </p>
@@ -824,7 +837,7 @@ function DecisionsPage() {
               </div>
             ) : (
               <p className="text-center text-muted-foreground">
-                No supersession chain found
+                {t("pages.dashboard.decisions.history.empty")}
               </p>
             )}
           </div>

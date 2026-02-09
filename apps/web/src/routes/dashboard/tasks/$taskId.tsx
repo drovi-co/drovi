@@ -13,7 +13,6 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
@@ -65,6 +64,8 @@ import {
 } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
+import { formatRelativeTime } from "@/lib/intl-time";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -128,6 +129,7 @@ function TaskDetailPage() {
   const { data: activeOrg } = authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
   const queryClientInstance = useQueryClient();
+  const { locale, t: tr } = useI18n();
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -155,28 +157,28 @@ function TaskDetailPage() {
         if (uioData.createdAt) {
           timeline.push({
             id: "created",
-            eventDescription: "Task created",
+            eventDescription: tr("pages.dashboard.tasks.detail.timeline.created"),
             eventAt: uioData.createdAt,
           });
         }
         if (uioData.updatedAt) {
           timeline.push({
             id: "updated",
-            eventDescription: "Task updated",
+            eventDescription: tr("pages.dashboard.tasks.detail.timeline.updated"),
             eventAt: uioData.updatedAt,
           });
         }
         if (uioData.dueDate) {
           timeline.push({
             id: "due-date",
-            eventDescription: "Due date set",
+            eventDescription: tr("pages.dashboard.tasks.detail.timeline.dueDateSet"),
             eventAt: uioData.dueDate,
           });
         }
         if (uioData.taskDetails?.completedAt) {
           timeline.push({
             id: "completed",
-            eventDescription: "Marked complete",
+            eventDescription: tr("pages.dashboard.tasks.detail.timeline.completed"),
             eventAt: uioData.taskDetails.completedAt,
           });
         }
@@ -249,7 +251,7 @@ function TaskDetailPage() {
             queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to update task");
+            toast.error(tr("pages.dashboard.tasks.detail.toasts.updateFailed"));
           },
         }
       );
@@ -273,12 +275,12 @@ function TaskDetailPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Status updated");
+            toast.success(tr("pages.dashboard.tasks.toasts.statusUpdated"));
             refetch();
             queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to update status");
+            toast.error(tr("pages.dashboard.tasks.toasts.statusUpdateFailed"));
           },
         }
       );
@@ -302,12 +304,12 @@ function TaskDetailPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Priority updated");
+            toast.success(tr("pages.dashboard.tasks.toasts.priorityUpdated"));
             refetch();
             queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to update priority");
+            toast.error(tr("pages.dashboard.tasks.toasts.priorityUpdateFailed"));
           },
         }
       );
@@ -323,12 +325,12 @@ function TaskDetailPage() {
         { organizationId: params.organizationId, id: params.taskId },
         {
           onSuccess: () => {
-            toast.success("Task archived");
+            toast.success(tr("pages.dashboard.tasks.toasts.archived"));
             queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
             navigate({ to: "/dashboard/tasks" });
           },
           onError: () => {
-            toast.error("Failed to archive task");
+            toast.error(tr("pages.dashboard.tasks.detail.toasts.archiveFailed"));
           },
         }
       );
@@ -438,13 +440,13 @@ function TaskDetailPage() {
     if (!task) {
       return;
     }
-    if (window.confirm("Are you sure you want to delete this task?")) {
+    if (window.confirm(tr("pages.dashboard.tasks.detail.confirmDelete"))) {
       deleteMutation.mutate({
         organizationId,
         taskId: task.id,
       });
     }
-  }, [task, deleteMutation, organizationId]);
+  }, [task, deleteMutation, organizationId, tr]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -501,12 +503,12 @@ function TaskDetailPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <h2 className="font-medium text-lg">Task not found</h2>
+          <h2 className="font-medium text-lg">{tr("pages.dashboard.tasks.detail.notFound.title")}</h2>
           <p className="mt-1 text-muted-foreground text-sm">
-            This task may have been deleted or you don't have access.
+            {tr("pages.dashboard.tasks.detail.notFound.description")}
           </p>
           <Button className="mt-4" onClick={handleBack}>
-            Back to Tasks
+            {tr("pages.dashboard.tasks.detail.notFound.back")}
           </Button>
         </div>
       </div>
@@ -516,7 +518,7 @@ function TaskDetailPage() {
   const statusConfig = STATUS_CONFIG[task.status];
   const priorityConfig = PRIORITY_CONFIG[task.priority];
   const sourceConfig = SOURCE_TYPE_CONFIG[task.sourceType];
-  const dueInfo = formatDueDate(task.dueDate);
+  const dueInfo = formatDueDate(task.dueDate, { locale, t: tr });
 
   // Map status to StatusIcon status
   const iconStatus: Status =
@@ -560,13 +562,13 @@ function TaskDetailPage() {
                     <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Back (Esc)</TooltipContent>
+                <TooltipContent>{tr("pages.dashboard.tasks.detail.tooltips.back")}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Tasks</span>
+              <span className="text-muted-foreground">{tr("nav.items.tasks")}</span>
               <span className="text-muted-foreground">/</span>
               <span className="max-w-[300px] truncate font-medium text-foreground">
                 {task.title}
@@ -593,7 +595,7 @@ function TaskDetailPage() {
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>View source</TooltipContent>
+                    <TooltipContent>{tr("components.timeline.actions.viewSource")}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -615,7 +617,7 @@ function TaskDetailPage() {
                     onClick={handleDelete}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete task
+                    {tr("pages.dashboard.tasks.detail.actions.deleteTask")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -644,7 +646,7 @@ function TaskDetailPage() {
                         setEditingTitle(false);
                       }
                     }}
-                    placeholder="Task title..."
+                    placeholder={tr("pages.dashboard.tasks.detail.fields.title.placeholder")}
                     ref={titleInputRef}
                     value={title}
                   />
@@ -661,7 +663,7 @@ function TaskDetailPage() {
               {/* Description */}
               <div>
                 <label className="mb-2 block font-medium text-muted-foreground text-sm">
-                  Description
+                  {tr("pages.dashboard.tasks.detail.fields.description.label")}
                 </label>
                 {editingDescription ? (
                   <Textarea
@@ -678,7 +680,7 @@ function TaskDetailPage() {
                         handleSaveDescription();
                       }
                     }}
-                    placeholder="Add a description..."
+                    placeholder={tr("pages.dashboard.tasks.detail.fields.description.placeholder")}
                     ref={descriptionRef}
                     rows={6}
                     value={description}
@@ -690,7 +692,7 @@ function TaskDetailPage() {
                   >
                     {task.description || (
                       <span className="text-muted-foreground">
-                        Click to add description...
+                        {tr("pages.dashboard.tasks.detail.fields.description.emptyHint")}
                       </span>
                     )}
                   </div>
@@ -701,7 +703,7 @@ function TaskDetailPage() {
               {task.metadata?.sourceSnippet && (
                 <div>
                   <label className="mb-2 block font-medium text-muted-foreground text-sm">
-                    Source Preview
+                    {tr("pages.dashboard.tasks.detail.sections.sourcePreview")}
                   </label>
                   <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
                     {task.metadata.sourceSnippet}
@@ -715,7 +717,9 @@ function TaskDetailPage() {
                   <div className="mb-4 flex items-center gap-2">
                     <ExternalLink className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium text-foreground text-sm">
-                      Sources ({taskData.sources.length})
+                      {tr("pages.dashboard.tasks.detail.sections.sources", {
+                        count: taskData.sources.length,
+                      })}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -724,7 +728,7 @@ function TaskDetailPage() {
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
                         onClick={() =>
-                          toast.message("Source viewer coming soon")
+                          toast.message(tr("pages.dashboard.tasks.detail.toasts.sourceViewerSoon"))
                         }
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -732,7 +736,7 @@ function TaskDetailPage() {
                           <p className="truncate text-foreground text-sm">
                             {source.sourceType
                               ? source.sourceType.toUpperCase()
-                              : `Source ${index + 1}`}
+                              : tr("pages.dashboard.tasks.detail.sources.fallback", { index: index + 1 })}
                           </p>
                           {source.quotedText && (
                             <p className="mt-0.5 truncate text-muted-foreground text-xs">
@@ -742,10 +746,11 @@ function TaskDetailPage() {
                         </div>
                         {source.sourceTimestamp && (
                           <span className="shrink-0 text-muted-foreground text-xs">
-                            {format(
-                              new Date(source.sourceTimestamp),
-                              "MMM d, yyyy"
-                            )}
+                            {new Intl.DateTimeFormat(locale, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }).format(new Date(source.sourceTimestamp))}
                           </span>
                         )}
                       </div>
@@ -760,7 +765,7 @@ function TaskDetailPage() {
                   <div className="mb-4 flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium text-foreground text-sm">
-                      Timeline
+                      {tr("pages.dashboard.tasks.detail.sections.timeline")}
                     </span>
                   </div>
                   <div className="relative ml-2">
@@ -776,9 +781,7 @@ function TaskDetailPage() {
                               {event.eventDescription}
                             </p>
                             <p className="mt-0.5 text-muted-foreground text-xs">
-                              {formatDistanceToNow(new Date(event.eventAt), {
-                                addSuffix: true,
-                              })}
+                              {formatRelativeTime(new Date(event.eventAt), locale)}
                             </p>
                           </div>
                         </div>
@@ -793,22 +796,35 @@ function TaskDetailPage() {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium text-foreground text-sm">
-                    Team Discussion
+                    {tr("pages.dashboard.tasks.detail.sections.teamDiscussion")}
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. For now, keep updates
-                  inside the task description or link supporting evidence.
+                  {tr("pages.dashboard.tasks.detail.teamDiscussion.placeholder")}
                 </div>
               </div>
 
               {/* Timestamps */}
               <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
                 <div>
-                  Created: {format(task.createdAt, "MMM d, yyyy 'at' h:mm a")}
+                  {tr("pages.dashboard.tasks.detail.meta.created")}{" "}
+                  {new Intl.DateTimeFormat(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(task.createdAt)}
                 </div>
                 <div>
-                  Updated: {format(task.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  {tr("pages.dashboard.tasks.detail.meta.updated")}{" "}
+                  {new Intl.DateTimeFormat(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(task.updatedAt)}
                 </div>
               </div>
             </div>
@@ -818,13 +834,13 @@ function TaskDetailPage() {
           <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
               {/* Status */}
-              <PropertyRow label="Status">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.status")}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
                       <StatusIcon size="sm" status={iconStatus} />
                       <span className="text-foreground text-sm">
-                        {statusConfig.label}
+                        {tr(statusConfig.label)}
                       </span>
                     </button>
                   </DropdownMenuTrigger>
@@ -856,7 +872,7 @@ function TaskDetailPage() {
                               size="sm"
                               status={statusIcon}
                             />
-                            {config.label}
+                            {tr(config.label)}
                           </DropdownMenuItem>
                         );
                       }
@@ -866,13 +882,13 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Priority */}
-              <PropertyRow label="Priority">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.priority")}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
                       <PriorityIcon priority={iconPriority} size="sm" />
                       <span className="text-foreground text-sm">
-                        {priorityConfig.label}
+                        {tr(priorityConfig.label)}
                       </span>
                     </button>
                   </DropdownMenuTrigger>
@@ -903,7 +919,7 @@ function TaskDetailPage() {
                               priority={priorityIcon}
                               size="sm"
                             />
-                            {config.label}
+                            {tr(config.label)}
                           </DropdownMenuItem>
                         );
                       }
@@ -913,7 +929,7 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Assignee */}
-              <PropertyRow label="Assignee">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.assignee")}>
                 <div className="flex w-full items-center gap-2 rounded px-2 py-1.5">
                   {task.assignee ? (
                     <>
@@ -941,7 +957,7 @@ function TaskDetailPage() {
                         <User className="h-3 w-3 text-muted-foreground" />
                       </div>
                       <span className="text-muted-foreground text-sm">
-                        No assignee
+                        {tr("pages.dashboard.tasks.detail.properties.noAssignee")}
                       </span>
                     </>
                   )}
@@ -949,7 +965,7 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Labels */}
-              <PropertyRow label="Labels">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.labels")}>
                 <div className="px-2 py-1.5">
                   {task.labels.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -972,14 +988,14 @@ function TaskDetailPage() {
                     </div>
                   ) : (
                     <div className="text-muted-foreground text-sm">
-                      No labels
+                      {tr("pages.dashboard.tasks.detail.properties.noLabels")}
                     </div>
                   )}
                 </div>
               </PropertyRow>
 
               {/* Due Date */}
-              <PropertyRow label="Due date">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.dueDate")}>
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <input
@@ -992,14 +1008,14 @@ function TaskDetailPage() {
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value) {
-                        handleDueDateChange(new Date(value));
+                        handleDueDateChange(parseDateInputValue(value));
                       } else {
                         handleDueDateChange(undefined);
                       }
                     }}
                     type="date"
                     value={
-                      task.dueDate ? format(task.dueDate, "yyyy-MM-dd") : ""
+                      task.dueDate ? toDateInputValue(task.dueDate) : ""
                     }
                   />
                   {task.dueDate && (
@@ -1016,7 +1032,7 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Source Type */}
-              <PropertyRow label="Source">
+              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.source")}>
                 <div className="px-2 py-1.5">
                   <Badge
                     className={cn(
@@ -1026,7 +1042,7 @@ function TaskDetailPage() {
                     )}
                     variant="secondary"
                   >
-                    {sourceConfig.label}
+                    {tr(sourceConfig.label)}
                   </Badge>
                 </div>
               </PropertyRow>
@@ -1035,11 +1051,11 @@ function TaskDetailPage() {
               <div className="border-border border-t pt-4">
                 <div className="space-y-1 text-muted-foreground text-xs">
                   <div className="flex items-center justify-between">
-                    <span>Set status</span>
+                    <span>{tr("pages.dashboard.tasks.detail.keyboard.setStatus")}</span>
                     <span className="font-mono">1-6</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Go back</span>
+                    <span>{tr("pages.dashboard.tasks.detail.keyboard.goBack")}</span>
                     <kbd className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
                       Esc
                     </kbd>
@@ -1111,6 +1127,25 @@ function TaskDetailSkeleton() {
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInputValue(value: string): Date {
+  const [yearRaw, monthRaw, dayRaw] = value.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  if (!year || !month || !day) {
+    return new Date(value);
+  }
+  // Use local time for date-only inputs (avoid UTC parsing shifts).
+  return new Date(year, month - 1, day);
+}
 
 function getInitials(name: string | null, email: string): string {
   if (name) {

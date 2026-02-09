@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
+import { useI18n, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import {
@@ -74,6 +75,7 @@ export function TaskKanbanBoard({
   columns = ["backlog", "todo", "in_progress", "in_review", "done"],
   allowCreate = false,
 }: TaskKanbanBoardProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<TaskStatus | null>(null);
@@ -168,7 +170,7 @@ export function TaskKanbanBoard({
               delete next[params.taskId];
               return next;
             });
-            toast.error("Failed to move task");
+            toast.error(t("components.tasks.toasts.moveFailed"));
           },
         }
       );
@@ -317,6 +319,7 @@ function DroppableColumn({
   isDragging,
   allowCreate,
 }: DroppableColumnProps) {
+  const t = useT();
   const { setNodeRef, isOver: isDirectlyOver } = useDroppable({
     id: status,
   });
@@ -366,7 +369,7 @@ function DroppableColumn({
       >
         <StatusIcon size="md" status={iconStatus} />
         <span className="font-medium text-foreground text-sm">
-          {config.label}
+          {t(config.label)}
         </span>
         <span className="ml-auto text-muted-foreground text-sm">
           {tasks.length}
@@ -403,14 +406,14 @@ function DroppableColumn({
               initial={{ opacity: 0, height: 0 }}
             >
               <span className="font-medium text-secondary text-sm">
-                Drop here
+                {t("components.tasks.kanban.dropHere")}
               </span>
             </motion.div>
           )}
 
           {tasks.length === 0 && !showDropIndicator && (
             <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
-              No tasks
+              {t("components.tasks.kanban.emptyColumn")}
             </div>
           )}
 
@@ -429,8 +432,10 @@ function DroppableColumn({
             >
               <ChevronDown className="h-3.5 w-3.5" />
               <span>
-                Show {Math.min(remainingCount, ITEMS_PER_COLUMN)} more (
-                {remainingCount})
+                {t("components.tasks.pagination.showMore", {
+                  count: Math.min(remainingCount, ITEMS_PER_COLUMN),
+                  remaining: remainingCount,
+                })}
               </span>
             </button>
           )}
@@ -446,7 +451,7 @@ function DroppableColumn({
             variant="ghost"
           >
             <Plus className="h-4 w-4" />
-            Add task
+            {t("components.tasks.kanban.addTask")}
           </Button>
         </div>
       )}
@@ -518,8 +523,9 @@ function KanbanCard({
   onClick,
   dragHandleProps,
 }: KanbanCardProps) {
+  const { locale, t } = useI18n();
   const sourceConfig = SOURCE_TYPE_CONFIG[task.sourceType];
-  const dueInfo = formatDueDate(task.dueDate);
+  const dueInfo = formatDueDate(task.dueDate, { locale, t });
   const iconPriority = mapPriorityToIcon(task.priority);
 
   // Get initials for avatar fallback
@@ -603,7 +609,7 @@ function KanbanCard({
           <PriorityIcon priority={iconPriority} size="sm" />
         </div>
         <span className={cn("truncate text-[11px]", sourceConfig.color)}>
-          {sourceConfig.label}
+          {t(sourceConfig.label)}
         </span>
 
         <div className="min-w-0 flex-1" />

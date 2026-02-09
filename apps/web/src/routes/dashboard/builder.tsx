@@ -46,6 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 import { continuumsAPI, type ContinuumSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/builder")({
   component: ContinuumBuilderPage,
@@ -120,6 +121,7 @@ function ContinuumBuilderPage() {
   const queryClient = useQueryClient();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   const [mode, setMode] = useState<"create" | "update">("create");
@@ -154,10 +156,10 @@ function ContinuumBuilderPage() {
         activate: activateOnSave,
       }),
     onSuccess: () => {
-      toast.success("Continuum created");
+      toast.success(t("pages.dashboard.builder.toasts.created"));
       queryClient.invalidateQueries({ queryKey: ["continuums"] });
     },
-    onError: () => toast.error("Failed to create continuum"),
+    onError: () => toast.error(t("pages.dashboard.builder.toasts.createFailed")),
   });
 
   const updateMutation = useMutation({
@@ -169,10 +171,10 @@ function ContinuumBuilderPage() {
         activate: activateOnSave,
       }),
     onSuccess: () => {
-      toast.success("Continuum version added");
+      toast.success(t("pages.dashboard.builder.toasts.versionAdded"));
       queryClient.invalidateQueries({ queryKey: ["continuums"] });
     },
-    onError: () => toast.error("Failed to add version"),
+    onError: () => toast.error(t("pages.dashboard.builder.toasts.versionAddFailed")),
   });
 
   const handleGenerateTemplate = () => {
@@ -193,7 +195,7 @@ function ContinuumBuilderPage() {
     try {
       const parsed = JSON.parse(definitionText) as Record<string, unknown>;
       if (!parsed.name || !parsed.goal || !parsed.steps) {
-        throw new Error("Definition must include name, goal, and steps");
+        throw new Error(t("pages.dashboard.builder.validation.missingFields"));
       }
       setValidationError(null);
       return parsed;
@@ -201,7 +203,7 @@ function ContinuumBuilderPage() {
       setValidationError(
         error instanceof Error
           ? error.message
-          : "Invalid JSON definition"
+          : t("pages.dashboard.builder.validation.invalidJson")
       );
       return null;
     }
@@ -215,7 +217,7 @@ function ContinuumBuilderPage() {
       createMutation.mutate(parsed);
     } else {
       if (!selectedContinuumId) {
-        toast.error("Select a continuum to update");
+        toast.error(t("pages.dashboard.builder.toasts.selectToUpdate"));
         return;
       }
       updateMutation.mutate(parsed);
@@ -233,7 +235,7 @@ function ContinuumBuilderPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to build Continuums
+        {t("pages.dashboard.builder.noOrg")}
       </div>
     );
   }
@@ -245,23 +247,24 @@ function ContinuumBuilderPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <LayoutPanelLeft className="h-3 w-3" />
-              Continuum Builder
+              {t("pages.dashboard.builder.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Design missions that never lose context
+              {t("pages.dashboard.builder.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Start from intent, refine the DSL, and ship a Continuum to runtime
-              in seconds.
+              {t("pages.dashboard.builder.description")}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Badge className="border border-primary/30 bg-primary/10 text-primary">
-              JSON DSL
+              {t("pages.dashboard.builder.badges.dsl")}
             </Badge>
             <Button onClick={handleSave} size="sm">
               <Rocket className="mr-2 h-4 w-4" />
-              {mode === "create" ? "Publish Continuum" : "Publish Version"}
+              {mode === "create"
+                ? t("pages.dashboard.builder.actions.publishContinuum")
+                : t("pages.dashboard.builder.actions.publishVersion")}
             </Button>
           </div>
         </div>
@@ -273,21 +276,20 @@ function ContinuumBuilderPage() {
           <CardHeader className="relative">
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Intent Canvas
+              {t("pages.dashboard.builder.intent.title")}
             </CardTitle>
             <CardDescription>
-              Describe what the Continuum should protect. We’ll draft the DSL
-              for you.
+              {t("pages.dashboard.builder.intent.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="relative space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="intent">Mission intent</Label>
+              <Label htmlFor="intent">{t("pages.dashboard.builder.intent.fields.intent.label")}</Label>
               <Textarea
                 className="min-h-[140px]"
                 id="intent"
                 onChange={(event) => setIntentDraft(event.target.value)}
-                placeholder="Example: Keep every executive commitment on track, escalate risks within 24 hours, and maintain an evidence chain for every action."
+                placeholder={t("pages.dashboard.builder.intent.fields.intent.placeholder")}
                 value={intentDraft}
               />
             </div>
@@ -299,10 +301,10 @@ function ContinuumBuilderPage() {
                 variant="outline"
               >
                 <FileText className="mr-2 h-4 w-4" />
-                Draft from intent
+                {t("pages.dashboard.builder.intent.actions.draft")}
               </Button>
               <Badge variant="secondary">
-                Auto-populates `metadata.intent`
+                {t("pages.dashboard.builder.intent.badges.autoPopulates")}
               </Badge>
             </div>
 
@@ -310,7 +312,7 @@ function ContinuumBuilderPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Publish mode</Label>
+                <Label>{t("pages.dashboard.builder.publishMode.label")}</Label>
                 <Select
                   onValueChange={(value) =>
                     setMode(value as "create" | "update")
@@ -318,16 +320,16 @@ function ContinuumBuilderPage() {
                   value={mode}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={t("pages.dashboard.builder.publishMode.placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="create">Create new continuum</SelectItem>
-                    <SelectItem value="update">Add new version</SelectItem>
+                    <SelectItem value="create">{t("pages.dashboard.builder.publishMode.options.create")}</SelectItem>
+                    <SelectItem value="update">{t("pages.dashboard.builder.publishMode.options.update")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Target continuum</Label>
+                <Label>{t("pages.dashboard.builder.target.label")}</Label>
                 <Select
                   disabled={mode !== "update"}
                   onValueChange={setSelectedContinuumId}
@@ -337,8 +339,8 @@ function ContinuumBuilderPage() {
                     <SelectValue
                       placeholder={
                         mode === "update"
-                          ? "Select Continuum"
-                          : "Not required"
+                          ? t("pages.dashboard.builder.target.selectPlaceholder")
+                          : t("pages.dashboard.builder.target.notRequired")
                       }
                     />
                   </SelectTrigger>
@@ -355,12 +357,12 @@ function ContinuumBuilderPage() {
                     className="mt-2"
                     error={continuumsErrorObj}
                     onRetry={() => refetchContinuums()}
-                    retryLabel="Reload continuums"
+                    retryLabel={t("pages.dashboard.builder.target.reload")}
                   />
                 )}
                 {mode === "update" && !selectedContinuum && (
                   <p className="text-muted-foreground text-xs">
-                    Choose a continuum to append a version.
+                    {t("pages.dashboard.builder.target.hint")}
                   </p>
                 )}
               </div>
@@ -368,9 +370,9 @@ function ContinuumBuilderPage() {
 
             <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
               <div>
-                <p className="font-medium text-sm">Activate immediately</p>
+                <p className="font-medium text-sm">{t("pages.dashboard.builder.activation.title")}</p>
                 <p className="text-muted-foreground text-xs">
-                  Runs on schedule after publish.
+                  {t("pages.dashboard.builder.activation.description")}
                 </p>
               </div>
               <Switch
@@ -385,10 +387,10 @@ function ContinuumBuilderPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Braces className="h-5 w-5 text-primary" />
-              Continuum Definition (JSON)
+              {t("pages.dashboard.builder.definition.title")}
             </CardTitle>
             <CardDescription>
-              Paste or edit the DSL. Validate before publishing.
+              {t("pages.dashboard.builder.definition.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -404,22 +406,22 @@ function ContinuumBuilderPage() {
 
             {validationError ? (
               <Alert variant="destructive">
-                <AlertTitle>Invalid definition</AlertTitle>
+                <AlertTitle>{t("pages.dashboard.builder.definition.invalidTitle")}</AlertTitle>
                 <AlertDescription>{validationError}</AlertDescription>
               </Alert>
             ) : (
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Ready to publish</AlertTitle>
+                <AlertTitle>{t("pages.dashboard.builder.definition.readyTitle")}</AlertTitle>
                 <AlertDescription>
-                  Definition validated. Publish to runtime when ready.
+                  {t("pages.dashboard.builder.definition.readyDescription")}
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={parseDefinition} size="sm" variant="outline">
-                Validate JSON
+                {t("pages.dashboard.builder.actions.validateJson")}
               </Button>
               <Button onClick={handleSave} size="sm">
                 {createMutation.isPending || updateMutation.isPending ? (
@@ -427,11 +429,13 @@ function ContinuumBuilderPage() {
                 ) : (
                   <Rocket className="mr-2 h-4 w-4" />
                 )}
-                {mode === "create" ? "Publish Continuum" : "Publish Version"}
+                {mode === "create"
+                  ? t("pages.dashboard.builder.actions.publishContinuum")
+                  : t("pages.dashboard.builder.actions.publishVersion")}
               </Button>
               {selectedContinuum && (
                 <Badge variant="secondary">
-                  Target: {selectedContinuum.name}
+                  {t("pages.dashboard.builder.target.badge", { name: selectedContinuum.name })}
                 </Badge>
               )}
             </div>

@@ -260,6 +260,7 @@ function SidebarTrigger({
 
   return (
     <Button
+      aria-label="Toggle Sidebar"
       className={cn("size-7", className)}
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
@@ -272,7 +273,6 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );
 }

@@ -12,7 +12,6 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
@@ -51,7 +50,9 @@ import {
   type TimelineEvent,
 } from "@/components/unified-object/timeline";
 import { useCorrectUIO, useUIO, useUpdateUIO } from "@/hooks/use-uio";
+import { useI18n, useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
+import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -74,21 +75,21 @@ export const Route = createFileRoute("/dashboard/uio/$uioId")({
 const TYPE_CONFIG = {
   commitment: {
     icon: CheckCircle2,
-    label: "Commitment",
+    labelKey: "pages.dashboard.uioDetail.types.commitment",
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     borderColor: "border-blue-500/30",
   },
   decision: {
     icon: CircleDot,
-    label: "Decision",
+    labelKey: "pages.dashboard.uioDetail.types.decision",
     color: "text-purple-500",
     bgColor: "bg-purple-500/10",
     borderColor: "border-purple-500/30",
   },
   topic: {
     icon: CircleDot,
-    label: "Topic",
+    labelKey: "pages.dashboard.uioDetail.types.topic",
     color: "text-gray-500",
     bgColor: "bg-gray-500/10",
     borderColor: "border-gray-500/30",
@@ -97,25 +98,25 @@ const TYPE_CONFIG = {
 
 const STATUS_CONFIG = {
   active: {
-    label: "Active",
+    labelKey: "pages.dashboard.uioDetail.status.active",
     color: "text-green-500",
     bgColor: "bg-green-500/10",
     borderColor: "border-green-500/30",
   },
   archived: {
-    label: "Archived",
+    labelKey: "pages.dashboard.uioDetail.status.archived",
     color: "text-gray-500",
     bgColor: "bg-gray-500/10",
     borderColor: "border-gray-500/30",
   },
   dismissed: {
-    label: "Dismissed",
+    labelKey: "pages.dashboard.uioDetail.status.dismissed",
     color: "text-red-500",
     bgColor: "bg-red-500/10",
     borderColor: "border-red-500/30",
   },
   merged: {
-    label: "Merged",
+    labelKey: "pages.dashboard.uioDetail.status.merged",
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
     borderColor: "border-orange-500/30",
@@ -135,6 +136,8 @@ function UIODetailPage() {
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
   const queryClient = useQueryClient();
+  const t = useT();
+  const { locale } = useI18n();
 
   // Smart back navigation
   const handleBack = () => {
@@ -176,12 +179,16 @@ function UIODetailPage() {
           { id: uioId, status: data.status },
           {
             onSuccess: () => {
-              toast.success("Updated successfully");
+              toast.success(t("pages.dashboard.uioDetail.toasts.updated"));
               refetch();
               setEditingTitle(false);
             },
             onError: (error) => {
-              toast.error(error instanceof Error ? error.message : "Failed to update");
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : t("pages.dashboard.uioDetail.toasts.updateFailed")
+              );
             },
           }
         );
@@ -197,7 +204,7 @@ function UIODetailPage() {
       return;
     }
     if (!organizationId) {
-      toast.error("Organization not available");
+      toast.error(t("pages.dashboard.uioDetail.toasts.orgUnavailable"));
       return;
     }
     correctionMutation.mutate(
@@ -208,12 +215,16 @@ function UIODetailPage() {
       },
       {
         onSuccess: () => {
-          toast.success("Title updated");
+          toast.success(t("pages.dashboard.uioDetail.toasts.titleUpdated"));
           refetch();
           setEditingTitle(false);
         },
         onError: (error) => {
-          toast.error(error instanceof Error ? error.message : "Failed to update");
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : t("pages.dashboard.uioDetail.toasts.updateFailed")
+          );
         },
       }
     );
@@ -237,13 +248,15 @@ function UIODetailPage() {
     return (
       <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center">
         <XCircle className="mb-4 size-12 text-muted-foreground" />
-        <h2 className="font-semibold text-lg">Not Found</h2>
+        <h2 className="font-semibold text-lg">
+          {t("pages.dashboard.uioDetail.notFound.title")}
+        </h2>
         <p className="mb-4 text-muted-foreground">
-          This unified object doesn't exist or you don't have access to it.
+          {t("pages.dashboard.uioDetail.notFound.description")}
         </p>
         <Button onClick={handleBack} variant="outline">
           <ArrowLeft className="mr-2 size-4" />
-          Go Back
+          {t("pages.dashboard.uioDetail.notFound.back")}
         </Button>
       </div>
     );
@@ -280,9 +293,9 @@ function UIODetailPage() {
         {
           id: "created",
           eventType: "created" as TimelineEvent["eventType"],
-          eventDescription: "Intelligence extracted",
+          eventDescription: t("pages.dashboard.uioDetail.timeline.extracted"),
           sourceType: "email",
-          sourceName: "Email",
+          sourceName: t("evidenceChain.sources.email"),
           messageId: null,
           quotedText: null,
           confidence: uioData.overallConfidence ?? uioData.confidence ?? 0.8,
@@ -303,7 +316,7 @@ function UIODetailPage() {
           <div className="mb-4 flex items-center gap-4">
             <Button onClick={handleBack} size="sm" variant="ghost">
               <ArrowLeft className="mr-2 size-4" />
-              Back
+              {t("common.actions.back")}
             </Button>
 
             <div className="flex items-center gap-2">
@@ -316,14 +329,16 @@ function UIODetailPage() {
                 variant="outline"
               >
                 <TypeIcon className={cn("size-3", typeConfig.color)} />
-                {typeConfig.label}
+                {t(typeConfig.labelKey)}
               </Badge>
 
               <Badge
                 className={cn(statusConfig.bgColor, statusConfig.borderColor)}
                 variant="outline"
               >
-                <span className={statusConfig.color}>{statusConfig.label}</span>
+                <span className={statusConfig.color}>
+                  {t(statusConfig.labelKey)}
+                </span>
               </Badge>
 
               {isUserVerified && (
@@ -332,7 +347,7 @@ function UIODetailPage() {
                   variant="outline"
                 >
                   <Check className="mr-1 size-3" />
-                  Verified
+                  {t("pages.dashboard.uioDetail.verified")}
                 </Badge>
               )}
             </div>
@@ -340,7 +355,9 @@ function UIODetailPage() {
             <div className="ml-auto flex items-center gap-2">
               <Button onClick={handleVerify} size="sm" variant="outline">
                 <Check className="mr-2 size-4" />
-                {isUserVerified ? "Unverify" : "Verify"}
+                {isUserVerified
+                  ? t("pages.dashboard.uioDetail.actions.unverify")
+                  : t("pages.dashboard.uioDetail.actions.verify")}
               </Button>
 
               <DropdownMenu>
@@ -353,12 +370,12 @@ function UIODetailPage() {
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("archived")}
                   >
-                    Archive
+                    {t("pages.dashboard.uioDetail.actions.archive")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleStatusChange("dismissed")}
                   >
-                    Dismiss
+                    {t("pages.dashboard.uioDetail.actions.dismiss")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -366,7 +383,7 @@ function UIODetailPage() {
                     onClick={() => handleStatusChange("dismissed")}
                   >
                     <Trash2 className="mr-2 size-4" />
-                    Delete
+                    {t("common.actions.delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -392,14 +409,14 @@ function UIODetailPage() {
                   value={correctedTitle}
                 />
                 <Button onClick={handleSaveTitle} size="sm">
-                  Save
+                  {t("common.actions.save")}
                 </Button>
                 <Button
                   onClick={() => setEditingTitle(false)}
                   size="sm"
                   variant="ghost"
                 >
-                  Cancel
+                  {t("common.actions.cancel")}
                 </Button>
               </div>
             ) : (
@@ -427,7 +444,11 @@ function UIODetailPage() {
           {uioData.evidenceId && (
             <div className="mt-3 flex items-center gap-2 text-muted-foreground text-xs">
               <ExternalLink className="h-3 w-3" />
-              <span>Evidence: {uioData.evidenceId.slice(0, 8)}...</span>
+              <span>
+                {t("pages.dashboard.uioDetail.evidence.short", {
+                  id: uioData.evidenceId.slice(0, 8),
+                })}
+              </span>
             </div>
           )}
         </div>
@@ -442,11 +463,15 @@ function UIODetailPage() {
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <Calendar className="size-4" />
                     <span className="font-medium text-xs uppercase">
-                      Due Date
+                      {t("pages.dashboard.uioDetail.meta.dueDate")}
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {format(new Date(uioData.dueDate), "MMM d, yyyy")}
+                    {new Intl.DateTimeFormat(locale, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    }).format(new Date(uioData.dueDate))}
                   </p>
                 </div>
               )}
@@ -456,7 +481,9 @@ function UIODetailPage() {
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <User className="size-4" />
                     <span className="font-medium text-xs uppercase">
-                      {uioData.direction === "owed_to_me" ? "From" : "To"}
+                      {uioData.direction === "owed_to_me"
+                        ? t("pages.dashboard.uioDetail.meta.from")
+                        : t("pages.dashboard.uioDetail.meta.to")}
                     </span>
                   </div>
                   <p className="font-medium text-sm">
@@ -473,14 +500,18 @@ function UIODetailPage() {
                 <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                   <Clock className="size-4" />
                   <span className="font-medium text-xs uppercase">
-                    Confidence
+                    {t("pages.dashboard.uioDetail.meta.confidence")}
                   </span>
                 </div>
                 <p className="font-medium text-sm">
                   {Math.round(
                     (uioData.overallConfidence ?? uioData.confidence ?? 0) * 100
                   )}
-                  % ({uioData.confidenceTier || "medium"})
+                  % (
+                  {t(
+                    `pages.dashboard.uioDetail.confidenceTier.${uioData.confidenceTier || "medium"}`
+                  )}
+                  )
                 </p>
               </div>
 
@@ -489,13 +520,11 @@ function UIODetailPage() {
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                     <Clock className="size-4" />
                     <span className="font-medium text-xs uppercase">
-                      Created
+                      {t("pages.dashboard.uioDetail.meta.created")}
                     </span>
                   </div>
                   <p className="font-medium text-sm">
-                    {formatDistanceToNow(new Date(uioData.createdAt), {
-                      addSuffix: true,
-                    })}
+                    {formatRelativeTime(new Date(uioData.createdAt), locale)}
                   </p>
                 </div>
               )}
@@ -504,7 +533,9 @@ function UIODetailPage() {
             {/* Description */}
             {uioData.description && (
               <div className="rounded-lg border bg-card p-4">
-                <h3 className="mb-2 font-medium text-sm">Description</h3>
+                <h3 className="mb-2 font-medium text-sm">
+                  {t("pages.dashboard.uioDetail.sections.description")}
+                </h3>
                 <p className="text-muted-foreground">
                   {uioData.description}
                 </p>
@@ -516,12 +547,34 @@ function UIODetailPage() {
               <div>
                 <h3 className="mb-3 flex items-center gap-2 font-medium text-sm">
                   <ExternalLink className="size-4" />
-                  Evidence Chain ({evidenceSources.length} sources)
+                  {evidenceSources.length === 1
+                    ? t("evidenceChain.headingOne", {
+                        count: evidenceSources.length,
+                      })
+                    : t("evidenceChain.headingMany", {
+                        count: evidenceSources.length,
+                      })}
                 </h3>
                 <EvidenceChain
                   collapsible={false}
-                  onViewSource={() => {
-                    toast.message("Source viewer coming soon");
+                  onViewSource={(source) => {
+                    if (
+                      source.sourceType === "document" &&
+                      source.conversationId &&
+                      source.messageId
+                    ) {
+                      navigate({
+                        to: "/dashboard/drive",
+                        search: {
+                          tab: "browse",
+                          doc: source.conversationId ?? undefined,
+                          chunk: source.messageId ?? undefined,
+                          quote: source.quotedText ?? undefined,
+                        },
+                      });
+                      return;
+                    }
+                    toast.message(t("pages.dashboard.uioDetail.toasts.sourceViewerSoon"));
                   }}
                   sources={evidenceSources}
                 />
@@ -533,7 +586,13 @@ function UIODetailPage() {
               <div>
                 <h3 className="mb-3 flex items-center gap-2 font-medium text-sm">
                   <Clock className="size-4" />
-                  History ({timelineEvents.length} events)
+                  {timelineEvents.length === 1
+                    ? t("pages.dashboard.uioDetail.sections.historyOne", {
+                        count: timelineEvents.length,
+                      })
+                    : t("pages.dashboard.uioDetail.sections.historyMany", {
+                        count: timelineEvents.length,
+                      })}
                 </h3>
                 <Timeline
                   events={timelineEvents}
@@ -547,10 +606,11 @@ function UIODetailPage() {
 
             {/* Comments & Discussion */}
             <div>
-              <h3 className="mb-3 font-medium text-sm">Discussion</h3>
+              <h3 className="mb-3 font-medium text-sm">
+                {t("pages.dashboard.uioDetail.sections.discussion")}
+              </h3>
               <div className="rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                Collaborative threads are coming soon. Capture decisions in the
-                notes section or attach evidence from sources.
+                {t("pages.dashboard.uioDetail.discussion.placeholder")}
               </div>
             </div>
           </div>

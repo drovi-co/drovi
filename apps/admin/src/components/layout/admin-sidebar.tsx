@@ -19,44 +19,57 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { NavMain, type NavItem } from "./nav-main";
+import { useT } from "@/i18n";
 import { useAdminAuthStore } from "@/lib/auth";
 
-const overviewNav: NavItem[] = [
-  { title: "Overview", url: "/dashboard", icon: Activity },
+type NavItemTemplate = Omit<NavItem, "title"> & { titleKey: string };
+
+const overviewNav: NavItemTemplate[] = [
+  { titleKey: "admin.nav.items.overview", url: "/dashboard", icon: Activity },
 ];
 
-const opsNav: NavItem[] = [
-  { title: "Organizations", url: "/dashboard/orgs", icon: Building2 },
-  { title: "Users", url: "/dashboard/users", icon: Users },
-  { title: "Connectors", url: "/dashboard/connectors", icon: Cable },
-  { title: "Jobs", url: "/dashboard/jobs", icon: Layers3 },
-  { title: "Tickets", url: "/dashboard/tickets", icon: Inbox },
-  { title: "Exchange", url: "/dashboard/exchange", icon: Gavel },
+const opsNav: NavItemTemplate[] = [
+  { titleKey: "admin.nav.items.organizations", url: "/dashboard/orgs", icon: Building2 },
+  { titleKey: "admin.nav.items.users", url: "/dashboard/users", icon: Users },
+  { titleKey: "admin.nav.items.connectors", url: "/dashboard/connectors", icon: Cable },
+  { titleKey: "admin.nav.items.jobs", url: "/dashboard/jobs", icon: Layers3 },
+  { titleKey: "admin.nav.items.tickets", url: "/dashboard/tickets", icon: Inbox },
+  { titleKey: "admin.nav.items.exchange", url: "/dashboard/exchange", icon: Gavel },
 ];
 
 export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const t = useT();
   const me = useAdminAuthStore((s) => s.me);
   const logout = useAdminAuthStore((s) => s.logout);
+
+  const overviewItems: NavItem[] = overviewNav.map((item) => ({
+    ...item,
+    title: t(item.titleKey),
+  }));
+  const opsItems: NavItem[] = opsNav.map((item) => ({
+    ...item,
+    title: t(item.titleKey),
+  }));
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-14 justify-center">
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <div className="h-8 w-8 rounded-lg bg-foreground" />
-          <div className="flex-1">
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <div className="truncate font-semibold text-sm leading-tight">
-              Drovi Admin
+              {t("admin.appName")}
             </div>
             <div className="truncate text-muted-foreground text-[11px] leading-tight">
-              Live operations
+              {t("admin.tagline")}
             </div>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={overviewNav} label="Dashboard" />
-        <NavMain items={opsNav} label="Operations" />
+        <NavMain items={overviewItems} label={t("admin.nav.groups.dashboard")} />
+        <NavMain items={opsItems} label={t("admin.nav.groups.operations")} />
       </SidebarContent>
 
       <SidebarFooter>
@@ -65,10 +78,10 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               className="justify-between"
               onClick={() => void logout()}
-              tooltip="Log out"
+              tooltip={t("admin.actions.logout")}
             >
               <span className="truncate text-xs text-muted-foreground">
-                {me?.email ?? "Admin"}
+                {me?.email ?? t("admin.userFallback")}
               </span>
               <LogOut className="size-4" />
             </SidebarMenuButton>

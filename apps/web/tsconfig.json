@@ -12,7 +12,8 @@
     "rootDirs": ["."],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@memorystack/i18n": ["../../packages/i18n/src/index.tsx"]
     }
   }
 }

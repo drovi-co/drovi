@@ -11,17 +11,20 @@ OpenAPI Tags:
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 import structlog
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
+from src.config import get_settings
+from src.connectors.http import request_with_retry
 from src.monitoring import (
     get_metrics,
     get_health_checker,
     HealthStatus,
 )
+from src.notifications.resend import send_resend_email
 
 logger = structlog.get_logger()
 
@@ -532,3 +535,147 @@ async def trigger_decay(
     except Exception as e:
         logger.error("Decay computation failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Decay computation failed: {str(e)}")
+
+
+def _split_recipients(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    parts = [p.strip() for p in raw.replace(";", ",").split(",")]
+    return [p for p in parts if p]
+
+
+def _format_alerts_text(payload: dict[str, Any]) -> str:
+    alerts = payload.get("alerts") or []
+    lines: list[str] = []
+    status = payload.get("status") or "unknown"
+    lines.append(f"Drovi monitoring alert webhook ({status})")
+    lines.append("")
+    for alert in alerts:
+        labels = alert.get("labels") or {}
+        annotations = alert.get("annotations") or {}
+        alertname = labels.get("alertname") or "Alert"
+        severity = labels.get("severity") or "unknown"
+        summary = annotations.get("summary") or ""
+        description = annotations.get("description") or ""
+        starts_at = alert.get("startsAt") or ""
+        ends_at = alert.get("endsAt") or ""
+        lines.append(f"- {alertname} [{severity}] ({alert.get('status')})")
+        if summary:
+            lines.append(f"  {summary}")
+        if description and description != summary:
+            lines.append(f"  {description}")
+        if starts_at:
+            lines.append(f"  startsAt: {starts_at}")
+        if ends_at and ends_at != "0001-01-01T00:00:00Z":
+            lines.append(f"  endsAt: {ends_at}")
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_alerts_html(payload: dict[str, Any]) -> str:
+    alerts = payload.get("alerts") or []
+    status = payload.get("status") or "unknown"
+    items: list[str] = []
+    for alert in alerts:
+        labels = alert.get("labels") or {}
+        annotations = alert.get("annotations") or {}
+        alertname = labels.get("alertname") or "Alert"
+        severity = labels.get("severity") or "unknown"
+        summary = annotations.get("summary") or ""
+        description = annotations.get("description") or ""
+        starts_at = alert.get("startsAt") or ""
+        ends_at = alert.get("endsAt") or ""
+        items.append(
+            "<div style='padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;margin:10px 0;'>"
+            f"<div style='font-weight:700;font-size:14px;'>{alertname}</div>"
+            f"<div style='font-size:12px;color:#6b7280;margin-top:2px;'>severity: {severity} · status: {alert.get('status')}</div>"
+            + (f"<div style='margin-top:10px;font-size:13px;'><b>{summary}</b></div>" if summary else "")
+            + (f"<div style='margin-top:6px;font-size:13px;color:#374151;'>{description}</div>" if description and description != summary else "")
+            + (f"<div style='margin-top:8px;font-size:12px;color:#6b7280;'>startsAt: {starts_at}</div>" if starts_at else "")
+            + (f"<div style='margin-top:2px;font-size:12px;color:#6b7280;'>endsAt: {ends_at}</div>" if ends_at and ends_at != "0001-01-01T00:00:00Z" else "")
+            + "</div>"
+        )
+
+    return (
+        "<div style='font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;'>"
+        f"<div style='font-size:16px;font-weight:800;margin-bottom:6px;'>Drovi monitoring alerts</div>"
+        f"<div style='font-size:12px;color:#6b7280;margin-bottom:14px;'>status: {status} · alerts: {len(alerts)}</div>"
+        + "".join(items)
+        + "</div>"
+    )
+
+
+async def _post_slack_webhook(webhook_url: str, text: str) -> bool:
+    import httpx
+
+    if not webhook_url:
+        return False
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await request_with_retry(
+            client,
+            "POST",
+            webhook_url,
+            json={"text": text},
+            max_attempts=3,
+        )
+    return response.status_code < 400
+
+
+@router.post(
+    "/alerts/webhook",
+    summary="Alertmanager webhook receiver",
+    description="Receives Alertmanager webhooks and forwards to Slack/Email.",
+)
+async def alertmanager_webhook(
+    token: str | None = Query(default=None),
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    settings = get_settings()
+
+    expected_token = settings.monitoring_alert_webhook_token
+    if not expected_token and settings.environment != "production":
+        expected_token = "dev"
+
+    if not expected_token:
+        logger.warning("Alert webhook is not configured (missing token)")
+        raise HTTPException(status_code=503, detail="Alert webhook not configured")
+
+    if token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid alert webhook token")
+
+    alerts = payload.get("alerts") or []
+    alert_count = len(alerts)
+
+    # Build a concise subject and message.
+    common_labels = payload.get("commonLabels") or {}
+    common_alertname = common_labels.get("alertname")
+    status = payload.get("status") or ("firing" if any(a.get("status") == "firing" for a in alerts) else "unknown")
+    subject = f"[Drovi] {status}: {common_alertname or f'{alert_count} alert(s)'}"
+
+    text_body = _format_alerts_text(payload)
+    html_body = _format_alerts_html(payload)
+
+    slack_ok = False
+    if settings.monitoring_alert_slack_webhook_url:
+        slack_ok = await _post_slack_webhook(settings.monitoring_alert_slack_webhook_url, text_body)
+
+    email_ok = False
+    recipients = _split_recipients(settings.monitoring_alert_email_to)
+    if recipients:
+        email_ok = await send_resend_email(
+            to_emails=recipients,
+            subject=subject,
+            html_body=html_body,
+            text_body=text_body,
+            tags={"type": "monitoring_alert", "status": str(status)},
+        )
+
+    logger.info(
+        "Alert webhook processed",
+        status=status,
+        alerts=alert_count,
+        slack_ok=slack_ok,
+        email_ok=email_ok,
+    )
+
+    return {"ok": True, "alerts": alert_count, "slack_ok": slack_ok, "email_ok": email_ok}

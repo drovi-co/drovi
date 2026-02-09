@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { adminAPI, type KPIBlock } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/")({
@@ -27,6 +28,7 @@ function formatValue(block: KPIBlock): string {
 }
 
 function BlockCard(props: { block: KPIBlock }) {
+  const t = useT();
   const value = formatValue(props.block);
   return (
     <Card className="border-border/70">
@@ -48,14 +50,14 @@ function BlockCard(props: { block: KPIBlock }) {
                   ? "border-success/30 bg-success/5 text-success-foreground"
                   : "border-destructive/30 bg-destructive/5 text-destructive"
               )}
-              title="Delta (5m)"
+              title={t("admin.overview.deltaTitle")}
             >
               {props.block.delta_5m >= 0 ? "+" : ""}
               {props.block.delta_5m.toFixed(0)}
             </div>
           ) : (
             <div className="text-muted-foreground text-[11px]">
-              live
+              {t("admin.overview.live")}
             </div>
           )}
         </div>
@@ -65,6 +67,7 @@ function BlockCard(props: { block: KPIBlock }) {
 }
 
 function AdminOverviewPage() {
+  const t = useT();
   const q = useQuery({
     queryKey: ["admin-kpis"],
     queryFn: () => adminAPI.getKpis(),
@@ -94,10 +97,14 @@ function AdminOverviewPage() {
     return (
       <Card className="border-border/70">
         <CardHeader>
-          <CardTitle className="text-sm">Failed to load KPIs</CardTitle>
+          <CardTitle className="text-sm">
+            {t("admin.overview.errors.failedToLoadKpis")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {q.error instanceof Error ? q.error.message : "Unknown error"}
+          {q.error instanceof Error
+            ? q.error.message
+            : t("common.messages.unknownError")}
         </CardContent>
       </Card>
     );
@@ -120,7 +127,9 @@ function AdminOverviewPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle className="text-sm">Connections by Type</CardTitle>
+            <CardTitle className="text-sm">
+              {t("admin.overview.sections.connectionsByType")}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {connectionsByType.length ? (
@@ -136,10 +145,10 @@ function AdminOverviewPage() {
                     <div className="tabular-nums">{row.count}</div>
                   </div>
                 ))}
-              </div>
+                </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                No connections yet.
+                {t("admin.overview.sections.noConnections")}
               </div>
             )}
           </CardContent>
@@ -147,16 +156,16 @@ function AdminOverviewPage() {
 
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle className="text-sm">Notes</CardTitle>
+            <CardTitle className="text-sm">
+              {t("admin.overview.sections.notesTitle")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <div>
-              KPIs update every 5 seconds. TV mode uses fullscreen for wall
-              displays.
+              {t("admin.overview.notes.kpisRefresh")}
             </div>
             <div>
-              For deeper operational controls, use the Jobs and Connectors
-              pages.
+              {t("admin.overview.notes.opsControls")}
             </div>
           </CardContent>
         </Card>
@@ -164,4 +173,3 @@ function AdminOverviewPage() {
     </div>
   );
 }
-

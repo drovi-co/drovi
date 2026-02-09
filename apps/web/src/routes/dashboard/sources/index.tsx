@@ -77,6 +77,7 @@ import {
   type ConnectorMeta,
 } from "@/lib/connectors";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/sources/")({
   component: SourcesPage,
@@ -98,6 +99,7 @@ type ConnectorCard = ConnectorMeta & {
 
 function SourcesPage() {
   const { user, isLoading: authLoading } = useAuthStore();
+  const t = useT();
   const queryClient = useQueryClient();
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
@@ -147,7 +149,7 @@ function SourcesPage() {
           .replace(/\b\w/g, (m) => m.toUpperCase()),
         icon: FileText,
         color: "#64748B",
-        description: "Custom connector",
+        descriptionKey: "pages.dashboard.sources.customConnector",
         category: "knowledge" as const,
         available: true,
         configured: connector.configured ?? true,
@@ -182,15 +184,15 @@ function SourcesPage() {
   // Show toast based on URL params
   useEffect(() => {
     if (connectionSuccess === "success") {
-      toast.success("Source connected successfully!");
+      toast.success(t("pages.dashboard.sources.toasts.connected"));
       window.history.replaceState({}, "", window.location.pathname);
       // Refetch connections
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     } else if (error) {
-      toast.error(`Failed to connect: ${error}`);
+      toast.error(t("pages.dashboard.sources.toasts.failedToConnect", { error }));
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [connectionSuccess, error, queryClient]);
+  }, [connectionSuccess, error, queryClient, t]);
 
   // Subscribe to SSE for real-time sync updates
   useEffect(() => {
@@ -207,10 +209,11 @@ function SourcesPage() {
         }));
 
         if (event.event_type === "completed") {
-          toast.success("Sync completed!");
+          toast.success(t("pages.dashboard.sources.toasts.syncCompleted"));
           queryClient.invalidateQueries({ queryKey: ["org-connections"] });
         } else if (event.event_type === "failed") {
-          toast.error(`Sync failed: ${event.error || "Unknown error"}`);
+          const err = event.error || t("common.messages.unknownError");
+          toast.error(t("pages.dashboard.sources.toasts.syncFailed", { error: err }));
           queryClient.invalidateQueries({ queryKey: ["org-connections"] });
         }
       },
@@ -220,7 +223,7 @@ function SourcesPage() {
     );
 
     return unsubscribe;
-  }, [user, queryClient]);
+  }, [user, queryClient, t]);
 
   // Fetch connected sources
   const {
@@ -248,7 +251,7 @@ function SourcesPage() {
       window.location.href = data.auth_url;
     },
     onError: (error: Error) => {
-      toast.error(`Failed to connect: ${error.message}`);
+      toast.error(t("pages.dashboard.sources.toasts.failedToConnect", { error: error.message }));
     },
   });
 
@@ -258,11 +261,11 @@ function SourcesPage() {
       return orgAPI.triggerSync(connectionId);
     },
     onSuccess: () => {
-      toast.success("Sync started!");
+      toast.success(t("pages.dashboard.sources.toasts.syncStarted"));
       refetchConnections();
     },
     onError: (error: Error) => {
-      toast.error(`Failed to trigger sync: ${error.message}`);
+      toast.error(t("pages.dashboard.sources.toasts.syncTriggerFailed", { error: error.message }));
     },
   });
 
@@ -282,13 +285,13 @@ function SourcesPage() {
         throttleSeconds: payload.throttleSeconds,
       }),
     onSuccess: () => {
-      toast.success("Backfill queued");
+      toast.success(t("pages.dashboard.sources.toasts.backfillQueued"));
       setBackfillDialogOpen(false);
       setBackfillConnection(null);
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     },
     onError: (error: Error) => {
-      toast.error(`Failed to start backfill: ${error.message}`);
+      toast.error(t("pages.dashboard.sources.toasts.backfillFailed", { error: error.message }));
     },
   });
 
@@ -298,13 +301,13 @@ function SourcesPage() {
       return orgAPI.deleteConnection(connectionId);
     },
     onSuccess: () => {
-      toast.success("Source disconnected successfully");
+      toast.success(t("pages.dashboard.sources.toasts.disconnected"));
       setDisconnectDialogOpen(false);
       setSelectedConnection(null);
       refetchConnections();
     },
     onError: (error: Error) => {
-      toast.error(`Failed to disconnect: ${error.message}`);
+      toast.error(t("pages.dashboard.sources.toasts.disconnectFailed", { error: error.message }));
     },
   });
 
@@ -320,13 +323,13 @@ function SourcesPage() {
     onSuccess: (result) => {
       toast.success(
         result.visibility === "private"
-          ? "Source is now private"
-          : "Source shared with the org"
+          ? t("pages.dashboard.sources.toasts.visibilityPrivate")
+          : t("pages.dashboard.sources.toasts.visibilityShared")
       );
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     },
     onError: (error: Error) => {
-      toast.error(`Failed to update visibility: ${error.message}`);
+      toast.error(t("pages.dashboard.sources.toasts.visibilityFailed", { error: error.message }));
     },
   });
 
@@ -385,12 +388,14 @@ function SourcesPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Mail className="h-12 w-12 text-muted-foreground" />
-        <h2 className="mt-4 font-semibold text-xl">Not Authenticated</h2>
+        <h2 className="mt-4 font-semibold text-xl">
+          {t("pages.dashboard.sources.authRequired.title")}
+        </h2>
         <p className="mt-2 text-muted-foreground">
-          Please log in to manage your data sources
+          {t("pages.dashboard.sources.authRequired.description")}
         </p>
         <Link to="/login">
-          <Button className="mt-4">Log In</Button>
+          <Button className="mt-4">{t("common.actions.signIn")}</Button>
         </Link>
       </div>
     );
@@ -423,24 +428,24 @@ function SourcesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-bold text-3xl tracking-tight">
-            Connected Sources
+            {t("nav.items.connectedSources")}
           </h1>
           <p className="text-muted-foreground">
-            Manage data sources for your intelligence platform
+            {t("pages.dashboard.sources.subtitle")}
           </p>
         </div>
         <Button
           disabled={user.role === "pilot_viewer"}
           onClick={() => {
             if (user.role === "pilot_viewer") {
-              toast.error("Viewer role cannot connect sources");
+              toast.error(t("pages.dashboard.sources.viewerNoConnect"));
               return;
             }
             setConnectDialogOpen(true);
           }}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Connect Source
+          {t("pages.dashboard.sources.connectSource")}
         </Button>
       </div>
 
@@ -448,13 +453,13 @@ function SourcesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Sources</CardDescription>
+            <CardDescription>{t("pages.dashboard.sources.stats.totalSources")}</CardDescription>
             <CardTitle className="text-2xl">{connectionsList.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Messages Synced</CardDescription>
+            <CardDescription>{t("pages.dashboard.sources.stats.messagesSynced")}</CardDescription>
             <CardTitle className="text-2xl">
               {connectionsList
                 .reduce((sum, c) => sum + c.messages_synced, 0)
@@ -464,7 +469,7 @@ function SourcesPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Active Syncs</CardDescription>
+            <CardDescription>{t("pages.dashboard.sources.stats.activeSyncs")}</CardDescription>
             <CardTitle className="text-2xl">
               {activeSyncCount}
             </CardTitle>
@@ -476,19 +481,19 @@ function SourcesPage() {
       <Tabs className="space-y-4" defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">
-            All Sources ({connectionsList.length})
+            {t("pages.dashboard.sources.tabs.all")} ({connectionsList.length})
           </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="mr-2 h-4 w-4" />
-            Email ({emailConnections.length})
+            {t("pages.dashboard.sources.tabs.email")} ({emailConnections.length})
           </TabsTrigger>
           <TabsTrigger value="messaging">
             <MessageCircle className="mr-2 h-4 w-4" />
-            Messaging ({messagingConnections.length})
+            {t("pages.dashboard.sources.tabs.messaging")} ({messagingConnections.length})
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="mr-2 h-4 w-4" />
-            Calendar ({calendarConnections.length})
+            {t("pages.dashboard.sources.tabs.calendar")} ({calendarConnections.length})
           </TabsTrigger>
         </TabsList>
 
@@ -624,16 +629,16 @@ function SourcesPage() {
       <Dialog onOpenChange={setConnectDialogOpen} open={connectDialogOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect a Source</DialogTitle>
+            <DialogTitle>{t("pages.dashboard.sources.connectDialog.title")}</DialogTitle>
             <DialogDescription>
-              Choose a data source to connect to your intelligence platform
+              {t("pages.dashboard.sources.connectDialog.description")}
             </DialogDescription>
           </DialogHeader>
           {connectorsError && (
             <ApiErrorPanel
               error={connectorsErrorObj}
               onRetry={() => refetchConnectors()}
-              retryLabel="Reload connectors"
+              retryLabel={t("pages.dashboard.sources.connectDialog.reloadConnectors")}
             />
           )}
           <div className="grid gap-4 overflow-y-auto py-4 pr-2">
@@ -642,7 +647,7 @@ function SourcesPage() {
               connectors={connectors.filter((c) => c.category === "email")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
-              title="Email"
+              title={t("pages.dashboard.sources.categories.email")}
             />
 
             {/* Messaging */}
@@ -650,7 +655,7 @@ function SourcesPage() {
               connectors={connectors.filter((c) => c.category === "messaging")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
-              title="Messaging"
+              title={t("pages.dashboard.sources.categories.messaging")}
             />
 
             {/* Calendar */}
@@ -658,7 +663,7 @@ function SourcesPage() {
               connectors={connectors.filter((c) => c.category === "calendar")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
-              title="Calendar"
+              title={t("pages.dashboard.sources.categories.calendar")}
             />
 
             {/* Knowledge Base */}
@@ -666,7 +671,7 @@ function SourcesPage() {
               connectors={connectors.filter((c) => c.category === "knowledge")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
-              title="Knowledge Base"
+              title={t("pages.dashboard.sources.categories.knowledge")}
             />
 
             {/* CRM */}
@@ -674,7 +679,7 @@ function SourcesPage() {
               connectors={connectors.filter((c) => c.category === "crm")}
               isLoading={connectMutation.isPending}
               onConnect={handleConnect}
-              title="CRM"
+              title={t("pages.dashboard.sources.categories.crm")}
             />
           </div>
         </DialogContent>
@@ -692,22 +697,22 @@ function SourcesPage() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Backfill history</DialogTitle>
+            <DialogTitle>{t("pages.dashboard.sources.backfillDialog.title")}</DialogTitle>
             <DialogDescription>
-              Re-ingest historical data for{" "}
+              {t("pages.dashboard.sources.backfillDialog.descriptionPrefix")}{" "}
               <span className="font-medium text-foreground">
                 {backfillConnection?.email ||
                   backfillConnection?.workspace ||
                   backfillConnection?.provider ||
-                  "this source"}
+                  t("pages.dashboard.sources.backfillDialog.thisSource")}
               </span>
-              . Drovi will window the backfill to respect rate limits.
+              . {t("pages.dashboard.sources.backfillDialog.descriptionSuffix")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="backfill-start">Start date</Label>
+                <Label htmlFor="backfill-start">{t("pages.dashboard.sources.backfillDialog.startDate")}</Label>
                 <Input
                   id="backfill-start"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -718,7 +723,7 @@ function SourcesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="backfill-end">End date</Label>
+                <Label htmlFor="backfill-end">{t("pages.dashboard.sources.backfillDialog.endDate")}</Label>
                 <Input
                   id="backfill-end"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -732,7 +737,7 @@ function SourcesPage() {
 
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="backfill-window">Window size (days)</Label>
+                <Label htmlFor="backfill-window">{t("pages.dashboard.sources.backfillDialog.windowDays")}</Label>
                 <Input
                   id="backfill-window"
                   min={1}
@@ -744,7 +749,7 @@ function SourcesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="backfill-throttle">Throttle (seconds)</Label>
+                <Label htmlFor="backfill-throttle">{t("pages.dashboard.sources.backfillDialog.throttleSeconds")}</Label>
                 <Input
                   id="backfill-throttle"
                   min={0}
@@ -758,13 +763,12 @@ function SourcesPage() {
               </div>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              Backfills run sequentially. You can keep working while ingestion
-              completes in the background.
+              {t("pages.dashboard.sources.backfillDialog.note")}
             </div>
           </div>
           <div className="flex items-center justify-end gap-2">
             <Button onClick={() => setBackfillDialogOpen(false)} variant="ghost">
-              Cancel
+              {t("common.actions.cancel")}
             </Button>
             <Button
               disabled={
@@ -777,10 +781,10 @@ function SourcesPage() {
               {backfillMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Starting...
+                  {t("pages.dashboard.sources.backfillDialog.starting")}
                 </>
               ) : (
-                "Start backfill"
+                t("pages.dashboard.sources.backfillDialog.startBackfill")
               )}
             </Button>
           </div>
@@ -794,16 +798,15 @@ function SourcesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Source</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.dashboard.sources.disconnectDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to disconnect{" "}
-              {selectedConnection?.email || selectedConnection?.workspace}? This
-              will stop syncing data from this source. Existing data will be
-              preserved.
+              {t("pages.dashboard.sources.disconnectDialog.description", {
+                source: selectedConnection?.email || selectedConnection?.workspace || "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={disconnectMutation.isPending}
@@ -814,7 +817,7 @@ function SourcesPage() {
               ) : (
                 <Trash2 className="mr-2 h-4 w-4" />
               )}
-              Disconnect
+              {t("pages.dashboard.sources.disconnectDialog.disconnect")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -838,6 +841,7 @@ function ConnectorCategory({
   onConnect: (provider: string) => void;
   isLoading: boolean;
 }) {
+  const t = useT();
   return (
     <div className="space-y-2">
       <h4 className="font-medium text-muted-foreground text-sm">{title}</h4>
@@ -863,19 +867,25 @@ function ConnectorCategory({
               <div className="flex items-center gap-2 font-medium">
                 {connector.name}
                 {!connector.available ? (
-                  <Badge variant="secondary">Unavailable</Badge>
+                  <Badge variant="secondary">
+                    {t("pages.dashboard.sources.badges.unavailable")}
+                  </Badge>
                 ) : !connector.configured ? (
-                  <Badge variant="warning">Not configured</Badge>
+                  <Badge variant="warning">
+                    {t("pages.dashboard.sources.badges.notConfigured")}
+                  </Badge>
                 ) : (
-                  <Badge variant="success">Ready</Badge>
+                  <Badge variant="success">
+                    {t("pages.dashboard.sources.badges.ready")}
+                  </Badge>
                 )}
               </div>
               <div className="text-muted-foreground text-sm">
-                {connector.description}
+                {t(connector.descriptionKey)}
               </div>
               {!connector.configured && connector.missingEnv.length ? (
                 <div className="mt-1 text-muted-foreground text-xs">
-                  Missing{" "}
+                  {t("pages.dashboard.sources.missingEnv")}{" "}
                   <span className="font-mono">
                     {connector.missingEnv.join(", ")}
                   </span>
@@ -909,6 +919,7 @@ function SourceCard({
   onSetVisibility?: (visibility: "org_shared" | "private") => void;
   readOnly?: boolean;
 }) {
+  const t = useT();
   const currentUser = useAuthStore((state) => state.user);
   const Icon = connector?.icon || Mail;
   const color = connector?.color || "#888";
@@ -930,27 +941,27 @@ function SourceCard({
     connected: {
       icon: <CheckCircle className="h-4 w-4" />,
       color: "text-green-600 dark:text-green-400",
-      label: "Connected",
+      label: t("pages.dashboard.sources.status.connected"),
     },
     active: {
       icon: <CheckCircle className="h-4 w-4" />,
       color: "text-green-600 dark:text-green-400",
-      label: "Active",
+      label: t("pages.dashboard.sources.status.active"),
     },
     syncing: {
       icon: <RefreshCw className="h-4 w-4 animate-spin" />,
       color: "text-blue-600 dark:text-blue-400",
-      label: "Syncing",
+      label: t("pages.dashboard.sources.status.syncing"),
     },
     pending_auth: {
       icon: <AlertCircle className="h-4 w-4" />,
       color: "text-amber-600 dark:text-amber-400",
-      label: "Pending Auth",
+      label: t("pages.dashboard.sources.status.pendingAuth"),
     },
     error: {
       icon: <AlertCircle className="h-4 w-4" />,
       color: "text-red-600 dark:text-red-400",
-      label: "Error",
+      label: t("pages.dashboard.sources.status.error"),
     },
   };
 
@@ -1001,20 +1012,47 @@ function SourceCard({
   const effectiveProgress = progress ?? overallBackfillProgress;
   const liveIngestionStatus = connection.live_status ?? null;
   const backfillStatus = connection.backfill_status ?? null;
+  const liveStatusLabel =
+    liveIngestionStatus === "running"
+      ? t("pages.dashboard.sources.liveStatus.running")
+      : liveIngestionStatus === "paused"
+        ? t("pages.dashboard.sources.liveStatus.paused")
+        : liveIngestionStatus === "error"
+          ? t("pages.dashboard.sources.liveStatus.error")
+          : liveIngestionStatus;
+  const backfillStatusLabel =
+    backfillStatus === "not_started"
+      ? t("pages.dashboard.sources.backfillStatus.notStarted")
+      : backfillStatus === "running"
+        ? t("pages.dashboard.sources.backfillStatus.running")
+        : backfillStatus === "paused"
+          ? t("pages.dashboard.sources.backfillStatus.paused")
+          : backfillStatus === "done"
+            ? t("pages.dashboard.sources.backfillStatus.done")
+            : backfillStatus === "error"
+              ? t("pages.dashboard.sources.backfillStatus.error")
+              : backfillStatus;
   const displayName =
-    connection.email || connection.workspace || connector?.name || "Unknown";
+    connection.email ||
+    connection.workspace ||
+    connector?.name ||
+    t("common.messages.unknown");
   const connectedBy = (() => {
     if (!connection.created_by_user_id) return null;
     if (currentUser && connection.created_by_user_id === currentUser.user_id) {
-      return "Connected by you";
+      return t("pages.dashboard.sources.connectedBy.you");
     }
     if (connection.created_by_name) {
-      return `Connected by ${connection.created_by_name}`;
+      return t("pages.dashboard.sources.connectedBy.name", {
+        name: connection.created_by_name,
+      });
     }
     if (connection.created_by_email) {
-      return `Connected by ${connection.created_by_email}`;
+      return t("pages.dashboard.sources.connectedBy.email", {
+        email: connection.created_by_email,
+      });
     }
-    return "Connected by a teammate";
+    return t("pages.dashboard.sources.connectedBy.teammate");
   })();
   const recordsSynced =
     typeof liveState?.records_synced === "number"
@@ -1046,10 +1084,10 @@ function SourceCard({
                   {isPrivate ? (
                     <span className="flex items-center gap-1">
                       <Lock className="h-3 w-3" />
-                      Private
+                      {t("pages.dashboard.sources.visibility.private")}
                     </span>
                   ) : (
-                    "Org-shared"
+                    t("pages.dashboard.sources.visibility.orgShared")
                   )}
                 </Badge>
               </div>
@@ -1072,7 +1110,7 @@ function SourceCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
-              Settings
+              {t("pages.dashboard.sources.menu.settings")}
             </DropdownMenuItem>
             {canToggleVisibility ? (
               <DropdownMenuItem
@@ -1081,18 +1119,20 @@ function SourceCard({
                 }
               >
                 <Lock className="mr-2 h-4 w-4" />
-                {isPrivate ? "Share with org" : "Make private"}
+                {isPrivate
+                  ? t("pages.dashboard.sources.menu.shareWithOrg")
+                  : t("pages.dashboard.sources.menu.makePrivate")}
               </DropdownMenuItem>
             ) : null}
             {!readOnly ? (
               <>
                 <DropdownMenuItem onClick={onBackfill}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Backfill history
+                  {t("pages.dashboard.sources.menu.backfillHistory")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onSync}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Sync Now
+                  {t("pages.dashboard.sources.menu.syncNow")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -1100,7 +1140,7 @@ function SourceCard({
                   onClick={onDisconnect}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Disconnect
+                  {t("pages.dashboard.sources.menu.disconnect")}
                 </DropdownMenuItem>
               </>
             ) : null}
@@ -1124,7 +1164,7 @@ function SourceCard({
 
           {backfillWindow ? (
             <div className="text-muted-foreground text-xs">
-              Backfill window{" "}
+              {t("pages.dashboard.sources.backfillWindow")}{" "}
               <span className="font-mono text-foreground">
                 {backfillWindow.idx}/{backfillWindow.total}
               </span>
@@ -1145,7 +1185,9 @@ function SourceCard({
                       "border-red-500/30 bg-red-500/10 text-red-600"
                   )}
                 >
-                  Live {liveIngestionStatus.replace(/_/g, " ")}
+                  {t("pages.dashboard.sources.badges.live", {
+                    status: String(liveStatusLabel || liveIngestionStatus),
+                  })}
                 </Badge>
               )}
               {backfillStatus && (
@@ -1163,7 +1205,9 @@ function SourceCard({
                       "border-red-500/30 bg-red-500/10 text-red-600"
                   )}
                 >
-                  Backfill {backfillStatus.replace(/_/g, " ")}
+                  {t("pages.dashboard.sources.badges.backfill", {
+                    status: String(backfillStatusLabel || backfillStatus),
+                  })}
                 </Badge>
               )}
             </div>
@@ -1172,7 +1216,11 @@ function SourceCard({
           {/* Stats */}
           <div className="flex items-center gap-4 text-muted-foreground text-sm">
             <div className="flex items-center gap-1">
-              <span>{recordsSynced.toLocaleString()} synced</span>
+              <span>
+                {t("pages.dashboard.sources.syncedCount", {
+                  count: recordsSynced.toLocaleString(),
+                })}
+              </span>
             </div>
             {connection.last_sync && (
               <div className="flex items-center gap-1">
@@ -1207,18 +1255,20 @@ function SourcesSkeleton() {
 }
 
 function EmptySourcesCard({ onConnect }: { onConnect: () => void }) {
+  const t = useT();
   return (
     <Card className="py-12">
       <CardContent className="flex flex-col items-center justify-center">
         <Mail className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-semibold text-lg">No sources connected</h3>
+        <h3 className="mt-4 font-semibold text-lg">
+          {t("pages.dashboard.sources.empty.all.title")}
+        </h3>
         <p className="mt-2 max-w-md text-center text-muted-foreground">
-          Connect your email, Slack, calendar, and other sources to build your
-          unified intelligence platform
+          {t("pages.dashboard.sources.empty.all.description")}
         </p>
         <Button className="mt-4" onClick={onConnect}>
           <Plus className="mr-2 h-4 w-4" />
-          Connect Your First Source
+          {t("pages.dashboard.sources.empty.all.cta")}
         </Button>
       </CardContent>
     </Card>
@@ -1232,13 +1282,7 @@ function EmptySourceTypeCard({
   category: string;
   onConnect: () => void;
 }) {
-  const categoryLabels: Record<string, string> = {
-    email: "Email",
-    messaging: "Messaging",
-    calendar: "Calendar",
-    knowledge: "Knowledge Base",
-    crm: "CRM",
-  };
+  const t = useT();
 
   const categoryIcons: Record<
     string,
@@ -1252,7 +1296,42 @@ function EmptySourceTypeCard({
   };
 
   const Icon = categoryIcons[category] || Mail;
-  const label = categoryLabels[category] || category;
+  const emptyCopy =
+    category === "email"
+      ? {
+          title: t("pages.dashboard.sources.empty.email.title"),
+          description: t("pages.dashboard.sources.empty.email.description"),
+          cta: t("pages.dashboard.sources.empty.email.cta"),
+        }
+      : category === "messaging"
+        ? {
+            title: t("pages.dashboard.sources.empty.messaging.title"),
+            description: t("pages.dashboard.sources.empty.messaging.description"),
+            cta: t("pages.dashboard.sources.empty.messaging.cta"),
+          }
+        : category === "calendar"
+          ? {
+              title: t("pages.dashboard.sources.empty.calendar.title"),
+              description: t("pages.dashboard.sources.empty.calendar.description"),
+              cta: t("pages.dashboard.sources.empty.calendar.cta"),
+            }
+          : category === "knowledge"
+            ? {
+                title: t("pages.dashboard.sources.empty.knowledge.title"),
+                description: t("pages.dashboard.sources.empty.knowledge.description"),
+                cta: t("pages.dashboard.sources.empty.knowledge.cta"),
+              }
+            : category === "crm"
+              ? {
+                  title: t("pages.dashboard.sources.empty.crm.title"),
+                  description: t("pages.dashboard.sources.empty.crm.description"),
+                  cta: t("pages.dashboard.sources.empty.crm.cta"),
+                }
+              : {
+                  title: t("pages.dashboard.sources.empty.all.title"),
+                  description: t("pages.dashboard.sources.empty.all.description"),
+                  cta: t("pages.dashboard.sources.empty.all.cta"),
+                };
 
   return (
     <Card className="py-8">
@@ -1260,13 +1339,13 @@ function EmptySourceTypeCard({
         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
           <Icon className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 font-semibold text-lg">No {label} connected</h3>
+        <h3 className="mt-4 font-semibold text-lg">{emptyCopy.title}</h3>
         <p className="mt-2 text-center text-muted-foreground">
-          Connect a {label.toLowerCase()} source to get started
+          {emptyCopy.description}
         </p>
         <Button className="mt-4" onClick={onConnect} variant="outline">
           <Plus className="mr-2 h-4 w-4" />
-          Connect {label}
+          {emptyCopy.cta}
         </Button>
       </CardContent>
     </Card>

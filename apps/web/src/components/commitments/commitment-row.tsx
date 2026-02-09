@@ -1,6 +1,5 @@
 "use client";
 
-import { format, isPast, isThisWeek, isToday, isTomorrow } from "date-fns";
 import { Check, Clock, Eye, MoreHorizontal } from "lucide-react";
 import type * as React from "react";
 import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
@@ -16,6 +15,7 @@ import {
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
+import { useI18n, type TFunction } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
@@ -92,13 +92,14 @@ function getPriority(
   dueDate: Date | null | undefined,
   status: string
 ): Priority {
-  if (status === "overdue" || (dueDate && isPast(dueDate))) {
+  const diffDays = dueDate ? getLocalDayDiff(dueDate) : null;
+  if (status === "overdue" || (diffDays !== null && diffDays < 0)) {
     return "urgent";
   }
-  if (dueDate && (isToday(dueDate) || isTomorrow(dueDate))) {
+  if (diffDays === 0 || diffDays === 1) {
     return "high";
   }
-  if (dueDate && isThisWeek(dueDate)) {
+  if (diffDays !== null && diffDays > 1 && diffDays < 7) {
     return "medium";
   }
   return "none";
@@ -125,33 +126,56 @@ function getPersonName(
     | { displayName?: string | null; primaryEmail: string }
     | null
     | undefined
+  ,
+  t: TFunction
 ): string {
   if (!person) {
-    return "Unknown";
+    return t("common.messages.unknown");
   }
-  return person.displayName || person.primaryEmail.split("@")[0] || "Unknown";
+  return (
+    person.displayName ||
+    person.primaryEmail.split("@")[0] ||
+    t("common.messages.unknown")
+  );
 }
 
 function formatDueDate(
   date: Date | null | undefined,
-  daysOverdue?: number
+  options: { daysOverdue?: number; locale: string; t: TFunction }
 ): string {
   if (!date) {
-    return "No due date";
+    return options.t("components.commitments.due.none");
   }
-  if (isPast(date)) {
+  const diffDays = getLocalDayDiff(date);
+  if (diffDays < 0) {
     const days =
-      daysOverdue ??
-      Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-    return `${days}d overdue`;
+      options.daysOverdue ??
+      Math.abs(diffDays);
+    return options.t("components.commitments.due.overdueShort", { days });
   }
-  if (isToday(date)) {
-    return "Today";
+  if (diffDays === 0) {
+    return options.t("components.commitments.due.today");
   }
-  if (isTomorrow(date)) {
-    return "Tomorrow";
+  if (diffDays === 1) {
+    return options.t("components.commitments.due.tomorrow");
   }
-  return format(date, "MMM d");
+
+  try {
+    return new Intl.DateTimeFormat(options.locale, {
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  } catch {
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+}
+
+function getLocalDayDiff(date: Date): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 /**
@@ -210,20 +234,21 @@ function CommitmentRow({
   className,
   ...props
 }: CommitmentRowProps) {
+  const { locale, t } = useI18n();
   const priority = getPriority(commitment.dueDate, commitment.status);
   const status = getStatus(commitment.status);
   const otherPerson =
     commitment.direction === "owed_by_me"
       ? commitment.creditor
       : commitment.debtor;
-  const personName = getPersonName(otherPerson);
+  const personName = getPersonName(otherPerson, t);
   const dueDateDisplay = formatDueDate(
     commitment.dueDate,
-    commitment.daysOverdue
+    { daysOverdue: commitment.daysOverdue, locale, t }
   );
   const isOverdue =
     commitment.status === "overdue" ||
-    (commitment.dueDate && isPast(commitment.dueDate));
+    (commitment.dueDate && getLocalDayDiff(commitment.dueDate) < 0);
   const isCompleted =
     commitment.status === "completed" || commitment.status === "cancelled";
 
@@ -360,7 +385,9 @@ function CommitmentRow({
                   : "bg-purple-500/20 text-purple-400"
               )}
             >
-              {commitment.direction === "owed_by_me" ? "I" : "Me"}
+              {commitment.direction === "owed_by_me"
+                ? t("components.commitments.directionBadge.owedByMe")
+                : t("components.commitments.directionBadge.owedToMe")}
             </span>
           </div>
 
@@ -379,7 +406,7 @@ function CommitmentRow({
           {/* Complete button */}
           {!isCompleted && onComplete && (
             <button
-              aria-label="Mark complete"
+              aria-label={t("components.commitments.actions.markComplete")}
               className={cn(
                 "flex h-7 w-7 items-center justify-center rounded-[4px]",
                 "transition-colors duration-100",
@@ -401,7 +428,7 @@ function CommitmentRow({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  aria-label="Snooze"
+                  aria-label={t("components.commitments.actions.snooze")}
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-[4px]",
                     "transition-colors duration-100",
@@ -416,13 +443,13 @@ function CommitmentRow({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onSnooze(1)}>
-                  Snooze 1 day
+                  {t("components.commitments.menu.snooze1d")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSnooze(3)}>
-                  Snooze 3 days
+                  {t("components.commitments.menu.snooze3d")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSnooze(7)}>
-                  Snooze 1 week
+                  {t("components.commitments.menu.snooze1w")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -436,7 +463,7 @@ function CommitmentRow({
               side="left"
             >
               <button
-                aria-label="Show evidence"
+                aria-label={t("components.commitments.actions.showEvidence")}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-[4px]",
                   "transition-colors duration-100",
@@ -458,7 +485,7 @@ function CommitmentRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label="More actions"
+                aria-label={t("components.commitments.actions.moreActions")}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-[4px]",
                   "transition-colors duration-100",
@@ -474,12 +501,12 @@ function CommitmentRow({
             <DropdownMenuContent align="end">
               {onShowEvidence && (
                 <DropdownMenuItem onClick={onShowEvidence}>
-                  Show Evidence
+                  {t("components.commitments.menu.showEvidence")}
                 </DropdownMenuItem>
               )}
               {!commitment.isUserVerified && onVerify && (
                 <DropdownMenuItem onClick={onVerify}>
-                  Verify (Correct)
+                  {t("components.commitments.menu.verifyCorrect")}
                 </DropdownMenuItem>
               )}
               {onDismiss && (
@@ -489,7 +516,7 @@ function CommitmentRow({
                     className="text-red-400"
                     onClick={onDismiss}
                   >
-                    Dismiss (Incorrect)
+                    {t("components.commitments.menu.dismissIncorrect")}
                   </DropdownMenuItem>
                 </>
               )}
@@ -518,6 +545,7 @@ function CommitmentListHeader({
   className,
   ...props
 }: CommitmentListHeaderProps) {
+  const t = useI18n().t;
   return (
     <div
       className={cn(
@@ -553,15 +581,15 @@ function CommitmentListHeader({
       <div className={cn(COL.status, "shrink-0")} />
 
       {/* Person */}
-      <div className={cn(COL.person, "shrink-0 px-1")}>Person</div>
+      <div className={cn(COL.person, "shrink-0 px-1")}>{t("components.commitments.listHeader.person")}</div>
 
       {/* Title */}
-      <div className="flex-1 px-2">Commitment</div>
+      <div className="flex-1 px-2">{t("components.commitments.listHeader.commitment")}</div>
 
       {/* Right section */}
       <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 whitespace-nowrap text-right">Due</span>
+          <span className="w-14 whitespace-nowrap text-right">{t("components.commitments.listHeader.due")}</span>
           <div className="w-7" />
           <div className="w-7" />
         </div>

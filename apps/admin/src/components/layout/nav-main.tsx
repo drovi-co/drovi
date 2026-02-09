@@ -16,6 +16,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import { useT } from "@/i18n";
 
 export interface NavItem {
   title: string;
@@ -33,8 +34,10 @@ interface NavMainProps {
   label?: string;
 }
 
-export function NavMain({ items, label = "Platform" }: NavMainProps) {
+export function NavMain({ items, label }: NavMainProps) {
   const location = useLocation();
+  const t = useT();
+  const resolvedLabel = label ?? t("admin.nav.groups.platform");
 
   // Check if the current path exactly matches or is a child of the item's URL
   // Items without children should only match exactly
@@ -53,7 +56,7 @@ export function NavMain({ items, label = "Platform" }: NavMainProps) {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupLabel>{resolvedLabel}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           const hasChildren = Boolean(item.items?.length);

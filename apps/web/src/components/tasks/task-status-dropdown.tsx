@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 import { STATUS_CONFIG, STATUS_ORDER, type TaskStatus } from "./task-types";
 
@@ -54,6 +55,7 @@ export function TaskStatusDropdown({
   trigger,
   align = "start",
 }: TaskStatusDropdownProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const config = STATUS_CONFIG[currentStatus];
   const Icon = config.icon;
@@ -69,12 +71,16 @@ export function TaskStatusDropdown({
       { organizationId, id: taskId, status: newStatus },
       {
         onSuccess: () => {
-          toast.success(`Status changed to ${STATUS_CONFIG[newStatus].label}`);
+          toast.success(
+            t("components.tasks.toasts.statusChanged", {
+              status: t(STATUS_CONFIG[newStatus].label),
+            })
+          );
           onStatusChange?.(newStatus);
           queryClient.invalidateQueries({ queryKey: [["uio"]] });
         },
         onError: () => {
-          toast.error("Failed to update status");
+          toast.error(t("components.tasks.toasts.statusChangeFailed"));
         },
       }
     );
@@ -99,7 +105,7 @@ export function TaskStatusDropdown({
       variant="outline"
     >
       <Icon className={cn("h-3.5 w-3.5", config.color)} />
-      <span className="text-xs">{config.label}</span>
+      <span className="text-xs">{t(config.label)}</span>
     </Button>
   );
 
@@ -121,7 +127,7 @@ export function TaskStatusDropdown({
               onClick={() => handleStatusChange(status)}
             >
               <StatusIcon className={cn("mr-2 h-4 w-4", statusConfig.color)} />
-              <span>{statusConfig.label}</span>
+              <span>{t(statusConfig.label)}</span>
             </DropdownMenuItem>
           );
         })}
@@ -147,6 +153,7 @@ export function TaskStatusBadge({
   showIcon = true,
   showLabel = true,
 }: TaskStatusBadgeProps) {
+  const t = useT();
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
 
@@ -160,7 +167,7 @@ export function TaskStatusBadge({
       )}
     >
       {showIcon && <Icon className="h-3.5 w-3.5" />}
-      {showLabel && <span>{config.label}</span>}
+      {showLabel && <span>{t(config.label)}</span>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { adminAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/i18n";
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/dashboard/connectors")({
 });
 
 function AdminConnectorsPage() {
+  const t = useT();
   const q = useQuery({
     queryKey: ["admin-connectors"],
     queryFn: () => adminAPI.listConnectors(),
@@ -29,9 +31,9 @@ function AdminConnectorsPage() {
   return (
     <Card className="border-border/70">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-sm">Connectors</CardTitle>
+        <CardTitle className="text-sm">{t("admin.connectors.title")}</CardTitle>
         <div className="text-muted-foreground text-xs">
-          Configuration status and capabilities. Refreshes every 15s.
+          {t("admin.connectors.description")}
         </div>
       </CardHeader>
       <CardContent>
@@ -43,17 +45,23 @@ function AdminConnectorsPage() {
           </div>
         ) : q.error ? (
           <div className="text-sm text-muted-foreground">
-            {q.error instanceof Error ? q.error.message : "Unknown error"}
+            {q.error instanceof Error
+              ? q.error.message
+              : t("common.messages.unknownError")}
           </div>
         ) : connectors.length ? (
           <div className="rounded-md border border-border/70">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Capabilities</TableHead>
-                  <TableHead className="hidden lg:table-cell">Missing Env</TableHead>
+                  <TableHead>{t("admin.connectors.table.type")}</TableHead>
+                  <TableHead>{t("admin.connectors.table.status")}</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    {t("admin.connectors.table.capabilities")}
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    {t("admin.connectors.table.missingEnv")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -73,7 +81,9 @@ function AdminConnectorsPage() {
                       <TableCell className="font-medium">{String(c.type)}</TableCell>
                       <TableCell>
                         <Badge variant={configured ? "secondary" : "destructive"}>
-                          {configured ? "Configured" : "Not configured"}
+                          {configured
+                            ? t("admin.connectors.badges.configured")
+                            : t("admin.connectors.badges.notConfigured")}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
@@ -99,10 +109,11 @@ function AdminConnectorsPage() {
             </Table>
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">No connectors found.</div>
+          <div className="text-sm text-muted-foreground">
+            {t("admin.connectors.empty")}
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
-

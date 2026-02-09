@@ -50,7 +50,11 @@ class Settings(BaseSettings):
     # LLM Settings - Legacy (for backwards compatibility)
     default_llm_model: str = Field(default="gpt-4o")
     fallback_llm_model: str = Field(default="claude-3-5-sonnet-20241022")
-    embedding_model: str = Field(default="togethercomputer/m2-bert-80M-32k-retrieval")
+    # Use an embedding model that is available by default with an API key.
+    # Some Together embedding models require a dedicated endpoint; using OpenAI
+    # for embeddings keeps local/dev semantics reliable while retaining the
+    # option to override via `EMBEDDING_MODEL`.
+    embedding_model: str = Field(default="text-embedding-3-small")
     embedding_dimension: int = Field(default=1536)
 
     # Provider Routing
@@ -72,6 +76,9 @@ class Settings(BaseSettings):
     # API Settings
     api_key_salt: str = Field(default="")
     api_base_url: str = Field(default="http://localhost:8000")
+    web_app_url: str | None = Field(
+        default=None
+    )  # Base URL for the web app (used for email links, invites, etc.)
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
     environment: Literal["development", "production", "test"] = Field(default="development")
 
@@ -91,6 +98,11 @@ class Settings(BaseSettings):
     evidence_s3_bucket: str = Field(default="")
     evidence_s3_region: str = Field(default="")
     evidence_s3_endpoint_url: str | None = Field(default=None)
+    # Public endpoint used only for generating presigned URLs returned to browsers.
+    # This is often different from `evidence_s3_endpoint_url` when running in Docker:
+    # - internal: http://minio:9000 (container network)
+    # - public:   http://127.0.0.1:9000 (host port mapping)
+    evidence_s3_public_endpoint_url: str | None = Field(default=None)
     evidence_s3_access_key_id: str | None = Field(default=None)
     evidence_s3_secret_access_key: str | None = Field(default=None)
     evidence_s3_prefix: str = Field(default="drovi-evidence")
@@ -104,6 +116,13 @@ class Settings(BaseSettings):
     evidence_default_retention_days: int = Field(default=365)
     evidence_immutable_by_default: bool = Field(default=True)
     evidence_legal_hold_by_default: bool = Field(default=False)
+
+    # Documents / Smart Drive storage
+    #
+    # For dev, this typically points to MinIO (S3-compatible). In production this
+    # should point to Cloudflare R2 or AWS S3.
+    documents_s3_prefix: str = Field(default="drovi-documents")
+    s3_force_path_style: bool = Field(default=False)
 
     # Compliance
     compliance_recording_consent_required: bool = Field(default=True)
@@ -275,6 +294,11 @@ class Settings(BaseSettings):
     resend_reply_to: str | None = Field(default=None)
     resend_api_url: str = Field(default="https://api.resend.com")
     resend_timeout_seconds: float = Field(default=10.0)
+
+    # Monitoring alerting (Alertmanager webhook -> Slack/Email)
+    monitoring_alert_webhook_token: str | None = Field(default=None)
+    monitoring_alert_email_to: str | None = Field(default=None)  # comma-separated list
+    monitoring_alert_slack_webhook_url: str | None = Field(default=None)
 
     # Support tooling (tickets + inbound email)
     support_inbound_token: str | None = Field(default=None)

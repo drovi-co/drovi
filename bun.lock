@@ -292,6 +292,18 @@
         "typescript": "catalog:",
       },
     },
+    "packages/i18n": {
+      "name": "@memorystack/i18n",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@memorystack/config": "workspace:*",
+        "@types/react": "19.2.7",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "react": "^19",
+      },
+    },
     "packages/intelligence-sdk": {
       "name": "@memorystack/intelligence-sdk",
       "version": "0.0.1",

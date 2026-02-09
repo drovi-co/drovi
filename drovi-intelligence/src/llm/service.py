@@ -358,6 +358,7 @@ class ProviderRouter:
         model_tier: str = "balanced",
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout_seconds: float | None = None,
         requires_json: bool = False,
         node_name: str = "unknown",
     ) -> tuple[str | dict[str, Any], LLMCall]:
@@ -383,6 +384,7 @@ class ProviderRouter:
             model = get_model_for_tier(provider, tier)
             call = LLMCall(node=node_name, model=model, provider=provider.value)
             start_time = time.time()
+            timeout = timeout_seconds or config.default_timeout
 
             # Check circuit breaker
             if not self.circuit_breakers[provider].can_execute():
@@ -404,6 +406,7 @@ class ProviderRouter:
                             model=model,
                             temperature=temperature,
                             max_tokens=max_tokens,
+                            timeout=timeout,
                         )
                     )
                 else:
@@ -413,8 +416,14 @@ class ProviderRouter:
                             model=model,
                             temperature=temperature,
                             max_tokens=max_tokens,
+                            timeout=timeout,
                         )
                     )
+
+                # Treat empty text outputs as provider failures so we can fall back.
+                # Some providers will return an empty string on safety filters or transient errors.
+                if not requires_json and isinstance(result, str) and not result.strip():
+                    raise ValueError("Provider returned empty completion")
 
                 # Update call trace
                 call.prompt_tokens = prompt_tokens
@@ -508,6 +517,7 @@ class LLMService:
         model_tier: str = "balanced",
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout_seconds: float | None = None,
         node_name: str = "unknown",
     ) -> tuple[str, LLMCall]:
         """
@@ -531,6 +541,7 @@ class LLMService:
                     model_tier=tier,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    timeout_seconds=timeout_seconds,
                     requires_json=False,
                     node_name=node_name,
                 )
@@ -547,6 +558,7 @@ class LLMService:
         model_tier: str = "balanced",
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        timeout_seconds: float | None = None,
         node_name: str = "unknown",
     ) -> tuple[T, LLMCall]:
         """
@@ -688,6 +700,7 @@ Respond ONLY with the JSON object, no additional text."""
                         model_tier=tier,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        timeout_seconds=timeout_seconds,
                         requires_json=True,
                         node_name=node_name,
                     )
@@ -720,6 +733,7 @@ Respond ONLY with the JSON object, no additional text."""
                         model_tier=model_tier,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        timeout_seconds=timeout_seconds,
                         requires_json=False,
                         node_name=f"{node_name}_fallback",
                     )
@@ -749,11 +763,23 @@ Respond ONLY with the JSON object, no additional text."""
         """
         model = model or self.settings.embedding_model
 
-        # Prefer Together.ai for embeddings
-        if Provider.TOGETHER in self.router.providers:
+        # Route embeddings based on the configured model.
+        #
+        # We do not "always prefer Together" here because OpenAI embedding model
+        # names (e.g. "text-embedding-3-small") will be configured frequently,
+        # and sending those to the Together API would fail.
+        use_together = (
+            Provider.TOGETHER in self.router.providers
+            and "/" in (model or "")
+            and not (model or "").startswith("openai/")
+        )
+        if use_together:
             provider = self.router.providers[Provider.TOGETHER]
             if isinstance(provider, TogetherProvider):
-                return await provider.embed(texts, model=model)
+                try:
+                    return await provider.embed(texts, model=model)
+                except Exception as exc:
+                    logger.warning("Together embedding failed; falling back to LiteLLM", error=str(exc), model=model)
 
         # Fallback to OpenAI embeddings via LiteLLM
         import litellm

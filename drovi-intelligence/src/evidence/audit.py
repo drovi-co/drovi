@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -32,7 +33,7 @@ async def record_evidence_audit(
                     action, actor_type, actor_id, metadata, created_at
                 ) VALUES (
                     gen_random_uuid(), :artifact_id, :org_id,
-                    :action, :actor_type, :actor_id, :metadata, :created_at
+                    :action, :actor_type, :actor_id, CAST(:metadata AS jsonb), :created_at
                 )
                 """
             ),
@@ -42,7 +43,8 @@ async def record_evidence_audit(
                 "action": action,
                 "actor_type": actor_type,
                 "actor_id": actor_id,
-                "metadata": metadata or {},
+                # evidence_audit_log.metadata is JSONB. Serialize explicitly for raw SQL.
+                "metadata": json.dumps(metadata or {}),
                 "created_at": utc_now(),
             },
         )

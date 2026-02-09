@@ -28,7 +28,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConsoleSearchBarRef } from "@/components/console";
 
 import {
@@ -54,6 +54,7 @@ import { useConsoleQuery } from "@/hooks/use-console-query";
 import { authClient } from "@/lib/auth-client";
 import { type ParsedFilter, type ParsedQuery, type TimeRange, parseConsoleQuery } from "@/lib/console-parser";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -68,21 +69,21 @@ export const Route = createFileRoute("/dashboard/console")({
 // =============================================================================
 
 const GROUP_BY_OPTIONS = [
-  { value: null, label: "None", icon: List },
-  { value: "type", label: "Type", icon: Grid3X3 },
-  { value: "status", label: "Status", icon: CheckCircle2 },
-  { value: "priority", label: "Priority", icon: AlertTriangle },
-  { value: "owner", label: "Owner", icon: Sparkles },
-  { value: "source", label: "Source", icon: Zap },
-  { value: "date", label: "Date", icon: Calendar },
+  { value: null, labelKey: "pages.dashboard.console.groupBy.none", icon: List },
+  { value: "type", labelKey: "pages.dashboard.console.groupBy.type", icon: Grid3X3 },
+  { value: "status", labelKey: "pages.dashboard.console.groupBy.status", icon: CheckCircle2 },
+  { value: "priority", labelKey: "pages.dashboard.console.groupBy.priority", icon: AlertTriangle },
+  { value: "owner", labelKey: "pages.dashboard.console.groupBy.owner", icon: Sparkles },
+  { value: "source", labelKey: "pages.dashboard.console.groupBy.source", icon: Zap },
+  { value: "date", labelKey: "pages.dashboard.console.groupBy.date", icon: Calendar },
 ];
 
 const VISUALIZATION_OPTIONS = [
-  { value: "list", label: "List", icon: LayoutList },
-  { value: "timeseries", label: "Timeseries", icon: LineChart },
-  { value: "top_list", label: "Top List", icon: BarChart3 },
-  { value: "table", label: "Table", icon: Grid3X3 },
-  { value: "pie", label: "Pie Chart", icon: PieChart },
+  { value: "list", labelKey: "pages.dashboard.console.viz.list", icon: LayoutList },
+  { value: "timeseries", labelKey: "pages.dashboard.console.viz.timeseries", icon: LineChart },
+  { value: "top_list", labelKey: "pages.dashboard.console.viz.topList", icon: BarChart3 },
+  { value: "table", labelKey: "pages.dashboard.console.viz.table", icon: Grid3X3 },
+  { value: "pie", labelKey: "pages.dashboard.console.viz.pie", icon: PieChart },
 ];
 
 // =============================================================================
@@ -164,6 +165,7 @@ function MetricCard({
 function ConsolePage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   // Refs
@@ -349,9 +351,11 @@ function ConsolePage() {
           <div className="inline-flex rounded-full bg-muted p-4">
             <Terminal className="h-12 w-12 text-muted-foreground" />
           </div>
-          <h2 className="font-semibold text-xl">No Organization Selected</h2>
+          <h2 className="font-semibold text-xl">
+            {t("pages.dashboard.console.noOrg.title")}
+          </h2>
           <p className="max-w-sm text-muted-foreground">
-            Select an organization from the sidebar to view the Console
+            {t("pages.dashboard.console.noOrg.description")}
           </p>
         </div>
       </div>
@@ -359,8 +363,25 @@ function ConsolePage() {
   }
 
   const metrics = data?.metrics;
-  const selectedGroupBy = GROUP_BY_OPTIONS.find((o) => o.value === groupBy);
-  const selectedViz = VISUALIZATION_OPTIONS.find((o) => o.value === visualization);
+  const groupByOptions = useMemo(
+    () =>
+      GROUP_BY_OPTIONS.map((o) => ({
+        ...o,
+        label: t(o.labelKey),
+      })),
+    [t]
+  );
+  const vizOptions = useMemo(
+    () =>
+      VISUALIZATION_OPTIONS.map((o) => ({
+        ...o,
+        label: t(o.labelKey),
+      })),
+    [t]
+  );
+
+  const selectedGroupBy = groupByOptions.find((o) => o.value === groupBy);
+  const selectedViz = vizOptions.find((o) => o.value === visualization);
 
   return (
     <div className="h-full" data-no-shell-padding>
@@ -387,34 +408,34 @@ function ConsolePage() {
           <div className="flex gap-3">
             <MetricCard
               icon={LayoutList}
-              label="Total"
+              label={t("pages.dashboard.console.metrics.total")}
               loading={isLoading}
               value={metrics?.total_count ?? 0}
             />
             <MetricCard
               icon={CheckCircle2}
-              label="Active"
+              label={t("pages.dashboard.console.metrics.active")}
               loading={isLoading}
               value={metrics?.active_count ?? 0}
               variant="success"
             />
             <MetricCard
               icon={AlertTriangle}
-              label="At Risk"
+              label={t("pages.dashboard.console.metrics.atRisk")}
               loading={isLoading}
               value={metrics?.at_risk_count ?? 0}
               variant="warning"
             />
             <MetricCard
               icon={Clock}
-              label="Overdue"
+              label={t("pages.dashboard.console.metrics.overdue")}
               loading={isLoading}
               value={metrics?.overdue_count ?? 0}
               variant="danger"
             />
             <MetricCard
               icon={Sparkles}
-              label="Avg Confidence"
+              label={t("pages.dashboard.console.metrics.avgConfidence")}
               loading={isLoading}
               value={
                 metrics?.avg_confidence !== undefined
@@ -442,19 +463,22 @@ function ConsolePage() {
         <div className="flex items-center justify-between border-b px-6 py-2">
           <div className="flex items-center gap-2">
             {/* Group By */}
-            <span className="text-muted-foreground text-sm">Group by:</span>
+            <span className="text-muted-foreground text-sm">
+              {t("pages.dashboard.console.controls.groupBy")}
+            </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="gap-2" size="sm" variant="outline">
                   {selectedGroupBy && (
                     <selectedGroupBy.icon className="size-4" />
                   )}
-                  {selectedGroupBy?.label ?? "None"}
+                  {selectedGroupBy?.label ??
+                    t("pages.dashboard.console.groupBy.none")}
                   <ChevronDown className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {GROUP_BY_OPTIONS.map((option) => (
+                {groupByOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value ?? "none"}
                     onClick={() => setGroupBy(option.value)}
@@ -468,18 +492,19 @@ function ConsolePage() {
 
             {/* Visualize As */}
             <span className="ml-4 text-muted-foreground text-sm">
-              Visualize as:
+              {t("pages.dashboard.console.controls.visualizeAs")}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="gap-2" size="sm" variant="outline">
                   {selectedViz && <selectedViz.icon className="size-4" />}
-                  {selectedViz?.label ?? "List"}
+                  {selectedViz?.label ??
+                    t("pages.dashboard.console.viz.list")}
                   <ChevronDown className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {VISUALIZATION_OPTIONS.map((option) => (
+                {vizOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => setVisualization(option.value)}
@@ -498,7 +523,10 @@ function ConsolePage() {
               <Skeleton className="h-4 w-24" />
             ) : (
               <span>
-                {data?.items?.length ?? 0} of {metrics?.total_count ?? 0} results
+                {t("pages.dashboard.console.results.count", {
+                  shown: data?.items?.length ?? 0,
+                  total: metrics?.total_count ?? 0,
+                })}
               </span>
             )}
           </div>
@@ -510,9 +538,13 @@ function ConsolePage() {
             <div className="flex h-full items-center justify-center">
               <div className="space-y-2 text-center">
                 <AlertTriangle className="mx-auto size-8 text-destructive" />
-                <p className="text-destructive">Failed to load data</p>
+                <p className="text-destructive">
+                  {t("pages.dashboard.console.errors.failedToLoad")}
+                </p>
                 <p className="text-muted-foreground text-sm">
-                  {error instanceof Error ? error.message : "Unknown error"}
+                  {error instanceof Error
+                    ? error.message
+                    : t("common.messages.unknownError")}
                 </p>
               </div>
             </div>
@@ -529,9 +561,11 @@ function ConsolePage() {
                   <Terminal className="size-8 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-medium">No results found</p>
+                  <p className="font-medium">
+                    {t("pages.dashboard.console.empty.title")}
+                  </p>
                   <p className="text-muted-foreground text-sm">
-                    Try adjusting your filters or search terms
+                    {t("pages.dashboard.console.empty.description")}
                   </p>
                 </div>
               </div>
@@ -569,7 +603,7 @@ function ConsolePage() {
                   ) : (
                     <div className="flex h-64 items-center justify-center rounded-lg border bg-muted/30">
                       <p className="text-muted-foreground text-sm">
-                        Select a "Group by" option to view chart data
+                        {t("pages.dashboard.console.emptyChart")}
                       </p>
                     </div>
                   )
@@ -596,7 +630,7 @@ function ConsolePage() {
                   ) : (
                     <div className="flex h-[400px] items-center justify-center rounded-lg border bg-muted/30">
                       <p className="text-muted-foreground text-sm">
-                        Select a "Group by" option to view chart data
+                        {t("pages.dashboard.console.emptyChart")}
                       </p>
                     </div>
                   )

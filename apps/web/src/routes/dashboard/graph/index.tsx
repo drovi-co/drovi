@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { graphAPI } from "@/lib/api";
+import { useT } from "@/i18n";
 import type {
   GraphEdge,
   GraphEdgeType,
@@ -110,6 +111,7 @@ function mapEdgeType(raw: string): GraphEdgeType {
 function GraphPage() {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   const [nodeFilter, setNodeFilter] = useState<NodeFilter>("all");
@@ -171,7 +173,11 @@ function GraphPage() {
     const rawNodes = nodesQuery.data?.results ?? [];
     rawNodes.forEach((row) => {
       const rawNode = (row.node as Record<string, unknown>) ?? row;
-      const label = getValue(rawNode, ["name", "title", "canonicalTitle", "label"], "Untitled");
+      const label = getValue(
+        rawNode,
+        ["name", "title", "canonicalTitle", "label"],
+        t("pages.dashboard.graph.untitled")
+      );
       const nodeId = getValue(rawNode, ["id"], "");
       const nodeLabel = (row.node_label as string) ?? getValue(rawNode, ["label"], "");
       const finalType = mapNodeType(nodeLabel);
@@ -255,7 +261,7 @@ function GraphPage() {
     });
 
     return { nodes, edges };
-  }, [nodesQuery.data, edgesQuery.data]);
+  }, [edgesQuery.data, nodesQuery.data, t]);
 
   const handleNodeSelect = useCallback((node: GraphNodeData | null) => {
     setSelectedNode(node);
@@ -285,9 +291,9 @@ function GraphPage() {
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Network className="h-5 w-5 text-primary" />
-          <h1 className="font-semibold text-lg">Knowledge Graph</h1>
+          <h1 className="font-semibold text-lg">{t("pages.dashboard.graph.title")}</h1>
           <Badge className="text-xs" variant="secondary">
-            {nodes.length} nodes · {edges.length} connections
+            {t("pages.dashboard.graph.counts", { nodes: nodes.length, edges: edges.length })}
           </Badge>
         </div>
 
@@ -297,7 +303,7 @@ function GraphPage() {
             <Input
               className="w-64 pl-9"
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search graph..."
+              placeholder={t("pages.dashboard.graph.search.placeholder")}
               value={searchQuery}
             />
           </div>
@@ -311,11 +317,11 @@ function GraphPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Nodes</SelectItem>
-              <SelectItem value="contacts">Contacts</SelectItem>
-              <SelectItem value="commitments">Commitments</SelectItem>
-              <SelectItem value="decisions">Decisions</SelectItem>
-              <SelectItem value="tasks">Tasks</SelectItem>
+              <SelectItem value="all">{t("pages.dashboard.graph.filters.all")}</SelectItem>
+              <SelectItem value="contacts">{t("pages.dashboard.graph.filters.contacts")}</SelectItem>
+              <SelectItem value="commitments">{t("pages.dashboard.graph.filters.commitments")}</SelectItem>
+              <SelectItem value="decisions">{t("pages.dashboard.graph.filters.decisions")}</SelectItem>
+              <SelectItem value="tasks">{t("pages.dashboard.graph.filters.tasks")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -326,7 +332,7 @@ function GraphPage() {
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Refresh graph</TooltipContent>
+              <TooltipContent>{t("pages.dashboard.graph.actions.refresh")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -342,7 +348,9 @@ function GraphPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                {isFullscreen
+                  ? t("pages.dashboard.graph.actions.exitFullscreen")
+                  : t("pages.dashboard.graph.actions.fullscreen")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

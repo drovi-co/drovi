@@ -43,6 +43,7 @@ import {
   type ActuationRecordSummary,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/actuations")({
   component: ActuationsPage,
@@ -61,6 +62,7 @@ function ActuationsPage() {
   const queryClient = useQueryClient();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const { locale, t } = useI18n();
   const organizationId = activeOrg?.id ?? "";
 
   const [driver, setDriver] = useState<string>("");
@@ -110,30 +112,30 @@ function ActuationsPage() {
         tier,
       }),
     onSuccess: () => {
-      toast.success("Actuation queued");
+      toast.success(t("pages.dashboard.actuations.toasts.queued"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error("Failed to run actuation"),
+    onError: () => toast.error(t("pages.dashboard.actuations.toasts.runFailed")),
   });
 
   const approveMutation = useMutation({
     mutationFn: (actionId: string) =>
       actuationsAPI.approve({ organizationId, actionId }),
     onSuccess: () => {
-      toast.success("Actuation approved");
+      toast.success(t("pages.dashboard.actuations.toasts.approved"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error("Failed to approve actuation"),
+    onError: () => toast.error(t("pages.dashboard.actuations.toasts.approveFailed")),
   });
 
   const rollbackMutation = useMutation({
     mutationFn: (actionId: string) =>
       actuationsAPI.rollback({ organizationId, actionId }),
     onSuccess: () => {
-      toast.success("Actuation rolled back");
+      toast.success(t("pages.dashboard.actuations.toasts.rolledBack"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error("Failed to rollback actuation"),
+    onError: () => toast.error(t("pages.dashboard.actuations.toasts.rollbackFailed")),
   });
 
   const handleRun = () => {
@@ -142,13 +144,13 @@ function ActuationsPage() {
       payload = JSON.parse(payloadText) as Record<string, unknown>;
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Invalid payload JSON"
+        error instanceof Error ? error.message : t("pages.dashboard.actuations.toasts.invalidPayloadJson")
       );
       return;
     }
 
     if (!driver) {
-      toast.error("Select a driver");
+      toast.error(t("pages.dashboard.actuations.toasts.selectDriver"));
       return;
     }
 
@@ -170,7 +172,7 @@ function ActuationsPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to manage actuations
+        {t("pages.dashboard.actuations.noOrg")}
       </div>
     );
   }
@@ -182,14 +184,13 @@ function ActuationsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Zap className="h-3 w-3" />
-              Actuation Plane
+              {t("pages.dashboard.actuations.kicker")}
             </div>
             <h1 className="font-semibold text-2xl">
-              Execute actions with policy-grade oversight
+              {t("pages.dashboard.actuations.title")}
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Run approvals, inspect every action, and keep the control plane in
-              check.
+              {t("pages.dashboard.actuations.description")}
             </p>
           </div>
           <Button onClick={handleRun} size="sm">
@@ -198,7 +199,7 @@ function ActuationsPage() {
             ) : (
               <CirclePlay className="mr-2 h-4 w-4" />
             )}
-            Execute action
+            {t("pages.dashboard.actuations.actions.execute")}
           </Button>
         </div>
       </div>
@@ -208,19 +209,19 @@ function ActuationsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              New Actuation
+              {t("pages.dashboard.actuations.newActuation.title")}
             </CardTitle>
             <CardDescription>
-              Configure driver, action, and payload before execution.
+              {t("pages.dashboard.actuations.newActuation.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Driver</Label>
+                <Label>{t("pages.dashboard.actuations.fields.driver")}</Label>
                 <Select onValueChange={setDriver} value={driver}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select driver" />
+                    <SelectValue placeholder={t("pages.dashboard.actuations.fields.driverPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {(drivers ?? []).map((driverName) => (
@@ -231,19 +232,19 @@ function ActuationsPage() {
                   </SelectContent>
                 </Select>
                 {driversLoading && (
-                  <p className="text-muted-foreground text-xs">Loading...</p>
+                  <p className="text-muted-foreground text-xs">{t("common.status.loading")}</p>
                 )}
                 {driversError && (
                   <ApiErrorPanel
                     className="mt-2"
                     error={driversErrorObj}
                     onRetry={() => refetchDrivers()}
-                    retryLabel="Reload drivers"
+                    retryLabel={t("pages.dashboard.actuations.drivers.reload")}
                   />
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Action</Label>
+                <Label>{t("pages.dashboard.actuations.fields.action")}</Label>
                 <Input
                   onChange={(event) => setAction(event.target.value)}
                   value={action}
@@ -252,21 +253,21 @@ function ActuationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Tier</Label>
+              <Label>{t("pages.dashboard.actuations.fields.tier")}</Label>
               <Select onValueChange={setTier} value={tier}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tier_1">Tier 1</SelectItem>
-                  <SelectItem value="tier_2">Tier 2</SelectItem>
-                  <SelectItem value="tier_3">Tier 3</SelectItem>
+                  <SelectItem value="tier_1">{t("pages.dashboard.actuations.tierOptions.tier1")}</SelectItem>
+                  <SelectItem value="tier_2">{t("pages.dashboard.actuations.tierOptions.tier2")}</SelectItem>
+                  <SelectItem value="tier_3">{t("pages.dashboard.actuations.tierOptions.tier3")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Payload (JSON)</Label>
+              <Label>{t("pages.dashboard.actuations.fields.payload")}</Label>
               <Textarea
                 className="min-h-[180px] font-mono text-xs"
                 onChange={(event) => setPayloadText(event.target.value)}
@@ -276,7 +277,7 @@ function ActuationsPage() {
 
             <Button onClick={handleRun} variant="outline">
               <CirclePlay className="mr-2 h-4 w-4" />
-              Execute action
+              {t("pages.dashboard.actuations.actions.execute")}
             </Button>
           </CardContent>
         </Card>
@@ -285,10 +286,10 @@ function ActuationsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              Action Ledger
+              {t("pages.dashboard.actuations.ledger.title")}
             </CardTitle>
             <CardDescription>
-              Inspect the last 20 actuation records.
+              {t("pages.dashboard.actuations.ledger.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -300,7 +301,7 @@ function ActuationsPage() {
               <ApiErrorPanel error={logErrorObj} onRetry={() => refetchLog()} />
             ) : sortedLog.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                No actuation runs yet.
+                {t("pages.dashboard.actuations.ledger.empty")}
               </div>
             ) : (
               sortedLog.map((record) => (
@@ -328,6 +329,7 @@ function ActuationRow({
   onApprove: () => void;
   onRollback: () => void;
 }) {
+  const { locale, t } = useI18n();
   return (
     <div className="rounded-lg border bg-muted/30 p-3">
       <div className="flex items-center justify-between">
@@ -350,16 +352,16 @@ function ActuationRow({
         <Badge variant="secondary">{record.tier}</Badge>
         {record.createdAt && (
           <span className="text-muted-foreground text-xs">
-            {new Date(record.createdAt).toLocaleString()}
+            {new Date(record.createdAt).toLocaleString(locale)}
           </span>
         )}
       </div>
       <div className="mt-3 flex gap-2">
         <Button onClick={onApprove} size="sm" variant="outline">
-          Approve
+          {t("pages.dashboard.actuations.row.approve")}
         </Button>
         <Button onClick={onRollback} size="sm" variant="ghost">
-          Rollback
+          {t("pages.dashboard.actuations.row.rollback")}
         </Button>
       </div>
     </div>

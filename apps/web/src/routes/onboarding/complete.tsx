@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/onboarding/complete")({
@@ -90,26 +91,9 @@ function Confetti() {
   );
 }
 
-const features = [
-  {
-    icon: Rocket,
-    title: "Quick Start Guide",
-    description: "Learn the basics and get productive in minutes",
-  },
-  {
-    icon: Users,
-    title: "Team Collaboration",
-    description: "Invite team members and work together seamlessly",
-  },
-  {
-    icon: Zap,
-    title: "AI-Powered Insights",
-    description: "Let AI help you discover valuable leads faster",
-  },
-];
-
 function CompletePage() {
   const navigate = useNavigate();
+  const t = useT();
   const { data: activeOrg } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
   const [progress, setProgress] = useState(0);
@@ -137,6 +121,24 @@ function CompletePage() {
     navigate({ to: "/dashboard" });
   }, [navigate]);
 
+  const features = [
+    {
+      icon: Rocket,
+      title: t("onboarding.complete.features.quickStart.title"),
+      description: t("onboarding.complete.features.quickStart.description"),
+    },
+    {
+      icon: Users,
+      title: t("onboarding.complete.features.teamCollaboration.title"),
+      description: t("onboarding.complete.features.teamCollaboration.description"),
+    },
+    {
+      icon: Zap,
+      title: t("onboarding.complete.features.aiInsights.title"),
+      description: t("onboarding.complete.features.aiInsights.description"),
+    },
+  ];
+
   // Auto-redirect after 8 seconds
   useEffect(() => {
     const timer = setTimeout(handleGoToDashboard, 8000);
@@ -152,11 +154,11 @@ function CompletePage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
               <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
             </div>
-            <CardTitle className="text-2xl">You're All Set!</CardTitle>
+            <CardTitle className="text-2xl">{t("onboarding.complete.title")}</CardTitle>
             <CardDescription className="text-base">
-              Welcome to{" "}
+              {t("onboarding.complete.welcomeTo")}{" "}
               <span className="font-medium text-foreground">
-                {activeOrg?.name || "Drovi"}
+                {activeOrg?.name || t("common.app")}
               </span>
             </CardDescription>
           </CardHeader>
@@ -165,14 +167,12 @@ function CompletePage() {
             <div className="rounded-xl border border-primary/10 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 p-5 text-center">
               <Sparkles className="mx-auto mb-2 h-6 w-6 text-primary" />
               <p className="text-sm">
-                Welcome aboard,{" "}
-                <span className="font-semibold">
-                  {session?.user?.name || "there"}
-                </span>
-                !
+                {t("onboarding.complete.welcomeCard.line1", {
+                  name: session?.user?.name || t("onboarding.complete.welcomeCard.fallbackName"),
+                })}
                 <br />
                 <span className="text-muted-foreground">
-                  Your workspace is ready to use.
+                  {t("onboarding.complete.welcomeCard.line2")}
                 </span>
               </p>
             </div>
@@ -180,7 +180,7 @@ function CompletePage() {
             {/* Features */}
             <div className="space-y-3">
               <h4 className="text-center font-medium text-sm">
-                What you can do next
+                {t("onboarding.complete.next.title")}
               </h4>
               <div className="grid gap-3">
                 {features.map((feature) => (
@@ -204,13 +204,13 @@ function CompletePage() {
 
             <div className="space-y-3 pt-2">
               <Button className="h-11 w-full" onClick={handleGoToDashboard}>
-                Go to Dashboard
+                {t("onboarding.complete.goToDashboard")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-muted-foreground text-xs">
-                  <span>Redirecting automatically...</span>
+                  <span>{t("onboarding.complete.redirecting")}</span>
                   <span>8s</span>
                 </div>
                 <Progress className="h-1" value={progress} />

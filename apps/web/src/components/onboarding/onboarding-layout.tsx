@@ -1,19 +1,21 @@
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
+import { useT } from "@/i18n";
 
 interface OnboardingLayoutProps {
   children: React.ReactNode;
   step: 1 | 2 | 3 | 4;
 }
 
-const steps = [
-  { number: 1, label: "Create Organization" },
-  { number: 2, label: "Connect Sources" },
-  { number: 3, label: "Invite Team" },
-  { number: 4, label: "Get Started" },
-];
-
 export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
+  const t = useT();
+  const steps = [
+    { number: 1, label: t("onboarding.steps.createOrg") },
+    { number: 2, label: t("onboarding.steps.connectSources") },
+    { number: 3, label: t("onboarding.steps.inviteTeam") },
+    { number: 4, label: t("onboarding.steps.complete") },
+  ];
+
   return (
     <div className="grid min-h-screen lg:grid-cols-[380px_1fr]">
       {/* Left side - Progress */}
@@ -81,17 +83,17 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
 
         <div className="space-y-4">
           <div className="rounded-lg border bg-background p-4">
-            <h4 className="mb-2 font-medium">Need help?</h4>
+            <h4 className="mb-2 font-medium">{t("onboarding.layout.needHelp.title")}</h4>
             <p className="mb-3 text-muted-foreground text-sm">
-              Our support team is here to assist you with the setup process.
+              {t("onboarding.layout.needHelp.description")}
             </p>
             <Link className="text-primary text-sm hover:underline" to="/">
-              Contact support →
+              {t("onboarding.layout.needHelp.contact")} →
             </Link>
           </div>
 
           <p className="text-center text-muted-foreground text-xs">
-            &copy; {new Date().getFullYear()} Drovi. All rights reserved.
+            &copy; {new Date().getFullYear()} Drovi. {t("onboarding.layout.footer.rights")}
           </p>
         </div>
       </div>
@@ -109,7 +111,10 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             <span>Drovi</span>
           </Link>
           <span className="text-muted-foreground text-sm">
-            Step {step} of 4
+            {t("onboarding.layout.mobile.stepOf", {
+              current: step,
+              total: 4,
+            })}
           </span>
         </div>
 

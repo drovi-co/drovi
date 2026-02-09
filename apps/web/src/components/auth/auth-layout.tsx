@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useT } from "@/i18n";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -7,6 +8,7 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, title, description }: AuthLayoutProps) {
+  const t = useT();
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
       {/* Left side - Branding */}
@@ -24,24 +26,22 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
             className="h-8 w-8 rounded-lg"
             src="/logo-dark.jpg"
           />
-          <span>Drovi</span>
+          <span>{t("common.app")}</span>
         </Link>
 
         <div className="relative z-10 space-y-6">
           <blockquote className="space-y-4">
             <p className="text-muted-foreground text-xl leading-relaxed">
-              "Drovi transformed how I manage my inbox. I never miss
-              commitments, and the AI summaries save me hours every week. It's
-              like having a perfect memory for all my email conversations."
+              {t("auth.testimonial.quote")}
             </p>
             <footer className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground text-sm">
                 MK
               </div>
               <div>
-                <div className="font-medium">Michael Kim</div>
+                <div className="font-medium">{t("auth.testimonial.name")}</div>
                 <div className="text-muted-foreground text-sm">
-                  Product Lead at Stripe
+                  {t("auth.testimonial.role")}
                 </div>
               </div>
             </footer>
@@ -49,14 +49,14 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
         </div>
 
         <div className="relative z-10 flex items-center gap-4 text-muted-foreground text-sm">
-          <span>&copy; {new Date().getFullYear()} Drovi</span>
+          <span>&copy; {new Date().getFullYear()} {t("common.app")}</span>
           <span className="text-border">&middot;</span>
           <Link className="transition-colors hover:text-foreground" to="/">
-            Privacy Policy
+            {t("auth.links.privacy")}
           </Link>
           <span className="text-border">&middot;</span>
           <Link className="transition-colors hover:text-foreground" to="/">
-            Terms of Service
+            {t("auth.links.terms")}
           </Link>
         </div>
       </div>
@@ -75,7 +75,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
                 className="h-8 w-8 rounded-lg"
                 src="/logo-dark.jpg"
               />
-              <span>Drovi</span>
+              <span>{t("common.app")}</span>
             </Link>
           </div>
 

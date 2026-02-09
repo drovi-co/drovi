@@ -84,12 +84,16 @@ class EmbeddingService:
             logger.debug("Embedding cache hit", cache_key=cache_key[:8])
             return self._cache[cache_key]
 
-        # Generate embedding via LLM service (preferred)
+        # Generate embedding via LLM service (preferred) with a LiteLLM fallback.
         try:
             llm = get_llm_service()
             embedding = (await llm.embed([text], model=self.model))[0]
         except Exception as exc:
-            logger.warning("LLM embedding failed, falling back to LiteLLM", error=str(exc))
+            logger.warning(
+                "LLM embedding failed, falling back to LiteLLM",
+                model=self.model,
+                error=str(exc),
+            )
             try:
                 import litellm
 
@@ -112,35 +116,38 @@ class EmbeddingService:
                 )
                 raise EmbeddingError(f"Embedding generation failed: {inner}") from inner
 
-            # Validate dimension
-            if len(embedding) != self.dimension:
-                logger.error(
-                    "Embedding dimension mismatch",
-                    expected=self.dimension,
-                    got=len(embedding),
-                    model=self.model,
-                )
-                raise EmbeddingError(
-                    f"Embedding dimension mismatch: expected {self.dimension}, got {len(embedding)}"
-                )
+        # Validate embedding
+        if not isinstance(embedding, list) or not embedding:
+            raise EmbeddingError("Embedding generation returned no vector")
 
-            # Cache result
-            if len(self._cache) < self._cache_max_size:
-                self._cache[cache_key] = embedding
-            else:
-                # Simple cache eviction: clear half
-                keys_to_remove = list(self._cache.keys())[: self._cache_max_size // 2]
-                for key in keys_to_remove:
-                    del self._cache[key]
-                self._cache[cache_key] = embedding
-
-            logger.debug(
-                "Generated embedding",
+        if len(embedding) != self.dimension:
+            logger.error(
+                "Embedding dimension mismatch",
+                expected=self.dimension,
+                got=len(embedding),
                 model=self.model,
-                dimension=len(embedding),
+            )
+            raise EmbeddingError(
+                f"Embedding dimension mismatch: expected {self.dimension}, got {len(embedding)}"
             )
 
-            return embedding
+        # Cache result
+        if len(self._cache) < self._cache_max_size:
+            self._cache[cache_key] = embedding
+        else:
+            # Simple cache eviction: clear half
+            keys_to_remove = list(self._cache.keys())[: self._cache_max_size // 2]
+            for key in keys_to_remove:
+                del self._cache[key]
+            self._cache[cache_key] = embedding
+
+        logger.debug(
+            "Generated embedding",
+            model=self.model,
+            dimension=len(embedding),
+        )
+
+        return embedding
 
     async def generate_embeddings_batch(
         self,

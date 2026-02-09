@@ -1,9 +1,11 @@
 import { ArrowRight, ShieldAlert } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n";
 
 export function ResetPasswordForm() {
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <div className="space-y-6">
@@ -12,22 +14,21 @@ export function ResetPasswordForm() {
           <ShieldAlert className="h-6 w-6 text-amber-500" />
         </div>
         <h2 className="font-semibold text-foreground text-xl">
-          Reset links aren’t enabled yet
+          {t("auth.passwordReset.reset.title")}
         </h2>
         <p className="text-muted-foreground text-sm">
-          Your admin can reset your password or send you a new invite. If you
-          need help, contact support.
+          {t("auth.passwordReset.reset.description")}
         </p>
       </div>
 
       <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
-        Email{" "}
-        <span className="font-medium text-foreground">support@drovi.ai</span>{" "}
-        with your workspace name and we’ll assist you.
+        {t("auth.passwordReset.reset.helpPrefix")}{" "}
+        <span className="font-medium text-foreground">{t("auth.passwordReset.supportEmail")}</span>{" "}
+        {t("auth.passwordReset.reset.helpSuffix")}
       </div>
 
       <Button className="w-full" onClick={() => navigate({ to: "/login" })}>
-        Back to sign in
+        {t("auth.passwordReset.backToSignIn")}
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
     </div>

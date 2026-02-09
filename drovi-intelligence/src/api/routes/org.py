@@ -35,6 +35,8 @@ from src.auth.pilot_accounts import (
     update_membership_role,
 )
 from src.db.models.pilot import Organization
+from src.notifications.invites import render_org_invite_email
+from src.notifications.resend import send_resend_email
 
 logger = structlog.get_logger()
 
@@ -84,6 +86,7 @@ class OrgInfoResponse(BaseModel):
     notification_emails: list[str] = []
     allowed_connectors: list[str] | None = None
     default_connection_visibility: Literal["org_shared", "private"] = "org_shared"
+    default_locale: str = "en"
     expires_at: datetime | None = None
     created_at: datetime | None = None
     member_count: int = 0
@@ -99,6 +102,7 @@ class OrgUpdateRequest(BaseModel):
     region: str | None = None
     allowed_connectors: list[str] | None = None
     default_connection_visibility: Literal["org_shared", "private"] | None = None
+    default_locale: str | None = None
 
 
 class MemberInfo(BaseModel):
@@ -173,6 +177,7 @@ async def get_org_info(
         notification_emails=org.get("notification_emails", []),
         allowed_connectors=org.get("allowed_connectors"),
         default_connection_visibility=org.get("default_connection_visibility") or "org_shared",
+        default_locale=org.get("default_locale") or "en",
         expires_at=org.get("expires_at"),
         created_at=org.get("created_at"),
         member_count=member_count,
@@ -203,6 +208,11 @@ async def update_org_info(
             updates["allowed_connectors"] = request.allowed_connectors
         if request.default_connection_visibility is not None:
             updates["default_connection_visibility"] = request.default_connection_visibility
+        if request.default_locale is not None:
+            next_locale = str(request.default_locale).strip().lower()
+            if next_locale and not (next_locale.startswith("en") or next_locale.startswith("fr")):
+                raise HTTPException(status_code=400, detail="Unsupported locale")
+            updates["default_locale"] = "fr" if next_locale.startswith("fr") else "en"
 
         if updates:
             set_clause = ", ".join([f"{key} = :{key}" for key in updates])
@@ -241,6 +251,7 @@ async def update_org_info(
         notification_emails=org.get("notification_emails", []),
         allowed_connectors=org.get("allowed_connectors"),
         default_connection_visibility=org.get("default_connection_visibility") or "org_shared",
+        default_locale=org.get("default_locale") or "en",
         expires_at=org.get("expires_at"),
         created_at=org.get("created_at"),
         member_count=member_count,
@@ -365,6 +376,7 @@ async def list_invites(
 @router.post("/invites", response_model=InviteInfo)
 async def create_invite_endpoint(
     request: InviteCreateRequest,
+    background_tasks: BackgroundTasks,
     token: PilotToken = Depends(require_pilot_auth),
 ) -> InviteInfo:
     """Create an invite token (admin-only)."""
@@ -399,6 +411,34 @@ async def create_invite_endpoint(
             except Exception:
                 # Column may not exist in older schemas; ignore
                 await session.rollback()
+
+        # Best-effort email notification (does not block invite creation).
+        try:
+            org = await get_org_by_id(token.org_id)
+            org_name = org["name"] if org else None
+            org_locale = org.get("default_locale") if org else None
+            rendered = render_org_invite_email(
+                invite_token=invite_token,
+                organization_name=org_name,
+                locale=org_locale,
+            )
+
+            async def _send() -> None:
+                await send_resend_email(
+                    to_emails=[request.email],
+                    subject=rendered.subject,
+                    html_body=rendered.html,
+                    text_body=rendered.text,
+                    tags={
+                        "email_type": "org_invite",
+                        "organization_id": token.org_id,
+                    },
+                )
+
+            # Best-effort background email delivery (does not block invite creation).
+            background_tasks.add_task(_send)
+        except Exception as exc:
+            logger.warning("Failed to send invite email", error=str(exc))
 
     return InviteInfo(
         token=invite["token"],

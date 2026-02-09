@@ -177,6 +177,7 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
                     notification_emails,
                     allowed_connectors,
                     default_connection_visibility,
+                    default_locale,
                     expires_at
                 FROM organizations
                 WHERE :domain = ANY(allowed_domains)
@@ -197,6 +198,7 @@ async def get_org_by_domain(email_domain: str) -> dict | None:
                 "notification_emails": row.notification_emails,
                 "allowed_connectors": getattr(row, "allowed_connectors", None),
                 "default_connection_visibility": getattr(row, "default_connection_visibility", "org_shared"),
+                "default_locale": getattr(row, "default_locale", "en"),
                 "expires_at": row.expires_at,
             }
         return None
@@ -216,6 +218,7 @@ async def get_org_by_id(org_id: str) -> dict | None:
                     notification_emails,
                     allowed_connectors,
                     default_connection_visibility,
+                    default_locale,
                     expires_at,
                     created_at
                 FROM organizations
@@ -235,6 +238,7 @@ async def get_org_by_id(org_id: str) -> dict | None:
                 "notification_emails": row.notification_emails,
                 "allowed_connectors": getattr(row, "allowed_connectors", None),
                 "default_connection_visibility": getattr(row, "default_connection_visibility", "org_shared"),
+                "default_locale": getattr(row, "default_locale", "en"),
                 "expires_at": row.expires_at,
                 "created_at": getattr(row, "created_at", None),
             }
@@ -247,6 +251,7 @@ async def create_organization(
     allowed_domains: list[str],
     notification_emails: list[str] | None = None,
     region: str = "us-west",
+    default_locale: str = "en",
     expires_at: datetime | None = None,
 ) -> dict:
     """
@@ -264,10 +269,11 @@ async def create_organization(
                     region,
                     allowed_domains,
                     notification_emails,
+                    default_locale,
                     expires_at,
                     created_at
                 )
-                VALUES (:id, :name, 'active', :region, :allowed_domains, :notification_emails, :expires_at, NOW())
+                VALUES (:id, :name, 'active', :region, :allowed_domains, :notification_emails, :default_locale, :expires_at, NOW())
             """),
             {
                 "id": org_id,
@@ -275,6 +281,7 @@ async def create_organization(
                 "region": region,
                 "allowed_domains": allowed_domains,
                 "notification_emails": notification_emails or [],
+                "default_locale": default_locale,
                 "expires_at": expires_at,
             },
         )
@@ -302,7 +309,7 @@ async def get_user_by_email(email: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, email, name, created_at, last_login_at
+                SELECT id, email, name, locale, created_at, last_login_at
                 FROM users
                 WHERE email = :email
             """),
@@ -315,6 +322,7 @@ async def get_user_by_email(email: str) -> dict | None:
                 "id": row.id,
                 "email": row.email,
                 "name": row.name,
+                "locale": getattr(row, "locale", None),
                 "created_at": row.created_at,
                 "last_login_at": row.last_login_at,
             }
@@ -355,6 +363,7 @@ async def get_or_create_user(email: str, name: str | None = None) -> tuple[dict,
         "id": user_id,
         "email": email,
         "name": name,
+        "locale": None,
         "created_at": datetime.now(timezone.utc),
         "last_login_at": datetime.now(timezone.utc),
     }, True
@@ -393,6 +402,7 @@ async def create_user_with_password(
         "id": user_id,
         "email": email,
         "name": name,
+        "locale": None,
         "created_at": datetime.now(timezone.utc),
         "last_login_at": datetime.now(timezone.utc),
     }
@@ -408,7 +418,7 @@ async def verify_user_password(email: str, password: str) -> dict | None:
     async with get_db_session() as session:
         result = await session.execute(
             text("""
-                SELECT id, email, name, password_hash, created_at, last_login_at
+                SELECT id, email, name, locale, password_hash, created_at, last_login_at
                 FROM users
                 WHERE email = :email
             """),
@@ -432,6 +442,7 @@ async def verify_user_password(email: str, password: str) -> dict | None:
             "id": row.id,
             "email": row.email,
             "name": row.name,
+            "locale": getattr(row, "locale", None),
             "created_at": row.created_at,
             "last_login_at": datetime.now(timezone.utc),
         }
@@ -543,7 +554,11 @@ async def handle_email_signup(
     )
 
 
-async def handle_email_login(email: str, password: str) -> AuthResult:
+async def handle_email_login(
+    email: str,
+    password: str,
+    invite_token: str | None = None,
+) -> AuthResult:
     """
     Handle email/password login.
 
@@ -554,10 +569,64 @@ async def handle_email_login(email: str, password: str) -> AuthResult:
     if not user:
         raise AuthError("Invalid email or password.", status_code=401)
 
-    # Find user's organization (get the first membership)
+    # Optional: accept an invite token during login (existing accounts).
+    #
+    # This enables the common flow:
+    # - user is invited
+    # - user already has an account
+    # - user signs in using the invite link
+    if invite_token:
+        invite = await get_invite(invite_token)
+        if not invite:
+            raise AuthError("Invalid invite token.", status_code=400)
+
+        if invite["used_at"]:
+            raise AuthError("This invite has already been used.", status_code=400)
+
+        invite_expires = invite["expires_at"]
+        if invite_expires.tzinfo is None:
+            invite_expires = invite_expires.replace(tzinfo=timezone.utc)
+        if invite_expires < datetime.now(timezone.utc):
+            raise AuthError("This invite has expired.", status_code=400)
+
+        org_id = invite["org_id"]
+        role = invite["role"]
+
+        await get_or_create_membership(
+            user_id=user["id"],
+            org_id=org_id,
+            role=role,
+        )
+        await use_invite(invite_token, user["id"])
+
+        token = create_jwt(
+            user_id=user["id"],
+            org_id=org_id,
+            role=role,
+            email=email,
+        )
+
+        logger.info(
+            "User logged in via email (invite accepted)",
+            user_id=user["id"],
+            org_id=org_id,
+        )
+
+        return AuthResult(
+            token=token,
+            user_id=user["id"],
+            org_id=org_id,
+            role=role,
+            email=email,
+            name=user.get("name"),
+            is_new_user=False,
+        )
+
+    # Default: find user's organization (get the first membership).
     async with get_db_session() as session:
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT m.org_id, m.role, o.name as org_name
                 FROM memberships m
                 JOIN organizations o ON o.id = m.org_id
@@ -565,7 +634,8 @@ async def handle_email_login(email: str, password: str) -> AuthResult:
                 AND o.pilot_status = 'active'
                 ORDER BY m.created_at ASC
                 LIMIT 1
-            """),
+                """
+            ),
             {"user_id": user["id"]},
         )
         membership = result.fetchone()

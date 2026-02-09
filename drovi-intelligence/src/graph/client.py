@@ -30,6 +30,7 @@ VECTOR_EMBEDDING_LABELS = {
     "Risk",
     "Task",
     "Claim",
+    "DocumentChunk",
 }
 
 # Global client instance
@@ -74,7 +75,13 @@ class DroviGraph:
             self._client = None
             logger.info("Disconnected from FalkorDB")
 
-    async def query(self, cypher: str, params: dict[str, Any] | None = None) -> list[dict]:
+    async def query(
+        self,
+        cypher: str,
+        params: dict[str, Any] | None = None,
+        *,
+        log_errors: bool = True,
+    ) -> list[dict]:
         """
         Execute a Cypher query.
 
@@ -92,7 +99,8 @@ class DroviGraph:
             result = self._graph.query(cypher, params or {})
             return self._parse_result(result)
         except Exception as e:
-            logger.error("Cypher query failed", query=cypher[:100], error=str(e))
+            if log_errors:
+                logger.error("Cypher query failed", query=cypher[:100], error=str(e))
             raise
 
     def _parse_result(self, result: Any) -> list[dict]:
@@ -225,7 +233,7 @@ class DroviGraph:
 
         for index_query in indexes:
             try:
-                await self.query(index_query)
+                await self.query(index_query, log_errors=False)
             except Exception as e:
                 # Index may already exist
                 if "already indexed" not in str(e).lower():
@@ -282,18 +290,21 @@ class DroviGraph:
         """Apply custom FalkorDB index statements (best-effort)."""
         for stmt in statements:
             try:
-                await self.query(stmt)
+                await self.query(stmt, log_errors=False)
                 logger.info("Applied custom FalkorDB index", statement=stmt)
             except Exception as exc:
+                if "already indexed" in str(exc).lower():
+                    logger.debug("FalkorDB index already exists", statement=stmt)
+                    continue
                 logger.warning("Failed to apply custom FalkorDB index", error=str(exc), statement=stmt)
 
     async def _falkordb_supports_indexes(self) -> bool:
         try:
-            await self.query("CALL db.indexes()")
+            await self.query("CALL db.indexes()", log_errors=False)
             return True
         except Exception:
             try:
-                await self.query("CALL db.idx.list()")
+                await self.query("CALL db.idx.list()", log_errors=False)
                 return True
             except Exception:
                 return False

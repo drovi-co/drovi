@@ -7,13 +7,6 @@
 //
 
 import {
-  format,
-  formatDistanceToNow,
-  isPast,
-  isToday,
-  isTomorrow,
-} from "date-fns";
-import {
   AlertCircle,
   Calendar,
   Check,
@@ -41,6 +34,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useI18n } from "@/i18n";
+import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -117,6 +112,14 @@ function getInitials(name: string | null | undefined, email: string): string {
   return email.slice(0, 2).toUpperCase();
 }
 
+function getLocalDayDiff(date: Date): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function getUrgencyLevel(
   dueDate: Date | null | undefined,
   status: string
@@ -131,16 +134,14 @@ function getUrgencyLevel(
   if (!dueDate) {
     return "normal";
   }
-  if (isPast(dueDate)) {
+  const diffDays = getLocalDayDiff(dueDate);
+  if (diffDays < 0) {
     return "overdue";
   }
-  if (isToday(dueDate) || isTomorrow(dueDate)) {
+  if (diffDays === 0 || diffDays === 1) {
     return "urgent";
   }
-  const daysUntil = Math.ceil(
-    (dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
-  if (daysUntil <= 7) {
+  if (diffDays <= 7) {
     return "soon";
   }
   return "normal";
@@ -150,43 +151,43 @@ function getStatusConfig(status: string) {
   switch (status) {
     case "overdue":
       return {
-        label: "Overdue",
+        labelKey: "components.commitmentDetailSheet.status.overdue",
         color: "text-red-600 bg-red-500/10",
         icon: AlertCircle,
       };
     case "completed":
       return {
-        label: "Completed",
+        labelKey: "components.commitmentDetailSheet.status.completed",
         color: "text-green-600 bg-green-500/10",
         icon: CheckCircle2,
       };
     case "in_progress":
       return {
-        label: "In Progress",
+        labelKey: "components.commitmentDetailSheet.status.inProgress",
         color: "text-blue-600 bg-blue-500/10",
         icon: Clock,
       };
     case "waiting":
       return {
-        label: "Waiting",
+        labelKey: "components.commitmentDetailSheet.status.waiting",
         color: "text-amber-600 bg-amber-500/10",
         icon: Clock,
       };
     case "snoozed":
       return {
-        label: "Snoozed",
+        labelKey: "components.commitmentDetailSheet.status.snoozed",
         color: "text-gray-600 bg-gray-500/10",
         icon: Pause,
       };
     case "cancelled":
       return {
-        label: "Cancelled",
+        labelKey: "components.commitmentDetailSheet.status.cancelled",
         color: "text-gray-400 bg-gray-500/10",
         icon: X,
       };
     default:
       return {
-        label: "Pending",
+        labelKey: "components.commitmentDetailSheet.status.pending",
         color: "text-purple-600 bg-purple-500/10",
         icon: Clock,
       };
@@ -209,6 +210,7 @@ export function CommitmentDetailSheet({
   onContactClick,
   onGenerateFollowUp,
 }: CommitmentDetailSheetProps) {
+  const { locale, t } = useI18n();
   if (!commitment) {
     return null;
   }
@@ -250,13 +252,13 @@ export function CommitmentDetailSheet({
                   )}
                 >
                   {commitment.direction === "owed_by_me"
-                    ? "I owe this"
-                    : "Owed to me"}
+                    ? t("components.commitmentDetailSheet.direction.owedByMe")
+                    : t("components.commitmentDetailSheet.direction.owedToMe")}
                 </span>
                 {commitment.isUserVerified && (
                   <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 text-green-600 text-xs">
                     <ThumbsUp className="h-3 w-3" />
-                    Verified
+                    {t("components.commitmentDetailSheet.verified")}
                   </span>
                 )}
               </div>
@@ -267,7 +269,7 @@ export function CommitmentDetailSheet({
                 )}
               >
                 <StatusIcon className="h-3 w-3" />
-                {statusConfig.label}
+                {t(statusConfig.labelKey)}
               </span>
             </div>
 
@@ -281,7 +283,7 @@ export function CommitmentDetailSheet({
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">AI Confidence</span>
+                  <span className="text-muted-foreground">{t("components.commitmentDetailSheet.aiConfidence")}</span>
                   <span
                     className={cn(
                       "font-medium",
@@ -311,7 +313,7 @@ export function CommitmentDetailSheet({
           {/* People involved */}
           <div className="space-y-3">
             <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              People Involved
+              {t("components.commitmentDetailSheet.sections.peopleInvolved")}
             </h4>
             <div className="space-y-2">
               {commitment.debtor && (
@@ -337,8 +339,8 @@ export function CommitmentDetailSheet({
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {commitment.direction === "owed_by_me"
-                        ? "You"
-                        : "Owes this commitment"}
+                        ? t("components.commitmentDetailSheet.people.you")
+                        : t("components.commitmentDetailSheet.people.owesThis")}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -367,8 +369,8 @@ export function CommitmentDetailSheet({
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {commitment.direction === "owed_to_me"
-                        ? "You"
-                        : "Expecting this commitment"}
+                        ? t("components.commitmentDetailSheet.people.you")
+                        : t("components.commitmentDetailSheet.people.expectingThis")}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -380,7 +382,7 @@ export function CommitmentDetailSheet({
           {/* Timeline */}
           <div className="space-y-3">
             <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Timeline
+              {t("components.commitmentDetailSheet.sections.timeline")}
             </h4>
             <div className="space-y-3">
               {commitment.dueDate && (
@@ -406,8 +408,14 @@ export function CommitmentDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {isPast(commitment.dueDate) ? "Was due" : "Due"}{" "}
-                      {format(commitment.dueDate, "MMMM d, yyyy")}
+                      {getLocalDayDiff(commitment.dueDate) < 0
+                        ? t("components.commitmentDetailSheet.timeline.wasDue")
+                        : t("components.commitmentDetailSheet.timeline.due")}{" "}
+                      {new Intl.DateTimeFormat(locale, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }).format(commitment.dueDate)}
                     </p>
                     <p
                       className={cn(
@@ -416,9 +424,7 @@ export function CommitmentDetailSheet({
                         urgency !== "overdue" && "text-muted-foreground"
                       )}
                     >
-                      {formatDistanceToNow(commitment.dueDate, {
-                        addSuffix: true,
-                      })}
+                      {formatRelativeTime(commitment.dueDate, locale)}
                     </p>
                   </div>
                 </div>
@@ -430,12 +436,15 @@ export function CommitmentDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      Snoozed until {format(commitment.snoozedUntil, "MMMM d")}
+                      {t("components.commitmentDetailSheet.timeline.snoozedUntil", {
+                        date: new Intl.DateTimeFormat(locale, {
+                          month: "long",
+                          day: "numeric",
+                        }).format(commitment.snoozedUntil),
+                      })}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(commitment.snoozedUntil, {
-                        addSuffix: true,
-                      })}
+                      {formatRelativeTime(commitment.snoozedUntil, locale)}
                     </p>
                   </div>
                 </div>
@@ -447,12 +456,16 @@ export function CommitmentDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      Completed {format(commitment.completedAt, "MMMM d, yyyy")}
+                      {t("components.commitmentDetailSheet.timeline.completed", {
+                        date: new Intl.DateTimeFormat(locale, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }).format(commitment.completedAt),
+                      })}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(commitment.completedAt, {
-                        addSuffix: true,
-                      })}
+                      {formatRelativeTime(commitment.completedAt, locale)}
                     </p>
                   </div>
                 </div>
@@ -464,7 +477,7 @@ export function CommitmentDetailSheet({
           {commitment.description && (
             <div className="space-y-3">
               <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-                Details
+                {t("components.commitmentDetailSheet.sections.details")}
               </h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {commitment.description}
@@ -478,7 +491,7 @@ export function CommitmentDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <FileText className="h-3.5 w-3.5" />
-                Evidence
+                {t("components.commitmentDetailSheet.sections.evidence")}
               </h4>
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
                 <p className="text-muted-foreground text-sm italic leading-relaxed">
@@ -489,11 +502,9 @@ export function CommitmentDetailSheet({
                 </p>
                 {commitment.metadata?.extractedAt && (
                   <p className="mt-2 text-muted-foreground text-xs">
-                    Extracted{" "}
-                    {formatDistanceToNow(
-                      new Date(commitment.metadata.extractedAt),
-                      { addSuffix: true }
-                    )}
+                    {t("components.commitmentDetailSheet.evidence.extracted", {
+                      time: formatRelativeTime(new Date(commitment.metadata.extractedAt), locale),
+                    })}
                   </p>
                 )}
               </div>
@@ -504,7 +515,7 @@ export function CommitmentDetailSheet({
           {commitment.sourceThread && (
             <div className="space-y-3">
               <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-                Source
+                {t("components.commitmentDetailSheet.sections.source")}
               </h4>
               <button
                 className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted"
@@ -516,7 +527,7 @@ export function CommitmentDetailSheet({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sm">
-                    {commitment.sourceThread.subject ?? "Email thread"}
+                    {commitment.sourceThread.subject ?? t("components.commitmentDetailSheet.sourceThread.emailThreadFallback")}
                   </p>
                   {commitment.sourceThread.snippet && (
                     <p className="truncate text-muted-foreground text-xs">
@@ -542,7 +553,7 @@ export function CommitmentDetailSheet({
                   onClick={() => onComplete(commitment.id)}
                 >
                   <Check className="mr-2 h-4 w-4" />
-                  Mark Complete
+                  {t("components.commitmentDetailSheet.actions.markComplete")}
                 </Button>
               )}
               {commitment.direction === "owed_to_me" &&
@@ -554,7 +565,7 @@ export function CommitmentDetailSheet({
                     variant="outline"
                   >
                     <Mail className="mr-2 h-4 w-4" />
-                    Send Follow-up
+                    {t("components.commitmentDetailSheet.actions.sendFollowUp")}
                   </Button>
                 )}
             </div>
@@ -568,7 +579,8 @@ export function CommitmentDetailSheet({
                 size="sm"
                 variant="ghost"
               >
-                <Clock className="mr-1.5 h-3.5 w-3.5" />1 day
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                {t("components.commitmentDetailSheet.actions.snooze1d")}
               </Button>
               <Button
                 className="flex-1"
@@ -576,7 +588,8 @@ export function CommitmentDetailSheet({
                 size="sm"
                 variant="ghost"
               >
-                <Clock className="mr-1.5 h-3.5 w-3.5" />3 days
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                {t("components.commitmentDetailSheet.actions.snooze3d")}
               </Button>
               <Button
                 className="flex-1"
@@ -584,7 +597,8 @@ export function CommitmentDetailSheet({
                 size="sm"
                 variant="ghost"
               >
-                <Clock className="mr-1.5 h-3.5 w-3.5" />1 week
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                {t("components.commitmentDetailSheet.actions.snooze1w")}
               </Button>
             </div>
           )}
@@ -598,7 +612,7 @@ export function CommitmentDetailSheet({
                 variant="outline"
               >
                 <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
-                Verify
+                {t("components.commitmentDetailSheet.actions.verify")}
               </Button>
             )}
             {onDismiss && (
@@ -609,7 +623,7 @@ export function CommitmentDetailSheet({
                 variant="ghost"
               >
                 <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
-                Dismiss
+                {t("components.commitmentDetailSheet.actions.dismiss")}
               </Button>
             )}
           </div>

@@ -100,3 +100,17 @@ groups:
         annotations:
           summary: "Kafka consumer lag high"
           description: "Kafka lag exceeded 1000 messages for 10m. Investigate consumer throughput."
+
+      - alert: DroviEvidenceCompletenessLow
+        expr: |
+          (
+            sum(rate(drovi_evidence_completeness_total{status="present"}[15m]))
+            /
+            sum(rate(drovi_evidence_completeness_total[15m]))
+          ) < 0.95
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Evidence completeness low"
+          description: "Less than 95% of extracted items have evidence spans over the last 15m."

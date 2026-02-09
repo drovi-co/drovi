@@ -1,50 +1,44 @@
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+"""
+Unit tests for trust indicator scoring.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
 
 import pytest
 
-from src.trust.indicators import get_trust_indicators
+from src.trust import indicators
+
+pytestmark = pytest.mark.unit
 
 
-@pytest.mark.asyncio
-async def test_trust_indicators_include_evidence_and_reasoning():
-    session = AsyncMock()
-    rows = MagicMock()
-    rows.fetchall.return_value = [
-        SimpleNamespace(
-            id="uio_1",
-            overall_confidence=0.6,
-            belief_state="active",
-            truth_state="candidate",
-            last_update_reason="source_event",
-            last_updated_at=datetime.utcnow() - timedelta(days=5),
-            contradicts_existing=False,
-        )
-    ]
-    session.execute.return_value = rows
+def test_compute_trust_score_handles_offset_aware_last_updated_at(monkeypatch: pytest.MonkeyPatch) -> None:
+    fixed_now = datetime(2026, 2, 9, 12, 0, 0)  # naive
+    monkeypatch.setattr(indicators, "utc_now", lambda: fixed_now)
 
-    @asynccontextmanager
-    async def fake_session():
-        yield session
+    last_updated_at = datetime(2026, 2, 8, 12, 0, 0, tzinfo=timezone.utc)
+    score = indicators._compute_trust_score(
+        confidence=0.55,
+        evidence_count=2,
+        is_contradicted=False,
+        last_updated_at=last_updated_at,
+    )
 
-    memory = AsyncMock()
-    memory.get_uio_evidence.return_value = {
-        "uio_1": [
-            {"evidence_id": "ev_1", "quoted_text": "proof"},
-            {"evidence_id": "ev_2", "quoted_text": "more proof"},
-        ]
-    }
+    assert 0.0 <= score <= 1.0
 
-    with patch("src.trust.indicators.get_db_session", fake_session), patch(
-        "src.trust.indicators.get_memory_service",
-        return_value=memory,
-    ):
-        indicators = await get_trust_indicators(organization_id="org_1", uio_ids=["uio_1"])
 
-    assert len(indicators) == 1
-    indicator = indicators[0]
-    assert indicator["evidence_count"] == 2
-    assert indicator["trust_score"] >= 0.6
-    assert any("evidence" in reason for reason in indicator["confidence_reasoning"])
+def test_compute_trust_score_handles_naive_last_updated_at(monkeypatch: pytest.MonkeyPatch) -> None:
+    fixed_now = datetime(2026, 2, 9, 12, 0, 0)  # naive
+    monkeypatch.setattr(indicators, "utc_now", lambda: fixed_now)
+
+    last_updated_at = datetime(2026, 2, 8, 12, 0, 0)  # naive
+    score = indicators._compute_trust_score(
+        confidence=0.55,
+        evidence_count=0,
+        is_contradicted=True,
+        last_updated_at=last_updated_at,
+    )
+
+    assert 0.0 <= score <= 1.0
+

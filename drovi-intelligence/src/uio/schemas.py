@@ -204,6 +204,7 @@ class SourceContext(BaseModel):
         "whatsapp",
         "notion",
         "google_docs",
+        "document",
         "meeting",
         "call",
         "recording",

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/i18n";
 import {
   Table,
   TableBody,
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/dashboard/jobs")({
 
 function AdminJobsPage() {
   const qc = useQueryClient();
+  const t = useT();
   const [orgId, setOrgId] = useState("");
   const [status, setStatus] = useState("");
   const [jobType, setJobType] = useState("");
@@ -47,44 +49,46 @@ function AdminJobsPage() {
   const cancelMutation = useMutation({
     mutationFn: (jobId: string) => adminAPI.cancelJob(jobId),
     onSuccess: async () => {
-      toast.success("Job cancelled");
+      toast.success(t("admin.jobs.toasts.cancelled"));
       await qc.invalidateQueries({ queryKey: ["admin-jobs"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Cancel failed"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : t("admin.jobs.toasts.cancelFailed")),
   });
 
   const retryMutation = useMutation({
     mutationFn: (jobId: string) => adminAPI.retryJob(jobId),
     onSuccess: async () => {
-      toast.success("Job retried");
+      toast.success(t("admin.jobs.toasts.retried"));
       await qc.invalidateQueries({ queryKey: ["admin-jobs"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Retry failed"),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : t("admin.jobs.toasts.retryFailed")),
   });
 
   return (
     <div className="space-y-4">
       <Card className="border-border/70">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-sm">Jobs</CardTitle>
+          <CardTitle className="text-sm">{t("admin.jobs.title")}</CardTitle>
           <div className="text-muted-foreground text-xs">
-            Durable job queue. Refreshes every 5s.
+            {t("admin.jobs.description")}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-2 md:grid-cols-3">
             <Input
-              placeholder="Filter org id (optional)"
+              placeholder={t("admin.jobs.filters.orgId")}
               value={orgId}
               onChange={(ev) => setOrgId(ev.target.value)}
             />
             <Input
-              placeholder="Filter status (queued/running/failed...)"
+              placeholder={t("admin.jobs.filters.status")}
               value={status}
               onChange={(ev) => setStatus(ev.target.value)}
             />
             <Input
-              placeholder="Filter job_type (connector.sync, ...)"
+              placeholder={t("admin.jobs.filters.jobType")}
               value={jobType}
               onChange={(ev) => setJobType(ev.target.value)}
             />
@@ -98,19 +102,27 @@ function AdminJobsPage() {
             </div>
           ) : query.error ? (
             <div className="text-sm text-muted-foreground">
-              {query.error instanceof Error ? query.error.message : "Unknown error"}
+              {query.error instanceof Error
+                ? query.error.message
+                : t("common.messages.unknownError")}
             </div>
           ) : jobs.length ? (
             <div className="rounded-md border border-border/70">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead className="hidden lg:table-cell">Org</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Attempts</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("admin.jobs.table.id")}</TableHead>
+                    <TableHead className="hidden lg:table-cell">
+                      {t("admin.jobs.table.org")}
+                    </TableHead>
+                    <TableHead>{t("admin.jobs.table.type")}</TableHead>
+                    <TableHead>{t("admin.jobs.table.status")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("admin.jobs.table.attempts")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("admin.jobs.table.actions")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -144,14 +156,14 @@ function AdminJobsPage() {
                               size="sm"
                               variant="secondary"
                             >
-                              Cancel
+                              {t("common.actions.cancel")}
                             </Button>
                             <Button
                               disabled={!canRetry || retryMutation.isPending}
                               onClick={() => retryMutation.mutate(String(j.id))}
                               size="sm"
                             >
-                              Retry
+                              {t("common.actions.retry")}
                             </Button>
                           </div>
                         </TableCell>
@@ -162,11 +174,12 @@ function AdminJobsPage() {
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No jobs found.</div>
+            <div className="text-sm text-muted-foreground">
+              {t("admin.jobs.empty")}
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

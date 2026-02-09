@@ -1,6 +1,4 @@
 "use client";
-
-import { format } from "date-fns";
 import {
   Calendar,
   ChevronDown,
@@ -20,6 +18,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { useI18n, useT } from "@/i18n";
 
 // =============================================================================
 // EVIDENCE CHAIN COMPONENT
@@ -60,18 +59,18 @@ const sourceIcons: Record<string, LucideIcon> = {
   calendar: Calendar,
   notion: FileText,
   google_docs: FileText,
+  document: FileText,
   meeting_transcript: FileText,
   teams: MessageSquare,
   discord: MessageSquare,
   whatsapp: MessageSquare,
 };
 
-// Role to label mapping
-const roleLabels: Record<string, string> = {
-  origin: "Original source",
-  update: "Update",
-  confirmation: "Confirmation",
-  context: "Context",
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  origin: "evidenceChain.roles.origin",
+  update: "evidenceChain.roles.update",
+  confirmation: "evidenceChain.roles.confirmation",
+  context: "evidenceChain.roles.context",
 };
 
 // Role to badge color
@@ -86,20 +85,20 @@ const roleColors: Record<string, string> = {
     "bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/20 dark:text-gray-400",
 };
 
-// Source type display names
-const sourceNames: Record<string, string> = {
-  email: "Email",
-  slack: "Slack",
-  calendar: "Calendar",
-  notion: "Notion",
-  google_docs: "Google Docs",
-  google_sheets: "Google Sheets",
-  meeting_transcript: "Meeting",
-  teams: "Teams",
-  discord: "Discord",
-  whatsapp: "WhatsApp",
-  github: "GitHub",
-  linear: "Linear",
+const SOURCE_NAME_KEYS: Record<string, string> = {
+  email: "evidenceChain.sources.email",
+  slack: "evidenceChain.sources.slack",
+  calendar: "evidenceChain.sources.calendar",
+  notion: "evidenceChain.sources.notion",
+  google_docs: "evidenceChain.sources.googleDocs",
+  google_sheets: "evidenceChain.sources.googleSheets",
+  document: "evidenceChain.sources.document",
+  meeting_transcript: "evidenceChain.sources.meeting",
+  teams: "evidenceChain.sources.teams",
+  discord: "evidenceChain.sources.discord",
+  whatsapp: "evidenceChain.sources.whatsapp",
+  github: "evidenceChain.sources.github",
+  linear: "evidenceChain.sources.linear",
 };
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
@@ -126,9 +125,13 @@ function EvidenceItem({
   source: EvidenceSource;
   onViewSource?: (source: EvidenceSource) => void;
 }) {
+  const t = useT();
+  const { locale } = useI18n();
   const Icon = sourceIcons[source.sourceType] ?? FileText;
-  const sourceName = sourceNames[source.sourceType] ?? source.sourceType;
-  const roleLabel = roleLabels[source.role] ?? source.role;
+  const sourceNameKey = SOURCE_NAME_KEYS[source.sourceType];
+  const sourceName = sourceNameKey ? t(sourceNameKey) : source.sourceType;
+  const roleLabelKey = ROLE_LABEL_KEYS[source.role];
+  const roleLabel = roleLabelKey ? t(roleLabelKey) : source.role;
   const roleColor = roleColors[source.role] ?? roleColors.context;
   const hasLink =
     source.conversationId || source.emailThreadId || source.messageId;
@@ -145,7 +148,11 @@ function EvidenceItem({
             <span className="font-medium text-sm">{sourceName}</span>
             {source.sourceTimestamp && (
               <span className="ml-2 text-muted-foreground text-xs">
-                {format(source.sourceTimestamp, "MMM d, yyyy")}
+                {new Intl.DateTimeFormat(locale, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                }).format(source.sourceTimestamp)}
               </span>
             )}
           </div>
@@ -176,7 +183,9 @@ function EvidenceItem({
 
       {source.segmentHash && (
         <div className="text-muted-foreground text-xs">
-          <span className="mr-1 font-medium">Segment hash:</span>
+          <span className="mr-1 font-medium">
+            {t("evidenceChain.labels.segmentHash")}
+          </span>
           <span
             className="inline-block max-w-full truncate align-bottom font-mono"
             title={source.segmentHash}
@@ -195,7 +204,7 @@ function EvidenceItem({
           variant="ghost"
         >
           <ExternalLink className="mr-1.5 h-3 w-3" />
-          View in {sourceName}
+          {t("evidenceChain.actions.viewIn", { source: sourceName })}
         </Button>
       )}
     </div>
@@ -211,6 +220,7 @@ export function EvidenceChain({
   className,
   ...props
 }: EvidenceChainProps) {
+  const t = useT();
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Sort sources: origin first, then by timestamp
@@ -245,7 +255,7 @@ export function EvidenceChain({
         )}
         {...props}
       >
-        No evidence sources found
+        {t("evidenceChain.empty")}
       </div>
     );
   }
@@ -279,8 +289,9 @@ export function EvidenceChain({
           variant="ghost"
         >
           <span className="font-medium text-sm">
-            Evidence Chain ({sources.length} source
-            {sources.length !== 1 ? "s" : ""})
+            {sources.length === 1
+              ? t("evidenceChain.headingOne", { count: sources.length })
+              : t("evidenceChain.headingMany", { count: sources.length })}
           </span>
           {isOpen ? (
             <ChevronUp className="h-4 w-4" />

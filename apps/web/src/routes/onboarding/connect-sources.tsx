@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useT } from "@/i18n";
 import { useAuthStore } from "@/lib/auth";
 import {
   connectionsAPI,
@@ -50,6 +51,7 @@ type ConnectorCard = ConnectorMeta & {
 function ConnectSourcesPage() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuthStore();
+  const t = useT();
   const organizationId = user?.org_id ?? "";
 
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
@@ -64,13 +66,13 @@ function ConnectSourcesPage() {
     const error = searchParams.get("error");
 
     if (connectionSuccess === "success") {
-      toast.success("Source connected! Initial sync queued.");
+      toast.success(t("onboarding.connectSources.toasts.connected"));
       window.history.replaceState({}, "", window.location.pathname);
     } else if (error) {
-      toast.error(`Failed to connect: ${error}`);
+      toast.error(t("onboarding.connectSources.toasts.failedToConnect", { error }));
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
+  }, [t]);
 
   const {
     data: availableConnectors,
@@ -116,7 +118,7 @@ function ConnectSourcesPage() {
         name: connector.type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
         icon: PlugZap,
         color: "#64748B",
-        description: "Custom connector",
+        descriptionKey: "pages.dashboard.sources.customConnector",
         category: "knowledge" as const,
         available: true,
         configured: connector.configured ?? true,
@@ -143,7 +145,9 @@ function ConnectSourcesPage() {
       window.location.href = data.auth_url;
     },
     onError: (error: Error) => {
-      toast.error(`Failed to connect: ${error.message}`);
+      toast.error(
+        t("onboarding.connectSources.toasts.failedToConnect", { error: error.message })
+      );
       setConnectingProvider(null);
     },
   });
@@ -211,13 +215,13 @@ function ConnectSourcesPage() {
             </div>
             <CardTitle className="text-2xl">
               {hasConnectedAccount
-                ? "Sources connected"
-                : "Connect your sources"}
+                ? t("onboarding.connectSources.title.connected")
+                : t("onboarding.connectSources.title.connect")}
             </CardTitle>
             <CardDescription className="text-base">
               {hasConnectedAccount
-                ? "Keep adding sources to deepen the memory graph and accelerate briefs."
-                : "Pick the sources that matter most. We will backfill history and keep everything in sync."}
+                ? t("onboarding.connectSources.description.connected")
+                : t("onboarding.connectSources.description.connect")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
@@ -226,7 +230,7 @@ function ConnectSourcesPage() {
                 <ApiErrorPanel
                   error={availableConnectorsErrorObj}
                   onRetry={() => refetchAvailableConnectors()}
-                  retryLabel="Reload connectors"
+                  retryLabel={t("onboarding.connectSources.reloadConnectors")}
                 />
               </div>
             )}
@@ -235,7 +239,7 @@ function ConnectSourcesPage() {
                 <ApiErrorPanel
                   error={connectionsErrorObj}
                   onRetry={() => refetchConnections()}
-                  retryLabel="Reload connections"
+                  retryLabel={t("onboarding.connectSources.reloadConnections")}
                 />
               </div>
             )}
@@ -310,14 +314,14 @@ function ConnectSourcesPage() {
                         <div>
                           <p className="font-medium text-sm">{connector.name}</p>
                           <p className="text-muted-foreground text-xs">
-                            {connector.description}
+                            {t(connector.descriptionKey)}
                           </p>
                         </div>
                       </div>
                       {isConnected ? (
                         <div className="flex flex-col items-end gap-1">
                           <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600">
-                            Connected
+                            {t("pages.dashboard.sources.status.connected")}
                           </Badge>
                           <Badge
                             className={cn(
@@ -330,25 +334,29 @@ function ConnectSourcesPage() {
                             variant="outline"
                           >
                             {(connection?.visibility ?? "org_shared") === "private"
-                              ? "Private"
-                              : "Org-shared"}
+                              ? t("pages.dashboard.sources.visibility.private")
+                              : t("pages.dashboard.sources.visibility.orgShared")}
                           </Badge>
                         </div>
                       ) : !connector.available ? (
-                        <Badge variant="outline">Coming soon</Badge>
+                        <Badge variant="outline">
+                          {t("onboarding.connectSources.badges.comingSoon")}
+                        </Badge>
                       ) : !connector.configured ? (
                         <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-600">
-                          Not configured
+                          {t("pages.dashboard.sources.badges.notConfigured")}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">Ready</Badge>
+                        <Badge variant="outline">
+                          {t("pages.dashboard.sources.badges.ready")}
+                        </Badge>
                       )}
                     </div>
 
                     {connector.available && !connector.configured && connector.missingEnv.length ? (
                       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700/80">
                         <p className="font-medium text-amber-600">
-                          Missing connector configuration
+                          {t("onboarding.connectSources.missingConfig.title")}
                         </p>
                         <p className="mt-1 font-mono text-[11px] text-amber-700/70">
                           {connector.missingEnv.join(", ")}
@@ -360,13 +368,15 @@ function ConnectSourcesPage() {
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
                           {connection?.last_sync
-                            ? `Last sync ${new Date(connection.last_sync).toLocaleDateString()}`
-                            : "Initial sync queued"}
+                            ? t("onboarding.connectSources.lastSync", {
+                                date: new Date(connection.last_sync).toLocaleDateString(),
+                              })
+                            : t("onboarding.connectSources.initialSyncQueued")}
                         </span>
                         {isSyncing && (
                           <span className="inline-flex items-center gap-1 text-emerald-600">
                             <RefreshCw className="h-3 w-3 animate-spin" />
-                            Syncing
+                            {t("pages.dashboard.sources.status.syncing")}
                           </span>
                         )}
                       </div>
@@ -375,7 +385,7 @@ function ConnectSourcesPage() {
                     {isConnected && isSyncing && backfillWindow ? (
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
-                          Backfill window{" "}
+                          {t("pages.dashboard.sources.backfillWindow")}{" "}
                           <span className="font-mono text-foreground">
                             {backfillWindow.idx}/{backfillWindow.total}
                           </span>
@@ -393,7 +403,7 @@ function ConnectSourcesPage() {
                     typeof liveProgress === "number" ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Progress</span>
+                          <span>{t("onboarding.connectSources.progress")}</span>
                           <span className="font-mono text-foreground">
                             {Math.round(liveProgress * 100)}%
                           </span>
@@ -408,7 +418,7 @@ function ConnectSourcesPage() {
                     overallBackfillProgress !== null ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Backfill</span>
+                          <span>{t("onboarding.connectSources.backfill")}</span>
                           <span className="font-mono text-foreground">
                             {Math.round(overallBackfillProgress * 100)}%
                           </span>
@@ -420,8 +430,10 @@ function ConnectSourcesPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-xs text-muted-foreground">
                         {connection?.messages_synced
-                          ? `${connection.messages_synced.toLocaleString()} records synced`
-                          : "No records yet"}
+                          ? t("onboarding.connectSources.recordsSynced", {
+                              count: connection.messages_synced.toLocaleString(),
+                            })
+                          : t("onboarding.connectSources.noRecordsYet")}
                       </div>
                       <Button
                         disabled={
@@ -437,9 +449,9 @@ function ConnectSourcesPage() {
                         {connectingProvider === connector.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : isConnected ? (
-                          "Connected"
+                          t("pages.dashboard.sources.status.connected")
                         ) : (
-                          "Connect"
+                          t("common.actions.connect")
                         )}
                       </Button>
                     </div>
@@ -452,10 +464,10 @@ function ConnectSourcesPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button onClick={handleSkip} variant="ghost">
-            Skip for now
+            {t("onboarding.connectSources.skip")}
           </Button>
           <Button onClick={handleContinue}>
-            Continue
+            {t("common.actions.continue")}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

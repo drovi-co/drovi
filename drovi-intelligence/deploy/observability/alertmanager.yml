@@ -1,0 +1,16 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: drovi-webhook
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: drovi-webhook
+    webhook_configs:
+      - url: "http://drovi-intelligence:8000/api/v1/monitoring/alerts/webhook?token=dev"
+        send_resolved: true
+

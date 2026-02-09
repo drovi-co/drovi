@@ -1,6 +1,5 @@
 "use client";
 
-import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Calendar,
@@ -22,6 +21,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useI18n, useT } from "@/i18n";
+import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -101,10 +102,14 @@ export function Timeline({
   events,
   onViewSource,
   loading = false,
-  emptyMessage = "No events yet",
+  emptyMessage,
   className,
   ...props
 }: TimelineProps) {
+  const t = useT();
+  const { locale } = useI18n();
+  const resolvedEmpty = emptyMessage ?? t("components.timeline.empty");
+
   if (loading) {
     return (
       <div className={cn("space-y-4", className)} {...props}>
@@ -135,7 +140,7 @@ export function Timeline({
         )}
         {...props}
       >
-        {emptyMessage}
+        {resolvedEmpty}
       </div>
     );
   }
@@ -180,19 +185,19 @@ export function Timeline({
                         </Badge>
                       )}
                       <span>
-                        {formatDistanceToNow(event.eventAt, {
-                          addSuffix: true,
-                        })}
+                        {formatRelativeTime(event.eventAt, locale)}
                       </span>
                       {event.confidence && event.confidence < 0.8 && (
                         <Tooltip>
                           <TooltipTrigger>
                             <span className="text-amber-500">
-                              {Math.round(event.confidence * 100)}% confident
+                              {t("components.timeline.confidentPct", {
+                                pct: Math.round(event.confidence * 100),
+                              })}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            AI confidence score for this detection
+                            {t("components.timeline.confidenceTooltip")}
                           </TooltipContent>
                         </Tooltip>
                       )}
@@ -203,11 +208,20 @@ export function Timeline({
                   <Tooltip>
                     <TooltipTrigger>
                       <span className="whitespace-nowrap text-muted-foreground text-xs">
-                        {format(event.eventAt, "MMM d")}
+                        {new Intl.DateTimeFormat(locale, {
+                          month: "short",
+                          day: "numeric",
+                        }).format(event.eventAt)}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {format(event.eventAt, "MMMM d, yyyy 'at' h:mm a")}
+                      {new Intl.DateTimeFormat(locale, {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }).format(event.eventAt)}
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -226,7 +240,7 @@ export function Timeline({
                         variant="link"
                       >
                         <ExternalLink className="mr-1 h-3 w-3" />
-                        View source
+                        {t("components.timeline.actions.viewSource")}
                       </Button>
                     )}
                   </div>
@@ -235,7 +249,7 @@ export function Timeline({
                 {/* User attribution */}
                 {event.triggeredBy && event.triggeredBy !== "system" && (
                   <p className="mt-1 text-muted-foreground text-xs">
-                    by {event.triggeredBy}
+                    {t("components.timeline.by", { who: event.triggeredBy })}
                   </p>
                 )}
               </div>

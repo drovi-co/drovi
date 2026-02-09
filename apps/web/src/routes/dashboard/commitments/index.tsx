@@ -41,6 +41,7 @@ import {
   useUIO,
   useVerifyUIO,
 } from "@/hooks/use-uio";
+import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 
 // =============================================================================
@@ -67,6 +68,7 @@ function CommitmentsPage() {
   const navigate = useNavigate();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const t = useT();
   const organizationId = activeOrg?.id ?? "";
 
   // State
@@ -136,12 +138,12 @@ function CommitmentsPage() {
         { organizationId: params.organizationId, id: params.commitmentId },
         {
           onSuccess: () => {
-            toast.success("Commitment marked complete");
+            toast.success(t("pages.dashboard.commitments.toasts.markComplete"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to complete commitment");
+            toast.error(t("pages.dashboard.commitments.toasts.markCompleteFailed"));
           },
         }
       );
@@ -164,12 +166,12 @@ function CommitmentsPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Commitment snoozed");
+            toast.success(t("pages.dashboard.commitments.toasts.snoozed"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to snooze commitment");
+            toast.error(t("pages.dashboard.commitments.toasts.snoozeFailed"));
           },
         }
       );
@@ -184,12 +186,12 @@ function CommitmentsPage() {
         { organizationId: params.organizationId, id: params.commitmentId },
         {
           onSuccess: () => {
-            toast.success("Commitment dismissed");
+            toast.success(t("pages.dashboard.commitments.toasts.dismissed"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to dismiss commitment");
+            toast.error(t("pages.dashboard.commitments.toasts.dismissFailed"));
           },
         }
       );
@@ -204,12 +206,12 @@ function CommitmentsPage() {
         { organizationId: params.organizationId, id: params.commitmentId },
         {
           onSuccess: () => {
-            toast.success("Commitment verified");
+            toast.success(t("pages.dashboard.commitments.toasts.verified"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to verify commitment");
+            toast.error(t("pages.dashboard.commitments.toasts.verifyFailed"));
           },
         }
       );
@@ -223,28 +225,34 @@ function CommitmentsPage() {
         (c) => c.id === commitmentId
       );
       if (!commitment) {
-        toast.error("Commitment not found");
+        toast.error(t("pages.dashboard.commitments.toasts.notFound"));
         return;
       }
 
       // Generate a simple follow-up template
       const debtor = commitment.owner;
-      const subject = `Follow-up: ${commitment.canonicalTitle || "Commitment"}`;
-      const body = `Hi${debtor?.displayName ? ` ${debtor.displayName}` : ""},\n\nI wanted to follow up regarding: ${commitment.canonicalTitle || "our commitment"}.\n\nCould you please provide an update on the status?\n\nBest regards`;
+      const fallbackTitle = t("pages.dashboard.commitments.followUp.fallbackTitle");
+      const subject = t("pages.dashboard.commitments.followUp.subject", {
+        title: commitment.canonicalTitle || fallbackTitle,
+      });
+      const body = t("pages.dashboard.commitments.followUp.body", {
+        name: debtor?.displayName ? ` ${debtor.displayName}` : "",
+        title: commitment.canonicalTitle || t("pages.dashboard.commitments.followUp.ourCommitment"),
+      });
 
-      const draft = `Subject: ${subject}\n\n${body}`;
+      const draft = t("pages.dashboard.commitments.followUp.draft", { subject, body });
       if (navigator.clipboard?.writeText) {
         navigator.clipboard
           .writeText(draft)
-          .then(() => toast.success("Follow-up draft copied to clipboard"))
-          .catch(() => toast.error("Failed to copy follow-up draft"));
+          .then(() => toast.success(t("pages.dashboard.commitments.toasts.followUpCopied")))
+          .catch(() => toast.error(t("pages.dashboard.commitments.toasts.followUpCopyFailed")));
       } else {
-        toast.success("Follow-up draft generated", {
-          description: "Copy it from the task detail panel.",
+        toast.success(t("pages.dashboard.commitments.toasts.followUpGenerated"), {
+          description: t("pages.dashboard.commitments.toasts.followUpGeneratedDescription"),
         });
       }
     },
-    [commitmentsData]
+    [commitmentsData, t]
   );
 
   // Keyboard shortcuts
@@ -344,9 +352,9 @@ function CommitmentsPage() {
 
   const handleThreadClick = useCallback(
     () => {
-      toast.message("Source viewer coming soon");
+      toast.message(t("pages.dashboard.commitments.toasts.sourceViewerSoon"));
     },
-    []
+    [t]
   );
 
   const handleContactClick = useCallback(
@@ -530,7 +538,7 @@ function CommitmentsPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">
-          Select an organization to view commitments
+          {t("pages.dashboard.commitments.noOrg")}
         </p>
       </div>
     );
@@ -552,7 +560,7 @@ function CommitmentsPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="all"
                 >
-                  All
+                  {t("pages.dashboard.commitments.tabs.all")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -564,7 +572,7 @@ function CommitmentsPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="owed_by_me"
                 >
-                  I Owe
+                  {t("pages.dashboard.commitments.tabs.owedByMe")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -576,7 +584,7 @@ function CommitmentsPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="owed_to_me"
                 >
-                  Owed to Me
+                  {t("pages.dashboard.commitments.tabs.owedToMe")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -595,13 +603,13 @@ function CommitmentsPage() {
                 value={statusFilter}
               >
                 <SelectTrigger className="h-8 w-[120px] text-sm">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={t("pages.dashboard.commitments.filters.status.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="snoozed">Snoozed</SelectItem>
+                  <SelectItem value="active">{t("pages.dashboard.commitments.filters.status.active")}</SelectItem>
+                  <SelectItem value="overdue">{t("pages.dashboard.commitments.filters.status.overdue")}</SelectItem>
+                  <SelectItem value="completed">{t("pages.dashboard.commitments.filters.status.completed")}</SelectItem>
+                  <SelectItem value="snoozed">{t("pages.dashboard.commitments.filters.status.snoozed")}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -611,7 +619,7 @@ function CommitmentsPage() {
                 <Input
                   className="h-8 w-[180px] pl-8 text-sm"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
+                  placeholder={t("pages.dashboard.commitments.search.placeholder")}
                   value={searchQuery}
                 />
               </div>
@@ -696,9 +704,9 @@ function CommitmentsPage() {
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h3 className="font-medium text-lg">No commitments found</h3>
+                <h3 className="font-medium text-lg">{t("pages.dashboard.commitments.empty.title")}</h3>
                 <p className="mt-1 text-muted-foreground text-sm">
-                  Commitments are automatically extracted from your emails
+                  {t("pages.dashboard.commitments.empty.description")}
                 </p>
               </div>
             ) : (

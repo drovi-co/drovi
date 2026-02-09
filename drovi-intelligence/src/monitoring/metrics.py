@@ -74,6 +74,13 @@ class Metrics:
                 ["organization_id", "entity_type"],
             )
 
+            # Evidence completeness (proof-first tracking)
+            self.evidence_completeness_total = Counter(
+                "drovi_evidence_completeness_total",
+                "Total extracted items observed with/without evidence",
+                ["organization_id", "uio_type", "status"],  # status: present | missing
+            )
+
             # Sync metrics
             self.sync_jobs_total = Counter(
                 "drovi_sync_jobs_total",
@@ -104,6 +111,29 @@ class Metrics:
                 "drovi_connector_last_error_timestamp_seconds",
                 "Unix timestamp of last failed connector sync",
                 ["connector_type"],
+            )
+
+            # Time-to-first-data SLO: connection created -> first successful sync
+            self.connector_time_to_first_data_seconds = Histogram(
+                "drovi_connector_time_to_first_data_seconds",
+                "Time from connection creation to first successful sync (seconds)",
+                ["connector_type"],
+                buckets=[
+                    1.0,
+                    2.5,
+                    5.0,
+                    10.0,
+                    30.0,
+                    60.0,
+                    120.0,
+                    300.0,
+                    600.0,
+                    1800.0,
+                    3600.0,
+                    7200.0,
+                    21600.0,
+                    86400.0,
+                ],
             )
 
             # Graph metrics
@@ -426,6 +456,22 @@ class Metrics:
                 connector_type=connector_type,
             ).set(now)
 
+    def observe_connector_time_to_first_data(
+        self,
+        connector_type: str,
+        seconds: float,
+    ) -> None:
+        """Observe time-to-first-data for a connector connection."""
+        if not self._enabled:
+            return
+        try:
+            self.connector_time_to_first_data_seconds.labels(
+                connector_type=connector_type,
+            ).observe(max(float(seconds), 0.0))
+        except Exception:
+            # Never allow metrics to affect connector execution.
+            pass
+
     def track_graph_operation(
         self,
         operation_type: str,
@@ -501,6 +547,23 @@ class Metrics:
         self.search_results_count.labels(
             search_type=search_type,
         ).observe(result_count)
+
+    def track_evidence_completeness(
+        self,
+        organization_id: str,
+        uio_type: str,
+        status: str,
+        count: int = 1,
+    ) -> None:
+        """Track whether extracted items had evidence present."""
+        if not self._enabled:
+            return
+
+        self.evidence_completeness_total.labels(
+            organization_id=organization_id,
+            uio_type=uio_type,
+            status=status,
+        ).inc(count)
 
     def track_event_published(self, event_type: str) -> None:
         """Track an event being published."""

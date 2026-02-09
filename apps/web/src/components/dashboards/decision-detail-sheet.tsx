@@ -6,7 +6,6 @@
 // alternatives considered, who was involved, and the evolution chain.
 //
 
-import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
   ChevronRight,
@@ -35,6 +34,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useI18n } from "@/i18n";
+import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -125,13 +126,14 @@ export function DecisionDetailSheet({
   onContactClick,
   onViewSupersession,
 }: DecisionDetailSheetProps) {
+  const { locale, t } = useI18n();
   if (!decision) {
     return null;
   }
 
   const handleCopyStatement = () => {
     navigator.clipboard.writeText(decision.statement);
-    toast.success("Decision statement copied to clipboard");
+    toast.success(t("components.decisionDetailSheet.toasts.statementCopied"));
   };
 
   const isActive = !(decision.isSuperseded || decision.supersededBy);
@@ -155,23 +157,27 @@ export function DecisionDetailSheet({
                 {decision.supersededBy ? (
                   <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-amber-600 text-xs">
                     <AlertTriangle className="h-3 w-3" />
-                    Superseded
+                    {t("components.decisionDetailSheet.badges.superseded")}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-1 text-purple-600 text-xs">
                     <Lightbulb className="h-3 w-3" />
-                    Active Decision
+                    {t("components.decisionDetailSheet.badges.activeDecision")}
                   </span>
                 )}
                 {decision.isUserVerified && (
                   <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 text-green-600 text-xs">
                     <ThumbsUp className="h-3 w-3" />
-                    Verified
+                    {t("components.decisionDetailSheet.badges.verified")}
                   </span>
                 )}
               </div>
               <span className="text-muted-foreground text-xs">
-                {format(decision.decidedAt, "MMMM d, yyyy")}
+                {new Intl.DateTimeFormat(locale, {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }).format(decision.decidedAt)}
               </span>
             </div>
 
@@ -201,7 +207,7 @@ export function DecisionDetailSheet({
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">AI Confidence</span>
+                  <span className="text-muted-foreground">{t("components.decisionDetailSheet.aiConfidence")}</span>
                   <span
                     className={cn(
                       "font-medium",
@@ -229,7 +235,7 @@ export function DecisionDetailSheet({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-                Decision Statement
+                {t("components.decisionDetailSheet.sections.statement")}
               </h4>
               <Button
                 className="h-7 text-xs"
@@ -238,7 +244,7 @@ export function DecisionDetailSheet({
                 variant="ghost"
               >
                 <Copy className="mr-1.5 h-3 w-3" />
-                Copy
+                {t("components.decisionDetailSheet.actions.copy")}
               </Button>
             </div>
             <div
@@ -267,7 +273,7 @@ export function DecisionDetailSheet({
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                 <div className="space-y-2">
                   <p className="font-medium text-amber-800 text-sm dark:text-amber-200">
-                    This decision has been superseded
+                    {t("components.decisionDetailSheet.supersession.title")}
                   </p>
                   <button
                     className="flex items-center gap-2 text-amber-700 text-sm hover:underline dark:text-amber-300"
@@ -277,7 +283,9 @@ export function DecisionDetailSheet({
                     type="button"
                   >
                     <GitBranch className="h-4 w-4" />
-                    View: {decision.supersededBy.title}
+                    {t("components.decisionDetailSheet.supersession.view", {
+                      title: decision.supersededBy.title,
+                    })}
                     <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
@@ -290,7 +298,7 @@ export function DecisionDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <Lightbulb className="h-3.5 w-3.5" />
-                Rationale
+                {t("components.decisionDetailSheet.sections.rationale")}
               </h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {decision.rationale}
@@ -303,7 +311,7 @@ export function DecisionDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <XCircle className="h-3.5 w-3.5" />
-                Alternatives Considered
+                {t("components.decisionDetailSheet.sections.alternatives")}
               </h4>
               <div className="space-y-2">
                 {decision.alternatives.map((alt, index) => (
@@ -330,7 +338,7 @@ export function DecisionDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <Users className="h-3.5 w-3.5" />
-                Decision Makers
+                {t("components.decisionDetailSheet.sections.decisionMakers")}
               </h4>
               <div className="space-y-2">
                 {decision.owners.map((owner) => (
@@ -365,7 +373,7 @@ export function DecisionDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <FileText className="h-3.5 w-3.5" />
-                Evidence
+                {t("components.decisionDetailSheet.sections.evidence")}
               </h4>
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
                 <p className="text-muted-foreground text-sm italic leading-relaxed">
@@ -373,11 +381,9 @@ export function DecisionDetailSheet({
                 </p>
                 {decision.metadata?.extractedAt && (
                   <p className="mt-2 text-muted-foreground text-xs">
-                    Extracted{" "}
-                    {formatDistanceToNow(
-                      new Date(decision.metadata.extractedAt),
-                      { addSuffix: true }
-                    )}
+                    {t("components.decisionDetailSheet.evidence.extracted", {
+                      time: formatRelativeTime(new Date(decision.metadata.extractedAt), locale),
+                    })}
                   </p>
                 )}
               </div>
@@ -389,7 +395,7 @@ export function DecisionDetailSheet({
             <div className="space-y-3">
               <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 <GitBranch className="h-3.5 w-3.5" />
-                Replaces Previous Decision
+                {t("components.decisionDetailSheet.sections.chain")}
               </h4>
               <button
                 className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted"
@@ -404,8 +410,13 @@ export function DecisionDetailSheet({
                     {decision.supersedes.title}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    Made on{" "}
-                    {format(decision.supersedes.decidedAt, "MMMM d, yyyy")}
+                    {t("components.decisionDetailSheet.chain.madeOn", {
+                      date: new Intl.DateTimeFormat(locale, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }).format(decision.supersedes.decidedAt),
+                    })}
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -417,7 +428,7 @@ export function DecisionDetailSheet({
           {decision.sourceThread && (
             <div className="space-y-3">
               <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-                Source
+                {t("components.decisionDetailSheet.sections.source")}
               </h4>
               <button
                 className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted"
@@ -429,7 +440,7 @@ export function DecisionDetailSheet({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sm">
-                    {decision.sourceThread.subject ?? "Email thread"}
+                    {decision.sourceThread.subject ?? t("components.decisionDetailSheet.sourceThread.emailThreadFallback")}
                   </p>
                   {decision.sourceThread.snippet && (
                     <p className="truncate text-muted-foreground text-xs">
@@ -454,7 +465,7 @@ export function DecisionDetailSheet({
               variant="outline"
             >
               <Copy className="mr-2 h-4 w-4" />
-              Copy Statement
+              {t("components.decisionDetailSheet.actions.copyStatement")}
             </Button>
             {decision.sourceThread && (
               <Button
@@ -463,7 +474,7 @@ export function DecisionDetailSheet({
                 variant="outline"
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
-                View Source
+                {t("components.decisionDetailSheet.actions.viewSource")}
               </Button>
             )}
           </div>
@@ -477,7 +488,7 @@ export function DecisionDetailSheet({
                 variant="outline"
               >
                 <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
-                Verify
+                {t("components.decisionDetailSheet.actions.verify")}
               </Button>
             )}
             {onDismiss && (
@@ -488,7 +499,7 @@ export function DecisionDetailSheet({
                 variant="ghost"
               >
                 <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
-                Dismiss
+                {t("components.decisionDetailSheet.actions.dismiss")}
               </Button>
             )}
           </div>

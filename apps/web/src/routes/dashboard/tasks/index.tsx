@@ -69,6 +69,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 // =============================================================================
 // FIXED COLUMN WIDTHS (matching inbox-row.tsx)
@@ -152,6 +153,7 @@ function TasksPage() {
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
   const currentUserId = session?.user?.id ?? "";
+  const { t: tr } = useI18n();
 
   // State
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -201,12 +203,12 @@ function TasksPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Status updated");
+            toast.success(tr("pages.dashboard.tasks.toasts.statusUpdated"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to update status");
+            toast.error(tr("pages.dashboard.tasks.toasts.statusUpdateFailed"));
           },
         }
       );
@@ -229,12 +231,12 @@ function TasksPage() {
         },
         {
           onSuccess: () => {
-            toast.success("Priority updated");
+            toast.success(tr("pages.dashboard.tasks.toasts.priorityUpdated"));
             refetch();
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error("Failed to update priority");
+            toast.error(tr("pages.dashboard.tasks.toasts.priorityUpdateFailed"));
           },
         }
       );
@@ -320,8 +322,8 @@ function TasksPage() {
   const handleStar = useCallback((_taskId: string) => {
     // Tasks don't have a native star feature
     // Show info message suggesting to use priority instead
-    toast.info("Use priority levels to highlight important tasks");
-  }, []);
+    toast.info(tr("pages.dashboard.tasks.toasts.starHint"));
+  }, [tr]);
 
   const handleArchive = useCallback(
     (taskId: string) => {
@@ -331,9 +333,9 @@ function TasksPage() {
         taskId,
         status: "cancelled",
       });
-      toast.success("Task archived");
+      toast.success(tr("pages.dashboard.tasks.toasts.archived"));
     },
-    [updateStatusMutation, organizationId]
+    [updateStatusMutation, organizationId, tr]
   );
 
   const handleSelectTask = useCallback((id: string, selected: boolean) => {
@@ -450,7 +452,7 @@ function TasksPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">
-          Select an organization to view tasks
+          {tr("pages.dashboard.tasks.noOrg")}
         </p>
       </div>
     );
@@ -472,7 +474,7 @@ function TasksPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="all"
                 >
-                  All
+                  {tr("pages.dashboard.tasks.tabs.all")}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -484,7 +486,7 @@ function TasksPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="backlog"
                 >
-                  Backlog
+                  {tr(STATUS_CONFIG.backlog.label)}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -496,7 +498,7 @@ function TasksPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="todo"
                 >
-                  Todo
+                  {tr(STATUS_CONFIG.todo.label)}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -508,7 +510,7 @@ function TasksPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="in_progress"
                 >
-                  In Progress
+                  {tr(STATUS_CONFIG.in_progress.label)}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -520,7 +522,7 @@ function TasksPage() {
                   className="gap-2 px-3 text-sm data-[state=active]:bg-accent"
                   value="done"
                 >
-                  Done
+                  {tr(STATUS_CONFIG.done.label)}
                   <Badge
                     className="ml-1 px-1.5 py-0 text-[10px]"
                     variant="secondary"
@@ -541,14 +543,14 @@ function TasksPage() {
                 value={sourceTypeFilter}
               >
                 <SelectTrigger className="h-8 w-[130px] text-sm">
-                  <SelectValue placeholder="Source" />
+                  <SelectValue placeholder={tr("pages.dashboard.tasks.filters.source.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="conversation">Conversations</SelectItem>
-                  <SelectItem value="commitment">Commitments</SelectItem>
-                  <SelectItem value="decision">Decisions</SelectItem>
-                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="all">{tr("pages.dashboard.tasks.filters.source.all")}</SelectItem>
+                  <SelectItem value="conversation">{tr("pages.dashboard.tasks.filters.source.conversation")}</SelectItem>
+                  <SelectItem value="commitment">{tr("pages.dashboard.tasks.filters.source.commitment")}</SelectItem>
+                  <SelectItem value="decision">{tr("pages.dashboard.tasks.filters.source.decision")}</SelectItem>
+                  <SelectItem value="manual">{tr("pages.dashboard.tasks.filters.source.manual")}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -560,15 +562,15 @@ function TasksPage() {
                 value={priorityFilter}
               >
                 <SelectTrigger className="h-8 w-[110px] text-sm">
-                  <SelectValue placeholder="Priority" />
+                  <SelectValue placeholder={tr("pages.dashboard.tasks.filters.priority.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="no_priority">No Priority</SelectItem>
+                  <SelectItem value="all">{tr("pages.dashboard.tasks.filters.priority.all")}</SelectItem>
+                  <SelectItem value="urgent">{tr(PRIORITY_CONFIG.urgent.label)}</SelectItem>
+                  <SelectItem value="high">{tr(PRIORITY_CONFIG.high.label)}</SelectItem>
+                  <SelectItem value="medium">{tr(PRIORITY_CONFIG.medium.label)}</SelectItem>
+                  <SelectItem value="low">{tr(PRIORITY_CONFIG.low.label)}</SelectItem>
+                  <SelectItem value="no_priority">{tr(PRIORITY_CONFIG.no_priority.label)}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -578,7 +580,7 @@ function TasksPage() {
                 <Input
                   className="h-8 w-[180px] pl-8 text-sm"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search tasks..."
+                  placeholder={tr("pages.dashboard.tasks.search.placeholder")}
                   value={searchQuery}
                 />
               </div>
@@ -615,9 +617,9 @@ function TasksPage() {
               {/* Keyboard hints */}
               <div className="hidden items-center gap-2 text-muted-foreground text-xs lg:flex">
                 <kbd className="rounded bg-muted px-1.5 py-0.5">j/k</kbd>
-                <span>nav</span>
+                <span>{tr("pages.dashboard.tasks.keyboard.nav")}</span>
                 <kbd className="rounded bg-muted px-1.5 py-0.5">v</kbd>
-                <span>view</span>
+                <span>{tr("pages.dashboard.tasks.keyboard.view")}</span>
               </div>
             </div>
           </div>
@@ -706,6 +708,7 @@ function TaskListView({
   onArchive,
   showGroupHeaders,
 }: TaskListViewProps) {
+  const { t: tr } = useI18n();
   const statusOrder: TaskStatus[] = [
     "backlog",
     "todo",
@@ -812,7 +815,7 @@ function TaskListView({
                 {/* Status Icon */}
                 <StatusIcon size="sm" status={iconStatus} />
                 {/* Label */}
-                <span className="text-foreground">{config.label}</span>
+                <span className="text-foreground">{tr(config.label)}</span>
                 {/* Count Badge */}
                 <span className="ml-1 text-[12px] text-muted-foreground">
                   {statusTasks.length}
@@ -852,8 +855,10 @@ function TaskListView({
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
                       <span>
-                        Show {Math.min(remainingCount, ITEMS_PER_SECTION)} more
-                        ({remainingCount} remaining)
+                        {tr("components.tasks.pagination.showMore", {
+                          count: Math.min(remainingCount, ITEMS_PER_SECTION),
+                          remaining: remainingCount,
+                        })}
                       </span>
                     </button>
                   )}
@@ -907,13 +912,13 @@ function TaskListView({
         {/* Status */}
         <div className={cn(COL.status, "shrink-0")} />
         {/* Task ID */}
-        <div className={cn(COL.taskId, "shrink-0 px-1")}>Task</div>
+        <div className={cn(COL.taskId, "shrink-0 px-1")}>{tr("pages.dashboard.tasks.table.task")}</div>
         {/* Title */}
-        <div className="flex-1 px-2">Title</div>
+        <div className="flex-1 px-2">{tr("pages.dashboard.tasks.table.title")}</div>
         {/* Right section - fixed width matches row layout */}
         <div className="flex w-[160px] shrink-0 items-center justify-end">
           <div className="flex items-center gap-1.5">
-            <span className="w-14 whitespace-nowrap text-right">Due</span>
+            <span className="w-14 whitespace-nowrap text-right">{tr("pages.dashboard.tasks.table.due")}</span>
             <div className="w-7" />
             <div className="w-7" />
           </div>
@@ -951,15 +956,20 @@ function TaskListView({
         >
           <ChevronDown className="h-3.5 w-3.5" />
           <span>
-            Show {Math.min(remainingTasks, ITEMS_PER_SECTION * 2)} more (
-            {remainingTasks} remaining)
+            {tr("components.tasks.pagination.showMore", {
+              count: Math.min(remainingTasks, ITEMS_PER_SECTION * 2),
+              remaining: remainingTasks,
+            })}
           </span>
         </button>
       )}
 
       {/* Total count footer */}
       <div className="border-border border-t px-4 py-2 text-center text-[11px] text-muted-foreground">
-        Showing {visibleTasks.length} of {tasks.length} tasks
+        {tr("pages.dashboard.tasks.table.showingCount", {
+          shown: visibleTasks.length,
+          total: tasks.length,
+        })}
       </div>
     </div>
   );
@@ -1127,7 +1137,8 @@ function TaskRow({
   onStar,
   onArchive,
 }: TaskRowProps) {
-  const dueInfo = formatDueDate(task.dueDate);
+  const { locale, t: tr } = useI18n();
+  const dueInfo = formatDueDate(task.dueDate, { locale, t: tr });
   const iconStatus = mapStatus(task.status);
   const iconPriority = mapPriority(task.priority);
 
@@ -1187,7 +1198,7 @@ function TaskRow({
                   priority={mapPriority(priority as TaskPriority)}
                   size="sm"
                 />
-                <span className="ml-2">{config.label}</span>
+                <span className="ml-2">{tr(config.label)}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -1229,7 +1240,7 @@ function TaskRow({
                   size="sm"
                   status={mapStatus(status as TaskStatus)}
                 />
-                <span className="ml-2">{config.label}</span>
+                <span className="ml-2">{tr(config.label)}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -1298,7 +1309,7 @@ function TaskRow({
         {/* Hover state: Actions - replaces entire section */}
         <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           <button
-            aria-label="Star"
+            aria-label={tr("pages.dashboard.tasks.actions.star")}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-[4px]",
               "transition-colors duration-100",
@@ -1314,7 +1325,7 @@ function TaskRow({
             <Star className="size-4" />
           </button>
           <button
-            aria-label="Archive"
+            aria-label={tr("pages.dashboard.tasks.actions.archive")}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-[4px]",
               "transition-colors duration-100",
@@ -1369,15 +1380,15 @@ function TaskListSkeleton() {
 }
 
 function TaskEmptyState() {
+  const { t: tr } = useI18n();
   return (
     <div className="flex h-full flex-col items-center justify-center p-8 text-center">
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h3 className="font-medium text-lg">No tasks found</h3>
+      <h3 className="font-medium text-lg">{tr("pages.dashboard.tasks.empty.title")}</h3>
       <p className="mt-1 text-muted-foreground text-sm">
-        Tasks are automatically created from conversations, commitments, and
-        decisions
+        {tr("pages.dashboard.tasks.empty.description")}
       </p>
     </div>
   );

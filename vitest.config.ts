@@ -26,6 +26,7 @@ export default defineConfig({
       "@memorystack/api": path.resolve(__dirname, "./packages/api/src"),
       "@memorystack/auth": path.resolve(__dirname, "./packages/auth/src"),
       "@memorystack/env": path.resolve(__dirname, "./packages/env/src"),
+      "@memorystack/i18n": path.resolve(__dirname, "./packages/i18n/src"),
     },
   },
 });

@@ -26,6 +26,8 @@ import { authClient } from "@/lib/auth-client";
 import { continuumsAPI, type UIO } from "@/lib/api";
 import { useCommitmentUIOs } from "@/hooks/use-uio";
 import type { CommitmentCardData } from "@/components/dashboards/commitment-card";
+import { useI18n, useT } from "@/i18n";
+import { formatRelativeTime } from "@/lib/intl-time";
 
 export const Route = createFileRoute("/dashboard/schedule")({
   component: SchedulePage,
@@ -73,6 +75,8 @@ function mapCommitment(uio: UIO): CommitmentCardData {
 
 function SchedulePage() {
   const navigate = useNavigate();
+  const t = useT();
+  const { locale } = useI18n();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -111,7 +115,7 @@ function SchedulePage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to view schedules
+        {t("pages.dashboard.schedule.selectOrg")}
       </div>
     );
   }
@@ -122,14 +126,13 @@ function SchedulePage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            Schedule
+            {t("pages.dashboard.schedule.kicker")}
           </div>
           <h1 className="font-semibold text-2xl">
-            Timeline of commitments and continuum runs
+            {t("pages.dashboard.schedule.title")}
           </h1>
           <p className="max-w-2xl text-muted-foreground">
-            Align obligations with automated missions so nothing slips past the
-            horizon.
+            {t("pages.dashboard.schedule.description")}
           </p>
         </div>
       </div>
@@ -137,9 +140,9 @@ function SchedulePage() {
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Commitment timeline</CardTitle>
+            <CardTitle>{t("pages.dashboard.schedule.commitments.title")}</CardTitle>
             <CardDescription>
-              Due dates and urgency across the week ahead.
+              {t("pages.dashboard.schedule.commitments.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -168,9 +171,9 @@ function SchedulePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              Continuum cadence
+              {t("pages.dashboard.schedule.continuums.title")}
             </CardTitle>
-            <CardDescription>Upcoming runs and status signals.</CardDescription>
+            <CardDescription>{t("pages.dashboard.schedule.continuums.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {continuumsLoading ? (
@@ -179,7 +182,7 @@ function SchedulePage() {
               <ApiErrorPanel error={continuumsErrorObj} onRetry={() => refetchContinuums()} />
             ) : (continuums ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                No Continuums scheduled yet.
+                {t("pages.dashboard.schedule.continuums.empty")}
               </div>
             ) : (
               (continuums ?? []).map((continuum) => (
@@ -191,7 +194,10 @@ function SchedulePage() {
                     <div>
                       <p className="font-medium text-sm">{continuum.name}</p>
                       <p className="text-muted-foreground text-xs">
-                        Next run: {continuum.nextRunAt ?? "On demand"}
+                        {t("pages.dashboard.schedule.continuums.nextRun")}{" "}
+                        {continuum.nextRunAt
+                          ? formatRelativeTime(new Date(continuum.nextRunAt), locale)
+                          : t("common.labels.onDemand")}
                       </p>
                     </div>
                     <Badge variant="outline">{continuum.status}</Badge>
@@ -201,8 +207,7 @@ function SchedulePage() {
             )}
             <Separator />
             <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              Align scheduled runs with mission-critical work for tighter
-              accountability.
+              {t("pages.dashboard.schedule.continuums.note")}
             </div>
           </CardContent>
         </Card>
