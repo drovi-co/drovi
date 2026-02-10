@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Mail, X } from "lucide-react";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/i18n";
-import { orgAPI, type OrgInvite } from "@/lib/api";
+import { type OrgInvite, orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/team/invitations")({
@@ -51,16 +51,24 @@ function InvitationsPage() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: async (params: { email: string; role: "pilot_admin" | "pilot_member" | "pilot_viewer" }) => {
+    mutationFn: async (params: {
+      email: string;
+      role: "pilot_admin" | "pilot_member" | "pilot_viewer";
+    }) => {
       await orgAPI.createInvite({ email: params.email, role: params.role });
     },
     onSuccess: () => {
       toast.success(t("pages.dashboard.team.invitationsPage.toasts.sent"));
       setEmail("");
-      queryClient.invalidateQueries({ queryKey: ["org-invites", organizationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["org-invites", organizationId],
+      });
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("pages.dashboard.team.invitationsPage.toasts.sendFailed"));
+      toast.error(
+        err.message ||
+          t("pages.dashboard.team.invitationsPage.toasts.sendFailed")
+      );
     },
   });
 
@@ -70,16 +78,21 @@ function InvitationsPage() {
     },
     onSuccess: () => {
       toast.success(t("pages.dashboard.team.invitationsPage.toasts.revoked"));
-      queryClient.invalidateQueries({ queryKey: ["org-invites", organizationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["org-invites", organizationId],
+      });
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("pages.dashboard.team.invitationsPage.toasts.revokeFailed"));
+      toast.error(
+        err.message ||
+          t("pages.dashboard.team.invitationsPage.toasts.revokeFailed")
+      );
     },
   });
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organizationId || !email || !isAdmin) {
+    if (!(organizationId && email && isAdmin)) {
       return;
     }
 
@@ -98,6 +111,15 @@ function InvitationsPage() {
     revokeMutation.mutate(invitationId);
   };
 
+  const invitationList = invitations ?? [];
+  const pendingInvitations = useMemo(
+    () =>
+      invitationList.filter(
+        (invite) => !invite.used_at && new Date(invite.expires_at) > new Date()
+      ),
+    [invitationList]
+  );
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -108,15 +130,6 @@ function InvitationsPage() {
     );
   }
 
-  const invitationList = invitations ?? [];
-  const pendingInvitations = useMemo(
-    () =>
-      invitationList.filter(
-        (invite) => !invite.used_at && new Date(invite.expires_at) > new Date()
-      ),
-    [invitationList]
-  );
-
   const getStatus = (invite: OrgInvite) => {
     if (invite.used_at) return "accepted";
     if (new Date(invite.expires_at) <= new Date()) return "expired";
@@ -126,16 +139,22 @@ function InvitationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.invitations")}</h1>
+        <h1 className="font-bold text-3xl tracking-tight">
+          {t("nav.items.invitations")}
+        </h1>
         <p className="text-muted-foreground">
-          {t("pages.dashboard.team.invitationsPage.subtitle", { org: user.org_name })}
+          {t("pages.dashboard.team.invitationsPage.subtitle", {
+            org: user.org_name,
+          })}
         </p>
       </div>
 
       {/* Invite form */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("pages.dashboard.team.invitationsPage.form.title")}</CardTitle>
+          <CardTitle>
+            {t("pages.dashboard.team.invitationsPage.form.title")}
+          </CardTitle>
           <CardDescription>
             {t("pages.dashboard.team.invitationsPage.form.description")}
           </CardDescription>
@@ -147,13 +166,15 @@ function InvitationsPage() {
                 {t("auth.email")}
               </Label>
               <Input
+                disabled={!isAdmin}
                 id="email"
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={t("pages.dashboard.team.invitationsPage.form.emailPlaceholder")}
+                placeholder={t(
+                  "pages.dashboard.team.invitationsPage.form.emailPlaceholder"
+                )}
                 required
                 type="email"
                 value={email}
-                disabled={!isAdmin}
               />
             </div>
             <div className="w-32">
@@ -165,31 +186,42 @@ function InvitationsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">{t("pages.dashboard.team.roles.member")}</SelectItem>
-                  <SelectItem value="viewer">{t("pages.dashboard.team.roles.viewer")}</SelectItem>
-                  <SelectItem value="admin">{t("pages.dashboard.team.roles.admin")}</SelectItem>
+                  <SelectItem value="member">
+                    {t("pages.dashboard.team.roles.member")}
+                  </SelectItem>
+                  <SelectItem value="viewer">
+                    {t("pages.dashboard.team.roles.viewer")}
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    {t("pages.dashboard.team.roles.admin")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button disabled={!isAdmin || inviteMutation.isPending} type="submit">
+            <Button
+              disabled={!isAdmin || inviteMutation.isPending}
+              type="submit"
+            >
               <Mail className="mr-2 h-4 w-4" />
               {inviteMutation.isPending
                 ? t("pages.dashboard.team.invitationsPage.form.sending")
                 : t("pages.dashboard.team.invitationsPage.form.send")}
             </Button>
           </form>
-          {!isAdmin ? (
-            <p className="mt-3 text-sm text-muted-foreground">
+          {isAdmin ? null : (
+            <p className="mt-3 text-muted-foreground text-sm">
               {t("pages.dashboard.team.invitationsPage.form.adminRequired")}
             </p>
-          ) : null}
+          )}
         </CardContent>
       </Card>
 
       {/* Pending invitations */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("pages.dashboard.team.invitationsPage.pending.title")}</CardTitle>
+          <CardTitle>
+            {t("pages.dashboard.team.invitationsPage.pending.title")}
+          </CardTitle>
           <CardDescription>
             {t("pages.dashboard.team.invitationsPage.pending.description")}
           </CardDescription>
@@ -221,9 +253,14 @@ function InvitationsPage() {
                     <div>
                       <p className="font-medium">{invitation.email ?? "—"}</p>
                       <p className="text-muted-foreground text-sm">
-                        {t("pages.dashboard.team.invitationsPage.pending.invitedOn", {
-                          date: new Date(invitation.created_at ?? new Date()).toLocaleDateString(),
-                        })}
+                        {t(
+                          "pages.dashboard.team.invitationsPage.pending.invitedOn",
+                          {
+                            date: new Date(
+                              invitation.created_at ?? new Date()
+                            ).toLocaleDateString(),
+                          }
+                        )}
                       </p>
                     </div>
                   </div>
@@ -237,10 +274,16 @@ function InvitationsPage() {
                     </Badge>
                     <Badge variant="secondary">
                       {getStatus(invitation) === "accepted"
-                        ? t("pages.dashboard.team.invitationsPage.status.accepted")
+                        ? t(
+                            "pages.dashboard.team.invitationsPage.status.accepted"
+                          )
                         : getStatus(invitation) === "expired"
-                          ? t("pages.dashboard.team.invitationsPage.status.expired")
-                          : t("pages.dashboard.team.invitationsPage.status.pending")}
+                          ? t(
+                              "pages.dashboard.team.invitationsPage.status.expired"
+                            )
+                          : t(
+                              "pages.dashboard.team.invitationsPage.status.pending"
+                            )}
                     </Badge>
                     <Button
                       disabled={revokeMutation.isPending}

@@ -1,8 +1,21 @@
+import type {
+  LocaleResources,
+  SupportedLocale,
+  TFunction,
+} from "@memorystack/i18n";
+import {
+  baseResources,
+  createTranslator,
+  normalizeLocale,
+} from "@memorystack/i18n";
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
-
-import type { LocaleResources, SupportedLocale, TFunction } from "@memorystack/i18n";
-import { baseResources, createTranslator, normalizeLocale } from "@memorystack/i18n";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 type I18nContextValue = {
   locale: SupportedLocale;
@@ -26,7 +39,9 @@ export function I18nProvider({
   resources?: LocaleResources;
   onLocaleChange?: (locale: SupportedLocale) => void;
 }) {
-  const [locale, setLocaleInternal] = useState<SupportedLocale>(normalizeLocale(initialLocale));
+  const [locale, setLocaleInternal] = useState<SupportedLocale>(
+    normalizeLocale(initialLocale)
+  );
 
   const setLocale = useCallback(
     (next: SupportedLocale) => {
@@ -37,9 +52,15 @@ export function I18nProvider({
     [onLocaleChange]
   );
 
-  const t = useMemo(() => createTranslator(locale, resources ?? baseResources), [locale, resources]);
+  const t = useMemo(
+    () => createTranslator(locale, resources ?? baseResources),
+    [locale, resources]
+  );
 
-  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const value = useMemo<I18nContextValue>(
+    () => ({ locale, setLocale, t }),
+    [locale, setLocale, t]
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
@@ -55,4 +76,3 @@ export function useI18n(): I18nContextValue {
 export function useT(): TFunction {
   return useI18n().t;
 }
-

@@ -29,9 +29,9 @@ const badgeVariants = cva(
         default: ["border-border bg-secondary text-foreground"].join(" "),
 
         // Secondary - Subtle grey
-        secondary: [
-          "border-border bg-secondary text-muted-foreground",
-        ].join(" "),
+        secondary: ["border-border bg-secondary text-muted-foreground"].join(
+          " "
+        ),
 
         // Destructive - Vercel red
         destructive: [

@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { SourceIcon } from "@/components/inbox/source-icon";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 // Import shared task components
 import {
   formatDueDate,
@@ -66,10 +66,10 @@ import {
   useUpdateTaskPriorityUIO,
   useUpdateTaskStatusUIO,
 } from "@/hooks/use-uio";
+import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/i18n";
 
 // =============================================================================
 // FIXED COLUMN WIDTHS (matching inbox-row.tsx)
@@ -101,7 +101,9 @@ function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
   }
 }
 
-function normalizeTaskPriority(priority: string | null | undefined): TaskPriority {
+function normalizeTaskPriority(
+  priority: string | null | undefined
+): TaskPriority {
   switch (priority) {
     case "low":
     case "medium":
@@ -236,7 +238,9 @@ function TasksPage() {
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error(tr("pages.dashboard.tasks.toasts.priorityUpdateFailed"));
+            toast.error(
+              tr("pages.dashboard.tasks.toasts.priorityUpdateFailed")
+            );
           },
         }
       );
@@ -319,11 +323,14 @@ function TasksPage() {
     [updatePriorityMutation, organizationId]
   );
 
-  const handleStar = useCallback((_taskId: string) => {
-    // Tasks don't have a native star feature
-    // Show info message suggesting to use priority instead
-    toast.info(tr("pages.dashboard.tasks.toasts.starHint"));
-  }, [tr]);
+  const handleStar = useCallback(
+    (_taskId: string) => {
+      // Tasks don't have a native star feature
+      // Show info message suggesting to use priority instead
+      toast.info(tr("pages.dashboard.tasks.toasts.starHint"));
+    },
+    [tr]
+  );
 
   const handleArchive = useCallback(
     (taskId: string) => {
@@ -543,14 +550,28 @@ function TasksPage() {
                 value={sourceTypeFilter}
               >
                 <SelectTrigger className="h-8 w-[130px] text-sm">
-                  <SelectValue placeholder={tr("pages.dashboard.tasks.filters.source.placeholder")} />
+                  <SelectValue
+                    placeholder={tr(
+                      "pages.dashboard.tasks.filters.source.placeholder"
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{tr("pages.dashboard.tasks.filters.source.all")}</SelectItem>
-                  <SelectItem value="conversation">{tr("pages.dashboard.tasks.filters.source.conversation")}</SelectItem>
-                  <SelectItem value="commitment">{tr("pages.dashboard.tasks.filters.source.commitment")}</SelectItem>
-                  <SelectItem value="decision">{tr("pages.dashboard.tasks.filters.source.decision")}</SelectItem>
-                  <SelectItem value="manual">{tr("pages.dashboard.tasks.filters.source.manual")}</SelectItem>
+                  <SelectItem value="all">
+                    {tr("pages.dashboard.tasks.filters.source.all")}
+                  </SelectItem>
+                  <SelectItem value="conversation">
+                    {tr("pages.dashboard.tasks.filters.source.conversation")}
+                  </SelectItem>
+                  <SelectItem value="commitment">
+                    {tr("pages.dashboard.tasks.filters.source.commitment")}
+                  </SelectItem>
+                  <SelectItem value="decision">
+                    {tr("pages.dashboard.tasks.filters.source.decision")}
+                  </SelectItem>
+                  <SelectItem value="manual">
+                    {tr("pages.dashboard.tasks.filters.source.manual")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -562,15 +583,31 @@ function TasksPage() {
                 value={priorityFilter}
               >
                 <SelectTrigger className="h-8 w-[110px] text-sm">
-                  <SelectValue placeholder={tr("pages.dashboard.tasks.filters.priority.placeholder")} />
+                  <SelectValue
+                    placeholder={tr(
+                      "pages.dashboard.tasks.filters.priority.placeholder"
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{tr("pages.dashboard.tasks.filters.priority.all")}</SelectItem>
-                  <SelectItem value="urgent">{tr(PRIORITY_CONFIG.urgent.label)}</SelectItem>
-                  <SelectItem value="high">{tr(PRIORITY_CONFIG.high.label)}</SelectItem>
-                  <SelectItem value="medium">{tr(PRIORITY_CONFIG.medium.label)}</SelectItem>
-                  <SelectItem value="low">{tr(PRIORITY_CONFIG.low.label)}</SelectItem>
-                  <SelectItem value="no_priority">{tr(PRIORITY_CONFIG.no_priority.label)}</SelectItem>
+                  <SelectItem value="all">
+                    {tr("pages.dashboard.tasks.filters.priority.all")}
+                  </SelectItem>
+                  <SelectItem value="urgent">
+                    {tr(PRIORITY_CONFIG.urgent.label)}
+                  </SelectItem>
+                  <SelectItem value="high">
+                    {tr(PRIORITY_CONFIG.high.label)}
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    {tr(PRIORITY_CONFIG.medium.label)}
+                  </SelectItem>
+                  <SelectItem value="low">
+                    {tr(PRIORITY_CONFIG.low.label)}
+                  </SelectItem>
+                  <SelectItem value="no_priority">
+                    {tr(PRIORITY_CONFIG.no_priority.label)}
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -912,13 +949,19 @@ function TaskListView({
         {/* Status */}
         <div className={cn(COL.status, "shrink-0")} />
         {/* Task ID */}
-        <div className={cn(COL.taskId, "shrink-0 px-1")}>{tr("pages.dashboard.tasks.table.task")}</div>
+        <div className={cn(COL.taskId, "shrink-0 px-1")}>
+          {tr("pages.dashboard.tasks.table.task")}
+        </div>
         {/* Title */}
-        <div className="flex-1 px-2">{tr("pages.dashboard.tasks.table.title")}</div>
+        <div className="flex-1 px-2">
+          {tr("pages.dashboard.tasks.table.title")}
+        </div>
         {/* Right section - fixed width matches row layout */}
         <div className="flex w-[160px] shrink-0 items-center justify-end">
           <div className="flex items-center gap-1.5">
-            <span className="w-14 whitespace-nowrap text-right">{tr("pages.dashboard.tasks.table.due")}</span>
+            <span className="w-14 whitespace-nowrap text-right">
+              {tr("pages.dashboard.tasks.table.due")}
+            </span>
             <div className="w-7" />
             <div className="w-7" />
           </div>
@@ -1386,7 +1429,9 @@ function TaskEmptyState() {
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h3 className="font-medium text-lg">{tr("pages.dashboard.tasks.empty.title")}</h3>
+      <h3 className="font-medium text-lg">
+        {tr("pages.dashboard.tasks.empty.title")}
+      </h3>
       <p className="mt-1 text-muted-foreground text-sm">
         {tr("pages.dashboard.tasks.empty.description")}
       </p>

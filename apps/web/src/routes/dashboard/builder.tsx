@@ -31,7 +31,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -43,10 +42,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { authClient } from "@/lib/auth-client";
-import { continuumsAPI, type ContinuumSummary } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { continuumsAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/builder")({
   component: ContinuumBuilderPage,
@@ -159,7 +158,8 @@ function ContinuumBuilderPage() {
       toast.success(t("pages.dashboard.builder.toasts.created"));
       queryClient.invalidateQueries({ queryKey: ["continuums"] });
     },
-    onError: () => toast.error(t("pages.dashboard.builder.toasts.createFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.builder.toasts.createFailed")),
   });
 
   const updateMutation = useMutation({
@@ -174,7 +174,8 @@ function ContinuumBuilderPage() {
       toast.success(t("pages.dashboard.builder.toasts.versionAdded"));
       queryClient.invalidateQueries({ queryKey: ["continuums"] });
     },
-    onError: () => toast.error(t("pages.dashboard.builder.toasts.versionAddFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.builder.toasts.versionAddFailed")),
   });
 
   const handleGenerateTemplate = () => {
@@ -194,7 +195,7 @@ function ContinuumBuilderPage() {
   const parseDefinition = (): Record<string, unknown> | null => {
     try {
       const parsed = JSON.parse(definitionText) as Record<string, unknown>;
-      if (!parsed.name || !parsed.goal || !parsed.steps) {
+      if (!(parsed.name && parsed.goal && parsed.steps)) {
         throw new Error(t("pages.dashboard.builder.validation.missingFields"));
       }
       setValidationError(null);
@@ -245,7 +246,7 @@ function ContinuumBuilderPage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <LayoutPanelLeft className="h-3 w-3" />
               {t("pages.dashboard.builder.kicker")}
             </div>
@@ -284,12 +285,16 @@ function ContinuumBuilderPage() {
           </CardHeader>
           <CardContent className="relative space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="intent">{t("pages.dashboard.builder.intent.fields.intent.label")}</Label>
+              <Label htmlFor="intent">
+                {t("pages.dashboard.builder.intent.fields.intent.label")}
+              </Label>
               <Textarea
                 className="min-h-[140px]"
                 id="intent"
                 onChange={(event) => setIntentDraft(event.target.value)}
-                placeholder={t("pages.dashboard.builder.intent.fields.intent.placeholder")}
+                placeholder={t(
+                  "pages.dashboard.builder.intent.fields.intent.placeholder"
+                )}
                 value={intentDraft}
               />
             </div>
@@ -320,11 +325,19 @@ function ContinuumBuilderPage() {
                   value={mode}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("pages.dashboard.builder.publishMode.placeholder")} />
+                    <SelectValue
+                      placeholder={t(
+                        "pages.dashboard.builder.publishMode.placeholder"
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="create">{t("pages.dashboard.builder.publishMode.options.create")}</SelectItem>
-                    <SelectItem value="update">{t("pages.dashboard.builder.publishMode.options.update")}</SelectItem>
+                    <SelectItem value="create">
+                      {t("pages.dashboard.builder.publishMode.options.create")}
+                    </SelectItem>
+                    <SelectItem value="update">
+                      {t("pages.dashboard.builder.publishMode.options.update")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -339,7 +352,9 @@ function ContinuumBuilderPage() {
                     <SelectValue
                       placeholder={
                         mode === "update"
-                          ? t("pages.dashboard.builder.target.selectPlaceholder")
+                          ? t(
+                              "pages.dashboard.builder.target.selectPlaceholder"
+                            )
                           : t("pages.dashboard.builder.target.notRequired")
                       }
                     />
@@ -370,7 +385,9 @@ function ContinuumBuilderPage() {
 
             <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
               <div>
-                <p className="font-medium text-sm">{t("pages.dashboard.builder.activation.title")}</p>
+                <p className="font-medium text-sm">
+                  {t("pages.dashboard.builder.activation.title")}
+                </p>
                 <p className="text-muted-foreground text-xs">
                   {t("pages.dashboard.builder.activation.description")}
                 </p>
@@ -406,13 +423,17 @@ function ContinuumBuilderPage() {
 
             {validationError ? (
               <Alert variant="destructive">
-                <AlertTitle>{t("pages.dashboard.builder.definition.invalidTitle")}</AlertTitle>
+                <AlertTitle>
+                  {t("pages.dashboard.builder.definition.invalidTitle")}
+                </AlertTitle>
                 <AlertDescription>{validationError}</AlertDescription>
               </Alert>
             ) : (
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>{t("pages.dashboard.builder.definition.readyTitle")}</AlertTitle>
+                <AlertTitle>
+                  {t("pages.dashboard.builder.definition.readyTitle")}
+                </AlertTitle>
                 <AlertDescription>
                   {t("pages.dashboard.builder.definition.readyDescription")}
                 </AlertDescription>
@@ -435,7 +456,9 @@ function ContinuumBuilderPage() {
               </Button>
               {selectedContinuum && (
                 <Badge variant="secondary">
-                  {t("pages.dashboard.builder.target.badge", { name: selectedContinuum.name })}
+                  {t("pages.dashboard.builder.target.badge", {
+                    name: selectedContinuum.name,
+                  })}
                 </Badge>
               )}
             </div>

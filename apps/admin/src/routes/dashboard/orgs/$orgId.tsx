@@ -1,11 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { adminAPI } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -14,10 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { adminAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/orgs/$orgId")({
   component: AdminOrgDetailPage,
 });
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 function AdminOrgDetailPage() {
   const { orgId } = Route.useParams();
@@ -49,16 +53,20 @@ function AdminOrgDetailPage() {
         <CardHeader>
           <CardTitle className="text-sm">Failed to load organization</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-muted-foreground text-sm">
           {q.error instanceof Error ? q.error.message : "Unknown error"}
         </CardContent>
       </Card>
     );
   }
 
-  const org = q.data as any;
-  const members = Array.isArray(org.members) ? (org.members as any[]) : [];
-  const connections = Array.isArray(org.connections) ? (org.connections as any[]) : [];
+  const org = q.data;
+  const members = Array.isArray(org.members)
+    ? org.members.filter(isRecord)
+    : [];
+  const connections = Array.isArray(org.connections)
+    ? org.connections.filter(isRecord)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -66,10 +74,10 @@ function AdminOrgDetailPage() {
         <CardHeader className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold tracking-tight">
+              <div className="truncate font-semibold text-lg tracking-tight">
                 {String(org.name ?? org.id)}
               </div>
-              <div className="font-mono text-xs text-muted-foreground">
+              <div className="font-mono text-muted-foreground text-xs">
                 {String(org.id)}
               </div>
             </div>
@@ -87,26 +95,26 @@ function AdminOrgDetailPage() {
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Members
               </div>
-              <div className="text-2xl font-semibold tabular-nums">
+              <div className="font-semibold text-2xl tabular-nums">
                 {members.length}
               </div>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Connections
               </div>
-              <div className="text-2xl font-semibold tabular-nums">
+              <div className="font-semibold text-2xl tabular-nums">
                 {connections.length}
               </div>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Default Visibility
               </div>
-              <div className="text-sm font-medium capitalize">
+              <div className="font-medium text-sm capitalize">
                 {String(org.default_connection_visibility ?? "org_shared")}
               </div>
             </div>
@@ -135,8 +143,8 @@ function AdminOrgDetailPage() {
                         <TableCell className="font-medium">
                           <Link
                             className="hover:underline"
-                            to="/dashboard/users/$userId"
                             params={{ userId: String(m.user_id) }}
+                            to="/dashboard/users/$userId"
                           >
                             {String(m.email)}
                           </Link>
@@ -150,7 +158,7 @@ function AdminOrgDetailPage() {
                 </Table>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 No members found.
               </div>
             )}
@@ -190,7 +198,7 @@ function AdminOrgDetailPage() {
                 </Table>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 No connections found.
               </div>
             )}
@@ -200,4 +208,3 @@ function AdminOrgDetailPage() {
     </div>
   );
 }
-

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useMemo } from "react";
 import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useT } from "@/i18n";
-import { orgAPI, type OrgMember } from "@/lib/api";
+import { orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/team/members")({
@@ -48,15 +48,26 @@ function MembersPage() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async (params: { userId: string; role: "pilot_admin" | "pilot_member" | "pilot_viewer" }) => {
-      await orgAPI.updateMemberRole({ userId: params.userId, role: params.role });
+    mutationFn: async (params: {
+      userId: string;
+      role: "pilot_admin" | "pilot_member" | "pilot_viewer";
+    }) => {
+      await orgAPI.updateMemberRole({
+        userId: params.userId,
+        role: params.role,
+      });
     },
     onSuccess: () => {
       toast.success(t("pages.dashboard.team.membersPage.toasts.roleUpdated"));
-      queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["org-members", organizationId],
+      });
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("pages.dashboard.team.membersPage.toasts.roleUpdateFailed"));
+      toast.error(
+        err.message ||
+          t("pages.dashboard.team.membersPage.toasts.roleUpdateFailed")
+      );
     },
   });
 
@@ -66,21 +77,29 @@ function MembersPage() {
     },
     onSuccess: () => {
       toast.success(t("pages.dashboard.team.membersPage.toasts.memberRemoved"));
-      queryClient.invalidateQueries({ queryKey: ["org-members", organizationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["org-members", organizationId],
+      });
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("pages.dashboard.team.membersPage.toasts.memberRemoveFailed"));
+      toast.error(
+        err.message ||
+          t("pages.dashboard.team.membersPage.toasts.memberRemoveFailed")
+      );
     },
   });
 
-  const isMutating = updateRoleMutation.isPending || removeMemberMutation.isPending;
+  const isMutating =
+    updateRoleMutation.isPending || removeMemberMutation.isPending;
 
   const memberList = useMemo(() => members ?? [], [members]);
 
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">{t("pages.dashboard.team.membersPage.notSignedIn")}</p>
+        <p className="text-muted-foreground">
+          {t("pages.dashboard.team.membersPage.notSignedIn")}
+        </p>
       </div>
     );
   }
@@ -89,17 +108,26 @@ function MembersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.members")}</h1>
+          <h1 className="font-bold text-3xl tracking-tight">
+            {t("nav.items.members")}
+          </h1>
           <p className="text-muted-foreground">
-            {t("pages.dashboard.team.membersPage.subtitle", { org: user.org_name })}
+            {t("pages.dashboard.team.membersPage.subtitle", {
+              org: user.org_name,
+            })}
           </p>
         </div>
         {isAdmin ? (
           <Link to="/dashboard/team/invitations">
-            <Button>{t("pages.dashboard.team.membersPage.actions.inviteMembers")}</Button>
+            <Button>
+              {t("pages.dashboard.team.membersPage.actions.inviteMembers")}
+            </Button>
           </Link>
         ) : (
-          <Button disabled title={t("pages.dashboard.team.membersPage.actions.adminRequired")}>
+          <Button
+            disabled
+            title={t("pages.dashboard.team.membersPage.actions.adminRequired")}
+          >
             {t("pages.dashboard.team.membersPage.actions.inviteMembers")}
           </Button>
         )}
@@ -107,11 +135,15 @@ function MembersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("pages.dashboard.team.membersPage.card.title")}</CardTitle>
+          <CardTitle>
+            {t("pages.dashboard.team.membersPage.card.title")}
+          </CardTitle>
           <CardDescription>
             {memberList.length === 1
               ? t("pages.dashboard.team.membersPage.card.countOne")
-              : t("pages.dashboard.team.membersPage.card.countMany", { count: memberList.length })}
+              : t("pages.dashboard.team.membersPage.card.countMany", {
+                  count: memberList.length,
+                })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -137,7 +169,9 @@ function MembersPage() {
             <div className="space-y-4">
               {memberList.map((member) => {
                 const displayName =
-                  member.name ?? member.email?.split("@")[0] ?? t("pages.dashboard.team.membersPage.fallbackUser");
+                  member.name ??
+                  member.email?.split("@")[0] ??
+                  t("pages.dashboard.team.membersPage.fallbackUser");
                 const displayInitials = displayName
                   .split(" ")
                   .map((n) => n[0])
@@ -164,7 +198,9 @@ function MembersPage() {
                   >
                     <div className="flex items-center gap-4">
                       <Avatar>
-                        <AvatarFallback>{displayInitials ?? "U"}</AvatarFallback>
+                        <AvatarFallback>
+                          {displayInitials ?? "U"}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium">{displayName}</p>
@@ -207,7 +243,9 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                {t("pages.dashboard.team.membersPage.menu.makeAdmin")}
+                                {t(
+                                  "pages.dashboard.team.membersPage.menu.makeAdmin"
+                                )}
                               </DropdownMenuItem>
                             )}
                             {member.role !== "pilot_member" && (
@@ -220,7 +258,9 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                {t("pages.dashboard.team.membersPage.menu.makeMember")}
+                                {t(
+                                  "pages.dashboard.team.membersPage.menu.makeMember"
+                                )}
                               </DropdownMenuItem>
                             )}
                             {member.role !== "pilot_viewer" && (
@@ -233,15 +273,21 @@ function MembersPage() {
                                 }
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                {t("pages.dashboard.team.membersPage.menu.makeViewer")}
+                                {t(
+                                  "pages.dashboard.team.membersPage.menu.makeViewer"
+                                )}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => removeMemberMutation.mutate(member.id)}
+                              onClick={() =>
+                                removeMemberMutation.mutate(member.id)
+                              }
                             >
                               <UserMinus className="mr-2 h-4 w-4" />
-                              {t("pages.dashboard.team.membersPage.menu.removeMember")}
+                              {t(
+                                "pages.dashboard.team.membersPage.menu.removeMember"
+                              )}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

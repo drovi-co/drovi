@@ -37,10 +37,15 @@ const uioKeys = {
     type?: string;
     status?: string;
     time_range?: string;
-  }) => [...uioKeys.lists(), params.organizationId ?? "no-org", params] as const,
+  }) =>
+    [...uioKeys.lists(), params.organizationId ?? "no-org", params] as const,
   details: () => [...uioKeys.all, "detail"] as const,
   detail: (params: { organizationId?: string; id: string }) =>
-    [...uioKeys.details(), params.organizationId ?? "no-org", params.id] as const,
+    [
+      ...uioKeys.details(),
+      params.organizationId ?? "no-org",
+      params.id,
+    ] as const,
 };
 
 // =============================================================================
@@ -87,11 +92,19 @@ export function useUIOs(params: {
 /**
  * Fetch a single UIO with all its details.
  */
-export function useUIO(params: { organizationId?: string; id: string; enabled?: boolean }) {
-  const enabled = params.enabled !== false && !!params.organizationId && !!params.id;
+export function useUIO(params: {
+  organizationId?: string;
+  id: string;
+  enabled?: boolean;
+}) {
+  const enabled =
+    params.enabled !== false && !!params.organizationId && !!params.id;
 
   return useQuery({
-    queryKey: uioKeys.detail({ organizationId: params.organizationId, id: params.id }),
+    queryKey: uioKeys.detail({
+      organizationId: params.organizationId,
+      id: params.id,
+    }),
     queryFn: async (): Promise<UIO> => {
       return intelligenceAPI.getUIO(params.id);
     },
@@ -102,43 +115,65 @@ export function useUIO(params: { organizationId?: string; id: string; enabled?: 
 /**
  * Get UIO statistics for dashboard.
  */
-export function useUIOStats(params: { organizationId?: string; enabled?: boolean }) {
+export function useUIOStats(params: {
+  organizationId?: string;
+  enabled?: boolean;
+}) {
   const enabled = params.enabled !== false && !!params.organizationId;
 
   // Stats are computed from listing all UIOs
   const commitmentsQuery = useQuery({
     queryKey: [
-      ...uioKeys.list({ organizationId: params.organizationId, type: "commitment" }),
+      ...uioKeys.list({
+        organizationId: params.organizationId,
+        type: "commitment",
+      }),
       "stats",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "commitment", status: "all", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "commitment", status: "all", limit: 1 }),
     enabled,
   });
 
   const decisionsQuery = useQuery({
     queryKey: [
-      ...uioKeys.list({ organizationId: params.organizationId, type: "decision" }),
+      ...uioKeys.list({
+        organizationId: params.organizationId,
+        type: "decision",
+      }),
       "stats",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "decision", status: "all", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "decision", status: "all", limit: 1 }),
     enabled,
   });
 
   const tasksQuery = useQuery({
-    queryKey: [...uioKeys.list({ organizationId: params.organizationId, type: "task" }), "stats"],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "task", status: "all", limit: 1 }),
+    queryKey: [
+      ...uioKeys.list({ organizationId: params.organizationId, type: "task" }),
+      "stats",
+    ],
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "task", status: "all", limit: 1 }),
     enabled,
   });
 
   const risksQuery = useQuery({
-    queryKey: [...uioKeys.list({ organizationId: params.organizationId, type: "risk" }), "stats"],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "risk", status: "all", limit: 1 }),
+    queryKey: [
+      ...uioKeys.list({ organizationId: params.organizationId, type: "risk" }),
+      "stats",
+    ],
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "risk", status: "all", limit: 1 }),
     enabled,
   });
 
   return {
     data:
-      commitmentsQuery.data && decisionsQuery.data && tasksQuery.data && risksQuery.data
+      commitmentsQuery.data &&
+      decisionsQuery.data &&
+      tasksQuery.data &&
+      risksQuery.data
         ? {
             commitments: commitmentsQuery.data.total,
             decisions: decisionsQuery.data.total,
@@ -202,9 +237,16 @@ export function useCommitmentUIOs(params: {
       let backendStatus: string | undefined;
       if (params.status === "overdue") {
         backendStatus = "overdue";
-      } else if (params.status === "pending" || params.status === "in_progress" || params.status === "waiting") {
+      } else if (
+        params.status === "pending" ||
+        params.status === "in_progress" ||
+        params.status === "waiting"
+      ) {
         backendStatus = "open";
-      } else if (params.status === "completed" || params.status === "cancelled") {
+      } else if (
+        params.status === "completed" ||
+        params.status === "cancelled"
+      ) {
         backendStatus = "completed";
       }
 
@@ -277,7 +319,12 @@ export function useTaskUIOs(params: {
     queryFn: async (): Promise<UIOListResponse> => {
       // Map frontend status to backend status
       let backendStatus: string | undefined;
-      if (params.status === "backlog" || params.status === "todo" || params.status === "in_progress" || params.status === "in_review") {
+      if (
+        params.status === "backlog" ||
+        params.status === "todo" ||
+        params.status === "in_progress" ||
+        params.status === "in_review"
+      ) {
         backendStatus = "open";
       } else if (params.status === "done" || params.status === "cancelled") {
         backendStatus = "completed";
@@ -307,7 +354,10 @@ export function useRiskUIOs(params: {
   const enabled = params.enabled !== false && !!params.organizationId;
 
   return useQuery({
-    queryKey: uioKeys.list({ organizationId: params.organizationId, type: "risk" }),
+    queryKey: uioKeys.list({
+      organizationId: params.organizationId,
+      type: "risk",
+    }),
     queryFn: async (): Promise<UIOListResponse> => {
       return intelligenceAPI.listUIOs({
         type: "risk",
@@ -335,7 +385,10 @@ export function useBriefUIOs(params: {
   // Briefs map to high-priority open items
   return useQuery({
     queryKey: [
-      ...uioKeys.list({ organizationId: params.organizationId, status: "open" }),
+      ...uioKeys.list({
+        organizationId: params.organizationId,
+        status: "open",
+      }),
       "briefs",
       params.priorityTier,
     ],
@@ -387,7 +440,14 @@ export function useUpdateUIO() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string; organizationId?: string }) => {
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: string;
+      organizationId?: string;
+    }) => {
       return intelligenceAPI.updateStatus(id, status);
     },
     onSuccess: () => {
@@ -410,7 +470,11 @@ export function useCorrectUIO() {
     }: {
       id: string;
       organizationId: string;
-      updates: { canonical_title?: string; canonical_description?: string; due_date?: string };
+      updates: {
+        canonical_title?: string;
+        canonical_description?: string;
+        due_date?: string;
+      };
     }) => {
       return intelligenceAPI.updateUIO(id, updates, organizationId);
     },
@@ -491,7 +555,13 @@ export function useSnoozeUIO() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id }: { id: string; organizationId?: string; until?: Date }) => {
+    mutationFn: async ({
+      id,
+    }: {
+      id: string;
+      organizationId?: string;
+      until?: Date;
+    }) => {
       // For now, just mark as in_progress (snooze functionality would need backend support)
       return intelligenceAPI.updateStatus(id, "in_progress");
     },
@@ -508,7 +578,14 @@ export function useUpdateTaskStatusUIO() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string; organizationId?: string }) => {
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: string;
+      organizationId?: string;
+    }) => {
       return intelligenceAPI.updateStatus(id, status);
     },
     onSuccess: () => {
@@ -524,7 +601,13 @@ export function useUpdateTaskPriorityUIO() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id }: { id: string; priority: string; organizationId?: string }) => {
+    mutationFn: async ({
+      id,
+    }: {
+      id: string;
+      priority: string;
+      organizationId?: string;
+    }) => {
       // Priority updates would need backend support
       // For now, this is a no-op that invalidates cache
       return { id };
@@ -542,7 +625,10 @@ export function useUpdateTaskPriorityUIO() {
 /**
  * Get commitment statistics.
  */
-export function useCommitmentStats(params: { organizationId?: string; enabled?: boolean }) {
+export function useCommitmentStats(params: {
+  organizationId?: string;
+  enabled?: boolean;
+}) {
   const enabled = params.enabled !== false && !!params.organizationId;
 
   const openQuery = useQuery({
@@ -554,7 +640,12 @@ export function useCommitmentStats(params: { organizationId?: string; enabled?: 
       }),
       "count",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "commitment", status: "open", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({
+        type: "commitment",
+        status: "open",
+        limit: 1,
+      }),
     enabled,
   });
 
@@ -567,7 +658,12 @@ export function useCommitmentStats(params: { organizationId?: string; enabled?: 
       }),
       "count",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "commitment", status: "overdue", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({
+        type: "commitment",
+        status: "overdue",
+        limit: 1,
+      }),
     enabled,
   });
 
@@ -580,7 +676,12 @@ export function useCommitmentStats(params: { organizationId?: string; enabled?: 
       }),
       "count",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "commitment", status: "completed", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({
+        type: "commitment",
+        status: "completed",
+        limit: 1,
+      }),
     enabled,
   });
 
@@ -591,10 +692,14 @@ export function useCommitmentStats(params: { organizationId?: string; enabled?: 
             open: openQuery.data.total,
             overdue: overdueQuery.data.total,
             completed: completedQuery.data.total,
-            total: openQuery.data.total + overdueQuery.data.total + completedQuery.data.total,
+            total:
+              openQuery.data.total +
+              overdueQuery.data.total +
+              completedQuery.data.total,
           }
         : null,
-    isLoading: openQuery.isLoading || overdueQuery.isLoading || completedQuery.isLoading,
+    isLoading:
+      openQuery.isLoading || overdueQuery.isLoading || completedQuery.isLoading,
     error: openQuery.error || overdueQuery.error || completedQuery.error,
   };
 }
@@ -602,7 +707,10 @@ export function useCommitmentStats(params: { organizationId?: string; enabled?: 
 /**
  * Get decision statistics.
  */
-export function useDecisionStats(params: { organizationId?: string; enabled?: boolean }) {
+export function useDecisionStats(params: {
+  organizationId?: string;
+  enabled?: boolean;
+}) {
   const enabled = params.enabled !== false && !!params.organizationId;
 
   return useQuery({
@@ -615,7 +723,11 @@ export function useDecisionStats(params: { organizationId?: string; enabled?: bo
       "stats",
     ],
     queryFn: async () => {
-      const result = await intelligenceAPI.listUIOs({ type: "decision", status: "all", limit: 1 });
+      const result = await intelligenceAPI.listUIOs({
+        type: "decision",
+        status: "all",
+        limit: 1,
+      });
       return {
         data: {
           total: result.total,
@@ -629,15 +741,23 @@ export function useDecisionStats(params: { organizationId?: string; enabled?: bo
 /**
  * Get task statistics.
  */
-export function useTaskStats(params: { organizationId?: string; enabled?: boolean }) {
+export function useTaskStats(params: {
+  organizationId?: string;
+  enabled?: boolean;
+}) {
   const enabled = params.enabled !== false && !!params.organizationId;
 
   const openQuery = useQuery({
     queryKey: [
-      ...uioKeys.list({ organizationId: params.organizationId, type: "task", status: "open" }),
+      ...uioKeys.list({
+        organizationId: params.organizationId,
+        type: "task",
+        status: "open",
+      }),
       "count",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "task", status: "open", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "task", status: "open", limit: 1 }),
     enabled,
   });
 
@@ -650,7 +770,8 @@ export function useTaskStats(params: { organizationId?: string; enabled?: boolea
       }),
       "count",
     ],
-    queryFn: () => intelligenceAPI.listUIOs({ type: "task", status: "completed", limit: 1 }),
+    queryFn: () =>
+      intelligenceAPI.listUIOs({ type: "task", status: "completed", limit: 1 }),
     enabled,
   });
 

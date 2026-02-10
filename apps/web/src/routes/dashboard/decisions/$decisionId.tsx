@@ -194,7 +194,9 @@ function DecisionDetailPage() {
         return {
           id: decisionData.id,
           title:
-            decisionData.userCorrectedTitle ?? decisionData.canonicalTitle ?? "",
+            decisionData.userCorrectedTitle ??
+            decisionData.canonicalTitle ??
+            "",
           statement:
             decisionData.decisionDetails?.statement ??
             decisionData.canonicalDescription ??
@@ -204,7 +206,8 @@ function DecisionDetailPage() {
             "made") as DecisionStatus,
           confidence: decisionData.overallConfidence ?? 0.8,
           isUserVerified: decisionData.isUserVerified ?? false,
-          decisionMaker: decisionData.decisionMaker ?? decisionData.owner ?? null,
+          decisionMaker:
+            decisionData.decisionMaker ?? decisionData.owner ?? null,
           impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
           evidence: primarySource
             ? {
@@ -217,7 +220,8 @@ function DecisionDetailPage() {
           decidedAt: decisionData.decisionDetails?.decidedAt
             ? new Date(decisionData.decisionDetails.decidedAt)
             : null,
-          supersedesUioId: decisionData.decisionDetails?.supersedesUioId ?? null,
+          supersedesUioId:
+            decisionData.decisionDetails?.supersedesUioId ?? null,
           supersededByUioId:
             decisionData.decisionDetails?.supersededByUioId ?? null,
           sources: decisionData.sources ?? [],
@@ -661,8 +665,8 @@ function DecisionDetailPage() {
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates directly
-                  in decision notes or attach supporting evidence.
+                  Collaborative threads are coming soon. Capture updates
+                  directly in decision notes or attach supporting evidence.
                 </div>
               </div>
             </div>

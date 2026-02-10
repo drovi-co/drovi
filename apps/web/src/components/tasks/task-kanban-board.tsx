@@ -288,7 +288,7 @@ export function TaskKanbanBoard({
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
         {activeTask ? (
-          <KanbanCard isDragging onClick={() => {}} task={activeTask} />
+          <KanbanCard isDragging onClick={() => undefined} task={activeTask} />
         ) : null}
       </DragOverlay>
     </DndContext>

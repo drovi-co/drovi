@@ -48,6 +48,13 @@ export function WaitlistConfirmationEmail({
           </ul>
           <Hr style={hr} />
           <Text style={footer}>
+            Track Drovi updates at{" "}
+            <Link href={appUrl} style={link}>
+              {appUrl}
+            </Link>
+            .
+          </Text>
+          <Text style={footer}>
             In the meantime, if you have any questions, feel free to reach out
             to us at{" "}
             <Link href="mailto:hello@drovi.io" style={link}>

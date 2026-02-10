@@ -50,11 +50,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n";
+import { type ContinuumBundle, continuumExchangeAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import {
-  continuumExchangeAPI,
-  type ContinuumBundle,
-} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/exchange")({
@@ -121,7 +118,8 @@ function ContinuumExchangePage() {
     queryFn: () =>
       continuumExchangeAPI.list({
         organizationId,
-        visibility: filters.visibility === "all" ? undefined : filters.visibility,
+        visibility:
+          filters.visibility === "all" ? undefined : filters.visibility,
         governanceStatus:
           filters.governance === "all" ? undefined : filters.governance,
       }),
@@ -138,7 +136,8 @@ function ContinuumExchangePage() {
       toast.success(t("pages.dashboard.exchange.toasts.installed"));
       queryClient.invalidateQueries({ queryKey: ["continuum-exchange"] });
     },
-    onError: () => toast.error(t("pages.dashboard.exchange.toasts.installFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.exchange.toasts.installFailed")),
   });
 
   const publishMutation = useMutation({
@@ -154,7 +153,8 @@ function ContinuumExchangePage() {
       setPublishOpen(false);
       queryClient.invalidateQueries({ queryKey: ["continuum-exchange"] });
     },
-    onError: () => toast.error(t("pages.dashboard.exchange.toasts.publishFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.exchange.toasts.publishFailed")),
   });
 
   const curatedBundles = useMemo(() => {
@@ -194,7 +194,10 @@ function ContinuumExchangePage() {
 
   if (isError) {
     return (
-      <div className="flex h-full flex-col justify-center p-6" data-no-shell-padding>
+      <div
+        className="flex h-full flex-col justify-center p-6"
+        data-no-shell-padding
+      >
         <ApiErrorPanel
           error={error}
           onRetry={() =>
@@ -212,7 +215,7 @@ function ContinuumExchangePage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <Store className="h-3 w-3" />
               {t("pages.dashboard.exchange.kicker")}
             </div>
@@ -246,7 +249,9 @@ function ContinuumExchangePage() {
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t("pages.dashboard.exchange.filters.visibility.label")}</Label>
+                <Label>
+                  {t("pages.dashboard.exchange.filters.visibility.label")}
+                </Label>
                 <Select
                   onValueChange={(value) =>
                     setFilters((prev) => ({ ...prev, visibility: value }))
@@ -257,15 +262,25 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t("pages.dashboard.exchange.filters.visibility.all")}</SelectItem>
-                    <SelectItem value="private">{t("pages.dashboard.exchange.filters.visibility.private")}</SelectItem>
-                    <SelectItem value="public">{t("pages.dashboard.exchange.filters.visibility.public")}</SelectItem>
-                    <SelectItem value="curated">{t("pages.dashboard.exchange.filters.visibility.curated")}</SelectItem>
+                    <SelectItem value="all">
+                      {t("pages.dashboard.exchange.filters.visibility.all")}
+                    </SelectItem>
+                    <SelectItem value="private">
+                      {t("pages.dashboard.exchange.filters.visibility.private")}
+                    </SelectItem>
+                    <SelectItem value="public">
+                      {t("pages.dashboard.exchange.filters.visibility.public")}
+                    </SelectItem>
+                    <SelectItem value="curated">
+                      {t("pages.dashboard.exchange.filters.visibility.curated")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t("pages.dashboard.exchange.filters.governance.label")}</Label>
+                <Label>
+                  {t("pages.dashboard.exchange.filters.governance.label")}
+                </Label>
                 <Select
                   onValueChange={(value) =>
                     setFilters((prev) => ({ ...prev, governance: value }))
@@ -276,10 +291,22 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t("pages.dashboard.exchange.filters.governance.all")}</SelectItem>
-                    <SelectItem value="pending">{t("pages.dashboard.exchange.filters.governance.pending")}</SelectItem>
-                    <SelectItem value="approved">{t("pages.dashboard.exchange.filters.governance.approved")}</SelectItem>
-                    <SelectItem value="rejected">{t("pages.dashboard.exchange.filters.governance.rejected")}</SelectItem>
+                    <SelectItem value="all">
+                      {t("pages.dashboard.exchange.filters.governance.all")}
+                    </SelectItem>
+                    <SelectItem value="pending">
+                      {t("pages.dashboard.exchange.filters.governance.pending")}
+                    </SelectItem>
+                    <SelectItem value="approved">
+                      {t(
+                        "pages.dashboard.exchange.filters.governance.approved"
+                      )}
+                    </SelectItem>
+                    <SelectItem value="rejected">
+                      {t(
+                        "pages.dashboard.exchange.filters.governance.rejected"
+                      )}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -297,7 +324,9 @@ function ContinuumExchangePage() {
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center text-muted-foreground">
                   <Box className="h-10 w-10" />
-                  <p className="font-medium">{t("pages.dashboard.exchange.empty.title")}</p>
+                  <p className="font-medium">
+                    {t("pages.dashboard.exchange.empty.title")}
+                  </p>
                   <p className="text-sm">
                     {t("pages.dashboard.exchange.empty.description")}
                   </p>
@@ -311,22 +340,28 @@ function ContinuumExchangePage() {
                       <div className="space-y-1">
                         <CardTitle className="text-lg">{bundle.name}</CardTitle>
                         <CardDescription>
-                          {bundle.description ?? t("pages.dashboard.exchange.noDescription")}
+                          {bundle.description ??
+                            t("pages.dashboard.exchange.noDescription")}
                         </CardDescription>
                       </div>
                       <Badge
                         className={cn(
                           "border",
-                          VISIBILITY_BADGES[bundle.visibility] ||
-                            "border-muted"
+                          VISIBILITY_BADGES[bundle.visibility] || "border-muted"
                         )}
                         variant="outline"
                       >
                         {bundle.visibility === "private"
-                          ? t("pages.dashboard.exchange.filters.visibility.private")
+                          ? t(
+                              "pages.dashboard.exchange.filters.visibility.private"
+                            )
                           : bundle.visibility === "public"
-                            ? t("pages.dashboard.exchange.filters.visibility.public")
-                            : t("pages.dashboard.exchange.filters.visibility.curated")}
+                            ? t(
+                                "pages.dashboard.exchange.filters.visibility.public"
+                              )
+                            : t(
+                                "pages.dashboard.exchange.filters.visibility.curated"
+                              )}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -341,16 +376,22 @@ function ContinuumExchangePage() {
                         variant="outline"
                       >
                         {bundle.governanceStatus === "pending"
-                          ? t("pages.dashboard.exchange.filters.governance.pending")
+                          ? t(
+                              "pages.dashboard.exchange.filters.governance.pending"
+                            )
                           : bundle.governanceStatus === "approved"
-                            ? t("pages.dashboard.exchange.filters.governance.approved")
-                            : t("pages.dashboard.exchange.filters.governance.rejected")}
+                            ? t(
+                                "pages.dashboard.exchange.filters.governance.approved"
+                              )
+                            : t(
+                                "pages.dashboard.exchange.filters.governance.rejected"
+                              )}
                       </Badge>
                       <Badge variant="secondary">v{bundle.version}</Badge>
                       <Badge variant="secondary">
-                        {!bundle.priceCents || !bundle.currency
-                          ? t("pages.dashboard.exchange.price.free")
-                          : `${(bundle.priceCents / 100).toFixed(2)} ${bundle.currency}`}
+                        {bundle.priceCents && bundle.currency
+                          ? `${(bundle.priceCents / 100).toFixed(2)} ${bundle.currency}`
+                          : t("pages.dashboard.exchange.price.free")}
                       </Badge>
                     </div>
 
@@ -404,7 +445,9 @@ function ContinuumExchangePage() {
                         </p>
                       </div>
                       <Badge className="border border-emerald-500/30 bg-emerald-500/10 text-emerald-600">
-                        {t("pages.dashboard.exchange.filters.governance.approved")}
+                        {t(
+                          "pages.dashboard.exchange.filters.governance.approved"
+                        )}
                       </Badge>
                     </div>
                     <Button
@@ -434,16 +477,28 @@ function ContinuumExchangePage() {
             <CardContent className="space-y-3">
               {[
                 {
-                  label: t("pages.dashboard.exchange.governanceSignals.items.pending"),
-                  value: t("pages.dashboard.exchange.governanceSignals.values.autopilotRules"),
+                  label: t(
+                    "pages.dashboard.exchange.governanceSignals.items.pending"
+                  ),
+                  value: t(
+                    "pages.dashboard.exchange.governanceSignals.values.autopilotRules"
+                  ),
                 },
                 {
-                  label: t("pages.dashboard.exchange.governanceSignals.items.approved"),
-                  value: t("pages.dashboard.exchange.governanceSignals.values.executiveCadence"),
+                  label: t(
+                    "pages.dashboard.exchange.governanceSignals.items.approved"
+                  ),
+                  value: t(
+                    "pages.dashboard.exchange.governanceSignals.values.executiveCadence"
+                  ),
                 },
                 {
-                  label: t("pages.dashboard.exchange.governanceSignals.items.rejected"),
-                  value: t("pages.dashboard.exchange.governanceSignals.values.noisyIntents"),
+                  label: t(
+                    "pages.dashboard.exchange.governanceSignals.items.rejected"
+                  ),
+                  value: t(
+                    "pages.dashboard.exchange.governanceSignals.values.noisyIntents"
+                  ),
                 },
               ].map((item) => (
                 <div
@@ -459,10 +514,12 @@ function ContinuumExchangePage() {
         </div>
       </div>
 
-      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+      <Dialog onOpenChange={setPublishOpen} open={publishOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t("pages.dashboard.exchange.publishDialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("pages.dashboard.exchange.publishDialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("pages.dashboard.exchange.publishDialog.description")}
             </DialogDescription>
@@ -470,17 +527,25 @@ function ContinuumExchangePage() {
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t("pages.dashboard.exchange.publishDialog.fields.name")}</Label>
+                <Label>
+                  {t("pages.dashboard.exchange.publishDialog.fields.name")}
+                </Label>
                 <Input
                   onChange={(event) => setBundleName(event.target.value)}
                   value={bundleName}
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("pages.dashboard.exchange.publishDialog.fields.visibility")}</Label>
+                <Label>
+                  {t(
+                    "pages.dashboard.exchange.publishDialog.fields.visibility"
+                  )}
+                </Label>
                 <Select
                   onValueChange={(value) =>
-                    setBundleVisibility(value as "private" | "public" | "curated")
+                    setBundleVisibility(
+                      value as "private" | "public" | "curated"
+                    )
                   }
                   value={bundleVisibility}
                 >
@@ -488,22 +553,32 @@ function ContinuumExchangePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">{t("pages.dashboard.exchange.filters.visibility.private")}</SelectItem>
-                    <SelectItem value="public">{t("pages.dashboard.exchange.filters.visibility.public")}</SelectItem>
-                    <SelectItem value="curated">{t("pages.dashboard.exchange.filters.visibility.curated")}</SelectItem>
+                    <SelectItem value="private">
+                      {t("pages.dashboard.exchange.filters.visibility.private")}
+                    </SelectItem>
+                    <SelectItem value="public">
+                      {t("pages.dashboard.exchange.filters.visibility.public")}
+                    </SelectItem>
+                    <SelectItem value="curated">
+                      {t("pages.dashboard.exchange.filters.visibility.curated")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>{t("pages.dashboard.exchange.publishDialog.fields.description")}</Label>
+              <Label>
+                {t("pages.dashboard.exchange.publishDialog.fields.description")}
+              </Label>
               <Input
                 onChange={(event) => setBundleDescription(event.target.value)}
                 value={bundleDescription}
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("pages.dashboard.exchange.publishDialog.fields.manifest")}</Label>
+              <Label>
+                {t("pages.dashboard.exchange.publishDialog.fields.manifest")}
+              </Label>
               <Textarea
                 className="min-h-[220px] font-mono text-xs"
                 onChange={(event) => setManifestText(event.target.value)}

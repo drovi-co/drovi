@@ -1,14 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { adminAPI } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useT } from "@/i18n";
 import {
   Table,
   TableBody,
@@ -17,6 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/i18n";
+import { adminAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/jobs")({
   component: AdminJobsPage,
@@ -42,8 +42,7 @@ function AdminJobsPage() {
   });
 
   const jobs = useMemo(() => {
-    const rows = (query.data?.jobs ?? []) as Array<any>;
-    return rows;
+    return query.data?.jobs ?? [];
   }, [query.data]);
 
   const cancelMutation = useMutation({
@@ -53,7 +52,9 @@ function AdminJobsPage() {
       await qc.invalidateQueries({ queryKey: ["admin-jobs"] });
     },
     onError: (e) =>
-      toast.error(e instanceof Error ? e.message : t("admin.jobs.toasts.cancelFailed")),
+      toast.error(
+        e instanceof Error ? e.message : t("admin.jobs.toasts.cancelFailed")
+      ),
   });
 
   const retryMutation = useMutation({
@@ -63,7 +64,9 @@ function AdminJobsPage() {
       await qc.invalidateQueries({ queryKey: ["admin-jobs"] });
     },
     onError: (e) =>
-      toast.error(e instanceof Error ? e.message : t("admin.jobs.toasts.retryFailed")),
+      toast.error(
+        e instanceof Error ? e.message : t("admin.jobs.toasts.retryFailed")
+      ),
   });
 
   return (
@@ -78,19 +81,19 @@ function AdminJobsPage() {
         <CardContent className="space-y-3">
           <div className="grid gap-2 md:grid-cols-3">
             <Input
+              onChange={(ev) => setOrgId(ev.target.value)}
               placeholder={t("admin.jobs.filters.orgId")}
               value={orgId}
-              onChange={(ev) => setOrgId(ev.target.value)}
             />
             <Input
+              onChange={(ev) => setStatus(ev.target.value)}
               placeholder={t("admin.jobs.filters.status")}
               value={status}
-              onChange={(ev) => setStatus(ev.target.value)}
             />
             <Input
+              onChange={(ev) => setJobType(ev.target.value)}
               placeholder={t("admin.jobs.filters.jobType")}
               value={jobType}
-              onChange={(ev) => setJobType(ev.target.value)}
             />
           </div>
 
@@ -101,7 +104,7 @@ function AdminJobsPage() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : query.error ? (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-muted-foreground text-sm">
               {query.error instanceof Error
                 ? query.error.message
                 : t("common.messages.unknownError")}
@@ -127,7 +130,9 @@ function AdminJobsPage() {
                 </TableHeader>
                 <TableBody>
                   {jobs.map((j) => {
-                    const canCancel = String(j.status) === "queued" || String(j.status) === "running";
+                    const canCancel =
+                      String(j.status) === "queued" ||
+                      String(j.status) === "running";
                     const canRetry = String(j.status) === "failed";
                     return (
                       <TableRow key={String(j.id)}>
@@ -141,18 +146,21 @@ function AdminJobsPage() {
                           {String(j.job_type)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize">
+                          <Badge className="capitalize" variant="secondary">
                             {String(j.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {Number(j.attempts ?? 0)}/{Number(j.max_attempts ?? 0)}
+                          {Number(j.attempts ?? 0)}/
+                          {Number(j.max_attempts ?? 0)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               disabled={!canCancel || cancelMutation.isPending}
-                              onClick={() => cancelMutation.mutate(String(j.id))}
+                              onClick={() =>
+                                cancelMutation.mutate(String(j.id))
+                              }
                               size="sm"
                               variant="secondary"
                             >
@@ -174,7 +182,7 @@ function AdminJobsPage() {
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-muted-foreground text-sm">
               {t("admin.jobs.empty")}
             </div>
           )}

@@ -207,7 +207,9 @@ export function DecisionDetailSheet({
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t("components.decisionDetailSheet.aiConfidence")}</span>
+                  <span className="text-muted-foreground">
+                    {t("components.decisionDetailSheet.aiConfidence")}
+                  </span>
                   <span
                     className={cn(
                       "font-medium",
@@ -382,7 +384,10 @@ export function DecisionDetailSheet({
                 {decision.metadata?.extractedAt && (
                   <p className="mt-2 text-muted-foreground text-xs">
                     {t("components.decisionDetailSheet.evidence.extracted", {
-                      time: formatRelativeTime(new Date(decision.metadata.extractedAt), locale),
+                      time: formatRelativeTime(
+                        new Date(decision.metadata.extractedAt),
+                        locale
+                      ),
                     })}
                   </p>
                 )}
@@ -440,7 +445,10 @@ export function DecisionDetailSheet({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sm">
-                    {decision.sourceThread.subject ?? t("components.decisionDetailSheet.sourceThread.emailThreadFallback")}
+                    {decision.sourceThread.subject ??
+                      t(
+                        "components.decisionDetailSheet.sourceThread.emailThreadFallback"
+                      )}
                   </p>
                   {decision.sourceThread.snippet && (
                     <p className="truncate text-muted-foreground text-xs">

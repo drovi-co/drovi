@@ -786,22 +786,24 @@ function CommitmentDetailPage() {
                     {/* Timeline line */}
                     <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
                     <div className="space-y-4">
-                      {commitment.timeline.map((event: CommitmentTimelineEvent) => (
-                        <div className="relative pl-8" key={event.id}>
-                          {/* Timeline dot */}
-                          <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
-                          <div>
-                            <p className="text-foreground text-sm">
-                              {event.eventDescription}
-                            </p>
-                            <p className="mt-0.5 text-muted-foreground text-xs">
-                              {formatDistanceToNow(new Date(event.eventAt), {
-                                addSuffix: true,
-                              })}
-                            </p>
+                      {commitment.timeline.map(
+                        (event: CommitmentTimelineEvent) => (
+                          <div className="relative pl-8" key={event.id}>
+                            {/* Timeline dot */}
+                            <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
+                            <div>
+                              <p className="text-foreground text-sm">
+                                {event.eventDescription}
+                              </p>
+                              <p className="mt-0.5 text-muted-foreground text-xs">
+                                {formatDistanceToNow(new Date(event.eventAt), {
+                                  addSuffix: true,
+                                })}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
@@ -830,8 +832,9 @@ function CommitmentDetailPage() {
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates directly
-                  in the commitment notes or attach evidence from your sources.
+                  Collaborative threads are coming soon. Capture updates
+                  directly in the commitment notes or attach evidence from your
+                  sources.
                 </div>
               </div>
             </div>

@@ -184,9 +184,7 @@ export function Timeline({
                           {event.sourceName}
                         </Badge>
                       )}
-                      <span>
-                        {formatRelativeTime(event.eventAt, locale)}
-                      </span>
+                      <span>{formatRelativeTime(event.eventAt, locale)}</span>
                       {event.confidence && event.confidence < 0.8 && (
                         <Tooltip>
                           <TooltipTrigger>

@@ -361,7 +361,7 @@ export function EvidenceDetailSheet({
   onOpenChange,
   onVerify,
   onDismiss,
-  onCorrect,
+  onCorrect: _onCorrect,
   onThreadClick,
   onMentionClick,
 }: EvidenceDetailSheetProps) {

@@ -50,12 +50,16 @@ function TeamPage() {
   if (!orgInfo) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <h2 className="font-semibold text-xl">{t("pages.dashboard.team.noOrg.title")}</h2>
+        <h2 className="font-semibold text-xl">
+          {t("pages.dashboard.team.noOrg.title")}
+        </h2>
         <p className="mt-2 text-muted-foreground">
           {t("pages.dashboard.team.noOrg.description")}
         </p>
         <Link to="/onboarding/create-org">
-          <Button className="mt-4">{t("pages.dashboard.team.noOrg.cta")}</Button>
+          <Button className="mt-4">
+            {t("pages.dashboard.team.noOrg.cta")}
+          </Button>
         </Link>
       </div>
     );
@@ -64,7 +68,9 @@ function TeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">{t("nav.items.team")}</h1>
+        <h1 className="font-bold text-3xl tracking-tight">
+          {t("nav.items.team")}
+        </h1>
         <p className="text-muted-foreground">
           {t("pages.dashboard.team.subtitle")}
         </p>
@@ -76,7 +82,8 @@ function TeamPage() {
           <CardTitle>{orgInfo.name}</CardTitle>
           <CardDescription>
             {t("pages.dashboard.team.org.region", {
-              region: orgInfo.region ?? t("pages.dashboard.team.org.defaultRegion"),
+              region:
+                orgInfo.region ?? t("pages.dashboard.team.org.defaultRegion"),
             })}
           </CardDescription>
         </CardHeader>
@@ -108,8 +115,12 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Users className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">{t("nav.items.members")}</CardTitle>
-                <CardDescription>{t("pages.dashboard.team.quickActions.members")}</CardDescription>
+                <CardTitle className="text-lg">
+                  {t("nav.items.members")}
+                </CardTitle>
+                <CardDescription>
+                  {t("pages.dashboard.team.quickActions.members")}
+                </CardDescription>
               </div>
             </CardHeader>
           </Link>
@@ -120,8 +131,12 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Mail className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">{t("nav.items.invitations")}</CardTitle>
-                <CardDescription>{t("pages.dashboard.team.quickActions.invitations")}</CardDescription>
+                <CardTitle className="text-lg">
+                  {t("nav.items.invitations")}
+                </CardTitle>
+                <CardDescription>
+                  {t("pages.dashboard.team.quickActions.invitations")}
+                </CardDescription>
               </div>
             </CardHeader>
           </Link>
@@ -132,8 +147,12 @@ function TeamPage() {
             <CardHeader className="flex flex-row items-center gap-4">
               <Settings className="h-8 w-8 text-primary" />
               <div>
-                <CardTitle className="text-lg">{t("nav.items.settings")}</CardTitle>
-                <CardDescription>{t("pages.dashboard.team.quickActions.settings")}</CardDescription>
+                <CardTitle className="text-lg">
+                  {t("nav.items.settings")}
+                </CardTitle>
+                <CardDescription>
+                  {t("pages.dashboard.team.quickActions.settings")}
+                </CardDescription>
               </div>
             </CardHeader>
           </Link>

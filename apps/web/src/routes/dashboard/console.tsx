@@ -40,7 +40,6 @@ import {
   TimeseriesChart,
   TopListChart,
 } from "@/components/console";
-import type { ConsoleItem } from "@/hooks/use-console-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -50,11 +49,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ConsoleItem } from "@/hooks/use-console-query";
 import { useConsoleQuery } from "@/hooks/use-console-query";
-import { authClient } from "@/lib/auth-client";
-import { type ParsedFilter, type ParsedQuery, type TimeRange, parseConsoleQuery } from "@/lib/console-parser";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { authClient } from "@/lib/auth-client";
+import type {
+  ParsedFilter,
+  ParsedQuery,
+  TimeRange,
+} from "@/lib/console-parser";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -70,19 +74,59 @@ export const Route = createFileRoute("/dashboard/console")({
 
 const GROUP_BY_OPTIONS = [
   { value: null, labelKey: "pages.dashboard.console.groupBy.none", icon: List },
-  { value: "type", labelKey: "pages.dashboard.console.groupBy.type", icon: Grid3X3 },
-  { value: "status", labelKey: "pages.dashboard.console.groupBy.status", icon: CheckCircle2 },
-  { value: "priority", labelKey: "pages.dashboard.console.groupBy.priority", icon: AlertTriangle },
-  { value: "owner", labelKey: "pages.dashboard.console.groupBy.owner", icon: Sparkles },
-  { value: "source", labelKey: "pages.dashboard.console.groupBy.source", icon: Zap },
-  { value: "date", labelKey: "pages.dashboard.console.groupBy.date", icon: Calendar },
+  {
+    value: "type",
+    labelKey: "pages.dashboard.console.groupBy.type",
+    icon: Grid3X3,
+  },
+  {
+    value: "status",
+    labelKey: "pages.dashboard.console.groupBy.status",
+    icon: CheckCircle2,
+  },
+  {
+    value: "priority",
+    labelKey: "pages.dashboard.console.groupBy.priority",
+    icon: AlertTriangle,
+  },
+  {
+    value: "owner",
+    labelKey: "pages.dashboard.console.groupBy.owner",
+    icon: Sparkles,
+  },
+  {
+    value: "source",
+    labelKey: "pages.dashboard.console.groupBy.source",
+    icon: Zap,
+  },
+  {
+    value: "date",
+    labelKey: "pages.dashboard.console.groupBy.date",
+    icon: Calendar,
+  },
 ];
 
 const VISUALIZATION_OPTIONS = [
-  { value: "list", labelKey: "pages.dashboard.console.viz.list", icon: LayoutList },
-  { value: "timeseries", labelKey: "pages.dashboard.console.viz.timeseries", icon: LineChart },
-  { value: "top_list", labelKey: "pages.dashboard.console.viz.topList", icon: BarChart3 },
-  { value: "table", labelKey: "pages.dashboard.console.viz.table", icon: Grid3X3 },
+  {
+    value: "list",
+    labelKey: "pages.dashboard.console.viz.list",
+    icon: LayoutList,
+  },
+  {
+    value: "timeseries",
+    labelKey: "pages.dashboard.console.viz.timeseries",
+    icon: LineChart,
+  },
+  {
+    value: "top_list",
+    labelKey: "pages.dashboard.console.viz.topList",
+    icon: BarChart3,
+  },
+  {
+    value: "table",
+    labelKey: "pages.dashboard.console.viz.table",
+    icon: Grid3X3,
+  },
   { value: "pie", labelKey: "pages.dashboard.console.viz.pie", icon: PieChart },
 ];
 
@@ -143,12 +187,12 @@ function MetricCard({
             <span
               className={cn(
                 "flex items-center gap-0.5 text-xs",
-                trend >= 0 ? "text-[#059669] dark:text-[#6ee7b7]" : "text-[#dc2626] dark:text-[#f87171]"
+                trend >= 0
+                  ? "text-[#059669] dark:text-[#6ee7b7]"
+                  : "text-[#dc2626] dark:text-[#f87171]"
               )}
             >
-              <TrendingUp
-                className={cn("size-3", trend < 0 && "rotate-180")}
-              />
+              <TrendingUp className={cn("size-3", trend < 0 && "rotate-180")} />
               {Math.abs(trend)}%
             </span>
           )}
@@ -167,6 +211,23 @@ function ConsolePage() {
     authClient.useActiveOrganization();
   const t = useT();
   const organizationId = activeOrg?.id ?? "";
+
+  const groupByOptions = useMemo(
+    () =>
+      GROUP_BY_OPTIONS.map((o) => ({
+        ...o,
+        label: t(o.labelKey),
+      })),
+    [t]
+  );
+  const vizOptions = useMemo(
+    () =>
+      VISUALIZATION_OPTIONS.map((o) => ({
+        ...o,
+        label: t(o.labelKey),
+      })),
+    [t]
+  );
 
   // Refs
   const searchBarRef = useRef<ConsoleSearchBarRef>(null);
@@ -363,22 +424,6 @@ function ConsolePage() {
   }
 
   const metrics = data?.metrics;
-  const groupByOptions = useMemo(
-    () =>
-      GROUP_BY_OPTIONS.map((o) => ({
-        ...o,
-        label: t(o.labelKey),
-      })),
-    [t]
-  );
-  const vizOptions = useMemo(
-    () =>
-      VISUALIZATION_OPTIONS.map((o) => ({
-        ...o,
-        label: t(o.labelKey),
-      })),
-    [t]
-  );
 
   const selectedGroupBy = groupByOptions.find((o) => o.value === groupBy);
   const selectedViz = vizOptions.find((o) => o.value === visualization);
@@ -498,8 +543,7 @@ function ConsolePage() {
               <DropdownMenuTrigger asChild>
                 <Button className="gap-2" size="sm" variant="outline">
                   {selectedViz && <selectedViz.icon className="size-4" />}
-                  {selectedViz?.label ??
-                    t("pages.dashboard.console.viz.list")}
+                  {selectedViz?.label ?? t("pages.dashboard.console.viz.list")}
                   <ChevronDown className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -554,23 +598,7 @@ function ConsolePage() {
                 <Skeleton className="h-16 w-full" key={i} />
               ))}
             </div>
-          ) : !data?.items?.length ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="space-y-4 text-center">
-                <div className="inline-flex rounded-full bg-muted p-4">
-                  <Terminal className="size-8 text-muted-foreground" />
-                </div>
-                <div className="space-y-1">
-                  <p className="font-medium">
-                    {t("pages.dashboard.console.empty.title")}
-                  </p>
-                  <p className="text-muted-foreground text-sm">
-                    {t("pages.dashboard.console.empty.description")}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
+          ) : data?.items?.length ? (
             <div className="h-full overflow-auto px-6 py-4">
               <div>
                 {/* Render based on visualization type */}
@@ -584,14 +612,11 @@ function ConsolePage() {
                 )}
 
                 {visualization === "timeseries" && (
-                  <TimeseriesChart
-                    data={data.timeseries ?? []}
-                    height={400}
-                  />
+                  <TimeseriesChart data={data.timeseries ?? []} height={400} />
                 )}
 
-                {visualization === "top_list" && (
-                  groupBy && data.aggregations?.[groupBy] ? (
+                {visualization === "top_list" &&
+                  (groupBy && data.aggregations?.[groupBy] ? (
                     <TopListChart
                       colorScheme="rainbow"
                       data={data.aggregations[groupBy].map((item) => ({
@@ -606,8 +631,7 @@ function ConsolePage() {
                         {t("pages.dashboard.console.emptyChart")}
                       </p>
                     </div>
-                  )
-                )}
+                  ))}
 
                 {visualization === "table" && (
                   <ConsoleDataTable
@@ -618,8 +642,8 @@ function ConsolePage() {
                   />
                 )}
 
-                {visualization === "pie" && (
-                  groupBy && data.aggregations?.[groupBy] ? (
+                {visualization === "pie" &&
+                  (groupBy && data.aggregations?.[groupBy] ? (
                     <ConsolePieChart
                       data={data.aggregations[groupBy].map((item) => ({
                         name: item.key,
@@ -633,8 +657,23 @@ function ConsolePage() {
                         {t("pages.dashboard.console.emptyChart")}
                       </p>
                     </div>
-                  )
-                )}
+                  ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="space-y-4 text-center">
+                <div className="inline-flex rounded-full bg-muted p-4">
+                  <Terminal className="size-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {t("pages.dashboard.console.empty.title")}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {t("pages.dashboard.console.empty.description")}
+                  </p>
+                </div>
               </div>
             </div>
           )}

@@ -3,7 +3,8 @@
 @import "fumadocs-ui/css/preset.css";
 
 /* Override fumadocs --color-fd-* variables for dark mode */
-:root, .dark {
+:root,
+.dark {
   /* Backgrounds - dark warm tone */
   --color-fd-background: hsl(15, 60%, 3%);
   --color-fd-foreground: hsl(0, 0%, 100%);
@@ -34,7 +35,8 @@
 }
 
 /* Override sidebar specifically */
-.dark #nd-sidebar, #nd-sidebar {
+.dark #nd-sidebar,
+#nd-sidebar {
   --color-fd-muted: hsl(20, 20%, 10%);
   --color-fd-secondary: hsl(20, 20%, 14%);
   --color-fd-muted-foreground: hsl(0, 0%, 70%);
@@ -64,7 +66,8 @@
   --radius: 0.75rem;
 }
 
-.dark, :root {
+.dark,
+:root {
   --background: 15 60% 3%;
   --foreground: 0 0% 100%;
   --primary: 0 0% 100%;
@@ -187,17 +190,26 @@ mark {
 }
 
 /* Headings - white */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: hsl(0, 0%, 100%) !important;
 }
 
 /* All text - white/light gray */
-p, li, span, div {
+p,
+li,
+span,
+div {
   color: hsl(0, 0%, 90%);
 }
 
 /* Strong/bold text */
-strong, b {
+strong,
+b {
   color: hsl(0, 0%, 100%) !important;
 }
 

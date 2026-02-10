@@ -104,12 +104,24 @@ function AssigneeIcon({
           : size === "xl"
             ? 18
             : 12;
+  const avatarSize =
+    size === "xs"
+      ? 14
+      : size === "sm"
+        ? 16
+        : size === "lg"
+          ? 24
+          : size === "xl"
+            ? 32
+            : 20;
 
   const content = imageUrl ? (
     <img
       alt={name || email || "Assignee"}
       className="size-full object-cover"
+      height={avatarSize}
       src={imageUrl}
+      width={avatarSize}
     />
   ) : identifier ? (
     <span className="text-white">{initials}</span>

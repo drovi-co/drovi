@@ -38,7 +38,9 @@ const router = createRouter({
           }}
         >
           <BackendLocaleSync />
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
         </I18nProvider>
       </ErrorBoundary>
     );

@@ -22,4 +22,3 @@ export const Route = createFileRoute("/onboarding")({
 function OnboardingShell() {
   return <Outlet />;
 }
-

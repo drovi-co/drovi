@@ -11,11 +11,10 @@
  * - Action buttons
  */
 
-import { formatDistanceToNow, format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
-  AlertTriangle,
   Archive,
-  Calendar,
+  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -25,29 +24,35 @@ import {
   ExternalLink,
   FileText,
   Link2,
+  Mail,
   Network,
+  Paperclip,
   Sparkles,
   Trash2,
-  User,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { ConsoleItem, MessageDetail, RelatedItem, SourceItem } from "@/hooks/use-console-query";
-import { useRelatedUios, useSourceDetail, useUioSources } from "@/hooks/use-console-query";
+import type {
+  ConsoleItem,
+  RelatedItem,
+  SourceItem,
+} from "@/hooks/use-console-query";
+import {
+  useRelatedUios,
+  useSourceDetail,
+  useUioSources,
+} from "@/hooks/use-console-query";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { ArrowLeft, Mail, Paperclip } from "lucide-react";
 
 // =============================================================================
 // TYPES
@@ -86,7 +91,7 @@ function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border rounded-lg">
+    <div className="rounded-lg border">
       <button
         className="flex w-full items-center justify-between px-4 py-3 hover:bg-accent/50"
         onClick={() => setIsOpen(!isOpen)}
@@ -99,16 +104,10 @@ function CollapsibleSection({
             <ChevronRight className="size-4" />
           )}
           <span className="font-medium text-sm">{title}</span>
-          {count !== undefined && (
-            <Badge variant="secondary">{count}</Badge>
-          )}
+          {count !== undefined && <Badge variant="secondary">{count}</Badge>}
         </div>
       </button>
-      {isOpen && (
-        <div className="border-t px-4 py-3">
-          {children}
-        </div>
-      )}
+      {isOpen && <div className="border-t px-4 py-3">{children}</div>}
     </div>
   );
 }
@@ -124,7 +123,12 @@ interface AttributeRowProps {
   copyValue?: string;
 }
 
-function AttributeRow({ label, value, copyable, copyValue }: AttributeRowProps) {
+function AttributeRow({
+  label,
+  value,
+  copyable,
+  copyValue,
+}: AttributeRowProps) {
   const resolvedCopyValue =
     typeof copyValue === "string"
       ? copyValue
@@ -143,7 +147,7 @@ function AttributeRow({ label, value, copyable, copyValue }: AttributeRowProps) 
   return (
     <div className="group/attr grid grid-cols-[auto,minmax(0,1fr)] items-start gap-x-4 py-1.5 text-sm">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex items-start justify-end gap-1.5 text-right">
+      <div className="flex min-w-0 items-start justify-end gap-1.5 text-right">
         <div className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
           {value}
         </div>
@@ -178,8 +182,10 @@ function TypeIndicator({ type }: { type: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className={cn("size-2 rounded-full", colors[type] ?? "bg-[#a3a3a3]")} />
-      <span className="font-medium uppercase text-xs tracking-wider">
+      <div
+        className={cn("size-2 rounded-full", colors[type] ?? "bg-[#a3a3a3]")}
+      />
+      <span className="font-medium text-xs uppercase tracking-wider">
         {type}
       </span>
     </div>
@@ -203,7 +209,11 @@ function SourceDetailView({
   onBack,
   onSelectUio,
 }: SourceDetailViewProps) {
-  const { data: detail, isLoading, error } = useSourceDetail(organizationId, sourceId);
+  const {
+    data: detail,
+    isLoading,
+    error,
+  } = useSourceDetail(organizationId, sourceId);
 
   if (isLoading) {
     return (
@@ -240,7 +250,7 @@ function SourceDetailView({
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="capitalize">
+              <Badge className="capitalize" variant="outline">
                 <Mail className="mr-1 size-3" />
                 {detail.source_type}
               </Badge>
@@ -257,7 +267,11 @@ function SourceDetailView({
           </div>
           {detail.deep_link && (
             <Button asChild size="sm" variant="outline">
-              <a href={detail.deep_link} rel="noopener noreferrer" target="_blank">
+              <a
+                href={detail.deep_link}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
                 <ExternalLink className="mr-1.5 size-4" />
                 Open Original
               </a>
@@ -267,39 +281,45 @@ function SourceDetailView({
       </SheetHeader>
 
       <ScrollArea className="h-[calc(100vh-180px)] overflow-x-hidden">
-        <div className="space-y-4 px-6 py-4 overflow-x-hidden">
+        <div className="space-y-4 overflow-x-hidden px-6 py-4">
           {/* Source Info Header */}
-          <div className="flex items-start gap-3 rounded-lg border p-4 overflow-hidden">
+          <div className="flex items-start gap-3 overflow-hidden rounded-lg border p-4">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Mail className="size-5 text-primary" />
             </div>
-            <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  {(detail.sender_name || detail.sender_email) ? (
+                  {detail.sender_name || detail.sender_email ? (
                     <>
-                      <p className="font-medium truncate">
+                      <p className="truncate font-medium">
                         {detail.sender_name || detail.sender_email}
                       </p>
                       {detail.sender_email && detail.sender_name && (
-                        <p className="text-muted-foreground text-sm truncate">
+                        <p className="truncate text-muted-foreground text-sm">
                           {detail.sender_email}
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="font-medium capitalize">{detail.source_type} Source</p>
+                    <p className="font-medium capitalize">
+                      {detail.source_type} Source
+                    </p>
                   )}
                 </div>
                 {(detail.sent_at || detail.received_at) && (
-                  <p className="text-muted-foreground text-sm shrink-0">
-                    {format(new Date(detail.sent_at || detail.received_at!), "PPpp")}
+                  <p className="shrink-0 text-muted-foreground text-sm">
+                    {format(
+                      new Date(detail.sent_at || detail.received_at!),
+                      "PPpp"
+                    )}
                   </p>
                 )}
               </div>
               {detail.recipients.length > 0 && (
-                <p className="mt-1 text-muted-foreground text-sm truncate">
-                  To: {detail.recipients.map((r) => r.name || r.email).join(", ")}
+                <p className="mt-1 truncate text-muted-foreground text-sm">
+                  To:{" "}
+                  {detail.recipients.map((r) => r.name || r.email).join(", ")}
                 </p>
               )}
             </div>
@@ -308,27 +328,31 @@ function SourceDetailView({
           {/* Main Evidence Content */}
           {detail.quoted_text ? (
             <CollapsibleSection defaultOpen title="Extracted Evidence">
-              <div className="rounded-lg border-l-4 border-primary/50 bg-muted/50 p-4 overflow-hidden">
+              <div className="overflow-hidden rounded-lg border-primary/50 border-l-4 bg-muted/50 p-4">
                 <p className="mb-2 text-muted-foreground text-xs uppercase tracking-wide">
                   AI extracted the following from this source:
                 </p>
-                <p className="text-sm whitespace-pre-wrap break-words">"{detail.quoted_text}"</p>
+                <p className="whitespace-pre-wrap break-words text-sm">
+                  "{detail.quoted_text}"
+                </p>
               </div>
             </CollapsibleSection>
-          ) : (detail.body_html || detail.body_text || detail.snippet) ? (
+          ) : detail.body_html || detail.body_text || detail.snippet ? (
             <CollapsibleSection defaultOpen title="Message Content">
-              <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-hidden [&_*]:max-w-full [&_*]:break-words">
+              <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words [&_*]:max-w-full [&_*]:break-words">
                 {detail.body_html ? (
                   <div
-                    className="text-sm overflow-hidden break-words [&_*]:max-w-full [&_*]:break-words"
+                    className="overflow-hidden break-words text-sm [&_*]:max-w-full [&_*]:break-words"
                     dangerouslySetInnerHTML={{ __html: detail.body_html }}
                   />
                 ) : detail.body_text ? (
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm overflow-hidden max-w-full">
+                  <pre className="max-w-full overflow-hidden whitespace-pre-wrap break-words font-sans text-sm">
                     {detail.body_text}
                   </pre>
                 ) : (
-                  <p className="text-muted-foreground text-sm break-words">{detail.snippet}</p>
+                  <p className="break-words text-muted-foreground text-sm">
+                    {detail.snippet}
+                  </p>
                 )}
               </div>
             </CollapsibleSection>
@@ -352,7 +376,9 @@ function SourceDetailView({
                     key={att.id}
                   >
                     <Paperclip className="size-4 text-muted-foreground" />
-                    <span className="flex-1 truncate text-sm">{att.filename}</span>
+                    <span className="flex-1 truncate text-sm">
+                      {att.filename}
+                    </span>
                     {att.size_bytes && (
                       <span className="text-muted-foreground text-xs">
                         {(att.size_bytes / 1024).toFixed(1)} KB
@@ -368,7 +394,10 @@ function SourceDetailView({
           {detail.conversation_title && (
             <CollapsibleSection defaultOpen={false} title="Conversation">
               <div className="space-y-2">
-                <AttributeRow label="Thread" value={detail.conversation_title} />
+                <AttributeRow
+                  label="Thread"
+                  value={detail.conversation_title}
+                />
                 <AttributeRow
                   label="Messages"
                   value={`${detail.message_count} message${detail.message_count !== 1 ? "s" : ""}`}
@@ -397,6 +426,7 @@ function SourceDetailView({
                     type="button"
                   >
                     <Badge
+                      className="text-xs uppercase"
                       variant={
                         uio.type === "commitment"
                           ? "default"
@@ -406,7 +436,6 @@ function SourceDetailView({
                               ? "warning"
                               : "secondary"
                       }
-                      className="uppercase text-xs"
                     >
                       {uio.type}
                     </Badge>
@@ -425,9 +454,16 @@ function SourceDetailView({
           {/* Metadata */}
           <CollapsibleSection defaultOpen={false} title="Metadata">
             <div className="space-y-1">
-              <AttributeRow copyable copyValue={detail.source_id} label="Source ID" value={
-                <code className="text-xs">{detail.source_id.slice(0, 12)}...</code>
-              } />
+              <AttributeRow
+                copyable
+                copyValue={detail.source_id}
+                label="Source ID"
+                value={
+                  <code className="text-xs">
+                    {detail.source_id.slice(0, 12)}...
+                  </code>
+                }
+              />
               <AttributeRow label="Source Type" value={detail.source_type} />
               {detail.sent_at && (
                 <AttributeRow
@@ -485,11 +521,11 @@ export function ConsoleDetailPanel({
   // Fetch sources and related items
   const { data: sources, isLoading: sourcesLoading } = useUioSources(
     organizationId,
-    open && viewMode === "item" ? item?.id ?? null : null
+    open && viewMode === "item" ? (item?.id ?? null) : null
   );
   const { data: relatedItems, isLoading: relatedLoading } = useRelatedUios(
     organizationId,
-    open && viewMode === "item" ? item?.id ?? null : null
+    open && viewMode === "item" ? (item?.id ?? null) : null
   );
 
   const handleCopyId = useCallback(() => {
@@ -514,7 +550,7 @@ export function ConsoleDetailPanel({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="!w-full sm:!w-[65vw] sm:!max-w-[900px] p-0 overflow-hidden">
+      <SheetContent className="!w-full sm:!w-[65vw] sm:!max-w-[900px] overflow-hidden p-0">
         {/* Source Detail View - Drill-down state */}
         {viewMode === "source" && selectedSourceId ? (
           <SourceDetailView
@@ -532,8 +568,8 @@ export function ConsoleDetailPanel({
                   className="size-6"
                   onClick={handleCopyId}
                   size="icon"
-                  variant="ghost"
                   title="Copy ID"
+                  variant="ghost"
                 >
                   <Copy className="size-3" />
                 </Button>
@@ -543,461 +579,527 @@ export function ConsoleDetailPanel({
               </SheetTitle>
             </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-200px)] overflow-x-hidden">
-          <div className="space-y-4 px-6 py-4 overflow-x-hidden">
-            {/* Attributes Section */}
-            <CollapsibleSection title="Attributes">
-              <div className="group space-y-0.5">
-                <AttributeRow
-                  copyable
-                  copyValue={item.id}
-                  label="id"
-                  value={<code className="text-xs">{item.id.slice(0, 8)}...</code>}
-                />
-                <AttributeRow label="type" value={item.type} />
-                <AttributeRow
-                  label="status"
-                  value={
-                    <Badge
-                      variant={
-                        item.status === "completed" ? "success" :
-                        item.is_overdue ? "destructive" :
-                        item.is_at_risk ? "warning" :
-                        "secondary"
+            <ScrollArea className="h-[calc(100vh-200px)] overflow-x-hidden">
+              <div className="space-y-4 overflow-x-hidden px-6 py-4">
+                {/* Attributes Section */}
+                <CollapsibleSection title="Attributes">
+                  <div className="group space-y-0.5">
+                    <AttributeRow
+                      copyable
+                      copyValue={item.id}
+                      label="id"
+                      value={
+                        <code className="text-xs">
+                          {item.id.slice(0, 8)}...
+                        </code>
                       }
-                    >
-                      {item.status.replace(/_/g, " ")}
-                    </Badge>
-                  }
-                />
-                {item.priority && (
-                  <AttributeRow
-                    label="priority"
-                    value={
-                      <Badge
-                        variant={
-                          item.priority === "urgent" ? "destructive" :
-                          item.priority === "high" ? "warning" :
-                          "secondary"
-                        }
-                      >
-                        {item.priority}
-                      </Badge>
-                    }
-                  />
-                )}
-                {item.owner && (
-                  <AttributeRow
-                    label="owner"
-                    value={
-                      <div className="flex items-center gap-1.5">
-                        <Avatar className="size-4">
-                          <AvatarImage src={item.owner.avatar_url ?? undefined} />
-                          <AvatarFallback className="text-[8px]">
-                            {(item.owner.display_name ?? item.owner.email)?.[0]?.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{item.owner.display_name ?? item.owner.email}</span>
-                        <Link2 className="size-3 text-muted-foreground" />
-                      </div>
-                    }
-                  />
-                )}
-                {item.due_date && (
-                  <AttributeRow
-                    label="due_date"
-                    value={
-                      <span className={cn(item.is_overdue && "text-[#dc2626]")}>
-                        {format(new Date(item.due_date), "PPP")}
-                      </span>
-                    }
-                  />
-                )}
-                <AttributeRow
-                  label="confidence"
-                  value={
-                    item.confidence !== null ? (
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="size-3" />
-                        <span>{Math.round(item.confidence * 100)}%</span>
-                      </div>
-                    ) : (
-                      "—"
-                    )
-                  }
-                />
-                {item.source_type && (
-                  <AttributeRow label="source" value={item.source_type} />
-                )}
-                <AttributeRow
-                  label="created_at"
-                  value={format(new Date(item.created_at), "PPpp")}
-                />
-                <AttributeRow
-                  label="updated_at"
-                  value={format(new Date(item.updated_at), "PPpp")}
-                />
-                <AttributeRow
-                  label="verified"
-                  value={item.is_user_verified ? "true" : "false"}
-                />
-              </div>
-            </CollapsibleSection>
-
-            {/* Description Section */}
-            {item.description && (
-              <CollapsibleSection title="Description">
-                <p className="whitespace-pre-wrap text-sm">
-                  {item.description}
-                </p>
-              </CollapsibleSection>
-            )}
-
-            {/* Event Timeline Section */}
-            <CollapsibleSection defaultOpen={false} title="Event Timeline">
-              <div className="relative space-y-4">
-                {/* Timeline line */}
-                <div className="absolute top-2 bottom-2 left-[7px] w-px bg-border" />
-
-                {/* Creation event */}
-                <div className="relative flex gap-3">
-                  <div className="relative z-10 size-4 rounded-full border-2 border-primary bg-background" />
-                  <div className="flex-1 pb-2">
-                    <p className="font-medium text-sm">
-                      {item.type.charAt(0).toUpperCase() + item.type.slice(1)} extracted
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                      {item.confidence !== null && ` • confidence: ${Math.round(item.confidence * 100)}%`}
-                    </p>
-                    {item.source_type && (
-                      <Button className="mt-1 h-6 px-2" size="sm" variant="link">
-                        <ExternalLink className="mr-1 size-3" />
-                        View Source
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Updated event (if different from created) */}
-                {item.updated_at !== item.created_at && (
-                  <div className="relative flex gap-3">
-                    <div className="relative z-10 size-4 rounded-full border-2 border-muted bg-background" />
-                    <div className="flex-1 pb-2">
-                      <p className="font-medium text-sm">Updated</p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CollapsibleSection>
-
-            {/* Contacts Section */}
-            {(() => {
-              const contacts = [
-                item.owner && { role: "Owner", ...item.owner },
-                item.debtor && { role: "Debtor", ...item.debtor },
-                item.creditor && { role: "Creditor", ...item.creditor },
-                item.assignee && { role: "Assignee", ...item.assignee },
-                item.decision_maker && { role: "Decision Maker", ...item.decision_maker },
-              ].filter(Boolean) as Array<{ role: string; id: string; display_name: string | null; email: string; avatar_url: string | null; company: string | null }>;
-
-              if (contacts.length === 0) return null;
-
-              return (
-                <CollapsibleSection count={contacts.length} title="Contacts">
-                  <div className="space-y-2">
-                    {contacts.map((contact) => (
-                      <div
-                        className="flex items-center justify-between rounded-lg border p-2"
-                        key={`${contact.role}-${contact.id}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar className="size-6">
-                            <AvatarImage src={contact.avatar_url ?? undefined} />
-                            <AvatarFallback className="text-xs">
-                              {(contact.display_name ?? contact.email)?.[0]?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium text-sm">
-                              {contact.display_name ?? contact.email?.split("@")[0] ?? "Unknown"}
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                              {contact.role} • {contact.email}
-                            </p>
-                          </div>
-                        </div>
-                        <Button className="size-6" size="icon" variant="ghost">
-                          <ExternalLink className="size-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CollapsibleSection>
-              );
-            })()}
-
-            {/* Sources Section */}
-            <CollapsibleSection
-              count={sources?.length}
-              defaultOpen={sources && sources.length > 0}
-              title="Sources"
-            >
-              {sourcesLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              ) : sources && sources.length > 0 ? (
-                <div className="space-y-2">
-                  {sources.map((source) => (
-                    <button
-                      className={cn(
-                        "flex w-full items-start justify-between rounded-lg border p-3 text-left",
-                        "transition-colors hover:bg-accent/50 cursor-pointer"
-                      )}
-                      key={source.id}
-                      onClick={() => handleSourceClick(source)}
-                      type="button"
-                    >
-                      <div className="flex-1 space-y-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Badge variant="outline" className="capitalize shrink-0">
-                            {source.source_type}
-                          </Badge>
-                          {source.subject ? (
-                            <span className="truncate font-medium text-sm min-w-0">
-                              {source.subject}
-                            </span>
-                          ) : source.quoted_text ? (
-                            <span className="truncate text-sm text-muted-foreground min-w-0">
-                              "{source.quoted_text.slice(0, 60)}..."
-                            </span>
-                          ) : null}
-                          <ChevronRight className="size-4 text-muted-foreground ml-auto shrink-0" />
-                        </div>
-                        {source.sender_name && (
-                          <p className="text-muted-foreground text-xs truncate">
-                            From: {source.sender_name}
-                            {source.sender_email && ` <${source.sender_email}>`}
-                          </p>
-                        )}
-                        {source.quoted_text && source.subject && (
-                          <p className="line-clamp-2 text-muted-foreground text-xs italic break-words">
-                            "{source.quoted_text}"
-                          </p>
-                        )}
-                        {source.source_timestamp && (
-                          <p className="text-muted-foreground text-xs">
-                            {formatDistanceToNow(new Date(source.source_timestamp), {
-                              addSuffix: true,
-                            })}
-                          </p>
-                        )}
-                      </div>
-                      {source.deep_link && (
-                        <Button
-                          asChild
-                          className="shrink-0 ml-2"
-                          onClick={(e) => e.stopPropagation()}
-                          size="sm"
-                          variant="ghost"
+                    />
+                    <AttributeRow label="type" value={item.type} />
+                    <AttributeRow
+                      label="status"
+                      value={
+                        <Badge
+                          variant={
+                            item.status === "completed"
+                              ? "success"
+                              : item.is_overdue
+                                ? "destructive"
+                                : item.is_at_risk
+                                  ? "warning"
+                                  : "secondary"
+                          }
                         >
-                          <a
-                            href={source.deep_link}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            <ExternalLink className="size-4" />
-                          </a>
-                        </Button>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
-                  <FileText className="mr-2 size-4" />
-                  No source evidence found
-                </div>
-              )}
-            </CollapsibleSection>
-
-            {/* Related Objects Section */}
-            <CollapsibleSection
-              count={relatedItems?.length}
-              defaultOpen={relatedItems && relatedItems.length > 0}
-              title="Related Objects"
-            >
-              {relatedLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              ) : relatedItems && relatedItems.length > 0 ? (
-                <div className="space-y-2">
-                  {relatedItems.map((related) => (
-                    <button
-                      className={cn(
-                        "flex w-full items-start justify-between rounded-lg border p-3 text-left",
-                        "transition-colors hover:bg-accent/50",
-                        onSelectRelated && "cursor-pointer"
-                      )}
-                      key={related.id}
-                      onClick={() => onSelectRelated?.(related)}
-                      type="button"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
+                          {item.status.replace(/_/g, " ")}
+                        </Badge>
+                      }
+                    />
+                    {item.priority && (
+                      <AttributeRow
+                        label="priority"
+                        value={
                           <Badge
                             variant={
-                              related.type === "commitment"
-                                ? "default"
-                                : related.type === "decision"
-                                  ? "info"
-                                  : related.type === "task"
-                                    ? "warning"
-                                    : related.type === "risk"
-                                      ? "destructive"
-                                      : "secondary"
+                              item.priority === "urgent"
+                                ? "destructive"
+                                : item.priority === "high"
+                                  ? "warning"
+                                  : "secondary"
                             }
-                            className="uppercase text-xs"
                           >
-                            {related.type}
+                            {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {related.relationship.replace(/_/g, " ")}
-                          </Badge>
-                        </div>
-                        <p className="line-clamp-2 font-medium text-sm">
-                          {related.title}
-                        </p>
-                        <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                          <span className="capitalize">
-                            {related.status.replace(/_/g, " ")}
+                        }
+                      />
+                    )}
+                    {item.owner && (
+                      <AttributeRow
+                        label="owner"
+                        value={
+                          <div className="flex items-center gap-1.5">
+                            <Avatar className="size-4">
+                              <AvatarImage
+                                src={item.owner.avatar_url ?? undefined}
+                              />
+                              <AvatarFallback className="text-[8px]">
+                                {(item.owner.display_name ??
+                                  item.owner.email)?.[0]?.toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>
+                              {item.owner.display_name ?? item.owner.email}
+                            </span>
+                            <Link2 className="size-3 text-muted-foreground" />
+                          </div>
+                        }
+                      />
+                    )}
+                    {item.due_date && (
+                      <AttributeRow
+                        label="due_date"
+                        value={
+                          <span
+                            className={cn(item.is_overdue && "text-[#dc2626]")}
+                          >
+                            {format(new Date(item.due_date), "PPP")}
                           </span>
-                          {related.confidence !== null && (
-                            <>
-                              <span>•</span>
-                              <span>{Math.round(related.confidence * 100)}%</span>
-                            </>
-                          )}
-                          <span>•</span>
-                          <span>
-                            {formatDistanceToNow(new Date(related.created_at), {
-                              addSuffix: true,
-                            })}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
-                  <Network className="mr-2 size-4" />
-                  No related items found
-                </div>
-              )}
-            </CollapsibleSection>
+                        }
+                      />
+                    )}
+                    <AttributeRow
+                      label="confidence"
+                      value={
+                        item.confidence !== null ? (
+                          <div className="flex items-center gap-1">
+                            <Sparkles className="size-3" />
+                            <span>{Math.round(item.confidence * 100)}%</span>
+                          </div>
+                        ) : (
+                          "—"
+                        )
+                      }
+                    />
+                    {item.source_type && (
+                      <AttributeRow label="source" value={item.source_type} />
+                    )}
+                    <AttributeRow
+                      label="created_at"
+                      value={format(new Date(item.created_at), "PPpp")}
+                    />
+                    <AttributeRow
+                      label="updated_at"
+                      value={format(new Date(item.updated_at), "PPpp")}
+                    />
+                    <AttributeRow
+                      label="verified"
+                      value={item.is_user_verified ? "true" : "false"}
+                    />
+                  </div>
+                </CollapsibleSection>
 
-            {/* AI Confidence Breakdown */}
-            <CollapsibleSection defaultOpen={false} title="AI Confidence Breakdown">
-              <div className="space-y-3">
-                {item.confidence !== null ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Overall Confidence
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              "h-full rounded-full",
-                              item.confidence >= 0.8 ? "bg-foreground" :
-                              item.confidence >= 0.5 ? "bg-muted-foreground" :
-                              "bg-muted-foreground/50"
-                            )}
-                            style={{ width: `${item.confidence * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-10 text-right font-medium text-sm">
-                          {Math.round(item.confidence * 100)}%
-                        </span>
+                {/* Description Section */}
+                {item.description && (
+                  <CollapsibleSection title="Description">
+                    <p className="whitespace-pre-wrap text-sm">
+                      {item.description}
+                    </p>
+                  </CollapsibleSection>
+                )}
+
+                {/* Event Timeline Section */}
+                <CollapsibleSection defaultOpen={false} title="Event Timeline">
+                  <div className="relative space-y-4">
+                    {/* Timeline line */}
+                    <div className="absolute top-2 bottom-2 left-[7px] w-px bg-border" />
+
+                    {/* Creation event */}
+                    <div className="relative flex gap-3">
+                      <div className="relative z-10 size-4 rounded-full border-2 border-primary bg-background" />
+                      <div className="flex-1 pb-2">
+                        <p className="font-medium text-sm">
+                          {item.type.charAt(0).toUpperCase() +
+                            item.type.slice(1)}{" "}
+                          extracted
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {formatDistanceToNow(new Date(item.created_at), {
+                            addSuffix: true,
+                          })}
+                          {item.confidence !== null &&
+                            ` • confidence: ${Math.round(item.confidence * 100)}%`}
+                        </p>
+                        {item.source_type && (
+                          <Button
+                            className="mt-1 h-6 px-2"
+                            size="sm"
+                            variant="link"
+                          >
+                            <ExternalLink className="mr-1 size-3" />
+                            View Source
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <p className="text-muted-foreground text-xs">
-                      Detailed confidence breakdown coming soon
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    No confidence data available
-                  </p>
+
+                    {/* Updated event (if different from created) */}
+                    {item.updated_at !== item.created_at && (
+                      <div className="relative flex gap-3">
+                        <div className="relative z-10 size-4 rounded-full border-2 border-muted bg-background" />
+                        <div className="flex-1 pb-2">
+                          <p className="font-medium text-sm">Updated</p>
+                          <p className="text-muted-foreground text-xs">
+                            {formatDistanceToNow(new Date(item.updated_at), {
+                              addSuffix: true,
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleSection>
+
+                {/* Contacts Section */}
+                {(() => {
+                  const contacts = [
+                    item.owner && { role: "Owner", ...item.owner },
+                    item.debtor && { role: "Debtor", ...item.debtor },
+                    item.creditor && { role: "Creditor", ...item.creditor },
+                    item.assignee && { role: "Assignee", ...item.assignee },
+                    item.decision_maker && {
+                      role: "Decision Maker",
+                      ...item.decision_maker,
+                    },
+                  ].filter(Boolean) as Array<{
+                    role: string;
+                    id: string;
+                    display_name: string | null;
+                    email: string;
+                    avatar_url: string | null;
+                    company: string | null;
+                  }>;
+
+                  if (contacts.length === 0) return null;
+
+                  return (
+                    <CollapsibleSection
+                      count={contacts.length}
+                      title="Contacts"
+                    >
+                      <div className="space-y-2">
+                        {contacts.map((contact) => (
+                          <div
+                            className="flex items-center justify-between rounded-lg border p-2"
+                            key={`${contact.role}-${contact.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Avatar className="size-6">
+                                <AvatarImage
+                                  src={contact.avatar_url ?? undefined}
+                                />
+                                <AvatarFallback className="text-xs">
+                                  {(contact.display_name ??
+                                    contact.email)?.[0]?.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {contact.display_name ??
+                                    contact.email?.split("@")[0] ??
+                                    "Unknown"}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {contact.role} • {contact.email}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              className="size-6"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <ExternalLink className="size-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSection>
+                  );
+                })()}
+
+                {/* Sources Section */}
+                <CollapsibleSection
+                  count={sources?.length}
+                  defaultOpen={sources && sources.length > 0}
+                  title="Sources"
+                >
+                  {sourcesLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  ) : sources && sources.length > 0 ? (
+                    <div className="space-y-2">
+                      {sources.map((source) => (
+                        <button
+                          className={cn(
+                            "flex w-full items-start justify-between rounded-lg border p-3 text-left",
+                            "cursor-pointer transition-colors hover:bg-accent/50"
+                          )}
+                          key={source.id}
+                          onClick={() => handleSourceClick(source)}
+                          type="button"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1 overflow-hidden">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Badge
+                                className="shrink-0 capitalize"
+                                variant="outline"
+                              >
+                                {source.source_type}
+                              </Badge>
+                              {source.subject ? (
+                                <span className="min-w-0 truncate font-medium text-sm">
+                                  {source.subject}
+                                </span>
+                              ) : source.quoted_text ? (
+                                <span className="min-w-0 truncate text-muted-foreground text-sm">
+                                  "{source.quoted_text.slice(0, 60)}..."
+                                </span>
+                              ) : null}
+                              <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+                            </div>
+                            {source.sender_name && (
+                              <p className="truncate text-muted-foreground text-xs">
+                                From: {source.sender_name}
+                                {source.sender_email &&
+                                  ` <${source.sender_email}>`}
+                              </p>
+                            )}
+                            {source.quoted_text && source.subject && (
+                              <p className="line-clamp-2 break-words text-muted-foreground text-xs italic">
+                                "{source.quoted_text}"
+                              </p>
+                            )}
+                            {source.source_timestamp && (
+                              <p className="text-muted-foreground text-xs">
+                                {formatDistanceToNow(
+                                  new Date(source.source_timestamp),
+                                  {
+                                    addSuffix: true,
+                                  }
+                                )}
+                              </p>
+                            )}
+                          </div>
+                          {source.deep_link && (
+                            <Button
+                              asChild
+                              className="ml-2 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              <a
+                                href={source.deep_link}
+                                rel="noopener noreferrer"
+                                target="_blank"
+                              >
+                                <ExternalLink className="size-4" />
+                              </a>
+                            </Button>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
+                      <FileText className="mr-2 size-4" />
+                      No source evidence found
+                    </div>
+                  )}
+                </CollapsibleSection>
+
+                {/* Related Objects Section */}
+                <CollapsibleSection
+                  count={relatedItems?.length}
+                  defaultOpen={relatedItems && relatedItems.length > 0}
+                  title="Related Objects"
+                >
+                  {relatedLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  ) : relatedItems && relatedItems.length > 0 ? (
+                    <div className="space-y-2">
+                      {relatedItems.map((related) => (
+                        <button
+                          className={cn(
+                            "flex w-full items-start justify-between rounded-lg border p-3 text-left",
+                            "transition-colors hover:bg-accent/50",
+                            onSelectRelated && "cursor-pointer"
+                          )}
+                          key={related.id}
+                          onClick={() => onSelectRelated?.(related)}
+                          type="button"
+                        >
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                className="text-xs uppercase"
+                                variant={
+                                  related.type === "commitment"
+                                    ? "default"
+                                    : related.type === "decision"
+                                      ? "info"
+                                      : related.type === "task"
+                                        ? "warning"
+                                        : related.type === "risk"
+                                          ? "destructive"
+                                          : "secondary"
+                                }
+                              >
+                                {related.type}
+                              </Badge>
+                              <Badge className="text-xs" variant="outline">
+                                {related.relationship.replace(/_/g, " ")}
+                              </Badge>
+                            </div>
+                            <p className="line-clamp-2 font-medium text-sm">
+                              {related.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                              <span className="capitalize">
+                                {related.status.replace(/_/g, " ")}
+                              </span>
+                              {related.confidence !== null && (
+                                <>
+                                  <span>•</span>
+                                  <span>
+                                    {Math.round(related.confidence * 100)}%
+                                  </span>
+                                </>
+                              )}
+                              <span>•</span>
+                              <span>
+                                {formatDistanceToNow(
+                                  new Date(related.created_at),
+                                  {
+                                    addSuffix: true,
+                                  }
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
+                      <Network className="mr-2 size-4" />
+                      No related items found
+                    </div>
+                  )}
+                </CollapsibleSection>
+
+                {/* AI Confidence Breakdown */}
+                <CollapsibleSection
+                  defaultOpen={false}
+                  title="AI Confidence Breakdown"
+                >
+                  <div className="space-y-3">
+                    {item.confidence !== null ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground text-sm">
+                            Overall Confidence
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full",
+                                  item.confidence >= 0.8
+                                    ? "bg-foreground"
+                                    : item.confidence >= 0.5
+                                      ? "bg-muted-foreground"
+                                      : "bg-muted-foreground/50"
+                                )}
+                                style={{ width: `${item.confidence * 100}%` }}
+                              />
+                            </div>
+                            <span className="w-10 text-right font-medium text-sm">
+                              {Math.round(item.confidence * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Detailed confidence breakdown coming soon
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No confidence data available
+                      </p>
+                    )}
+                  </div>
+                </CollapsibleSection>
+              </div>
+            </ScrollArea>
+
+            {/* Action Bar */}
+            <div className="absolute inset-x-0 bottom-0 border-t bg-background px-6 py-4">
+              <div className="flex items-center gap-2">
+                {item.status !== "completed" && onMarkComplete && (
+                  <Button
+                    onClick={() => onMarkComplete(item.id)}
+                    size="sm"
+                    variant="default"
+                  >
+                    <CheckCircle2 className="mr-1.5 size-4" />
+                    Mark Complete
+                  </Button>
+                )}
+                {onSnooze && (
+                  <Button
+                    onClick={() => onSnooze(item.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Clock className="mr-1.5 size-4" />
+                    Snooze
+                  </Button>
+                )}
+                {onArchive && (
+                  <Button
+                    onClick={() => onArchive(item.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Archive className="mr-1.5 size-4" />
+                    Archive
+                  </Button>
+                )}
+                <div className="flex-1" />
+                {onEdit && (
+                  <Button
+                    className="size-8"
+                    onClick={() => onEdit(item.id)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Edit2 className="size-4" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button
+                    className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => onDelete(item.id)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
                 )}
               </div>
-            </CollapsibleSection>
-          </div>
-        </ScrollArea>
-
-        {/* Action Bar */}
-        <div className="absolute inset-x-0 bottom-0 border-t bg-background px-6 py-4">
-          <div className="flex items-center gap-2">
-            {item.status !== "completed" && onMarkComplete && (
-              <Button
-                onClick={() => onMarkComplete(item.id)}
-                size="sm"
-                variant="default"
-              >
-                <CheckCircle2 className="mr-1.5 size-4" />
-                Mark Complete
-              </Button>
-            )}
-            {onSnooze && (
-              <Button
-                onClick={() => onSnooze(item.id)}
-                size="sm"
-                variant="outline"
-              >
-                <Clock className="mr-1.5 size-4" />
-                Snooze
-              </Button>
-            )}
-            {onArchive && (
-              <Button
-                onClick={() => onArchive(item.id)}
-                size="sm"
-                variant="outline"
-              >
-                <Archive className="mr-1.5 size-4" />
-                Archive
-              </Button>
-            )}
-            <div className="flex-1" />
-            {onEdit && (
-              <Button
-                className="size-8"
-                onClick={() => onEdit(item.id)}
-                size="icon"
-                variant="ghost"
-              >
-                <Edit2 className="size-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                className="size-8 text-destructive hover:text-destructive"
-                onClick={() => onDelete(item.id)}
-                size="icon"
-                variant="ghost"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            )}
-          </div>
-        </div>
+            </div>
           </>
         )}
       </SheetContent>

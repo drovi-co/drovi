@@ -227,7 +227,9 @@ export interface KPIsResponse {
 export const adminAPI = {
   getKpis: async () => apiFetch<KPIsResponse>("/admin/kpis"),
   getOrg: async (orgId: string) =>
-    apiFetch<Record<string, unknown>>(`/admin/orgs/${encodeURIComponent(orgId)}`),
+    apiFetch<Record<string, unknown>>(
+      `/admin/orgs/${encodeURIComponent(orgId)}`
+    ),
   listOrgs: async (params?: { q?: string; limit?: number }) => {
     const sp = new URLSearchParams();
     if (params?.q) sp.set("q", params.q);
@@ -247,7 +249,9 @@ export const adminAPI = {
     );
   },
   getUser: async (userId: string) =>
-    apiFetch<Record<string, unknown>>(`/admin/users/${encodeURIComponent(userId)}`),
+    apiFetch<Record<string, unknown>>(
+      `/admin/users/${encodeURIComponent(userId)}`
+    ),
   listConnectors: async () =>
     apiFetch<{ connectors: Array<Record<string, unknown>> }>(
       "/connections/connectors"
@@ -259,7 +263,8 @@ export const adminAPI = {
     limit?: number;
   }) => {
     const sp = new URLSearchParams();
-    if (params?.organization_id) sp.set("organization_id", params.organization_id);
+    if (params?.organization_id)
+      sp.set("organization_id", params.organization_id);
     if (params?.job_type) sp.set("job_type", params.job_type);
     if (params?.status) sp.set("status", params.status);
     if (params?.limit) sp.set("limit", String(params.limit));
@@ -278,8 +283,11 @@ export const adminAPI = {
     const sp = new URLSearchParams();
     sp.set("organization_id", params.organization_id);
     if (params.visibility) sp.set("visibility", params.visibility);
-    if (params.governance_status) sp.set("governance_status", params.governance_status);
-    return apiFetch<Array<Record<string, unknown>>>(`/continuum-exchange/bundles?${sp.toString()}`);
+    if (params.governance_status)
+      sp.set("governance_status", params.governance_status);
+    return apiFetch<Array<Record<string, unknown>>>(
+      `/continuum-exchange/bundles?${sp.toString()}`
+    );
   },
   updateBundleGovernance: async (params: {
     organization_id: string;

@@ -28,19 +28,19 @@ import {
   Kbd,
 } from "@/components/ui/command";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useT } from "@/i18n";
 import {
+  type AskResponse,
   askAPI,
+  type ContentSearchResult,
   contentAPI,
   continuumsAPI,
-  searchAPI,
-  type AskResponse,
-  type ContentSearchResult,
   type SearchResult,
+  searchAPI,
 } from "@/lib/api";
-import { useAuthStore } from "@/lib/auth";
 import { useApiTraceStore } from "@/lib/api-trace";
+import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { useT } from "@/i18n";
 
 type IntentBarMode = "ask" | "find" | "build" | "act" | "inspect";
 
@@ -169,7 +169,9 @@ function getResultSubtitle(result: SearchResult): string | null {
     props["summary"] ??
     props["text"];
   if (typeof description === "string" && description.trim().length > 0) {
-    return description.length > 120 ? `${description.slice(0, 120)}…` : description;
+    return description.length > 120
+      ? `${description.slice(0, 120)}…`
+      : description;
   }
   return null;
 }
@@ -251,9 +253,6 @@ function FilterPill({
 }) {
   return (
     <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] transition-colors",
         disabled ? "opacity-50" : "",
@@ -261,6 +260,9 @@ function FilterPill({
           ? "border-border bg-background text-foreground shadow-sm"
           : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
     >
       <span>{label}</span>
     </button>
@@ -570,10 +572,8 @@ export function IntentBar() {
         when: () => pathname.startsWith("/dashboard/"),
         action: () => {
           const url =
-            typeof window !== "undefined"
-              ? window.location.href
-              : pathname;
-          void navigator.clipboard
+            typeof window !== "undefined" ? window.location.href : pathname;
+          navigator.clipboard
             .writeText(url)
             .then(() => toast.success(t("intentBar.toasts.linkCopied")))
             .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
@@ -587,7 +587,7 @@ export function IntentBar() {
         when: () => Boolean(currentUioId),
         action: () => {
           if (!currentUioId) return;
-          void navigator.clipboard
+          navigator.clipboard
             .writeText(currentUioId)
             .then(() => toast.success(t("intentBar.toasts.uioIdCopied")))
             .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
@@ -700,7 +700,7 @@ export function IntentBar() {
                   : t("intentBar.answer.headingNoEvidence")
               }
             >
-              <div className="px-2 py-2 text-[13px] leading-relaxed text-foreground">
+              <div className="px-2 py-2 text-[13px] text-foreground leading-relaxed">
                 <div className="whitespace-pre-wrap">{askResult.answer}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
@@ -726,23 +726,16 @@ export function IntentBar() {
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading={t("intentBar.evidence.heading")}>
-              {!hasEvidence ? (
-                <>
-                  <IntentBarHint>
-                    {t("intentBar.evidence.noEvidence")}
-                  </IntentBarHint>
-                  <CommandItem onSelect={() => handleNavigate("/dashboard/sources")}>
-                    <ArrowRight className="h-4 w-4" />
-                    {t("intentBar.evidence.checkSources")}
-                  </CommandItem>
-                </>
-              ) : (
+              {hasEvidence ? (
                 citations.slice(0, 8).map((source, idx) => (
                   <CommandItem
                     key={`${source.segment_hash ?? idx}`}
                     onSelect={() => {
                       // Best-effort: jump to UIO if present, otherwise open the Sources page.
-                      const uioId = typeof source.uio_id === "string" ? source.uio_id : null;
+                      const uioId =
+                        typeof source.uio_id === "string"
+                          ? source.uio_id
+                          : null;
                       if (uioId) {
                         handleNavigate(`/dashboard/uio/${uioId}`);
                         return;
@@ -763,7 +756,8 @@ export function IntentBar() {
                           #{idx + 1}
                         </span>
                       </div>
-                      {typeof source.quoted_text === "string" && source.quoted_text.trim().length > 0 ? (
+                      {typeof source.quoted_text === "string" &&
+                      source.quoted_text.trim().length > 0 ? (
                         <span className="line-clamp-2 text-[12px] text-muted-foreground">
                           {source.quoted_text}
                         </span>
@@ -771,20 +765,26 @@ export function IntentBar() {
                     </div>
                   </CommandItem>
                 ))
+              ) : (
+                <>
+                  <IntentBarHint>
+                    {t("intentBar.evidence.noEvidence")}
+                  </IntentBarHint>
+                  <CommandItem
+                    onSelect={() => handleNavigate("/dashboard/sources")}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    {t("intentBar.evidence.checkSources")}
+                  </CommandItem>
+                </>
               )}
             </CommandGroup>
             {showDebug ? (
               <>
                 <CommandSeparator />
                 <CommandGroup heading={t("intentBar.groups.debug")}>
-                  <DebugTraceItem
-                    label="ask"
-                    trace={latestTraces.ask}
-                  />
-                  <DebugTraceItem
-                    label="search"
-                    trace={latestTraces.search}
-                  />
+                  <DebugTraceItem label="ask" trace={latestTraces.ask} />
+                  <DebugTraceItem label="search" trace={latestTraces.search} />
                   <DebugTraceItem
                     label="content"
                     trace={latestTraces.content}
@@ -806,7 +806,9 @@ export function IntentBar() {
       return (
         <>
           <IntentBarHint>
-            {asking ? t("intentBar.ask.hintAsking") : t("intentBar.ask.hintIdle")}
+            {asking
+              ? t("intentBar.ask.hintAsking")
+              : t("intentBar.ask.hintIdle")}
           </IntentBarHint>
           <CommandGroup heading={t("intentBar.ask.examplesHeading")}>
             {askExamples.map((example) => (
@@ -814,7 +816,7 @@ export function IntentBar() {
                 key={example}
                 onSelect={() => {
                   setQuery(example);
-                  void handleAsk(example);
+                  handleAsk(example);
                 }}
               >
                 <Sparkles className="h-4 w-4" />
@@ -914,7 +916,7 @@ export function IntentBar() {
                       <CommandItem
                         key={`uem:${result.id}`}
                         onSelect={() => {
-                          void navigator.clipboard
+                          navigator.clipboard
                             .writeText(snippet || title)
                             .then(() =>
                               toast.success(t("intentBar.toasts.copiedSnippet"))
@@ -928,7 +930,9 @@ export function IntentBar() {
                         <Mail className="h-4 w-4" />
                         <div className="flex w-full flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-medium">{title}</span>
+                            <span className="truncate font-medium">
+                              {title}
+                            </span>
                             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                               message
                             </span>
@@ -966,7 +970,7 @@ export function IntentBar() {
                       <CommandItem
                         key={`uem:${result.id}`}
                         onSelect={() => {
-                          void navigator.clipboard
+                          navigator.clipboard
                             .writeText(snippet || title)
                             .then(() =>
                               toast.success(t("intentBar.toasts.copiedSnippet"))
@@ -980,7 +984,9 @@ export function IntentBar() {
                         <FileText className="h-4 w-4" />
                         <div className="flex w-full flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-medium">{title}</span>
+                            <span className="truncate font-medium">
+                              {title}
+                            </span>
                             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                               document
                             </span>
@@ -1162,11 +1168,36 @@ export function IntentBar() {
       >
         <div className="border-border border-b bg-muted/15">
           <div className="flex items-center gap-2 px-3 py-2">
-            <ModePill current={mode} mode="ask" onSelect={setMode} shortcut="⌥1" />
-            <ModePill current={mode} mode="find" onSelect={setMode} shortcut="⌥2" />
-            <ModePill current={mode} mode="build" onSelect={setMode} shortcut="⌥3" />
-            <ModePill current={mode} mode="act" onSelect={setMode} shortcut="⌥4" />
-            <ModePill current={mode} mode="inspect" onSelect={setMode} shortcut="⌥5" />
+            <ModePill
+              current={mode}
+              mode="ask"
+              onSelect={setMode}
+              shortcut="⌥1"
+            />
+            <ModePill
+              current={mode}
+              mode="find"
+              onSelect={setMode}
+              shortcut="⌥2"
+            />
+            <ModePill
+              current={mode}
+              mode="build"
+              onSelect={setMode}
+              shortcut="⌥3"
+            />
+            <ModePill
+              current={mode}
+              mode="act"
+              onSelect={setMode}
+              shortcut="⌥4"
+            />
+            <ModePill
+              current={mode}
+              mode="inspect"
+              onSelect={setMode}
+              shortcut="⌥5"
+            />
             <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
               <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
                 {t(modeMeta.hintKey)}
@@ -1241,14 +1272,11 @@ export function IntentBar() {
         >
           <CommandInput
             autoFocus
-            ref={(node) => {
-              inputRef.current = node;
-            }}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               if (mode === "ask") {
                 e.preventDefault();
-                void handleAsk();
+                handleAsk();
               }
             }}
             onValueChange={(value) => {
@@ -1256,11 +1284,12 @@ export function IntentBar() {
               setAskResult(null);
             }}
             placeholder={t(modeMeta.placeholderKey)}
+            ref={(node) => {
+              inputRef.current = node;
+            }}
             value={query}
           />
-          <CommandList>
-            {renderBody()}
-          </CommandList>
+          <CommandList>{renderBody()}</CommandList>
         </Command>
 
         <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
@@ -1324,17 +1353,19 @@ function DebugTraceItem({
 
   return (
     <CommandItem
+      disabled={!requestId}
       onSelect={() => {
         if (!requestId) return;
-        void navigator.clipboard
+        navigator.clipboard
           .writeText(requestId)
           .then(() => toast.success(t("intentBar.toasts.requestIdCopied")))
           .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
       }}
-      disabled={!requestId}
       value={`trace ${label} ${requestId} ${statusLabel}`}
     >
-      <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {label}
+      </span>
       <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
         <span>{statusLabel}</span>
         <span>{duration}</span>

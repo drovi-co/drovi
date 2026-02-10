@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -8,6 +7,7 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,6 @@ function getDefaultTitle(error: unknown): string {
       return "Rate limited";
     case "SERVER_ERROR":
       return "Server error";
-    case "UNKNOWN_ERROR":
     default:
       return "Request failed";
   }
@@ -153,7 +152,10 @@ export function ApiErrorPanel({
     openSupport({
       subject: `${computedTitle}${subjectSuffix}`.slice(0, 180),
       message: body,
-      route: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined,
+      route:
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : undefined,
       diagnostics: meta
         ? {
             errorPanel: {
@@ -187,12 +189,14 @@ export function ApiErrorPanel({
           </span>
           {computedTitle}
           {meta?.code ? (
-            <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-amber-600">
+            <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] text-amber-600 uppercase tracking-[0.2em]">
               {meta.code.replace(/_/g, " ").toLowerCase()}
             </span>
           ) : null}
         </CardTitle>
-        <CardDescription className="text-sm">{computedDescription}</CardDescription>
+        <CardDescription className="text-sm">
+          {computedDescription}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {meta ? (

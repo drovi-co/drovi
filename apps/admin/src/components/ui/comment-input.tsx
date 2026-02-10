@@ -162,7 +162,9 @@ function Comment({
           <img
             alt={author.name}
             className="size-6 rounded-full object-cover"
+            height={24}
             src={author.imageUrl}
+            width={24}
           />
         ) : (
           <div className="flex size-6 items-center justify-center rounded-full bg-secondary font-medium text-[10px] text-white">

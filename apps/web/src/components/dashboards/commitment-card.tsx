@@ -39,13 +39,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import {
   getSourceColor,
   getSourceConfig,
   type SourceType,
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
-import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 
 // =============================================================================
 // TYPES
@@ -245,8 +245,7 @@ export function CommitmentCard({
         isUserVerified: commitment.isUserVerified,
         sourceMessage: extractSourceMessage(commitment.evidence?.[0]),
         threadId: commitment.sourceThread?.id ?? undefined,
-        extractedAt:
-          commitment.extractedAt ?? commitment.dueDate ?? new Date(),
+        extractedAt: commitment.extractedAt ?? commitment.dueDate ?? new Date(),
       }
     : null;
 
@@ -436,26 +435,25 @@ export function CommitmentCard({
         />
 
         {/* Show Me - Evidence button */}
-        {onShowEvidence &&
-          evidencePopover && (
-            <EvidencePopover
-              evidence={evidencePopover}
-              onShowFullEvidence={() => onShowEvidence(commitment.id)}
-              side="left"
+        {onShowEvidence && evidencePopover && (
+          <EvidencePopover
+            evidence={evidencePopover}
+            onShowFullEvidence={() => onShowEvidence(commitment.id)}
+            side="left"
+          >
+            <button
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowEvidence(commitment.id);
+              }}
+              title="Show evidence"
+              type="button"
             >
-              <button
-                className="rounded-md p-1.5 transition-colors hover:bg-background"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onShowEvidence(commitment.id);
-                }}
-                title="Show evidence"
-                type="button"
-              >
-                <Eye className="h-4 w-4 text-purple-500" />
-              </button>
-            </EvidencePopover>
-          )}
+              <Eye className="h-4 w-4 text-purple-500" />
+            </button>
+          </EvidencePopover>
+        )}
 
         {/* Complete button for active commitments */}
         {commitment.status !== "completed" &&

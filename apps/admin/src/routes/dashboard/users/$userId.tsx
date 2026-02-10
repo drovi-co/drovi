@@ -1,10 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { adminAPI } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -13,10 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { adminAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/users/$userId")({
   component: AdminUserDetailPage,
 });
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 function AdminUserDetailPage() {
   const { userId } = Route.useParams();
@@ -46,15 +50,17 @@ function AdminUserDetailPage() {
         <CardHeader>
           <CardTitle className="text-sm">Failed to load user</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-muted-foreground text-sm">
           {q.error instanceof Error ? q.error.message : "Unknown error"}
         </CardContent>
       </Card>
     );
   }
 
-  const user = q.data as any;
-  const memberships = Array.isArray(user.memberships) ? (user.memberships as any[]) : [];
+  const user = q.data;
+  const memberships = Array.isArray(user.memberships)
+    ? user.memberships.filter(isRecord)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -62,10 +68,10 @@ function AdminUserDetailPage() {
         <CardHeader className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold tracking-tight">
+              <div className="truncate font-semibold text-lg tracking-tight">
                 {String(user.email ?? user.id)}
               </div>
-              <div className="font-mono text-xs text-muted-foreground">
+              <div className="font-mono text-muted-foreground text-xs">
                 {String(user.id)}
               </div>
             </div>
@@ -76,26 +82,26 @@ function AdminUserDetailPage() {
           <Separator />
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Organizations
               </div>
-              <div className="text-2xl font-semibold tabular-nums">
+              <div className="font-semibold text-2xl tabular-nums">
                 {memberships.length}
               </div>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Last Login
               </div>
-              <div className="text-sm font-medium">
+              <div className="font-medium text-sm">
                 {user.last_login_at ? String(user.last_login_at) : "—"}
               </div>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 Created
               </div>
-              <div className="text-sm font-medium">
+              <div className="font-medium text-sm">
                 {user.created_at ? String(user.created_at) : "—"}
               </div>
             </div>
@@ -123,8 +129,8 @@ function AdminUserDetailPage() {
                       <TableCell className="font-medium">
                         <Link
                           className="hover:underline"
-                          to="/dashboard/orgs/$orgId"
                           params={{ orgId: String(m.org_id) }}
+                          to="/dashboard/orgs/$orgId"
                         >
                           {String(m.org_name)}
                         </Link>
@@ -132,14 +138,16 @@ function AdminUserDetailPage() {
                           {String(m.org_id)}
                         </div>
                       </TableCell>
-                      <TableCell className="capitalize">{String(m.role)}</TableCell>
+                      <TableCell className="capitalize">
+                        {String(m.role)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-muted-foreground text-sm">
               No memberships found.
             </div>
           )}
@@ -148,4 +156,3 @@ function AdminUserDetailPage() {
     </div>
   );
 }
-

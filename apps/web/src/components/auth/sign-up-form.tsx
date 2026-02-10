@@ -9,8 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { authClient } from "@/lib/auth-client";
 import { useT } from "@/i18n";
+import { authClient } from "@/lib/auth-client";
 
 // Password validation regex patterns
 const UPPERCASE_REGEX = /[A-Z]/;
@@ -31,9 +31,18 @@ function calculatePasswordStrength(password: string): {
 } {
   const requirements = [
     { key: "auth.passwordRequirements.minChars", met: password.length >= 8 },
-    { key: "auth.passwordRequirements.uppercase", met: UPPERCASE_REGEX.test(password) },
-    { key: "auth.passwordRequirements.lowercase", met: LOWERCASE_REGEX.test(password) },
-    { key: "auth.passwordRequirements.number", met: NUMBER_REGEX.test(password) },
+    {
+      key: "auth.passwordRequirements.uppercase",
+      met: UPPERCASE_REGEX.test(password),
+    },
+    {
+      key: "auth.passwordRequirements.lowercase",
+      met: LOWERCASE_REGEX.test(password),
+    },
+    {
+      key: "auth.passwordRequirements.number",
+      met: NUMBER_REGEX.test(password),
+    },
     {
       key: "auth.passwordRequirements.special",
       met: SPECIAL_CHAR_REGEX.test(password),
@@ -78,7 +87,10 @@ function getStrengthLabel(score: number): string {
 
 function formatFieldError(
   error: unknown,
-  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+  t: (
+    key: string,
+    params?: Record<string, string | number | boolean | null | undefined>
+  ) => string
 ): string {
   if (typeof error === "string") {
     return error;
@@ -106,7 +118,7 @@ export function SignUpForm({
   const [password, setPassword] = useState("");
   const inviteToken =
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("invite") ?? undefined
+      ? (new URLSearchParams(window.location.search).get("invite") ?? undefined)
       : undefined;
   const hasInvite = Boolean(inviteToken);
 
@@ -198,14 +210,14 @@ export function SignUpForm({
                 type="text"
                 value={field.state.value}
               />
-                {field.state.meta.errors.map((error, index) => (
-                  <p
-                    className="text-destructive text-sm"
-                    key={`${field.name}-${index}`}
-                  >
+              {field.state.meta.errors.map((error, index) => (
+                <p
+                  className="text-destructive text-sm"
+                  key={`${field.name}-${index}`}
+                >
                   {formatFieldError(error, t)}
-                  </p>
-                ))}
+                </p>
+              ))}
             </div>
           )}
         </form.Field>
@@ -236,7 +248,7 @@ export function SignUpForm({
                     className="text-destructive text-sm"
                     key={`${field.name}-${index}`}
                   >
-                  {formatFieldError(error, t)}
+                    {formatFieldError(error, t)}
                   </p>
                 ))}
               </div>

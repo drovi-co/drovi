@@ -21,4 +21,3 @@ export const useSupportModalStore = create<SupportModalState>((set) => ({
   openWith: (prefill) => set({ open: true, prefill: prefill ?? null }),
   close: () => set({ open: false, prefill: null }),
 }));
-

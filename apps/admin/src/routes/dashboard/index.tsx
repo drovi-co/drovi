@@ -1,14 +1,47 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { adminAPI, type KPIBlock } from "@/lib/api";
+import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "@/i18n";
+import { adminAPI, type KPIBlock } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/")({
   component: AdminOverviewPage,
 });
+
+type ConnectionsByTypeRow = {
+  connector_type: string;
+  count: number;
+};
+
+function parseConnectionsByType(raw: unknown): ConnectionsByTypeRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ConnectionsByTypeRow[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const row = item as Record<string, unknown>;
+    const connector_type =
+      typeof row.connector_type === "string"
+        ? row.connector_type
+        : row.connector_type
+          ? String(row.connector_type)
+          : "";
+    const count =
+      typeof row.count === "number"
+        ? row.count
+        : typeof row.count === "string"
+          ? Number(row.count)
+          : Number.NaN;
+    if (!(connector_type && Number.isFinite(count))) {
+      continue;
+    }
+    out.push({ connector_type, count });
+  }
+  return out;
+}
 
 function formatValue(block: KPIBlock): string {
   if (block.unit === "ratio") {
@@ -22,8 +55,10 @@ function formatValue(block: KPIBlock): string {
     return `${m}m`;
   }
   const v = block.value ?? 0;
-  if (Number.isFinite(v) && Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (Number.isFinite(v) && Math.abs(v) >= 10_000) return `${Math.round(v / 1000)}k`;
+  if (Number.isFinite(v) && Math.abs(v) >= 1_000_000)
+    return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Number.isFinite(v) && Math.abs(v) >= 10_000)
+    return `${Math.round(v / 1000)}k`;
   return String(Math.round(v));
 }
 
@@ -33,13 +68,13 @@ function BlockCard(props: { block: KPIBlock }) {
   return (
     <Card className="border-border/70">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+        <CardTitle className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
           {props.block.label}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-end justify-between gap-3">
-          <div className="font-semibold text-3xl tracking-tight tabular-nums">
+          <div className="font-semibold text-3xl tabular-nums tracking-tight">
             {value}
           </div>
           {typeof props.block.delta_5m === "number" ? (
@@ -56,7 +91,7 @@ function BlockCard(props: { block: KPIBlock }) {
               {props.block.delta_5m.toFixed(0)}
             </div>
           ) : (
-            <div className="text-muted-foreground text-[11px]">
+            <div className="text-[11px] text-muted-foreground">
               {t("admin.overview.live")}
             </div>
           )}
@@ -101,7 +136,7 @@ function AdminOverviewPage() {
             {t("admin.overview.errors.failedToLoadKpis")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-muted-foreground text-sm">
           {q.error instanceof Error
             ? q.error.message
             : t("common.messages.unknownError")}
@@ -112,9 +147,9 @@ function AdminOverviewPage() {
 
   const blocks = q.data.blocks ?? [];
   const breakdowns = q.data.breakdowns ?? {};
-  const connectionsByType = Array.isArray((breakdowns as any).connections_by_type)
-    ? ((breakdowns as any).connections_by_type as Array<{ connector_type: string; count: number }>)
-    : [];
+  const connectionsByType = parseConnectionsByType(
+    (breakdowns as Record<string, unknown>).connections_by_type
+  );
 
   return (
     <div className="space-y-6">
@@ -145,9 +180,9 @@ function AdminOverviewPage() {
                     <div className="tabular-nums">{row.count}</div>
                   </div>
                 ))}
-                </div>
+              </div>
             ) : (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 {t("admin.overview.sections.noConnections")}
               </div>
             )}
@@ -160,13 +195,9 @@ function AdminOverviewPage() {
               {t("admin.overview.sections.notesTitle")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>
-              {t("admin.overview.notes.kpisRefresh")}
-            </div>
-            <div>
-              {t("admin.overview.notes.opsControls")}
-            </div>
+          <CardContent className="space-y-2 text-muted-foreground text-sm">
+            <div>{t("admin.overview.notes.kpisRefresh")}</div>
+            <div>{t("admin.overview.notes.opsControls")}</div>
           </CardContent>
         </Card>
       </div>

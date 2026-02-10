@@ -1,10 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { adminAPI } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useT } from "@/i18n";
 import {
   Table,
   TableBody,
@@ -13,20 +11,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/i18n";
+import { adminAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/connectors")({
   component: AdminConnectorsPage,
 });
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 function AdminConnectorsPage() {
   const t = useT();
   const q = useQuery({
     queryKey: ["admin-connectors"],
     queryFn: () => adminAPI.listConnectors(),
-    refetchInterval: 15000,
+    refetchInterval: 15_000,
   });
 
-  const connectors = (q.data?.connectors ?? []) as Array<any>;
+  const connectors = (q.data?.connectors ?? []).filter(isRecord);
 
   return (
     <Card className="border-border/70">
@@ -44,7 +48,7 @@ function AdminConnectorsPage() {
             <Skeleton className="h-8 w-full" />
           </div>
         ) : q.error ? (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             {q.error instanceof Error
               ? q.error.message
               : t("common.messages.unknownError")}
@@ -67,20 +71,30 @@ function AdminConnectorsPage() {
               <TableBody>
                 {connectors.map((c) => {
                   const configured = Boolean(c.configured);
-                  const missing = Array.isArray(c.missing_env) ? (c.missing_env as string[]) : [];
-                  const caps = (c.capabilities ?? {}) as any;
+                  const missing = Array.isArray(c.missing_env)
+                    ? c.missing_env.filter(
+                        (v): v is string => typeof v === "string"
+                      )
+                    : [];
+                  const caps = isRecord(c.capabilities) ? c.capabilities : {};
                   const capList = [
-                    caps.supports_incremental ? "incremental" : null,
-                    caps.supports_full_refresh ? "full_refresh" : null,
-                    caps.supports_webhooks ? "webhooks" : null,
-                    caps.supports_real_time ? "realtime" : null,
+                    caps.supports_incremental === true ? "incremental" : null,
+                    caps.supports_full_refresh === true ? "full_refresh" : null,
+                    caps.supports_webhooks === true ? "webhooks" : null,
+                    caps.supports_real_time === true ? "realtime" : null,
                   ].filter(Boolean) as string[];
 
                   return (
-                    <TableRow key={String(c.type)}>
-                      <TableCell className="font-medium">{String(c.type)}</TableCell>
+                    <TableRow
+                      key={typeof c.type === "string" ? c.type : String(c.type)}
+                    >
+                      <TableCell className="font-medium">
+                        {typeof c.type === "string" ? c.type : String(c.type)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={configured ? "secondary" : "destructive"}>
+                        <Badge
+                          variant={configured ? "secondary" : "destructive"}
+                        >
                           {configured
                             ? t("admin.connectors.badges.configured")
                             : t("admin.connectors.badges.notConfigured")}
@@ -95,7 +109,9 @@ function AdminConnectorsPage() {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
+                            <span className="text-muted-foreground text-xs">
+                              —
+                            </span>
                           )}
                         </div>
                       </TableCell>
@@ -109,7 +125,7 @@ function AdminConnectorsPage() {
             </Table>
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             {t("admin.connectors.empty")}
           </div>
         )}

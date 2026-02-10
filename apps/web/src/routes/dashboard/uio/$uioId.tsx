@@ -231,7 +231,9 @@ function UIODetailPage() {
   };
 
   // Handle status change
-  const handleStatusChange = (status: "active" | "archived" | "dismissed" | "completed") => {
+  const handleStatusChange = (
+    status: "active" | "archived" | "dismissed" | "completed"
+  ) => {
     updateMutation.mutate({ status });
   };
 
@@ -488,10 +490,10 @@ function UIODetailPage() {
                   </div>
                   <p className="font-medium text-sm">
                     {uioData.direction === "owed_to_me"
-                      ? uioData.debtor?.displayName ??
-                        uioData.debtor?.primaryEmail
-                      : uioData.creditor?.displayName ??
-                        uioData.creditor?.primaryEmail}
+                      ? (uioData.debtor?.displayName ??
+                        uioData.debtor?.primaryEmail)
+                      : (uioData.creditor?.displayName ??
+                        uioData.creditor?.primaryEmail)}
                   </p>
                 </div>
               )}
@@ -536,9 +538,7 @@ function UIODetailPage() {
                 <h3 className="mb-2 font-medium text-sm">
                   {t("pages.dashboard.uioDetail.sections.description")}
                 </h3>
-                <p className="text-muted-foreground">
-                  {uioData.description}
-                </p>
+                <p className="text-muted-foreground">{uioData.description}</p>
               </div>
             )}
 
@@ -574,7 +574,9 @@ function UIODetailPage() {
                       });
                       return;
                     }
-                    toast.message(t("pages.dashboard.uioDetail.toasts.sourceViewerSoon"));
+                    toast.message(
+                      t("pages.dashboard.uioDetail.toasts.sourceViewerSoon")
+                    );
                   }}
                   sources={evidenceSources}
                 />

@@ -1,7 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { adminAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { adminAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/orgs/")({
@@ -29,8 +29,7 @@ function AdminOrgsPage() {
   });
 
   const rows = useMemo(() => {
-    const orgs = (query.data?.organizations ?? []) as Array<any>;
-    return orgs;
+    return query.data?.organizations ?? [];
   }, [query.data]);
 
   return (
@@ -45,9 +44,9 @@ function AdminOrgsPage() {
           </div>
           <div className="w-[320px] max-w-full">
             <Input
+              onChange={(ev) => setQ(ev.target.value)}
               placeholder="Search by name or id..."
               value={q}
-              onChange={(ev) => setQ(ev.target.value)}
             />
           </div>
         </CardHeader>
@@ -59,8 +58,10 @@ function AdminOrgsPage() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : query.error ? (
-            <div className="text-sm text-muted-foreground">
-              {query.error instanceof Error ? query.error.message : "Unknown error"}
+            <div className="text-muted-foreground text-sm">
+              {query.error instanceof Error
+                ? query.error.message
+                : "Unknown error"}
             </div>
           ) : rows.length ? (
             <div className="rounded-md border border-border/70">
@@ -70,7 +71,9 @@ function AdminOrgsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead className="hidden lg:table-cell">ID</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Region</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Region
+                    </TableHead>
                     <TableHead className="text-right">Members</TableHead>
                     <TableHead className="text-right">Connections</TableHead>
                   </TableRow>
@@ -87,11 +90,15 @@ function AdminOrgsPage() {
                         })
                       }
                     >
-                      <TableCell className="font-medium">{String(org.name)}</TableCell>
-                      <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
+                      <TableCell className="font-medium">
+                        {String(org.name)}
+                      </TableCell>
+                      <TableCell className="hidden font-mono text-muted-foreground text-xs lg:table-cell">
                         {String(org.id)}
                       </TableCell>
-                      <TableCell className="capitalize">{String(org.status)}</TableCell>
+                      <TableCell className="capitalize">
+                        {String(org.status)}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {org.region ? String(org.region) : "-"}
                       </TableCell>
@@ -107,11 +114,12 @@ function AdminOrgsPage() {
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No organizations found.</div>
+            <div className="text-muted-foreground text-sm">
+              No organizations found.
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

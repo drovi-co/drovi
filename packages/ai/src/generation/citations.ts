@@ -243,9 +243,8 @@ export function insertCitationMarkers(
 function findCitationPosition(text: string, quotedText: string): number {
   // Try to find exact match first
   const normalizedQuote = normalizeText(quotedText);
-  // Note: normalizedText would be used for direct matching against text
-  // Currently using sentence-based matching instead
-  void normalizeText(text);
+  // Note: we currently use sentence-based matching instead of a direct
+  // normalizedQuote-in-normalizedText match for better robustness.
 
   // Find sentences or phrases that might reference the quote
   const sentences = text.split(/(?<=[.!?])\s+/);

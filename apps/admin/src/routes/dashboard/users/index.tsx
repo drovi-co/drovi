@@ -1,7 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { adminAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { adminAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/users/")({
@@ -29,8 +29,7 @@ function AdminUsersPage() {
   });
 
   const rows = useMemo(() => {
-    const users = (query.data?.users ?? []) as Array<any>;
-    return users;
+    return query.data?.users ?? [];
   }, [query.data]);
 
   return (
@@ -45,9 +44,9 @@ function AdminUsersPage() {
           </div>
           <div className="w-[320px] max-w-full">
             <Input
+              onChange={(ev) => setQ(ev.target.value)}
               placeholder="Search by email or id..."
               value={q}
-              onChange={(ev) => setQ(ev.target.value)}
             />
           </div>
         </CardHeader>
@@ -59,8 +58,10 @@ function AdminUsersPage() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : query.error ? (
-            <div className="text-sm text-muted-foreground">
-              {query.error instanceof Error ? query.error.message : "Unknown error"}
+            <div className="text-muted-foreground text-sm">
+              {query.error instanceof Error
+                ? query.error.message
+                : "Unknown error"}
             </div>
           ) : rows.length ? (
             <div className="rounded-md border border-border/70">
@@ -87,7 +88,7 @@ function AdminUsersPage() {
                       <TableCell className="font-medium">
                         {String(u.email)}
                       </TableCell>
-                      <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
+                      <TableCell className="hidden font-mono text-muted-foreground text-xs lg:table-cell">
                         {String(u.id)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -99,11 +100,10 @@ function AdminUsersPage() {
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No users found.</div>
+            <div className="text-muted-foreground text-sm">No users found.</div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

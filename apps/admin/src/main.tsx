@@ -14,7 +14,8 @@ initSentry();
 const INITIAL_LOCALE = normalizeLocale(
   typeof window === "undefined"
     ? "en"
-    : window.localStorage.getItem("drovi.admin.locale") || window.navigator.language
+    : window.localStorage.getItem("drovi.admin.locale") ||
+        window.navigator.language
 );
 
 const router = createRouter({
@@ -36,7 +37,9 @@ const router = createRouter({
             }
           }}
         >
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
         </I18nProvider>
       </ErrorBoundary>
     );

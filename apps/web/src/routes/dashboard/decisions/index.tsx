@@ -12,7 +12,6 @@ import { startOfMonth, subMonths } from "date-fns";
 import { Download, GitBranch, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import {
   type DecisionCardData,
   type DecisionDetailData,
@@ -24,6 +23,7 @@ import {
   type DecisionRowData,
 } from "@/components/decisions";
 import { EvidenceDetailSheet } from "@/components/evidence";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +37,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDecisionStats, useDecisionUIOs, useUIO } from "@/hooks/use-uio";
+import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/i18n";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -231,12 +231,9 @@ function DecisionsPage() {
     }
   }, []);
 
-  const handleThreadClick = useCallback(
-    () => {
-      toast.message(t("pages.dashboard.decisions.toasts.sourceViewerSoon"));
-    },
-    [t]
-  );
+  const handleThreadClick = useCallback(() => {
+    toast.message(t("pages.dashboard.decisions.toasts.sourceViewerSoon"));
+  }, [t]);
 
   const handleContactClick = useCallback(
     (email: string) => {
@@ -278,7 +275,9 @@ function DecisionsPage() {
     const a = document.createElement("a");
     a.href = url;
     const dateStamp = new Date().toISOString().slice(0, 10);
-    a.download = t("pages.dashboard.decisions.export.filename", { date: dateStamp });
+    a.download = t("pages.dashboard.decisions.export.filename", {
+      date: dateStamp,
+    });
     a.click();
     URL.revokeObjectURL(url);
     toast.success(t("pages.dashboard.decisions.toasts.exported"));
@@ -576,7 +575,9 @@ function DecisionsPage() {
                   className="h-8 w-[200px] pl-8 text-sm"
                   id="decision-search"
                   onChange={(e) => handleSearch(e.target.value)}
-                  placeholder={t("pages.dashboard.decisions.search.placeholder")}
+                  placeholder={t(
+                    "pages.dashboard.decisions.search.placeholder"
+                  )}
                   value={searchQuery}
                 />
                 {searchQuery && (
@@ -682,7 +683,10 @@ function DecisionsPage() {
             </div>
           ) : decisionsError ? (
             <div className="p-4">
-              <ApiErrorPanel error={decisionsErrorObj} onRetry={() => refetch()} />
+              <ApiErrorPanel
+                error={decisionsErrorObj}
+                onRetry={() => refetch()}
+              />
             </div>
           ) : displayDecisions.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center p-8 text-center">
@@ -821,7 +825,10 @@ function DecisionsPage() {
                           {item.supersededAt && (
                             <>
                               {" "}
-                              • {t("pages.dashboard.decisions.history.superseded")}{" "}
+                              •{" "}
+                              {t(
+                                "pages.dashboard.decisions.history.superseded"
+                              )}{" "}
                               {new Intl.DateTimeFormat(locale, {
                                 year: "numeric",
                                 month: "long",

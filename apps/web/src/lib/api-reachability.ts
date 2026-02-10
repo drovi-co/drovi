@@ -15,7 +15,9 @@ let state: ApiReachabilityState = {
 const listeners = new Set<() => void>();
 
 function emitChange() {
-  listeners.forEach((listener) => listener());
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 function updateState(next: Partial<ApiReachabilityState>) {

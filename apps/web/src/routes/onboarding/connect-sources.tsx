@@ -22,15 +22,14 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useT } from "@/i18n";
-import { useAuthStore } from "@/lib/auth";
 import {
   connectionsAPI,
+  type OrgConnection,
   orgAPI,
   orgSSE,
   type SyncEvent,
-  type AvailableConnector,
-  type OrgConnection,
 } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   CONNECTOR_CATALOG,
   CONNECTOR_META_BY_ID,
@@ -69,7 +68,9 @@ function ConnectSourcesPage() {
       toast.success(t("onboarding.connectSources.toasts.connected"));
       window.history.replaceState({}, "", window.location.pathname);
     } else if (error) {
-      toast.error(t("onboarding.connectSources.toasts.failedToConnect", { error }));
+      toast.error(
+        t("onboarding.connectSources.toasts.failedToConnect", { error })
+      );
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [t]);
@@ -99,7 +100,10 @@ function ConnectSourcesPage() {
 
   const availableById = useMemo(() => {
     return new Map(
-      (availableConnectors ?? []).map((connector) => [connector.type, connector])
+      (availableConnectors ?? []).map((connector) => [
+        connector.type,
+        connector,
+      ])
     );
   }, [availableConnectors]);
 
@@ -115,7 +119,9 @@ function ConnectSourcesPage() {
       .filter((connector) => !CONNECTOR_META_BY_ID.has(connector.type))
       .map((connector) => ({
         id: connector.type,
-        name: connector.type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+        name: connector.type
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (m) => m.toUpperCase()),
         icon: PlugZap,
         color: "#64748B",
         descriptionKey: "pages.dashboard.sources.customConnector",
@@ -130,9 +136,9 @@ function ConnectSourcesPage() {
 
   const connectionByProvider = useMemo(() => {
     const map = new Map<string, OrgConnection>();
-    (connections ?? []).forEach((connection) => {
+    for (const connection of connections ?? []) {
       map.set(connection.provider, connection);
-    });
+    }
     return map;
   }, [connections]);
 
@@ -146,7 +152,9 @@ function ConnectSourcesPage() {
     },
     onError: (error: Error) => {
       toast.error(
-        t("onboarding.connectSources.toasts.failedToConnect", { error: error.message })
+        t("onboarding.connectSources.toasts.failedToConnect", {
+          error: error.message,
+        })
       );
       setConnectingProvider(null);
     },
@@ -180,7 +188,7 @@ function ConnectSourcesPage() {
         },
       }));
       if (event.event_type === "completed" || event.event_type === "failed") {
-        void refetchConnections();
+        refetchConnections().catch(() => undefined);
       }
     });
 
@@ -298,7 +306,9 @@ function ConnectSourcesPage() {
                     className={cn(
                       "flex flex-col gap-3 rounded-xl border bg-card p-4",
                       isConnected && "border-emerald-500/40 bg-emerald-500/5",
-                      connector.available && !connector.configured && "border-amber-500/30 bg-amber-500/5",
+                      connector.available &&
+                        !connector.configured &&
+                        "border-amber-500/30 bg-amber-500/5",
                       !connector.available && "opacity-60"
                     )}
                     key={connector.id}
@@ -309,10 +319,15 @@ function ConnectSourcesPage() {
                           className="flex h-10 w-10 items-center justify-center rounded-lg"
                           style={{ backgroundColor: `${connector.color}1A` }}
                         >
-                          <Icon className="h-5 w-5" style={{ color: connector.color }} />
+                          <Icon
+                            className="h-5 w-5"
+                            style={{ color: connector.color }}
+                          />
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{connector.name}</p>
+                          <p className="font-medium text-sm">
+                            {connector.name}
+                          </p>
                           <p className="text-muted-foreground text-xs">
                             {t(connector.descriptionKey)}
                           </p>
@@ -326,35 +341,44 @@ function ConnectSourcesPage() {
                           <Badge
                             className={cn(
                               "text-[10px]",
-                              (connection?.visibility ?? "org_shared") === "private" &&
+                              (connection?.visibility ?? "org_shared") ===
+                                "private" &&
                                 "border-slate-500/30 bg-slate-500/10 text-slate-600",
-                              (connection?.visibility ?? "org_shared") === "org_shared" &&
+                              (connection?.visibility ?? "org_shared") ===
+                                "org_shared" &&
                                 "border-emerald-500/20 bg-emerald-500/5 text-emerald-700/80"
                             )}
                             variant="outline"
                           >
-                            {(connection?.visibility ?? "org_shared") === "private"
+                            {(connection?.visibility ?? "org_shared") ===
+                            "private"
                               ? t("pages.dashboard.sources.visibility.private")
-                              : t("pages.dashboard.sources.visibility.orgShared")}
+                              : t(
+                                  "pages.dashboard.sources.visibility.orgShared"
+                                )}
                           </Badge>
                         </div>
-                      ) : !connector.available ? (
-                        <Badge variant="outline">
-                          {t("onboarding.connectSources.badges.comingSoon")}
-                        </Badge>
-                      ) : !connector.configured ? (
-                        <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-600">
-                          {t("pages.dashboard.sources.badges.notConfigured")}
-                        </Badge>
+                      ) : connector.available ? (
+                        connector.configured ? (
+                          <Badge variant="outline">
+                            {t("pages.dashboard.sources.badges.ready")}
+                          </Badge>
+                        ) : (
+                          <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-600">
+                            {t("pages.dashboard.sources.badges.notConfigured")}
+                          </Badge>
+                        )
                       ) : (
                         <Badge variant="outline">
-                          {t("pages.dashboard.sources.badges.ready")}
+                          {t("onboarding.connectSources.badges.comingSoon")}
                         </Badge>
                       )}
                     </div>
 
-                    {connector.available && !connector.configured && connector.missingEnv.length ? (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700/80">
+                    {connector.available &&
+                    !connector.configured &&
+                    connector.missingEnv.length ? (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-amber-700/80 text-xs">
                         <p className="font-medium text-amber-600">
                           {t("onboarding.connectSources.missingConfig.title")}
                         </p>
@@ -365,11 +389,13 @@ function ConnectSourcesPage() {
                     ) : null}
 
                     {isConnected && (
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
                         <span>
                           {connection?.last_sync
                             ? t("onboarding.connectSources.lastSync", {
-                                date: new Date(connection.last_sync).toLocaleDateString(),
+                                date: new Date(
+                                  connection.last_sync
+                                ).toLocaleDateString(),
                               })
                             : t("onboarding.connectSources.initialSyncQueued")}
                         </span>
@@ -383,7 +409,7 @@ function ConnectSourcesPage() {
                     )}
 
                     {isConnected && isSyncing && backfillWindow ? (
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
                         <span>
                           {t("pages.dashboard.sources.backfillWindow")}{" "}
                           <span className="font-mono text-foreground">
@@ -402,7 +428,7 @@ function ConnectSourcesPage() {
                     isSyncing &&
                     typeof liveProgress === "number" ? (
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between text-muted-foreground text-xs">
                           <span>{t("onboarding.connectSources.progress")}</span>
                           <span className="font-mono text-foreground">
                             {Math.round(liveProgress * 100)}%
@@ -417,28 +443,30 @@ function ConnectSourcesPage() {
                     typeof liveProgress !== "number" &&
                     overallBackfillProgress !== null ? (
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between text-muted-foreground text-xs">
                           <span>{t("onboarding.connectSources.backfill")}</span>
                           <span className="font-mono text-foreground">
                             {Math.round(overallBackfillProgress * 100)}%
                           </span>
                         </div>
-                        <Progress value={Math.round(overallBackfillProgress * 100)} />
+                        <Progress
+                          value={Math.round(overallBackfillProgress * 100)}
+                        />
                       </div>
                     ) : null}
 
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-muted-foreground text-xs">
                         {connection?.messages_synced
                           ? t("onboarding.connectSources.recordsSynced", {
-                              count: connection.messages_synced.toLocaleString(),
+                              count:
+                                connection.messages_synced.toLocaleString(),
                             })
                           : t("onboarding.connectSources.noRecordsYet")}
                       </div>
                       <Button
                         disabled={
-                          !connector.available ||
-                          !connector.configured ||
+                          !(connector.available && connector.configured) ||
                           isConnected ||
                           connectingProvider === connector.id
                         }

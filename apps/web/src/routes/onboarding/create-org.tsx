@@ -81,7 +81,9 @@ function CreateOrgPage() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Building2 className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t("onboarding.createOrg.title")}</CardTitle>
+          <CardTitle className="text-2xl">
+            {t("onboarding.createOrg.title")}
+          </CardTitle>
           <CardDescription className="text-base">
             {t("onboarding.createOrg.description")}
           </CardDescription>
@@ -96,13 +98,17 @@ function CreateOrgPage() {
           ) : (
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="name">{t("onboarding.createOrg.fields.name.label")}</Label>
+                <Label htmlFor="name">
+                  {t("onboarding.createOrg.fields.name.label")}
+                </Label>
                 <Input
                   autoFocus
                   className="h-11"
                   id="name"
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={t("onboarding.createOrg.fields.name.placeholder")}
+                  placeholder={t(
+                    "onboarding.createOrg.fields.name.placeholder"
+                  )}
                   required
                   value={name}
                 />
@@ -112,17 +118,28 @@ function CreateOrgPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="region">{t("onboarding.createOrg.fields.region.label")}</Label>
+                <Label htmlFor="region">
+                  {t("onboarding.createOrg.fields.region.label")}
+                </Label>
                 <div className="relative">
                   <Globe className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Select onValueChange={(value) => setRegion(value)} value={region}>
+                  <Select
+                    onValueChange={(value) => setRegion(value)}
+                    value={region}
+                  >
                     <SelectTrigger className="h-11 pl-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="us-west">{t("onboarding.createOrg.fields.region.options.usWest")}</SelectItem>
-                      <SelectItem value="us-east">{t("onboarding.createOrg.fields.region.options.usEast")}</SelectItem>
-                      <SelectItem value="eu-west">{t("onboarding.createOrg.fields.region.options.euWest")}</SelectItem>
+                      <SelectItem value="us-west">
+                        {t("onboarding.createOrg.fields.region.options.usWest")}
+                      </SelectItem>
+                      <SelectItem value="us-east">
+                        {t("onboarding.createOrg.fields.region.options.usEast")}
+                      </SelectItem>
+                      <SelectItem value="eu-west">
+                        {t("onboarding.createOrg.fields.region.options.euWest")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

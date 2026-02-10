@@ -60,24 +60,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { useAuthStore } from "@/lib/auth";
+import { useT } from "@/i18n";
 import {
   connectionsAPI,
+  type OrgConnection,
   orgAPI,
   orgSSE,
-  type OrgConnection,
   type SyncEvent,
 } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   CONNECTOR_CATALOG,
   CONNECTOR_META_BY_ID,
   type ConnectorMeta,
 } from "@/lib/connectors";
 import { cn } from "@/lib/utils";
-import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/sources/")({
   component: SourcesPage,
@@ -126,7 +126,12 @@ function SourcesPage() {
   });
 
   const availableById = useMemo(() => {
-    return new Map((availableConnectors ?? []).map((connector) => [connector.type, connector]));
+    return new Map(
+      (availableConnectors ?? []).map((connector) => [
+        connector.type,
+        connector,
+      ])
+    );
   }, [availableConnectors]);
 
   const connectors = useMemo<ConnectorCard[]>(() => {
@@ -189,7 +194,9 @@ function SourcesPage() {
       // Refetch connections
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     } else if (error) {
-      toast.error(t("pages.dashboard.sources.toasts.failedToConnect", { error }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.failedToConnect", { error })
+      );
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [connectionSuccess, error, queryClient, t]);
@@ -213,7 +220,9 @@ function SourcesPage() {
           queryClient.invalidateQueries({ queryKey: ["org-connections"] });
         } else if (event.event_type === "failed") {
           const err = event.error || t("common.messages.unknownError");
-          toast.error(t("pages.dashboard.sources.toasts.syncFailed", { error: err }));
+          toast.error(
+            t("pages.dashboard.sources.toasts.syncFailed", { error: err })
+          );
           queryClient.invalidateQueries({ queryKey: ["org-connections"] });
         }
       },
@@ -251,7 +260,11 @@ function SourcesPage() {
       window.location.href = data.auth_url;
     },
     onError: (error: Error) => {
-      toast.error(t("pages.dashboard.sources.toasts.failedToConnect", { error: error.message }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.failedToConnect", {
+          error: error.message,
+        })
+      );
     },
   });
 
@@ -265,7 +278,11 @@ function SourcesPage() {
       refetchConnections();
     },
     onError: (error: Error) => {
-      toast.error(t("pages.dashboard.sources.toasts.syncTriggerFailed", { error: error.message }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.syncTriggerFailed", {
+          error: error.message,
+        })
+      );
     },
   });
 
@@ -291,7 +308,11 @@ function SourcesPage() {
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     },
     onError: (error: Error) => {
-      toast.error(t("pages.dashboard.sources.toasts.backfillFailed", { error: error.message }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.backfillFailed", {
+          error: error.message,
+        })
+      );
     },
   });
 
@@ -307,7 +328,11 @@ function SourcesPage() {
       refetchConnections();
     },
     onError: (error: Error) => {
-      toast.error(t("pages.dashboard.sources.toasts.disconnectFailed", { error: error.message }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.disconnectFailed", {
+          error: error.message,
+        })
+      );
     },
   });
 
@@ -329,7 +354,11 @@ function SourcesPage() {
       queryClient.invalidateQueries({ queryKey: ["org-connections"] });
     },
     onError: (error: Error) => {
-      toast.error(t("pages.dashboard.sources.toasts.visibilityFailed", { error: error.message }));
+      toast.error(
+        t("pages.dashboard.sources.toasts.visibilityFailed", {
+          error: error.message,
+        })
+      );
     },
   });
 
@@ -342,9 +371,11 @@ function SourcesPage() {
   };
 
   const handleBackfill = () => {
-    if (!backfillConnection || !backfillStart) return;
+    if (!(backfillConnection && backfillStart)) return;
     const startDate = new Date(backfillStart).toISOString();
-    const endDate = backfillEnd ? new Date(backfillEnd).toISOString() : undefined;
+    const endDate = backfillEnd
+      ? new Date(backfillEnd).toISOString()
+      : undefined;
     backfillMutation.mutate({
       connectionId: backfillConnection.id,
       startDate,
@@ -453,13 +484,17 @@ function SourcesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>{t("pages.dashboard.sources.stats.totalSources")}</CardDescription>
+            <CardDescription>
+              {t("pages.dashboard.sources.stats.totalSources")}
+            </CardDescription>
             <CardTitle className="text-2xl">{connectionsList.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>{t("pages.dashboard.sources.stats.messagesSynced")}</CardDescription>
+            <CardDescription>
+              {t("pages.dashboard.sources.stats.messagesSynced")}
+            </CardDescription>
             <CardTitle className="text-2xl">
               {connectionsList
                 .reduce((sum, c) => sum + c.messages_synced, 0)
@@ -469,10 +504,10 @@ function SourcesPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>{t("pages.dashboard.sources.stats.activeSyncs")}</CardDescription>
-            <CardTitle className="text-2xl">
-              {activeSyncCount}
-            </CardTitle>
+            <CardDescription>
+              {t("pages.dashboard.sources.stats.activeSyncs")}
+            </CardDescription>
+            <CardTitle className="text-2xl">{activeSyncCount}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -485,15 +520,18 @@ function SourcesPage() {
           </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="mr-2 h-4 w-4" />
-            {t("pages.dashboard.sources.tabs.email")} ({emailConnections.length})
+            {t("pages.dashboard.sources.tabs.email")} ({emailConnections.length}
+            )
           </TabsTrigger>
           <TabsTrigger value="messaging">
             <MessageCircle className="mr-2 h-4 w-4" />
-            {t("pages.dashboard.sources.tabs.messaging")} ({messagingConnections.length})
+            {t("pages.dashboard.sources.tabs.messaging")} (
+            {messagingConnections.length})
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="mr-2 h-4 w-4" />
-            {t("pages.dashboard.sources.tabs.calendar")} ({calendarConnections.length})
+            {t("pages.dashboard.sources.tabs.calendar")} (
+            {calendarConnections.length})
           </TabsTrigger>
         </TabsList>
 
@@ -501,7 +539,10 @@ function SourcesPage() {
           {connectionsLoading ? (
             <SourcesSkeleton />
           ) : connectionsError ? (
-            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+            <ApiErrorPanel
+              error={connectionsErrorObj}
+              onRetry={() => refetchConnections()}
+            />
           ) : connectionsList.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {connectionsList.map((connection) => (
@@ -510,7 +551,6 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
-                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
@@ -520,6 +560,7 @@ function SourcesPage() {
                     handleSetVisibility(connection, visibility)
                   }
                   onSync={() => handleSync(connection.id)}
+                  readOnly={user.role === "pilot_viewer"}
                 />
               ))}
             </div>
@@ -530,7 +571,10 @@ function SourcesPage() {
 
         <TabsContent className="space-y-4" value="email">
           {connectionsError ? (
-            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+            <ApiErrorPanel
+              error={connectionsErrorObj}
+              onRetry={() => refetchConnections()}
+            />
           ) : emailConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {emailConnections.map((connection) => (
@@ -539,7 +583,6 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
-                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
@@ -549,6 +592,7 @@ function SourcesPage() {
                     handleSetVisibility(connection, visibility)
                   }
                   onSync={() => handleSync(connection.id)}
+                  readOnly={user.role === "pilot_viewer"}
                 />
               ))}
             </div>
@@ -562,7 +606,10 @@ function SourcesPage() {
 
         <TabsContent className="space-y-4" value="messaging">
           {connectionsError ? (
-            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+            <ApiErrorPanel
+              error={connectionsErrorObj}
+              onRetry={() => refetchConnections()}
+            />
           ) : messagingConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {messagingConnections.map((connection) => (
@@ -571,7 +618,6 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
-                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
@@ -581,6 +627,7 @@ function SourcesPage() {
                     handleSetVisibility(connection, visibility)
                   }
                   onSync={() => handleSync(connection.id)}
+                  readOnly={user.role === "pilot_viewer"}
                 />
               ))}
             </div>
@@ -594,7 +641,10 @@ function SourcesPage() {
 
         <TabsContent className="space-y-4" value="calendar">
           {connectionsError ? (
-            <ApiErrorPanel error={connectionsErrorObj} onRetry={() => refetchConnections()} />
+            <ApiErrorPanel
+              error={connectionsErrorObj}
+              onRetry={() => refetchConnections()}
+            />
           ) : calendarConnections.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {calendarConnections.map((connection) => (
@@ -603,7 +653,6 @@ function SourcesPage() {
                   connector={connectorMap.get(connection.provider)}
                   key={connection.id}
                   liveState={liveSync[connection.id]}
-                  readOnly={user.role === "pilot_viewer"}
                   onBackfill={() => openBackfillDialog(connection)}
                   onDisconnect={() => {
                     setSelectedConnection(connection);
@@ -613,6 +662,7 @@ function SourcesPage() {
                     handleSetVisibility(connection, visibility)
                   }
                   onSync={() => handleSync(connection.id)}
+                  readOnly={user.role === "pilot_viewer"}
                 />
               ))}
             </div>
@@ -629,7 +679,9 @@ function SourcesPage() {
       <Dialog onOpenChange={setConnectDialogOpen} open={connectDialogOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("pages.dashboard.sources.connectDialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("pages.dashboard.sources.connectDialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("pages.dashboard.sources.connectDialog.description")}
             </DialogDescription>
@@ -638,7 +690,9 @@ function SourcesPage() {
             <ApiErrorPanel
               error={connectorsErrorObj}
               onRetry={() => refetchConnectors()}
-              retryLabel={t("pages.dashboard.sources.connectDialog.reloadConnectors")}
+              retryLabel={t(
+                "pages.dashboard.sources.connectDialog.reloadConnectors"
+              )}
             />
           )}
           <div className="grid gap-4 overflow-y-auto py-4 pr-2">
@@ -697,7 +751,9 @@ function SourcesPage() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t("pages.dashboard.sources.backfillDialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("pages.dashboard.sources.backfillDialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("pages.dashboard.sources.backfillDialog.descriptionPrefix")}{" "}
               <span className="font-medium text-foreground">
@@ -712,7 +768,9 @@ function SourcesPage() {
           <div className="grid gap-4">
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="backfill-start">{t("pages.dashboard.sources.backfillDialog.startDate")}</Label>
+                <Label htmlFor="backfill-start">
+                  {t("pages.dashboard.sources.backfillDialog.startDate")}
+                </Label>
                 <Input
                   id="backfill-start"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -723,7 +781,9 @@ function SourcesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="backfill-end">{t("pages.dashboard.sources.backfillDialog.endDate")}</Label>
+                <Label htmlFor="backfill-end">
+                  {t("pages.dashboard.sources.backfillDialog.endDate")}
+                </Label>
                 <Input
                   id="backfill-end"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -737,7 +797,9 @@ function SourcesPage() {
 
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="backfill-window">{t("pages.dashboard.sources.backfillDialog.windowDays")}</Label>
+                <Label htmlFor="backfill-window">
+                  {t("pages.dashboard.sources.backfillDialog.windowDays")}
+                </Label>
                 <Input
                   id="backfill-window"
                   min={1}
@@ -749,7 +811,9 @@ function SourcesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="backfill-throttle">{t("pages.dashboard.sources.backfillDialog.throttleSeconds")}</Label>
+                <Label htmlFor="backfill-throttle">
+                  {t("pages.dashboard.sources.backfillDialog.throttleSeconds")}
+                </Label>
                 <Input
                   id="backfill-throttle"
                   min={0}
@@ -762,12 +826,15 @@ function SourcesPage() {
                 />
               </div>
             </div>
-            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <div className="rounded-lg border bg-muted/30 p-3 text-muted-foreground text-xs">
               {t("pages.dashboard.sources.backfillDialog.note")}
             </div>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <Button onClick={() => setBackfillDialogOpen(false)} variant="ghost">
+            <Button
+              onClick={() => setBackfillDialogOpen(false)}
+              variant="ghost"
+            >
               {t("common.actions.cancel")}
             </Button>
             <Button
@@ -798,10 +865,15 @@ function SourcesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("pages.dashboard.sources.disconnectDialog.title")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("pages.dashboard.sources.disconnectDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {t("pages.dashboard.sources.disconnectDialog.description", {
-                source: selectedConnection?.email || selectedConnection?.workspace || "",
+                source:
+                  selectedConnection?.email ||
+                  selectedConnection?.workspace ||
+                  "",
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -849,7 +921,9 @@ function ConnectorCategory({
         {connectors.map((connector) => (
           <Button
             className="h-auto justify-start gap-4 p-4"
-            disabled={isLoading || !connector.available || !connector.configured}
+            disabled={
+              isLoading || !connector.available || !connector.configured
+            }
             key={connector.id}
             onClick={() => onConnect(connector.id)}
             variant="outline"
@@ -866,17 +940,19 @@ function ConnectorCategory({
             <div className="text-left">
               <div className="flex items-center gap-2 font-medium">
                 {connector.name}
-                {!connector.available ? (
+                {connector.available ? (
+                  connector.configured ? (
+                    <Badge variant="success">
+                      {t("pages.dashboard.sources.badges.ready")}
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning">
+                      {t("pages.dashboard.sources.badges.notConfigured")}
+                    </Badge>
+                  )
+                ) : (
                   <Badge variant="secondary">
                     {t("pages.dashboard.sources.badges.unavailable")}
-                  </Badge>
-                ) : !connector.configured ? (
-                  <Badge variant="warning">
-                    {t("pages.dashboard.sources.badges.notConfigured")}
-                  </Badge>
-                ) : (
-                  <Badge variant="success">
-                    {t("pages.dashboard.sources.badges.ready")}
                   </Badge>
                 )}
               </div>
@@ -1069,36 +1145,36 @@ function SourceCard({
           >
             <Icon className="h-5 w-5" style={{ color }} />
           </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">{displayName}</CardTitle>
-                <Badge
-                  className={cn(
-                    "h-5 px-2 text-[10px]",
-                    isPrivate
-                      ? "border-slate-500/30 bg-slate-500/10 text-slate-600"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-                  )}
-                  variant="outline"
-                >
-                  {isPrivate ? (
-                    <span className="flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      {t("pages.dashboard.sources.visibility.private")}
-                    </span>
-                  ) : (
-                    t("pages.dashboard.sources.visibility.orgShared")
-                  )}
-                </Badge>
-              </div>
-              <CardDescription className="text-xs">
-                {connector?.name || connection.provider}
-                {connectedBy ? (
-                  <span className="ml-2 text-muted-foreground/80">
-                    · {connectedBy}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{displayName}</CardTitle>
+              <Badge
+                className={cn(
+                  "h-5 px-2 text-[10px]",
+                  isPrivate
+                    ? "border-slate-500/30 bg-slate-500/10 text-slate-600"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                )}
+                variant="outline"
+              >
+                {isPrivate ? (
+                  <span className="flex items-center gap-1">
+                    <Lock className="h-3 w-3" />
+                    {t("pages.dashboard.sources.visibility.private")}
                   </span>
-                ) : null}
-              </CardDescription>
+                ) : (
+                  t("pages.dashboard.sources.visibility.orgShared")
+                )}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              {connector?.name || connection.provider}
+              {connectedBy ? (
+                <span className="ml-2 text-muted-foreground/80">
+                  · {connectedBy}
+                </span>
+              ) : null}
+            </CardDescription>
           </div>
         </div>
         <DropdownMenu>
@@ -1124,7 +1200,7 @@ function SourceCard({
                   : t("pages.dashboard.sources.menu.makePrivate")}
               </DropdownMenuItem>
             ) : null}
-            {!readOnly ? (
+            {readOnly ? null : (
               <>
                 <DropdownMenuItem onClick={onBackfill}>
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -1143,7 +1219,7 @@ function SourceCard({
                   {t("pages.dashboard.sources.menu.disconnect")}
                 </DropdownMenuItem>
               </>
-            ) : null}
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
@@ -1306,30 +1382,40 @@ function EmptySourceTypeCard({
       : category === "messaging"
         ? {
             title: t("pages.dashboard.sources.empty.messaging.title"),
-            description: t("pages.dashboard.sources.empty.messaging.description"),
+            description: t(
+              "pages.dashboard.sources.empty.messaging.description"
+            ),
             cta: t("pages.dashboard.sources.empty.messaging.cta"),
           }
         : category === "calendar"
           ? {
               title: t("pages.dashboard.sources.empty.calendar.title"),
-              description: t("pages.dashboard.sources.empty.calendar.description"),
+              description: t(
+                "pages.dashboard.sources.empty.calendar.description"
+              ),
               cta: t("pages.dashboard.sources.empty.calendar.cta"),
             }
           : category === "knowledge"
             ? {
                 title: t("pages.dashboard.sources.empty.knowledge.title"),
-                description: t("pages.dashboard.sources.empty.knowledge.description"),
+                description: t(
+                  "pages.dashboard.sources.empty.knowledge.description"
+                ),
                 cta: t("pages.dashboard.sources.empty.knowledge.cta"),
               }
             : category === "crm"
               ? {
                   title: t("pages.dashboard.sources.empty.crm.title"),
-                  description: t("pages.dashboard.sources.empty.crm.description"),
+                  description: t(
+                    "pages.dashboard.sources.empty.crm.description"
+                  ),
                   cta: t("pages.dashboard.sources.empty.crm.cta"),
                 }
               : {
                   title: t("pages.dashboard.sources.empty.all.title"),
-                  description: t("pages.dashboard.sources.empty.all.description"),
+                  description: t(
+                    "pages.dashboard.sources.empty.all.description"
+                  ),
                   cta: t("pages.dashboard.sources.empty.all.cta"),
                 };
 

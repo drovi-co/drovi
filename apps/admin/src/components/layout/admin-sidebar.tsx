@@ -13,14 +13,14 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarRail,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
-import { NavMain, type NavItem } from "./nav-main";
 import { useT } from "@/i18n";
 import { useAdminAuthStore } from "@/lib/auth";
+import { type NavItem, NavMain } from "./nav-main";
 
 type NavItemTemplate = Omit<NavItem, "title"> & { titleKey: string };
 
@@ -29,12 +29,28 @@ const overviewNav: NavItemTemplate[] = [
 ];
 
 const opsNav: NavItemTemplate[] = [
-  { titleKey: "admin.nav.items.organizations", url: "/dashboard/orgs", icon: Building2 },
+  {
+    titleKey: "admin.nav.items.organizations",
+    url: "/dashboard/orgs",
+    icon: Building2,
+  },
   { titleKey: "admin.nav.items.users", url: "/dashboard/users", icon: Users },
-  { titleKey: "admin.nav.items.connectors", url: "/dashboard/connectors", icon: Cable },
+  {
+    titleKey: "admin.nav.items.connectors",
+    url: "/dashboard/connectors",
+    icon: Cable,
+  },
   { titleKey: "admin.nav.items.jobs", url: "/dashboard/jobs", icon: Layers3 },
-  { titleKey: "admin.nav.items.tickets", url: "/dashboard/tickets", icon: Inbox },
-  { titleKey: "admin.nav.items.exchange", url: "/dashboard/exchange", icon: Gavel },
+  {
+    titleKey: "admin.nav.items.tickets",
+    url: "/dashboard/tickets",
+    icon: Inbox,
+  },
+  {
+    titleKey: "admin.nav.items.exchange",
+    url: "/dashboard/exchange",
+    icon: Gavel,
+  },
 ];
 
 export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
@@ -60,7 +76,7 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <div className="truncate font-semibold text-sm leading-tight">
               {t("admin.appName")}
             </div>
-            <div className="truncate text-muted-foreground text-[11px] leading-tight">
+            <div className="truncate text-[11px] text-muted-foreground leading-tight">
               {t("admin.tagline")}
             </div>
           </div>
@@ -68,7 +84,10 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={overviewItems} label={t("admin.nav.groups.dashboard")} />
+        <NavMain
+          items={overviewItems}
+          label={t("admin.nav.groups.dashboard")}
+        />
         <NavMain items={opsItems} label={t("admin.nav.groups.operations")} />
       </SidebarContent>
 
@@ -77,10 +96,10 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="justify-between"
-              onClick={() => void logout()}
+              onClick={() => logout()}
               tooltip={t("admin.actions.logout")}
             >
-              <span className="truncate text-xs text-muted-foreground">
+              <span className="truncate text-muted-foreground text-xs">
                 {me?.email ?? t("admin.userFallback")}
               </span>
               <LogOut className="size-4" />

@@ -247,7 +247,9 @@ function tokenize(query: string): Token[] {
     }
 
     // Check for negated filter (-entity:value)
-    const negatedMatch = remaining.match(/^-([a-z_]+):("[^"]+"|[^\s,]+(?:,[^\s,]+)*)/i);
+    const negatedMatch = remaining.match(
+      /^-([a-z_]+):("[^"]+"|[^\s,]+(?:,[^\s,]+)*)/i
+    );
     if (negatedMatch) {
       const entity = negatedMatch[1].toLowerCase();
       const valueStr = negatedMatch[2];
@@ -265,7 +267,9 @@ function tokenize(query: string): Token[] {
     }
 
     // Check for entity filter (entity:value or entity:value1,value2)
-    const filterMatch = remaining.match(/^([a-z_]+):("[^"]+"|[^\s,]+(?:,[^\s,]+)*)/i);
+    const filterMatch = remaining.match(
+      /^([a-z_]+):("[^"]+"|[^\s,]+(?:,[^\s,]+)*)/i
+    );
     if (filterMatch) {
       const entity = filterMatch[1].toLowerCase();
       const valueStr = filterMatch[2];
@@ -415,7 +419,9 @@ export interface AutocompleteSuggestion {
   icon?: string;
 }
 
-export function getEntitySuggestions(partial: string): AutocompleteSuggestion[] {
+export function getEntitySuggestions(
+  partial: string
+): AutocompleteSuggestion[] {
   const lower = partial.toLowerCase();
   return ENTITY_DEFINITIONS.filter((e) => e.name.startsWith(lower)).map(
     (e) => ({
@@ -448,7 +454,12 @@ export function getValueSuggestions(
 
 export function getTimeSuggestions(): AutocompleteSuggestion[] {
   return [
-    { type: "time", label: "@15m", value: "@15m", description: "Last 15 minutes" },
+    {
+      type: "time",
+      label: "@15m",
+      value: "@15m",
+      description: "Last 15 minutes",
+    },
     { type: "time", label: "@1h", value: "@1h", description: "Last 1 hour" },
     { type: "time", label: "@4h", value: "@4h", description: "Last 4 hours" },
     { type: "time", label: "@1d", value: "@1d", description: "Last 1 day" },
@@ -470,7 +481,10 @@ export interface CursorContext {
   existingValues?: string[];
 }
 
-export function getCursorContext(query: string, cursorPos: number): CursorContext {
+export function getCursorContext(
+  query: string,
+  cursorPos: number
+): CursorContext {
   const beforeCursor = query.slice(0, cursorPos);
 
   // Empty or whitespace only

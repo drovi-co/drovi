@@ -8,23 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth-client";
 import { useT } from "@/i18n";
+import { authClient } from "@/lib/auth-client";
 
 interface SignInFormProps {
   onSwitchToSignUp: () => void;
 }
 
-export function SignInForm({
-  onSwitchToSignUp,
-}: SignInFormProps) {
+export function SignInForm({ onSwitchToSignUp }: SignInFormProps) {
   const navigate = useNavigate();
   const t = useT();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const inviteToken =
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("invite") ?? undefined
+      ? (new URLSearchParams(window.location.search).get("invite") ?? undefined)
       : undefined;
 
   const form = useForm({
@@ -46,7 +44,9 @@ export function SignInForm({
             navigate({ to: "/dashboard" });
           },
           onError: (error) => {
-            toast.error(error.error.message || t("auth.signIn.invalidCredentials"));
+            toast.error(
+              error.error.message || t("auth.signIn.invalidCredentials")
+            );
           },
         }
       );
@@ -148,9 +148,9 @@ export function SignInForm({
             onCheckedChange={(checked) => setRememberMe(checked === true)}
           />
           <Label
-          className="cursor-pointer font-normal text-muted-foreground text-sm"
-          htmlFor="remember"
-        >
+            className="cursor-pointer font-normal text-muted-foreground text-sm"
+            htmlFor="remember"
+          >
             {t("auth.signIn.rememberMe")}
           </Label>
         </div>

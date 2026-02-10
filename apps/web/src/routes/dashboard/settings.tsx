@@ -1,6 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Download, LifeBuoy, Shield, Sparkles, Languages } from "lucide-react";
+import {
+  Building2,
+  Download,
+  Languages,
+  LifeBuoy,
+  Shield,
+  Sparkles,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
@@ -14,12 +21,18 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { authClient } from "@/lib/auth-client";
-import { authAPI, orgAPI, type OrgInfo } from "@/lib/api";
-import { useSupportModalStore } from "@/lib/support-modal";
 import { useI18n, useT } from "@/i18n";
+import { authAPI, type OrgInfo, orgAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
+import { useSupportModalStore } from "@/lib/support-modal";
 
 export const Route = createFileRoute("/dashboard/settings")({
   component: SettingsPage,
@@ -37,7 +50,8 @@ function SettingsPage() {
   const openSupport = useSupportModalStore((s) => s.openWith);
   const { locale, setLocale } = useI18n();
   const t = useT();
-  const isOrgAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
+  const isOrgAdmin =
+    user?.role === "pilot_owner" || user?.role === "pilot_admin";
 
   const {
     data: orgInfo,
@@ -92,7 +106,8 @@ function SettingsPage() {
   });
 
   const updateOrgLocaleMutation = useMutation({
-    mutationFn: (next: "en" | "fr") => orgAPI.updateOrgInfo({ defaultLocale: next }),
+    mutationFn: (next: "en" | "fr") =>
+      orgAPI.updateOrgInfo({ defaultLocale: next }),
     onSuccess: (updated) => {
       setOrgDraft(updated);
       toast.success(t("settings.orgLanguageSaved"));
@@ -125,10 +140,10 @@ function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">{t("settings.pageTitle")}</h1>
-        <p className="text-muted-foreground">
-          {t("settings.pageDescription")}
-        </p>
+        <h1 className="font-bold text-3xl tracking-tight">
+          {t("settings.pageTitle")}
+        </h1>
+        <p className="text-muted-foreground">{t("settings.pageDescription")}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -152,11 +167,12 @@ function SettingsPage() {
             ) : (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="org-name">{t("settings.orgProfile.fields.name")}</Label>
+                  <Label htmlFor="org-name">
+                    {t("settings.orgProfile.fields.name")}
+                  </Label>
                   <Input
-                    id="org-name"
-                    value={activeOrg?.name ?? ""}
                     disabled={!activeOrg}
+                    id="org-name"
                     onChange={(event) =>
                       setOrgDraft((prev) =>
                         prev
@@ -166,13 +182,15 @@ function SettingsPage() {
                             : null
                       )
                     }
+                    value={activeOrg?.name ?? ""}
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="org-region">{t("settings.orgProfile.fields.region")}</Label>
+                  <Label htmlFor="org-region">
+                    {t("settings.orgProfile.fields.region")}
+                  </Label>
                   <Select
-                    value={activeOrg?.region ?? "us-west"}
                     onValueChange={(value) =>
                       setOrgDraft((prev) =>
                         prev
@@ -182,9 +200,12 @@ function SettingsPage() {
                             : null
                       )
                     }
+                    value={activeOrg?.region ?? "us-west"}
                   >
                     <SelectTrigger id="org-region">
-                      <SelectValue placeholder={t("settings.orgProfile.regionPlaceholder")} />
+                      <SelectValue
+                        placeholder={t("settings.orgProfile.regionPlaceholder")}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {REGIONS.map((region) => (
@@ -197,12 +218,16 @@ function SettingsPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="allowed-domains">{t("settings.orgProfile.fields.allowedDomains")}</Label>
+                  <Label htmlFor="allowed-domains">
+                    {t("settings.orgProfile.fields.allowedDomains")}
+                  </Label>
                   <Input
                     id="allowed-domains"
-                    placeholder={t("settings.orgProfile.allowedDomainsPlaceholder")}
-                    value={allowedDomains}
                     onChange={(event) => handleDomainChange(event.target.value)}
+                    placeholder={t(
+                      "settings.orgProfile.allowedDomainsPlaceholder"
+                    )}
+                    value={allowedDomains}
                   />
                   <p className="text-muted-foreground text-xs">
                     {t("settings.orgProfile.allowedDomainsHint")}
@@ -210,14 +235,18 @@ function SettingsPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="notification-emails">{t("settings.orgProfile.fields.notificationEmails")}</Label>
+                  <Label htmlFor="notification-emails">
+                    {t("settings.orgProfile.fields.notificationEmails")}
+                  </Label>
                   <Input
                     id="notification-emails"
-                    placeholder={t("settings.orgProfile.notificationEmailsPlaceholder")}
-                    value={notificationEmails}
                     onChange={(event) =>
                       handleNotificationEmails(event.target.value)
                     }
+                    placeholder={t(
+                      "settings.orgProfile.notificationEmailsPlaceholder"
+                    )}
+                    value={notificationEmails}
                   />
                 </div>
 
@@ -228,8 +257,13 @@ function SettingsPage() {
                       connections: activeOrg?.connection_count ?? 0,
                     })}
                   </div>
-                  <Button onClick={handleOrgSave} disabled={updateOrgMutation.isPending}>
-                    {updateOrgMutation.isPending ? t("settings.orgProfile.saving") : t("settings.orgProfile.save")}
+                  <Button
+                    disabled={updateOrgMutation.isPending}
+                    onClick={handleOrgSave}
+                  >
+                    {updateOrgMutation.isPending
+                      ? t("settings.orgProfile.saving")
+                      : t("settings.orgProfile.save")}
                   </Button>
                 </div>
               </>
@@ -253,18 +287,20 @@ function SettingsPage() {
                 <div className="grid gap-2">
                   <Label>{t("settings.yourLanguage")}</Label>
                   <Select
-                    value={locale}
                     onValueChange={(value) => {
                       const next = value === "fr" ? "fr" : "en";
                       setLocale(next);
                       updateLocaleMutation.mutate(next);
                     }}
+                    value={locale}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">{t("settings.english")}</SelectItem>
+                      <SelectItem value="en">
+                        {t("settings.english")}
+                      </SelectItem>
                       <SelectItem value="fr">{t("settings.french")}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -274,19 +310,23 @@ function SettingsPage() {
                   <div className="grid gap-2">
                     <Label>{t("settings.orgDefaultLanguage")}</Label>
                     <Select
-                      value={activeOrg?.default_locale ?? "en"}
+                      disabled={!activeOrg}
                       onValueChange={(value) => {
                         const next = value === "fr" ? "fr" : "en";
                         updateOrgLocaleMutation.mutate(next);
                       }}
-                      disabled={!activeOrg}
+                      value={activeOrg?.default_locale ?? "en"}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="en">{t("settings.english")}</SelectItem>
-                        <SelectItem value="fr">{t("settings.french")}</SelectItem>
+                        <SelectItem value="en">
+                          {t("settings.english")}
+                        </SelectItem>
+                        <SelectItem value="fr">
+                          {t("settings.french")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-muted-foreground text-xs">
@@ -310,21 +350,23 @@ function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/40 p-4">
-                <p className="text-xs uppercase text-muted-foreground">{t("settings.account.emailLabel")}</p>
-                <p className="mt-1 font-medium text-sm">
-                  {user?.email ?? "—"}
+                <p className="text-muted-foreground text-xs uppercase">
+                  {t("settings.account.emailLabel")}
                 </p>
+                <p className="mt-1 font-medium text-sm">{user?.email ?? "—"}</p>
               </div>
               <div className="rounded-lg border border-border bg-muted/40 p-4">
-                <p className="text-xs uppercase text-muted-foreground">{t("settings.account.roleLabel")}</p>
+                <p className="text-muted-foreground text-xs uppercase">
+                  {t("settings.account.roleLabel")}
+                </p>
                 <p className="mt-1 font-medium text-sm">
                   {user?.role ?? t("settings.account.roleFallback")}
                 </p>
               </div>
               <Button
                 className="w-full"
-                variant="outline"
                 onClick={() => authClient.signOut()}
+                variant="outline"
               >
                 {t("common.actions.signOut")}
               </Button>
@@ -342,10 +384,10 @@ function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
                 {t("settings.security.note")}
               </div>
-              <Button variant="outline" disabled className="w-full">
+              <Button className="w-full" disabled variant="outline">
                 {t("settings.security.manageSoon")}
               </Button>
             </CardContent>
@@ -364,17 +406,20 @@ function SettingsPage() {
             <CardContent>
               <Button
                 className="w-full"
-                variant="secondary"
                 onClick={async () => {
                   try {
                     const result = await orgAPI.exportData({ format: "json" });
                     toast.success(t("settings.export.toastStarted"), {
-                      description: t("settings.export.toastStartedDescription", { jobId: result.export_job_id }),
+                      description: t(
+                        "settings.export.toastStartedDescription",
+                        { jobId: result.export_job_id }
+                      ),
                     });
                   } catch (error) {
                     toast.error(t("settings.export.toastFailed"));
                   }
                 }}
+                variant="secondary"
               >
                 {t("settings.export.start")}
               </Button>
@@ -396,7 +441,7 @@ function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
                 {t("settings.support.diagnosticsNote")}
               </div>
               <Button
@@ -405,7 +450,10 @@ function SettingsPage() {
                   openSupport({
                     subject: "",
                     message: "",
-                    route: typeof window !== "undefined" ? window.location.pathname : undefined,
+                    route:
+                      typeof window !== "undefined"
+                        ? window.location.pathname
+                        : undefined,
                   })
                 }
               >

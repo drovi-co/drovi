@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { MonitorUp } from "lucide-react";
-import { AdminSidebar } from "./admin-sidebar";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { AdminSidebar } from "./admin-sidebar";
 
 function getTitleKeyForPath(pathname: string): string {
   if (pathname === "/dashboard") return "admin.nav.items.overview";
@@ -63,10 +63,10 @@ export function AppShell(props: { children: React.ReactNode }) {
         <AdminSidebar />
 
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-shell-border bg-shell px-4">
+          <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-shell-border border-b bg-shell px-4">
             <SidebarTrigger className="text-muted-foreground" variant="ghost" />
             <div className="flex flex-1 items-center justify-between gap-3">
-              <div className="min-w-0 flex flex-col gap-0.5">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 <div className="truncate font-medium text-sm leading-none tracking-tight">
                   {title}
                 </div>
@@ -80,7 +80,7 @@ export function AppShell(props: { children: React.ReactNode }) {
                   "h-8 gap-2",
                   isFullscreen ? "border border-border" : ""
                 )}
-                onClick={() => void toggleFullscreen()}
+                onClick={() => toggleFullscreen()}
                 size="sm"
                 type="button"
                 variant="secondary"

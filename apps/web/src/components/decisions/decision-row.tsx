@@ -17,7 +17,7 @@ import {
 import { IssueCheckbox } from "@/components/ui/issue-checkbox";
 import { PriorityIcon } from "@/components/ui/priority-icon";
 import { type Status, StatusIcon } from "@/components/ui/status-icon";
-import { useI18n, type TFunction } from "@/i18n";
+import { type TFunction, useI18n } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
@@ -95,17 +95,23 @@ function getOwnerName(
   owner:
     | { displayName?: string | null; primaryEmail: string }
     | null
-    | undefined
-  ,
+    | undefined,
   t: TFunction
 ): string {
   if (!owner) {
     return t("common.messages.unknown");
   }
-  return owner.displayName || owner.primaryEmail.split("@")[0] || t("common.messages.unknown");
+  return (
+    owner.displayName ||
+    owner.primaryEmail.split("@")[0] ||
+    t("common.messages.unknown")
+  );
 }
 
-function formatDecisionDate(date: Date, options: { locale: string; t: TFunction }): string {
+function formatDecisionDate(
+  date: Date,
+  options: { locale: string; t: TFunction }
+): string {
   const diffDays = getLocalDayDiff(date);
   if (diffDays === 0) {
     return options.t("components.decisions.date.today");
@@ -447,15 +453,21 @@ function DecisionListHeader({
       <div className={cn(COL.status, "shrink-0")} />
 
       {/* Owner */}
-      <div className={cn(COL.owner, "shrink-0 px-1")}>{t("components.decisions.listHeader.owner")}</div>
+      <div className={cn(COL.owner, "shrink-0 px-1")}>
+        {t("components.decisions.listHeader.owner")}
+      </div>
 
       {/* Title */}
-      <div className="flex-1 px-2">{t("components.decisions.listHeader.decision")}</div>
+      <div className="flex-1 px-2">
+        {t("components.decisions.listHeader.decision")}
+      </div>
 
       {/* Right section */}
       <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 whitespace-nowrap text-right">{t("components.decisions.listHeader.date")}</span>
+          <span className="w-14 whitespace-nowrap text-right">
+            {t("components.decisions.listHeader.date")}
+          </span>
           <div className="w-7" />
           <div className="w-7" />
         </div>

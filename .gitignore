@@ -1,5 +1,6 @@
 # Dependencies
 node_modules
+.bun
 .venv
 __pycache__
 *.pyc
@@ -49,11 +50,17 @@ lerna-debug.log*
 coverage
 .nyc_output
 
+# Drovi Intelligence CI artifacts
+drovi-intelligence/.coverage/current.json
+drovi-intelligence/.coverage/current*.json
+openapi/openapi.generated.json
+
 # Misc
 *.tgz
 .cache
 tmp
 temp
+perf
 
 # Tauri / Rust
 apps/*/src-tauri/target

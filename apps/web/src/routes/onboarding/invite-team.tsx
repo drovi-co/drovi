@@ -94,7 +94,9 @@ function InviteTeamPage() {
       toast.success(
         invites.length === 1
           ? t("onboarding.inviteTeam.toasts.sentOne")
-          : t("onboarding.inviteTeam.toasts.sentMany", { count: invites.length })
+          : t("onboarding.inviteTeam.toasts.sentMany", {
+              count: invites.length,
+            })
       );
       navigate({ to: "/onboarding/complete" });
     } catch {
@@ -125,7 +127,9 @@ function InviteTeamPage() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Users className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t("onboarding.inviteTeam.title")}</CardTitle>
+          <CardTitle className="text-2xl">
+            {t("onboarding.inviteTeam.title")}
+          </CardTitle>
           <CardDescription className="text-base">
             {t("onboarding.inviteTeam.descriptionPrefix")}{" "}
             <span className="font-medium">{activeOrg.name}</span>
@@ -157,7 +161,9 @@ function InviteTeamPage() {
                 <span className="text-muted-foreground text-xs">
                   {invites.length === 1
                     ? t("onboarding.inviteTeam.pending.countOne")
-                    : t("onboarding.inviteTeam.pending.countMany", { count: invites.length })}
+                    : t("onboarding.inviteTeam.pending.countMany", {
+                        count: invites.length,
+                      })}
                 </span>
               </div>
               <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
@@ -227,10 +233,12 @@ function InviteTeamPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {t("onboarding.inviteTeam.sending")}
                 </>
+              ) : invites.length === 1 ? (
+                t("onboarding.inviteTeam.sendOne")
               ) : (
-                invites.length === 1
-                  ? t("onboarding.inviteTeam.sendOne")
-                  : t("onboarding.inviteTeam.sendMany", { count: invites.length || 0 })
+                t("onboarding.inviteTeam.sendMany", {
+                  count: invites.length || 0,
+                })
               )}
             </Button>
             <Button

@@ -32,7 +32,10 @@ function formatDate(dateStr: string | undefined, locale: string): string {
     return "";
   }
   const date = new Date(dateStr);
-  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 // =============================================================================
@@ -196,20 +199,26 @@ function CommitmentNodeComponent({ data, selected }: NodeProps) {
                   : t("pages.dashboard.graph.nodes.commitment.owedToYou")}
               </Badge>
               <Badge variant="outline">
-                {t("pages.dashboard.graph.nodes.commitment.priority", { priority: nodeData.priority })}
+                {t("pages.dashboard.graph.nodes.commitment.priority", {
+                  priority: nodeData.priority,
+                })}
               </Badge>
             </div>
             {nodeData.dueDate && (
               <p className="text-muted-foreground text-xs">
                 {t("pages.dashboard.graph.nodes.commitment.due", {
-                  date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
-                    new Date(nodeData.dueDate)
-                  ),
+                  date: new Intl.DateTimeFormat(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }).format(new Date(nodeData.dueDate)),
                 })}
               </p>
             )}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.commitment.confidence")}</span>
+              <span className="text-muted-foreground">
+                {t("pages.dashboard.graph.nodes.commitment.confidence")}
+              </span>
               <div className="h-1.5 w-16 rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-violet-500"

@@ -28,7 +28,9 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             <img
               alt="Drovi"
               className="h-8 w-8 rounded-lg"
+              height={32}
               src="/logo-dark.jpg"
+              width={32}
             />
             <span>Drovi</span>
           </Link>
@@ -83,7 +85,9 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
 
         <div className="space-y-4">
           <div className="rounded-lg border bg-background p-4">
-            <h4 className="mb-2 font-medium">{t("onboarding.layout.needHelp.title")}</h4>
+            <h4 className="mb-2 font-medium">
+              {t("onboarding.layout.needHelp.title")}
+            </h4>
             <p className="mb-3 text-muted-foreground text-sm">
               {t("onboarding.layout.needHelp.description")}
             </p>
@@ -93,7 +97,8 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
           </div>
 
           <p className="text-center text-muted-foreground text-xs">
-            &copy; {new Date().getFullYear()} Drovi. {t("onboarding.layout.footer.rights")}
+            &copy; {new Date().getFullYear()} Drovi.{" "}
+            {t("onboarding.layout.footer.rights")}
           </p>
         </div>
       </div>
@@ -106,7 +111,9 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
             <img
               alt="Drovi"
               className="h-7 w-7 rounded-lg"
+              height={28}
               src="/logo-dark.jpg"
+              width={28}
             />
             <span>Drovi</span>
           </Link>

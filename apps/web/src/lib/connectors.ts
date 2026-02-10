@@ -103,6 +103,8 @@ export const CONNECTOR_META_BY_ID = new Map(
   CONNECTOR_CATALOG.map((connector) => [connector.id, connector])
 );
 
-export function getConnectorMeta(connectorId: string): ConnectorMeta | undefined {
+export function getConnectorMeta(
+  connectorId: string
+): ConnectorMeta | undefined {
   return CONNECTOR_META_BY_ID.get(connectorId);
 }

@@ -30,9 +30,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { authClient } from "@/lib/auth-client";
-import { changesAPI, type ChangeRecord } from "@/lib/api";
 import { useT } from "@/i18n";
+import { type ChangeRecord, changesAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard/reality-stream/")({
   component: RealityStreamPage,
@@ -67,15 +67,13 @@ function RealityStreamPage() {
 
   const grouped = useMemo(() => {
     const groups = new Map<string, ChangeRecord[]>();
-    (data?.changes ?? []).forEach((change) => {
+    for (const change of data?.changes ?? []) {
       const day = format(new Date(change.timestamp), "yyyy-MM-dd");
       const list = groups.get(day) ?? [];
       list.push(change);
       groups.set(day, list);
-    });
-    return Array.from(groups.entries()).sort((a, b) =>
-      a[0] < b[0] ? 1 : -1
-    );
+    }
+    return Array.from(groups.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [data]);
 
   if (orgLoading) {
@@ -95,12 +93,30 @@ function RealityStreamPage() {
   }
 
   const entityFilters = [
-    { value: "all", label: t("pages.dashboard.realityStream.filters.entity.all") },
-    { value: "commitment", label: t("pages.dashboard.realityStream.filters.entity.commitment") },
-    { value: "decision", label: t("pages.dashboard.realityStream.filters.entity.decision") },
-    { value: "task", label: t("pages.dashboard.realityStream.filters.entity.task") },
-    { value: "risk", label: t("pages.dashboard.realityStream.filters.entity.risk") },
-    { value: "brief", label: t("pages.dashboard.realityStream.filters.entity.brief") },
+    {
+      value: "all",
+      label: t("pages.dashboard.realityStream.filters.entity.all"),
+    },
+    {
+      value: "commitment",
+      label: t("pages.dashboard.realityStream.filters.entity.commitment"),
+    },
+    {
+      value: "decision",
+      label: t("pages.dashboard.realityStream.filters.entity.decision"),
+    },
+    {
+      value: "task",
+      label: t("pages.dashboard.realityStream.filters.entity.task"),
+    },
+    {
+      value: "risk",
+      label: t("pages.dashboard.realityStream.filters.entity.risk"),
+    },
+    {
+      value: "brief",
+      label: t("pages.dashboard.realityStream.filters.entity.brief"),
+    },
   ];
 
   return (
@@ -108,7 +124,7 @@ function RealityStreamPage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <Activity className="h-3 w-3" />
               {t("pages.dashboard.realityStream.kicker")}
             </div>
@@ -138,7 +154,7 @@ function RealityStreamPage() {
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">
+            <label className="font-medium text-sm">
               {t("pages.dashboard.realityStream.filters.entity.label")}
             </label>
             <Select onValueChange={setEntityFilter} value={entityFilter}>
@@ -155,7 +171,7 @@ function RealityStreamPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">
+            <label className="font-medium text-sm">
               {t("pages.dashboard.realityStream.filters.range.label")}
             </label>
             <Select onValueChange={setRangeDays} value={rangeDays}>
@@ -163,9 +179,15 @@ function RealityStreamPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">{t("pages.dashboard.realityStream.filters.range.last24h")}</SelectItem>
-                <SelectItem value="7">{t("pages.dashboard.realityStream.filters.range.last7d")}</SelectItem>
-                <SelectItem value="30">{t("pages.dashboard.realityStream.filters.range.last30d")}</SelectItem>
+                <SelectItem value="1">
+                  {t("pages.dashboard.realityStream.filters.range.last24h")}
+                </SelectItem>
+                <SelectItem value="7">
+                  {t("pages.dashboard.realityStream.filters.range.last7d")}
+                </SelectItem>
+                <SelectItem value="30">
+                  {t("pages.dashboard.realityStream.filters.range.last30d")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -174,7 +196,9 @@ function RealityStreamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{t("pages.dashboard.realityStream.timeline.title")}</CardTitle>
+          <CardTitle className="text-base">
+            {t("pages.dashboard.realityStream.timeline.title")}
+          </CardTitle>
           <CardDescription>
             {t("pages.dashboard.realityStream.timeline.count", {
               count: data?.total_count ?? 0,
@@ -201,7 +225,10 @@ function RealityStreamPage() {
                 </div>
                 <div className="space-y-2">
                   {changes.map((change) => (
-                    <ChangeRow change={change} key={change.entity_id + change.timestamp} />
+                    <ChangeRow
+                      change={change}
+                      key={change.entity_id + change.timestamp}
+                    />
                   ))}
                 </div>
               </div>
@@ -233,10 +260,11 @@ function ChangeRow({ change }: { change: ChangeRecord }) {
         </p>
       )}
       {change.diff?.changes?.length ? (
-        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+        <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
           {change.diff.changes.slice(0, 4).map((delta) => (
             <li key={delta.field_name}>
-              {delta.field_name}: {String(delta.old_value ?? "—")} → {String(delta.new_value ?? "—")}
+              {delta.field_name}: {String(delta.old_value ?? "—")} →{" "}
+              {String(delta.new_value ?? "—")}
             </li>
           ))}
         </ul>

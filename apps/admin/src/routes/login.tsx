@@ -47,7 +47,9 @@ function AdminLoginPage() {
       navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : t("admin.login.toasts.signInFailed")
+        err instanceof Error
+          ? err.message
+          : t("admin.login.toasts.signInFailed")
       );
     }
   };
@@ -68,13 +70,15 @@ function AdminLoginPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-foreground" />
-              <div className="text-sm font-medium tracking-tight">{t("admin.appName")}</div>
+              <div className="font-medium text-sm tracking-tight">
+                {t("admin.appName")}
+              </div>
             </div>
             <div className="text-muted-foreground text-xs">
               {t("admin.login.operatorOnly")}
             </div>
           </div>
-          <div className="hidden text-right text-xs text-muted-foreground sm:block">
+          <div className="hidden text-right text-muted-foreground text-xs sm:block">
             <div>{t("admin.login.kpiHint")}</div>
             <div>{t("admin.login.opsHint")}</div>
           </div>
@@ -82,7 +86,9 @@ function AdminLoginPage() {
 
         <Card className="border-border/70 bg-card/70 backdrop-blur">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-[15px]">{t("admin.login.title")}</CardTitle>
+            <CardTitle className="text-[15px]">
+              {t("admin.login.title")}
+            </CardTitle>
             <div className="text-muted-foreground text-xs">
               {t("admin.login.description")}
             </div>
@@ -92,39 +98,45 @@ function AdminLoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="email">{t("admin.login.fields.email")}</Label>
                 <Input
-                  id="email"
                   autoComplete="email"
+                  id="email"
                   inputMode="email"
+                  onChange={(ev) => setEmail(ev.target.value)}
                   placeholder={t("admin.login.placeholders.email")}
                   value={email}
-                  onChange={(ev) => setEmail(ev.target.value)}
                 />
                 {domainHint ? (
                   <div
                     className={cn(
                       "text-xs",
-                      domainHint.ok ? "text-muted-foreground" : "text-destructive"
+                      domainHint.ok
+                        ? "text-muted-foreground"
+                        : "text-destructive"
                     )}
                   >
                     {t("admin.login.domain.label", { domain: domainHint.text })}
-                    {!domainHint.ok ? ` (${t("admin.login.domain.notAllowed")})` : ""}
+                    {domainHint.ok
+                      ? ""
+                      : ` (${t("admin.login.domain.notAllowed")})`}
                   </div>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">{t("admin.login.fields.password")}</Label>
+                <Label htmlFor="password">
+                  {t("admin.login.fields.password")}
+                </Label>
                 <Input
-                  id="password"
-                  type="password"
                   autoComplete="current-password"
-                  placeholder="••••••••••••••••"
-                  value={password}
+                  id="password"
                   onChange={(ev) => setPassword(ev.target.value)}
+                  placeholder="••••••••••••••••"
+                  type="password"
+                  value={password}
                 />
               </div>
 
-              <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-muted-foreground text-xs">
                 <input
                   checked={persist}
                   className="accent-foreground"
@@ -135,19 +147,21 @@ function AdminLoginPage() {
               </label>
 
               {error ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-xs">
                   {error}
                 </div>
               ) : null}
 
               <Button className="w-full" disabled={isLoading} type="submit">
-                {isLoading ? t("admin.login.submitting") : t("common.actions.signIn")}
+                {isLoading
+                  ? t("admin.login.submitting")
+                  : t("common.actions.signIn")}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <div className="mt-4 text-center text-muted-foreground text-[11px]">
+        <div className="mt-4 text-center text-[11px] text-muted-foreground">
           {t("admin.login.troubleshoot")}
         </div>
       </div>

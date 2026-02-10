@@ -283,7 +283,9 @@ export function CommitmentDetailSheet({
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t("components.commitmentDetailSheet.aiConfidence")}</span>
+                  <span className="text-muted-foreground">
+                    {t("components.commitmentDetailSheet.aiConfidence")}
+                  </span>
                   <span
                     className={cn(
                       "font-medium",
@@ -370,7 +372,9 @@ export function CommitmentDetailSheet({
                     <p className="text-muted-foreground text-xs">
                       {commitment.direction === "owed_to_me"
                         ? t("components.commitmentDetailSheet.people.you")
-                        : t("components.commitmentDetailSheet.people.expectingThis")}
+                        : t(
+                            "components.commitmentDetailSheet.people.expectingThis"
+                          )}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -410,7 +414,9 @@ export function CommitmentDetailSheet({
                     <p className="font-medium text-sm">
                       {getLocalDayDiff(commitment.dueDate) < 0
                         ? t("components.commitmentDetailSheet.timeline.wasDue")
-                        : t("components.commitmentDetailSheet.timeline.due")}{" "}
+                        : t(
+                            "components.commitmentDetailSheet.timeline.due"
+                          )}{" "}
                       {new Intl.DateTimeFormat(locale, {
                         year: "numeric",
                         month: "long",
@@ -436,12 +442,15 @@ export function CommitmentDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {t("components.commitmentDetailSheet.timeline.snoozedUntil", {
-                        date: new Intl.DateTimeFormat(locale, {
-                          month: "long",
-                          day: "numeric",
-                        }).format(commitment.snoozedUntil),
-                      })}
+                      {t(
+                        "components.commitmentDetailSheet.timeline.snoozedUntil",
+                        {
+                          date: new Intl.DateTimeFormat(locale, {
+                            month: "long",
+                            day: "numeric",
+                          }).format(commitment.snoozedUntil),
+                        }
+                      )}
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {formatRelativeTime(commitment.snoozedUntil, locale)}
@@ -456,13 +465,16 @@ export function CommitmentDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {t("components.commitmentDetailSheet.timeline.completed", {
-                        date: new Intl.DateTimeFormat(locale, {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }).format(commitment.completedAt),
-                      })}
+                      {t(
+                        "components.commitmentDetailSheet.timeline.completed",
+                        {
+                          date: new Intl.DateTimeFormat(locale, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }).format(commitment.completedAt),
+                        }
+                      )}
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {formatRelativeTime(commitment.completedAt, locale)}
@@ -503,7 +515,10 @@ export function CommitmentDetailSheet({
                 {commitment.metadata?.extractedAt && (
                   <p className="mt-2 text-muted-foreground text-xs">
                     {t("components.commitmentDetailSheet.evidence.extracted", {
-                      time: formatRelativeTime(new Date(commitment.metadata.extractedAt), locale),
+                      time: formatRelativeTime(
+                        new Date(commitment.metadata.extractedAt),
+                        locale
+                      ),
                     })}
                   </p>
                 )}
@@ -527,7 +542,10 @@ export function CommitmentDetailSheet({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sm">
-                    {commitment.sourceThread.subject ?? t("components.commitmentDetailSheet.sourceThread.emailThreadFallback")}
+                    {commitment.sourceThread.subject ??
+                      t(
+                        "components.commitmentDetailSheet.sourceThread.emailThreadFallback"
+                      )}
                   </p>
                   {commitment.sourceThread.snippet && (
                     <p className="truncate text-muted-foreground text-xs">

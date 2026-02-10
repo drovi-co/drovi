@@ -14,8 +14,8 @@ import type {
   HeaderTab,
 } from "@/components/layout/interactive-header";
 import { useT } from "@/i18n";
-import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   getStoredOnboardingState,
   inferOnboardingComplete,
@@ -63,7 +63,10 @@ export const Route = createFileRoute("/dashboard")({
 
 function getBreadcrumbs(
   pathname: string,
-  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+  t: (
+    key: string,
+    params?: Record<string, string | number | boolean | null | undefined>
+  ) => string
 ) {
   const breadcrumbs: Array<{ label: string; href?: string }> = [];
 
@@ -171,7 +174,10 @@ function getBreadcrumbs(
 
   // Contact detail page
   if (pathname.startsWith("/dashboard/contacts/")) {
-    breadcrumbs.push({ label: t("nav.items.people"), href: "/dashboard/contacts" });
+    breadcrumbs.push({
+      label: t("nav.items.people"),
+      href: "/dashboard/contacts",
+    });
     breadcrumbs.push({ label: t("pages.dashboard.contacts.profile") });
     return breadcrumbs;
   }
@@ -181,7 +187,6 @@ function getBreadcrumbs(
     breadcrumbs.push({ label: t("nav.items.connectedSources") });
     return breadcrumbs;
   }
-
 
   // Team section
   if (pathname.startsWith("/dashboard/team")) {

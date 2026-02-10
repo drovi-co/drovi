@@ -46,8 +46,9 @@
     "docker:restart": "docker-compose restart",
     "green": "bun run check-types && bun run test:run && bun run docker:up:build",
     "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:run": "vitest run --config vitest.node.config.ts && vitest run --config vitest.browser.config.ts",
+    "test:coverage": "vitest run --coverage --config vitest.node.config.ts && vitest run --coverage --config vitest.browser.config.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@memorystack/env": "workspace:*",
@@ -61,10 +62,16 @@
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
     "@memorystack/config": "workspace:*",
+    "@playwright/test": "^1.50.1",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bun": "catalog:",
     "@vitest/coverage-v8": "^4.0.16",
     "husky": "latest",
+    "jsdom": "^26.0.0",
     "lint-staged": "latest",
+    "msw": "^2.11.0",
     "turbo": "^2.6.3",
     "typescript": "catalog:",
     "ultracite": "7.0.8",

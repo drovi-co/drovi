@@ -12,18 +12,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
 import { ContactCard, type ContactCardData } from "@/components/dashboards";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/auth-client";
-import { contactsAPI, type ContactSummary } from "@/lib/api";
 import { useT } from "@/i18n";
+import { type ContactSummary, contactsAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -117,13 +117,14 @@ function ContactsPage() {
     refetch: refetchSearch,
   } = useQuery({
     queryKey: ["contacts", "search", organizationId, searchQuery],
-    queryFn: () => contactsAPI.search({ organizationId, query: searchQuery, limit: 20 }),
+    queryFn: () =>
+      contactsAPI.search({ organizationId, query: searchQuery, limit: 20 }),
     enabled: !!organizationId && searchQuery.length > 2,
   });
 
   const handleRefresh = useCallback(async () => {
     // Always keep stats fresh as well (cheap + used in header).
-    void refetchStats();
+    refetchStats().catch(() => undefined);
 
     if (searchQuery.length > 2) {
       await refetchSearch();
@@ -150,11 +151,16 @@ function ContactsPage() {
 
   // Mutations
   const toggleVipMutation = useMutation({
-    mutationFn: async ({ contactId, isVip }: { contactId: string; isVip: boolean }) =>
-      contactsAPI.toggleVip(contactId, organizationId, isVip),
+    mutationFn: async ({
+      contactId,
+      isVip,
+    }: {
+      contactId: string;
+      isVip: boolean;
+    }) => contactsAPI.toggleVip(contactId, organizationId, isVip),
     onSuccess: () => {
       toast.success(t("pages.dashboard.contacts.toasts.vipUpdated"));
-      void handleRefresh();
+      handleRefresh().catch(() => undefined);
     },
     onError: () => {
       toast.error(t("pages.dashboard.contacts.toasts.vipFailed"));
@@ -207,7 +213,7 @@ function ContactsPage() {
         document.getElementById("contact-search")?.focus();
       }
       if (e.key === "r") {
-        void handleRefresh();
+        handleRefresh().catch(() => undefined);
       }
       if (e.key === "1") {
         setViewFilter("all");
@@ -270,7 +276,7 @@ function ContactsPage() {
     (contactId: string) => {
       // Find current VIP status from contacts
       const allContacts = getCurrentContacts();
-      const contact = allContacts.find(c => c.id === contactId);
+      const contact = allContacts.find((c) => c.id === contactId);
       const currentVipStatus = contact?.isVip ?? false;
       toggleVipMutation.mutate({ contactId, isVip: !currentVipStatus });
     },
@@ -419,7 +425,7 @@ function ContactsPage() {
 
               <Button
                 className="h-8 w-8"
-                onClick={() => void handleRefresh()}
+                onClick={() => handleRefresh().catch(() => undefined)}
                 size="icon"
                 variant="ghost"
               >
@@ -447,11 +453,17 @@ function ContactsPage() {
             </div>
           ) : statsIsError && !statsData ? (
             <div className="p-4">
-              <ApiErrorPanel error={statsError} onRetry={() => void handleRefresh()} />
+              <ApiErrorPanel
+                error={statsError}
+                onRetry={() => handleRefresh().catch(() => undefined)}
+              />
             </div>
           ) : activeIsError ? (
             <div className="p-4">
-              <ApiErrorPanel error={activeError} onRetry={() => void handleRefresh()} />
+              <ApiErrorPanel
+                error={activeError}
+                onRetry={() => handleRefresh().catch(() => undefined)}
+              />
             </div>
           ) : isLoading || (searchQuery.length > 2 && isLoadingSearch) ? (
             <div>

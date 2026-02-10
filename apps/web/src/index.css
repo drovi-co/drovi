@@ -94,8 +94,10 @@
   /* Shadows - Subtle and clean */
   --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-card:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-dropdown:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* Dark mode - Pure black and white inverted */
@@ -178,7 +180,8 @@
   --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
 }
 
 /* =============================================================================
@@ -244,10 +247,12 @@
 
   /* Typography - JetBrains Mono as primary font */
   --font-sans:
-    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
+    monospace;
 
   --font-mono:
-    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
+    monospace;
 
   /* Vercel-style spacing scale */
   --spacing-px: 1px;

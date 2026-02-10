@@ -1,6 +1,6 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "./app-sidebar";
 import { ApiStatusBanner } from "./api-status-banner";
+import { AppSidebar } from "./app-sidebar";
 import type {
   ActionButton,
   BreadcrumbItemData,
@@ -85,7 +85,6 @@ export function AppShell({
           </SidebarInset>
         </div>
       </div>
-
     </SidebarProvider>
   );
 }

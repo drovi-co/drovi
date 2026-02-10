@@ -6,7 +6,11 @@ import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/i18n";
-import { documentsAPI, type DriveDocumentChunkDetail, type EvidenceArtifact } from "@/lib/api";
+import {
+  type DriveDocumentChunkDetail,
+  documentsAPI,
+  type EvidenceArtifact,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type HighlightBox = {
@@ -19,11 +23,7 @@ type HighlightBox = {
 };
 
 function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[“”]/g, "\"")
-    .trim();
+  return value.toLowerCase().replace(/\s+/g, " ").replace(/[“”]/g, '"').trim();
 }
 
 function pickHighlightBoxes(
@@ -109,11 +109,14 @@ export function DriveDocumentViewer({
   const t = useT();
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
-  const [rendered, setRendered] = useState<{ w: number; h: number } | null>(null);
+  const [rendered, setRendered] = useState<{ w: number; h: number } | null>(
+    null
+  );
 
   const chunkQuery = useQuery({
     queryKey: ["drive-chunk", organizationId, chunkId],
-    queryFn: () => documentsAPI.getChunk({ chunkId: chunkId as string, organizationId }),
+    queryFn: () =>
+      documentsAPI.getChunk({ chunkId: chunkId as string, organizationId }),
     enabled: Boolean(organizationId && chunkId),
   });
 
@@ -139,7 +142,7 @@ export function DriveDocumentViewer({
   }, [chunk, quote]);
 
   const scale = useMemo(() => {
-    if (!natural || !rendered || natural.w <= 0) return 1;
+    if (!(natural && rendered) || natural.w <= 0) return 1;
     return rendered.w / natural.w;
   }, [natural, rendered]);
 
@@ -163,7 +166,10 @@ export function DriveDocumentViewer({
           <CardTitle className="text-base">{t("drive.viewer.title")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ApiErrorPanel error={chunkQuery.error} onRetry={() => chunkQuery.refetch()} />
+          <ApiErrorPanel
+            error={chunkQuery.error}
+            onRetry={() => chunkQuery.refetch()}
+          />
         </CardContent>
       </Card>
     );
@@ -186,10 +192,14 @@ export function DriveDocumentViewer({
     <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
         <div className="min-w-0">
-          <CardTitle className="truncate text-base">{t("drive.viewer.pagePreview")}</CardTitle>
+          <CardTitle className="truncate text-base">
+            {t("drive.viewer.pagePreview")}
+          </CardTitle>
           <div className="mt-1 text-muted-foreground text-xs">
             {t("drive.pages.chunk")} {chunk.chunkIndex}
-            {chunk.pageIndex != null ? ` · ${t("drive.pages.page")} ${chunk.pageIndex + 1}` : ""}
+            {chunk.pageIndex != null
+              ? ` · ${t("drive.pages.page")} ${chunk.pageIndex + 1}`
+              : ""}
           </div>
         </div>
         {imageUrl ? (
@@ -204,7 +214,11 @@ export function DriveDocumentViewer({
       <CardContent className="space-y-3">
         {chunk.imageArtifactId && !imageUrl ? (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
-            {artifactQuery.isError ? <AlertCircle className="h-4 w-4 text-destructive" /> : <Loader2 className="h-4 w-4 animate-spin" />}
+            {artifactQuery.isError ? (
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            ) : (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             <span>
               {artifactQuery.isError
                 ? t("drive.viewer.failedPageImage")
@@ -221,6 +235,7 @@ export function DriveDocumentViewer({
             <img
               alt={t("drive.viewer.pageAlt")}
               className="block h-auto w-full"
+              height={natural?.h ?? 1600}
               onLoad={() => {
                 const el = imgRef.current;
                 if (!el) return;
@@ -229,6 +244,7 @@ export function DriveDocumentViewer({
               }}
               ref={imgRef}
               src={imageUrl}
+              width={natural?.w ?? 1200}
             />
 
             {/* Highlight overlay */}
@@ -251,7 +267,9 @@ export function DriveDocumentViewer({
           </div>
         ) : (
           <div className="rounded-xl border bg-muted/20 p-4">
-            <div className="text-muted-foreground text-xs">{t("drive.viewer.textPreview")}</div>
+            <div className="text-muted-foreground text-xs">
+              {t("drive.viewer.textPreview")}
+            </div>
             <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
               {chunk.text}
             </div>
@@ -260,7 +278,9 @@ export function DriveDocumentViewer({
 
         {quote ? (
           <div className="rounded-xl border bg-amber-50/60 px-3 py-2 text-amber-900 text-xs dark:bg-amber-500/10 dark:text-amber-200">
-            <span className="font-medium">{t("drive.viewer.evidenceQuote")}</span>{" "}
+            <span className="font-medium">
+              {t("drive.viewer.evidenceQuote")}
+            </span>{" "}
             <span className="italic">"{quote}"</span>
           </div>
         ) : null}

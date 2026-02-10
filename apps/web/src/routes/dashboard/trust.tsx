@@ -28,16 +28,16 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { authClient } from "@/lib/auth-client";
+import { useT } from "@/i18n";
 import {
   auditAPI,
   intelligenceAPI,
-  trustAPI,
   type TrustIndicator,
+  trustAPI,
   type UIO,
 } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/dashboard/trust")({
   component: TrustAuditPage,
@@ -141,7 +141,7 @@ function TrustAuditPage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <ShieldCheck className="h-3 w-3" />
               {t("pages.dashboard.trust.kicker")}
             </div>
@@ -174,9 +174,15 @@ function TrustAuditPage() {
             {uioLoading || trustLoading ? (
               <Skeleton className="h-64" />
             ) : uioError ? (
-              <ApiErrorPanel error={uioErrorObj} onRetry={() => refetchUios()} />
+              <ApiErrorPanel
+                error={uioErrorObj}
+                onRetry={() => refetchUios()}
+              />
             ) : trustError ? (
-              <ApiErrorPanel error={trustErrorObj} onRetry={() => refetchTrust()} />
+              <ApiErrorPanel
+                error={trustErrorObj}
+                onRetry={() => refetchTrust()}
+              />
             ) : (trustIndicators ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 {t("pages.dashboard.trust.indicators.empty")}
@@ -211,7 +217,9 @@ function TrustAuditPage() {
             ) : auditStatus ? (
               <>
                 <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2">
-                  <span className="text-muted-foreground text-sm">{t("pages.dashboard.trust.ledger.statusLabel")}</span>
+                  <span className="text-muted-foreground text-sm">
+                    {t("pages.dashboard.trust.ledger.statusLabel")}
+                  </span>
                   <Badge
                     className={
                       auditStatus.valid
@@ -227,19 +235,25 @@ function TrustAuditPage() {
                 </div>
                 <div className="grid gap-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{t("pages.dashboard.trust.ledger.metrics.totalEntries")}</span>
+                    <span className="text-muted-foreground">
+                      {t("pages.dashboard.trust.ledger.metrics.totalEntries")}
+                    </span>
                     <span className="font-medium">
                       {auditStatus?.total_entries ?? 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{t("pages.dashboard.trust.ledger.metrics.legacyEntries")}</span>
+                    <span className="text-muted-foreground">
+                      {t("pages.dashboard.trust.ledger.metrics.legacyEntries")}
+                    </span>
                     <span className="font-medium">
                       {auditStatus?.legacy_entries ?? 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{t("pages.dashboard.trust.ledger.metrics.headCheck")}</span>
+                    <span className="text-muted-foreground">
+                      {t("pages.dashboard.trust.ledger.metrics.headCheck")}
+                    </span>
                     <span className="font-medium">
                       {auditStatus?.head_ok
                         ? t("pages.dashboard.trust.ledger.metrics.aligned")
@@ -248,8 +262,10 @@ function TrustAuditPage() {
                   </div>
                 </div>
                 {invalidEntries.length > 0 && (
-                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600">
-                    {t("pages.dashboard.trust.ledger.invalidEntries", { count: invalidEntries.length })}
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-red-600 text-sm">
+                    {t("pages.dashboard.trust.ledger.invalidEntries", {
+                      count: invalidEntries.length,
+                    })}
                   </div>
                 )}
               </>
@@ -273,21 +289,27 @@ function TrustCard({
   uio?: UIO;
 }) {
   const t = useT();
-  const confidenceTier = indicator.confidence >= 0.75
-    ? "high"
-    : indicator.confidence >= 0.5
-      ? "medium"
-      : "low";
+  const confidenceTier =
+    indicator.confidence >= 0.75
+      ? "high"
+      : indicator.confidence >= 0.5
+        ? "medium"
+        : "low";
 
   return (
     <div className="rounded-lg border bg-muted/20 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-sm">
-            {uio?.canonicalTitle ?? uio?.title ?? t("pages.dashboard.trust.card.untitled")}
+            {uio?.canonicalTitle ??
+              uio?.title ??
+              t("pages.dashboard.trust.card.untitled")}
           </p>
           <p className="text-muted-foreground text-xs">
-            {uio?.type?.toUpperCase()} · {t("pages.dashboard.trust.card.evidenceCount", { count: indicator.evidence_count })}
+            {uio?.type?.toUpperCase()} ·{" "}
+            {t("pages.dashboard.trust.card.evidenceCount", {
+              count: indicator.evidence_count,
+            })}
           </p>
         </div>
         <Badge
@@ -298,7 +320,7 @@ function TrustCard({
         </Badge>
       </div>
       <Separator className="my-3" />
-      <div className="space-y-2 text-xs text-muted-foreground">
+      <div className="space-y-2 text-muted-foreground text-xs">
         <div className="flex items-center justify-between">
           <span>{t("pages.dashboard.trust.card.beliefState")}</span>
           <span className="font-medium text-foreground">
@@ -308,13 +330,16 @@ function TrustCard({
         <div className="flex items-center justify-between">
           <span>{t("pages.dashboard.trust.card.truthState")}</span>
           <span className="font-medium text-foreground">
-            {indicator.truth_state ?? t("pages.dashboard.trust.card.unverified")}
+            {indicator.truth_state ??
+              t("pages.dashboard.trust.card.unverified")}
           </span>
         </div>
       </div>
       {indicator.confidence_reasoning?.length > 0 && (
         <div className="mt-3 rounded-md border border-dashed px-3 py-2 text-xs">
-          <p className="font-medium text-foreground">{t("pages.dashboard.trust.card.confidenceReasoning")}</p>
+          <p className="font-medium text-foreground">
+            {t("pages.dashboard.trust.card.confidenceReasoning")}
+          </p>
           <ul className="mt-1 space-y-1 text-muted-foreground">
             {indicator.confidence_reasoning.map((reason) => (
               <li key={reason}>• {reason}</li>
@@ -324,7 +349,9 @@ function TrustCard({
       )}
       {indicator.evidence?.length > 0 && (
         <div className="mt-3 rounded-md border bg-background px-3 py-2 text-xs">
-          <p className="font-medium text-foreground">{t("pages.dashboard.trust.card.evidenceSnapshot")}</p>
+          <p className="font-medium text-foreground">
+            {t("pages.dashboard.trust.card.evidenceSnapshot")}
+          </p>
           <ul className="mt-1 space-y-1 text-muted-foreground">
             {indicator.evidence.slice(0, 3).map((item, index) => (
               <li key={index}>

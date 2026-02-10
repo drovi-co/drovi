@@ -15,7 +15,9 @@ function SuccessPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1>{t("pages.success.title")}</h1>
-      {checkout_id && <p>{t("pages.success.checkoutId", { id: checkout_id })}</p>}
+      {checkout_id && (
+        <p>{t("pages.success.checkoutId", { id: checkout_id })}</p>
+      )}
     </div>
   );
 }

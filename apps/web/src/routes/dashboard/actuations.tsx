@@ -37,13 +37,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { authClient } from "@/lib/auth-client";
-import {
-  actuationsAPI,
-  type ActuationRecordSummary,
-} from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { type ActuationRecordSummary, actuationsAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/actuations")({
   component: ActuationsPage,
@@ -115,7 +112,8 @@ function ActuationsPage() {
       toast.success(t("pages.dashboard.actuations.toasts.queued"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error(t("pages.dashboard.actuations.toasts.runFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.actuations.toasts.runFailed")),
   });
 
   const approveMutation = useMutation({
@@ -125,7 +123,8 @@ function ActuationsPage() {
       toast.success(t("pages.dashboard.actuations.toasts.approved"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error(t("pages.dashboard.actuations.toasts.approveFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.actuations.toasts.approveFailed")),
   });
 
   const rollbackMutation = useMutation({
@@ -135,7 +134,8 @@ function ActuationsPage() {
       toast.success(t("pages.dashboard.actuations.toasts.rolledBack"));
       queryClient.invalidateQueries({ queryKey: ["actuations"] });
     },
-    onError: () => toast.error(t("pages.dashboard.actuations.toasts.rollbackFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.actuations.toasts.rollbackFailed")),
   });
 
   const handleRun = () => {
@@ -144,7 +144,9 @@ function ActuationsPage() {
       payload = JSON.parse(payloadText) as Record<string, unknown>;
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : t("pages.dashboard.actuations.toasts.invalidPayloadJson")
+        error instanceof Error
+          ? error.message
+          : t("pages.dashboard.actuations.toasts.invalidPayloadJson")
       );
       return;
     }
@@ -182,7 +184,7 @@ function ActuationsPage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <Zap className="h-3 w-3" />
               {t("pages.dashboard.actuations.kicker")}
             </div>
@@ -221,7 +223,11 @@ function ActuationsPage() {
                 <Label>{t("pages.dashboard.actuations.fields.driver")}</Label>
                 <Select onValueChange={setDriver} value={driver}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t("pages.dashboard.actuations.fields.driverPlaceholder")} />
+                    <SelectValue
+                      placeholder={t(
+                        "pages.dashboard.actuations.fields.driverPlaceholder"
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {(drivers ?? []).map((driverName) => (
@@ -232,7 +238,9 @@ function ActuationsPage() {
                   </SelectContent>
                 </Select>
                 {driversLoading && (
-                  <p className="text-muted-foreground text-xs">{t("common.status.loading")}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {t("common.status.loading")}
+                  </p>
                 )}
                 {driversError && (
                   <ApiErrorPanel
@@ -259,9 +267,15 @@ function ActuationsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tier_1">{t("pages.dashboard.actuations.tierOptions.tier1")}</SelectItem>
-                  <SelectItem value="tier_2">{t("pages.dashboard.actuations.tierOptions.tier2")}</SelectItem>
-                  <SelectItem value="tier_3">{t("pages.dashboard.actuations.tierOptions.tier3")}</SelectItem>
+                  <SelectItem value="tier_1">
+                    {t("pages.dashboard.actuations.tierOptions.tier1")}
+                  </SelectItem>
+                  <SelectItem value="tier_2">
+                    {t("pages.dashboard.actuations.tierOptions.tier2")}
+                  </SelectItem>
+                  <SelectItem value="tier_3">
+                    {t("pages.dashboard.actuations.tierOptions.tier3")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -307,9 +321,9 @@ function ActuationsPage() {
               sortedLog.map((record) => (
                 <ActuationRow
                   key={record.id}
-                  record={record}
                   onApprove={() => approveMutation.mutate(record.id)}
                   onRollback={() => rollbackMutation.mutate(record.id)}
+                  record={record}
                 />
               ))
             )}

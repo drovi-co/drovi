@@ -1,6 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CornerDownRight, Mail, MessageSquare, StickyNote } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  ArrowLeft,
+  CornerDownRight,
+  Mail,
+  MessageSquare,
+  StickyNote,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,16 +14,52 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { supportAPI, type SupportTicketMessageItem } from "@/lib/api";
+import { type SupportTicketMessageItem, supportAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/tickets/$ticketId")({
   component: AdminTicketDetailPage,
 });
+
+type BadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "success"
+  | "warning"
+  | "info";
+
+type TicketStatus = "open" | "pending" | "closed";
+type TicketPriority = "low" | "normal" | "high";
+type TicketVisibility = "external" | "internal";
+
+function parseTicketStatus(value: string): TicketStatus {
+  if (value === "pending") return "pending";
+  if (value === "closed") return "closed";
+  return "open";
+}
+
+function parseTicketPriority(value: string): TicketPriority {
+  if (value === "high") return "high";
+  if (value === "low") return "low";
+  return "normal";
+}
+
+function parseTicketVisibility(value: string): TicketVisibility {
+  if (value === "internal") return "internal";
+  return "external";
+}
 
 function formatWhenLong(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -35,14 +77,14 @@ function formatWhenLong(iso: string | null | undefined): string {
   }
 }
 
-function statusVariant(status: string) {
+function statusVariant(status: string): BadgeVariant {
   if (status === "open") return "warning";
   if (status === "pending") return "info";
   if (status === "closed") return "success";
   return "secondary";
 }
 
-function priorityVariant(priority: string) {
+function priorityVariant(priority: string): BadgeVariant {
   if (priority === "high") return "destructive";
   if (priority === "low") return "outline";
   return "secondary";
@@ -52,7 +94,11 @@ function messageChrome(message: SupportTicketMessageItem) {
   const inbound = message.direction === "inbound";
   const internal = message.visibility === "internal";
 
-  const icon = inbound ? <Mail className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />;
+  const icon = inbound ? (
+    <Mail className="h-3.5 w-3.5" />
+  ) : (
+    <MessageSquare className="h-3.5 w-3.5" />
+  );
   const label = inbound ? "Inbound" : "Outbound";
 
   const badge = (
@@ -78,22 +124,26 @@ function AdminTicketDetailPage() {
   const ticket = query.data?.ticket ?? null;
   const messages = query.data?.messages ?? [];
 
-  const [status, setStatus] = useState<"open" | "pending" | "closed">("open");
-  const [priority, setPriority] = useState<"low" | "normal" | "high">("normal");
+  const [status, setStatus] = useState<TicketStatus>("open");
+  const [priority, setPriority] = useState<TicketPriority>("normal");
   const [assignee, setAssignee] = useState<string>("");
 
   const [reply, setReply] = useState("");
-  const [visibility, setVisibility] = useState<"external" | "internal">("external");
+  const [visibility, setVisibility] = useState<TicketVisibility>("external");
 
   useEffect(() => {
     if (!ticket) return;
-    setStatus((ticket.status as any) ?? "open");
-    setPriority((ticket.priority as any) ?? "normal");
+    setStatus(parseTicketStatus(ticket.status));
+    setPriority(parseTicketPriority(ticket.priority));
     setAssignee(ticket.assignee_email ?? "");
   }, [ticket?.assignee_email, ticket?.priority, ticket?.status]);
 
   const updateMutation = useMutation({
-    mutationFn: async (next: { status?: any; priority?: any; assignee_email?: any }) => {
+    mutationFn: async (next: {
+      status?: TicketStatus;
+      priority?: TicketPriority;
+      assignee_email?: string | null;
+    }) => {
       return supportAPI.updateTicket({
         ticketId,
         status: next.status,
@@ -102,12 +152,16 @@ function AdminTicketDetailPage() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["support-ticket", ticketId],
+      });
       await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
       toast.success("Ticket updated");
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to update ticket");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update ticket"
+      );
     },
   });
 
@@ -124,12 +178,18 @@ function AdminTicketDetailPage() {
     },
     onSuccess: async () => {
       setReply("");
-      await queryClient.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["support-ticket", ticketId],
+      });
       await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
-      toast.success(visibility === "internal" ? "Internal note added" : "Reply sent");
+      toast.success(
+        visibility === "internal" ? "Internal note added" : "Reply sent"
+      );
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to send message");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send message"
+      );
     },
   });
 
@@ -146,9 +206,9 @@ function AdminTicketDetailPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
-            variant="ghost"
             className="h-9 px-2"
             onClick={() => navigate({ to: "/dashboard/tickets" })}
+            variant="ghost"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -157,7 +217,7 @@ function AdminTicketDetailPage() {
             <div className="truncate font-semibold text-lg">
               {ticket?.subject ?? ticketId}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
               <span className="font-mono">{ticketId}</span>
               {ticket?.organization_id ? (
                 <span className="font-mono">org {ticket.organization_id}</span>
@@ -171,8 +231,12 @@ function AdminTicketDetailPage() {
 
         {ticket ? (
           <div className="flex items-center gap-2">
-            <Badge variant={statusVariant(ticket.status) as any}>{ticket.status}</Badge>
-            <Badge variant={priorityVariant(ticket.priority) as any}>{ticket.priority}</Badge>
+            <Badge variant={statusVariant(ticket.status)}>
+              {ticket.status}
+            </Badge>
+            <Badge variant={priorityVariant(ticket.priority)}>
+              {ticket.priority}
+            </Badge>
           </div>
         ) : null}
       </div>
@@ -183,10 +247,11 @@ function AdminTicketDetailPage() {
             <div className="space-y-1">
               <CardTitle className="text-sm">Conversation</CardTitle>
               <div className="text-muted-foreground text-xs">
-                Messages are threaded under the ticket id. External replies email the requester.
+                Messages are threaded under the ticket id. External replies
+                email the requester.
               </div>
             </div>
-            <Badge variant="secondary" className="tabular-nums">
+            <Badge className="tabular-nums" variant="secondary">
               {sortedMessages.length} msg
             </Badge>
           </CardHeader>
@@ -197,8 +262,10 @@ function AdminTicketDetailPage() {
                 <Skeleton className="h-20 w-full" />
               </div>
             ) : query.error ? (
-              <div className="text-sm text-muted-foreground">
-                {query.error instanceof Error ? query.error.message : "Unknown error"}
+              <div className="text-muted-foreground text-sm">
+                {query.error instanceof Error
+                  ? query.error.message
+                  : "Unknown error"}
               </div>
             ) : sortedMessages.length ? (
               <div className="space-y-3">
@@ -206,30 +273,28 @@ function AdminTicketDetailPage() {
                   const chrome = messageChrome(m);
                   return (
                     <div
-                      key={m.id}
                       className={cn(
                         "rounded-lg border border-border/70 bg-muted/20 p-3",
                         chrome.inbound && "bg-background/30"
                       )}
+                      key={m.id}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
                           <span className="flex items-center gap-1.5 text-foreground/80">
                             {chrome.icon}
                             <span className="font-medium">{chrome.label}</span>
                           </span>
                           {chrome.badge}
                           {m.author_email ? (
-                            <span className="truncate">
-                              {m.author_email}
-                            </span>
+                            <span className="truncate">{m.author_email}</span>
                           ) : null}
                         </div>
-                        <div className="text-[11px] tabular-nums text-muted-foreground">
+                        <div className="text-[11px] text-muted-foreground tabular-nums">
                           {formatWhenLong(m.created_at)}
                         </div>
                       </div>
-                      <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                      <div className="mt-2 whitespace-pre-wrap text-foreground/90 text-sm leading-relaxed">
                         {m.body_text}
                       </div>
                     </div>
@@ -237,24 +302,31 @@ function AdminTicketDetailPage() {
                 })}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No messages yet.</div>
+              <div className="text-muted-foreground text-sm">
+                No messages yet.
+              </div>
             )}
 
             <Separator className="my-2" />
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   {visibility === "internal" ? (
                     <StickyNote className="h-4 w-4" />
                   ) : (
                     <CornerDownRight className="h-4 w-4" />
                   )}
                   <span>
-                    {visibility === "internal" ? "Internal note" : "Reply to requester"}
+                    {visibility === "internal"
+                      ? "Internal note"
+                      : "Reply to requester"}
                   </span>
                 </div>
-                <Select value={visibility} onValueChange={(v) => setVisibility(v as any)}>
+                <Select
+                  onValueChange={(v) => setVisibility(parseTicketVisibility(v))}
+                  value={visibility}
+                >
                   <SelectTrigger className="h-8 w-[150px] text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -266,31 +338,35 @@ function AdminTicketDetailPage() {
               </div>
 
               <Textarea
+                className="min-h-[120px] resize-y"
+                onChange={(ev) => setReply(ev.target.value)}
                 placeholder={
                   visibility === "internal"
                     ? "Add an internal note (not emailed)."
                     : "Write a reply. This will be emailed to the requester."
                 }
-                className="min-h-[120px] resize-y"
                 value={reply}
-                onChange={(ev) => setReply(ev.target.value)}
               />
 
               <div className="flex items-center justify-end gap-2">
                 <Button
-                  variant="outline"
                   className="h-9"
-                  onClick={() => setReply("")}
                   disabled={!reply.trim() || sendMutation.isPending}
+                  onClick={() => setReply("")}
+                  variant="outline"
                 >
                   Clear
                 </Button>
                 <Button
                   className="h-9"
-                  onClick={() => sendMutation.mutate()}
                   disabled={sendMutation.isPending}
+                  onClick={() => sendMutation.mutate()}
                 >
-                  {sendMutation.isPending ? "Sending…" : visibility === "internal" ? "Add note" : "Send reply"}
+                  {sendMutation.isPending
+                    ? "Sending…"
+                    : visibility === "internal"
+                      ? "Add note"
+                      : "Send reply"}
                 </Button>
               </div>
             </div>
@@ -303,18 +379,17 @@ function AdminTicketDetailPage() {
               <CardTitle className="text-sm">Ticket settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!ticket ? (
-                <Skeleton className="h-32 w-full" />
-              ) : (
+              {ticket ? (
                 <>
                   <div className="grid gap-2">
-                    <div className="text-xs text-muted-foreground">Status</div>
+                    <div className="text-muted-foreground text-xs">Status</div>
                     <Select
-                      value={status}
                       onValueChange={(v) => {
-                        setStatus(v as any);
-                        updateMutation.mutate({ status: v });
+                        const next = parseTicketStatus(v);
+                        setStatus(next);
+                        updateMutation.mutate({ status: next });
                       }}
+                      value={status}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />
@@ -328,13 +403,16 @@ function AdminTicketDetailPage() {
                   </div>
 
                   <div className="grid gap-2">
-                    <div className="text-xs text-muted-foreground">Priority</div>
+                    <div className="text-muted-foreground text-xs">
+                      Priority
+                    </div>
                     <Select
-                      value={priority}
                       onValueChange={(v) => {
-                        setPriority(v as any);
-                        updateMutation.mutate({ priority: v });
+                        const next = parseTicketPriority(v);
+                        setPriority(next);
+                        updateMutation.mutate({ priority: next });
                       }}
+                      value={priority}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />
@@ -348,12 +426,18 @@ function AdminTicketDetailPage() {
                   </div>
 
                   <div className="grid gap-2">
-                    <div className="text-xs text-muted-foreground">Assignee</div>
+                    <div className="text-muted-foreground text-xs">
+                      Assignee
+                    </div>
                     <Input
+                      onBlur={() =>
+                        updateMutation.mutate({
+                          assignee_email: assignee.trim() || null,
+                        })
+                      }
+                      onChange={(ev) => setAssignee(ev.target.value)}
                       placeholder="assignee@drovi.co"
                       value={assignee}
-                      onChange={(ev) => setAssignee(ev.target.value)}
-                      onBlur={() => updateMutation.mutate({ assignee_email: assignee.trim() || null })}
                     />
                     <div className="text-[11px] text-muted-foreground">
                       Blurs to save. Leave empty to unassign.
@@ -362,27 +446,29 @@ function AdminTicketDetailPage() {
 
                   <Separator />
 
-                  <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className="space-y-2 text-muted-foreground text-xs">
                     <div className="flex items-center justify-between">
                       <span>Created</span>
-                      <span className="tabular-nums text-foreground/80">
+                      <span className="text-foreground/80 tabular-nums">
                         {formatWhenLong(ticket.created_at)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Last message</span>
-                      <span className="tabular-nums text-foreground/80">
+                      <span className="text-foreground/80 tabular-nums">
                         {formatWhenLong(ticket.last_message_at)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Updated</span>
-                      <span className="tabular-nums text-foreground/80">
+                      <span className="text-foreground/80 tabular-nums">
                         {formatWhenLong(ticket.updated_at)}
                       </span>
                     </div>
                   </div>
                 </>
+              ) : (
+                <Skeleton className="h-32 w-full" />
               )}
             </CardContent>
           </Card>
@@ -394,7 +480,6 @@ function AdminTicketDetailPage() {
             <CardContent className="space-y-2">
               <Button
                 className="w-full"
-                variant="outline"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(ticketId);
@@ -403,14 +488,20 @@ function AdminTicketDetailPage() {
                     toast.error("Failed to copy");
                   }
                 }}
+                variant="outline"
               >
                 Copy ticket id
               </Button>
               <Button
                 className="w-full"
-                variant="ghost"
-                onClick={() => navigate({ to: "/dashboard/orgs/$orgId", params: { orgId: ticket?.organization_id ?? "internal" } })}
                 disabled={!ticket?.organization_id}
+                onClick={() =>
+                  navigate({
+                    to: "/dashboard/orgs/$orgId",
+                    params: { orgId: ticket?.organization_id ?? "internal" },
+                  })
+                }
+                variant="ghost"
               >
                 View organization
               </Button>

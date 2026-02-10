@@ -171,7 +171,15 @@ export interface SourceInfo {
 
 export interface UIO {
   id: string;
-  type: "commitment" | "decision" | "task" | "claim" | "risk" | "topic" | "project" | "brief";
+  type:
+    | "commitment"
+    | "decision"
+    | "task"
+    | "claim"
+    | "risk"
+    | "topic"
+    | "project"
+    | "brief";
   canonicalTitle: string;
   canonicalDescription: string | null;
   userCorrectedTitle: string | null;
@@ -225,7 +233,7 @@ export interface UIOListResponse {
 // =============================================================================
 
 function transformContact(raw: Record<string, unknown> | null): Contact | null {
-  if (!raw || !raw.id) return null;
+  if (!raw?.id) return null;
   return {
     id: raw.id as string,
     displayName: (raw.display_name as string | null) ?? null,
@@ -236,7 +244,9 @@ function transformContact(raw: Record<string, unknown> | null): Contact | null {
   };
 }
 
-function transformCommitmentDetails(raw: Record<string, unknown> | null): CommitmentDetails | null {
+function transformCommitmentDetails(
+  raw: Record<string, unknown> | null
+): CommitmentDetails | null {
   if (!raw) return null;
   return {
     status: (raw.status as string | null) ?? null,
@@ -250,7 +260,9 @@ function transformCommitmentDetails(raw: Record<string, unknown> | null): Commit
   };
 }
 
-function transformDecisionDetails(raw: Record<string, unknown> | null): DecisionDetails | null {
+function transformDecisionDetails(
+  raw: Record<string, unknown> | null
+): DecisionDetails | null {
   if (!raw) return null;
   return {
     status: (raw.status as string | null) ?? null,
@@ -263,7 +275,9 @@ function transformDecisionDetails(raw: Record<string, unknown> | null): Decision
   };
 }
 
-function transformTaskDetails(raw: Record<string, unknown> | null): TaskDetails | null {
+function transformTaskDetails(
+  raw: Record<string, unknown> | null
+): TaskDetails | null {
   if (!raw) return null;
   return {
     status: (raw.status as string | null) ?? null,
@@ -275,7 +289,9 @@ function transformTaskDetails(raw: Record<string, unknown> | null): TaskDetails 
   };
 }
 
-function transformRiskDetails(raw: Record<string, unknown> | null): RiskDetails | null {
+function transformRiskDetails(
+  raw: Record<string, unknown> | null
+): RiskDetails | null {
   if (!raw) return null;
   return {
     severity: (raw.severity as string | null) ?? null,
@@ -285,7 +301,9 @@ function transformRiskDetails(raw: Record<string, unknown> | null): RiskDetails 
   };
 }
 
-function transformClaimDetails(raw: Record<string, unknown> | null): ClaimDetails | null {
+function transformClaimDetails(
+  raw: Record<string, unknown> | null
+): ClaimDetails | null {
   if (!raw) return null;
   return {
     claimType: (raw.claim_type as string | null) ?? null,
@@ -295,7 +313,9 @@ function transformClaimDetails(raw: Record<string, unknown> | null): ClaimDetail
   };
 }
 
-function transformBriefDetails(raw: Record<string, unknown> | null): BriefDetails | null {
+function transformBriefDetails(
+  raw: Record<string, unknown> | null
+): BriefDetails | null {
   if (!raw) return null;
   return {
     priorityTier: (raw.priority_tier as string | null) ?? null,
@@ -322,9 +342,12 @@ function transformSourceInfo(raw: Record<string, unknown>): SourceInfo {
 }
 
 export function transformUIO(raw: Record<string, unknown>): UIO {
-  const canonicalTitle = (raw.canonical_title as string) || (raw.title as string) || "Untitled";
-  const confidence = (raw.overall_confidence as number) ?? (raw.confidence as number) ?? 0;
-  const direction = (raw.commitment_details as Record<string, unknown>)?.direction as string | undefined;
+  const canonicalTitle =
+    (raw.canonical_title as string) || (raw.title as string) || "Untitled";
+  const confidence =
+    (raw.overall_confidence as number) ?? (raw.confidence as number) ?? 0;
+  const direction = (raw.commitment_details as Record<string, unknown>)
+    ?.direction as string | undefined;
 
   return {
     id: raw.id as string,
@@ -345,21 +368,40 @@ export function transformUIO(raw: Record<string, unknown>): UIO {
     owner: transformContact(raw.owner as Record<string, unknown> | null),
     debtor: transformContact(raw.debtor as Record<string, unknown> | null),
     creditor: transformContact(raw.creditor as Record<string, unknown> | null),
-    decisionMaker: transformContact(raw.decision_maker as Record<string, unknown> | null),
+    decisionMaker: transformContact(
+      raw.decision_maker as Record<string, unknown> | null
+    ),
     assignee: transformContact(raw.assignee as Record<string, unknown> | null),
-    createdBy: transformContact(raw.created_by as Record<string, unknown> | null),
+    createdBy: transformContact(
+      raw.created_by as Record<string, unknown> | null
+    ),
 
-    commitmentDetails: transformCommitmentDetails(raw.commitment_details as Record<string, unknown> | null),
-    decisionDetails: transformDecisionDetails(raw.decision_details as Record<string, unknown> | null),
-    taskDetails: transformTaskDetails(raw.task_details as Record<string, unknown> | null),
-    riskDetails: transformRiskDetails(raw.risk_details as Record<string, unknown> | null),
-    claimDetails: transformClaimDetails(raw.claim_details as Record<string, unknown> | null),
-    briefDetails: transformBriefDetails(raw.brief_details as Record<string, unknown> | null),
+    commitmentDetails: transformCommitmentDetails(
+      raw.commitment_details as Record<string, unknown> | null
+    ),
+    decisionDetails: transformDecisionDetails(
+      raw.decision_details as Record<string, unknown> | null
+    ),
+    taskDetails: transformTaskDetails(
+      raw.task_details as Record<string, unknown> | null
+    ),
+    riskDetails: transformRiskDetails(
+      raw.risk_details as Record<string, unknown> | null
+    ),
+    claimDetails: transformClaimDetails(
+      raw.claim_details as Record<string, unknown> | null
+    ),
+    briefDetails: transformBriefDetails(
+      raw.brief_details as Record<string, unknown> | null
+    ),
 
     sources: raw.sources
       ? (raw.sources as Record<string, unknown>[]).map(transformSourceInfo)
       : null,
-    evidenceId: (raw.evidence_id as string | null) ?? (raw.source_id as string | null) ?? null,
+    evidenceId:
+      (raw.evidence_id as string | null) ??
+      (raw.source_id as string | null) ??
+      null,
 
     // Legacy compat
     title: canonicalTitle,
@@ -587,7 +629,8 @@ export async function apiFetch<T>(
   } catch (error) {
     markApiUnreachable(error);
     const durationMs =
-      (typeof performance !== "undefined" && typeof performance.now === "function"
+      (typeof performance !== "undefined" &&
+      typeof performance.now === "function"
         ? performance.now()
         : Date.now()) - startedAt;
     recordApiTrace({
@@ -615,7 +658,8 @@ export async function apiFetch<T>(
   if (!res.ok) {
     const requestId = res.headers.get("X-Request-ID") ?? undefined;
     const durationMs =
-      (typeof performance !== "undefined" && typeof performance.now === "function"
+      (typeof performance !== "undefined" &&
+      typeof performance.now === "function"
         ? performance.now()
         : Date.now()) - startedAt;
     recordApiTrace({
@@ -730,7 +774,11 @@ export const authAPI = {
    * Login with email and password.
    * Sets a session cookie on success.
    */
-  async loginWithEmail(params: { email: string; password: string; inviteToken?: string }): Promise<EmailAuthResponse> {
+  async loginWithEmail(params: {
+    email: string;
+    password: string;
+    inviteToken?: string;
+  }): Promise<EmailAuthResponse> {
     return apiFetch<EmailAuthResponse>("/auth/login/email", {
       method: "POST",
       body: JSON.stringify({
@@ -779,7 +827,9 @@ export const authAPI = {
     }
   },
 
-  async updateMyLocale(locale: string | null): Promise<{ ok: boolean; locale: string | null }> {
+  async updateMyLocale(
+    locale: string | null
+  ): Promise<{ ok: boolean; locale: string | null }> {
     return apiFetch<{ ok: boolean; locale: string | null }>("/auth/me/locale", {
       method: "PATCH",
       body: JSON.stringify({ locale }),
@@ -853,13 +903,10 @@ export const connectionsAPI = {
     connectionId: string,
     fullRefresh = false
   ): Promise<{ job_id: string }> {
-    return apiFetch<{ job_id: string }>(
-      `/connections/${connectionId}/sync`,
-      {
-        method: "POST",
-        body: JSON.stringify({ full_refresh: fullRefresh }),
-      }
-    );
+    return apiFetch<{ job_id: string }>(`/connections/${connectionId}/sync`, {
+      method: "POST",
+      body: JSON.stringify({ full_refresh: fullRefresh }),
+    });
   },
 
   /**
@@ -943,10 +990,13 @@ export const intelligenceAPI = {
    * Update a UIO status
    */
   async updateStatus(uioId: string, status: string): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -955,7 +1005,11 @@ export const intelligenceAPI = {
    */
   async updateUIO(
     uioId: string,
-    updates: { canonical_title?: string; canonical_description?: string; due_date?: string },
+    updates: {
+      canonical_title?: string;
+      canonical_description?: string;
+      due_date?: string;
+    },
     organizationId: string
   ): Promise<UIO> {
     const raw = await apiFetch<Record<string, unknown>>(
@@ -972,9 +1026,12 @@ export const intelligenceAPI = {
    * Verify a UIO (mark as user-confirmed)
    */
   async verify(uioId: string): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/verify`, {
-      method: "POST",
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/verify`,
+      {
+        method: "POST",
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -982,10 +1039,13 @@ export const intelligenceAPI = {
    * Snooze a commitment/task until specified date
    */
   async snooze(uioId: string, snoozeUntil: string): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/snooze`, {
-      method: "POST",
-      body: JSON.stringify({ snooze_until: snoozeUntil }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/snooze`,
+      {
+        method: "POST",
+        body: JSON.stringify({ snooze_until: snoozeUntil }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -994,12 +1054,21 @@ export const intelligenceAPI = {
    */
   async updateTaskStatus(
     uioId: string,
-    status: "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled"
+    status:
+      | "backlog"
+      | "todo"
+      | "in_progress"
+      | "in_review"
+      | "done"
+      | "cancelled"
   ): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/task-status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/task-status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -1010,10 +1079,13 @@ export const intelligenceAPI = {
     uioId: string,
     priority: "no_priority" | "low" | "medium" | "high" | "urgent"
   ): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/task-priority`, {
-      method: "PATCH",
-      body: JSON.stringify({ priority }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/task-priority`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ priority }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -1024,10 +1096,13 @@ export const intelligenceAPI = {
     uioId: string,
     priority: "low" | "medium" | "high" | "urgent"
   ): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/commitment-priority`, {
-      method: "PATCH",
-      body: JSON.stringify({ priority }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/commitment-priority`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ priority }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -1038,10 +1113,13 @@ export const intelligenceAPI = {
     uioId: string,
     direction: "owed_by_me" | "owed_to_me"
   ): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/commitment-direction`, {
-      method: "PATCH",
-      body: JSON.stringify({ direction }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/commitment-direction`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ direction }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -1049,10 +1127,13 @@ export const intelligenceAPI = {
    * Mark a decision as superseded by another decision
    */
   async supersedeDecision(uioId: string, supersededById: string): Promise<UIO> {
-    const raw = await apiFetch<Record<string, unknown>>(`/uios/${uioId}/supersede`, {
-      method: "POST",
-      body: JSON.stringify({ superseded_by_id: supersededById }),
-    });
+    const raw = await apiFetch<Record<string, unknown>>(
+      `/uios/${uioId}/supersede`,
+      {
+        method: "POST",
+        body: JSON.stringify({ superseded_by_id: supersededById }),
+      }
+    );
     return transformUIO(raw);
   },
 
@@ -1329,14 +1410,18 @@ function transformDriveChunk(raw: Record<string, unknown>): DriveDocumentChunk {
   };
 }
 
-function transformDriveChunkDetail(raw: Record<string, unknown>): DriveDocumentChunkDetail {
+function transformDriveChunkDetail(
+  raw: Record<string, unknown>
+): DriveDocumentChunkDetail {
   return {
     id: String(raw.id ?? ""),
     documentId: String(raw.document_id ?? ""),
     chunkIndex: Number(raw.chunk_index ?? 0),
     pageIndex: raw.page_index == null ? null : Number(raw.page_index),
     text: String(raw.text ?? ""),
-    layoutBlocks: Array.isArray(raw.layout_blocks) ? (raw.layout_blocks as Array<Record<string, unknown>>) : [],
+    layoutBlocks: Array.isArray(raw.layout_blocks)
+      ? (raw.layout_blocks as Array<Record<string, unknown>>)
+      : [],
     imageArtifactId: (raw.image_artifact_id as string | null) ?? null,
   };
 }
@@ -1405,11 +1490,13 @@ export const documentsAPI = {
     limit?: number;
   }): Promise<{ success: boolean; items: DriveDocument[] }> {
     const query = new URLSearchParams();
-    if (params.organizationId) query.set("organization_id", params.organizationId);
+    if (params.organizationId)
+      query.set("organization_id", params.organizationId);
     if (params.limit) query.set("limit", String(params.limit));
-    const raw = await apiFetch<{ success: boolean; items: Array<Record<string, unknown>> }>(
-      `/documents?${query.toString()}`
-    );
+    const raw = await apiFetch<{
+      success: boolean;
+      items: Array<Record<string, unknown>>;
+    }>(`/documents?${query.toString()}`);
     return {
       success: raw.success,
       items: (raw.items ?? []).map(transformDriveDocument),
@@ -1422,11 +1509,13 @@ export const documentsAPI = {
     limit?: number;
   }): Promise<{ success: boolean; items: DriveDocumentChunk[] }> {
     const query = new URLSearchParams();
-    if (params.organizationId) query.set("organization_id", params.organizationId);
+    if (params.organizationId)
+      query.set("organization_id", params.organizationId);
     if (params.limit) query.set("limit", String(params.limit));
-    const raw = await apiFetch<{ success: boolean; items: Array<Record<string, unknown>> }>(
-      `/documents/${params.documentId}/chunks?${query.toString()}`
-    );
+    const raw = await apiFetch<{
+      success: boolean;
+      items: Array<Record<string, unknown>>;
+    }>(`/documents/${params.documentId}/chunks?${query.toString()}`);
     return {
       success: raw.success,
       items: (raw.items ?? []).map(transformDriveChunk),
@@ -1438,7 +1527,8 @@ export const documentsAPI = {
     organizationId?: string;
   }): Promise<DriveDocumentChunkDetail> {
     const query = new URLSearchParams();
-    if (params.organizationId) query.set("organization_id", params.organizationId);
+    if (params.organizationId)
+      query.set("organization_id", params.organizationId);
     const raw = await apiFetch<Record<string, unknown>>(
       `/documents/chunks/${params.chunkId}?${query.toString()}`
     );
@@ -1738,19 +1828,16 @@ export const orgAPI = {
     }
   ): Promise<ConnectResponse> {
     const redirectUri = `${getApiBase()}/api/v1/auth/callback`;
-    return apiFetch<ConnectResponse>(
-      `/org/connections/${provider}/connect`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          redirect_uri: redirectUri,
-          visibility: options?.visibility ?? null,
-          restricted_labels: options?.restrictedLabels || [],
-          restricted_channels: options?.restrictedChannels || [],
-          return_to: options?.returnTo || null,
-        }),
-      }
-    );
+    return apiFetch<ConnectResponse>(`/org/connections/${provider}/connect`, {
+      method: "POST",
+      body: JSON.stringify({
+        redirect_uri: redirectUri,
+        visibility: options?.visibility ?? null,
+        restricted_labels: options?.restrictedLabels || [],
+        restricted_channels: options?.restrictedChannels || [],
+        return_to: options?.returnTo || null,
+      }),
+    });
   },
 
   /**
@@ -1765,7 +1852,7 @@ export const orgAPI = {
       {
         method: "POST",
         body: JSON.stringify({
-          full_refresh: options?.fullRefresh || false,
+          full_refresh: options?.fullRefresh,
           streams: options?.streams || [],
         }),
       }
@@ -1811,13 +1898,14 @@ export const orgAPI = {
     connectionId: string;
     visibility: "org_shared" | "private";
   }): Promise<{ updated: boolean; connection_id: string; visibility: string }> {
-    return apiFetch<{ updated: boolean; connection_id: string; visibility: string }>(
-      `/org/connections/${params.connectionId}/visibility`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ visibility: params.visibility }),
-      }
-    );
+    return apiFetch<{
+      updated: boolean;
+      connection_id: string;
+      visibility: string;
+    }>(`/org/connections/${params.connectionId}/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ visibility: params.visibility }),
+    });
   },
 
   /**
@@ -1844,7 +1932,8 @@ export const orgAPI = {
         notification_emails: params.notificationEmails ?? null,
         region: params.region ?? null,
         allowed_connectors: params.allowedConnectors ?? null,
-        default_connection_visibility: params.defaultConnectionVisibility ?? null,
+        default_connection_visibility:
+          params.defaultConnectionVisibility ?? null,
         default_locale: params.defaultLocale ?? null,
       }),
     });
@@ -2129,7 +2218,10 @@ function transformContactDetail(raw: Record<string, unknown>): ContactDetail {
     avgResponseTimeMinutes: raw.avg_response_time_minutes as number | null,
     responseRate: raw.response_rate as number | null,
     avgWordsPerMessage: raw.avg_words_per_message as number | null,
-    communicationProfile: raw.communication_profile as Record<string, unknown> | null,
+    communicationProfile: raw.communication_profile as Record<
+      string,
+      unknown
+    > | null,
     influenceScore: raw.influence_score as number | null,
     bridgingScore: raw.bridging_score as number | null,
     communityIds: (raw.community_ids as string[]) ?? [],
@@ -2177,7 +2269,11 @@ export const contactsAPI = {
     offset?: number;
     isVip?: boolean;
     isAtRisk?: boolean;
-    sortBy?: "importance_score" | "health_score" | "last_interaction_at" | "display_name";
+    sortBy?:
+      | "importance_score"
+      | "health_score"
+      | "last_interaction_at"
+      | "display_name";
     sortOrder?: "asc" | "desc";
   }): Promise<ContactListResponse> {
     const searchParams = new URLSearchParams({
@@ -2193,9 +2289,12 @@ export const contactsAPI = {
     if (params.isAtRisk !== undefined) {
       searchParams.set("is_at_risk", String(params.isAtRisk));
     }
-    const raw = await apiFetch<{ items: Record<string, unknown>[]; total: number; limit: number; offset: number }>(
-      `/contacts?${searchParams.toString()}`
-    );
+    const raw = await apiFetch<{
+      items: Record<string, unknown>[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/contacts?${searchParams.toString()}`);
     return {
       items: raw.items.map(transformContactSummary),
       total: raw.total,
@@ -2217,8 +2316,16 @@ export const contactsAPI = {
   /**
    * Get VIP contacts
    */
-  async getVips(params: { organizationId: string; limit?: number }): Promise<ContactListResponse> {
-    const raw = await apiFetch<{ items: Record<string, unknown>[]; total: number; limit: number; offset: number }>(
+  async getVips(params: {
+    organizationId: string;
+    limit?: number;
+  }): Promise<ContactListResponse> {
+    const raw = await apiFetch<{
+      items: Record<string, unknown>[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(
       `/contacts/vips?organization_id=${params.organizationId}&limit=${params.limit ?? 50}`
     );
     return {
@@ -2232,8 +2339,16 @@ export const contactsAPI = {
   /**
    * Get at-risk contacts
    */
-  async getAtRisk(params: { organizationId: string; limit?: number }): Promise<ContactListResponse> {
-    const raw = await apiFetch<{ items: Record<string, unknown>[]; total: number; limit: number; offset: number }>(
+  async getAtRisk(params: {
+    organizationId: string;
+    limit?: number;
+  }): Promise<ContactListResponse> {
+    const raw = await apiFetch<{
+      items: Record<string, unknown>[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(
       `/contacts/at-risk?organization_id=${params.organizationId}&limit=${params.limit ?? 50}`
     );
     return {
@@ -2247,8 +2362,17 @@ export const contactsAPI = {
   /**
    * Search contacts
    */
-  async search(params: { organizationId: string; query: string; limit?: number }): Promise<ContactListResponse> {
-    const raw = await apiFetch<{ items: Record<string, unknown>[]; total: number; limit: number; offset: number }>(
+  async search(params: {
+    organizationId: string;
+    query: string;
+    limit?: number;
+  }): Promise<ContactListResponse> {
+    const raw = await apiFetch<{
+      items: Record<string, unknown>[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(
       `/contacts/search?organization_id=${params.organizationId}&query=${encodeURIComponent(params.query)}&limit=${params.limit ?? 20}`
     );
     return {
@@ -2272,7 +2396,11 @@ export const contactsAPI = {
   /**
    * Toggle VIP status
    */
-  async toggleVip(contactId: string, organizationId: string, isVip: boolean): Promise<{ success: boolean; isVip: boolean }> {
+  async toggleVip(
+    contactId: string,
+    organizationId: string,
+    isVip: boolean
+  ): Promise<{ success: boolean; isVip: boolean }> {
     const raw = await apiFetch<{ success: boolean; is_vip: boolean }>(
       `/contacts/${contactId}/toggle-vip?organization_id=${organizationId}`,
       {
@@ -2286,7 +2414,10 @@ export const contactsAPI = {
   /**
    * Trigger contact intelligence analysis
    */
-  async analyze(contactId: string, organizationId: string): Promise<{ success: boolean; analysisId: string }> {
+  async analyze(
+    contactId: string,
+    organizationId: string
+  ): Promise<{ success: boolean; analysisId: string }> {
     const raw = await apiFetch<{ success: boolean; analysis_id: string }>(
       `/contacts/${contactId}/analyze?organization_id=${organizationId}`,
       { method: "POST" }
@@ -2297,7 +2428,10 @@ export const contactsAPI = {
   /**
    * Generate meeting brief
    */
-  async generateMeetingBrief(contactId: string, organizationId: string): Promise<MeetingBrief> {
+  async generateMeetingBrief(
+    contactId: string,
+    organizationId: string
+  ): Promise<MeetingBrief> {
     const raw = await apiFetch<Record<string, unknown>>(
       `/contacts/${contactId}/meeting-brief?organization_id=${organizationId}`,
       { method: "POST" }
@@ -2336,14 +2470,17 @@ export const contactsAPI = {
     targetContactId: string;
     reason?: string;
   }): Promise<{ success: boolean }> {
-    return apiFetch<{ success: boolean }>(`/contacts/merge?organization_id=${params.organizationId}`, {
-      method: "POST",
-      body: JSON.stringify({
-        source_contact_id: params.sourceContactId,
-        target_contact_id: params.targetContactId,
-        reason: params.reason,
-      }),
-    });
+    return apiFetch<{ success: boolean }>(
+      `/contacts/merge?organization_id=${params.organizationId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source_contact_id: params.sourceContactId,
+          target_contact_id: params.targetContactId,
+          reason: params.reason,
+        }),
+      }
+    );
   },
 
   async exportIdentityAudit(params: {
@@ -2445,7 +2582,9 @@ export interface RelationshipHealth {
   factors: Record<string, unknown>;
 }
 
-function transformCustomerCommitment(raw: Record<string, unknown>): CustomerCommitment {
+function transformCustomerCommitment(
+  raw: Record<string, unknown>
+): CustomerCommitment {
   return {
     id: raw.id as string,
     title: (raw.title as string) ?? "Untitled",
@@ -2457,7 +2596,9 @@ function transformCustomerCommitment(raw: Record<string, unknown>): CustomerComm
   };
 }
 
-function transformCustomerDecision(raw: Record<string, unknown>): CustomerDecision {
+function transformCustomerDecision(
+  raw: Record<string, unknown>
+): CustomerDecision {
   return {
     id: raw.id as string,
     title: (raw.title as string) ?? "Untitled",
@@ -2467,7 +2608,9 @@ function transformCustomerDecision(raw: Record<string, unknown>): CustomerDecisi
   };
 }
 
-function transformCustomerContact(raw: Record<string, unknown>): CustomerContact {
+function transformCustomerContact(
+  raw: Record<string, unknown>
+): CustomerContact {
   return {
     id: raw.id as string,
     email: (raw.email as string | null) ?? null,
@@ -2478,7 +2621,9 @@ function transformCustomerContact(raw: Record<string, unknown>): CustomerContact
   };
 }
 
-function transformCustomerTimelineEvent(raw: Record<string, unknown>): CustomerTimelineEvent {
+function transformCustomerTimelineEvent(
+  raw: Record<string, unknown>
+): CustomerTimelineEvent {
   return {
     id: raw.id as string,
     eventType: (raw.event_type as string) ?? "event",
@@ -2490,7 +2635,9 @@ function transformCustomerTimelineEvent(raw: Record<string, unknown>): CustomerT
   };
 }
 
-function transformCustomerContext(raw: Record<string, unknown>): CustomerContext {
+function transformCustomerContext(
+  raw: Record<string, unknown>
+): CustomerContext {
   return {
     contactId: raw.contact_id as string,
     email: (raw.email as string | null) ?? null,
@@ -2502,17 +2649,27 @@ function transformCustomerContext(raw: Record<string, unknown>): CustomerContext
     relationshipHealth: (raw.relationship_health as number) ?? 1,
     sourceTypes: (raw.source_types as string[] | null) ?? [],
     openCommitments: (raw.open_commitments as Record<string, unknown>[] | null)
-      ? (raw.open_commitments as Record<string, unknown>[]).map(transformCustomerCommitment)
+      ? (raw.open_commitments as Record<string, unknown>[]).map(
+          transformCustomerCommitment
+        )
       : [],
-    relatedDecisions: (raw.related_decisions as Record<string, unknown>[] | null)
-      ? (raw.related_decisions as Record<string, unknown>[]).map(transformCustomerDecision)
+    relatedDecisions: (raw.related_decisions as
+      | Record<string, unknown>[]
+      | null)
+      ? (raw.related_decisions as Record<string, unknown>[]).map(
+          transformCustomerDecision
+        )
       : [],
     topContacts: (raw.top_contacts as Record<string, unknown>[] | null)
-      ? (raw.top_contacts as Record<string, unknown>[]).map(transformCustomerContact)
+      ? (raw.top_contacts as Record<string, unknown>[]).map(
+          transformCustomerContact
+        )
       : [],
     topTopics: (raw.top_topics as string[] | null) ?? [],
     timeline: (raw.timeline as Record<string, unknown>[] | null)
-      ? (raw.timeline as Record<string, unknown>[]).map(transformCustomerTimelineEvent)
+      ? (raw.timeline as Record<string, unknown>[]).map(
+          transformCustomerTimelineEvent
+        )
       : [],
     relationshipSummary: (raw.relationship_summary as string | null) ?? null,
   };
@@ -2544,7 +2701,11 @@ export const customerAPI = {
     contactId: string;
     limit?: number;
   }): Promise<CustomerTimeline> {
-    const raw = await apiFetch<{ contact_id: string; events: Record<string, unknown>[]; total: number }>(
+    const raw = await apiFetch<{
+      contact_id: string;
+      events: Record<string, unknown>[];
+      total: number;
+    }>(
       `/customer/timeline/${params.contactId}?organization_id=${params.organizationId}&limit=${params.limit ?? 50}`
     );
     return {
@@ -2617,7 +2778,9 @@ export interface ContinuumPreview {
   };
 }
 
-function transformContinuumSummary(raw: Record<string, unknown>): ContinuumSummary {
+function transformContinuumSummary(
+  raw: Record<string, unknown>
+): ContinuumSummary {
   return {
     id: raw.id as string,
     name: raw.name as string,
@@ -2761,7 +2924,10 @@ export const continuumsAPI = {
     );
   },
 
-  async getRuns(params: { continuumId: string; organizationId: string }): Promise<ContinuumRun[]> {
+  async getRuns(params: {
+    continuumId: string;
+    organizationId: string;
+  }): Promise<ContinuumRun[]> {
     const raw = await apiFetch<Record<string, unknown>[]>(
       `/continuums/${params.continuumId}/runs?organization_id=${params.organizationId}`
     );
@@ -2950,7 +3116,9 @@ export const simulationsAPI = {
       organization_id: params.organizationId,
       limit: String(params.limit ?? 50),
     });
-    return apiFetch<Record<string, unknown>[]>(`/simulations/history?${search.toString()}`);
+    return apiFetch<Record<string, unknown>[]>(
+      `/simulations/history?${search.toString()}`
+    );
   },
 };
 
@@ -2968,7 +3136,9 @@ export interface ActuationRecordSummary {
   updatedAt: string | null;
 }
 
-function transformActuationSummary(raw: Record<string, unknown>): ActuationRecordSummary {
+function transformActuationSummary(
+  raw: Record<string, unknown>
+): ActuationRecordSummary {
   return {
     id: raw.id as string,
     driver: raw.driver as string,
@@ -3047,7 +3217,11 @@ export const actuationsAPI = {
     );
   },
 
-  async rollback(params: { organizationId: string; actionId: string; actorId?: string | null }) {
+  async rollback(params: {
+    organizationId: string;
+    actionId: string;
+    actorId?: string | null;
+  }) {
     return apiFetch<Record<string, unknown>>(
       `/actuations/${params.actionId}/rollback`,
       {
@@ -3224,9 +3398,12 @@ export const changesAPI = {
     if (params.entityTypes?.length) {
       search.set("entity_types", params.entityTypes.join(","));
     }
-    return apiFetch<{ changes: ChangeRecord[]; total_count: number; since: string; until: string }>(
-      `/changes?${search.toString()}`
-    );
+    return apiFetch<{
+      changes: ChangeRecord[];
+      total_count: number;
+      since: string;
+      until: string;
+    }>(`/changes?${search.toString()}`);
   },
 };
 
@@ -3343,7 +3520,7 @@ export const api = {
   brief: briefAPI,
   sse: sseAPI,
   org: orgAPI,
-  orgSSE: orgSSE,
+  orgSSE,
   contacts: contactsAPI,
   customer: customerAPI,
   support: supportAPI,

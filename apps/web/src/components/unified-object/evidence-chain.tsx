@@ -17,8 +17,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
 import { useI18n, useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // EVIDENCE CHAIN COMPONENT

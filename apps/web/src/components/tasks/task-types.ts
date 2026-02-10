@@ -265,7 +265,9 @@ export function formatDueDate(
 
   if (diffDays < 0) {
     return {
-      text: options.t("components.tasks.due.overdueShort", { days: Math.abs(diffDays) }),
+      text: options.t("components.tasks.due.overdueShort", {
+        days: Math.abs(diffDays),
+      }),
       className: "text-red-500 font-medium",
       isOverdue: true,
     };

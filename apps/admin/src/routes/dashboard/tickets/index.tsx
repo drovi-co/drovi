@@ -1,13 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Inbox, Search } from "lucide-react";
-
-import { supportAPI, type SupportTicketListItem } from "@/lib/api";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -17,11 +21,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type SupportTicketListItem, supportAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/tickets/")({
   component: AdminTicketsPage,
 });
+
+type BadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "success"
+  | "warning"
+  | "info";
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -38,17 +52,26 @@ function formatWhen(iso: string | null | undefined): string {
   }
 }
 
-function statusVariant(status: string) {
+function statusVariant(status: string): BadgeVariant {
   if (status === "open") return "warning";
   if (status === "pending") return "info";
   if (status === "closed") return "success";
   return "secondary";
 }
 
-function priorityVariant(priority: string) {
+function priorityVariant(priority: string): BadgeVariant {
   if (priority === "high") return "destructive";
   if (priority === "low") return "outline";
   return "secondary";
+}
+
+function parseStatusFilter(
+  value: string
+): "all" | "open" | "pending" | "closed" {
+  if (value === "open") return "open";
+  if (value === "pending") return "pending";
+  if (value === "closed") return "closed";
+  return "all";
 }
 
 function AdminTicketsPage() {
@@ -78,8 +101,12 @@ function AdminTicketsPage() {
       );
     });
     return filtered.sort((a, b) => {
-      const ta = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime();
-      const tb = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime();
+      const ta = new Date(
+        a.last_message_at ?? a.updated_at ?? a.created_at
+      ).getTime();
+      const tb = new Date(
+        b.last_message_at ?? b.updated_at ?? b.created_at
+      ).getTime();
       return tb - ta;
     });
   }, [q, query.data?.tickets, status]);
@@ -104,32 +131,38 @@ function AdminTicketsPage() {
                 <Inbox className="h-4 w-4 text-foreground/80" />
               </span>
               Support tickets
-              <Badge variant="secondary" className="ml-1">
+              <Badge className="ml-1" variant="secondary">
                 {counts.all}
               </Badge>
             </CardTitle>
             <div className="text-muted-foreground text-xs">
-              Inbox for support@drovi.co and in-app reports. Auto-refreshes every 5s.
+              Inbox for support@drovi.co and in-app reports. Auto-refreshes
+              every 5s.
             </div>
           </div>
           <div className="flex w-[520px] max-w-full items-center gap-2">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9"
+                onChange={(ev) => setQ(ev.target.value)}
                 placeholder="Search by subject, email, org, ticket id…"
                 value={q}
-                onChange={(ev) => setQ(ev.target.value)}
               />
             </div>
-            <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+            <Select
+              onValueChange={(v) => setStatus(parseStatusFilter(v))}
+              value={status}
+            >
               <SelectTrigger className="w-[170px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ({counts.all})</SelectItem>
                 <SelectItem value="open">Open ({counts.open})</SelectItem>
-                <SelectItem value="pending">Pending ({counts.pending})</SelectItem>
+                <SelectItem value="pending">
+                  Pending ({counts.pending})
+                </SelectItem>
                 <SelectItem value="closed">Closed ({counts.closed})</SelectItem>
               </SelectContent>
             </Select>
@@ -143,8 +176,10 @@ function AdminTicketsPage() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : query.error ? (
-            <div className="text-sm text-muted-foreground">
-              {query.error instanceof Error ? query.error.message : "Unknown error"}
+            <div className="text-muted-foreground text-sm">
+              {query.error instanceof Error
+                ? query.error.message
+                : "Unknown error"}
             </div>
           ) : tickets.length ? (
             <div className="rounded-md border border-border/70">
@@ -154,16 +189,20 @@ function AdminTicketsPage() {
                     <TableHead>Ticket</TableHead>
                     <TableHead className="hidden lg:table-cell">Org</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Priority</TableHead>
-                    <TableHead className="hidden xl:table-cell">Assignee</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Priority
+                    </TableHead>
+                    <TableHead className="hidden xl:table-cell">
+                      Assignee
+                    </TableHead>
                     <TableHead className="text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tickets.map((t) => (
                     <TableRow
-                      key={t.id}
                       className={cn("cursor-pointer")}
+                      key={t.id}
                       onClick={() =>
                         navigate({
                           to: "/dashboard/tickets/$ticketId",
@@ -177,9 +216,11 @@ function AdminTicketsPage() {
                             <div className="truncate font-medium text-sm">
                               {t.subject}
                             </div>
-                            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-xs">
                               <span className="font-mono">{t.id}</span>
-                              <span className="truncate">{t.created_by_email}</span>
+                              <span className="truncate">
+                                {t.created_by_email}
+                              </span>
                               {t.message_count ? (
                                 <span className="tabular-nums">
                                   {t.message_count} msg
@@ -187,31 +228,33 @@ function AdminTicketsPage() {
                               ) : null}
                             </div>
                             {t.last_message_preview ? (
-                              <div className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                              <div className="mt-1 line-clamp-1 text-muted-foreground text-xs">
                                 {t.last_message_preview}
                               </div>
                             ) : null}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
+                      <TableCell className="hidden font-mono text-muted-foreground text-xs lg:table-cell">
                         {t.organization_id}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusVariant(t.status) as any}>
+                        <Badge variant={statusVariant(t.status)}>
                           {t.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <Badge variant={priorityVariant(t.priority) as any}>
+                        <Badge variant={priorityVariant(t.priority)}>
                           {t.priority}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
+                      <TableCell className="hidden text-muted-foreground text-xs xl:table-cell">
                         {t.assignee_email ?? "—"}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                        {formatWhen(t.last_message_at ?? t.updated_at ?? t.created_at)}
+                      <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
+                        {formatWhen(
+                          t.last_message_at ?? t.updated_at ?? t.created_at
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -219,11 +262,10 @@ function AdminTicketsPage() {
               </Table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No tickets yet.</div>
+            <div className="text-muted-foreground text-sm">No tickets yet.</div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

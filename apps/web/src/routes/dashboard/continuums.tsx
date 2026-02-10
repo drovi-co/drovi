@@ -42,16 +42,16 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { authClient } from "@/lib/auth-client";
+import { useI18n, useT } from "@/i18n";
 import {
-  continuumsAPI,
   type ContinuumPreview,
   type ContinuumRun,
   type ContinuumSummary,
+  continuumsAPI,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { useI18n, useT } from "@/i18n";
+import { authClient } from "@/lib/auth-client";
 import { formatRelativeTime } from "@/lib/intl-time";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/continuums")({
   component: ContinuumsPage,
@@ -67,7 +67,11 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: "border-slate-400/30 bg-slate-400/10 text-slate-600",
 };
 
-function formatNextRun(nextRunAt: string | null, locale: string, onDemandLabel: string) {
+function formatNextRun(
+  nextRunAt: string | null,
+  locale: string,
+  onDemandLabel: string
+) {
   if (!nextRunAt) return onDemandLabel;
   const date = new Date(nextRunAt);
   return formatRelativeTime(date, locale);
@@ -149,7 +153,8 @@ function ContinuumsPage() {
       toast.success(t("pages.dashboard.continuums.toasts.runQueued"));
       refreshContinuums();
     },
-    onError: () => toast.error(t("pages.dashboard.continuums.toasts.runFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.continuums.toasts.runFailed")),
   });
 
   const pauseMutation = useMutation({
@@ -162,7 +167,8 @@ function ContinuumsPage() {
       toast.success(t("pages.dashboard.continuums.toasts.paused"));
       refreshContinuums();
     },
-    onError: () => toast.error(t("pages.dashboard.continuums.toasts.pauseFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.continuums.toasts.pauseFailed")),
   });
 
   const activateMutation = useMutation({
@@ -175,7 +181,8 @@ function ContinuumsPage() {
       toast.success(t("pages.dashboard.continuums.toasts.activated"));
       refreshContinuums();
     },
-    onError: () => toast.error(t("pages.dashboard.continuums.toasts.activateFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.continuums.toasts.activateFailed")),
   });
 
   const rollbackMutation = useMutation({
@@ -189,7 +196,8 @@ function ContinuumsPage() {
       toast.success(t("pages.dashboard.continuums.toasts.rollbackQueued"));
       refreshContinuums();
     },
-    onError: () => toast.error(t("pages.dashboard.continuums.toasts.rollbackFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.continuums.toasts.rollbackFailed")),
   });
 
   const previewMutation = useMutation({
@@ -202,7 +210,8 @@ function ContinuumsPage() {
     onSuccess: (preview, continuum) => {
       setPreviewState({ continuum, preview });
     },
-    onError: () => toast.error(t("pages.dashboard.continuums.toasts.previewFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.continuums.toasts.previewFailed")),
   });
 
   const stats = useMemo(() => {
@@ -238,7 +247,7 @@ function ContinuumsPage() {
         <div className="relative px-6 py-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
                 <Sparkles className="h-3 w-3" />
                 {t("pages.dashboard.continuums.kicker")}
               </div>
@@ -269,10 +278,30 @@ function ContinuumsPage() {
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { key: "active", label: t("pages.dashboard.continuums.stats.active"), value: stats.active, tone: "active" },
-              { key: "paused", label: t("pages.dashboard.continuums.stats.paused"), value: stats.paused, tone: "paused" },
-              { key: "draft", label: t("pages.dashboard.continuums.stats.drafts"), value: stats.draft, tone: "draft" },
-              { key: "escalated", label: t("pages.dashboard.continuums.stats.escalated"), value: stats.escalated, tone: "escalated" },
+              {
+                key: "active",
+                label: t("pages.dashboard.continuums.stats.active"),
+                value: stats.active,
+                tone: "active",
+              },
+              {
+                key: "paused",
+                label: t("pages.dashboard.continuums.stats.paused"),
+                value: stats.paused,
+                tone: "paused",
+              },
+              {
+                key: "draft",
+                label: t("pages.dashboard.continuums.stats.drafts"),
+                value: stats.draft,
+                tone: "draft",
+              },
+              {
+                key: "escalated",
+                label: t("pages.dashboard.continuums.stats.escalated"),
+                value: stats.escalated,
+                tone: "escalated",
+              },
             ].map((stat) => (
               <Card key={stat.key}>
                 <CardContent className="flex items-center justify-between p-4">
@@ -301,7 +330,10 @@ function ContinuumsPage() {
               ))}
             </div>
           ) : continuumsError ? (
-            <ApiErrorPanel error={continuumsErrorObj} onRetry={() => refetchContinuums()} />
+            <ApiErrorPanel
+              error={continuumsErrorObj}
+              onRetry={() => refetchContinuums()}
+            />
           ) : (continuums ?? []).length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
@@ -309,13 +341,17 @@ function ContinuumsPage() {
                   <Timer className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-medium">{t("pages.dashboard.continuums.empty.title")}</p>
+                  <p className="font-medium">
+                    {t("pages.dashboard.continuums.empty.title")}
+                  </p>
                   <p className="text-muted-foreground text-sm">
                     {t("pages.dashboard.continuums.empty.description")}
                   </p>
                 </div>
                 <Button asChild size="sm">
-                  <a href="/dashboard/builder">{t("pages.dashboard.continuums.empty.openBuilder")}</a>
+                  <a href="/dashboard/builder">
+                    {t("pages.dashboard.continuums.empty.openBuilder")}
+                  </a>
                 </Button>
               </CardContent>
             </Card>
@@ -368,7 +404,10 @@ function ContinuumsPage() {
                           {t("pages.dashboard.continuums.fields.version")}
                         </p>
                         <p className="font-medium">
-                          v{continuum.activeVersion ?? continuum.currentVersion ?? 1}
+                          v
+                          {continuum.activeVersion ??
+                            continuum.currentVersion ??
+                            1}
                         </p>
                       </div>
                       <div className="rounded-lg border bg-muted/30 p-3">
@@ -389,9 +428,10 @@ function ContinuumsPage() {
                         </p>
                         <p className="font-medium">
                           {continuum.updatedAt
-                            ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(
-                                new Date(continuum.updatedAt)
-                              )
+                            ? new Intl.DateTimeFormat(locale, {
+                                month: "short",
+                                day: "numeric",
+                              }).format(new Date(continuum.updatedAt))
                             : "—"}
                         </p>
                       </div>
@@ -459,46 +499,58 @@ function ContinuumsPage() {
                 {t("pages.dashboard.continuums.ledger.kicker")}
               </p>
               <p className="font-semibold text-lg">
-                {selectedContinuum?.name ?? t("pages.dashboard.continuums.ledger.selectPrompt")}
+                {selectedContinuum?.name ??
+                  t("pages.dashboard.continuums.ledger.selectPrompt")}
               </p>
             </div>
             <Badge variant="outline">
-              {t("pages.dashboard.continuums.ledger.runsCount", { count: runsQuery.data?.length ?? 0 })}
+              {t("pages.dashboard.continuums.ledger.runsCount", {
+                count: runsQuery.data?.length ?? 0,
+              })}
             </Badge>
           </div>
           <Separator className="my-4" />
 
-          {!selectedContinuum ? (
+          {selectedContinuum ? (
+            runsQuery.isLoading ? (
+              <Skeleton className="h-64" />
+            ) : runsQuery.isError ? (
+              <ApiErrorPanel
+                error={runsQuery.error}
+                onRetry={() => runsQuery.refetch()}
+              />
+            ) : (runsQuery.data ?? []).length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+                {t("pages.dashboard.continuums.ledger.empty")}
+              </div>
+            ) : (
+              <ScrollArea className="h-[420px] pr-2">
+                <div className="space-y-3">
+                  {(runsQuery.data ?? []).map((run) => (
+                    <RunRow key={run.id} run={run} />
+                  ))}
+                </div>
+              </ScrollArea>
+            )
+          ) : (
             <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
               {t("pages.dashboard.continuums.ledger.pickPrompt")}
             </div>
-          ) : runsQuery.isLoading ? (
-            <Skeleton className="h-64" />
-          ) : runsQuery.isError ? (
-            <ApiErrorPanel error={runsQuery.error} onRetry={() => runsQuery.refetch()} />
-          ) : (runsQuery.data ?? []).length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-              {t("pages.dashboard.continuums.ledger.empty")}
-            </div>
-          ) : (
-            <ScrollArea className="h-[420px] pr-2">
-              <div className="space-y-3">
-                {(runsQuery.data ?? []).map((run) => (
-                  <RunRow key={run.id} run={run} />
-                ))}
-              </div>
-            </ScrollArea>
           )}
         </div>
       </div>
 
-      <Dialog open={!!previewState} onOpenChange={() => setPreviewState(null)}>
+      <Dialog onOpenChange={() => setPreviewState(null)} open={!!previewState}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{t("pages.dashboard.continuums.preview.title")}</DialogTitle>
+            <DialogTitle>
+              {t("pages.dashboard.continuums.preview.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("pages.dashboard.continuums.preview.description", {
-                name: previewState?.continuum.name ?? t("pages.dashboard.continuums.preview.unknownContinuum"),
+                name:
+                  previewState?.continuum.name ??
+                  t("pages.dashboard.continuums.preview.unknownContinuum"),
                 days: 30,
               })}
             </DialogDescription>
@@ -508,8 +560,16 @@ function ContinuumsPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{t("pages.dashboard.continuums.preview.expectedActions.title")}</CardTitle>
-                    <CardDescription>{t("pages.dashboard.continuums.preview.expectedActions.description")}</CardDescription>
+                    <CardTitle className="text-base">
+                      {t(
+                        "pages.dashboard.continuums.preview.expectedActions.title"
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {t(
+                        "pages.dashboard.continuums.preview.expectedActions.description"
+                      )}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2 text-sm">
@@ -521,7 +581,9 @@ function ContinuumsPage() {
                       ))}
                       {previewState.preview.expected_actions.length === 0 && (
                         <p className="text-muted-foreground">
-                          {t("pages.dashboard.continuums.preview.expectedActions.empty")}
+                          {t(
+                            "pages.dashboard.continuums.preview.expectedActions.empty"
+                          )}
                         </p>
                       )}
                     </ul>
@@ -529,22 +591,41 @@ function ContinuumsPage() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{t("pages.dashboard.continuums.preview.riskSnapshot.title")}</CardTitle>
-                    <CardDescription>{t("pages.dashboard.continuums.preview.riskSnapshot.description")}</CardDescription>
+                    <CardTitle className="text-base">
+                      {t(
+                        "pages.dashboard.continuums.preview.riskSnapshot.title"
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {t(
+                        "pages.dashboard.continuums.preview.riskSnapshot.description"
+                      )}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-3">
                     {[
                       {
-                        label: t("pages.dashboard.continuums.preview.riskSnapshot.open"),
-                        value: previewState.preview.risk_snapshot.open_commitments,
+                        label: t(
+                          "pages.dashboard.continuums.preview.riskSnapshot.open"
+                        ),
+                        value:
+                          previewState.preview.risk_snapshot.open_commitments,
                       },
                       {
-                        label: t("pages.dashboard.continuums.preview.riskSnapshot.overdue"),
-                        value: previewState.preview.risk_snapshot.overdue_commitments,
+                        label: t(
+                          "pages.dashboard.continuums.preview.riskSnapshot.overdue"
+                        ),
+                        value:
+                          previewState.preview.risk_snapshot
+                            .overdue_commitments,
                       },
                       {
-                        label: t("pages.dashboard.continuums.preview.riskSnapshot.atRisk"),
-                        value: previewState.preview.risk_snapshot.at_risk_commitments,
+                        label: t(
+                          "pages.dashboard.continuums.preview.riskSnapshot.atRisk"
+                        ),
+                        value:
+                          previewState.preview.risk_snapshot
+                            .at_risk_commitments,
                       },
                     ].map((item) => (
                       <div
@@ -558,7 +639,11 @@ function ContinuumsPage() {
                       </div>
                     ))}
                     <div className="rounded-md border border-dashed px-3 py-2 text-sm">
-                      <p className="text-muted-foreground">{t("pages.dashboard.continuums.preview.riskSnapshot.outlook")}</p>
+                      <p className="text-muted-foreground">
+                        {t(
+                          "pages.dashboard.continuums.preview.riskSnapshot.outlook"
+                        )}
+                      </p>
                       <p className="font-medium">
                         {previewState.preview.risk_snapshot.risk_outlook}
                       </p>
@@ -569,7 +654,9 @@ function ContinuumsPage() {
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t("pages.dashboard.continuums.preview.proof.title")}</CardTitle>
+                  <CardTitle className="text-base">
+                    {t("pages.dashboard.continuums.preview.proof.title")}
+                  </CardTitle>
                   <CardDescription>
                     {t("pages.dashboard.continuums.preview.proof.description")}
                   </CardDescription>
@@ -607,22 +694,27 @@ function ContinuumsPage() {
 function RunRow({ run }: { run: ContinuumRun }) {
   const t = useT();
   const { locale } = useI18n();
-  const statusTone = STATUS_STYLES[run.status] ??
-    "border-muted bg-muted text-muted-foreground";
+  const statusTone =
+    STATUS_STYLES[run.status] ?? "border-muted bg-muted text-muted-foreground";
 
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground text-xs">{t("pages.dashboard.continuums.runRow.runId")}</p>
+          <p className="text-muted-foreground text-xs">
+            {t("pages.dashboard.continuums.runRow.runId")}
+          </p>
           <p className="font-mono text-xs">{run.id}</p>
         </div>
-        <Badge className={cn("border text-[11px]", statusTone)} variant="outline">
+        <Badge
+          className={cn("border text-[11px]", statusTone)}
+          variant="outline"
+        >
           {run.status}
         </Badge>
       </div>
       <Separator className="my-2" />
-      <div className="grid gap-2 text-xs text-muted-foreground">
+      <div className="grid gap-2 text-muted-foreground text-xs">
         <div className="flex items-center justify-between">
           <span>{t("pages.dashboard.continuums.runRow.version")}</span>
           <span className="font-medium text-foreground">v{run.version}</span>

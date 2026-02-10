@@ -1,12 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  AuthLayout,
-  SignInForm,
-  SignUpForm,
-} from "@/components/auth";
-import { useAuthStore } from "@/lib/auth";
+import { AuthLayout, SignInForm, SignUpForm } from "@/components/auth";
 import { useT } from "@/i18n";
+import { useAuthStore } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -56,14 +52,10 @@ function LoginPage() {
   return (
     <AuthLayout description={getDescription()} title={getTitle()}>
       {view === "sign-in" && (
-        <SignInForm
-          onSwitchToSignUp={() => setView("sign-up")}
-        />
+        <SignInForm onSwitchToSignUp={() => setView("sign-up")} />
       )}
       {view === "sign-up" && (
-        <SignUpForm
-          onSwitchToSignIn={() => setView("sign-in")}
-        />
+        <SignUpForm onSwitchToSignIn={() => setView("sign-in")} />
       )}
     </AuthLayout>
   );

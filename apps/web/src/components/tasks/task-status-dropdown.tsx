@@ -16,8 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 import { STATUS_CONFIG, STATUS_ORDER, type TaskStatus } from "./task-types";
 

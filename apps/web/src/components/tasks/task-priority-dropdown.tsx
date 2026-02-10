@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
 import { useUpdateTaskPriorityUIO } from "@/hooks/use-uio";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 import {
   PRIORITY_CONFIG,

@@ -181,7 +181,7 @@ function getEventBgColor(type: TimelineEventType): string {
 // =============================================================================
 
 export function CommitmentHistoryTimeline({
-  commitmentId,
+  commitmentId: _commitmentId,
   commitmentTitle,
   events,
   confidence,

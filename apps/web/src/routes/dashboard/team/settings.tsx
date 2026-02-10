@@ -1,7 +1,10 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Building2, ExternalLink, ShieldCheck } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,17 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useT } from "@/i18n";
 import { connectionsAPI, orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { useT } from "@/i18n";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/team/settings")({
   component: TeamSettingsPage,
@@ -32,7 +32,13 @@ function TeamSettingsPage() {
   const user = useAuthStore((state) => state.user);
   const t = useT();
   const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
-  const { data: orgInfo, isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: orgInfo,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["org-info"],
     queryFn: () => orgAPI.getOrgInfo(),
   });
@@ -49,8 +55,12 @@ function TeamSettingsPage() {
   }, [connectors]);
 
   const [allowAllConnectors, setAllowAllConnectors] = useState(true);
-  const [allowedConnectors, setAllowedConnectors] = useState<Set<string>>(new Set());
-  const [defaultVisibility, setDefaultVisibility] = useState<"org_shared" | "private">("org_shared");
+  const [allowedConnectors, setAllowedConnectors] = useState<Set<string>>(
+    new Set()
+  );
+  const [defaultVisibility, setDefaultVisibility] = useState<
+    "org_shared" | "private"
+  >("org_shared");
 
   useEffect(() => {
     if (!orgInfo) return;
@@ -62,7 +72,9 @@ function TeamSettingsPage() {
   const updatePolicyMutation = useMutation({
     mutationFn: async () => {
       return orgAPI.updateOrgInfo({
-        allowedConnectors: allowAllConnectors ? null : Array.from(allowedConnectors),
+        allowedConnectors: allowAllConnectors
+          ? null
+          : Array.from(allowedConnectors),
         defaultConnectionVisibility: defaultVisibility,
       });
     },
@@ -71,7 +83,10 @@ function TeamSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["org-info"] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("pages.dashboard.team.settingsPage.toasts.updateFailed"));
+      toast.error(
+        err.message ||
+          t("pages.dashboard.team.settingsPage.toasts.updateFailed")
+      );
     },
   });
 
@@ -91,7 +106,9 @@ function TeamSettingsPage() {
   if (!orgInfo) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">{t("pages.dashboard.team.noOrg.title")}</p>
+        <p className="text-muted-foreground">
+          {t("pages.dashboard.team.noOrg.title")}
+        </p>
       </div>
     );
   }
@@ -128,8 +145,8 @@ function TeamSettingsPage() {
               </div>
               <Button
                 onClick={() => navigate({ to: "/dashboard/settings" })}
-                variant="outline"
                 size="sm"
+                variant="outline"
               >
                 {t("pages.dashboard.team.settingsPage.profile.openSettings")}
                 <ExternalLink className="ml-2 h-4 w-4" />
@@ -153,52 +170,62 @@ function TeamSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!isAdmin ? (
-            <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+          {isAdmin ? null : (
+            <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
               {t("pages.dashboard.team.settingsPage.policies.adminRequired")}
             </div>
-          ) : null}
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-sm">
-                {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.label")}
+                {t(
+                  "pages.dashboard.team.settingsPage.policies.defaultVisibility.label"
+                )}
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  type="button"
-                  disabled={!isAdmin || updatePolicyMutation.isPending}
-                  onClick={() => setDefaultVisibility("org_shared")}
                   className={cn(
                     "rounded-lg border px-3 py-2 text-left text-sm transition",
                     defaultVisibility === "org_shared"
                       ? "border-border bg-background shadow-sm"
                       : "border-border/60 bg-muted/30 hover:bg-muted/40"
                   )}
+                  disabled={!isAdmin || updatePolicyMutation.isPending}
+                  onClick={() => setDefaultVisibility("org_shared")}
+                  type="button"
                 >
                   <div className="font-medium">
-                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.title")}
+                    {t(
+                      "pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.title"
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.description")}
+                  <div className="text-muted-foreground text-xs">
+                    {t(
+                      "pages.dashboard.team.settingsPage.policies.defaultVisibility.shared.description"
+                    )}
                   </div>
                 </button>
                 <button
-                  type="button"
-                  disabled={!isAdmin || updatePolicyMutation.isPending}
-                  onClick={() => setDefaultVisibility("private")}
                   className={cn(
                     "rounded-lg border px-3 py-2 text-left text-sm transition",
                     defaultVisibility === "private"
                       ? "border-border bg-background shadow-sm"
                       : "border-border/60 bg-muted/30 hover:bg-muted/40"
                   )}
+                  disabled={!isAdmin || updatePolicyMutation.isPending}
+                  onClick={() => setDefaultVisibility("private")}
+                  type="button"
                 >
                   <div className="font-medium">
-                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.private.title")}
+                    {t(
+                      "pages.dashboard.team.settingsPage.policies.defaultVisibility.private.title"
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {t("pages.dashboard.team.settingsPage.policies.defaultVisibility.private.description")}
+                  <div className="text-muted-foreground text-xs">
+                    {t(
+                      "pages.dashboard.team.settingsPage.policies.defaultVisibility.private.description"
+                    )}
                   </div>
                 </button>
               </div>
@@ -207,11 +234,15 @@ function TeamSettingsPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm">
-                  {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.title")}
+                  {t(
+                    "pages.dashboard.team.settingsPage.policies.allowedConnectors.title"
+                  )}
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">
-                    {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.allowAll")}
+                  <Label className="text-muted-foreground text-xs">
+                    {t(
+                      "pages.dashboard.team.settingsPage.policies.allowedConnectors.allowAll"
+                    )}
                   </Label>
                   <Switch
                     checked={allowAllConnectors}
@@ -220,27 +251,43 @@ function TeamSettingsPage() {
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t("pages.dashboard.team.settingsPage.policies.allowedConnectors.hint")}
+              <p className="text-muted-foreground text-xs">
+                {t(
+                  "pages.dashboard.team.settingsPage.policies.allowedConnectors.hint"
+                )}
               </p>
             </div>
           </div>
 
           <Separator />
 
-          <div className={cn("grid gap-2", allowAllConnectors ? "opacity-60" : "")}>
-            <div className="text-sm font-medium">
-              {t("pages.dashboard.team.settingsPage.policies.connectorCatalog.title")}
+          <div
+            className={cn("grid gap-2", allowAllConnectors ? "opacity-60" : "")}
+          >
+            <div className="font-medium text-sm">
+              {t(
+                "pages.dashboard.team.settingsPage.policies.connectorCatalog.title"
+              )}
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {connectorTypes.map((c) => {
-                const enabled = allowAllConnectors || allowedConnectors.has(c.type);
+                const enabled =
+                  allowAllConnectors || allowedConnectors.has(c.type);
                 const selected = allowedConnectors.has(c.type);
                 return (
                   <button
+                    className={cn(
+                      "group rounded-xl border px-3 py-3 text-left text-sm transition",
+                      enabled
+                        ? "border-border bg-background hover:bg-muted/20"
+                        : "border-border/60 bg-muted/20"
+                    )}
+                    disabled={
+                      !isAdmin ||
+                      updatePolicyMutation.isPending ||
+                      allowAllConnectors
+                    }
                     key={c.type}
-                    type="button"
-                    disabled={!isAdmin || updatePolicyMutation.isPending || allowAllConnectors}
                     onClick={() => {
                       setAllowedConnectors((prev) => {
                         const next = new Set(prev);
@@ -249,46 +296,57 @@ function TeamSettingsPage() {
                         return next;
                       });
                     }}
-                    className={cn(
-                      "group rounded-xl border px-3 py-3 text-left text-sm transition",
-                      enabled
-                        ? "border-border bg-background hover:bg-muted/20"
-                        : "border-border/60 bg-muted/20"
-                    )}
                     title={
                       allowAllConnectors
-                        ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.disableAllowAllHint")
+                        ? t(
+                            "pages.dashboard.team.settingsPage.policies.connectorCatalog.disableAllowAllHint"
+                          )
                         : undefined
                     }
+                    type="button"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{c.type}</div>
                       <div className="flex items-center gap-2">
                         <Badge variant={c.configured ? "secondary" : "outline"}>
                           {c.configured
-                            ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.configured")
-                            : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.needsEnv")}
+                            ? t(
+                                "pages.dashboard.team.settingsPage.policies.connectorCatalog.configured"
+                              )
+                            : t(
+                                "pages.dashboard.team.settingsPage.policies.connectorCatalog.needsEnv"
+                              )}
                         </Badge>
-                        {!allowAllConnectors ? (
+                        {allowAllConnectors ? null : (
                           <Badge variant={selected ? "default" : "outline"}>
                             {selected
-                              ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.allowed")
-                              : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.blocked")}
+                              ? t(
+                                  "pages.dashboard.team.settingsPage.policies.connectorCatalog.allowed"
+                                )
+                              : t(
+                                  "pages.dashboard.team.settingsPage.policies.connectorCatalog.blocked"
+                                )}
                           </Badge>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                     {!c.configured && c.missing_env?.length ? (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        {t("pages.dashboard.team.settingsPage.policies.connectorCatalog.missingEnv")}{" "}
+                      <div className="mt-2 text-muted-foreground text-xs">
+                        {t(
+                          "pages.dashboard.team.settingsPage.policies.connectorCatalog.missingEnv"
+                        )}{" "}
                         {c.missing_env.slice(0, 3).join(", ")}
                         {c.missing_env.length > 3 ? "…" : ""}
                       </div>
                     ) : (
-                      <div className="mt-2 text-xs text-muted-foreground">
+                      <div className="mt-2 text-muted-foreground text-xs">
                         {c.capabilities?.supports_real_time
-                          ? t("pages.dashboard.team.settingsPage.policies.connectorCatalog.realTime")
-                          : t("pages.dashboard.team.settingsPage.policies.connectorCatalog.batch")}
+                          ? t(
+                              "pages.dashboard.team.settingsPage.policies.connectorCatalog.realTime"
+                            )
+                          : t(
+                              "pages.dashboard.team.settingsPage.policies.connectorCatalog.batch"
+                            )}
                       </div>
                     )}
                   </button>
@@ -299,9 +357,9 @@ function TeamSettingsPage() {
 
           <div className="flex items-center justify-end gap-2">
             <Button
-              variant="outline"
               disabled={updatePolicyMutation.isPending}
               onClick={() => refetch()}
+              variant="outline"
             >
               {t("pages.dashboard.team.settingsPage.actions.reset")}
             </Button>

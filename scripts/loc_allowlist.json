@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "exemptions": [
+    {
+      "path": "drovi-intelligence/src/orchestrator/nodes/persist.py",
+      "max_lines": 4000,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 6",
+      "allow_touched": false
+    },
+    {
+      "path": "drovi-intelligence/src/uio/manager.py",
+      "max_lines": 3000,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 6/Phase 2",
+      "allow_touched": false
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/uios.py",
+      "max_lines": 3000,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 7/Phase 2 adapters",
+      "allow_touched": false
+    },
+    {
+      "path": "drovi-intelligence/src/connectors/scheduling/scheduler.py",
+      "max_lines": 2000,
+      "expires": "2026-05-01",
+      "reason": "Legacy scheduler file; removed in Phase 4 (Temporal)",
+      "allow_touched": false
+    },
+    {
+      "path": "apps/web/src/lib/api.ts",
+      "max_lines": 4000,
+      "expires": "2026-05-01",
+      "reason": "Legacy API client; replaced by packages/api-client in Phase 7",
+      "allow_touched": false
+    }
+  ]
+}
