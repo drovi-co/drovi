@@ -194,6 +194,9 @@ class JobsWorker:
             return await self._run_connector_sync(job)
         if job.job_type == "connector.backfill_plan":
             return await self._run_connector_backfill_plan(job)
+        if job.job_type == "system.noop":
+            # Internal diagnostic job used for integration smoke tests and ops verification.
+            return {"ok": True}
         if job.job_type == "webhook.outbox.flush":
             return await self._run_webhook_outbox_flush(job)
         if job.job_type == "candidates.process":

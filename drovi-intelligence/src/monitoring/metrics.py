@@ -113,6 +113,12 @@ class Metrics:
                 ["connector_type"],
             )
 
+            self.connector_records_per_second = Gauge(
+                "drovi_connector_records_per_second",
+                "Records per second during the most recent connector sync job",
+                ["connector_type"],
+            )
+
             # Time-to-first-data SLO: connection created -> first successful sync
             self.connector_time_to_first_data_seconds = Histogram(
                 "drovi_connector_time_to_first_data_seconds",
@@ -446,12 +452,17 @@ class Metrics:
                 connector_type=connector_type,
             ).inc(records_synced)
 
+        if records_synced > 0 and duration > 0:
+            self.connector_records_per_second.labels(
+                connector_type=connector_type,
+            ).set(float(records_synced) / float(duration))
+
         now = time.time()
-        if status == "completed":
+        if status in ("completed", "success"):
             self.connector_last_success_timestamp_seconds.labels(
                 connector_type=connector_type,
             ).set(now)
-        elif status == "failed":
+        elif status in ("failed", "error"):
             self.connector_last_error_timestamp_seconds.labels(
                 connector_type=connector_type,
             ).set(now)

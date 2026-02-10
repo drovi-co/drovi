@@ -26,7 +26,7 @@ class TestTemporalConsistency:
             {"id": "cross", "commitment_valid_to": "2024-01-05T00:00:00"},
         ]
 
-        with patch("src.graphrag.query.utc_now", return_value=now):
+        with patch("src.graphrag.query.utc_now_naive", return_value=now):
             temporal = graphrag._apply_temporal_consistency(results)
 
         ids_current = {r["id"] for r in temporal["current"]}

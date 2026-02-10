@@ -17,7 +17,8 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.messaging.whatsapp.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -69,6 +70,10 @@ class WhatsAppConnector(BaseConnector):
     This connector handles webhook payloads and can fetch media.
     """
 
+    connector_type = "whatsapp"
+    capabilities = CAPABILITIES
+    SCOPES = list(OAUTH_SCOPES)
+
     def __init__(self):
         """Initialize WhatsApp connector."""
         self._access_token: str | None = None
@@ -89,13 +94,14 @@ class WhatsAppConnector(BaseConnector):
                 return False, "Missing phone_number_id in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{WHATSAPP_GRAPH_URL}/{phone_number_id}",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{WHATSAPP_GRAPH_URL}/{phone_number_id}",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -118,17 +124,7 @@ class WhatsAppConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available WhatsApp streams."""
-        return [
-            StreamConfig(
-                stream_name="messages",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="timestamp",
-            ),
-            StreamConfig(
-                stream_name="contacts",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -344,19 +340,36 @@ class WhatsAppConnector(BaseConnector):
             is_frequently_forwarded=msg.get("context", {}).get("frequently_forwarded", False),
         )
 
-    async def fetch_media(self, media_id: str) -> tuple[bytes, str] | None:
+    async def fetch_media(
+        self,
+        media_id: str,
+        config: ConnectorConfig | None = None,
+    ) -> tuple[bytes, str] | None:
         """Fetch media content by ID."""
         try:
             async with httpx.AsyncClient() as client:
                 # Get media URL
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{WHATSAPP_GRAPH_URL}/{media_id}",
-                    headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.connector_type,
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
-                )
+                if config:
+                    response = await connector_request(
+                        connector=self,
+                        config=config,
+                        client=client,
+                        method="GET",
+                        url=f"{WHATSAPP_GRAPH_URL}/{media_id}",
+                        operation="fetch_media:url",
+                        headers={"Authorization": f"Bearer {self._access_token}"},
+                    )
+                else:
+                    from src.connectors.http import request_with_retry
+
+                    response = await request_with_retry(
+                        client,
+                        "GET",
+                        f"{WHATSAPP_GRAPH_URL}/{media_id}",
+                        headers={"Authorization": f"Bearer {self._access_token}"},
+                        rate_limit_key=self.connector_type,
+                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
+                    )
                 response.raise_for_status()
                 media_data = response.json()
                 media_url = media_data.get("url")
@@ -366,14 +379,27 @@ class WhatsAppConnector(BaseConnector):
                     return None
 
                 # Download media
-                media_response = await request_with_retry(
-                    client,
-                    "GET",
-                    media_url,
-                    headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.connector_type,
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
-                )
+                if config:
+                    media_response = await connector_request(
+                        connector=self,
+                        config=config,
+                        client=client,
+                        method="GET",
+                        url=media_url,
+                        operation="fetch_media:download",
+                        headers={"Authorization": f"Bearer {self._access_token}"},
+                    )
+                else:
+                    from src.connectors.http import request_with_retry
+
+                    media_response = await request_with_retry(
+                        client,
+                        "GET",
+                        media_url,
+                        headers={"Authorization": f"Bearer {self._access_token}"},
+                        rate_limit_key=self.connector_type,
+                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
+                    )
                 media_response.raise_for_status()
 
                 return media_response.content, mime_type

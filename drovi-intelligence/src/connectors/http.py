@@ -17,6 +17,17 @@ import structlog
 
 logger = structlog.get_logger()
 
+try:  # pragma: no cover
+    from prometheus_client import Counter
+
+    _connector_http_retries_total = Counter(
+        "drovi_connector_http_retries_total",
+        "Total connector HTTP retries by connector/operation and reason",
+        ["connector_type", "operation", "reason", "status_code"],
+    )
+except Exception:  # pragma: no cover
+    _connector_http_retries_total = None
+
 
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 
@@ -65,6 +76,8 @@ async def request_with_retry(
     max_backoff: float = 8.0,
     rate_limit_key: str | None = None,
     rate_limit_per_minute: int | None = None,
+    metrics_connector_type: str | None = None,
+    metrics_operation: str | None = None,
     **kwargs,
 ) -> httpx.Response:
     """
@@ -90,6 +103,17 @@ async def request_with_retry(
                     delay = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
                     delay = delay + random.uniform(0, delay / 2)
 
+                if _connector_http_retries_total is not None and metrics_connector_type:
+                    try:
+                        _connector_http_retries_total.labels(
+                            connector_type=metrics_connector_type,
+                            operation=metrics_operation or "request",
+                            reason="status",
+                            status_code=str(response.status_code),
+                        ).inc()
+                    except Exception:
+                        pass
+
                 logger.warning(
                     "Retrying request due to status",
                     status_code=response.status_code,
@@ -108,6 +132,16 @@ async def request_with_retry(
 
             delay = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
             delay = delay + random.uniform(0, delay / 2)
+            if _connector_http_retries_total is not None and metrics_connector_type:
+                try:
+                    _connector_http_retries_total.labels(
+                        connector_type=metrics_connector_type,
+                        operation=metrics_operation or "request",
+                        reason="network",
+                        status_code="0",
+                    ).inc()
+                except Exception:
+                    pass
             logger.warning(
                 "Retrying request due to network error",
                 url=url,

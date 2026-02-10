@@ -20,6 +20,7 @@ from src.connectors.base.config import AuthConfig, AuthType, ConnectorConfig, St
 from src.connectors.base.connector import ConnectorRegistry
 from src.connectors.base.records import Record, RecordType
 from src.connectors.normalization import normalize_record_for_pipeline
+from src.connectors.definitions.registry import get_connector_definition
 from src.ingestion.priority import compute_ingest_priority
 from src.ingestion.unified_event import build_content_hash, build_source_fingerprint
 from src.identity import IdentitySource, IdentityType, get_identity_graph
@@ -193,7 +194,13 @@ def normalize_raw_event_payload(
     record_obj: Record | None = None
     normalized = None
 
-    default_source_type = SOURCE_TYPE_MAP.get(connector_type or "", source_type)
+    default_source_type = source_type
+    if connector_type:
+        definition = get_connector_definition(connector_type)
+        if definition:
+            default_source_type = definition.source_type
+        else:
+            default_source_type = SOURCE_TYPE_MAP.get(connector_type, source_type)
 
     if record_payload:
         try:

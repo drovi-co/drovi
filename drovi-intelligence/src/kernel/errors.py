@@ -4,7 +4,10 @@ import re
 from typing import Any
 
 
-_ERROR_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")
+# Dot-separated, lowercase, stable codes like:
+# - auth.unauthorized
+# - request.validation_error
+_ERROR_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
 
 
 class DroviError(Exception):
@@ -108,4 +111,3 @@ class UpstreamError(DroviError):
         status_code: int = 502,
     ):
         super().__init__(code=code, message=message, status_code=status_code, meta=meta)
-

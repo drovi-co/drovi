@@ -15,7 +15,7 @@ pytestmark = pytest.mark.unit
 
 def test_compute_trust_score_handles_offset_aware_last_updated_at(monkeypatch: pytest.MonkeyPatch) -> None:
     fixed_now = datetime(2026, 2, 9, 12, 0, 0)  # naive
-    monkeypatch.setattr(indicators, "utc_now", lambda: fixed_now)
+    monkeypatch.setattr(indicators, "utc_now_naive", lambda: fixed_now)
 
     last_updated_at = datetime(2026, 2, 8, 12, 0, 0, tzinfo=timezone.utc)
     score = indicators._compute_trust_score(
@@ -30,7 +30,7 @@ def test_compute_trust_score_handles_offset_aware_last_updated_at(monkeypatch: p
 
 def test_compute_trust_score_handles_naive_last_updated_at(monkeypatch: pytest.MonkeyPatch) -> None:
     fixed_now = datetime(2026, 2, 9, 12, 0, 0)  # naive
-    monkeypatch.setattr(indicators, "utc_now", lambda: fixed_now)
+    monkeypatch.setattr(indicators, "utc_now_naive", lambda: fixed_now)
 
     last_updated_at = datetime(2026, 2, 8, 12, 0, 0)  # naive
     score = indicators._compute_trust_score(
@@ -41,4 +41,3 @@ def test_compute_trust_score_handles_naive_last_updated_at(monkeypatch: pytest.M
     )
 
     assert 0.0 <= score <= 1.0
-

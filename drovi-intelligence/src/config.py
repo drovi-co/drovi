@@ -226,6 +226,12 @@ class Settings(BaseSettings):
     kafka_worker_concurrency: int = Field(default=4)
     kafka_queue_maxsize: int = Field(default=1000)
     kafka_lag_report_interval_seconds: int = Field(default=30)
+
+    # Temporal Workflows
+    temporal_enabled: bool = Field(default=False)
+    temporal_address: str = Field(default="temporal:7233")
+    temporal_namespace: str = Field(default="default")
+    temporal_task_queue: str = Field(default="drovi-workflows")
     kafka_topic_priorities: dict[str, int] = Field(
         default_factory=lambda: {
             "raw.connector.events": 0,

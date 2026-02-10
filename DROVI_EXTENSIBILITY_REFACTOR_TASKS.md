@@ -127,22 +127,22 @@ Definition of done: security boundary is simpler to reason about; token handling
 
 ### Temporal Infrastructure
 
-- [ ] P4.01 Add Temporal server to `/Users/jeremyscatigna/project-memory/docker-compose.yml` with persistence (dev).
-- [ ] P4.02 Add a dedicated worker service `drovi-temporal-worker` and a Python package `src/contexts/workflows/` (or `src/workflows/`) that hosts workflow definitions.
-- [ ] P4.03 Add health checks and operational docs at `docs/ops/temporal.md` (namespaces, task queues, failure modes, replay safety).
+- [x] P4.01 Add Temporal server to `/Users/jeremyscatigna/project-memory/docker-compose.yml` with persistence (dev).
+- [x] P4.02 Add a dedicated worker service `drovi-temporal-worker` and a Python package `src/contexts/workflows/` (or `src/workflows/`) that hosts workflow definitions.
+- [x] P4.03 Add health checks and operational docs at `docs/ops/temporal.md` (namespaces, task queues, failure modes, replay safety).
 
 ### Workflow Model
 
-- [ ] P4.04 Implement `ConnectorBackfillWorkflow` (windowed, resumable, rate-limited).
-- [ ] P4.05 Implement `ConnectorSyncWorkflow` (incremental, cursor-based, idempotent).
-- [ ] P4.06 Implement `ConnectorWebhookIngestWorkflow` (inbox/outbox, dedupe).
-- [ ] P4.07 Implement `DerivedIndexBuildWorkflow` (outbox drain, batching, backpressure).
-- [ ] P4.08 Remove APScheduler from production execution paths (dev-only tooling allowed only if clearly separated).
+- [x] P4.04 Implement `ConnectorBackfillWorkflow` (windowed, resumable, rate-limited).
+- [x] P4.05 Implement `ConnectorSyncWorkflow` (incremental, cursor-based, idempotent).
+- [x] P4.06 Implement `ConnectorWebhookIngestWorkflow` (inbox/outbox, dedupe).
+- [x] P4.07 Implement `DerivedIndexBuildWorkflow` (outbox drain, batching, backpressure).
+- [x] P4.08 Remove APScheduler from production execution paths (dev-only tooling allowed only if clearly separated).
 
 ### Temporal Testing
 
-- [ ] P4.09 Add in-process Temporal tests using time-skipping for retries/backoff/cancellation.
-- [ ] P4.10 Add a minimal docker integration suite validating worker+server wiring.
+- [x] P4.09 Add in-process Temporal tests using time-skipping for retries/backoff/cancellation.
+- [x] P4.10 Add a minimal docker integration suite validating worker+server wiring.
 
 Definition of done: periodic sync/backfill is Temporal-first; tests cover the workflow semantics.
 
@@ -152,22 +152,22 @@ Definition of done: periodic sync/backfill is Temporal-first; tests cover the wo
 
 ### ConnectorDefinition
 
-- [ ] P5.01 Create `ConnectorDefinition` for each connector and move stream defaults/capabilities/provider limits into the connector module.
-- [ ] P5.02 Update `ConnectionService` to be a thin adapter around `ConnectorDefinition` (no hardcoded connector mappings).
-- [ ] P5.03 Standardize rate limit handling and retry/backoff policies per connector definition.
+- [x] P5.01 Create `ConnectorDefinition` for each connector and move stream defaults/capabilities/provider limits into the connector module.
+- [x] P5.02 Update `ConnectionService` to be a thin adapter around `ConnectorDefinition` (no hardcoded connector mappings).
+- [x] P5.03 Standardize rate limit handling and retry/backoff policies per connector definition.
 
 ### Conformance Harness
 
-- [ ] P5.04 Add `tests/connectors/conformance/` harness that every connector must pass.
-- [ ] P5.05 Add conformance tests for idempotency (same event twice => one canonical write).
-- [ ] P5.06 Add conformance tests for cursor monotonicity and resumable windows (including crash-restart scenarios).
-- [ ] P5.07 Add replay tests (Kafka/UEM reprocessing does not duplicate truth).
-- [ ] P5.08 Add property-based tests (Hypothesis) for cursor/window edge cases and dedupe keys.
+- [x] P5.04 Add `tests/connectors/conformance/` harness that every connector must pass.
+- [x] P5.05 Add conformance tests for idempotency (same event twice => one canonical write).
+- [x] P5.06 Add conformance tests for cursor monotonicity and resumable windows (including crash-restart scenarios).
+- [x] P5.07 Add replay tests (Kafka/UEM reprocessing does not duplicate truth).
+- [x] P5.08 Add property-based tests (Hypothesis) for cursor/window edge cases and dedupe keys.
 
 ### Observability + DLQ
 
-- [ ] P5.09 Standardize connector metrics (sync lag, records/sec, retries, DLQ, last success) and expose in `/metrics`.
-- [ ] P5.10 Standardize DLQ payload format and add an operator “replay DLQ” command/tool.
+- [x] P5.09 Standardize connector metrics (sync lag, records/sec, retries, DLQ, last success) and expose in `/metrics`.
+- [x] P5.10 Standardize DLQ payload format and add an operator “replay DLQ” command/tool.
 
 Definition of done: connectors are extensible and measurable; connector reliability is enforced by tests, not demos.
 

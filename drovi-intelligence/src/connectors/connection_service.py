@@ -16,6 +16,8 @@ from sqlalchemy import select, text
 
 from src.config import get_settings
 from src.connectors.base.config import AuthConfig, AuthType, ConnectorConfig, StreamConfig, SyncMode
+from src.connectors.definitions.oauth_providers import get_oauth_provider_spec
+from src.connectors.definitions.registry import get_connector_definition
 from src.db.client import get_db_session
 from src.db.models.connections import Connection, OAuthToken
 
@@ -47,24 +49,23 @@ def encrypt_token(value: str) -> bytes:
     return fernet.encrypt(value.encode())
 
 
-def _infer_oauth_provider(connector_type: str) -> str | None:
+def _resolve_oauth_provider(
+    *,
+    connector_type: str,
+    token_provider: str | None,
+) -> str | None:
     """
-    Map connector_type to its underlying OAuth provider.
+    Resolve the underlying OAuth provider.
 
-    This is a fallback for older rows and non-OAuth flows.
+    Priority:
+    1. Token row provider (source-of-truth once stored)
+    2. ConnectorDefinition.oauth_provider
     """
-    if connector_type in ("gmail", "google_docs", "google_calendar"):
-        return "google"
-    if connector_type in ("outlook", "teams"):
-        return "microsoft"
-    if connector_type == "hubspot":
-        return "hubspot"
-    if connector_type == "slack":
-        return "slack"
-    if connector_type == "notion":
-        return "notion"
-    if connector_type == "whatsapp":
-        return "meta"
+    if token_provider:
+        return token_provider
+    definition = get_connector_definition(connector_type)
+    if definition and definition.oauth_provider:
+        return definition.oauth_provider
     return None
 
 
@@ -74,53 +75,19 @@ def _build_auth_extra(
     settings: Any,
 ) -> dict[str, Any]:
     extra: dict[str, Any] = {}
-    if oauth_provider:
-        extra["oauth_provider"] = oauth_provider
+    if not oauth_provider:
+        return extra
 
-    if oauth_provider == "google":
-        extra.update(
-            {
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-            }
-        )
-    elif oauth_provider == "microsoft":
-        extra.update(
-            {
-                "client_id": settings.microsoft_client_id,
-                "client_secret": settings.microsoft_client_secret,
-                "tenant_id": settings.microsoft_tenant_id or "common",
-            }
-        )
-    elif oauth_provider == "hubspot":
-        extra.update(
-            {
-                "client_id": settings.hubspot_client_id,
-                "client_secret": settings.hubspot_client_secret,
-            }
-        )
-    elif oauth_provider == "slack":
-        extra.update(
-            {
-                "client_id": settings.slack_client_id,
-                "client_secret": settings.slack_client_secret,
-            }
-        )
-    elif oauth_provider == "notion":
-        extra.update(
-            {
-                "client_id": settings.notion_client_id,
-                "client_secret": settings.notion_client_secret,
-            }
-        )
-    elif oauth_provider == "meta":
-        extra.update(
-            {
-                "app_id": settings.meta_app_id,
-                "app_secret": settings.meta_app_secret,
-            }
-        )
+    extra["oauth_provider"] = oauth_provider
+    spec = get_oauth_provider_spec(oauth_provider)
+    if not spec:
+        return extra
 
+    # Provider specs are responsible for reading from Settings safely.
+    built = spec.build_auth_extra(settings)
+    for k, v in built.items():
+        if v is not None and v != "":
+            extra[k] = v
     return extra
 
 
@@ -181,8 +148,10 @@ async def get_connection_config(
             logger.error("Failed to decrypt tokens", connection_id=connection_id, error=str(e))
             return None
 
-    if not oauth_provider:
-        oauth_provider = _infer_oauth_provider(connection.connector_type)
+    oauth_provider = _resolve_oauth_provider(
+        connector_type=connection.connector_type,
+        token_provider=oauth_provider,
+    )
 
     auth_type = AuthType.OAUTH2 if access_token else AuthType.NONE
 
@@ -199,30 +168,18 @@ async def get_connection_config(
         ),
     )
 
-    # Build stream configs based on connector type
-    streams = []
-    if connection.connector_type == "gmail":
-        streams = [
-            StreamConfig(
-                stream_name="messages",
-                enabled=True,
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="historyId",
-                primary_key=["id"],
-                batch_size=100,
-            ),
-        ]
-    elif connection.connector_type == "slack":
-        streams = [
-            StreamConfig(
-                stream_name="messages",
-                enabled=True,
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="ts",
-                primary_key=["ts", "channel"],
-                batch_size=100,
-            ),
-        ]
+    # Build stream configs via ConnectorDefinition + per-connection enabled set.
+    streams: list[StreamConfig] = []
+    definition = get_connector_definition(connection.connector_type)
+    if definition:
+        default_streams = definition.default_streams()
+        enabled = set(connection.streams_config or [])
+        if enabled:
+            for stream in default_streams:
+                stream.enabled = stream.stream_name in enabled
+                streams.append(stream)
+        else:
+            streams = default_streams
 
     # Parse config JSON
     config_data = connection.config or {}
@@ -269,7 +226,10 @@ async def refresh_oauth_tokens_for_config(
 
     oauth_provider = str(config.auth.extra.get("oauth_provider") or "").lower() or None
     if not oauth_provider:
-        oauth_provider = _infer_oauth_provider(config.connector_type)
+        oauth_provider = _resolve_oauth_provider(
+            connector_type=config.connector_type,
+            token_provider=None,
+        )
     if oauth_provider not in ("google", "microsoft", "hubspot"):
         return config
 

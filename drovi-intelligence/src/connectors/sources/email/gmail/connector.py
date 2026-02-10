@@ -22,6 +22,7 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, ConnectorRegistry
 from src.connectors.base.records import Record, RecordBatch, RecordType, UnifiedMessage
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.email.gmail.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -40,22 +41,10 @@ class GmailConnector(BaseConnector):
 
     connector_type = "gmail"
 
-    capabilities = ConnectorCapabilities(
-        supports_incremental=True,
-        supports_full_refresh=True,
-        supports_backfill=True,
-        supports_webhooks=True,  # Gmail Push Notifications
-        supports_real_time=True,
-        default_rate_limit_per_minute=250,  # Gmail quota
-        supports_concurrency=True,
-        max_concurrent_streams=2,
-        supports_schema_discovery=True,
-    )
+    capabilities = CAPABILITIES
 
     # Gmail API scopes
-    SCOPES = [
-        "https://www.googleapis.com/auth/gmail.readonly",
-    ]
+    SCOPES = list(OAUTH_SCOPES)
 
     def __init__(self):
         """Initialize Gmail connector."""
@@ -125,31 +114,7 @@ class GmailConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Gmail streams."""
-        return [
-            StreamConfig(
-                stream_name="messages",
-                enabled=True,
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="historyId",
-                primary_key=["id"],
-                batch_size=100,
-            ),
-            StreamConfig(
-                stream_name="threads",
-                enabled=True,
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="historyId",
-                primary_key=["id"],
-                batch_size=50,
-            ),
-            StreamConfig(
-                stream_name="labels",
-                enabled=False,  # Optional stream
-                sync_mode=SyncMode.FULL_REFRESH,
-                primary_key=["id"],
-                batch_size=100,
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -657,4 +622,4 @@ class GmailConnector(BaseConnector):
 
 
 # Register connector
-ConnectorRegistry._connectors["gmail"] = GmailConnector
+ConnectorRegistry.register("gmail", GmailConnector)
