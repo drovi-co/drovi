@@ -92,7 +92,7 @@ Definition of done: kernel exists; time/errors/hashing are centralized; tests pr
 - [x] P2.01 Create `drovi-intelligence/src/contexts/` with initial contexts: `auth`, `org`, `connectors`, `ingestion`, `evidence`, `uio_truth`, `documents`, `search`, `notifications`, `admin_ops`.
 - [x] P2.02 For each context, add empty `domain/`, `application/`, `infrastructure/`, `presentation/` packages with `__init__.py` and boundary docs.
 - [x] P2.03 Add a small “layer tag” mechanism (module-level constant or docstring tag) so tooling can enforce “presentation must be thin”.
-- [ ] P2.04 Add “anti-corruption adapters” so existing routes can call new use-cases without immediate rewrites.
+- [x] P2.04 Add “anti-corruption adapters” so existing routes can call new use-cases without immediate rewrites.
 - [x] P2.05 Add docs: `docs/architecture/module_rubric.md` with concrete examples mapping current files to future contexts.
 - [x] P2.06 Add CI rule: if a file is touched and is >800 LOC, it must be split as part of the PR (or explicitly exempted with expiry).
 

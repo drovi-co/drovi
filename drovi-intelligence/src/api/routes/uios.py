@@ -914,12 +914,11 @@ async def list_uios_v2(
             params: dict = {"org_id": org_id, "limit": limit + 1, "offset": offset}
 
             # Always filter to valid UIO types only
-            from src.plugins import get_plugin_registry
+            from src.contexts.uio_truth.application.uio_types import list_allowed_uio_types, validate_uio_type
 
-            registry = get_plugin_registry()
-            valid_types = registry.uio_type_names()
+            valid_types = list_allowed_uio_types()
             if type:
-                type = registry.validate_uio_type(type)
+                type = validate_uio_type(type)
                 conditions.append("u.type = :type")
                 params["type"] = type
             else:
