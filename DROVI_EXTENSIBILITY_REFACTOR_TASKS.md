@@ -112,12 +112,12 @@ Definition of done: contexts and plugins exist; boundaries are enforceable; core
 
 ## Phase 3 — Security and Auth Consolidation (Issue 5A)
 
-- [ ] P3.01 Consolidate on a single `AuthContext` for request handling; remove “multiple context” ambiguity across routes.
-- [ ] P3.02 Replace static internal token patterns with short-lived internal JWT (claims include org binding; no org_id from body/query).
-- [ ] P3.03 Guard any dev-only bypass behind explicit `ENVIRONMENT=development` checks; ensure it is impossible in prod builds.
-- [ ] P3.04 Add explicit authorization policy functions per context (org membership, connection visibility, evidence access, admin-only).
-- [ ] P3.05 Add tests for internal JWT cross-org rejection, SSE/private-source non-leakage, and org_id mismatch rejection.
-- [ ] P3.06 Add security regression E2E tests (minimal): user A cannot access user B’s private connection evidence via API.
+- [x] P3.01 Consolidate on a single `AuthContext` for request handling; remove “multiple context” ambiguity across routes.
+- [x] P3.02 Replace static internal token patterns with short-lived internal JWT (claims include org binding; no org_id from body/query).
+- [x] P3.03 Guard any dev-only bypass behind explicit `ENVIRONMENT=development` checks; ensure it is impossible in prod builds.
+- [x] P3.04 Add explicit authorization policy functions per context (org membership, connection visibility, evidence access, admin-only).
+- [x] P3.05 Add tests for internal JWT cross-org rejection, SSE/private-source non-leakage, and org_id mismatch rejection.
+- [x] P3.06 Add security regression E2E tests (minimal): user A cannot access user B’s private connection evidence via API.
 
 Definition of done: security boundary is simpler to reason about; token handling is safer; tests cover leakage paths.
 

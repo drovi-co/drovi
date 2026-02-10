@@ -99,6 +99,14 @@ class Settings(BaseSettings):
     admin_password: str | None = Field(default=None)  # plaintext (dev only)
     admin_jwt_secret: str | None = Field(default=None)
 
+    # Internal service auth (service-to-service)
+    #
+    # Production: set INTERNAL_JWT_SECRET.
+    # Development: may be derived from API_KEY_SALT if unset (see auth module).
+    internal_jwt_secret: str | None = Field(default=None)
+    internal_jwt_issuer: str = Field(default="drovi")
+    internal_jwt_expiry_minutes: int = Field(default=15)
+
     # Evidence Storage
     evidence_storage_backend: Literal["local", "s3"] = Field(default="local")
     evidence_storage_path: str = Field(default="/tmp/drovi-evidence")

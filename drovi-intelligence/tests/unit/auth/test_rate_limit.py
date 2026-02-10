@@ -22,9 +22,35 @@ from src.auth.middleware import (
     require_rate_limit,
     require_scope_with_rate_limit,
 )
+from src.auth.context import AuthMetadata, AuthType
 from src.auth.scopes import Scope
 
 pytestmark = pytest.mark.unit
+
+
+def _auth_ctx(
+    *,
+    org_id: str = "org_123",
+    scopes: list[str] | None = None,
+    key_id: str | None = "key_123",
+    is_internal: bool = False,
+    rate_limit_per_minute: int = 100,
+) -> APIKeyContext:
+    return APIKeyContext(
+        organization_id=org_id,
+        auth_subject_id=(
+            f"service_{key_id or 'internal'}" if is_internal else f"key_{key_id or 'anonymous'}"
+        ),
+        scopes=scopes or ["read"],
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE if is_internal else AuthType.API_KEY,
+            key_id=key_id,
+            key_name="Test Key" if key_id else None,
+            service_name="internal" if is_internal else None,
+        ),
+        rate_limit_per_minute=rate_limit_per_minute,
+        is_internal=is_internal,
+    )
 
 
 # =============================================================================
@@ -276,8 +302,7 @@ class TestCheckRateLimitForContext:
     @pytest.mark.asyncio
     async def test_internal_service_not_limited(self):
         """Test internal service is not rate limited."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
+        ctx = _auth_ctx(
             scopes=["*"],
             key_id="internal",
             is_internal=True,
@@ -292,13 +317,7 @@ class TestCheckRateLimitForContext:
     @pytest.mark.asyncio
     async def test_external_key_rate_limited(self):
         """Test external key is rate limited."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         with patch(
             "src.auth.middleware.check_rate_limit",
@@ -329,13 +348,7 @@ class TestRequireRateLimit:
     @pytest.mark.asyncio
     async def test_rate_limit_allowed(self, mock_request):
         """Test request allowed under rate limit."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         with patch(
             "src.auth.middleware.check_rate_limit_for_context",
@@ -349,27 +362,16 @@ class TestRequireRateLimit:
         ):
             check_fn = require_rate_limit()
 
-            # Patch get_api_key_context
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                result = await check_fn(mock_request, ctx)
+            # ctx is passed explicitly; the auth dependency is not invoked.
+            result = await check_fn(mock_request, ctx)
 
-                assert result.organization_id == "org_123"
-                assert mock_request.state.rate_limit_remaining == 99
+            assert result.organization_id == "org_123"
+            assert mock_request.state.rate_limit_remaining == 99
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, mock_request):
         """Test request rejected when rate limit exceeded."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         with patch(
             "src.auth.middleware.check_rate_limit_for_context",
@@ -383,16 +385,11 @@ class TestRequireRateLimit:
         ):
             check_fn = require_rate_limit()
 
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await check_fn(mock_request, ctx)
+            with pytest.raises(HTTPException) as exc_info:
+                await check_fn(mock_request, ctx)
 
-                assert exc_info.value.status_code == 429
-                assert "Rate limit exceeded" in exc_info.value.detail
+            assert exc_info.value.status_code == 429
+            assert "Rate limit exceeded" in exc_info.value.detail
 
 
 class TestRequireScopeWithRateLimit:
@@ -408,13 +405,7 @@ class TestRequireScopeWithRateLimit:
     @pytest.mark.asyncio
     async def test_scope_granted_under_limit(self, mock_request):
         """Test request allowed with scope and under rate limit."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read", "write"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read", "write"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         with patch(
             "src.auth.middleware.check_rate_limit_for_context",
@@ -428,48 +419,26 @@ class TestRequireScopeWithRateLimit:
         ):
             check_fn = require_scope_with_rate_limit(Scope.READ)
 
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                result = await check_fn(mock_request, ctx)
+            result = await check_fn(mock_request, ctx)
 
-                assert result.organization_id == "org_123"
+            assert result.organization_id == "org_123"
 
     @pytest.mark.asyncio
     async def test_scope_denied(self, mock_request):
         """Test request rejected when scope missing."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],  # Missing write scope
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         check_fn = require_scope_with_rate_limit(Scope.WRITE)
 
-        with patch(
-            "src.auth.middleware.get_api_key_context",
-            new_callable=AsyncMock,
-            return_value=ctx,
-        ):
-            with pytest.raises(HTTPException) as exc_info:
-                await check_fn(mock_request, ctx)
+        with pytest.raises(HTTPException) as exc_info:
+            await check_fn(mock_request, ctx)
 
-            assert exc_info.value.status_code == 403
+        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_scope_granted_but_rate_limited(self, mock_request):
         """Test request rejected when scope ok but rate limited."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read", "write"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read", "write"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         with patch(
             "src.auth.middleware.check_rate_limit_for_context",
@@ -483,15 +452,10 @@ class TestRequireScopeWithRateLimit:
         ):
             check_fn = require_scope_with_rate_limit(Scope.READ)
 
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await check_fn(mock_request, ctx)
+            with pytest.raises(HTTPException) as exc_info:
+                await check_fn(mock_request, ctx)
 
-                assert exc_info.value.status_code == 429
+            assert exc_info.value.status_code == 429
 
 
 # =============================================================================
@@ -512,13 +476,7 @@ class TestRateLimitHeaders:
     @pytest.mark.asyncio
     async def test_headers_set_on_request_state(self, mock_request):
         """Test rate limit info is set on request state."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         reset_time = time.time() + 60
 
@@ -534,27 +492,16 @@ class TestRateLimitHeaders:
         ):
             check_fn = require_rate_limit()
 
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                await check_fn(mock_request, ctx)
+            await check_fn(mock_request, ctx)
 
-                assert mock_request.state.rate_limit_limit == 100
-                assert mock_request.state.rate_limit_remaining == 75
-                assert mock_request.state.rate_limit_reset == int(reset_time)
+            assert mock_request.state.rate_limit_limit == 100
+            assert mock_request.state.rate_limit_remaining == 75
+            assert mock_request.state.rate_limit_reset == int(reset_time)
 
     @pytest.mark.asyncio
     async def test_headers_on_rate_limit_exceeded(self, mock_request):
         """Test headers are included in 429 response."""
-        ctx = APIKeyContext(
-            organization_id="org_123",
-            scopes=["read"],
-            key_id="key_123",
-            is_internal=False,
-            rate_limit_per_minute=100,
-        )
+        ctx = _auth_ctx(scopes=["read"], key_id="key_123", is_internal=False, rate_limit_per_minute=100)
 
         reset_time = time.time() + 60
 
@@ -570,18 +517,13 @@ class TestRateLimitHeaders:
         ):
             check_fn = require_rate_limit()
 
-            with patch(
-                "src.auth.middleware.get_api_key_context",
-                new_callable=AsyncMock,
-                return_value=ctx,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await check_fn(mock_request, ctx)
+            with pytest.raises(HTTPException) as exc_info:
+                await check_fn(mock_request, ctx)
 
-                headers = exc_info.value.headers
-                assert "X-RateLimit-Limit" in headers
-                assert "X-RateLimit-Remaining" in headers
-                assert "X-RateLimit-Reset" in headers
-                assert "Retry-After" in headers
-                assert headers["X-RateLimit-Limit"] == "100"
-                assert headers["X-RateLimit-Remaining"] == "0"
+            headers = exc_info.value.headers
+            assert "X-RateLimit-Limit" in headers
+            assert "X-RateLimit-Remaining" in headers
+            assert "X-RateLimit-Reset" in headers
+            assert "Retry-After" in headers
+            assert headers["X-RateLimit-Limit"] == "100"
+            assert headers["X-RateLimit-Remaining"] == "0"

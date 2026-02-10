@@ -19,13 +19,20 @@ async def _fake_session(session):
 class TestSupportTicketCreate:
     async def test_create_ticket_persists_and_sends_confirmation(self, async_client, app):
         # Override auth for this test to behave like a pilot session (not internal).
-        from src.auth.middleware import APIKeyContext, get_api_key_context
+        from src.auth.context import AuthMetadata, AuthType
+        from src.auth.middleware import APIKeyContext, get_api_key_context, get_auth_context
 
         session_ctx = APIKeyContext(
             organization_id="org_test",
+            auth_subject_id="user_user_123",
             scopes=["read", "write"],
-            key_id="session:user_123",
-            key_name="Session: alice@example.com",
+            metadata=AuthMetadata(
+                auth_type=AuthType.SESSION,
+                user_email="alice@example.com",
+                user_id="user_123",
+                key_id="session:user_123",
+                key_name="Session: alice@example.com",
+            ),
             is_internal=False,
             rate_limit_per_minute=1000,
         )
@@ -34,6 +41,7 @@ class TestSupportTicketCreate:
             return session_ctx
 
         app.dependency_overrides[get_api_key_context] = _override_ctx
+        app.dependency_overrides[get_auth_context] = _override_ctx
 
         session = AsyncMock()
         session.execute = AsyncMock(return_value=MagicMock())
@@ -211,4 +219,3 @@ class TestSupportTicketInboundEmail:
                 },
             )
         assert response.status_code == 401
-

@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.api.routes.auth import require_pilot_auth
-from src.auth.middleware import APIKeyContext, get_api_key_context
+from src.auth.context import AuthMetadata, AuthType
+from src.auth.middleware import APIKeyContext, get_api_key_context, get_auth_context
 from src.auth.pilot_accounts import PilotToken
 
 pytestmark = [pytest.mark.api, pytest.mark.asyncio]
@@ -17,9 +18,15 @@ pytestmark = [pytest.mark.api, pytest.mark.asyncio]
 def _session_ctx(*, org_id: str = "org_test", user_id: str = "user_a", scopes: list[str] | None = None) -> APIKeyContext:
     return APIKeyContext(
         organization_id=org_id,
+        auth_subject_id=f"user_{user_id}",
         scopes=scopes or ["read"],
-        key_id=f"session:{user_id}",
-        key_name="Session",
+        metadata=AuthMetadata(
+            auth_type=AuthType.SESSION,
+            user_email="pilot@example.com",
+            user_id=user_id,
+            key_id=f"session:{user_id}",
+            key_name="Session",
+        ),
         is_internal=False,
         rate_limit_per_minute=1000,
     )
@@ -68,6 +75,7 @@ class TestPrivateVisibility:
             return _session_ctx(org_id="org_test", user_id="user_a")
 
         app.dependency_overrides[get_api_key_context] = fake_ctx
+        app.dependency_overrides[get_auth_context] = fake_ctx
 
         fake_search = AsyncMock()
         fake_search.search.return_value = [
@@ -121,6 +129,7 @@ class TestPrivateVisibility:
             return _session_ctx(org_id="org_test", user_id="user_a")
 
         app.dependency_overrides[get_api_key_context] = fake_ctx
+        app.dependency_overrides[get_auth_context] = fake_ctx
 
         fake_row = SimpleNamespace(
             id="evid_1",

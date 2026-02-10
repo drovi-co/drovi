@@ -6,12 +6,18 @@ import pytest
 from fastapi import HTTPException
 
 from src.api.routes.evidence import get_evidence_artifact
+from src.auth.context import AuthMetadata, AuthType
 from src.auth.middleware import APIKeyContext
 
 
 @pytest.mark.asyncio
 async def test_evidence_artifact_access_denied_for_wrong_org():
-    ctx = APIKeyContext(organization_id="org_a", scopes=["read"])
+    ctx = APIKeyContext(
+        organization_id="org_a",
+        auth_subject_id="key_test",
+        scopes=["read"],
+        metadata=AuthMetadata(auth_type=AuthType.API_KEY, key_id="key_test"),
+    )
 
     with pytest.raises(HTTPException) as exc:
         await get_evidence_artifact(
@@ -26,7 +32,12 @@ async def test_evidence_artifact_access_denied_for_wrong_org():
 
 @pytest.mark.asyncio
 async def test_evidence_artifact_presigned_url_scoped():
-    ctx = APIKeyContext(organization_id="org_1", scopes=["read"])
+    ctx = APIKeyContext(
+        organization_id="org_1",
+        auth_subject_id="key_test",
+        scopes=["read"],
+        metadata=AuthMetadata(auth_type=AuthType.API_KEY, key_id="key_test"),
+    )
     session = AsyncMock()
     rows = MagicMock()
     from datetime import datetime

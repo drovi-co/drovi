@@ -102,26 +102,42 @@ def mock_auth_context():
     Uses "internal" as org_id to bypass org validation checks,
     allowing tests to use any organization_id in their requests.
     """
+    from src.auth.context import AuthMetadata, AuthType
     from src.auth.middleware import APIKeyContext
 
     return APIKeyContext(
         organization_id="internal",  # Special value that bypasses org validation
+        auth_subject_id="service_test",
         scopes=["read", "write", "read:graph", "read:analytics", "write:connections", "admin", "*"],
-        key_id="test_key_123",
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE,
+            key_id="internal:test",
+            key_name="Internal: test",
+            service_name="tests",
+        ),
         is_internal=True,  # Mark as internal to get all permissions
+        rate_limit_per_minute=10000,
     )
 
 
 @pytest.fixture
 def internal_auth_context():
     """Create an internal auth context for testing."""
+    from src.auth.context import AuthMetadata, AuthType
     from src.auth.middleware import APIKeyContext
 
     return APIKeyContext(
         organization_id="internal",
+        auth_subject_id="service_internal",
         scopes=["*"],
-        key_id="internal",
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE,
+            key_id="internal",
+            key_name="Internal",
+            service_name="tests",
+        ),
         is_internal=True,
+        rate_limit_per_minute=10000,
     )
 
 
@@ -156,13 +172,14 @@ def mock_rate_limit():
 def app(mock_auth_context):
     """Create FastAPI application for testing with auth overrides."""
     from src.api.main import app as fastapi_app
-    from src.auth.middleware import get_api_key_context
+    from src.auth.middleware import get_api_key_context, get_auth_context
 
     # Override the auth dependency - must match signature or use no params
     async def get_mock_context():
         return mock_auth_context
 
     fastapi_app.dependency_overrides[get_api_key_context] = get_mock_context
+    fastapi_app.dependency_overrides[get_auth_context] = get_mock_context
 
     yield fastapi_app
 
