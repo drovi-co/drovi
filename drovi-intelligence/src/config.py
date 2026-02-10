@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
     environment: Literal["development", "production", "test"] = Field(default="development")
 
+    # Vertical plugins (explicit, deterministic).
+    #
+    # This controls which type registries and vertical overlays are enabled.
+    # Environment variable parsing:
+    # - JSON array: '["core","legal"]'
+    enabled_plugins: list[str] = Field(default_factory=lambda: ["core"])
+
     # Admin App (admin.drovi.co)
     #
     # Admin auth is intentionally separate from pilot user sessions. Admin tokens

@@ -89,22 +89,22 @@ Definition of done: kernel exists; time/errors/hashing are centralized; tests pr
 
 ### Structure + Boundaries (Issues 1A, 8A, 7A)
 
-- [ ] P2.01 Create `drovi-intelligence/src/contexts/` with initial contexts: `auth`, `org`, `connectors`, `ingestion`, `evidence`, `uio_truth`, `documents`, `search`, `notifications`, `admin_ops`.
-- [ ] P2.02 For each context, add empty `domain/`, `application/`, `infrastructure/`, `presentation/` packages with `__init__.py` and boundary docs.
-- [ ] P2.03 Add a small “layer tag” mechanism (module-level constant or docstring tag) so tooling can enforce “presentation must be thin”.
+- [x] P2.01 Create `drovi-intelligence/src/contexts/` with initial contexts: `auth`, `org`, `connectors`, `ingestion`, `evidence`, `uio_truth`, `documents`, `search`, `notifications`, `admin_ops`.
+- [x] P2.02 For each context, add empty `domain/`, `application/`, `infrastructure/`, `presentation/` packages with `__init__.py` and boundary docs.
+- [x] P2.03 Add a small “layer tag” mechanism (module-level constant or docstring tag) so tooling can enforce “presentation must be thin”.
 - [ ] P2.04 Add “anti-corruption adapters” so existing routes can call new use-cases without immediate rewrites.
-- [ ] P2.05 Add docs: `docs/architecture/module_rubric.md` with concrete examples mapping current files to future contexts.
-- [ ] P2.06 Add CI rule: if a file is touched and is >800 LOC, it must be split as part of the PR (or explicitly exempted with expiry).
+- [x] P2.05 Add docs: `docs/architecture/module_rubric.md` with concrete examples mapping current files to future contexts.
+- [x] P2.06 Add CI rule: if a file is touched and is >800 LOC, it must be split as part of the PR (or explicitly exempted with expiry).
 
 ### Plugin Registry (Issue 2A)
 
-- [ ] P2.07 Implement `drovi-intelligence/src/plugins/registry.py` with an explicit plugin list loaded from settings (no implicit discovery).
-- [ ] P2.08 Define `VerticalPlugin` contract (type registrations, schema validators, extraction specs, contradiction rules, UI hints).
-- [ ] P2.09 Implement “core plugin” registering today’s base UIO types and extraction schemas.
-- [ ] P2.10 Replace hardcoded valid-type lists in API routes with plugin-backed validation (example: `drovi-intelligence/src/api/routes/uios.py` has a hardcoded `valid_types` list).
-- [ ] P2.11 Add tests for plugin registration behavior and deterministic load order.
-- [ ] P2.12 Add a backend “Plugin Manifest” endpoint (per org/vertical) that returns enabled modules, registered types, UI hints, and capabilities (Stage 5, Issue 30A).
-- [ ] P2.13 Add contract tests for the manifest shape (OpenAPI snapshot + generated client compile), and cache the manifest safely (ETag/TTL) to avoid per-page recomputation.
+- [x] P2.07 Implement `drovi-intelligence/src/plugins/registry.py` with an explicit plugin list loaded from settings (no implicit discovery).
+- [x] P2.08 Define `VerticalPlugin` contract (type registrations, schema validators, extraction specs, contradiction rules, UI hints).
+- [x] P2.09 Implement “core plugin” registering today’s base UIO types and extraction schemas.
+- [x] P2.10 Replace hardcoded valid-type lists in API routes with plugin-backed validation (example: `drovi-intelligence/src/api/routes/uios.py` has a hardcoded `valid_types` list).
+- [x] P2.11 Add tests for plugin registration behavior and deterministic load order.
+- [x] P2.12 Add a backend “Plugin Manifest” endpoint (per org/vertical) that returns enabled modules, registered types, UI hints, and capabilities (Stage 5, Issue 30A).
+- [x] P2.13 Add contract tests for the manifest shape (OpenAPI snapshot), and cache the manifest safely (ETag/TTL) to avoid per-page recomputation. Generated client compilation will be enforced in Phase 7 once clients exist.
 
 Definition of done: contexts and plugins exist; boundaries are enforceable; core still works through adapters.
 

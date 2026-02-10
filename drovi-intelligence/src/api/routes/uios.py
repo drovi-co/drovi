@@ -914,15 +914,24 @@ async def list_uios_v2(
             params: dict = {"org_id": org_id, "limit": limit + 1, "offset": offset}
 
             # Always filter to valid UIO types only
-            valid_types = ["commitment", "decision", "risk", "task", "claim", "brief"]
+            from src.plugins import get_plugin_registry
+
+            registry = get_plugin_registry()
+            valid_types = registry.uio_type_names()
             if type:
+                type = registry.validate_uio_type(type)
                 conditions.append("u.type = :type")
                 params["type"] = type
             else:
                 # Filter to valid types when no specific type is requested
-                conditions.append("u.type IN (:type_0, :type_1, :type_2, :type_3, :type_4, :type_5)")
+                if not valid_types:
+                    raise HTTPException(status_code=500, detail="No UIO types registered")
+                placeholders: list[str] = []
                 for i, t in enumerate(valid_types):
-                    params[f"type_{i}"] = t
+                    key = f"type_{i}"
+                    placeholders.append(f":{key}")
+                    params[key] = t
+                conditions.append(f"u.type IN ({', '.join(placeholders)})")
 
             if period_start:
                 conditions.append("u.created_at >= :period_start")
