@@ -98,10 +98,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total"
-        ],
+        "required": ["items", "total"],
         "title": "APIKeyListResponse",
         "type": "object"
       },
@@ -158,12 +155,7 @@
         "type": "object"
       },
       "ActionTier": {
-        "enum": [
-          "low",
-          "medium",
-          "high",
-          "critical"
-        ],
+        "enum": ["low", "medium", "high", "critical"],
         "title": "ActionTier",
         "type": "string"
       },
@@ -207,9 +199,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ActuationApprovalRequest",
         "type": "object"
       },
@@ -274,11 +264,7 @@
           },
           "mode": {
             "default": "execute",
-            "enum": [
-              "draft",
-              "stage",
-              "execute"
-            ],
+            "enum": ["draft", "stage", "execute"],
             "title": "Mode",
             "type": "string"
           },
@@ -314,11 +300,7 @@
             ]
           }
         },
-        "required": [
-          "organization_id",
-          "driver",
-          "action"
-        ],
+        "required": ["organization_id", "driver", "action"],
         "title": "ActuationCommandRequest",
         "type": "object"
       },
@@ -340,9 +322,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ActuationRollbackRequest",
         "type": "object"
       },
@@ -376,10 +356,7 @@
             "type": "object"
           }
         },
-        "required": [
-          "context_type",
-          "content"
-        ],
+        "required": ["context_type", "content"],
         "title": "AddContextEntryRequest",
         "type": "object"
       },
@@ -412,10 +389,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "query",
-          "response"
-        ],
+        "required": ["query", "response"],
         "title": "AddInteractionRequest",
         "type": "object"
       },
@@ -458,9 +432,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "message"
-        ],
+        "required": ["message"],
         "title": "AddMessageRequest",
         "type": "object"
       },
@@ -475,10 +447,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "title": "AdminLoginRequest",
         "type": "object"
       },
@@ -501,11 +470,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "admin",
-          "session_token",
-          "expires_at"
-        ],
+        "required": ["admin", "session_token", "expires_at"],
         "title": "AdminLoginResponse",
         "type": "object"
       },
@@ -539,11 +504,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "email",
-          "subject",
-          "scopes"
-        ],
+        "required": ["email", "subject", "scopes"],
         "title": "AdminMeResponse",
         "type": "object"
       },
@@ -729,11 +690,7 @@
             "title": "Updated At"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "status"
-        ],
+        "required": ["id", "name", "status"],
         "title": "AdminOrgDetailResponse",
         "type": "object"
       },
@@ -797,11 +754,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "status"
-        ],
+        "required": ["id", "name", "status"],
         "title": "AdminOrgListItem",
         "type": "object"
       },
@@ -815,9 +768,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "organizations"
-        ],
+        "required": ["organizations"],
         "title": "AdminOrgListResponse",
         "type": "object"
       },
@@ -859,11 +810,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "user_id",
-          "email",
-          "role"
-        ],
+        "required": ["user_id", "email", "role"],
         "title": "AdminOrgMember",
         "type": "object"
       },
@@ -920,10 +867,7 @@
             "title": "Name"
           }
         },
-        "required": [
-          "id",
-          "email"
-        ],
+        "required": ["id", "email"],
         "title": "AdminUserDetailResponse",
         "type": "object"
       },
@@ -978,10 +922,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "email"
-        ],
+        "required": ["id", "email"],
         "title": "AdminUserListItem",
         "type": "object"
       },
@@ -995,9 +936,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "users"
-        ],
+        "required": ["users"],
         "title": "AdminUserListResponse",
         "type": "object"
       },
@@ -1028,11 +967,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "org_id",
-          "org_name",
-          "role"
-        ],
+        "required": ["org_id", "org_name", "role"],
         "title": "AdminUserMembership",
         "type": "object"
       },
@@ -1059,10 +994,7 @@
             "title": "Percentage"
           }
         },
-        "required": [
-          "key",
-          "count"
-        ],
+        "required": ["key", "count"],
         "title": "Aggregation",
         "type": "object"
       },
@@ -1211,10 +1143,7 @@
             "title": "User Name"
           }
         },
-        "required": [
-          "content",
-          "organization_id"
-        ],
+        "required": ["content", "organization_id"],
         "title": "AnalyzeRequest",
         "type": "object"
       },
@@ -1343,10 +1272,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "question",
-          "organization_id"
-        ],
+        "required": ["question", "organization_id"],
         "title": "AskRequest",
         "type": "object"
       },
@@ -1453,10 +1379,7 @@
           "mode": {
             "default": "truth+reasoning",
             "description": "Response mode: truth only or truth + streaming reasoning",
-            "enum": [
-              "truth",
-              "truth+reasoning"
-            ],
+            "enum": ["truth", "truth+reasoning"],
             "title": "Mode",
             "type": "string"
           },
@@ -1485,10 +1408,7 @@
             "title": "Session Id"
           }
         },
-        "required": [
-          "organization_id",
-          "query"
-        ],
+        "required": ["organization_id", "query"],
         "title": "AskStreamRequest",
         "type": "object"
       },
@@ -1576,12 +1496,7 @@
           "severity": {
             "anyOf": [
               {
-                "enum": [
-                  "low",
-                  "medium",
-                  "high",
-                  "critical"
-                ],
+                "enum": ["low", "medium", "high", "critical"],
                 "type": "string"
               },
               {
@@ -1606,12 +1521,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "type",
-          "id",
-          "title",
-          "confidence"
-        ],
+        "required": ["type", "id", "title", "confidence"],
         "title": "AttentionItem",
         "type": "object"
       },
@@ -1634,11 +1544,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "connection_id",
-          "status",
-          "backfill_jobs"
-        ],
+        "required": ["connection_id", "status", "backfill_jobs"],
         "title": "BackfillResponse",
         "type": "object"
       },
@@ -1683,11 +1589,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "source_type",
-          "events"
-        ],
+        "required": ["organization_id", "source_type", "events"],
         "title": "BatchIngestRequest",
         "type": "object"
       },
@@ -1790,9 +1692,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_ingest_audio_chunk_api_v1_ingest_live_session__session_id__audio_post",
         "type": "object"
       },
@@ -1904,10 +1804,7 @@
       },
       "BriefPeriod": {
         "description": "Time period for brief aggregation.",
-        "enum": [
-          "last_7_days",
-          "today"
-        ],
+        "enum": ["last_7_days", "today"],
         "title": "BriefPeriod",
         "type": "string"
       },
@@ -1942,12 +1839,7 @@
             "$ref": "#/components/schemas/BriefSummary"
           }
         },
-        "required": [
-          "etag",
-          "generated_at",
-          "period",
-          "summary"
-        ],
+        "required": ["etag", "generated_at", "period", "summary"],
         "title": "BriefResponse",
         "type": "object"
       },
@@ -1986,11 +1878,7 @@
       "BundleGovernanceRequest": {
         "properties": {
           "governance_status": {
-            "enum": [
-              "pending",
-              "approved",
-              "rejected"
-            ],
+            "enum": ["pending", "approved", "rejected"],
             "title": "Governance Status",
             "type": "string"
           },
@@ -1999,10 +1887,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "governance_status"
-        ],
+        "required": ["organization_id", "governance_status"],
         "title": "BundleGovernanceRequest",
         "type": "object"
       },
@@ -2035,9 +1920,7 @@
             "title": "Version"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "BundleInstallRequest",
         "type": "object"
       },
@@ -2046,11 +1929,7 @@
           "billing_model": {
             "anyOf": [
               {
-                "enum": [
-                  "one_time",
-                  "subscription",
-                  "usage"
-                ],
+                "enum": ["one_time", "subscription", "usage"],
                 "type": "string"
               },
               {
@@ -2083,11 +1962,7 @@
           },
           "governance_status": {
             "default": "pending",
-            "enum": [
-              "pending",
-              "approved",
-              "rejected"
-            ],
+            "enum": ["pending", "approved", "rejected"],
             "title": "Governance Status",
             "type": "string"
           },
@@ -2125,19 +2000,12 @@
           },
           "visibility": {
             "default": "private",
-            "enum": [
-              "private",
-              "public",
-              "curated"
-            ],
+            "enum": ["private", "public", "curated"],
             "title": "Visibility",
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "manifest"
-        ],
+        "required": ["organization_id", "manifest"],
         "title": "BundlePublishRequest",
         "type": "object"
       },
@@ -2156,11 +2024,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "bundle_id",
-          "version",
-          "signature"
-        ],
+        "required": ["bundle_id", "version", "signature"],
         "title": "BundlePublishResponse",
         "type": "object"
       },
@@ -2235,10 +2099,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "organization_id",
-          "analysis_period_days"
-        ],
+        "required": ["organization_id", "analysis_period_days"],
         "title": "CalibrationMetricsResponse",
         "type": "object"
       },
@@ -2330,13 +2191,8 @@
         "description": "Response containing IDs of changed entities.",
         "example": {
           "entity_types": {
-            "commitment": [
-              "uio_123",
-              "uio_456"
-            ],
-            "decision": [
-              "uio_789"
-            ]
+            "commitment": ["uio_123", "uio_456"],
+            "decision": ["uio_789"]
           },
           "since": "2024-01-14T00:00:00Z",
           "total_count": 3
@@ -2365,11 +2221,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "entity_types",
-          "total_count",
-          "since"
-        ],
+        "required": ["entity_types", "total_count", "since"],
         "title": "ChangedEntitiesResponse",
         "type": "object"
       },
@@ -2408,12 +2260,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "changes",
-          "total_count",
-          "since",
-          "until"
-        ],
+        "required": ["changes", "total_count", "since", "until"],
         "title": "ChangesListResponse",
         "type": "object"
       },
@@ -2585,17 +2432,12 @@
         "description": "Request to update commitment direction.",
         "properties": {
           "direction": {
-            "enum": [
-              "owed_by_me",
-              "owed_to_me"
-            ],
+            "enum": ["owed_by_me", "owed_to_me"],
             "title": "Direction",
             "type": "string"
           }
         },
-        "required": [
-          "direction"
-        ],
+        "required": ["direction"],
         "title": "CommitmentDirectionRequest",
         "type": "object"
       },
@@ -2603,19 +2445,12 @@
         "description": "Request to update commitment priority.",
         "properties": {
           "priority": {
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "urgent"
-            ],
+            "enum": ["low", "medium", "high", "urgent"],
             "title": "Priority",
             "type": "string"
           }
         },
-        "required": [
-          "priority"
-        ],
+        "required": ["priority"],
         "title": "CommitmentPriorityRequest",
         "type": "object"
       },
@@ -2667,12 +2502,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "title",
-          "status",
-          "direction"
-        ],
+        "required": ["id", "title", "status", "direction"],
         "title": "CommitmentResponse",
         "type": "object"
       },
@@ -2708,12 +2538,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "entity_id",
-          "entity_type",
-          "version1",
-          "version2"
-        ],
+        "required": ["entity_id", "entity_type", "version1", "version2"],
         "title": "CompareVersionsRequest",
         "type": "object"
       },
@@ -2774,11 +2599,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name",
-          "status",
-          "checked_at"
-        ],
+        "required": ["name", "status", "checked_at"],
         "title": "ComponentHealthResponse",
         "type": "object"
       },
@@ -2849,10 +2670,7 @@
             "title": "Sensitivity"
           }
         },
-        "required": [
-          "organization_id",
-          "content"
-        ],
+        "required": ["organization_id", "content"],
         "title": "ComposeGuardrailRequest",
         "type": "object"
       },
@@ -2867,11 +2685,7 @@
           },
           "overall_action": {
             "default": "allow",
-            "enum": [
-              "allow",
-              "require_approval",
-              "block"
-            ],
+            "enum": ["allow", "require_approval", "block"],
             "title": "Overall Action",
             "type": "string"
           },
@@ -2931,10 +2745,7 @@
           "visibility": {
             "anyOf": [
               {
-                "enum": [
-                  "org_shared",
-                  "private"
-                ],
+                "enum": ["org_shared", "private"],
                 "type": "string"
               },
               {
@@ -2945,9 +2756,7 @@
             "title": "Visibility"
           }
         },
-        "required": [
-          "redirect_uri"
-        ],
+        "required": ["redirect_uri"],
         "title": "ConnectRequest",
         "type": "object"
       },
@@ -2967,11 +2776,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "auth_url",
-          "state",
-          "code_verifier"
-        ],
+        "required": ["auth_url", "state", "code_verifier"],
         "title": "ConnectResponse",
         "type": "object"
       },
@@ -3042,17 +2847,12 @@
       "ConnectionVisibilityRequest": {
         "properties": {
           "visibility": {
-            "enum": [
-              "org_shared",
-              "private"
-            ],
+            "enum": ["org_shared", "private"],
             "title": "Visibility",
             "type": "string"
           }
         },
-        "required": [
-          "visibility"
-        ],
+        "required": ["visibility"],
         "title": "ConnectionVisibilityRequest",
         "type": "object"
       },
@@ -3268,11 +3068,7 @@
             "title": "Timeseries"
           }
         },
-        "required": [
-          "items",
-          "metrics",
-          "query_time_ms"
-        ],
+        "required": ["items", "metrics", "query_time_ms"],
         "title": "ConsoleQueryResponse",
         "type": "object"
       },
@@ -3332,10 +3128,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "id",
-          "primary_email"
-        ],
+        "required": ["id", "primary_email"],
         "title": "Contact",
         "type": "object"
       },
@@ -3761,10 +3554,7 @@
             "title": "Updated At"
           }
         },
-        "required": [
-          "id",
-          "primary_email"
-        ],
+        "required": ["id", "primary_email"],
         "title": "ContactDetail",
         "type": "object"
       },
@@ -3794,10 +3584,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "identity_type",
-          "identity_value"
-        ],
+        "required": ["identity_type", "identity_value"],
         "title": "ContactIdentityLinkRequest",
         "type": "object"
       },
@@ -3938,10 +3725,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "email"
-        ],
+        "required": ["id", "email"],
         "title": "ContactInfo",
         "type": "object"
       },
@@ -3968,12 +3752,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "ContactListResponse",
         "type": "object"
       },
@@ -3999,10 +3778,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "source_contact_id",
-          "target_contact_id"
-        ],
+        "required": ["source_contact_id", "target_contact_id"],
         "title": "ContactMergeRequest",
         "type": "object"
       },
@@ -4073,11 +3849,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "contact_a_id",
-          "contact_b_id",
-          "confidence"
-        ],
+        "required": ["contact_a_id", "contact_b_id", "confidence"],
         "title": "ContactMergeSuggestion",
         "type": "object"
       },
@@ -4138,9 +3910,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "title": "ContactResponse",
         "type": "object"
       },
@@ -4357,10 +4127,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "primary_email"
-        ],
+        "required": ["id", "primary_email"],
         "title": "ContactSummary",
         "type": "object"
       },
@@ -4370,12 +4137,7 @@
             "anyOf": [
               {
                 "items": {
-                  "enum": [
-                    "message",
-                    "document",
-                    "meeting",
-                    "note"
-                  ],
+                  "enum": ["message", "document", "meeting", "note"],
                   "type": "string"
                 },
                 "type": "array"
@@ -4411,9 +4173,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "query"
-        ],
+        "required": ["query"],
         "title": "ContentSearchRequest",
         "type": "object"
       },
@@ -4538,12 +4298,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "id",
-          "kind",
-          "source_type",
-          "received_at"
-        ],
+        "required": ["id", "kind", "source_type", "received_at"],
         "title": "ContentSearchResult",
         "type": "object"
       },
@@ -4572,11 +4327,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "entry_id",
-          "context_type",
-          "timestamp"
-        ],
+        "required": ["entry_id", "context_type", "timestamp"],
         "title": "ContextEntryResponse",
         "type": "object"
       },
@@ -4607,9 +4358,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "context_types"
-        ],
+        "required": ["context_types"],
         "title": "ContextTypesResponse",
         "type": "object"
       },
@@ -4641,10 +4390,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "definition"
-        ],
+        "required": ["organization_id", "definition"],
         "title": "ContinuumCreateRequest",
         "type": "object"
       },
@@ -4675,12 +4421,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "version",
-          "status",
-          "next_run_at"
-        ],
+        "required": ["id", "version", "status", "next_run_at"],
         "title": "ContinuumCreateResponse",
         "type": "object"
       },
@@ -4717,10 +4458,7 @@
             "title": "Resolved By"
           }
         },
-        "required": [
-          "organization_id",
-          "alert_id"
-        ],
+        "required": ["organization_id", "alert_id"],
         "title": "ContinuumOverrideRequest",
         "type": "object"
       },
@@ -4738,9 +4476,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ContinuumPreviewRequest",
         "type": "object"
       },
@@ -4823,9 +4559,7 @@
             "title": "Triggered By"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ContinuumRollbackRequest",
         "type": "object"
       },
@@ -4841,9 +4575,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ContinuumRunRequest",
         "type": "object"
       },
@@ -4854,9 +4586,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "ContinuumStatusRequest",
         "type": "object"
       },
@@ -4888,10 +4618,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "definition"
-        ],
+        "required": ["organization_id", "definition"],
         "title": "ContinuumVersionRequest",
         "type": "object"
       },
@@ -4997,12 +4724,7 @@
             "title": "Reasoning"
           },
           "severity": {
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ],
+            "enum": ["low", "medium", "high", "critical"],
             "title": "Severity",
             "type": "string"
           },
@@ -5026,12 +4748,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "uio_id",
-          "uio_type",
-          "contradiction_type",
-          "severity"
-        ],
+        "required": ["uio_id", "uio_type", "contradiction_type", "severity"],
         "title": "ContradictionFinding",
         "type": "object"
       },
@@ -5057,10 +4774,7 @@
             "title": "Resolved By"
           }
         },
-        "required": [
-          "organization_id",
-          "resolution_reason"
-        ],
+        "required": ["organization_id", "resolution_reason"],
         "title": "ContradictionResolveRequest",
         "type": "object"
       },
@@ -5084,10 +4798,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "corrections",
-          "user_id"
-        ],
+        "required": ["corrections", "user_id"],
         "title": "CorrectionRequest",
         "type": "object"
       },
@@ -5121,9 +4832,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "Counterparty",
         "type": "object"
       },
@@ -5180,9 +4889,7 @@
             "title": "Scopes"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "CreateAPIKeyRequest",
         "type": "object"
       },
@@ -5274,11 +4981,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "connector_type",
-          "name",
-          "organization_id"
-        ],
+        "required": ["connector_type", "name", "organization_id"],
         "title": "CreateConnectionRequest",
         "type": "object"
       },
@@ -5326,9 +5029,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "CreateSessionRequest",
         "type": "object"
       },
@@ -5388,10 +5089,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "subject",
-          "message"
-        ],
+        "required": ["subject", "message"],
         "title": "CreateTicketRequest",
         "type": "object"
       },
@@ -5411,11 +5109,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "ticket_id",
-          "status",
-          "created_at"
-        ],
+        "required": ["ticket_id", "status", "created_at"],
         "title": "CreateTicketResponse",
         "type": "object"
       },
@@ -5445,21 +5139,12 @@
             "type": "string"
           },
           "type": {
-            "enum": [
-              "commitment",
-              "decision",
-              "task",
-              "claim",
-              "risk"
-            ],
+            "enum": ["commitment", "decision", "task", "claim", "risk"],
             "title": "Type",
             "type": "string"
           }
         },
-        "required": [
-          "type",
-          "data"
-        ],
+        "required": ["type", "data"],
         "title": "CreateUIORequest",
         "type": "object"
       },
@@ -5503,9 +5188,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "CustomerContextRequest",
         "type": "object"
       },
@@ -5636,9 +5319,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "contact_id"
-        ],
+        "required": ["contact_id"],
         "title": "CustomerContextResponse",
         "type": "object"
       },
@@ -5675,9 +5356,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "CustomerResearchRequest",
         "type": "object"
       },
@@ -5796,10 +5475,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "query",
-          "organization_id"
-        ],
+        "required": ["query", "organization_id"],
         "title": "CustomerSearchRequest",
         "type": "object"
       },
@@ -5818,10 +5494,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "results",
-          "total"
-        ],
+        "required": ["results", "total"],
         "title": "CustomerSearchResponse",
         "type": "object"
       },
@@ -5858,10 +5531,7 @@
             "title": "Redact"
           }
         },
-        "required": [
-          "organization_id",
-          "content"
-        ],
+        "required": ["organization_id", "content"],
         "title": "DataMinimizationRequest",
         "type": "object"
       },
@@ -5884,9 +5554,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "redacted_content"
-        ],
+        "required": ["redacted_content"],
         "title": "DataMinimizationResponse",
         "type": "object"
       },
@@ -6067,10 +5735,7 @@
             "title": "Uio Id"
           }
         },
-        "required": [
-          "status",
-          "candidate_id"
-        ],
+        "required": ["status", "candidate_id"],
         "title": "DecisionRadarConfirmResponse",
         "type": "object"
       },
@@ -6085,10 +5750,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "candidate_id"
-        ],
+        "required": ["status", "candidate_id"],
         "title": "DecisionRadarDismissResponse",
         "type": "object"
       },
@@ -6160,10 +5822,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "id",
-          "created_at"
-        ],
+        "required": ["id", "created_at"],
         "title": "DecisionRadarItem",
         "type": "object"
       },
@@ -6206,11 +5865,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "title",
-          "status"
-        ],
+        "required": ["id", "title", "status"],
         "title": "DecisionResponse",
         "type": "object"
       },
@@ -6228,10 +5883,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "confirm",
-          "reason"
-        ],
+        "required": ["confirm", "reason"],
         "title": "DeleteDataRequest",
         "type": "object"
       },
@@ -6255,11 +5907,7 @@
             "type": "object"
           },
           "status": {
-            "enum": [
-              "scheduled",
-              "completed",
-              "failed"
-            ],
+            "enum": ["scheduled", "completed", "failed"],
             "title": "Status",
             "type": "string"
           }
@@ -6370,9 +6018,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "DiscoverRequest",
         "type": "object"
       },
@@ -6425,12 +6071,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "document_id",
-          "chunk_index",
-          "text"
-        ],
+        "required": ["id", "document_id", "chunk_index", "text"],
         "title": "DocumentChunkDetail",
         "type": "object"
       },
@@ -6475,12 +6116,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "document_id",
-          "chunk_index",
-          "snippet"
-        ],
+        "required": ["id", "document_id", "chunk_index", "snippet"],
         "title": "DocumentChunkListItem",
         "type": "object"
       },
@@ -6535,10 +6171,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "documents"
-        ],
+        "required": ["organization_id", "documents"],
         "title": "DocumentIngestionRequest",
         "type": "object"
       },
@@ -6680,13 +6313,7 @@
             "title": "Updated At"
           }
         },
-        "required": [
-          "id",
-          "file_name",
-          "sha256",
-          "status",
-          "folder_path"
-        ],
+        "required": ["id", "file_name", "sha256", "status", "folder_path"],
         "title": "DocumentListItem",
         "type": "object"
       },
@@ -6724,10 +6351,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "document_id",
-          "queued_job_id"
-        ],
+        "required": ["document_id", "queued_job_id"],
         "title": "DocumentReprocessResponse",
         "type": "object"
       },
@@ -6836,9 +6460,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "query"
-        ],
+        "required": ["query"],
         "title": "DocumentSearchRequest",
         "type": "object"
       },
@@ -6874,10 +6496,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "part_number",
-          "etag"
-        ],
+        "required": ["part_number", "etag"],
         "title": "DocumentUploadCompletePart",
         "type": "object"
       },
@@ -6892,9 +6511,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "parts"
-        ],
+        "required": ["parts"],
         "title": "DocumentUploadCompleteRequest",
         "type": "object"
       },
@@ -6920,10 +6537,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "document_id",
-          "status"
-        ],
+        "required": ["document_id", "status"],
         "title": "DocumentUploadCompleteResponse",
         "type": "object"
       },
@@ -7010,11 +6624,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "file_name",
-          "byte_size",
-          "sha256"
-        ],
+        "required": ["file_name", "byte_size", "sha256"],
         "title": "DocumentUploadCreateRequest",
         "type": "object"
       },
@@ -7078,10 +6688,7 @@
             "title": "Upload Session Id"
           }
         },
-        "required": [
-          "document_id",
-          "presign_expires_in"
-        ],
+        "required": ["document_id", "presign_expires_in"],
         "title": "DocumentUploadCreateResponse",
         "type": "object"
       },
@@ -7097,9 +6704,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "part_numbers"
-        ],
+        "required": ["part_numbers"],
         "title": "DocumentUploadPartsRequest",
         "type": "object"
       },
@@ -7117,10 +6722,7 @@
             "type": "object"
           }
         },
-        "required": [
-          "upload_session_id",
-          "urls"
-        ],
+        "required": ["upload_session_id", "urls"],
         "title": "DocumentUploadPartsResponse",
         "type": "object"
       },
@@ -7162,9 +6764,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "question"
-        ],
+        "required": ["question"],
         "title": "DriveAskRequest",
         "type": "object"
       },
@@ -7187,9 +6787,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "answer"
-        ],
+        "required": ["answer"],
         "title": "DriveAskResponse",
         "type": "object"
       },
@@ -7233,10 +6831,7 @@
             "type": "object"
           }
         },
-        "required": [
-          "user",
-          "session_token"
-        ],
+        "required": ["user", "session_token"],
         "title": "EmailAuthResponse",
         "type": "object"
       },
@@ -7263,10 +6858,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "title": "EmailLoginRequest",
         "type": "object"
       },
@@ -7315,10 +6907,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "title": "EmailSignupRequest",
         "type": "object"
       },
@@ -7347,11 +6936,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "entity_id",
-          "entity_type",
-          "at_time"
-        ],
+        "required": ["entity_id", "entity_type", "at_time"],
         "title": "EntityAtTimeRequest",
         "type": "object"
       },
@@ -7388,12 +6973,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "entity_id",
-          "entity_type",
-          "current_version",
-          "history"
-        ],
+        "required": ["entity_id", "entity_type", "current_version", "history"],
         "title": "EntityHistoryResponse",
         "type": "object"
       },
@@ -7432,10 +7012,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "value",
-          "label"
-        ],
+        "required": ["value", "label"],
         "title": "EntitySuggestion",
         "type": "object"
       },
@@ -7463,11 +7040,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name",
-          "category",
-          "description"
-        ],
+        "required": ["name", "category", "description"],
         "title": "EventTypeInfo",
         "type": "object"
       },
@@ -7503,10 +7076,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "event_types",
-          "total_count"
-        ],
+        "required": ["event_types", "total_count"],
         "title": "EventTypesResponse",
         "type": "object"
       },
@@ -7614,11 +7184,7 @@
             "title": "Source Type"
           }
         },
-        "required": [
-          "organization_id",
-          "artifact_type",
-          "content_base64"
-        ],
+        "required": ["organization_id", "artifact_type", "content_base64"],
         "title": "EvidenceArtifactCreate",
         "type": "object"
       },
@@ -8039,21 +7605,12 @@
         "properties": {
           "format": {
             "default": "json",
-            "enum": [
-              "json",
-              "csv",
-              "neo4j"
-            ],
+            "enum": ["json", "csv", "neo4j"],
             "title": "Format",
             "type": "string"
           },
           "include": {
-            "default": [
-              "uios",
-              "evidence",
-              "graph",
-              "connections"
-            ],
+            "default": ["uios", "evidence", "graph", "connections"],
             "description": "What to include in export",
             "items": {
               "type": "string"
@@ -8093,21 +7650,12 @@
             "type": "number"
           },
           "status": {
-            "enum": [
-              "processing",
-              "completed",
-              "failed"
-            ],
+            "enum": ["processing", "completed", "failed"],
             "title": "Status",
             "type": "string"
           }
         },
-        "required": [
-          "export_job_id",
-          "status",
-          "progress",
-          "expires_at"
-        ],
+        "required": ["export_job_id", "status", "progress", "expires_at"],
         "title": "ExportResponse",
         "type": "object"
       },
@@ -8142,10 +7690,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total"
-        ],
+        "required": ["items", "total"],
         "title": "ExtendedCursorUIOListResponse",
         "type": "object"
       },
@@ -8177,10 +7722,7 @@
             "title": "Old Value"
           }
         },
-        "required": [
-          "field_name",
-          "change_type"
-        ],
+        "required": ["field_name", "change_type"],
         "title": "FieldChangeResponse",
         "type": "object"
       },
@@ -8194,14 +7736,7 @@
           },
           "operator": {
             "default": "=",
-            "enum": [
-              "=",
-              "!=",
-              "in",
-              "not_in",
-              "contains",
-              "starts_with"
-            ],
+            "enum": ["=", "!=", "in", "not_in", "contains", "starts_with"],
             "title": "Operator",
             "type": "string"
           },
@@ -8231,9 +7766,7 @@
             "title": "Values"
           }
         },
-        "required": [
-          "entity"
-        ],
+        "required": ["entity"],
         "title": "FilterItem",
         "type": "object"
       },
@@ -8261,12 +7794,7 @@
             "type": "number"
           },
           "severity": {
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ],
+            "enum": ["low", "medium", "high", "critical"],
             "title": "Severity",
             "type": "string"
           },
@@ -8282,12 +7810,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "type",
-          "score",
-          "severity",
-          "description"
-        ],
+        "required": ["type", "score", "severity", "description"],
         "title": "FraudSignal",
         "type": "object"
       },
@@ -8318,10 +7841,7 @@
             "title": "Params"
           }
         },
-        "required": [
-          "cypher",
-          "organization_id"
-        ],
+        "required": ["cypher", "organization_id"],
         "title": "GraphQueryRequest",
         "type": "object"
       },
@@ -8345,11 +7865,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "success",
-          "results",
-          "count"
-        ],
+        "required": ["success", "results", "count"],
         "title": "GraphQueryResponse",
         "type": "object"
       },
@@ -8432,9 +7948,7 @@
             "title": "To"
           }
         },
-        "required": [
-          "from"
-        ],
+        "required": ["from"],
         "title": "InboundEmailRequest",
         "type": "object"
       },
@@ -8500,10 +8014,7 @@
             "title": "Subject"
           }
         },
-        "required": [
-          "organization_id",
-          "content"
-        ],
+        "required": ["organization_id", "content"],
         "title": "InboundGuardrailRequest",
         "type": "object"
       },
@@ -8518,11 +8029,7 @@
           },
           "overall_action": {
             "default": "allow",
-            "enum": [
-              "allow",
-              "require_approval",
-              "block"
-            ],
+            "enum": ["allow", "require_approval", "block"],
             "title": "Overall Action",
             "type": "string"
           },
@@ -8548,9 +8055,7 @@
             "message_id": "msg_789",
             "received_at": "2026-01-29T10:00:00Z",
             "subject": "Q1 Planning",
-            "to": [
-              "bob@example.com"
-            ]
+            "to": ["bob@example.com"]
           },
           "source_id": "conn_456",
           "source_type": "email"
@@ -8590,12 +8095,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "source_type",
-          "event_type",
-          "payload"
-        ],
+        "required": ["organization_id", "source_type", "event_type", "payload"],
         "title": "IngestRawEventRequest",
         "type": "object"
       },
@@ -8629,12 +8129,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "success",
-          "event_id",
-          "kafka_produced",
-          "message"
-        ],
+        "required": ["success", "event_id", "kafka_produced", "message"],
         "title": "IngestRawEventResponse",
         "type": "object"
       },
@@ -8655,9 +8150,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "IntelligenceBriefRequest",
         "type": "object"
       },
@@ -8766,11 +8259,7 @@
           },
           "role": {
             "default": "pilot_member",
-            "enum": [
-              "pilot_admin",
-              "pilot_member",
-              "pilot_viewer"
-            ],
+            "enum": ["pilot_admin", "pilot_member", "pilot_viewer"],
             "title": "Role",
             "type": "string"
           }
@@ -8833,12 +8322,7 @@
             "title": "Used At"
           }
         },
-        "required": [
-          "token",
-          "org_id",
-          "role",
-          "expires_at"
-        ],
+        "required": ["token", "org_id", "role", "expires_at"],
         "title": "InviteInfo",
         "type": "object"
       },
@@ -8852,9 +8336,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "invites"
-        ],
+        "required": ["invites"],
         "title": "InvitesResponse",
         "type": "object"
       },
@@ -9056,9 +8538,7 @@
             "title": "Params"
           }
         },
-        "required": [
-          "method"
-        ],
+        "required": ["method"],
         "title": "JsonRpcRequest",
         "type": "object"
       },
@@ -9146,11 +8626,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "key",
-          "label",
-          "value"
-        ],
+        "required": ["key", "label", "value"],
         "title": "KPIBlock",
         "type": "object"
       },
@@ -9174,10 +8650,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "generated_at",
-          "blocks"
-        ],
+        "required": ["generated_at", "blocks"],
         "title": "KPIsResponse",
         "type": "object"
       },
@@ -9209,10 +8682,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "organization_id",
-          "question"
-        ],
+        "required": ["organization_id", "question"],
         "title": "KnowledgeQueryRequest",
         "type": "object"
       },
@@ -9262,12 +8732,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "answer",
-          "sources",
-          "organization_id",
-          "status"
-        ],
+        "required": ["answer", "sources", "organization_id", "status"],
         "title": "KnowledgeQueryResponse",
         "type": "object"
       },
@@ -9281,9 +8746,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "jobs"
-        ],
+        "required": ["jobs"],
         "title": "ListJobsResponse",
         "type": "object"
       },
@@ -9297,9 +8760,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "tickets"
-        ],
+        "required": ["tickets"],
         "title": "ListTicketsResponse",
         "type": "object"
       },
@@ -9318,10 +8779,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "tools",
-          "count"
-        ],
+        "required": ["tools", "count"],
         "title": "ListToolsResponse",
         "type": "object"
       },
@@ -9349,18 +8807,12 @@
           },
           "source_type": {
             "default": "meeting",
-            "enum": [
-              "meeting",
-              "call",
-              "recording"
-            ],
+            "enum": ["meeting", "call", "recording"],
             "title": "Source Type",
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "LiveSessionEndRequest",
         "type": "object"
       },
@@ -9375,10 +8827,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "status",
-          "transcript_length"
-        ],
+        "required": ["status", "transcript_length"],
         "title": "LiveSessionEndResponse",
         "type": "object"
       },
@@ -9418,11 +8867,7 @@
           },
           "session_type": {
             "default": "meeting",
-            "enum": [
-              "meeting",
-              "call",
-              "recording"
-            ],
+            "enum": ["meeting", "call", "recording"],
             "title": "Session Type",
             "type": "string"
           },
@@ -9460,9 +8905,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "LiveSessionStartRequest",
         "type": "object"
       },
@@ -9477,10 +8920,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "session_id",
-          "status"
-        ],
+        "required": ["session_id", "status"],
         "title": "LiveSessionStartResponse",
         "type": "object"
       },
@@ -9503,10 +8943,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "timestamp"
-        ],
+        "required": ["status", "timestamp"],
         "title": "LivenessResponse",
         "type": "object"
       },
@@ -9522,10 +8959,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "auth_url",
-          "state"
-        ],
+        "required": ["auth_url", "state"],
         "title": "LoginResponse",
         "type": "object"
       },
@@ -9581,12 +9015,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "contact_id",
-          "contact_name",
-          "brief",
-          "generated_at"
-        ],
+        "required": ["contact_id", "contact_name", "brief", "generated_at"],
         "title": "MeetingBriefResponse",
         "type": "object"
       },
@@ -9628,11 +9057,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "role",
-          "email"
-        ],
+        "required": ["id", "role", "email"],
         "title": "MemberInfo",
         "type": "object"
       },
@@ -9646,9 +9071,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "members"
-        ],
+        "required": ["members"],
         "title": "MembersResponse",
         "type": "object"
       },
@@ -9671,11 +9094,7 @@
           "mode": {
             "default": "truth",
             "description": "Filter mode: truth (valid_from/to), knowledge (system_from/to), or both",
-            "enum": [
-              "truth",
-              "knowledge",
-              "both"
-            ],
+            "enum": ["truth", "knowledge", "both"],
             "title": "Mode",
             "type": "string"
           },
@@ -9718,11 +9137,7 @@
             "title": "Uio Types"
           }
         },
-        "required": [
-          "organization_id",
-          "start",
-          "end"
-        ],
+        "required": ["organization_id", "start", "end"],
         "title": "MemoryChangeRequest",
         "type": "object"
       },
@@ -9760,9 +9175,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "MemoryExportRequest",
         "type": "object"
       },
@@ -9815,10 +9228,7 @@
             "title": "Source Types"
           }
         },
-        "required": [
-          "query",
-          "organization_id"
-        ],
+        "required": ["query", "organization_id"],
         "title": "MemorySearchRequest",
         "type": "object"
       },
@@ -9870,10 +9280,7 @@
             "title": "Uio Types"
           }
         },
-        "required": [
-          "query",
-          "organization_id"
-        ],
+        "required": ["query", "organization_id"],
         "title": "MemoryUIOSearchRequest",
         "type": "object"
       },
@@ -9895,11 +9302,7 @@
           },
           "strategy": {
             "default": "newest_wins",
-            "enum": [
-              "newest_wins",
-              "highest_confidence",
-              "manual"
-            ],
+            "enum": ["newest_wins", "highest_confidence", "manual"],
             "title": "Strategy",
             "type": "string"
           },
@@ -9909,9 +9312,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "target_uio_id"
-        ],
+        "required": ["target_uio_id"],
         "title": "MergeRequest",
         "type": "object"
       },
@@ -10113,11 +9514,7 @@
             "title": "Subject"
           }
         },
-        "required": [
-          "id",
-          "source_id",
-          "source_type"
-        ],
+        "required": ["id", "source_id", "source_type"],
         "title": "MessageDetail",
         "type": "object"
       },
@@ -10212,10 +9609,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "task"
-        ],
+        "required": ["organization_id", "task"],
         "title": "MultiAgentResearchRequest",
         "type": "object"
       },
@@ -10256,12 +9650,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "task",
-          "conversation",
-          "rounds",
-          "status"
-        ],
+        "required": ["task", "conversation", "rounds", "status"],
         "title": "MultiAgentResearchResponse",
         "type": "object"
       },
@@ -10277,10 +9666,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "state"
-        ],
+        "required": ["code", "state"],
         "title": "OAuthCallbackRequest",
         "type": "object"
       },
@@ -10311,11 +9697,7 @@
             "title": "State"
           }
         },
-        "required": [
-          "connector_type",
-          "organization_id",
-          "redirect_uri"
-        ],
+        "required": ["connector_type", "organization_id", "redirect_uri"],
         "title": "OAuthInitRequest",
         "type": "object"
       },
@@ -10331,10 +9713,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "authorization_url",
-          "state"
-        ],
+        "required": ["authorization_url", "state"],
         "title": "OAuthInitResponse",
         "type": "object"
       },
@@ -10382,10 +9761,7 @@
           },
           "default_connection_visibility": {
             "default": "org_shared",
-            "enum": [
-              "org_shared",
-              "private"
-            ],
+            "enum": ["org_shared", "private"],
             "title": "Default Connection Visibility",
             "type": "string"
           },
@@ -10443,11 +9819,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "status"
-        ],
+        "required": ["id", "name", "status"],
         "title": "OrgInfoResponse",
         "type": "object"
       },
@@ -10503,9 +9875,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "OrgProfile",
         "type": "object"
       },
@@ -10515,9 +9885,7 @@
             "$ref": "#/components/schemas/OrgProfile"
           }
         },
-        "required": [
-          "profile"
-        ],
+        "required": ["profile"],
         "title": "OrgProfileResponse",
         "type": "object"
       },
@@ -10629,10 +9997,7 @@
           "default_connection_visibility": {
             "anyOf": [
               {
-                "enum": [
-                  "org_shared",
-                  "private"
-                ],
+                "enum": ["org_shared", "private"],
                 "type": "string"
               },
               {
@@ -10770,11 +10135,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "organization_id",
-          "analysis_period_days",
-          "generated_at"
-        ],
+        "required": ["organization_id", "analysis_period_days", "generated_at"],
         "title": "OrganizationProfileResponse",
         "type": "object"
       },
@@ -10793,12 +10154,7 @@
             "type": "string"
           },
           "severity": {
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ],
+            "enum": ["low", "medium", "high", "critical"],
             "title": "Severity",
             "type": "string"
           },
@@ -10807,12 +10163,7 @@
             "type": "integer"
           },
           "type": {
-            "enum": [
-              "email",
-              "phone",
-              "ssn",
-              "credit_card"
-            ],
+            "enum": ["email", "phone", "ssn", "credit_card"],
             "title": "Type",
             "type": "string"
           }
@@ -11034,10 +10385,7 @@
           },
           "visibility": {
             "default": "org_shared",
-            "enum": [
-              "org_shared",
-              "private"
-            ],
+            "enum": ["org_shared", "private"],
             "title": "Visibility",
             "type": "string"
           },
@@ -11053,11 +10401,7 @@
             "title": "Workspace"
           }
         },
-        "required": [
-          "id",
-          "provider",
-          "status"
-        ],
+        "required": ["id", "provider", "status"],
         "title": "PilotConnection",
         "type": "object"
       },
@@ -11075,10 +10419,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "connection_id",
-          "jobs"
-        ],
+        "required": ["connection_id", "jobs"],
         "title": "PilotConnectionHistoryResponse",
         "type": "object"
       },
@@ -11182,11 +10523,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "id",
-          "job_type",
-          "status"
-        ],
+        "required": ["id", "job_type", "status"],
         "title": "PilotConnectionJobHistoryItem",
         "type": "object"
       },
@@ -11204,10 +10541,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "connection_id",
-          "streams"
-        ],
+        "required": ["connection_id", "streams"],
         "title": "PilotConnectionStateResponse",
         "type": "object"
       },
@@ -11304,20 +10638,14 @@
             "type": "array"
           }
         },
-        "required": [
-          "connections"
-        ],
+        "required": ["connections"],
         "title": "PilotConnectionsResponse",
         "type": "object"
       },
       "PolicyDecision": {
         "properties": {
           "action": {
-            "enum": [
-              "allow",
-              "require_approval",
-              "block"
-            ],
+            "enum": ["allow", "require_approval", "block"],
             "title": "Action",
             "type": "string"
           },
@@ -11330,22 +10658,12 @@
             "type": "string"
           },
           "severity": {
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ],
+            "enum": ["low", "medium", "high", "critical"],
             "title": "Severity",
             "type": "string"
           }
         },
-        "required": [
-          "rule_id",
-          "action",
-          "severity",
-          "reason"
-        ],
+        "required": ["rule_id", "action", "severity", "reason"],
         "title": "PolicyDecision",
         "type": "object"
       },
@@ -11437,9 +10755,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "PromoteRequest",
         "type": "object"
       },
@@ -11454,10 +10770,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "pattern_id",
-          "promoted"
-        ],
+        "required": ["pattern_id", "promoted"],
         "title": "PromoteResponse",
         "type": "object"
       },
@@ -11509,10 +10822,7 @@
             "type": "object"
           }
         },
-        "required": [
-          "event_type",
-          "organization_id"
-        ],
+        "required": ["event_type", "organization_id"],
         "title": "PublishEventRequest",
         "type": "object"
       },
@@ -11547,10 +10857,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "success",
-          "message"
-        ],
+        "required": ["success", "message"],
         "title": "PublishEventResponse",
         "type": "object"
       },
@@ -11586,10 +10893,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "timestamp"
-        ],
+        "required": ["status", "timestamp"],
         "title": "ReadinessResponse",
         "type": "object"
       },
@@ -11729,11 +11033,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "source_type",
-          "event_type"
-        ],
+        "required": ["organization_id", "source_type", "event_type"],
         "title": "RealityEventIngest",
         "type": "object"
       },
@@ -11805,10 +11105,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "contact_id",
-          "health_score"
-        ],
+        "required": ["contact_id", "health_score"],
         "title": "RelationshipHealthResponse",
         "type": "object"
       },
@@ -11876,9 +11173,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "job_id"
-        ],
+        "required": ["job_id"],
         "title": "RetryJobResponse",
         "type": "object"
       },
@@ -11903,9 +11198,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "RiskAnalysisRequest",
         "type": "object"
       },
@@ -12109,10 +11402,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "available_scopes",
-          "default_scopes"
-        ],
+        "required": ["available_scopes", "default_scopes"],
         "title": "ScopesResponse",
         "type": "object"
       },
@@ -12193,9 +11483,7 @@
             "title": "Types"
           }
         },
-        "required": [
-          "query"
-        ],
+        "required": ["query"],
         "title": "SearchRequest",
         "type": "object"
       },
@@ -12222,12 +11510,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "success",
-          "results",
-          "count",
-          "query_time_ms"
-        ],
+        "required": ["success", "results", "count", "query_time_ms"],
         "title": "SearchResponse",
         "type": "object"
       },
@@ -12294,22 +11577,14 @@
             "type": "string"
           }
         },
-        "required": [
-          "type",
-          "properties",
-          "score",
-          "match_source"
-        ],
+        "required": ["type", "properties", "score", "match_source"],
         "title": "SearchResult",
         "type": "object"
       },
       "SensitivityResult": {
         "properties": {
           "change_type": {
-            "enum": [
-              "delay",
-              "cancel"
-            ],
+            "enum": ["delay", "cancel"],
             "title": "Change Type",
             "type": "string"
           },
@@ -12410,9 +11685,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "SensorPermissionUpdate",
         "type": "object"
       },
@@ -12437,10 +11710,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "sessions",
-          "total_count"
-        ],
+        "required": ["sessions", "total_count"],
         "title": "SessionListResponse",
         "type": "object"
       },
@@ -12450,12 +11720,8 @@
           "agent_id": "mcp_client_456",
           "context_summary": {
             "entry_count": 15,
-            "recent_queries": [
-              "What decisions were made?"
-            ],
-            "top_entities": [
-              "contact_123"
-            ]
+            "recent_queries": ["What decisions were made?"],
+            "top_entities": ["contact_123"]
           },
           "created_at": "2024-01-15T10:30:00Z",
           "is_expired": false,
@@ -12633,12 +11899,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "id",
-          "candidate_type",
-          "status",
-          "created_at"
-        ],
+        "required": ["id", "candidate_type", "status", "created_at"],
         "title": "SignalCandidateRecord",
         "type": "object"
       },
@@ -12704,10 +11965,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "organization_id",
-          "analysis_period_days"
-        ],
+        "required": ["organization_id", "analysis_period_days"],
         "title": "SignalNoiseStatsResponse",
         "type": "object"
       },
@@ -12755,9 +12013,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "SimulationRequest",
         "type": "object"
       },
@@ -12815,9 +12071,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "snooze_until"
-        ],
+        "required": ["snooze_until"],
         "title": "SnoozeRequest",
         "type": "object"
       },
@@ -12929,9 +12183,7 @@
             "title": "Source Type"
           }
         },
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "title": "SourceInfo",
         "type": "object"
       },
@@ -13036,10 +12288,7 @@
             "title": "Subject"
           }
         },
-        "required": [
-          "id",
-          "source_type"
-        ],
+        "required": ["id", "source_type"],
         "title": "SourceItem",
         "type": "object"
       },
@@ -13070,9 +12319,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "StatusChangeRequest",
         "type": "object"
       },
@@ -13105,19 +12352,14 @@
             "type": "string"
           }
         },
-        "required": [
-          "stream_name"
-        ],
+        "required": ["stream_name"],
         "title": "StreamConfigRequest",
         "type": "object"
       },
       "StreamConnectionInfo": {
         "description": "Information about connecting to the event stream.",
         "example": {
-          "available_filters": [
-            "uio.created",
-            "commitment.due"
-          ],
+          "available_filters": ["uio.created", "commitment.due"],
           "example_js": "const es = new EventSource('/api/v1/events/stream?organization_id=org_123');",
           "url": "/api/v1/events/stream?organization_id=org_123"
         },
@@ -13141,11 +12383,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "url",
-          "example_js",
-          "available_filters"
-        ],
+        "required": ["url", "example_js", "available_filters"],
         "title": "StreamConnectionInfo",
         "type": "object"
       },
@@ -13158,9 +12396,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "superseded_by_id"
-        ],
+        "required": ["superseded_by_id"],
         "title": "SupersedeDecisionRequest",
         "type": "object"
       },
@@ -13174,19 +12410,12 @@
           },
           "uio_type": {
             "description": "UIO type",
-            "enum": [
-              "commitment",
-              "task",
-              "risk"
-            ],
+            "enum": ["commitment", "task", "risk"],
             "title": "Uio Type",
             "type": "string"
           }
         },
-        "required": [
-          "superseded_by_id",
-          "uio_type"
-        ],
+        "required": ["superseded_by_id", "uio_type"],
         "title": "SupersedeGenericRequest",
         "type": "object"
       },
@@ -13235,11 +12464,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "status",
-          "started_at"
-        ],
+        "required": ["id", "status", "started_at"],
         "title": "SyncHistoryItem",
         "type": "object"
       },
@@ -13318,10 +12543,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "connection_id",
-          "status"
-        ],
+        "required": ["connection_id", "status"],
         "title": "SyncStatusResponse",
         "type": "object"
       },
@@ -13360,11 +12582,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "connection_id",
-          "status",
-          "message"
-        ],
+        "required": ["connection_id", "status", "message"],
         "title": "SyncTriggerResponse",
         "type": "object"
       },
@@ -13415,12 +12633,7 @@
             "title": "Version"
           }
         },
-        "required": [
-          "status",
-          "uptime_seconds",
-          "components",
-          "checked_at"
-        ],
+        "required": ["status", "uptime_seconds", "components", "checked_at"],
         "title": "SystemHealthResponse",
         "type": "object"
       },
@@ -13527,20 +12740,12 @@
         "description": "Request to update task priority.",
         "properties": {
           "priority": {
-            "enum": [
-              "no_priority",
-              "low",
-              "medium",
-              "high",
-              "urgent"
-            ],
+            "enum": ["no_priority", "low", "medium", "high", "urgent"],
             "title": "Priority",
             "type": "string"
           }
         },
-        "required": [
-          "priority"
-        ],
+        "required": ["priority"],
         "title": "TaskPriorityRequest",
         "type": "object"
       },
@@ -13560,9 +12765,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "TaskStatusRequest",
         "type": "object"
       },
@@ -13579,10 +12782,7 @@
             "$ref": "#/components/schemas/TicketListItem"
           }
         },
-        "required": [
-          "ticket",
-          "messages"
-        ],
+        "required": ["ticket", "messages"],
         "title": "TicketDetailResponse",
         "type": "object"
       },
@@ -13769,10 +12969,7 @@
           },
           "type": {
             "default": "relative",
-            "enum": [
-              "relative",
-              "absolute"
-            ],
+            "enum": ["relative", "absolute"],
             "title": "Type",
             "type": "string"
           },
@@ -13811,11 +13008,7 @@
           "mode": {
             "default": "truth",
             "description": "Filter mode: truth (valid_from/to), knowledge (system_from/to), or both",
-            "enum": [
-              "truth",
-              "knowledge",
-              "both"
-            ],
+            "enum": ["truth", "knowledge", "both"],
             "title": "Mode",
             "type": "string"
           },
@@ -13852,10 +13045,7 @@
             "title": "Uio Types"
           }
         },
-        "required": [
-          "organization_id",
-          "as_of"
-        ],
+        "required": ["organization_id", "as_of"],
         "title": "TimeSliceRequest",
         "type": "object"
       },
@@ -13909,12 +13099,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "event_type",
-          "title",
-          "reference_time"
-        ],
+        "required": ["id", "event_type", "title", "reference_time"],
         "title": "TimelineEventResponse",
         "type": "object"
       },
@@ -13972,9 +13157,7 @@
             "title": "Source Types"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "TimelineRequest",
         "type": "object"
       },
@@ -14005,10 +13188,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "count"
-        ],
+        "required": ["timestamp", "count"],
         "title": "TimeseriesPoint",
         "type": "object"
       },
@@ -14020,9 +13200,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "is_vip"
-        ],
+        "required": ["is_vip"],
         "title": "ToggleVipRequest",
         "type": "object"
       },
@@ -14041,9 +13219,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ToolCallRequest",
         "type": "object"
       },
@@ -14077,12 +13253,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "success",
-          "tool",
-          "result",
-          "execution_time_ms"
-        ],
+        "required": ["success", "tool", "result", "execution_time_ms"],
         "title": "ToolCallResponse",
         "type": "object"
       },
@@ -14103,11 +13274,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name",
-          "description",
-          "inputSchema"
-        ],
+        "required": ["name", "description", "inputSchema"],
         "title": "ToolDefinition",
         "type": "object"
       },
@@ -14234,10 +13401,7 @@
             "title": "Triggered By"
           }
         },
-        "required": [
-          "event_type",
-          "event_description"
-        ],
+        "required": ["event_type", "event_description"],
         "title": "TrailEvent",
         "type": "object"
       },
@@ -14336,10 +13500,7 @@
             "title": "Valid To"
           }
         },
-        "required": [
-          "uio_id",
-          "uio_type"
-        ],
+        "required": ["uio_id", "uio_type"],
         "title": "TrailResponse",
         "type": "object"
       },
@@ -14414,10 +13575,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "organization_id",
-          "text"
-        ],
+        "required": ["organization_id", "text"],
         "title": "TranscriptSegmentRequest",
         "type": "object"
       },
@@ -14442,9 +13600,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "organization_id"
-        ],
+        "required": ["organization_id"],
         "title": "TrustRequest",
         "type": "object"
       },
@@ -14684,13 +13840,7 @@
             "title": "Updated At"
           }
         },
-        "required": [
-          "id",
-          "type",
-          "title",
-          "status",
-          "created_at"
-        ],
+        "required": ["id", "type", "title", "status", "created_at"],
         "title": "UIOItem",
         "type": "object"
       },
@@ -14718,12 +13868,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "UIOListResponse",
         "type": "object"
       },
@@ -14808,11 +13953,7 @@
             "title": "Confidence Reasoning"
           },
           "confidence_tier": {
-            "enum": [
-              "high",
-              "medium",
-              "low"
-            ],
+            "enum": ["high", "medium", "low"],
             "title": "Confidence Tier",
             "type": "string"
           },
@@ -15126,12 +14267,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "event_type",
-          "source_type",
-          "received_at"
-        ],
+        "required": ["id", "event_type", "source_type", "received_at"],
         "title": "UnifiedEventRecord",
         "type": "object"
       },
@@ -15285,14 +14421,7 @@
             "title": "User Locale"
           }
         },
-        "required": [
-          "user_id",
-          "org_id",
-          "org_name",
-          "role",
-          "email",
-          "exp"
-        ],
+        "required": ["user_id", "org_id", "org_name", "role", "email", "exp"],
         "title": "UserResponse",
         "type": "object"
       },
@@ -15328,11 +14457,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError",
         "type": "object"
       },
@@ -15390,9 +14515,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "start_date"
-        ],
+        "required": ["start_date"],
         "title": "BackfillRequest",
         "type": "object"
       },
@@ -15443,9 +14566,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "start_date"
-        ],
+        "required": ["start_date"],
         "title": "BackfillRequest",
         "type": "object"
       }
@@ -15554,10 +14675,7 @@
           }
         ],
         "summary": "List Actuations",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       },
       "post": {
         "operationId": "run_actuation_api_v1_actuations_post",
@@ -15631,10 +14749,7 @@
           }
         ],
         "summary": "Run Actuation",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       }
     },
     "/api/v1/actuations/drivers": {
@@ -15700,10 +14815,7 @@
           }
         ],
         "summary": "List Available Drivers",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       }
     },
     "/api/v1/actuations/{action_id}": {
@@ -15787,10 +14899,7 @@
           }
         ],
         "summary": "Get Actuation",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       }
     },
     "/api/v1/actuations/{action_id}/approve": {
@@ -15875,10 +14984,7 @@
           }
         ],
         "summary": "Approve Actuation",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       }
     },
     "/api/v1/actuations/{action_id}/rollback": {
@@ -15963,10 +15069,7 @@
           }
         ],
         "summary": "Rollback Actuation",
-        "tags": [
-          "Actuations",
-          "Actuations"
-        ]
+        "tags": ["Actuations", "Actuations"]
       }
     },
     "/api/v1/admin/kpis": {
@@ -16035,10 +15138,7 @@
           }
         ],
         "summary": "Admin Kpis",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/login": {
@@ -16078,10 +15178,7 @@
           }
         },
         "summary": "Admin Login",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/logout": {
@@ -16104,10 +15201,7 @@
           }
         },
         "summary": "Admin Logout",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/me": {
@@ -16176,10 +15270,7 @@
           }
         ],
         "summary": "Admin Me",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/orgs": {
@@ -16273,10 +15364,7 @@
           }
         ],
         "summary": "Admin List Orgs",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/orgs/{org_id}": {
@@ -16353,10 +15441,7 @@
           }
         ],
         "summary": "Admin Get Org",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/users": {
@@ -16450,10 +15535,7 @@
           }
         ],
         "summary": "Admin List Users",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/admin/users/{user_id}": {
@@ -16530,10 +15612,7 @@
           }
         ],
         "summary": "Admin Get User",
-        "tags": [
-          "Admin",
-          "Admin"
-        ]
+        "tags": ["Admin", "Admin"]
       }
     },
     "/api/v1/analytics/blindspots/{organization_id}": {
@@ -16657,10 +15736,7 @@
           }
         ],
         "summary": "List Blindspots",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/blindspots/{organization_id}/{blindspot_id}/dismiss": {
@@ -16756,10 +15832,7 @@
           }
         ],
         "summary": "Dismiss Blindspot",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/calibration/{organization_id}": {
@@ -16867,10 +15940,7 @@
           }
         ],
         "summary": "Get Calibration Metrics",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/graph/bridges/{organization_id}": {
@@ -16973,10 +16043,7 @@
           }
         ],
         "summary": "Get Bridge Connectors",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/graph/communities/{organization_id}": {
@@ -17079,10 +16146,7 @@
           }
         ],
         "summary": "Get Communication Clusters",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/graph/influential/{organization_id}": {
@@ -17185,10 +16249,7 @@
           }
         ],
         "summary": "Get Influential Contacts",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/graph/run-analytics/{organization_id}": {
@@ -17211,11 +16272,7 @@
             "name": "algorithms",
             "required": false,
             "schema": {
-              "default": [
-                "pagerank",
-                "communities",
-                "betweenness"
-              ],
+              "default": ["pagerank", "communities", "betweenness"],
               "description": "Algorithms to run",
               "items": {
                 "type": "string"
@@ -17283,10 +16340,7 @@
           }
         ],
         "summary": "Trigger Graph Analytics",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/graph/stats/{organization_id}": {
@@ -17362,10 +16416,7 @@
           }
         ],
         "summary": "Get Graph Statistics",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/health/{organization_id}": {
@@ -17453,10 +16504,7 @@
           }
         ],
         "summary": "Get Organizational Health",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/patterns/{organization_id}": {
@@ -17562,10 +16610,7 @@
           }
         ],
         "summary": "List Patterns",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/patterns/{organization_id}/{pattern_id}/feedback": {
@@ -17679,10 +16724,7 @@
           }
         ],
         "summary": "Record Pattern Feedback",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/profile/{organization_id}": {
@@ -17774,10 +16816,7 @@
           }
         ],
         "summary": "Get Organization Profile",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analytics/signal-noise/{organization_id}": {
@@ -17867,10 +16906,7 @@
           }
         ],
         "summary": "Get Signal Noise Stats",
-        "tags": [
-          "Analytics",
-          "Analytics"
-        ]
+        "tags": ["Analytics", "Analytics"]
       }
     },
     "/api/v1/analyze": {
@@ -17949,9 +16985,7 @@
           }
         ],
         "summary": "Analyze Content",
-        "tags": [
-          "Analysis"
-        ]
+        "tags": ["Analysis"]
       }
     },
     "/api/v1/analyze/stream": {
@@ -18028,9 +17062,7 @@
           }
         ],
         "summary": "Analyze Content Stream",
-        "tags": [
-          "Analysis"
-        ]
+        "tags": ["Analysis"]
       }
     },
     "/api/v1/api-keys": {
@@ -18099,10 +17131,7 @@
           }
         ],
         "summary": "List Keys",
-        "tags": [
-          "API Keys",
-          "API Keys"
-        ]
+        "tags": ["API Keys", "API Keys"]
       },
       "post": {
         "description": "Create a new API key.\n\nRequires the `manage:keys` scope.\n\n**Important:** The full API key is only returned once in this response.\nStore it securely - it cannot be retrieved later.",
@@ -18179,10 +17208,7 @@
           }
         ],
         "summary": "Create Key",
-        "tags": [
-          "API Keys",
-          "API Keys"
-        ]
+        "tags": ["API Keys", "API Keys"]
       }
     },
     "/api/v1/api-keys/me": {
@@ -18249,10 +17275,7 @@
           }
         ],
         "summary": "Get Current Key Info",
-        "tags": [
-          "API Keys",
-          "API Keys"
-        ]
+        "tags": ["API Keys", "API Keys"]
       }
     },
     "/api/v1/api-keys/scopes": {
@@ -18321,10 +17344,7 @@
           }
         ],
         "summary": "Get Scopes",
-        "tags": [
-          "API Keys",
-          "API Keys"
-        ]
+        "tags": ["API Keys", "API Keys"]
       }
     },
     "/api/v1/api-keys/{key_id}": {
@@ -18400,10 +17420,7 @@
           }
         ],
         "summary": "Revoke Key",
-        "tags": [
-          "API Keys",
-          "API Keys"
-        ]
+        "tags": ["API Keys", "API Keys"]
       }
     },
     "/api/v1/ask": {
@@ -18543,10 +17560,7 @@
           }
         ],
         "summary": "Ask Get",
-        "tags": [
-          "Natural Language Query",
-          "Natural Language Query"
-        ]
+        "tags": ["Natural Language Query", "Natural Language Query"]
       },
       "post": {
         "description": "Ask a natural language question about your knowledge graph.\n\nThis endpoint uses GraphRAG to:\n1. Classify the intent of your question\n2. Generate appropriate graph queries\n3. Execute queries against FalkorDB\n4. Synthesize a natural language response\n\n**Supported Question Types:**\n\n- **Influence & Importance:** \"Who are the most influential people?\"\n- **Commitments:** \"What commitments are at risk?\"\n- **Decisions:** \"What decisions were made recently?\"\n- **Risks:** \"What are the active risks?\"\n- **Relationships (specific):** \"Who does Margaret White communicate with?\"\n- **Top Communicators (general):** \"Who communicates the most?\"\n- **Network Analysis:** \"What clusters exist?\", \"Who are the bridge connectors?\"\n- **Customer 360:** \"Tell me about Aisha Chen\"\n- **Entity/Company Search:** \"Tell me about BuildRight Construction\"\n- **Cross-Entity:** \"Which commitments are threatened by risks?\"\n- **Topic-Filtered:** \"What decisions about Q1 product roadmap?\"\n- **Urgent Issues:** \"What key issues need immediate attention?\"\n\n**Example Request:**\n```json\n{\n    \"question\": \"Who are the most influential people in our network?\",\n    \"organization_id\": \"org-123\",\n    \"include_evidence\": true\n}\n```\n\n**Example Response:**\n```json\n{\n    \"answer\": \"The most influential people in your network are: John Smith, Jane Doe, Bob Wilson...\",\n    \"intent\": \"influential\",\n    \"sources\": [\n        {\"id\": \"contact-1\", \"name\": \"John Smith\", \"email\": \"john@example.com\"},\n        ...\n    ],\n    \"cypher_query\": \"MATCH (c:Contact {organizationId: $orgId}) WHERE c.pagerankScore...\",\n    \"results_count\": 10,\n    \"duration_seconds\": 0.234,\n    \"timestamp\": \"2024-01-15T10:30:00Z\"\n}\n```",
@@ -18623,10 +17637,7 @@
           }
         ],
         "summary": "Ask Knowledge Graph",
-        "tags": [
-          "Natural Language Query",
-          "Natural Language Query"
-        ]
+        "tags": ["Natural Language Query", "Natural Language Query"]
       }
     },
     "/api/v1/ask/health": {
@@ -18648,10 +17659,7 @@
           }
         },
         "summary": "Check Graphrag Health",
-        "tags": [
-          "Natural Language Query",
-          "Natural Language Query"
-        ]
+        "tags": ["Natural Language Query", "Natural Language Query"]
       }
     },
     "/api/v1/ask/intents": {
@@ -18673,10 +17681,7 @@
           }
         },
         "summary": "List Supported Intents",
-        "tags": [
-          "Natural Language Query",
-          "Natural Language Query"
-        ]
+        "tags": ["Natural Language Query", "Natural Language Query"]
       }
     },
     "/api/v1/ask/stream": {
@@ -18753,10 +17758,7 @@
           }
         ],
         "summary": "Ask Stream",
-        "tags": [
-          "Natural Language Query",
-          "Natural Language Query"
-        ]
+        "tags": ["Natural Language Query", "Natural Language Query"]
       }
     },
     "/api/v1/audit/verify": {
@@ -18831,10 +17833,7 @@
           }
         ],
         "summary": "Verify Audit Ledger",
-        "tags": [
-          "Audit",
-          "Audit"
-        ]
+        "tags": ["Audit", "Audit"]
       }
     },
     "/api/v1/auth/callback": {
@@ -18886,10 +17885,7 @@
           }
         },
         "summary": "Callback",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/login": {
@@ -18951,10 +17947,7 @@
           }
         },
         "summary": "Login",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/login/email": {
@@ -18994,10 +17987,7 @@
           }
         },
         "summary": "Login With Email",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/logout": {
@@ -19019,10 +18009,7 @@
           }
         },
         "summary": "Logout",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/me": {
@@ -19086,10 +18073,7 @@
           }
         },
         "summary": "Get Me",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/me/locale": {
@@ -19165,10 +18149,7 @@
           }
         },
         "summary": "Update My Locale",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/auth/signup/email": {
@@ -19208,10 +18189,7 @@
           }
         },
         "summary": "Signup With Email",
-        "tags": [
-          "Authentication",
-          "auth"
-        ]
+        "tags": ["Authentication", "auth"]
       }
     },
     "/api/v1/brief": {
@@ -19298,10 +18276,7 @@
           }
         ],
         "summary": "Get Brief",
-        "tags": [
-          "Brief",
-          "brief"
-        ]
+        "tags": ["Brief", "brief"]
       }
     },
     "/api/v1/brief/refresh": {
@@ -19377,10 +18352,7 @@
           }
         ],
         "summary": "Refresh Brief",
-        "tags": [
-          "Brief",
-          "brief"
-        ]
+        "tags": ["Brief", "brief"]
       }
     },
     "/api/v1/changes": {
@@ -19530,10 +18502,7 @@
           }
         ],
         "summary": "List changes",
-        "tags": [
-          "Changes",
-          "Changes"
-        ]
+        "tags": ["Changes", "Changes"]
       }
     },
     "/api/v1/changes/at-time": {
@@ -19617,10 +18586,7 @@
           }
         ],
         "summary": "Get entity state at time",
-        "tags": [
-          "Changes",
-          "Changes"
-        ]
+        "tags": ["Changes", "Changes"]
       }
     },
     "/api/v1/changes/changed-entities": {
@@ -19730,10 +18696,7 @@
           }
         ],
         "summary": "Get changed entity IDs",
-        "tags": [
-          "Changes",
-          "Changes"
-        ]
+        "tags": ["Changes", "Changes"]
       }
     },
     "/api/v1/changes/compare": {
@@ -19815,10 +18778,7 @@
           }
         ],
         "summary": "Compare two versions",
-        "tags": [
-          "Changes",
-          "Changes"
-        ]
+        "tags": ["Changes", "Changes"]
       }
     },
     "/api/v1/changes/entities/{entity_type}/{entity_id}/history": {
@@ -19926,10 +18886,7 @@
           }
         ],
         "summary": "Get entity history",
-        "tags": [
-          "Changes",
-          "Changes"
-        ]
+        "tags": ["Changes", "Changes"]
       }
     },
     "/api/v1/connections": {
@@ -20031,10 +18988,7 @@
           }
         ],
         "summary": "List Connections",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       },
       "post": {
         "description": "Create a new data source connection.\n\nThis creates the connection record. For OAuth-based connectors,\nuse the /oauth/initiate endpoint to start the OAuth flow.\n\nRequires `write:connections` scope.",
@@ -20111,10 +19065,7 @@
           }
         ],
         "summary": "Create Connection",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/connectors": {
@@ -20181,10 +19132,7 @@
           }
         ],
         "summary": "List Connectors",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/oauth/callback/{connection_id}": {
@@ -20270,10 +19218,7 @@
           }
         ],
         "summary": "Oauth Callback",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/oauth/initiate": {
@@ -20352,10 +19297,7 @@
           }
         ],
         "summary": "Initiate Oauth",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}": {
@@ -20431,10 +19373,7 @@
           }
         ],
         "summary": "Delete Connection",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       },
       "get": {
         "description": "Get a specific connection.\n\nRequires `read` scope.",
@@ -20510,10 +19449,7 @@
           }
         ],
         "summary": "Get Connection",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       },
       "patch": {
         "description": "Update a connection.\n\nRequires `write:connections` scope.",
@@ -20599,10 +19535,7 @@
           }
         ],
         "summary": "Update Connection",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/backfill": {
@@ -20688,10 +19621,7 @@
           }
         ],
         "summary": "Trigger Backfill",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/streams": {
@@ -20767,10 +19697,7 @@
           }
         ],
         "summary": "Discover Streams",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/streams/{stream_name}": {
@@ -20865,10 +19792,7 @@
           }
         ],
         "summary": "Configure Stream",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/sync": {
@@ -20961,10 +19885,7 @@
           }
         ],
         "summary": "Trigger Sync",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/sync/history": {
@@ -21058,10 +19979,7 @@
           }
         ],
         "summary": "Get Sync History",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/sync/status": {
@@ -21139,10 +20057,7 @@
           }
         ],
         "summary": "Get Sync Status",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/connections/{connection_id}/test": {
@@ -21218,10 +20133,7 @@
           }
         ],
         "summary": "Test Connection",
-        "tags": [
-          "Connections",
-          "Connections"
-        ]
+        "tags": ["Connections", "Connections"]
       }
     },
     "/api/v1/console/entities": {
@@ -21335,10 +20247,7 @@
           }
         ],
         "summary": "Get Entity Suggestions",
-        "tags": [
-          "Console",
-          "console"
-        ]
+        "tags": ["Console", "console"]
       }
     },
     "/api/v1/console/query": {
@@ -21417,10 +20326,7 @@
           }
         ],
         "summary": "Console Query",
-        "tags": [
-          "Console",
-          "console"
-        ]
+        "tags": ["Console", "console"]
       }
     },
     "/api/v1/console/related/{uio_id}": {
@@ -21514,10 +20420,7 @@
           }
         ],
         "summary": "Get Related Uios",
-        "tags": [
-          "Console",
-          "console"
-        ]
+        "tags": ["Console", "console"]
       }
     },
     "/api/v1/console/source/{source_id}": {
@@ -21595,10 +20498,7 @@
           }
         ],
         "summary": "Get Source Detail",
-        "tags": [
-          "Console",
-          "console"
-        ]
+        "tags": ["Console", "console"]
       }
     },
     "/api/v1/console/sources/{uio_id}": {
@@ -21680,10 +20580,7 @@
           }
         ],
         "summary": "Get Uio Sources",
-        "tags": [
-          "Console",
-          "console"
-        ]
+        "tags": ["Console", "console"]
       }
     },
     "/api/v1/contacts": {
@@ -21838,10 +20735,7 @@
           }
         ],
         "summary": "List Contacts",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/at-risk": {
@@ -21931,10 +20825,7 @@
           }
         ],
         "summary": "Get At Risk Contacts",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/identities/audit": {
@@ -22039,10 +20930,7 @@
           }
         ],
         "summary": "Export Identity Audit",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/merge": {
@@ -22135,10 +21023,7 @@
           }
         ],
         "summary": "Merge Contacts",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/merge-suggestions": {
@@ -22251,10 +21136,7 @@
           }
         ],
         "summary": "List Merge Suggestions",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/search": {
@@ -22354,10 +21236,7 @@
           }
         ],
         "summary": "Search Contacts",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/stats": {
@@ -22435,10 +21314,7 @@
           }
         ],
         "summary": "Get Contact Stats",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/vips": {
@@ -22528,10 +21404,7 @@
           }
         ],
         "summary": "Get Vip Contacts",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/{contact_id}": {
@@ -22618,10 +21491,7 @@
           }
         ],
         "summary": "Get Contact",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/{contact_id}/analyze": {
@@ -22716,10 +21586,7 @@
           }
         ],
         "summary": "Analyze Contact",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/{contact_id}/identities": {
@@ -22810,10 +21677,7 @@
           }
         ],
         "summary": "List Contact Identities",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       },
       "post": {
         "description": "Link a new identity to a contact (manual override).",
@@ -22908,10 +21772,7 @@
           }
         ],
         "summary": "Link Contact Identity",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/{contact_id}/meeting-brief": {
@@ -22998,10 +21859,7 @@
           }
         ],
         "summary": "Generate Meeting Brief",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/contacts/{contact_id}/toggle-vip": {
@@ -23096,10 +21954,7 @@
           }
         ],
         "summary": "Toggle Vip",
-        "tags": [
-          "Contacts",
-          "contacts"
-        ]
+        "tags": ["Contacts", "contacts"]
       }
     },
     "/api/v1/content/search": {
@@ -23177,10 +22032,7 @@
           }
         ],
         "summary": "Content Search",
-        "tags": [
-          "Content",
-          "Content"
-        ]
+        "tags": ["Content", "Content"]
       }
     },
     "/api/v1/continuum-exchange/bundles": {
@@ -23287,10 +22139,7 @@
           }
         ],
         "summary": "List Bundles Endpoint",
-        "tags": [
-          "Continuum Exchange",
-          "Continuum Exchange"
-        ]
+        "tags": ["Continuum Exchange", "Continuum Exchange"]
       }
     },
     "/api/v1/continuum-exchange/bundles/publish": {
@@ -23368,10 +22217,7 @@
           }
         ],
         "summary": "Publish Bundle Endpoint",
-        "tags": [
-          "Continuum Exchange",
-          "Continuum Exchange"
-        ]
+        "tags": ["Continuum Exchange", "Continuum Exchange"]
       }
     },
     "/api/v1/continuum-exchange/bundles/{bundle_id}/governance": {
@@ -23456,10 +22302,7 @@
           }
         ],
         "summary": "Update Bundle Governance Endpoint",
-        "tags": [
-          "Continuum Exchange",
-          "Continuum Exchange"
-        ]
+        "tags": ["Continuum Exchange", "Continuum Exchange"]
       }
     },
     "/api/v1/continuum-exchange/bundles/{bundle_id}/install": {
@@ -23544,10 +22387,7 @@
           }
         ],
         "summary": "Install Bundle Endpoint",
-        "tags": [
-          "Continuum Exchange",
-          "Continuum Exchange"
-        ]
+        "tags": ["Continuum Exchange", "Continuum Exchange"]
       }
     },
     "/api/v1/continuums": {
@@ -23622,10 +22462,7 @@
           }
         ],
         "summary": "List Continuums",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       },
       "post": {
         "operationId": "create_continuum_endpoint_api_v1_continuums_post",
@@ -23701,10 +22538,7 @@
           }
         ],
         "summary": "Create Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}": {
@@ -23788,10 +22622,7 @@
           }
         ],
         "summary": "Get Continuum",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/activate": {
@@ -23876,10 +22707,7 @@
           }
         ],
         "summary": "Activate Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/override": {
@@ -23964,10 +22792,7 @@
           }
         ],
         "summary": "Override Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/pause": {
@@ -24052,10 +22877,7 @@
           }
         ],
         "summary": "Pause Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/preview": {
@@ -24142,10 +22964,7 @@
           }
         ],
         "summary": "Preview Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/rollback": {
@@ -24230,10 +23049,7 @@
           }
         ],
         "summary": "Rollback Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/run": {
@@ -24318,10 +23134,7 @@
           }
         ],
         "summary": "Run Continuum Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/runs": {
@@ -24405,10 +23218,7 @@
           }
         ],
         "summary": "List Continuum Runs",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/continuums/{continuum_id}/versions": {
@@ -24493,10 +23303,7 @@
           }
         ],
         "summary": "Create Version Endpoint",
-        "tags": [
-          "Continuums",
-          "Continuums"
-        ]
+        "tags": ["Continuums", "Continuums"]
       }
     },
     "/api/v1/contradictions": {
@@ -24576,10 +23383,7 @@
           }
         ],
         "summary": "Create Contradiction",
-        "tags": [
-          "Contradictions",
-          "contradictions"
-        ]
+        "tags": ["Contradictions", "contradictions"]
       }
     },
     "/api/v1/contradictions/{contradiction_id}/resolve": {
@@ -24668,10 +23472,7 @@
           }
         ],
         "summary": "Resolve Contradiction",
-        "tags": [
-          "Contradictions",
-          "contradictions"
-        ]
+        "tags": ["Contradictions", "contradictions"]
       }
     },
     "/api/v1/customer/commitments/{contact_id}": {
@@ -24767,10 +23568,7 @@
           }
         ],
         "summary": "Get Customer Commitments",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/customer/context": {
@@ -24849,10 +23647,7 @@
           }
         ],
         "summary": "Get Customer Context",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/customer/health/{contact_id}": {
@@ -24939,10 +23734,7 @@
           }
         ],
         "summary": "Get Relationship Health",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/customer/search": {
@@ -25021,10 +23813,7 @@
           }
         ],
         "summary": "Search Customers",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/customer/summary/{contact_id}": {
@@ -25109,10 +23898,7 @@
           }
         ],
         "summary": "Generate Relationship Summary",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/customer/timeline/{contact_id}": {
@@ -25209,10 +23995,7 @@
           }
         ],
         "summary": "Get Customer Timeline",
-        "tags": [
-          "Customer Context",
-          "Customer Context"
-        ]
+        "tags": ["Customer Context", "Customer Context"]
       }
     },
     "/api/v1/documents": {
@@ -25306,10 +24089,7 @@
           }
         ],
         "summary": "List Documents",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/ask": {
@@ -25387,10 +24167,7 @@
           }
         ],
         "summary": "Ask Drive Folder",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/chunks/{chunk_id}": {
@@ -25483,10 +24260,7 @@
           }
         ],
         "summary": "Get Document Chunk",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/search": {
@@ -25564,10 +24338,7 @@
           }
         ],
         "summary": "Search Documents",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/uploads": {
@@ -25645,10 +24416,7 @@
           }
         ],
         "summary": "Create Document Upload",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/uploads/{upload_session_id}/complete": {
@@ -25735,10 +24503,7 @@
           }
         ],
         "summary": "Complete Document Upload",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/uploads/{upload_session_id}/parts": {
@@ -25825,10 +24590,7 @@
           }
         ],
         "summary": "Presign Document Upload Parts",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/{document_id}/chunks": {
@@ -25931,10 +24693,7 @@
           }
         ],
         "summary": "List Document Chunks",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/documents/{document_id}/reprocess": {
@@ -26028,10 +24787,7 @@
           }
         ],
         "summary": "Reprocess Document",
-        "tags": [
-          "Documents",
-          "Documents"
-        ]
+        "tags": ["Documents", "Documents"]
       }
     },
     "/api/v1/events/ingest": {
@@ -26116,10 +24872,7 @@
           }
         ],
         "summary": "Ingest a raw event from connectors",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/events/ingest/batch": {
@@ -26204,10 +24957,7 @@
           }
         ],
         "summary": "Ingest multiple raw events in a batch",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/events/publish": {
@@ -26292,10 +25042,7 @@
           }
         ],
         "summary": "Publish a custom event",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/events/stream": {
@@ -26403,10 +25150,7 @@
           }
         ],
         "summary": "Stream real-time events (SSE)",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/events/stream/info": {
@@ -26486,10 +25230,7 @@
           }
         ],
         "summary": "Get stream connection information",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/events/types": {
@@ -26558,10 +25299,7 @@
           }
         ],
         "summary": "List all event types",
-        "tags": [
-          "Events",
-          "Events"
-        ]
+        "tags": ["Events", "Events"]
       }
     },
     "/api/v1/evidence/artifacts": {
@@ -26640,10 +25378,7 @@
           }
         ],
         "summary": "Create Evidence Artifact",
-        "tags": [
-          "Evidence",
-          "evidence"
-        ]
+        "tags": ["Evidence", "evidence"]
       }
     },
     "/api/v1/evidence/artifacts/ingest": {
@@ -26720,10 +25455,7 @@
           }
         ],
         "summary": "Ingest Evidence Artifact",
-        "tags": [
-          "Evidence",
-          "evidence"
-        ]
+        "tags": ["Evidence", "evidence"]
       }
     },
     "/api/v1/evidence/artifacts/{artifact_id}": {
@@ -26820,10 +25552,7 @@
           }
         ],
         "summary": "Get Evidence Artifact",
-        "tags": [
-          "Evidence",
-          "evidence"
-        ]
+        "tags": ["Evidence", "evidence"]
       }
     },
     "/api/v1/evidence/{evidence_id}": {
@@ -26855,10 +25584,7 @@
             "required": false,
             "schema": {
               "default": "snippet",
-              "enum": [
-                "snippet",
-                "full"
-              ],
+              "enum": ["snippet", "full"],
               "title": "Mode",
               "type": "string"
             }
@@ -26922,10 +25648,7 @@
           }
         ],
         "summary": "Get Evidence",
-        "tags": [
-          "Evidence",
-          "evidence"
-        ]
+        "tags": ["Evidence", "evidence"]
       }
     },
     "/api/v1/evidence/{evidence_id}/timeline": {
@@ -27010,10 +25733,7 @@
           }
         ],
         "summary": "Get Evidence Timeline",
-        "tags": [
-          "Evidence",
-          "evidence"
-        ]
+        "tags": ["Evidence", "evidence"]
       }
     },
     "/api/v1/graph/query": {
@@ -27092,9 +25812,7 @@
           }
         ],
         "summary": "Execute Query",
-        "tags": [
-          "Graph"
-        ]
+        "tags": ["Graph"]
       }
     },
     "/api/v1/graph/stats": {
@@ -27170,9 +25888,7 @@
           }
         ],
         "summary": "Get Graph Stats",
-        "tags": [
-          "Graph"
-        ]
+        "tags": ["Graph"]
       }
     },
     "/api/v1/guardrails/compose/check": {
@@ -27250,10 +25966,7 @@
           }
         ],
         "summary": "Compose Guardrail Check",
-        "tags": [
-          "Guardrails",
-          "Guardrails"
-        ]
+        "tags": ["Guardrails", "Guardrails"]
       }
     },
     "/api/v1/guardrails/inbound/check": {
@@ -27331,10 +26044,7 @@
           }
         ],
         "summary": "Inbound Guardrail Check",
-        "tags": [
-          "Guardrails",
-          "Guardrails"
-        ]
+        "tags": ["Guardrails", "Guardrails"]
       }
     },
     "/api/v1/guardrails/minimize": {
@@ -27412,10 +26122,7 @@
           }
         ],
         "summary": "Minimize Content",
-        "tags": [
-          "Guardrails",
-          "Guardrails"
-        ]
+        "tags": ["Guardrails", "Guardrails"]
       }
     },
     "/api/v1/ingest/live-session/start": {
@@ -27493,10 +26200,7 @@
           }
         ],
         "summary": "Start Live Session",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/artifact/{artifact_id}/download": {
@@ -27589,10 +26293,7 @@
           }
         ],
         "summary": "Get Artifact Download Url",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/audio": {
@@ -27748,10 +26449,7 @@
           }
         ],
         "summary": "Ingest Audio Chunk",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/decision-radar": {
@@ -27852,10 +26550,7 @@
           }
         ],
         "summary": "List Decision Radar",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/decision-radar/stream": {
@@ -27950,10 +26645,7 @@
           }
         ],
         "summary": "Stream Decision Radar",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/decision-radar/{candidate_id}/confirm": {
@@ -28049,10 +26741,7 @@
           }
         ],
         "summary": "Confirm Decision Radar",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/decision-radar/{candidate_id}/dismiss": {
@@ -28148,10 +26837,7 @@
           }
         ],
         "summary": "Dismiss Decision Radar",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/end": {
@@ -28238,10 +26924,7 @@
           }
         ],
         "summary": "End Live Session",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/transcript": {
@@ -28325,10 +27008,7 @@
           }
         ],
         "summary": "Get Transcript Text",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       },
       "post": {
         "operationId": "ingest_transcript_segment_api_v1_ingest_live_session__session_id__transcript_post",
@@ -28411,10 +27091,7 @@
           }
         ],
         "summary": "Ingest Transcript Segment",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/ingest/live-session/{session_id}/transcript/stream": {
@@ -28508,10 +27185,7 @@
           }
         ],
         "summary": "Stream Transcript Segments",
-        "tags": [
-          "Live Sessions",
-          "Live Sessions"
-        ]
+        "tags": ["Live Sessions", "Live Sessions"]
       }
     },
     "/api/v1/jobs": {
@@ -28646,10 +27320,7 @@
           }
         ],
         "summary": "List Jobs",
-        "tags": [
-          "Jobs",
-          "Jobs"
-        ]
+        "tags": ["Jobs", "Jobs"]
       }
     },
     "/api/v1/jobs/{job_id}": {
@@ -28727,10 +27398,7 @@
           }
         ],
         "summary": "Get Job",
-        "tags": [
-          "Jobs",
-          "Jobs"
-        ]
+        "tags": ["Jobs", "Jobs"]
       }
     },
     "/api/v1/jobs/{job_id}/cancel": {
@@ -28810,10 +27478,7 @@
           }
         ],
         "summary": "Cancel Job Endpoint",
-        "tags": [
-          "Jobs",
-          "Jobs"
-        ]
+        "tags": ["Jobs", "Jobs"]
       }
     },
     "/api/v1/jobs/{job_id}/replay": {
@@ -28901,10 +27566,7 @@
           }
         ],
         "summary": "Replay Job",
-        "tags": [
-          "Jobs",
-          "Jobs"
-        ]
+        "tags": ["Jobs", "Jobs"]
       }
     },
     "/api/v1/jobs/{job_id}/retry": {
@@ -28982,10 +27644,7 @@
           }
         ],
         "summary": "Retry Job",
-        "tags": [
-          "Jobs",
-          "Jobs"
-        ]
+        "tags": ["Jobs", "Jobs"]
       }
     },
     "/api/v1/mcp/call": {
@@ -29025,10 +27684,7 @@
           }
         },
         "summary": "Call Tool Direct",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/info": {
@@ -29046,10 +27702,7 @@
           }
         },
         "summary": "Mcp Info",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/jsonrpc": {
@@ -29089,10 +27742,7 @@
           }
         },
         "summary": "Jsonrpc Endpoint",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/sse": {
@@ -29110,10 +27760,7 @@
           }
         },
         "summary": "Sse Stream",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/tools": {
@@ -29133,10 +27780,7 @@
           }
         },
         "summary": "List Tools",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/tools/{tool_name}": {
@@ -29175,10 +27819,7 @@
           }
         },
         "summary": "Get Tool",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/mcp/tools/{tool_name}/call": {
@@ -29229,10 +27870,7 @@
           }
         },
         "summary": "Call Tool",
-        "tags": [
-          "MCP",
-          "MCP"
-        ]
+        "tags": ["MCP", "MCP"]
       }
     },
     "/api/v1/memory/changes": {
@@ -29309,9 +27947,7 @@
           }
         ],
         "summary": "Memory Changes",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/export": {
@@ -29388,9 +28024,7 @@
           }
         ],
         "summary": "Export Reality Graph",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/recent": {
@@ -29476,9 +28110,7 @@
           }
         ],
         "summary": "Get Recent Episodes",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/search": {
@@ -29555,9 +28187,7 @@
           }
         ],
         "summary": "Search Memory",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/search/cross-source": {
@@ -29634,9 +28264,7 @@
           }
         ],
         "summary": "Search Cross Source",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/search/uios": {
@@ -29713,9 +28341,7 @@
           }
         ],
         "summary": "Search Uios",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/time-slice": {
@@ -29792,9 +28418,7 @@
           }
         ],
         "summary": "Time Slice Uios",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/timeline": {
@@ -29871,9 +28495,7 @@
           }
         ],
         "summary": "Get Timeline",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/trails/commitments/{commitment_id}": {
@@ -29960,9 +28582,7 @@
           }
         ],
         "summary": "Get Commitment Trail",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/memory/trails/decisions/{decision_id}": {
@@ -30049,9 +28669,7 @@
           }
         ],
         "summary": "Get Decision Trail",
-        "tags": [
-          "Memory"
-        ]
+        "tags": ["Memory"]
       }
     },
     "/api/v1/monitoring/access-stats": {
@@ -30145,10 +28763,7 @@
           }
         ],
         "summary": "Access tracking statistics",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/alerts/webhook": {
@@ -30209,10 +28824,7 @@
           }
         },
         "summary": "Alertmanager webhook receiver",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/decay-stats": {
@@ -30292,10 +28904,7 @@
           }
         ],
         "summary": "Memory decay statistics",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/health": {
@@ -30318,10 +28927,7 @@
           }
         },
         "summary": "Full health check",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/health/live": {
@@ -30341,10 +28947,7 @@
           }
         },
         "summary": "Kubernetes liveness probe",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/health/ready": {
@@ -30367,10 +28970,7 @@
           }
         },
         "summary": "Kubernetes readiness probe",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/metrics": {
@@ -30391,10 +28991,7 @@
           }
         },
         "summary": "Prometheus metrics",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/metrics/summary": {
@@ -30438,10 +29035,7 @@
           }
         },
         "summary": "Metrics summary",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/monitoring/trigger-decay": {
@@ -30538,10 +29132,7 @@
           }
         ],
         "summary": "Trigger memory decay computation",
-        "tags": [
-          "Monitoring",
-          "Monitoring"
-        ]
+        "tags": ["Monitoring", "Monitoring"]
       }
     },
     "/api/v1/org/connections": {
@@ -30605,10 +29196,7 @@
           }
         },
         "summary": "Get Pilot Connections",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/events": {
@@ -30670,10 +29258,7 @@
           }
         },
         "summary": "Stream Sync Events",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}": {
@@ -30748,10 +29333,7 @@
           }
         },
         "summary": "Delete Connection",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}/backfill": {
@@ -30834,10 +29416,7 @@
           }
         },
         "summary": "Trigger Connection Backfill",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}/history": {
@@ -30940,10 +29519,7 @@
           }
         },
         "summary": "Get Connection History",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}/state": {
@@ -31016,10 +29592,7 @@
           }
         },
         "summary": "Get Connection State",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}/sync": {
@@ -31109,10 +29682,7 @@
           }
         },
         "summary": "Trigger Connection Sync",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{connection_id}/visibility": {
@@ -31197,10 +29767,7 @@
           }
         },
         "summary": "Update Connection Visibility",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/connections/{provider}/connect": {
@@ -31294,10 +29861,7 @@
           }
         },
         "summary": "Connect Provider",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/data": {
@@ -31371,10 +29935,7 @@
           }
         },
         "summary": "Delete Org Data",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/export": {
@@ -31448,10 +30009,7 @@
           }
         },
         "summary": "Export Org Data",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/export/{job_id}": {
@@ -31524,10 +30082,7 @@
           }
         },
         "summary": "Get Export Status",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/export/{job_id}/download": {
@@ -31598,10 +30153,7 @@
           }
         },
         "summary": "Download Export",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/info": {
@@ -31665,10 +30217,7 @@
           }
         },
         "summary": "Get Org Info",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       },
       "patch": {
         "description": "Update organization metadata (admin-only).",
@@ -31740,10 +30289,7 @@
           }
         },
         "summary": "Update Org Info",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/invites": {
@@ -31807,10 +30353,7 @@
           }
         },
         "summary": "List Invites",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       },
       "post": {
         "description": "Create an invite token (admin-only).",
@@ -31882,10 +30425,7 @@
           }
         },
         "summary": "Create Invite Endpoint",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/invites/{invite_token}": {
@@ -31960,10 +30500,7 @@
           }
         },
         "summary": "Revoke Invite",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/members": {
@@ -32027,10 +30564,7 @@
           }
         },
         "summary": "List Members",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/org/members/{user_id}": {
@@ -32105,10 +30639,7 @@
           }
         },
         "summary": "Remove Member",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       },
       "patch": {
         "description": "Update member role (admin-only).",
@@ -32193,10 +30724,7 @@
           }
         },
         "summary": "Update Member Role",
-        "tags": [
-          "Organization Management",
-          "Organization Management"
-        ]
+        "tags": ["Organization Management", "Organization Management"]
       }
     },
     "/api/v1/patterns/candidates": {
@@ -32277,10 +30805,7 @@
           }
         ],
         "summary": "List Candidates",
-        "tags": [
-          "Patterns",
-          "Patterns"
-        ]
+        "tags": ["Patterns", "Patterns"]
       }
     },
     "/api/v1/patterns/candidates/discover": {
@@ -32362,10 +30887,7 @@
           }
         ],
         "summary": "Discover Candidates",
-        "tags": [
-          "Patterns",
-          "Patterns"
-        ]
+        "tags": ["Patterns", "Patterns"]
       }
     },
     "/api/v1/patterns/candidates/{candidate_id}/promote": {
@@ -32452,10 +30974,7 @@
           }
         ],
         "summary": "Promote Candidate",
-        "tags": [
-          "Patterns",
-          "Patterns"
-        ]
+        "tags": ["Patterns", "Patterns"]
       }
     },
     "/api/v1/personalization/{organization_id}": {
@@ -32532,10 +31051,7 @@
           }
         ],
         "summary": "Get Profile",
-        "tags": [
-          "Personalization",
-          "Personalization"
-        ]
+        "tags": ["Personalization", "Personalization"]
       },
       "put": {
         "operationId": "update_profile_api_v1_personalization__organization_id__put",
@@ -32620,10 +31136,7 @@
           }
         ],
         "summary": "Update Profile",
-        "tags": [
-          "Personalization",
-          "Personalization"
-        ]
+        "tags": ["Personalization", "Personalization"]
       }
     },
     "/api/v1/search": {
@@ -32702,9 +31215,7 @@
           }
         ],
         "summary": "Hybrid Search",
-        "tags": [
-          "Search"
-        ]
+        "tags": ["Search"]
       }
     },
     "/api/v1/search/fulltext": {
@@ -32783,9 +31294,7 @@
           }
         ],
         "summary": "Fulltext Search",
-        "tags": [
-          "Search"
-        ]
+        "tags": ["Search"]
       }
     },
     "/api/v1/search/graph-aware": {
@@ -32874,9 +31383,7 @@
           }
         ],
         "summary": "Graph Aware Search",
-        "tags": [
-          "Search"
-        ]
+        "tags": ["Search"]
       }
     },
     "/api/v1/search/vector": {
@@ -32955,9 +31462,7 @@
           }
         ],
         "summary": "Vector Search",
-        "tags": [
-          "Search"
-        ]
+        "tags": ["Search"]
       }
     },
     "/api/v1/sensors": {
@@ -32974,10 +31479,7 @@
           }
         },
         "summary": "List Available Sensors",
-        "tags": [
-          "Sensors",
-          "Sensors"
-        ]
+        "tags": ["Sensors", "Sensors"]
       }
     },
     "/api/v1/sensors/events": {
@@ -33053,10 +31555,7 @@
           }
         ],
         "summary": "Ingest Reality Event",
-        "tags": [
-          "Sensors",
-          "Sensors"
-        ]
+        "tags": ["Sensors", "Sensors"]
       }
     },
     "/api/v1/sensors/permissions": {
@@ -33137,10 +31636,7 @@
           }
         ],
         "summary": "List Sensor Permissions",
-        "tags": [
-          "Sensors",
-          "Sensors"
-        ]
+        "tags": ["Sensors", "Sensors"]
       }
     },
     "/api/v1/sensors/permissions/{sensor_id}": {
@@ -33236,10 +31732,7 @@
           }
         ],
         "summary": "Upsert Sensor Permission",
-        "tags": [
-          "Sensors",
-          "Sensors"
-        ]
+        "tags": ["Sensors", "Sensors"]
       }
     },
     "/api/v1/sensors/{sensor_id}": {
@@ -33277,10 +31770,7 @@
           }
         },
         "summary": "Get Sensor Detail",
-        "tags": [
-          "Sensors",
-          "Sensors"
-        ]
+        "tags": ["Sensors", "Sensors"]
       }
     },
     "/api/v1/sessions": {
@@ -33372,10 +31862,7 @@
           }
         ],
         "summary": "List sessions",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       },
       "post": {
         "description": "Create a new agent context session.\n\nSessions maintain context across multiple interactions, enabling:\n- Continuity in agent conversations\n- Tracking of viewed entities and UIOs\n- Query history for context-aware responses\n- Relevance decay for older context\n\n**TTL:** Sessions expire after `ttl_hours` of inactivity (default: 24 hours).",
@@ -33455,10 +31942,7 @@
           }
         ],
         "summary": "Create a new session",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/sessions/cleanup": {
@@ -33531,10 +32015,7 @@
           }
         ],
         "summary": "Cleanup expired sessions",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/sessions/context-types": {
@@ -33554,10 +32035,7 @@
           }
         },
         "summary": "List available context types",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/sessions/{session_id}": {
@@ -33633,10 +32111,7 @@
           }
         ],
         "summary": "Delete a session",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       },
       "get": {
         "description": "Retrieve details of an existing session.\n\nReturns the session's:\n- Basic information (ID, organization, agent)\n- Timestamps (created, last activity)\n- Expiration status\n- Context summary (entry count, recent queries, top entities)\n- Metadata\n\n**Note:** Accessing a session updates its `last_activity` timestamp.",
@@ -33717,10 +32192,7 @@
           }
         ],
         "summary": "Get session details",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/sessions/{session_id}/context": {
@@ -33805,10 +32277,7 @@
           }
         ],
         "summary": "Get full session context",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       },
       "post": {
         "description": "Add a context entry to a session.\n\n**Context Types:**\n- `query`: User or agent query\n- `response`: System response\n- `entity_viewed`: When an entity is viewed\n- `uio_viewed`: When a UIO is viewed\n- `action_taken`: When an action is taken\n\n**Relevance Decay:**\nOlder context entries have their relevance score decayed over time.\nEntries below the threshold are automatically pruned.",
@@ -33899,10 +32368,7 @@
           }
         ],
         "summary": "Add context entry",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/sessions/{session_id}/interaction": {
@@ -33999,10 +32465,7 @@
           }
         ],
         "summary": "Add query/response interaction",
-        "tags": [
-          "Sessions",
-          "Sessions"
-        ]
+        "tags": ["Sessions", "Sessions"]
       }
     },
     "/api/v1/signals/candidates": {
@@ -34127,10 +32590,7 @@
           }
         ],
         "summary": "List Signal Candidates",
-        "tags": [
-          "Signals",
-          "signals"
-        ]
+        "tags": ["Signals", "signals"]
       }
     },
     "/api/v1/signals/events": {
@@ -34271,10 +32731,7 @@
           }
         ],
         "summary": "List Unified Events",
-        "tags": [
-          "Signals",
-          "signals"
-        ]
+        "tags": ["Signals", "signals"]
       }
     },
     "/api/v1/simulations/history": {
@@ -34359,10 +32816,7 @@
           }
         ],
         "summary": "List Simulations",
-        "tags": [
-          "Simulations",
-          "Simulations"
-        ]
+        "tags": ["Simulations", "Simulations"]
       }
     },
     "/api/v1/simulations/run": {
@@ -34440,10 +32894,7 @@
           }
         ],
         "summary": "Run Simulation Endpoint",
-        "tags": [
-          "Simulations",
-          "Simulations"
-        ]
+        "tags": ["Simulations", "Simulations"]
       }
     },
     "/api/v1/stream/changes": {
@@ -34520,10 +32971,7 @@
           }
         },
         "summary": "Stream Graph Changes",
-        "tags": [
-          "Real-Time Stream",
-          "Real-Time Stream"
-        ]
+        "tags": ["Real-Time Stream", "Real-Time Stream"]
       }
     },
     "/api/v1/stream/health": {
@@ -34545,10 +32993,7 @@
           }
         },
         "summary": "Stream Health",
-        "tags": [
-          "Real-Time Stream",
-          "Real-Time Stream"
-        ]
+        "tags": ["Real-Time Stream", "Real-Time Stream"]
       }
     },
     "/api/v1/stream/intelligence": {
@@ -34607,10 +33052,7 @@
           }
         },
         "summary": "Stream Intelligence",
-        "tags": [
-          "Real-Time Stream",
-          "Real-Time Stream"
-        ]
+        "tags": ["Real-Time Stream", "Real-Time Stream"]
       }
     },
     "/api/v1/support/inbound/email": {
@@ -34670,10 +33112,7 @@
           }
         },
         "summary": "Inbound Email",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       }
     },
     "/api/v1/support/tickets": {
@@ -34790,10 +33229,7 @@
           }
         ],
         "summary": "List Tickets",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       },
       "post": {
         "description": "Create a support ticket (web app).",
@@ -34870,10 +33306,7 @@
           }
         ],
         "summary": "Create Ticket",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       }
     },
     "/api/v1/support/tickets/{ticket_id}": {
@@ -34951,10 +33384,7 @@
           }
         ],
         "summary": "Get Ticket",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       },
       "patch": {
         "description": "Update ticket fields (admin app).",
@@ -35042,10 +33472,7 @@
           }
         ],
         "summary": "Update Ticket",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       }
     },
     "/api/v1/support/tickets/{ticket_id}/messages": {
@@ -35135,10 +33562,7 @@
           }
         ],
         "summary": "Add Message",
-        "tags": [
-          "Support",
-          "Support"
-        ]
+        "tags": ["Support", "Support"]
       }
     },
     "/api/v1/trust/uios": {
@@ -35214,10 +33638,7 @@
           }
         ],
         "summary": "Trust For Uios",
-        "tags": [
-          "Trust",
-          "Trust"
-        ]
+        "tags": ["Trust", "Trust"]
       }
     },
     "/api/v1/uios": {
@@ -35241,13 +33662,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "commitment",
-                    "decision",
-                    "task",
-                    "claim",
-                    "risk"
-                  ],
+                  "enum": ["commitment", "decision", "task", "claim", "risk"],
                   "type": "string"
                 },
                 {
@@ -35381,10 +33796,7 @@
           }
         ],
         "summary": "List Uios",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       },
       "post": {
         "description": "Create a UIO manually.\n\nUIOs are typically created automatically during analysis,\nbut this endpoint allows manual creation.\n\nRequires `write` scope.",
@@ -35468,10 +33880,7 @@
           }
         ],
         "summary": "Create Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/pending-review": {
@@ -35559,10 +33968,7 @@
           }
         ],
         "summary": "Get Pending Review",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/v2": {
@@ -35617,12 +34023,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "open",
-                    "overdue",
-                    "completed",
-                    "all"
-                  ],
+                  "enum": ["open", "overdue", "completed", "all"],
                   "type": "string"
                 },
                 {
@@ -35640,12 +34041,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "7d",
-                    "30d",
-                    "90d",
-                    "all"
-                  ],
+                  "enum": ["7d", "30d", "90d", "all"],
                   "type": "string"
                 },
                 {
@@ -35763,10 +34159,7 @@
           }
         ],
         "summary": "List Uios V2",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}": {
@@ -35851,10 +34244,7 @@
           }
         ],
         "summary": "Delete Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       },
       "get": {
         "description": "Get a single UIO by ID with full extension details and resolved contacts.\n\nArgs:\n    uio_id: UIO ID\n    organization_id: Organization ID (optional if using session auth)\n\nReturns:\n    Complete UIO data with contacts and extension details\n\nRequires `read` scope.",
@@ -35946,10 +34336,7 @@
           }
         ],
         "summary": "Get Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       },
       "patch": {
         "description": "Update UIO fields.\n\nFor status changes, use PATCH /{uio_id}/status instead.\nFor user corrections, use PATCH /{uio_id}/correct instead.\n\nRequires `write` scope.",
@@ -36044,10 +34431,7 @@
           }
         ],
         "summary": "Update Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/commitment-direction": {
@@ -36151,10 +34535,7 @@
           }
         ],
         "summary": "Update Commitment Direction",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/commitment-priority": {
@@ -36258,10 +34639,7 @@
           }
         ],
         "summary": "Update Commitment Priority",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/correct": {
@@ -36356,10 +34734,7 @@
           }
         ],
         "summary": "Apply Correction",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/history": {
@@ -36444,10 +34819,7 @@
           }
         ],
         "summary": "Get Uio History",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/merge/{target_uio_id}": {
@@ -36558,10 +34930,7 @@
           }
         ],
         "summary": "Merge Uios",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/related": {
@@ -36658,10 +35027,7 @@
           }
         ],
         "summary": "Get Related Uios",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/snooze": {
@@ -36765,10 +35131,7 @@
           }
         ],
         "summary": "Snooze Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/status": {
@@ -36870,10 +35233,7 @@
           }
         ],
         "summary": "Update Status",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/supersede": {
@@ -36977,10 +35337,7 @@
           }
         ],
         "summary": "Supersede Decision",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/supersede-generic": {
@@ -37084,10 +35441,7 @@
           }
         ],
         "summary": "Supersede Generic",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/task-priority": {
@@ -37191,10 +35545,7 @@
           }
         ],
         "summary": "Update Task Priority",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/task-status": {
@@ -37298,10 +35649,7 @@
           }
         ],
         "summary": "Update Task Status",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/uios/{uio_id}/verify": {
@@ -37395,10 +35743,7 @@
           }
         ],
         "summary": "Verify Uio",
-        "tags": [
-          "UIOs",
-          "uios"
-        ]
+        "tags": ["UIOs", "uios"]
       }
     },
     "/api/v1/webhooks/documents": {
@@ -37459,10 +35804,7 @@
           }
         },
         "summary": "Document Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/github": {
@@ -37539,10 +35881,7 @@
           }
         },
         "summary": "Github Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/gmail": {
@@ -37560,10 +35899,7 @@
           }
         },
         "summary": "Gmail Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/microsoft": {
@@ -37609,10 +35945,7 @@
           }
         },
         "summary": "Microsoft Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/notion": {
@@ -37630,10 +35963,7 @@
           }
         },
         "summary": "Notion Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/slack": {
@@ -37681,10 +36011,7 @@
           }
         },
         "summary": "Slack Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/status": {
@@ -37702,10 +36029,7 @@
           }
         },
         "summary": "Webhook Status",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/webhooks/{provider}": {
@@ -37744,10 +36068,7 @@
           }
         },
         "summary": "Generic Webhook",
-        "tags": [
-          "Webhooks",
-          "Webhooks"
-        ]
+        "tags": ["Webhooks", "Webhooks"]
       }
     },
     "/api/v1/workflows/customer-research": {
@@ -37787,10 +36108,7 @@
           }
         },
         "summary": "Run Customer Research",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/health": {
@@ -37812,10 +36130,7 @@
           }
         },
         "summary": "Check Workflows Health",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/intelligence-brief": {
@@ -37855,10 +36170,7 @@
           }
         },
         "summary": "Run Intelligence Brief",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/llamaindex/entity-context": {
@@ -37920,10 +36232,7 @@
           }
         },
         "summary": "Get Entity Context",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/llamaindex/ingest": {
@@ -37963,10 +36272,7 @@
           }
         },
         "summary": "Ingest Documents",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/llamaindex/query": {
@@ -38006,10 +36312,7 @@
           }
         },
         "summary": "Query Knowledge Graph",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/llamaindex/triplets": {
@@ -38078,10 +36381,7 @@
           }
         },
         "summary": "Get Triplets",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/multi-agent-research": {
@@ -38121,10 +36421,7 @@
           }
         },
         "summary": "Run Multi Agent Research",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/api/v1/workflows/risk-analysis": {
@@ -38164,10 +36461,7 @@
           }
         },
         "summary": "Run Risk Analysis",
-        "tags": [
-          "Agent Workflows",
-          "Agent Workflows"
-        ]
+        "tags": ["Agent Workflows", "Agent Workflows"]
       }
     },
     "/health": {
@@ -38185,9 +36479,7 @@
           }
         },
         "summary": "Health Check",
-        "tags": [
-          "Health"
-        ]
+        "tags": ["Health"]
       }
     },
     "/live": {
@@ -38205,9 +36497,7 @@
           }
         },
         "summary": "Liveness Check",
-        "tags": [
-          "Health"
-        ]
+        "tags": ["Health"]
       }
     },
     "/ready": {
@@ -38225,9 +36515,7 @@
           }
         },
         "summary": "Readiness Check",
-        "tags": [
-          "Health"
-        ]
+        "tags": ["Health"]
       }
     }
   }
