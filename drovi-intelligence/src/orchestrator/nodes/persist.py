@@ -6,7 +6,7 @@ Persists extracted intelligence to PostgreSQL and FalkorDB.
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 import structlog
@@ -25,6 +25,7 @@ from src.ingestion.unified_event import build_segment_hash
 from src.uio.manager import get_uio_manager
 from src.orchestrator.context_cache import get_context_cache
 from src.monitoring import get_metrics
+from src.kernel.time import utc_now_naive as utc_now
 
 logger = structlog.get_logger()
 
@@ -54,15 +55,6 @@ def serialize_for_graph(value):
     if isinstance(value, (list, dict)):
         return json.dumps(value)
     return value
-
-
-def utc_now():
-    """Get current UTC time as a naive datetime for PostgreSQL.
-
-    PostgreSQL TIMESTAMP WITHOUT TIME ZONE columns expect naive datetimes.
-    This function returns the current UTC time without timezone info.
-    """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _has_evidence(quoted_text: str | None) -> bool:

@@ -79,6 +79,7 @@ from src.continuum.runtime import init_continuum_scheduler, shutdown_continuum_s
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
 from src.streaming import init_streaming, shutdown_streaming
+from src.kernel.http.errors import register_exception_handlers
 
 # Map log level string to logging constant
 _LOG_LEVEL_MAP = {
@@ -216,6 +217,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+
+# Consistent typed error mapping (+ request_id) for all routes.
+register_exception_handlers(app)
 
 # -----------------------------------------------------------------------------
 # Prometheus HTTP instrumentation

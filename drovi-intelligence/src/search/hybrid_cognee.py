@@ -10,7 +10,7 @@ Extends the base HybridSearch with Cognee-inspired features:
 This is part of Phase 5 (Agentic Memory) of the FalkorDB enhancement plan.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal
 
 import structlog
@@ -19,13 +19,9 @@ from src.config import get_settings
 from src.graph.client import get_graph_client
 from src.search.embeddings import generate_embedding
 from src.search.hybrid import HybridSearch, get_hybrid_search
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 SearchType = Literal["similarity", "graph", "hybrid", "insights"]
@@ -99,7 +95,7 @@ class CogneeHybridSearch:
         Returns:
             Dict with results, optional synthesis, and metadata
         """
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         logger.info(
             "Cognee hybrid search",
@@ -123,7 +119,7 @@ class CogneeHybridSearch:
         if include_synthesis and results:
             synthesis = await self._synthesize_answer(query, results)
 
-        duration = (utc_now() - start_time).total_seconds()
+        duration = (utc_now_naive() - start_time).total_seconds()
 
         return {
             "query": query,
@@ -133,7 +129,7 @@ class CogneeHybridSearch:
             "result_count": len(results),
             "synthesis": synthesis,
             "duration_seconds": duration,
-            "timestamp": utc_now().isoformat(),
+            "timestamp": utc_now_naive().isoformat(),
         }
 
     async def _similarity_search(

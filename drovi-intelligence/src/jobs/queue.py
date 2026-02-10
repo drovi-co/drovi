@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -11,12 +11,9 @@ import structlog
 
 from src.db import client as db_client
 from src.db.rls import rls_context
+from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)

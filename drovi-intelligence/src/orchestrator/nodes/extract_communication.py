@@ -8,18 +8,13 @@ This is part of Phase 2 (Wider Graph) of the FalkorDB enhancement plan.
 """
 
 import time
-from datetime import datetime, timezone
 
 import structlog
 
 from ..state import IntelligenceState, NodeTiming
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 async def extract_communication_node(state: IntelligenceState) -> dict:
@@ -158,7 +153,7 @@ async def extract_communication_node(state: IntelligenceState) -> dict:
                 to_contact_ids=recipient_ids,
                 event_type=event_type,
                 source_type=state.input.source_type or "email",
-                occurred_at=message.sent_at or utc_now(),
+                occurred_at=message.sent_at or utc_now_naive(),
                 channel=channel,
                 source_id=state.raw_message_ids[i] if i < len(state.raw_message_ids) else None,
                 message_length=len(message.content) if message.content else None,

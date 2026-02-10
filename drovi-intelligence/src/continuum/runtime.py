@@ -12,6 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive as _utc_now
 from src.continuum.dsl import ContinuumDefinition
 from src.continuum.manager import (
     compute_next_run_at,
@@ -34,10 +35,6 @@ from src.notifications.reports import resolve_report_recipients
 from src.notifications.resend import send_resend_email
 
 logger = structlog.get_logger()
-
-
-def _utc_now() -> datetime:
-    return datetime.utcnow()
 
 
 def _build_policy_context(raw: dict[str, Any] | None) -> PolicyContext:

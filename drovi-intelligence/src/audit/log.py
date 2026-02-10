@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import json
-import hashlib
 from typing import Any
 
 from sqlalchemy import text
 
 from src.db.client import get_db_session
 from src.db.rls import rls_context
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+from src.kernel.hashing import sha256_hexdigest
+from src.kernel.serialization import json_dumps_canonical
+from src.kernel.time import utc_now
 
 
 async def record_audit_event(
@@ -73,8 +69,8 @@ async def record_audit_event(
                 "created_at": now.isoformat(),
                 "prev_hash": last_hash,
             }
-            serialized = json.dumps(entry_payload, sort_keys=True, separators=(",", ":"))
-            entry_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+            serialized = json_dumps_canonical(entry_payload)
+            entry_hash = sha256_hexdigest(serialized.encode("utf-8"))
 
             await session.execute(
                 text(

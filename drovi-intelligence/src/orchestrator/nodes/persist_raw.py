@@ -11,7 +11,7 @@ This ensures source evidence is queryable from both systems.
 import json
 import time
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 import structlog
@@ -26,13 +26,9 @@ from src.ingestion.unified_event import (
     build_uem_metadata,
 )
 from src.ingestion.event_types import normalize_event_type, UnifiedEventType
+from src.kernel.time import utc_now_naive as utc_now
 
 logger = structlog.get_logger()
-
-
-def utc_now():
-    """Get current UTC time as a naive datetime."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def serialize_for_graph(value):

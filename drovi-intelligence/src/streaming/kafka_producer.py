@@ -14,23 +14,18 @@ Topics:
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 # Global producer instance
 _kafka_producer: "DroviKafkaProducer | None" = None
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class DroviKafkaProducer:
@@ -166,7 +161,7 @@ class DroviKafkaProducer:
             Message ID
         """
         msg_id = key or str(uuid4())
-        timestamp = utc_now().isoformat()
+        timestamp = utc_now_naive().isoformat()
 
         # Add metadata to payload
         enriched_value = {

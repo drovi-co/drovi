@@ -9,21 +9,17 @@ Enables programmatic access to:
 - Multi-agent research tasks
 """
 
-from datetime import datetime, timezone
 from typing import Any
 
 import structlog
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
+from src.kernel.time import utc_now_naive
+
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/workflows", tags=["Agent Workflows"])
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # =============================================================================
@@ -511,7 +507,7 @@ async def check_workflows_health() -> dict[str, Any]:
         "langgraph": "available",
         "ag2": "unknown",
         "llamaindex": "unknown",
-        "timestamp": utc_now().isoformat(),
+        "timestamp": utc_now_naive().isoformat(),
     }
 
     # Check AG2

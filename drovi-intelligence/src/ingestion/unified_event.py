@@ -7,22 +7,15 @@ produce consistent Unified Event records.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime
 from typing import Any
 
-
-def build_source_fingerprint(*parts: str | None) -> str:
-    """Build a stable fingerprint from ordered source components."""
-    normalized = [part or "" for part in parts]
-    return "|".join(normalized)
-
-
-def build_content_hash(content: str, source_fingerprint: str) -> str:
-    """Hash content with a source fingerprint for per-source dedupe."""
-    payload = f"{source_fingerprint}::{content}".encode("utf-8", errors="ignore")
-    return hashlib.sha256(payload).hexdigest()
+from src.kernel.hashing import (
+    build_content_hash,
+    build_segment_hash,
+    build_source_fingerprint,
+)
+from src.kernel.serialization import json_dumps_canonical
 
 
 def build_event_hash(
@@ -34,16 +27,10 @@ def build_event_hash(
     if content_text:
         content = content_text
     elif content_json is not None:
-        content = json.dumps(content_json, sort_keys=True, ensure_ascii=False)
+        content = json_dumps_canonical(content_json)
     else:
         content = ""
     return build_content_hash(content, source_fingerprint)
-
-
-def build_segment_hash(text: str) -> str:
-    """Hash evidence text for segment-level linking."""
-    payload = text.strip().encode("utf-8", errors="ignore")
-    return hashlib.sha256(payload).hexdigest()
 
 
 def build_uem_metadata(

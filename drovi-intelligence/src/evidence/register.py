@@ -7,7 +7,7 @@ flow through the /evidence/artifacts base64 API.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 import structlog
@@ -17,6 +17,7 @@ from src.config import get_settings
 from src.db.client import get_db_session
 from src.evidence.audit import record_evidence_audit
 from src.evidence.chain import compute_chain_entry
+from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
 
@@ -47,7 +48,7 @@ async def register_evidence_artifact(
     Returns True when a new artifact was created, False when it already existed.
     """
     settings = get_settings()
-    created_at = datetime.utcnow()
+    created_at = utc_now()
 
     effective_retention_days = retention_days if retention_days is not None else settings.evidence_default_retention_days
     retention_until = None

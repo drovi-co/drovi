@@ -61,25 +61,25 @@ Definition of done: guardrails land, CI is stricter, no production behavior chan
 
 ### Time Invariant (Issues 4A, 9A)
 
-- [ ] P1.01 Create `drovi-intelligence/src/kernel/time.py` with one supported API (tz-aware UTC internally).
-- [ ] P1.02 Replace all `utc_now()` clones with kernel clock; delete duplicates (target: 0 local `utc_now()` definitions).
-- [ ] P1.03 Add runtime assertion helpers (domain/application only accept tz-aware datetimes; adapters coerce at boundaries).
-- [ ] P1.04 Add unit tests that fail on naive datetime usage in domain/application code.
-- [ ] P1.05 Fix known offenders (example: `drovi-intelligence/src/orchestrator/state.py` uses `datetime.utcnow` defaults; migrate to kernel time).
+- [x] P1.01 Create `drovi-intelligence/src/kernel/time.py` with one supported API (tz-aware UTC internally).
+- [x] P1.02 Replace all `utc_now()` clones with kernel clock; delete duplicates (target: 0 local `utc_now()` definitions).
+- [x] P1.03 Add runtime assertion helpers (domain/application only accept tz-aware datetimes; adapters coerce at boundaries).
+- [x] P1.04 Add unit tests that fail on naive datetime usage in domain/application code.
+- [x] P1.05 Fix known offenders (example: `drovi-intelligence/src/orchestrator/state.py` uses `datetime.utcnow` defaults; migrate to kernel time).
 
 ### Error Taxonomy (Issue 11A)
 
-- [ ] P1.06 Add `drovi-intelligence/src/kernel/errors.py` with typed error hierarchy + stable error codes.
-- [ ] P1.07 Add `drovi-intelligence/src/kernel/http/errors.py` that maps errors to FastAPI responses consistently (include `request_id`).
-- [ ] P1.08 Replace “broad except + generic 500” patterns in hot endpoints with typed errors and consistent mapping.
-- [ ] P1.09 Add tests asserting error payload shape is stable (web/admin clients depend on it).
+- [x] P1.06 Add `drovi-intelligence/src/kernel/errors.py` with typed error hierarchy + stable error codes.
+- [x] P1.07 Add `drovi-intelligence/src/kernel/http/errors.py` that maps errors to FastAPI responses consistently (include `request_id`).
+- [x] P1.08 Replace “broad except + generic 500” patterns in hot endpoints with typed errors and consistent mapping.
+- [x] P1.09 Add tests asserting error payload shape is stable (web/admin clients depend on it).
 
 ### IDs + Hashing + Serialization
 
-- [ ] P1.10 Add `drovi-intelligence/src/kernel/ids.py` for ID generation (prefix conventions for evidence/UIOs/outbox/workflows).
-- [ ] P1.11 Add `drovi-intelligence/src/kernel/hashing.py` for content hash + segment hash + idempotency keys.
-- [ ] P1.12 Add `drovi-intelligence/src/kernel/serialization.py` for JSON coercion rules (no ad-hoc conversions in hot paths).
-- [ ] P1.13 Add deterministic tests for hashes and serialization (including edge cases: unicode normalization, whitespace-only evidence, huge payloads).
+- [x] P1.10 Add `drovi-intelligence/src/kernel/ids.py` for ID generation (prefix conventions for evidence/UIOs/outbox/workflows).
+- [x] P1.11 Add `drovi-intelligence/src/kernel/hashing.py` for content hash + segment hash + idempotency keys.
+- [x] P1.12 Add `drovi-intelligence/src/kernel/serialization.py` for JSON coercion rules (no ad-hoc conversions in hot paths).
+- [x] P1.13 Add deterministic tests for hashes and serialization (including edge cases: unicode normalization, whitespace-only evidence, huge payloads).
 
 Definition of done: kernel exists; time/errors/hashing are centralized; tests prevent regressions.
 

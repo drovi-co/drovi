@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
-import hashlib
-from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
+
+from src.kernel.hashing import sha256_hexdigest
+from src.kernel.serialization import json_dumps_canonical
 
 
 class ContinuumSchedule(BaseModel):
@@ -100,9 +101,5 @@ class ContinuumDefinition(BaseModel):
 
 def compute_definition_hash(definition: ContinuumDefinition) -> str:
     """Generate a deterministic hash for a Continuum definition."""
-    raw = json.dumps(definition.model_dump(), sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def utc_now() -> datetime:
-    return datetime.utcnow()
+    raw = json_dumps_canonical(definition.model_dump())
+    return sha256_hexdigest(raw.encode("utf-8"))

@@ -12,19 +12,15 @@ Features:
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class DroviLlamaIndex:
@@ -160,14 +156,14 @@ class DroviLlamaIndex:
             organization_id=self.organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         # Prepare documents
         docs = []
         for i, text in enumerate(documents):
             doc_metadata = metadata[i] if metadata and i < len(metadata) else {}
             doc_metadata["organization_id"] = self.organization_id
-            doc_metadata["ingested_at"] = utc_now().isoformat()
+            doc_metadata["ingested_at"] = utc_now_naive().isoformat()
 
             docs.append(Document(text=text, metadata=doc_metadata))
 
@@ -191,7 +187,7 @@ class DroviLlamaIndex:
             show_progress=False,
         )
 
-        duration = (utc_now() - start_time).total_seconds()
+        duration = (utc_now_naive() - start_time).total_seconds()
 
         logger.info(
             "Documents added to knowledge graph",
@@ -266,7 +262,7 @@ class DroviLlamaIndex:
             organization_id=self.organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         try:
             query_engine = self._index.as_query_engine(
@@ -277,7 +273,7 @@ class DroviLlamaIndex:
 
             response = query_engine.query(question)
 
-            duration = (utc_now() - start_time).total_seconds()
+            duration = (utc_now_naive() - start_time).total_seconds()
 
             # Extract source nodes
             sources = []

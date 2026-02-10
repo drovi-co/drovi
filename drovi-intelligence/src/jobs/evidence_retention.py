@@ -7,7 +7,6 @@ Deletes evidence artifacts past retention and verifies deletion.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 import structlog
@@ -16,12 +15,9 @@ from sqlalchemy import text
 from src.db.client import get_db_session
 from src.evidence.storage import get_evidence_storage
 from src.evidence.audit import record_evidence_audit
+from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 @dataclass

@@ -31,6 +31,7 @@ from src.documents.storage import (
     initiate_multipart_upload,
     presign_upload_part,
 )
+from src.kernel.errors import DroviError
 
 logger = structlog.get_logger()
 
@@ -436,10 +437,16 @@ async def complete_document_upload(
         )
     except Exception as exc:
         logger.warning("Failed to complete multipart upload", upload_session_id=upload_session_id, error=str(exc))
+        abort_failed = False
         try:
             await abort_multipart_upload(key=key, upload_id=upload_id)
-        except Exception:
-            pass
+        except Exception as abort_exc:
+            abort_failed = True
+            logger.warning(
+                "Failed to abort multipart upload after completion failure",
+                upload_session_id=upload_session_id,
+                error=str(abort_exc),
+            )
         async with get_db_session() as session:
             await session.execute(
                 text(
@@ -462,7 +469,12 @@ async def complete_document_upload(
                 {"doc_id": str(getattr(row, "document_id")), "org_id": org_id},
             )
             await session.commit()
-        raise HTTPException(status_code=500, detail="Failed to complete upload") from exc
+        raise DroviError(
+            code="documents.upload.complete_failed",
+            message="Failed to complete upload",
+            status_code=500,
+            meta={"upload_session_id": str(upload_session_id), "abort_failed": abort_failed},
+        ) from exc
 
     # Register the original file as an evidence artifact (content-addressed by SHA-256).
     evidence_id = f"evh_{expected_sha256}"

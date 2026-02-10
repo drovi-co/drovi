@@ -17,7 +17,7 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import structlog
@@ -25,16 +25,12 @@ import structlog
 from src.config import get_settings
 from src.ingestion.priority import parse_priority_value
 from src.monitoring.metrics import get_metrics
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 # Global consumer instance
 _kafka_consumer: "DroviKafkaConsumer | None" = None
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @dataclass
@@ -520,7 +516,7 @@ class DroviKafkaConsumer:
         dlq_key = key or f"{base_topic}:{partition}:{offset}"
 
         dlq_value: dict[str, Any] = {
-            "failed_at": utc_now().isoformat(),
+            "failed_at": utc_now_naive().isoformat(),
             "base_topic": base_topic,
             "original_topic": topic,
             "original_partition": partition,
@@ -722,10 +718,10 @@ class DroviKafkaConsumer:
             return []
 
         messages = []
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         while len(messages) < max_messages:
-            elapsed = (utc_now() - start_time).total_seconds()
+            elapsed = (utc_now_naive() - start_time).total_seconds()
             if elapsed >= timeout:
                 break
 

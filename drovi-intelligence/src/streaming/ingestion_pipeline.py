@@ -10,7 +10,6 @@ Stages:
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
 from typing import Any, Iterable
 from uuid import uuid4
 
@@ -27,10 +26,6 @@ from src.identity import IdentitySource, IdentityType, get_identity_graph
 from src.monitoring import get_metrics
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 SOURCE_TYPE_MAP: dict[str, str] = {

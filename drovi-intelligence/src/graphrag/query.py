@@ -16,13 +16,14 @@ Architecture:
 import asyncio
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import structlog
 
 from src.memory import MemoryService, get_memory_service
 from src.memory.fast_memory import get_fast_memory
+from src.kernel.time import utc_now_naive
 
 from pydantic import BaseModel, Field
 
@@ -30,11 +31,6 @@ logger = structlog.get_logger()
 
 # Global GraphRAG instance
 _graphrag: "DroviGraphRAG | None" = None
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class GraphRAGIntentClassification(BaseModel):
@@ -584,7 +580,7 @@ class DroviGraphRAG:
         Uses LLM intent classification, multi-template execution,
         and a fallback chain to ensure results.
         """
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         logger.info(
             "Processing GraphRAG query",
@@ -744,7 +740,7 @@ class DroviGraphRAG:
                 "Try rephrasing, broadening the time range, or connecting more sources."
             )
 
-        duration = (utc_now() - start_time).total_seconds()
+        duration = (utc_now_naive() - start_time).total_seconds()
 
         template_key = self._get_template_key(
             intent,
@@ -774,7 +770,7 @@ class DroviGraphRAG:
             "cypher_query": QUERY_TEMPLATES.get(template_key),
             "results_count": len(synthesis_results),
             "duration_seconds": duration,
-            "timestamp": utc_now().isoformat(),
+            "timestamp": utc_now_naive().isoformat(),
             "closest_matches_used": closest_matches_used,
             "user_context": user_context_payload,
         }
@@ -857,7 +853,7 @@ class DroviGraphRAG:
 
         params = {
             "orgId": organization_id,
-            "now": utc_now().isoformat(),
+            "now": utc_now_naive().isoformat(),
             "search": search_term or "",
             "limit": max_results,
         }
@@ -998,7 +994,7 @@ class DroviGraphRAG:
         return "current", None
 
     def _apply_temporal_consistency(self, results: list[dict[str, Any]]) -> dict[str, Any]:
-        now = utc_now()
+        now = utc_now_naive()
         current: list[dict[str, Any]] = []
         historical: list[dict[str, Any]] = []
         future: list[dict[str, Any]] = []
@@ -1088,7 +1084,7 @@ class DroviGraphRAG:
             memory = await self._get_memory_service(organization_id)
             params = {
                 "orgId": organization_id,
-                "now": utc_now().isoformat(),
+                "now": utc_now_naive().isoformat(),
                 "search": "",
             }
             return await memory.graph_query(cypher, params) or []

@@ -14,7 +14,6 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -25,10 +24,6 @@ from src.config import get_settings
 from src.streaming.kafka_producer import get_kafka_producer
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)

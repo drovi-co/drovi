@@ -8,19 +8,15 @@ This is part of Phase 6 of the FalkorDB enhancement plan.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal, TypedDict
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # =============================================================================
@@ -614,7 +610,7 @@ PRIORITY ACTIONS:
         graph = await self._get_graph()
         from datetime import timedelta
 
-        cutoff = (utc_now() - timedelta(days=state["time_period_days"])).isoformat()
+        cutoff = (utc_now_naive() - timedelta(days=state["time_period_days"])).isoformat()
 
         # New commitments
         new_commitments = await graph.query(
