@@ -216,6 +216,9 @@ jobs:
             exit 1
           fi
 
+      - name: Alembic migrations apply cleanly
+        run: docker compose -f docker-compose.yml run --build --rm drovi-intelligence alembic upgrade head
+
       - name: Performance budget (informational)
         run: |
           python3 scripts/perf_budget.py \
@@ -258,7 +261,7 @@ jobs:
             --baseline drovi-intelligence/.coverage/baseline.json \
             --current drovi-intelligence/.coverage/current.json \
             --base-ref "$base" \
-            --min-changed-file-percent 80.0
+            --min-changed-file-percent 90.0
 
       - name: Upload coverage artifact (informational)
         uses: actions/upload-artifact@v4

@@ -241,7 +241,7 @@ Definition of done: API drift risk collapses; multi-app scaling becomes cheap.
 ### Core Shell + Hooks
 
 - [x] P8.05 Create `packages/core-hooks` (auth/org context, streaming subscriptions, feature flags).
-- [ ] P8.06 Create `packages/core-shell` (sidebar shell, command bar, evidence lens primitives, timeline primitives).
+- [x] P8.06 Create `packages/core-shell` (sidebar shell, command bar, evidence lens primitives, timeline primitives).
 
 ### Feature Modules + Vertical Runtime (Stage 5: Issues 27A, 28B, 29A, 30A)
 
@@ -253,35 +253,35 @@ Definition of done: API drift risk collapses; multi-app scaling becomes cheap.
 
 - [x] P8.10 Create `packages/app-router` to compose a code-based TanStack Router tree from a selected module set.
 - [x] P8.11 Define canonical route boundaries in `packages/app-router` (`Root`, `Auth`, `Onboarding`, `Dashboard`) so modules attach consistently.
-- [ ] P8.12 Migrate `apps/web` from `routeTree.gen.ts` to the code-based route tree (paths must remain stable; keep redirects for old paths/search params if needed).
-- [ ] P8.13 Migrate `apps/admin` from `routeTree.gen.ts` to the code-based route tree.
-- [ ] P8.14 Remove `@tanstack/router-plugin` usage (Vite plugin + generated files) once both apps no longer depend on `routeTree.gen.ts`.
+- [x] P8.12 Migrate `apps/web` from `routeTree.gen.ts` to the code-based route tree (paths must remain stable; keep redirects for old paths/search params if needed).
+- [x] P8.13 Migrate `apps/admin` from `routeTree.gen.ts` to the code-based route tree.
+- [x] P8.14 Remove `@tanstack/router-plugin` usage (Vite plugin + generated files) once both apps no longer depend on `routeTree.gen.ts`.
 
 ### Feature Package Extraction (Stage 5: Issues 27A, 29A)
 
-- [ ] P8.15 Create `packages/mod-auth` (login, forgot/reset password, session refresh, logout, route guards) with explicit extension points (copy, policy gates, post-login redirect).
-- [ ] P8.16 Create `packages/mod-onboarding` (create org, invite team, connect sources, completion) with overridable steps and copy, and an explicit “required capabilities” check.
-- [ ] P8.17 Create `packages/mod-sources` (connector catalog, connect/disconnect, backfill controls, live sync indicators, error diagnostics) with overrides for allowed connectors/policies.
-- [ ] P8.18 Create `packages/mod-teams` (members, invitations, roles/visibility surfaces) with overrides for role terminology and permissions presentation.
-- [ ] P8.19 Create `packages/mod-drive` (document upload/list/search, ingestion status, evidence preview entry points) with overrides for folder/tags model and vertical-specific facets.
-- [ ] P8.20 Create `packages/mod-evidence` (evidence lens, artifact viewer, “show me where we said that” primitives) with overrides for redaction and access policy surfaces.
-- [ ] P8.21 Create `packages/mod-ask` (ask/search/chat surfaces, SSE streaming UI, citations display) with overrides for vertical prompt presets and result renderers.
-- [ ] P8.22 Create `packages/mod-console` (console query UI, ops diagnostics) and gate it behind capability flags (internal/admin only).
-- [ ] P8.23 Create `packages/mod-continuums` (continuum list, builder entry points, marketplace/exchange surfaces) with overrides for vertical “pattern libraries”.
-- [ ] P8.24 Replace `apps/web/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
-- [ ] P8.25 Replace `apps/admin/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
-- [ ] P8.26 Add module-level unit tests for headless models (state machines) and component tests for screens (RTL + MSW).
+- [x] P8.15 Create `packages/mod-auth` (login, forgot/reset password, session refresh, logout, route guards) with explicit extension points (copy, policy gates, post-login redirect).
+- [x] P8.16 Create `packages/mod-onboarding` (create org, invite team, connect sources, completion) with overridable steps and copy, and an explicit “required capabilities” check.
+- [x] P8.17 Create `packages/mod-sources` (connector catalog, connect/disconnect, backfill controls, live sync indicators, error diagnostics) with overrides for allowed connectors/policies.
+- [x] P8.18 Create `packages/mod-teams` (members, invitations, roles/visibility surfaces) with overrides for role terminology and permissions presentation.
+- [x] P8.19 Create `packages/mod-drive` (document upload/list/search, ingestion status, evidence preview entry points) with overrides for folder/tags model and vertical-specific facets.
+- [x] P8.20 Create `packages/mod-evidence` (evidence lens, artifact viewer, “show me where we said that” primitives) with overrides for redaction and access policy surfaces.
+- [x] P8.21 Create `packages/mod-ask` (ask/search/chat surfaces, SSE streaming UI, citations display) with overrides for vertical prompt presets and result renderers.
+- [x] P8.22 Create `packages/mod-console` (console query UI, ops diagnostics) and gate it behind capability flags (internal/admin only).
+- [x] P8.23 Create `packages/mod-continuums` (continuum list, builder entry points, marketplace/exchange surfaces) with overrides for vertical “pattern libraries”.
+- [x] P8.24 Replace `apps/web/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
+- [x] P8.25 Replace `apps/admin/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
+- [x] P8.26 Add module-level unit tests for headless models (state machines) and component tests for screens (RTL + MSW).
 - [x] P8.27 Add a module composition test that builds a route tree from a chosen module set and asserts expected paths, nav gating, and command registration.
-- [ ] P8.28 Add module-level i18n packaging: each `mod-*` exports namespaces + default dictionaries; `vertical-runtime` can override strings per vertical/org.
-- [ ] P8.29 Add module boundary enforcement for frontend (ban importing from `apps/*` into `packages/*`; ban deep imports; require public entrypoints).
+- [x] P8.28 Add module-level i18n packaging: each `mod-*` exports namespaces + default dictionaries; `vertical-runtime` can override strings per vertical/org.
+- [x] P8.29 Add module boundary enforcement for frontend (ban importing from `apps/*` into `packages/*`; ban deep imports; require public entrypoints).
 
 ### Frontend Tests
 
-- [ ] P8.30 Implement Vitest split configs (Node and jsdom) and add RTL for component tests.
-- [ ] P8.31 Add MSW coverage for error/offline/SSE edge cases on the most important screens.
-- [ ] P8.32 Add Playwright critical flows: signup/login, onboarding, connect source (mock), backfill progress, evidence open, ask/search.
-- [ ] P8.33 Add module dependency validation (frontend): each `mod-*` declares allowed dependencies; CI fails on cross-module imports that bypass the contract.
-- [ ] P8.34 Add route-level lazy loading per module (code splitting) so vertical apps can ship smaller bundles and load rare modules on demand.
+- [x] P8.30 Implement Vitest split configs (Node and jsdom) and add RTL for component tests.
+- [x] P8.31 Add MSW coverage for error/offline/SSE edge cases on the most important screens.
+- [x] P8.32 Add Playwright critical flows: signup/login, onboarding, connect source (mock), backfill progress, evidence open, ask/search.
+- [x] P8.33 Add module dependency validation (frontend): each `mod-*` declares allowed dependencies; CI fails on cross-module imports that bypass the contract.
+- [x] P8.34 Add route-level lazy loading per module (code splitting) so vertical apps can ship smaller bundles and load rare modules on demand.
 
 Definition of done: frontend becomes a reusable platform; vertical apps won’t require copy-paste UI.
 
@@ -291,38 +291,38 @@ Definition of done: frontend becomes a reusable platform; vertical apps won’t 
 
 ### DB Pooling + Unification (Issue 20A)
 
-- [ ] P9.01 Make SQLAlchemy pooling env-aware (container default pooled; serverless uses `NullPool` behind a flag).
-- [ ] P9.02 Hide raw asyncpg behind a DB port and ban direct pool usage in presentation/application layers.
-- [ ] P9.03 Add a load test validating connection churn improvement and stable p95 for hot endpoints.
+- [x] P9.01 Make SQLAlchemy pooling env-aware (container default pooled; serverless uses `NullPool` behind a flag).
+- [x] P9.02 Hide raw asyncpg behind a DB port and ban direct pool usage in presentation/application layers.
+- [x] P9.03 Add a load test validating connection churn improvement and stable p95 for hot endpoints.
 
 ### Keyset Pagination + Optional Totals (Issue 21A)
 
-- [ ] P9.04 Add keyset pagination for UIO list (cursor based on `(created_at, id)`); update OpenAPI and generated clients.
-- [ ] P9.05 Add keyset pagination for documents, tickets, and any “always used” list endpoints.
-- [ ] P9.06 Make totals optional by default; add cached totals for dashboards (admin).
+- [x] P9.04 Add keyset pagination for UIO list (cursor based on `(created_at, id)`); update OpenAPI and generated clients.
+- [x] P9.05 Add keyset pagination for documents, tickets, and any “always used” list endpoints.
+- [x] P9.06 Make totals optional by default; add cached totals for dashboards (admin).
 
 ### Dashboard Query Planner + Pre-Aggregates (Issue 22A)
 
-- [ ] P9.07 Implement a query planner for Console endpoints to only join tables required by active filters/sorts.
-- [ ] P9.08 Add pre-aggregate tables for per-org counts and histogram buckets; update on write via outbox/Temporal.
-- [ ] P9.09 Update endpoints to use pre-aggregates first, then fall back to live queries.
+- [x] P9.07 Implement a query planner for Console endpoints to only join tables required by active filters/sorts.
+- [x] P9.08 Add pre-aggregate tables for per-org counts and histogram buckets; update on write via outbox/Temporal.
+- [x] P9.09 Update endpoints to use pre-aggregates first, then fall back to live queries.
 
 ### Bi-Temporal Indexing (Issue 23A)
 
-- [ ] P9.10 Implement `tstzrange(valid_from, valid_to)` validity modeling and GiST index strategy; add org-aware indexing strategy.
-- [ ] P9.11 Update “as-of” queries to use range containment; add regression tests for time-slice correctness.
+- [x] P9.10 Implement `tstzrange(valid_from, valid_to)` validity modeling and GiST index strategy; add org-aware indexing strategy.
+- [x] P9.11 Update “as-of” queries to use range containment; add regression tests for time-slice correctness.
 
 ### Push Updates + Targeted Cache Updates (Issue 25A)
 
-- [ ] P9.12 Add streaming topics for document changes and sync progress (SSE/WS).
-- [ ] P9.13 Replace Drive polling with push updates + fallback polling only when streaming unavailable.
-- [ ] P9.14 Replace broad React Query invalidations with targeted cache updates keyed by org/document/UIO.
+- [x] P9.12 Add streaming topics for document changes and sync progress (SSE/WS).
+- [x] P9.13 Replace Drive polling with push updates + fallback polling only when streaming unavailable.
+- [x] P9.14 Replace broad React Query invalidations with targeted cache updates keyed by org/document/UIO.
 
 ### Lazy Presigned URLs (Issue 26A)
 
-- [ ] P9.15 Change evidence artifact metadata endpoint default to `include_url=false`.
-- [ ] P9.16 Add explicit “request presigned URL” flow; cache URLs briefly; record audit on actual access.
-- [ ] P9.17 Update frontend evidence viewers to fetch URLs lazily.
+- [x] P9.15 Change evidence artifact metadata endpoint default to `include_url=false`.
+- [x] P9.16 Add explicit “request presigned URL” flow; cache URLs briefly; record audit on actual access.
+- [x] P9.17 Update frontend evidence viewers to fetch URLs lazily.
 
 Definition of done: system scales better with real pilots; UI feels “live” without hammering the API.
 
@@ -332,22 +332,22 @@ Definition of done: system scales better with real pilots; UI feels “live” w
 
 ### Hybrid Storage Strategy
 
-- [ ] P10.01 Define extension storage rules (canonical UIO truth spine; typed vertical tables for high-value queries; validated JSONB for long-tail fields).
-- [ ] P10.02 Implement plugin-provided validators for extension JSONB payloads.
-- [ ] P10.03 Implement plugin-provided migrations for typed vertical tables (explicit versioning).
-- [ ] P10.04 Add contract tests ensuring plugin schemas validate stored extensions and migrations run in CI.
+- [x] P10.01 Define extension storage rules (canonical UIO truth spine; typed vertical tables for high-value queries; validated JSONB for long-tail fields).
+- [x] P10.02 Implement plugin-provided validators for extension JSONB payloads.
+- [x] P10.03 Implement plugin-provided migrations for typed vertical tables (explicit versioning).
+- [x] P10.04 Add contract tests ensuring plugin schemas validate stored extensions and migrations run in CI.
 
 ### Reference Plugins
 
-- [ ] P10.05 Add `plugins/legal` registering types like `legal.matter`, `legal.advice` plus contradiction/timeline hints.
-- [ ] P10.06 Add `plugins/accounting` registering types like `accounting.filing_deadline` plus extraction/timeline hints.
+- [x] P10.05 Add `plugins/legal` registering types like `legal.matter`, `legal.advice` plus contradiction/timeline hints.
+- [x] P10.06 Add `plugins/accounting` registering types like `accounting.filing_deadline` plus extraction/timeline hints.
 
 ### Vertical App Templates
 
-- [ ] P10.07 Scaffold `apps/legal`, `apps/accounting`, `apps/gov`, `apps/construction` as thin shells importing `packages/*`.
-- [ ] P10.08 Add a per-vertical vocabulary pack and `ui-theme` pack; ensure apps can look meaningfully different without forking components.
-- [ ] P10.09 Document “How to build a new vertical in 1 day” (plugin + theme + app template + contract tests).
-- [ ] P10.10 For each vertical app, define an explicit module set + typed overrides (auth/onboarding/drive/teams/sources/etc) and wire `vertical-runtime` to backend manifests.
+- [x] P10.07 Scaffold `apps/legal`, `apps/accounting`, `apps/gov`, `apps/construction` as thin shells importing `packages/*`.
+- [x] P10.08 Add a per-vertical vocabulary pack and `ui-theme` pack; ensure apps can look meaningfully different without forking components.
+- [x] P10.09 Document “How to build a new vertical in 1 day” (plugin + theme + app template + contract tests).
+- [x] P10.10 For each vertical app, define an explicit module set + typed overrides (auth/onboarding/drive/teams/sources/etc) and wire `vertical-runtime` to backend manifests.
 
 Definition of done: adding a new vertical is a plugin + theme + app, not core rewrites.
 
@@ -355,10 +355,10 @@ Definition of done: adding a new vertical is a plugin + theme + app, not core re
 
 ## Phase 11 — Coverage to 90%+ + Hardening
 
-- [ ] P11.01 Increase backend coverage gate to 90%+ once the ratchet makes it feasible.
-- [ ] P11.02 Add targeted tests for prior hotspots (post-refactor equivalents): persistence, UIO lifecycle, streaming worker, GraphRAG/query, connectors.
-- [ ] P11.03 Add chaos tests for partial outages (Kafka down, Falkor down, object store down) with correctness invariants.
-- [ ] P11.04 Add a pilot-scale load test scenario (simulate 250-user org): backfill + live sync + dashboard usage + evidence opens.
-- [ ] P11.05 Delete deprecated code paths and remove transitional exemptions from import-linter/LOC rules.
+- [x] P11.01 Increase backend coverage gate to 90%+ once the ratchet makes it feasible.
+- [x] P11.02 Add targeted tests for prior hotspots (post-refactor equivalents): persistence, UIO lifecycle, streaming worker, GraphRAG/query, connectors.
+- [x] P11.03 Add chaos tests for partial outages (Kafka down, Falkor down, object store down) with correctness invariants.
+- [x] P11.04 Add a pilot-scale load test scenario (simulate 250-user org): backfill + live sync + dashboard usage + evidence opens.
+- [x] P11.05 Delete deprecated code paths and remove transitional exemptions from import-linter/LOC rules.
 
 Definition of done: production-ready, extensible kernel suitable for multiple vertical shells.
