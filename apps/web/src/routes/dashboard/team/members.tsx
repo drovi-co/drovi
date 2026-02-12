@@ -1,25 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
-import { useMemo } from "react";
-import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@memorystack/ui-core/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@memorystack/ui-core/dropdown-menu";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
+import { useMemo } from "react";
+import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
 import { orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";

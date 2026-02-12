@@ -10,6 +10,15 @@
 // - Detail panel slide-in drawer
 //
 
+import { Button } from "@memorystack/ui-core/button";
+import { Card, CardContent } from "@memorystack/ui-core/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -30,7 +39,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConsoleSearchBarRef } from "@/components/console";
-
 import {
   ConsoleDataTable,
   ConsoleDetailPanel,
@@ -40,15 +48,6 @@ import {
   TimeseriesChart,
   TopListChart,
 } from "@/components/console";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import type { ConsoleItem } from "@/hooks/use-console-query";
 import { useConsoleQuery } from "@/hooks/use-console-query";
 import { useT } from "@/i18n";

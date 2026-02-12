@@ -7,6 +7,12 @@
 // and deep dossiers for meeting prep.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import { Input } from "@memorystack/ui-core/input";
+import { Sheet, SheetContent } from "@memorystack/ui-core/sheet";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@memorystack/ui-core/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, RefreshCw, Search, Star, Users } from "lucide-react";
@@ -15,12 +21,6 @@ import { toast } from "sonner";
 import { CustomerContextPanel } from "@/components/contacts/customer-context-panel";
 import { ContactCard, type ContactCardData } from "@/components/dashboards";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useT } from "@/i18n";
 import { type ContactSummary, contactsAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";

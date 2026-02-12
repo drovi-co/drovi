@@ -1,27 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { Mail, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@memorystack/ui-core/card";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@memorystack/ui-core/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { Mail, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
 import { type OrgInvite, orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";

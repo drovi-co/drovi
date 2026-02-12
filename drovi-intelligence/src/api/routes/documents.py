@@ -88,7 +88,9 @@ async def create_document_upload(
     _validate_org(ctx, org_id)
     sha256 = _validate_sha256(request.sha256)
 
-    document_id = f"doc_{sha256}"
+    # Document IDs must be unique across orgs (document.id is a PK). Keep them
+    # deterministic for content-addressed dedupe within an org.
+    document_id = f"doc_{org_id}_{sha256}"
     file_name = request.file_name.strip()
     mime_type = request.mime_type.strip() if request.mime_type else None
     folder_path = (request.folder_path or "/").strip() or "/"
@@ -477,7 +479,8 @@ async def complete_document_upload(
         ) from exc
 
     # Register the original file as an evidence artifact (content-addressed by SHA-256).
-    evidence_id = f"evh_{expected_sha256}"
+    # Evidence IDs must be unique across orgs (evidence_artifact.id is a PK).
+    evidence_id = f"evh_{org_id}_{expected_sha256}"
     try:
         await register_evidence_artifact(
             organization_id=org_id,

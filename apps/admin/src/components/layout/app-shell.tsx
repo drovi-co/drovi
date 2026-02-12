@@ -1,12 +1,12 @@
-import { useLocation } from "@tanstack/react-router";
-import { MonitorUp } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
+} from "@memorystack/ui-core/sidebar";
+import { useLocation } from "@tanstack/react-router";
+import { MonitorUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { AdminSidebar } from "./admin-sidebar";

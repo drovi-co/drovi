@@ -7,6 +7,19 @@
 // evolve, and this component shows that history.
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
 import { format, isToday, isYesterday } from "date-fns";
 import {
   Copy,
@@ -20,7 +33,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import {
   type TaskAssignee,
@@ -29,15 +41,6 @@ import {
   type TaskStatus,
   TaskStatusDropdown,
 } from "@/components/tasks";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import {
   getSourceColor,

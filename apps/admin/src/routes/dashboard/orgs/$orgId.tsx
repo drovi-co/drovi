@@ -1,10 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Separator } from "@memorystack/ui-core/separator";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import {
   Table,
   TableBody,
@@ -12,7 +15,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@memorystack/ui-core/table";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { adminAPI } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard/orgs/$orgId")({

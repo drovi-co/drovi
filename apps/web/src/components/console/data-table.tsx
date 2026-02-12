@@ -10,11 +10,14 @@
  * - Keyboard navigation (j/k for up/down)
  */
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
 import { format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Clock, FileText } from "lucide-react";
 import { useCallback } from "react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { ConsoleItem } from "@/hooks/use-console-query";
 import { cn } from "@/lib/utils";
 

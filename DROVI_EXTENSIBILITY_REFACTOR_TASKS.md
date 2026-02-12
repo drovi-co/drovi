@@ -177,27 +177,27 @@ Definition of done: connectors are extensible and measurable; connector reliabil
 
 ### Decompose the Hot Path (Issue 15A + LOC cap)
 
-- [ ] P6.01 Split `drovi-intelligence/src/orchestrator/nodes/persist.py` into context-owned application services under `contexts/uio_truth/application/` and `contexts/evidence/application/` (target: modules under 800 LOC).
-- [ ] P6.02 Make the LangGraph “persist node” a thin adapter that calls an application use-case (no SQL/graph writes directly in the node).
-- [ ] P6.03 Introduce fakes for unit tests: `FakeClock`, `FakeLLM`, `FakeObjectStore`, `FakeGraphStore`, `FakeVectorIndex`.
+- [x] P6.01 Split `drovi-intelligence/src/orchestrator/nodes/persist.py` into context-owned application services under `contexts/uio_truth/application/` and `contexts/evidence/application/` (target: modules under 800 LOC).
+- [x] P6.02 Make the LangGraph “persist node” a thin adapter that calls an application use-case (no SQL/graph writes directly in the node).
+- [x] P6.03 Introduce fakes for unit tests: `FakeClock`, `FakeLLM`, `FakeObjectStore`, `FakeGraphStore`, `FakeVectorIndex`.
 
 ### Canonical Writes Only (Truth Store First)
 
-- [ ] P6.04 Refactor persistence so the hot path writes only canonical truth (Postgres UIO + evidence spans + audit).
-- [ ] P6.05 Convert per-item inserts (especially supporting evidence spans) into batched inserts.
-- [ ] P6.06 Add invariants: “no evidence => no persist” for high-stakes types; verify in tests.
+- [x] P6.04 Refactor persistence so the hot path writes only canonical truth (Postgres UIO + evidence spans + audit).
+- [x] P6.05 Convert per-item inserts (especially supporting evidence spans) into batched inserts.
+- [x] P6.06 Add invariants: “no evidence => no persist” for high-stakes types; verify in tests.
 
 ### Outbox
 
-- [ ] P6.07 Add or finalize `outbox_event` table with idempotency key + status + attempts + last_error + payload versioning.
-- [ ] P6.08 Emit outbox events from canonical writes (UIO created/updated/superseded; evidence artifact registered; document chunked).
+- [x] P6.07 Add or finalize `outbox_event` table with idempotency key + status + attempts + last_error + payload versioning.
+- [x] P6.08 Emit outbox events from canonical writes (UIO created/updated/superseded; evidence artifact registered; document chunked).
 
 ### Derived Indexers (Async + Batched)
 
-- [ ] P6.09 Implement outbox draining as a Temporal activity/workflow (batch size, backpressure, retry policy).
-- [ ] P6.10 Implement batched graph upserts (Falkor) with idempotency.
-- [ ] P6.11 Implement batched embedding generation and vector updates (hybrid retrieval) with idempotency.
-- [ ] P6.12 Add end-to-end integration tests: ingest sample payload => canonical truth => derived indexes => query returns evidence-backed results.
+- [x] P6.09 Implement outbox draining as a Temporal activity/workflow (batch size, backpressure, retry policy).
+- [x] P6.10 Implement batched graph upserts (Falkor) with idempotency.
+- [x] P6.11 Implement batched embedding generation and vector updates (hybrid retrieval) with idempotency.
+- [x] P6.12 Add end-to-end integration tests: ingest sample payload => canonical truth => derived indexes => query returns evidence-backed results.
 
 Definition of done: ingestion/backfill throughput improves; hot path is stable; derived indexes become resilient and replayable.
 
@@ -207,23 +207,23 @@ Definition of done: ingestion/backfill throughput improves; hot path is stable; 
 
 ### Contract-of-Record
 
-- [ ] P7.01 Make FastAPI OpenAPI generation deterministic (stable ordering, stable names).
-- [ ] P7.02 Commit `openapi/openapi.json` snapshot and enforce drift detection.
-- [ ] P7.03 Add breaking-change detection tooling in CI with explicit approvals.
+- [x] P7.01 Make FastAPI OpenAPI generation deterministic (stable ordering, stable names).
+- [x] P7.02 Commit `openapi/openapi.json` snapshot and enforce drift detection.
+- [x] P7.03 Add breaking-change detection tooling in CI with explicit approvals.
 
 ### Generated Packages
 
-- [ ] P7.04 Create `packages/api-types` generated from OpenAPI (types only).
-- [ ] P7.05 Create `packages/api-client` with auth injection (cookie, API key, internal JWT), retries/backoff/timeouts, and consistent error parsing.
-- [ ] P7.06 Create `packages/api-react` with React Query key conventions plus SSE/WS helpers.
-- [ ] P7.07 Add CI step: generated client builds and typechecks across all apps.
+- [x] P7.04 Create `packages/api-types` generated from OpenAPI (types only).
+- [x] P7.05 Create `packages/api-client` with auth injection (cookie, API key, internal JWT), retries/backoff/timeouts, and consistent error parsing.
+- [x] P7.06 Create `packages/api-react` with React Query key conventions plus SSE/WS helpers.
+- [x] P7.07 Add CI step: generated client builds and typechecks across all apps.
 
 ### App Migration (Strangler)
 
-- [ ] P7.08 Add a compat facade in `apps/web` so current call sites can switch without big-bang rewrites.
-- [ ] P7.09 Migrate `apps/web` route-by-route off `apps/web/src/lib/api.ts`; delete dead code as you go.
-- [ ] P7.10 Migrate `apps/admin` to the same packages (no forks).
-- [ ] P7.11 Delete or shrink `apps/web/src/lib/api.ts` to a thin legacy shim (then remove entirely once unused).
+- [x] P7.08 Add a compat facade in `apps/web` so current call sites can switch without big-bang rewrites.
+- [x] P7.09 Migrate `apps/web` route-by-route off `apps/web/src/lib/api.ts`; delete dead code as you go.
+- [x] P7.10 Migrate `apps/admin` to the same packages (no forks).
+- [x] P7.11 Delete or shrink `apps/web/src/lib/api.ts` to a thin legacy shim (then remove entirely once unused).
 
 Definition of done: API drift risk collapses; multi-app scaling becomes cheap.
 
@@ -233,26 +233,26 @@ Definition of done: API drift risk collapses; multi-app scaling becomes cheap.
 
 ### UI Packages (DRY)
 
-- [ ] P8.01 Create `packages/ui-core` and move shared UI components from web/admin into it.
-- [ ] P8.02 Create `packages/ui-theme` (CSS variable tokens, typography strategy, motion primitives) with “theme packs” for future vertical shells.
-- [ ] P8.03 Migrate `apps/web` to import from `packages/ui-*` and delete duplicated UI components.
-- [ ] P8.04 Migrate `apps/admin` similarly; ensure no visual regressions.
+- [x] P8.01 Create `packages/ui-core` and move shared UI components from web/admin into it.
+- [x] P8.02 Create `packages/ui-theme` (CSS variable tokens, typography strategy, motion primitives) with “theme packs” for future vertical shells.
+- [x] P8.03 Migrate `apps/web` to import from `packages/ui-*` and delete duplicated UI components.
+- [x] P8.04 Migrate `apps/admin` similarly; ensure no visual regressions.
 
 ### Core Shell + Hooks
 
-- [ ] P8.05 Create `packages/core-hooks` (auth/org context, streaming subscriptions, feature flags).
+- [x] P8.05 Create `packages/core-hooks` (auth/org context, streaming subscriptions, feature flags).
 - [ ] P8.06 Create `packages/core-shell` (sidebar shell, command bar, evidence lens primitives, timeline primitives).
 
 ### Feature Modules + Vertical Runtime (Stage 5: Issues 27A, 28B, 29A, 30A)
 
-- [ ] P8.07 Create `packages/mod-kit` defining the `DroviModule` contract (id, capabilities, routes, nav items, command palette commands, i18n namespaces, typed overrides).
-- [ ] P8.08 Create `packages/vertical-runtime` that fetches and caches the backend plugin manifest (enabled modules, type registry, UI hints, capabilities) and exposes `VerticalRuntimeProvider` + `useVertical()`.
-- [ ] P8.09 Define the typed override mechanism (per module) and a safe precedence order: app static overrides first, then org/vertical manifest gating.
+- [x] P8.07 Create `packages/mod-kit` defining the `DroviModule` contract (id, capabilities, routes, nav items, command palette commands, i18n namespaces, typed overrides).
+- [x] P8.08 Create `packages/vertical-runtime` that fetches and caches the backend plugin manifest (enabled modules, type registry, UI hints, capabilities) and exposes `VerticalRuntimeProvider` + `useVertical()`.
+- [x] P8.09 Define the typed override mechanism (per module) and a safe precedence order: app static overrides first, then org/vertical manifest gating.
 
 ### Code-Based Router Composition (Stage 5: Issue 28B)
 
-- [ ] P8.10 Create `packages/app-router` to compose a code-based TanStack Router tree from a selected module set.
-- [ ] P8.11 Define canonical route boundaries in `packages/app-router` (`Root`, `Auth`, `Onboarding`, `Dashboard`) so modules attach consistently.
+- [x] P8.10 Create `packages/app-router` to compose a code-based TanStack Router tree from a selected module set.
+- [x] P8.11 Define canonical route boundaries in `packages/app-router` (`Root`, `Auth`, `Onboarding`, `Dashboard`) so modules attach consistently.
 - [ ] P8.12 Migrate `apps/web` from `routeTree.gen.ts` to the code-based route tree (paths must remain stable; keep redirects for old paths/search params if needed).
 - [ ] P8.13 Migrate `apps/admin` from `routeTree.gen.ts` to the code-based route tree.
 - [ ] P8.14 Remove `@tanstack/router-plugin` usage (Vite plugin + generated files) once both apps no longer depend on `routeTree.gen.ts`.
@@ -271,7 +271,7 @@ Definition of done: API drift risk collapses; multi-app scaling becomes cheap.
 - [ ] P8.24 Replace `apps/web/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
 - [ ] P8.25 Replace `apps/admin/src/routes/*` feature implementations with module imports; delete app-local feature code after parity is reached.
 - [ ] P8.26 Add module-level unit tests for headless models (state machines) and component tests for screens (RTL + MSW).
-- [ ] P8.27 Add a module composition test that builds a route tree from a chosen module set and asserts expected paths, nav gating, and command registration.
+- [x] P8.27 Add a module composition test that builds a route tree from a chosen module set and asserts expected paths, nav gating, and command registration.
 - [ ] P8.28 Add module-level i18n packaging: each `mod-*` exports namespaces + default dictionaries; `vertical-runtime` can override strings per vertical/org.
 - [ ] P8.29 Add module boundary enforcement for frontend (ban importing from `apps/*` into `packages/*`; ban deep imports; require public entrypoints).
 

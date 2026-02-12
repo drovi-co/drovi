@@ -1,8 +1,7 @@
+import { Button } from "@memorystack/ui-core/button";
 import { AlertTriangle, Copy, RefreshCw, ServerCog } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
 import { getApiBase, healthAPI } from "@/lib/api";
 import { useApiReachability } from "@/lib/api-reachability";
 import { cn } from "@/lib/utils";

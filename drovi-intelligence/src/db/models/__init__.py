@@ -21,6 +21,9 @@ from src.db.models.events import (
 from src.db.models.background_jobs import (
     BackgroundJob,
 )
+from src.db.models.outbox_events import (
+    OutboxEvent,
+)
 from src.db.models.pilot import (
     Organization,
     User,
@@ -45,6 +48,7 @@ __all__ = [
     "ConnectorWebhookOutbox",
     "EventRecord",
     "BackgroundJob",
+    "OutboxEvent",
     "Organization",
     "User",
     "Membership",

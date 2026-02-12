@@ -7,6 +7,31 @@
 // organize, prioritize, and track progress on everything in one place.
 //
 
+import { AssigneeIcon } from "@memorystack/ui-core/assignee-icon";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Input } from "@memorystack/ui-core/input";
+import { IssueCheckbox } from "@memorystack/ui-core/issue-checkbox";
+import {
+  type Priority,
+  PriorityIcon,
+} from "@memorystack/ui-core/priority-icon";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@memorystack/ui-core/select";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
+import { Tabs, TabsList, TabsTrigger } from "@memorystack/ui-core/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -38,28 +63,6 @@ import {
   type TaskSourceType,
   type TaskStatus,
 } from "@/components/tasks";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useTaskStats,
   useTaskUIOs,

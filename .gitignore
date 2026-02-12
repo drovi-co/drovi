@@ -1,6 +1,8 @@
 # Dependencies
 node_modules
 .bun
+.bun-cache
+.bun-tmp
 .venv
 __pycache__
 *.pyc

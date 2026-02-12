@@ -1,4 +1,11 @@
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@memorystack/ui-core/sidebar";
+import {
   Activity,
   BookOpen,
   Calendar,
@@ -15,13 +22,6 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarRail,
-} from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
 import { type NavItem, NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";

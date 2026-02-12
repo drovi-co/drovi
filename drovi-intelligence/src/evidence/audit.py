@@ -44,3 +44,4 @@ async def record_evidence_audit(
                 "created_at": utc_now(),
             },
         )
+        await session.commit()

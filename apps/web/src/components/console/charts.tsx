@@ -10,6 +10,12 @@
  * - PieChart: Distribution chart
  */
 
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@memorystack/ui-core/chart";
 import { format } from "date-fns";
 import {
   Bar,
@@ -25,13 +31,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

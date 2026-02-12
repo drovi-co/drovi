@@ -13,8 +13,8 @@ describe("apiFetch (MSW)", () => {
     );
 
     await expect(apiFetch("/org/info")).rejects.toMatchObject({
-      name: "APIError",
-      code: "API_UNREACHABLE",
+      name: "ApiError",
+      code: "api.unreachable",
       status: 0,
     });
   });
@@ -27,8 +27,8 @@ describe("apiFetch (MSW)", () => {
     );
 
     await expect(apiFetch("/org/info")).rejects.toMatchObject({
-      name: "APIError",
-      code: "UNAUTHENTICATED",
+      name: "ApiError",
+      code: "auth.unauthorized",
       status: 401,
     });
   });
@@ -41,8 +41,8 @@ describe("apiFetch (MSW)", () => {
     );
 
     await expect(apiFetch("/org/info")).rejects.toMatchObject({
-      name: "APIError",
-      code: "FORBIDDEN",
+      name: "ApiError",
+      code: "auth.forbidden",
       status: 403,
     });
   });
@@ -60,7 +60,7 @@ describe("apiFetch (MSW)", () => {
     } catch (err) {
       expect(err).toBeInstanceOf(APIError);
       const apiErr = err as APIError;
-      expect(apiErr.code).toBe("SERVER_ERROR");
+      expect(apiErr.code).toBe("internal.unhandled");
       expect(apiErr.detail).toBe("boom");
       expect(apiErr.status).toBe(500);
     }

@@ -7,6 +7,8 @@
  * and keyboard navigation. The primary interface for querying UIOs.
  */
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Calendar,
   Clock,
@@ -26,9 +28,6 @@ import {
   useRef,
   useState,
 } from "react";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useEntitySuggestions } from "@/hooks/use-console-query";
 import {
   type AutocompleteSuggestion,

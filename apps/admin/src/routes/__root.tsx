@@ -1,3 +1,5 @@
+import { ThemeProvider } from "@memorystack/core-shell";
+import { Toaster } from "@memorystack/ui-core/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -7,8 +9,6 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
 import { initializeAdminAuth } from "@/lib/auth";
 
 import "../index.css";

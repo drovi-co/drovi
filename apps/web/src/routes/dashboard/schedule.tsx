@@ -5,24 +5,23 @@
 // Unified schedule for commitments and continuum run cadence.
 //
 
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Calendar, Clock, Loader2 } from "lucide-react";
-import { useMemo } from "react";
-
-import { CommitmentTimeline } from "@/components/dashboards";
-import type { CommitmentCardData } from "@/components/dashboards/commitment-card";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@memorystack/ui-core/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@memorystack/ui-core/card";
+import { Separator } from "@memorystack/ui-core/separator";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Calendar, Clock, Loader2 } from "lucide-react";
+import { useMemo } from "react";
+import { CommitmentTimeline } from "@/components/dashboards";
+import type { CommitmentCardData } from "@/components/dashboards/commitment-card";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useCommitmentUIOs } from "@/hooks/use-uio";
 import { useI18n, useT } from "@/i18n";
 import { continuumsAPI, type UIO } from "@/lib/api";

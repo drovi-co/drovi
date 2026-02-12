@@ -5,7 +5,9 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
-from temporalio.client import Client
+
+temporalio = pytest.importorskip("temporalio")
+from temporalio.client import Client  # noqa: E402
 
 from src.contexts.workflows.application.diagnostics_workflow import DiagnosticsNoopWorkflow
 
@@ -42,4 +44,3 @@ async def test_temporal_worker_wiring_smoke() -> None:
         assert result["status"] == "succeeded"
     finally:
         await client.close()
-

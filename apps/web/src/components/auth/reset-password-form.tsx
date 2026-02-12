@@ -1,6 +1,6 @@
+import { Button } from "@memorystack/ui-core/button";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 
 export function ResetPasswordForm() {

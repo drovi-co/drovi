@@ -2,17 +2,21 @@
 // CONTACT NODE COMPONENT
 // =============================================================================
 
-import type { NodeProps } from "@xyflow/react";
-import { Handle, Position } from "@xyflow/react";
-import { AlertTriangle, Building2, Star } from "lucide-react";
-import { memo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@memorystack/ui-core/tooltip";
+import type { NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
+import { AlertTriangle, Building2, Star } from "lucide-react";
+import { memo } from "react";
 import { useT } from "@/i18n";
 import type { ContactNodeData } from "../../-types";
 

@@ -1,3 +1,11 @@
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Progress } from "@memorystack/ui-core/progress";
 import {
   AlertCircle,
   CheckCircle2,
@@ -6,9 +14,6 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { useT } from "@/i18n";
 import {
   type DriveUploadEntry,

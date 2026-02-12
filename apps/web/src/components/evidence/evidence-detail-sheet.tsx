@@ -7,6 +7,23 @@
 // that led to any commitment, decision, or claim extraction.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Button } from "@memorystack/ui-core/button";
+import { Progress } from "@memorystack/ui-core/progress";
+import { ScrollArea } from "@memorystack/ui-core/scroll-area";
+import { Separator } from "@memorystack/ui-core/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@memorystack/ui-core/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
@@ -26,24 +43,6 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

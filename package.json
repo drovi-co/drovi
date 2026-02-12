@@ -48,7 +48,8 @@
     "test": "vitest",
     "test:run": "vitest run --config vitest.node.config.ts && vitest run --config vitest.browser.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.node.config.ts && vitest run --coverage --config vitest.browser.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "api:generate": "python3 scripts/generate_api_types.py"
   },
   "dependencies": {
     "@memorystack/env": "workspace:*",

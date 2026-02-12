@@ -1,0 +1,28 @@
+{
+  "name": "@memorystack/vertical-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorystack/mod-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "typescript": ">=5.0.0"
+  }
+}

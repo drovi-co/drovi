@@ -1,8 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import {
   Table,
   TableBody,
@@ -10,7 +13,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@memorystack/ui-core/table";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { useT } from "@/i18n";
 import { adminAPI } from "@/lib/api";
 

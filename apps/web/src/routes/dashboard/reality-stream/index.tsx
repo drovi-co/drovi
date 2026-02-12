@@ -5,31 +5,30 @@
 // Chronological stream of every change inside the memory graph.
 //
 
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { format, subDays } from "date-fns";
-import { Activity, Filter, Loader2, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
-
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@memorystack/ui-core/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@memorystack/ui-core/select";
+import { Separator } from "@memorystack/ui-core/separator";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { format, subDays } from "date-fns";
+import { Activity, Filter, Loader2, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
 import { type ChangeRecord, changesAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";

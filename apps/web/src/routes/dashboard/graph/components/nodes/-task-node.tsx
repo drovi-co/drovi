@@ -2,6 +2,13 @@
 // TASK NODE COMPONENT
 // =============================================================================
 
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import {
@@ -15,13 +22,6 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { memo } from "react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useI18n, useT } from "@/i18n";
 import type { TaskNodeData } from "../../-types";
 

@@ -1,13 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
-import { ChevronDown, Copy, LifeBuoy, Send } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@memorystack/ui-core/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +11,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+} from "@memorystack/ui-core/dialog";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { Switch } from "@memorystack/ui-core/switch";
+import { Textarea } from "@memorystack/ui-core/textarea";
+import { useMutation } from "@tanstack/react-query";
+import { ChevronDown, Copy, LifeBuoy, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { connectionsAPI, getApiBase, supportAPI } from "@/lib/api";
 import { useApiTraceStore } from "@/lib/api-trace";
 import { useAuthStore } from "@/lib/auth";

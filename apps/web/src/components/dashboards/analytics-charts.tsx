@@ -7,6 +7,13 @@
 // vanity metrics - actionable intelligence about your work patterns.
 //
 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
 import { eachDayOfInterval, format, subDays } from "date-fns";
 import {
   Area,
@@ -25,14 +32,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

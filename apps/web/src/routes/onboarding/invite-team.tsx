@@ -1,19 +1,19 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Crown, Loader2, Mail, Plus, Users, X } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { OnboardingLayout } from "@/components/onboarding/onboarding-layout";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@memorystack/ui-core/card";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Crown, Loader2, Mail, Plus, Users, X } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { OnboardingLayout } from "@/components/onboarding/onboarding-layout";
 import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 

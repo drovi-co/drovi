@@ -1,8 +1,7 @@
+import { ErrorBoundary, Loader } from "@memorystack/core-shell";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
-import { ErrorBoundary } from "./components/error-boundary";
-import Loader from "./components/loader";
 import { I18nProvider, normalizeLocale } from "./i18n";
 import { queryClient } from "./lib/query-client";
 import { initSentry } from "./lib/sentry";

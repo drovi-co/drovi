@@ -207,7 +207,7 @@ class TestCheckConnection:
         }
 
         with patch(
-            "src.connectors.sources.productivity.notion.connector.request_with_retry",
+            "src.connectors.sources.productivity.notion.connector.connector_request",
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
@@ -228,7 +228,7 @@ class TestCheckConnection:
         mock_response.status_code = 401
 
         with patch(
-            "src.connectors.sources.productivity.notion.connector.request_with_retry",
+            "src.connectors.sources.productivity.notion.connector.connector_request",
             new_callable=AsyncMock,
             return_value=mock_response,
         ):

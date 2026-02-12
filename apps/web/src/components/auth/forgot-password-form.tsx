@@ -1,5 +1,5 @@
+import { Button } from "@memorystack/ui-core/button";
 import { ArrowLeft, KeyRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 
 interface ForgotPasswordFormProps {

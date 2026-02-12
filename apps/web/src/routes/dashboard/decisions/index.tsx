@@ -7,6 +7,18 @@
 // "What did we decide about X?" in seconds.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@memorystack/ui-core/dialog";
+import { Input } from "@memorystack/ui-core/input";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@memorystack/ui-core/tabs";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { startOfMonth, subMonths } from "date-fns";
 import { Download, GitBranch, RefreshCw, Search, X } from "lucide-react";
@@ -24,18 +36,6 @@ import {
 } from "@/components/decisions";
 import { EvidenceDetailSheet } from "@/components/evidence";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDecisionStats, useDecisionUIOs, useUIO } from "@/hooks/use-uio";
 import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";

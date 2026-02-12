@@ -1,4 +1,14 @@
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@memorystack/ui-core/sidebar";
+import {
   Activity,
   Building2,
   Cable,
@@ -8,16 +18,6 @@ import {
   LogOut,
   Users,
 } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from "@/components/ui/sidebar";
 import { useT } from "@/i18n";
 import { useAdminAuthStore } from "@/lib/auth";
 import { type NavItem, NavMain } from "./nav-main";

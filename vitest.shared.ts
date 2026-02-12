@@ -5,6 +5,22 @@ export const sharedResolveAlias = {
   "@memorystack/db": path.resolve(__dirname, "./packages/db/src"),
   "@memorystack/api": path.resolve(__dirname, "./packages/api/src"),
   "@memorystack/auth": path.resolve(__dirname, "./packages/auth/src"),
+  "@memorystack/api-types": path.resolve(__dirname, "./packages/api-types/src"),
+  "@memorystack/api-client": path.resolve(
+    __dirname,
+    "./packages/api-client/src"
+  ),
+  "@memorystack/api-react": path.resolve(__dirname, "./packages/api-react/src"),
+  "@memorystack/core-hooks": path.resolve(
+    __dirname,
+    "./packages/core-hooks/src"
+  ),
+  "@memorystack/core-shell": path.resolve(
+    __dirname,
+    "./packages/core-shell/src"
+  ),
+  "@memorystack/ui-theme": path.resolve(__dirname, "./packages/ui-theme/src"),
+  "@memorystack/ui-core": path.resolve(__dirname, "./packages/ui-core/src"),
   "@memorystack/env": path.resolve(__dirname, "./packages/env/src"),
   "@memorystack/i18n": path.resolve(__dirname, "./packages/i18n/src"),
 };

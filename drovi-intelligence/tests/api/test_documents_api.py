@@ -50,7 +50,7 @@ class TestDocumentUploads:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["document_id"] == f"doc_{'a' * 64}"
+        assert data["document_id"] == f"doc_org_test_{'a' * 64}"
         assert data["upload_session_id"].startswith("upl_")
         assert data["multipart_upload_id"] == "u1"
         assert data["s3_key"] == "k"
@@ -87,7 +87,7 @@ class TestDocumentUploads:
         session1 = AsyncMock()
         row = SimpleNamespace(
             organization_id="org_test",
-            document_id="doc_" + ("a" * 64),
+            document_id="doc_org_test_" + ("a" * 64),
             s3_key="k",
             s3_upload_id="u1",
             status="initiated",
@@ -126,7 +126,7 @@ class TestDocumentUploads:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_123"
         assert data["status"] == "uploaded"
 
@@ -134,7 +134,7 @@ class TestDocumentUploads:
         # First DB session: document exists.
         session1 = AsyncMock()
         result1 = MagicMock()
-        result1.fetchone.return_value = SimpleNamespace(id="doc_" + ("a" * 64))
+        result1.fetchone.return_value = SimpleNamespace(id="doc_org_test_" + ("a" * 64))
         session1.execute = AsyncMock(return_value=result1)
 
         # Second DB session: no active job exists.
@@ -154,20 +154,20 @@ class TestDocumentUploads:
             AsyncMock(return_value="job_456"),
         ):
             resp = await async_client.post(
-                f"/api/v1/documents/doc_{'a' * 64}/reprocess?organization_id=org_test",
+                f"/api/v1/documents/doc_org_test_{'a' * 64}/reprocess?organization_id=org_test",
             )
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_456"
 
     async def test_reprocess_document_returns_existing_active_job(self, async_client):
         # First DB session: document exists.
         session1 = AsyncMock()
         result1 = MagicMock()
-        result1.fetchone.return_value = SimpleNamespace(id="doc_" + ("a" * 64))
+        result1.fetchone.return_value = SimpleNamespace(id="doc_org_test_" + ("a" * 64))
         session1.execute = AsyncMock(return_value=result1)
 
         # Second DB session: active queued/running job exists.
@@ -187,11 +187,11 @@ class TestDocumentUploads:
             AsyncMock(side_effect=AssertionError("enqueue_job should not be called when active job exists")),
         ):
             resp = await async_client.post(
-                f"/api/v1/documents/doc_{'a' * 64}/reprocess?organization_id=org_test",
+                f"/api/v1/documents/doc_org_test_{'a' * 64}/reprocess?organization_id=org_test",
             )
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_existing"

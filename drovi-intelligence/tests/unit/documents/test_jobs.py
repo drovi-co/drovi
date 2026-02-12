@@ -24,7 +24,7 @@ async def test_process_document_job_publishes_pipeline_events_when_kafka_enabled
     expected_sha = sha256_hex(data)
 
     doc_row = SimpleNamespace(
-        id="doc_" + expected_sha,
+        id="doc_org_test_" + expected_sha,
         organization_id="org_test",
         title="Test Doc",
         file_name="notes.txt",
@@ -73,6 +73,8 @@ async def test_process_document_job_publishes_pipeline_events_when_kafka_enabled
         AsyncMock(return_value=("txt", None, [fake_chunk], {"file_type": "txt"})),
     ), patch(
         "src.documents.jobs.get_kafka_producer", AsyncMock(return_value=producer)
+    ), patch(
+        "src.jobs.outbox.enqueue_outbox_event", AsyncMock(return_value="evt_1")
     ):
         result = await process_document_job(organization_id="org_test", document_id=doc_row.id)
 

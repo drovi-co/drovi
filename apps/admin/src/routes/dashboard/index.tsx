@@ -1,7 +1,12 @@
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "@/i18n";
 import { adminAPI, type KPIBlock } from "@/lib/api";
 import { cn } from "@/lib/utils";

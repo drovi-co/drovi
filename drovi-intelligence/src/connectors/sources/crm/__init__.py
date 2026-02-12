@@ -1,9 +1,4 @@
-"""
-CRM Connectors
+"""CRM connector sources (import-free)."""
 
-Connectors for CRM systems like HubSpot, Salesforce.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.crm.hubspot import HubSpotConnector
-
-__all__ = ["HubSpotConnector"]

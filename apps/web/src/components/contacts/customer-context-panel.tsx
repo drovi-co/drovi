@@ -6,6 +6,20 @@
 // Shows relationship summary, timeline, commitments, decisions, and health.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@memorystack/ui-core/collapsible";
+import {
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@memorystack/ui-core/sheet";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -23,20 +37,6 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   useCustomerContext,
   useCustomerTimeline,

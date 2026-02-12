@@ -1,9 +1,4 @@
-"""
-WhatsApp Business Connector
+"""WhatsApp connector source package (import-free)."""
 
-Extracts messages from WhatsApp Business API.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.messaging.whatsapp.connector import WhatsAppConnector
-
-__all__ = ["WhatsAppConnector"]

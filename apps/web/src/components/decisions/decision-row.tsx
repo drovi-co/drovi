@@ -1,22 +1,22 @@
 "use client";
 
-import { Copy, Eye, MoreHorizontal } from "lucide-react";
-import type * as React from "react";
-import { toast } from "sonner";
-import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
-import { SourceIcon } from "@/components/inbox/source-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
-import { Badge } from "@/components/ui/badge";
+import { AssigneeIcon } from "@memorystack/ui-core/assignee-icon";
+import { Badge } from "@memorystack/ui-core/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { PriorityIcon } from "@/components/ui/priority-icon";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
+} from "@memorystack/ui-core/dropdown-menu";
+import { IssueCheckbox } from "@memorystack/ui-core/issue-checkbox";
+import { PriorityIcon } from "@memorystack/ui-core/priority-icon";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
+import { Copy, Eye, MoreHorizontal } from "lucide-react";
+import type * as React from "react";
+import { toast } from "sonner";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
+import { SourceIcon } from "@/components/inbox/source-icon";
 import { type TFunction, useI18n } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";

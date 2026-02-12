@@ -5,17 +5,20 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
-from temporalio import activity
-from temporalio.client import WorkflowFailureError
-from temporalio.exceptions import CancelledError
-from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
+
+temporalio = pytest.importorskip("temporalio")
+from temporalio import activity  # noqa: E402
+from temporalio.client import WorkflowFailureError  # noqa: E402
+from temporalio.exceptions import CancelledError  # noqa: E402
+from temporalio.testing import WorkflowEnvironment  # noqa: E402
+from temporalio.worker import Worker  # noqa: E402
 
 from src.contexts.workflows.application.connector_backfill_workflow import ConnectorBackfillWorkflow
 from src.contexts.workflows.application.connector_sync_workflow import ConnectorSyncWorkflow
 from src.contexts.workflows.application.scheduled_sync_sweep_workflow import (
     ScheduledSyncSweepWorkflow,
 )
+from src.contexts.workflows.application.system_cron_workflows import IndexesOutboxDrainCronWorkflow
 @pytest.mark.unit
 async def test_connector_sync_workflow_enqueues_and_waits() -> None:
     enqueue_calls: list[dict[str, Any]] = []
@@ -150,6 +153,36 @@ async def test_scheduled_sync_sweep_enqueues_all_active_connections() -> None:
     assert len(enqueue_calls) == 2
     assert {c["payload"]["connection_id"] for c in enqueue_calls} == {"c1", "c2"}
     assert all(c["job_type"] == "connector.sync" for c in enqueue_calls)
+
+
+@pytest.mark.unit
+async def test_indexes_outbox_drain_cron_enqueues_job() -> None:
+    enqueue_calls: list[dict[str, Any]] = []
+
+    @activity.defn(name="jobs.enqueue")
+    async def enqueue(req: dict[str, Any]) -> str:
+        enqueue_calls.append(req)
+        return "job_outbox_1"
+
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        async with Worker(
+            env.client,
+            task_queue="unit-indexes-cron",
+            workflows=[IndexesOutboxDrainCronWorkflow],
+            activities=[enqueue],
+        ):
+            handle = await env.client.start_workflow(
+                IndexesOutboxDrainCronWorkflow.run,
+                {"limit": 123},
+                id="wf-indexes-cron-1",
+                task_queue="unit-indexes-cron",
+            )
+            result = await handle.result()
+
+    assert result["job_id"] == "job_outbox_1"
+    assert len(enqueue_calls) == 1
+    assert enqueue_calls[0]["job_type"] == "indexes.outbox.drain"
+    assert enqueue_calls[0]["payload"]["limit"] == 123
 
 
 @pytest.mark.unit

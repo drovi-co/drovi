@@ -7,13 +7,12 @@
 // your accountability landscape.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import { addDays, format, isPast, isToday, startOfWeek } from "date-fns";
 import { motion } from "framer-motion";
 import { AlertCircle, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import type { CommitmentCardData } from "./commitment-card";

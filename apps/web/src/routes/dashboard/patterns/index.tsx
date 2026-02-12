@@ -5,6 +5,26 @@
 // Discover and promote recognition patterns from the memory graph.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@memorystack/ui-core/dialog";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { Sheet, SheetContent } from "@memorystack/ui-core/sheet";
+import { Textarea } from "@memorystack/ui-core/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -17,30 +37,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { type Pattern, PatternCard } from "@/components/patterns/pattern-card";
 import { PatternDetail } from "@/components/patterns/pattern-detail";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n";
 import { graphAPI, type PatternCandidate, patternsAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";

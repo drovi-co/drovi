@@ -1,22 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Building2, ExternalLink, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
+} from "@memorystack/ui-core/card";
+import { Label } from "@memorystack/ui-core/label";
+import { Separator } from "@memorystack/ui-core/separator";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Switch } from "@memorystack/ui-core/switch";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Building2, ExternalLink, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
 import { connectionsAPI, orgAPI } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";

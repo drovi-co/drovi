@@ -1,14 +1,14 @@
+import { Button } from "@memorystack/ui-core/button";
+import { Checkbox } from "@memorystack/ui-core/checkbox";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { Progress } from "@memorystack/ui-core/progress";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 

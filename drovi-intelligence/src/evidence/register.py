@@ -7,6 +7,7 @@ flow through the /evidence/artifacts base64 API.
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import timedelta
 from typing import Any
 
@@ -143,5 +144,36 @@ async def register_evidence_artifact(
         )
     except Exception as exc:
         logger.warning("Failed to record evidence audit for registered artifact", error=str(exc))
+
+    try:
+        from src.jobs.outbox import EnqueueOutboxEventRequest, enqueue_outbox_event
+
+        material = f"evidence_artifact_registered:{organization_id}:{artifact_id}"
+        idempotency_key = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        await enqueue_outbox_event(
+            EnqueueOutboxEventRequest(
+                organization_id=organization_id,
+                event_type="indexes.evidence.artifact.registered",
+                payload={
+                    "organization_id": organization_id,
+                    "artifact_id": artifact_id,
+                    "artifact_type": artifact_type,
+                    "mime_type": mime_type,
+                    "storage_backend": storage_backend,
+                    "storage_path": storage_path,
+                    "byte_size": byte_size,
+                    "sha256": sha256,
+                    "session_id": session_id,
+                    "source_type": source_type,
+                    "source_id": source_id,
+                },
+                idempotency_key=idempotency_key,
+                payload_version=1,
+                priority=0,
+                max_attempts=10,
+            )
+        )
+    except Exception as exc:
+        logger.warning("Failed to enqueue evidence artifact index event", error=str(exc))
 
     return True

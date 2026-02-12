@@ -197,6 +197,15 @@ class Settings(BaseSettings):
     evidence_retention_cleanup_cron: str = Field(default="0 3 * * *")  # 03:00 UTC daily
     evidence_retention_cleanup_limit: int = Field(default=500)
 
+    # Derived index outbox drain (graph/vector projections)
+    #
+    # Canonical truth writes enqueue outbox events that must be drained to keep
+    # derived views fresh. Temporal runs a cron that enqueues an `indexes.outbox.drain`
+    # durable job. The jobs worker executes the drain.
+    derived_indexes_outbox_drain_enabled: bool = Field(default=True)
+    derived_indexes_outbox_drain_cron: str = Field(default="* * * * *")
+    derived_indexes_outbox_drain_limit: int = Field(default=200)
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
     log_format: Literal["json", "text"] = Field(default="json")

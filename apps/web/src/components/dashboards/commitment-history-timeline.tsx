@@ -7,6 +7,9 @@
 // This is the "story" of a promise - from extraction to resolution.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -27,11 +30,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
-
 import { ConfidenceBadge } from "@/components/evidence";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

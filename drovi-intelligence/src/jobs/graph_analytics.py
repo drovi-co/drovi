@@ -24,7 +24,8 @@ from typing import Any
 
 import structlog
 
-from src.graph.client import get_graph_client, get_analytics_engine, GraphAnalyticsEngine
+from src.graph.analytics import GraphAnalyticsEngine, get_analytics_engine
+from src.graph.client import get_graph_client
 from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()

@@ -28,15 +28,22 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  type Priority,
+  PriorityIcon,
+} from "@memorystack/ui-core/priority-icon";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, GripVertical, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
 import { useI18n, useT } from "@/i18n";
 import { cn } from "@/lib/utils";

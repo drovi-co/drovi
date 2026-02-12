@@ -6,6 +6,16 @@
 // each promise: who, what, when, why, and the evidence trail.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Button } from "@memorystack/ui-core/button";
+import { Progress } from "@memorystack/ui-core/progress";
+import { Separator } from "@memorystack/ui-core/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@memorystack/ui-core/sheet";
 import {
   AlertCircle,
   Calendar,
@@ -23,17 +33,6 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useI18n } from "@/i18n";
 import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";

@@ -1,4 +1,4 @@
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@memorystack/ui-core/sidebar";
 import { ApiStatusBanner } from "./api-status-banner";
 import { AppSidebar } from "./app-sidebar";
 import type {

@@ -40,6 +40,7 @@ from src.contexts.workflows.application.system_cron_workflows import (
     CandidatesProcessCronWorkflow,
     DailyReportsCronWorkflow,
     EvidenceRetentionCronWorkflow,
+    IndexesOutboxDrainCronWorkflow,
     MemoryDecayCronWorkflow,
     WebhookOutboxFlushCronWorkflow,
     WeeklyReportsCronWorkflow,
@@ -95,6 +96,14 @@ async def _ensure_system_cron_workflows(*, client: Client, task_queue: str) -> N
                 "default_interval_minutes": 5,
                 "sweep_limit": 5000,
             },
+        )
+
+    if settings.derived_indexes_outbox_drain_enabled:
+        await _start_once(
+            workflow_run=IndexesOutboxDrainCronWorkflow.run,
+            workflow_id="cron:indexes_outbox_drain",
+            cron_schedule=str(settings.derived_indexes_outbox_drain_cron),
+            input_payload={"limit": int(settings.derived_indexes_outbox_drain_limit)},
         )
 
     # Kafka-only: webhook outbox flush is only useful when streaming is enabled.
@@ -207,6 +216,7 @@ async def _run() -> None:
         DailyReportsCronWorkflow,
         MemoryDecayCronWorkflow,
         EvidenceRetentionCronWorkflow,
+        IndexesOutboxDrainCronWorkflow,
     ]
     activities = [
         enqueue_background_job,

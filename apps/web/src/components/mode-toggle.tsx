@@ -1,12 +1,11 @@
-import { Moon, Sun } from "lucide-react";
-
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@memorystack/core-shell";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@memorystack/ui-core/dropdown-menu";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ModeToggle() {

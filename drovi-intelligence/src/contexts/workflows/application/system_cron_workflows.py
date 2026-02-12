@@ -10,6 +10,31 @@ def _minute_bucket() -> int:
     return int(workflow.now().timestamp()) // 60
 
 
+@workflow.defn(name="cron.indexes_outbox_drain")
+class IndexesOutboxDrainCronWorkflow:
+    @workflow.run
+    async def run(self, req: dict[str, Any]) -> dict[str, Any]:
+        limit = int(req.get("limit") or 200)
+        limit = max(1, min(limit, 2000))
+        bucket = _minute_bucket()
+        idempotency_key = f"indexes_outbox_drain:{bucket}:{limit}"
+
+        job_id = await workflow.execute_activity(
+            "jobs.enqueue",
+            {
+                "organization_id": "internal",
+                "job_type": "indexes.outbox.drain",
+                "payload": {"limit": limit},
+                "priority": 0,
+                "max_attempts": 3,
+                "idempotency_key": idempotency_key,
+                "resource_key": "system:indexes_outbox_drain",
+            },
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"job_id": str(job_id), "idempotency_key": idempotency_key}
+
+
 @workflow.defn(name="cron.webhook_outbox_flush")
 class WebhookOutboxFlushCronWorkflow:
     @workflow.run
@@ -169,4 +194,3 @@ class EvidenceRetentionCronWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
         )
         return {"job_id": str(job_id), "idempotency_key": idempotency_key}
-

@@ -5,13 +5,17 @@
 // Shows details about the selected node.
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import { Progress } from "@memorystack/ui-core/progress";
+import { ScrollArea } from "@memorystack/ui-core/scroll-area";
+import { Separator } from "@memorystack/ui-core/separator";
 import { AlertTriangle, Calendar, Check, Clock, Star, X } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useI18n, useT } from "@/i18n";
 import type { GraphNodeData } from "../-types";
 

@@ -2,17 +2,17 @@
 // DECISION NODE COMPONENT
 // =============================================================================
 
-import type { NodeProps } from "@xyflow/react";
-import { Handle, Position } from "@xyflow/react";
-import { Calendar, Check, RotateCcw, Sparkles } from "lucide-react";
-import { memo } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@memorystack/ui-core/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@memorystack/ui-core/tooltip";
+import type { NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
+import { Calendar, Check, RotateCcw, Sparkles } from "lucide-react";
+import { memo } from "react";
 import { useI18n, useT } from "@/i18n";
 import type { DecisionNodeData } from "../../-types";
 

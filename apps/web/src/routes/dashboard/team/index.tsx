@@ -1,15 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Mail, Settings, Users } from "lucide-react";
-import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@memorystack/ui-core/card";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Mail, Settings, Users } from "lucide-react";
+import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
 import { orgAPI } from "@/lib/api";
 

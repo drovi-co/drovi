@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import asyncio
 from datetime import datetime, timedelta
+import math
 from typing import Any
 
 import structlog
@@ -20,6 +21,8 @@ from src.connectors.scheduling.scheduler import ConnectorScheduler, SyncJob, Syn
 from src.db.rls import rls_context
 
 logger = structlog.get_logger()
+
+MAX_BACKFILL_WINDOWS = 10_000
 
 
 @dataclass
@@ -36,6 +39,24 @@ def generate_backfill_windows(
     window_days: int = 7,
 ) -> list[BackfillWindow]:
     """Generate contiguous backfill windows."""
+    if window_days <= 0:
+        raise ValueError("window_days must be >= 1")
+
+    if start_date >= end_date:
+        return []
+
+    # Guardrail: avoid generating huge in-memory window lists that can
+    # overwhelm the scheduler and blow up memory/latency in worst-case inputs.
+    span_seconds = (end_date - start_date).total_seconds()
+    window_seconds = window_days * 24 * 60 * 60
+    estimated_windows = int(math.ceil(span_seconds / window_seconds))
+    if estimated_windows > MAX_BACKFILL_WINDOWS:
+        raise ValueError(
+            f"Backfill range too large for window_days={window_days}: "
+            f"estimated_windows={estimated_windows} exceeds MAX_BACKFILL_WINDOWS={MAX_BACKFILL_WINDOWS}. "
+            "Increase window_days or reduce the backfill range."
+        )
+
     windows: list[BackfillWindow] = []
     cursor = start_date
 

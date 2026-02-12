@@ -1,4 +1,11 @@
 "use client";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@memorystack/ui-core/collapsible";
 import {
   Calendar,
   ChevronDown,
@@ -10,13 +17,6 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { useI18n, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 

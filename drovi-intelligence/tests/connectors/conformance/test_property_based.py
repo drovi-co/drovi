@@ -1,9 +1,13 @@
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 
-from hypothesis import assume, given, strategies as st
+import pytest
+
+hypothesis = pytest.importorskip("hypothesis")
+
+from hypothesis import given, strategies as st  # noqa: E402
 
 from src.connectors.cursors import merge_cursor_state_monotonic
-from src.connectors.scheduling.backfill import generate_backfill_windows
+from src.connectors.scheduling.backfill import MAX_BACKFILL_WINDOWS, generate_backfill_windows
 
 
 @given(
@@ -18,12 +22,16 @@ def test_numeric_cursor_monotonic_under_updates(old: int, updates: list[int]) ->
 
 
 @given(
-    start=st.datetimes(timezones=st.just(timezone.utc)),
-    end=st.datetimes(timezones=st.just(timezone.utc)),
+    start=st.datetimes(
+        min_value=datetime(2000, 1, 1),
+        max_value=datetime(9900, 1, 1),
+        timezones=st.just(timezone.utc),
+    ),
+    delta_days=st.integers(min_value=0, max_value=3650),
     window_days=st.integers(min_value=1, max_value=30),
 )
-def test_backfill_windows_cover_range(start, end, window_days: int) -> None:
-    assume(start <= end)
+def test_backfill_windows_cover_range(start, delta_days: int, window_days: int) -> None:
+    end = start + timedelta(days=delta_days)
     windows = generate_backfill_windows(start, end, window_days=window_days)
     if start == end:
         assert windows == []
@@ -36,3 +44,9 @@ def test_backfill_windows_cover_range(start, end, window_days: int) -> None:
         assert left.end == right.start
         assert left.start < left.end
 
+
+def test_backfill_windows_guardrail_avoids_explosive_lists() -> None:
+    start = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(days=MAX_BACKFILL_WINDOWS + 1)
+    with pytest.raises(ValueError):
+        generate_backfill_windows(start, end, window_days=1)

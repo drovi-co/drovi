@@ -82,7 +82,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/components/ui/**"],
+      "includes": ["**/components/ui/**", "**/packages/ui-core/src/**"],
       "linter": {
         "rules": {
           "performance": {

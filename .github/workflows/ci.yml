@@ -169,6 +169,13 @@ jobs:
       - name: OpenAPI breaking-change detection (removals)
         run: python3 scripts/openapi_break_check.py --baseline openapi/openapi.json --current openapi/openapi.generated.json
 
+      - name: API client/type generation is up-to-date
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/generate_api_types.py
+          git diff --exit-code packages/api-types/src
+
   smoke:
     name: Docker Smoke Test (/health + /api/v1/auth/me)
     runs-on: ubuntu-latest

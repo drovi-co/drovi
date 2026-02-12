@@ -211,8 +211,68 @@ class JobsWorker:
             return await self._run_evidence_retention(job)
         if job.job_type == "documents.process":
             return await self._run_documents_process(job)
+        if job.job_type == "indexes.outbox.drain":
+            return await self._run_outbox_drain(job)
 
         raise ValueError(f"Unknown job_type: {job.job_type}")
+
+    async def _run_outbox_drain(self, job: ClaimedJob) -> dict:
+        """
+        Drain and process a batch of outbox events.
+
+        This is the bridge between canonical truth writes and derived indexes.
+        """
+        from src.graph.client import get_graph_client
+        from src.jobs.outbox import (
+            claim_outbox_events,
+            mark_outbox_failed,
+            mark_outbox_succeeded,
+        )
+        from src.contexts.uio_truth.infrastructure.derived_indexer import process_outbox_event
+
+        payload = job.payload or {}
+        limit = int(payload.get("limit") or 200)
+        limit = max(1, min(limit, 2000))
+
+        lease_seconds = int(payload.get("lease_seconds") or self.settings.job_worker_lease_seconds)
+        lease_seconds = max(30, int(lease_seconds))
+
+        events = await claim_outbox_events(
+            worker_id=self.worker_id,
+            lease_seconds=lease_seconds,
+            limit=limit,
+        )
+
+        if not events:
+            return {"processed": 0, "succeeded": 0, "failed": 0}
+
+        graph = await get_graph_client()
+
+        processed = 0
+        succeeded = 0
+        failed = 0
+
+        for event in events:
+            processed += 1
+            try:
+                await process_outbox_event(
+                    graph=graph,
+                    event_type=event.event_type,
+                    payload=event.payload,
+                )
+
+                await mark_outbox_succeeded(event_id=event.id, worker_id=self.worker_id)
+                succeeded += 1
+            except Exception as exc:
+                await mark_outbox_failed(
+                    event_id=event.id,
+                    error=str(exc),
+                    attempts=event.attempts,
+                    max_attempts=event.max_attempts,
+                )
+                failed += 1
+
+        return {"processed": processed, "succeeded": succeeded, "failed": failed}
 
     async def _lease_heartbeat(self, job_id: str) -> None:
         interval = max(5.0, self.settings.job_worker_lease_seconds / 3)

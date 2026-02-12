@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import pytest
@@ -7,7 +8,20 @@ from src.db.rls import rls_context
 from src.ingestion.reality_events import persist_reality_event
 
 
-@pytest.mark.integration
+pytestmark = pytest.mark.integration
+
+
+def _should_run() -> bool:
+    return os.getenv("DROVI_DB_INTEGRATION", "").strip() == "1"
+
+
+if not _should_run():  # pragma: no cover
+    pytest.skip(
+        "Set DROVI_DB_INTEGRATION=1 to run Postgres integration tests",
+        allow_module_level=True,
+    )
+
+
 @pytest.mark.asyncio
 async def test_persist_reality_event_is_idempotent() -> None:
     org_id = f"org_conformance_{uuid.uuid4().hex[:10]}"
@@ -46,4 +60,3 @@ async def test_persist_reality_event_is_idempotent() -> None:
         await conn.execute("DELETE FROM unified_event WHERE organization_id = $1", org_id)
 
     assert count == 1
-

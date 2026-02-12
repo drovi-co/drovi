@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
 
 import structlog
 from sqlalchemy import text
@@ -21,7 +21,6 @@ from src.documents.storage import (
 )
 from src.evidence.register import register_evidence_artifact
 from src.ingestion.unified_event import build_content_hash, build_source_fingerprint
-from src.search.embeddings import EmbeddingError, generate_embedding
 from src.streaming.kafka_producer import get_kafka_producer
 
 logger = structlog.get_logger()
@@ -105,39 +104,7 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
         data=data,
     )
 
-    # Graph: create/update document node (best-effort).
-    try:
-        if settings.environment != "test":
-            from src.graph.client import get_graph_client
-
-            graph = await get_graph_client()
-            await graph.query(
-                """
-                MERGE (d:Document {id: $id, organizationId: $org})
-                ON CREATE SET d.createdAt = $now
-                SET d.updatedAt = $now,
-                    d.title = $title,
-                    d.fileName = $file_name,
-                    d.fileType = $file_type,
-                    d.sha256 = $sha256,
-                    d.folderPath = $folder_path
-                """,
-                {
-                    "id": document_id,
-                    "org": organization_id,
-                    "now": started_at.isoformat(),
-                    "title": getattr(doc_row, "title", None),
-                    "file_name": file_name,
-                    "file_type": file_type,
-                    "sha256": expected_sha,
-                    "folder_path": folder_path,
-                },
-            )
-    except Exception as exc:
-        logger.warning("Failed to upsert Document node", error=str(exc))
-
     produced = 0
-    embedded = 0
 
     producer = await get_kafka_producer() if settings.kafka_enabled else None
 
@@ -148,7 +115,9 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
                 if not raw_text:
                     continue
 
-                chunk_id = f"dch_{uuid4().hex}"
+                # Use a deterministic chunk ID so re-processing does not leave stale
+                # graph/vector entries around. Chunk index is stable per parser output.
+                chunk_id = f"dch_{document_id}_{int(chunk_index)}"
 
                 # Upload page image (if present) and register as evidence.
                 image_artifact_id = None
@@ -165,7 +134,8 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
                         data=chunk.page_png_bytes,
                         content_type="image/png",
                     )
-                    image_artifact_id = f"evh_{image_sha}"
+                    # Evidence IDs must be unique across orgs (evidence_artifact.id is a PK).
+                    image_artifact_id = f"evh_{organization_id}_{image_sha}"
                     try:
                         await register_evidence_artifact(
                             organization_id=organization_id,
@@ -188,9 +158,10 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
                 # Stable ingest hash for dedupe and traceability.
                 fingerprint = build_source_fingerprint(
                     "document",
+                    organization_id,
                     document_id,
-                    document_id,
-                    chunk_id,
+                    str(chunk.page_index) if chunk.page_index is not None else "",
+                    str(chunk_index),
                 )
                 content_hash = build_content_hash(raw_text, fingerprint)
 
@@ -226,58 +197,6 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
                         "now": started_at,
                     },
                 )
-
-                # Graph chunk node + embedding (best-effort).
-                try:
-                    if settings.environment != "test":
-                        from src.graph.client import get_graph_client
-
-                        graph = await get_graph_client()
-                        await graph.query(
-                            """
-                            MERGE (c:DocumentChunk {id: $id, organizationId: $org})
-                            ON CREATE SET c.createdAt = $now
-                            SET c.updatedAt = $now,
-                                c.documentId = $document_id,
-                                c.folderPath = $folder_path,
-                                c.pageIndex = $page_index,
-                                c.text = $text,
-                                c.contentHash = $content_hash
-                            """,
-                            {
-                                "id": chunk_id,
-                                "org": organization_id,
-                                "now": started_at.isoformat(),
-                                "document_id": document_id,
-                                "folder_path": folder_path,
-                                "page_index": int(chunk.page_index) if chunk.page_index is not None else None,
-                                "text": raw_text[:20000],  # prevent huge properties
-                                "content_hash": content_hash,
-                            },
-                        )
-                        await graph.query(
-                            """
-                            MATCH (c:DocumentChunk {id: $cid, organizationId: $org})
-                            MATCH (d:Document {id: $did, organizationId: $org})
-                            MERGE (c)-[:BELONGS_TO]->(d)
-                            """,
-                            {"cid": chunk_id, "did": document_id, "org": organization_id},
-                        )
-
-                        try:
-                            embedding = await generate_embedding(raw_text[:8000])
-                            await graph.query(
-                                """
-                                MATCH (c:DocumentChunk {id: $id, organizationId: $org})
-                                SET c.embedding = vecf32($embedding)
-                                """,
-                                {"id": chunk_id, "org": organization_id, "embedding": embedding},
-                            )
-                            embedded += 1
-                        except EmbeddingError:
-                            pass
-                except Exception as exc:
-                    logger.debug("Failed to upsert DocumentChunk node", error=str(exc))
 
                 # Enqueue extraction via Kafka pipeline input
                 if producer:
@@ -335,12 +254,32 @@ async def process_document_job(*, organization_id: str, document_id: str) -> dic
             )
             await session.commit()
 
+    # Emit derived indexing outbox event (graph/vector). The processor will read
+    # the canonical Postgres tables to build/refresh derived views.
+    try:
+        from src.jobs.outbox import EnqueueOutboxEventRequest, enqueue_outbox_event
+
+        material = f"documents.processed:{organization_id}:{document_id}:{expected_sha}"
+        idempotency_key = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        await enqueue_outbox_event(
+            EnqueueOutboxEventRequest(
+                organization_id=organization_id,
+                event_type="indexes.documents.processed",
+                payload={"organization_id": organization_id, "document_id": document_id},
+                idempotency_key=idempotency_key,
+                payload_version=1,
+                priority=0,
+                max_attempts=10,
+            )
+        )
+    except Exception as exc:
+        logger.warning("Failed to enqueue document derived-index outbox event", error=str(exc))
+
     return {
         "document_id": document_id,
         "file_type": file_type,
         "page_count": page_count,
         "chunks_created": len(chunks),
         "pipeline_events_published": produced,
-        "chunks_embedded": embedded,
         "duration_seconds": (_now() - started_at).total_seconds(),
     }
