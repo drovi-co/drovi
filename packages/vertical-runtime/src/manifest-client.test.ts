@@ -7,6 +7,7 @@ describe("moduleGatesFromManifest", () => {
     const manifest: PluginManifest = {
       plugins: ["core"],
       uio_types: [],
+      extension_types: [],
       capabilities: {},
       ui_hints: {
         modules: {
@@ -21,6 +22,11 @@ describe("moduleGatesFromManifest", () => {
           },
         },
       },
+      storage_rules: {
+        canonical_spine_table: "unified_intelligence_object",
+        extension_payload_table: "uio_extension_payload",
+        typed_tables: {},
+      },
     };
 
     const gates = moduleGatesFromManifest(manifest);
@@ -33,16 +39,28 @@ describe("moduleGatesFromManifest", () => {
     const noModules: PluginManifest = {
       plugins: [],
       uio_types: [],
+      extension_types: [],
       capabilities: {},
       ui_hints: {},
+      storage_rules: {
+        canonical_spine_table: "unified_intelligence_object",
+        extension_payload_table: "uio_extension_payload",
+        typed_tables: {},
+      },
     };
     expect(moduleGatesFromManifest(noModules)).toEqual({});
 
     const malformed: PluginManifest = {
       plugins: [],
       uio_types: [],
+      extension_types: [],
       capabilities: {},
       ui_hints: { modules: "invalid" },
+      storage_rules: {
+        canonical_spine_table: "unified_intelligence_object",
+        extension_payload_table: "uio_extension_payload",
+        typed_tables: {},
+      },
     };
     expect(moduleGatesFromManifest(malformed)).toEqual({});
   });

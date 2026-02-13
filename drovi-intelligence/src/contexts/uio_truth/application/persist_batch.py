@@ -319,6 +319,23 @@ async def persist_extraction_batch(
                     max_attempts=10,
                 )
             )
+
+            preagg_material = f"console-preagg:{envelope.organization_id}:{envelope.analysis_id}"
+            preagg_idempotency_key = hashlib.sha256(preagg_material.encode("utf-8")).hexdigest()
+            await enqueue_outbox_event(
+                EnqueueOutboxEventRequest(
+                    organization_id=envelope.organization_id,
+                    event_type="indexes.console.preaggregate.refresh",
+                    payload={
+                        "organization_id": envelope.organization_id,
+                        "lookback_days": 90,
+                    },
+                    idempotency_key=preagg_idempotency_key,
+                    payload_version=1,
+                    priority=0,
+                    max_attempts=10,
+                )
+            )
         except Exception as exc:
             logger.warning("Failed to enqueue derived-index outbox event", error=str(exc), analysis_id=envelope.analysis_id)
             errors.append(f"outbox: {str(exc)}")

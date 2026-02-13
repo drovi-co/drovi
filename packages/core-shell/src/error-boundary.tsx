@@ -76,7 +76,6 @@ export function ErrorBoundary({ children }: ErrorBoundaryProps) {
         }
       }}
     >
-      {/* @ts-expect-error - React types version conflict in monorepo */}
       {children}
     </SentryErrorBoundary>
   );

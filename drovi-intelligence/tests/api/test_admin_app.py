@@ -134,6 +134,52 @@ async def test_admin_kpis_smoke(monkeypatch, async_client_no_auth):
     assert "connections" in keys
 
 
+async def test_admin_kpis_uses_cache_by_default(monkeypatch, async_client_no_auth):
+    _set_admin_env(monkeypatch)
+    from src.api.routes import admin as admin_routes
+
+    admin_routes._kpi_cache.clear()
+
+    login = await async_client_no_auth.post(
+        "/api/v1/admin/login",
+        json={"email": "founder@drovi.co", "password": "test-admin-pass"},
+    )
+    token = login.json()["session_token"]
+
+    fake_session = AsyncMock()
+    call_count = 0
+
+    async def _execute(stmt, params=None):
+        nonlocal call_count
+        call_count += 1
+        sql = str(stmt)
+        if "GROUP BY" in sql:
+            return _FakeResult(rows=[])
+        return _FakeResult(scalar=0)
+
+    fake_session.execute.side_effect = _execute
+
+    @asynccontextmanager
+    async def fake_get_db_session():
+        yield fake_session
+
+    with patch("src.api.routes.admin.get_db_session", fake_get_db_session):
+        first = await async_client_no_auth.get(
+            "/api/v1/admin/kpis",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        first_count = call_count
+        second = await async_client_no_auth.get(
+            "/api/v1/admin/kpis",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first_count > 0
+    assert call_count == first_count
+
+
 async def test_admin_org_detail_smoke(monkeypatch, async_client_no_auth):
     _set_admin_env(monkeypatch)
     login = await async_client_no_auth.post(

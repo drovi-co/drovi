@@ -83,6 +83,68 @@ function parseModuleGates(
   return result;
 }
 
+function parseStringMap(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+}
+
+function parseI18nOverrides(
+  raw: unknown
+): Record<string, Record<string, string>> {
+  if (!isRecord(raw)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(raw).map(([namespace, messages]) => [
+      namespace,
+      parseStringMap(messages),
+    ])
+  );
+}
+
+function parseStorageRules(raw: unknown): {
+  canonical_spine_table: string;
+  extension_payload_table: string;
+  typed_tables: Record<string, string>;
+  notes?: string | null;
+} {
+  if (!isRecord(raw)) {
+    return {
+      canonical_spine_table: "unified_intelligence_object",
+      extension_payload_table: "uio_extension_payload",
+      typed_tables: {},
+    };
+  }
+
+  const typedTables = isRecord(raw.typed_tables)
+    ? Object.fromEntries(
+        Object.entries(raw.typed_tables).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string"
+        )
+      )
+    : {};
+
+  return {
+    canonical_spine_table:
+      typeof raw.canonical_spine_table === "string"
+        ? raw.canonical_spine_table
+        : "unified_intelligence_object",
+    extension_payload_table:
+      typeof raw.extension_payload_table === "string"
+        ? raw.extension_payload_table
+        : "uio_extension_payload",
+    typed_tables: typedTables,
+    notes: typeof raw.notes === "string" ? raw.notes : undefined,
+  };
+}
+
 function parseManifest(payload: unknown): PluginManifest {
   if (!isRecord(payload)) {
     throw new Error("Invalid plugin manifest payload");
@@ -117,12 +179,35 @@ function parseManifest(payload: unknown): PluginManifest {
     : {};
 
   const uiHints = isRecord(payload.ui_hints) ? payload.ui_hints : {};
+  const extensionTypes = Array.isArray(payload.extension_types)
+    ? payload.extension_types
+        .filter(isRecord)
+        .map((item) => ({
+          type: typeof item.type === "string" ? item.type : "",
+          schema_version:
+            typeof item.schema_version === "string"
+              ? item.schema_version
+              : "1.0",
+          typed_table:
+            typeof item.typed_table === "string" ? item.typed_table : null,
+          description:
+            typeof item.description === "string" ? item.description : null,
+        }))
+        .filter((item) => item.type.length > 0)
+    : [];
+  const storageRules = parseStorageRules(payload.storage_rules);
+  const i18nOverrides = parseI18nOverrides(
+    payload.i18n_overrides ?? uiHints.i18n_overrides
+  );
 
   return {
     plugins,
     uio_types: uioTypes,
+    extension_types: extensionTypes,
     capabilities,
     ui_hints: uiHints,
+    storage_rules: storageRules,
+    i18n_overrides: i18nOverrides,
   };
 }
 

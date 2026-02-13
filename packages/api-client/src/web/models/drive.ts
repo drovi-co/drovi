@@ -14,6 +14,14 @@ export interface DriveDocument {
   updatedAt: string | null;
 }
 
+export interface DriveDocumentListResponse {
+  success: boolean;
+  items: DriveDocument[];
+  cursor: string | null;
+  hasMore: boolean;
+  total: number | null;
+}
+
 export interface DriveDocumentChunk {
   id: string;
   documentId: string;
@@ -91,6 +99,12 @@ export interface EvidenceArtifact {
   legal_hold: boolean | null;
   metadata: Record<string, unknown>;
   presigned_url: string | null;
+}
+
+export interface EvidenceArtifactPresign {
+  artifact_id: string;
+  presigned_url: string;
+  expires_in_seconds: number;
 }
 
 export function transformDriveDocument(

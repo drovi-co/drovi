@@ -10,11 +10,7 @@ import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
-import {
-  type DriveDocumentChunkDetail,
-  documentsAPI,
-  type EvidenceArtifact,
-} from "@/lib/api";
+import { type DriveDocumentChunkDetail, documentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type HighlightBox = {
@@ -129,16 +125,14 @@ export function DriveDocumentViewer({
   const artifactQuery = useQuery({
     queryKey: ["drive-chunk-artifact", organizationId, chunk?.imageArtifactId],
     queryFn: () =>
-      documentsAPI.getEvidenceArtifact({
+      documentsAPI.requestEvidenceArtifactUrl({
         organizationId,
         artifactId: chunk?.imageArtifactId as string,
-        includeUrl: true,
       }),
     enabled: Boolean(organizationId && chunk?.imageArtifactId),
   });
 
-  const artifact: EvidenceArtifact | null = artifactQuery.data ?? null;
-  const imageUrl = artifact?.presigned_url ?? null;
+  const imageUrl = artifactQuery.data?.presigned_url ?? null;
 
   const boxes = useMemo(() => {
     if (!chunk) return [];

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from src.plugins.contracts import UIOTypeSpec
+from typing import Any
+
+from src.plugins.contracts import ExtensionTypeSpec, UIOTypeSpec
 
 
 class CorePlugin:
@@ -16,6 +18,36 @@ class CorePlugin:
             UIOTypeSpec(type="claim", title="Claim"),
             UIOTypeSpec(type="brief", title="Brief"),
         ]
+
+    def extension_types(self) -> list[ExtensionTypeSpec]:
+        return []
+
+    def validate_extension_payload(
+        self,
+        *,
+        type_name: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        _ = type_name
+        return dict(payload or {})
+
+    async def upsert_typed_extension(
+        self,
+        *,
+        session,
+        organization_id: str,
+        uio_id: str,
+        type_name: str,
+        payload: dict[str, Any],
+    ) -> None:
+        _ = (session, organization_id, uio_id, type_name, payload)
+        return None
+
+    def migration_revisions(self) -> list[str]:
+        return []
+
+    def storage_rules(self) -> dict[str, str]:
+        return {}
 
     def capabilities(self) -> dict[str, bool]:
         return {
@@ -36,4 +68,3 @@ class CorePlugin:
                 "brief": "file-text",
             }
         }
-

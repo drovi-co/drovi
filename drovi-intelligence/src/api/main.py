@@ -51,6 +51,7 @@ from src.api.routes import (
     contradictions,
     customer,
     events,
+    extensions,
     evidence,
     guardrails,
     graph,
@@ -270,6 +271,7 @@ app.mount("/metrics", metrics_app)
 app.include_router(health.router, tags=["Health"])
 app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
+app.include_router(extensions.router, prefix="/api/v1", tags=["Extensions"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(actuations.router, prefix="/api/v1", tags=["Actuations"])

@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "@memorystack/mod-auth";
 import {
   createFileRoute,
   Outlet,
@@ -30,10 +31,14 @@ export const Route = createFileRoute("/dashboard")({
       await store.checkAuth();
     }
 
-    const user = useAuthStore.getState().user;
-    if (!user) {
+    const state = useAuthStore.getState();
+    const authDecision = requireAuthenticated({
+      isAuthenticated: Boolean(state.user),
+      isLoading: state.isLoading,
+    });
+    if (!(authDecision.allow || !authDecision.redirectTo)) {
       throw redirect({
-        to: "/login",
+        to: authDecision.redirectTo as "/login",
       });
     }
 
@@ -57,7 +62,7 @@ export const Route = createFileRoute("/dashboard")({
       }
     }
 
-    return { user };
+    return { user: state.user };
   },
 });
 

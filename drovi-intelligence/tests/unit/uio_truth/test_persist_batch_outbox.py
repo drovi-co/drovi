@@ -63,8 +63,14 @@ async def test_persist_extraction_batch_enqueues_derived_index_outbox_event(monk
     assert results.uios_created == [{"id": "u1", "type": "commitment"}]
     assert enqueue_mock.called
 
-    req = enqueue_mock.call_args.args[0]
-    assert req.organization_id == "org_1"
-    assert req.event_type == "indexes.derived.batch"
-    assert req.payload.get("analysis_id") == "analysis_1"
-    assert req.payload.get("uios_created") == [{"id": "u1", "type": "commitment"}]
+    requests = [c.args[0] for c in enqueue_mock.call_args_list]
+    assert len(requests) == 2
+
+    derived_req = next(r for r in requests if r.event_type == "indexes.derived.batch")
+    assert derived_req.organization_id == "org_1"
+    assert derived_req.payload.get("analysis_id") == "analysis_1"
+    assert derived_req.payload.get("uios_created") == [{"id": "u1", "type": "commitment"}]
+
+    preagg_req = next(r for r in requests if r.event_type == "indexes.console.preaggregate.refresh")
+    assert preagg_req.organization_id == "org_1"
+    assert preagg_req.payload.get("organization_id") == "org_1"

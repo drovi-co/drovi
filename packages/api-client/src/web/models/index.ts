@@ -58,12 +58,14 @@ export type {
   DriveDocument,
   DriveDocumentChunk,
   DriveDocumentChunkDetail,
+  DriveDocumentListResponse,
   DriveSearchHit,
   DriveSearchResponse,
   DriveUploadCompleteResponse,
   DriveUploadCreateResponse,
   DriveUploadPartsResponse,
   EvidenceArtifact,
+  EvidenceArtifactPresign,
 } from "./drive";
 export {
   transformDriveChunk,

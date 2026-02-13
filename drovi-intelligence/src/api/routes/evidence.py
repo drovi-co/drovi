@@ -129,6 +129,14 @@ class EvidenceArtifactResponse(BaseModel):
     presigned_url: str | None = None
 
 
+class EvidenceArtifactPresignResponse(BaseModel):
+    """Explicit short-lived access URL response for an artifact."""
+
+    artifact_id: str
+    presigned_url: str
+    expires_in_seconds: int
+
+
 class EvidenceArtifactCreate(BaseModel):
     organization_id: str
     artifact_type: str
@@ -525,7 +533,7 @@ async def get_evidence(
 async def get_evidence_artifact(
     artifact_id: str,
     organization_id: str,
-    include_url: bool = Query(default=True),
+    include_url: bool = Query(default=False),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """Fetch evidence artifact metadata and optional presigned URL."""
@@ -566,13 +574,8 @@ async def get_evidence_artifact(
         if include_url:
             storage = get_evidence_storage()
             presigned_url = await storage.create_presigned_url(row.storage_path)
-            if presigned_url:
-                await record_evidence_audit(
-                    artifact_id=artifact_id,
-                    organization_id=organization_id,
-                    action="presigned_url",
-                    actor_type="system",
-                )
+            # Compatibility mode for older clients that still request include_url.
+            # Audit is intentionally emitted by the explicit access endpoint below.
 
         return EvidenceArtifactResponse(
             id=row.id,
@@ -593,6 +596,62 @@ async def get_evidence_artifact(
             legal_hold=row.legal_hold,
             metadata=metadata,
             presigned_url=presigned_url,
+        )
+
+
+@router.post(
+    "/artifacts/{artifact_id}/presign",
+    response_model=EvidenceArtifactPresignResponse,
+)
+async def presign_evidence_artifact_url(
+    artifact_id: str,
+    organization_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Generate an explicit short-lived URL for artifact access."""
+    _validate_org_id(ctx, organization_id)
+
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT id, storage_path
+                FROM evidence_artifact
+                WHERE id = :artifact_id AND organization_id = :org_id
+                """
+            ),
+            {"artifact_id": artifact_id, "org_id": organization_id},
+        )
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Evidence artifact not found")
+
+        storage = get_evidence_storage()
+        presigned_url = await storage.create_presigned_url(row.storage_path)
+        if not presigned_url:
+            raise HTTPException(
+                status_code=503,
+                detail="Artifact URL is not available for this storage backend",
+            )
+
+        actor_type = "api_key" if ctx.key_id else "system"
+        await record_evidence_audit(
+            artifact_id=artifact_id,
+            organization_id=organization_id,
+            action="access_requested",
+            actor_type=actor_type,
+            actor_id=ctx.key_id,
+        )
+
+        settings = get_settings()
+        return EvidenceArtifactPresignResponse(
+            artifact_id=artifact_id,
+            presigned_url=presigned_url,
+            expires_in_seconds=int(settings.evidence_s3_presign_expiry_seconds or 3600),
         )
 
 
@@ -698,7 +757,7 @@ async def create_evidence_artifact(
         organization_id=payload.organization_id,
         action="created",
         actor_type="api",
-        actor_id=ctx.api_key_id,
+        actor_id=ctx.key_id,
         metadata={"artifact_type": payload.artifact_type},
     )
 

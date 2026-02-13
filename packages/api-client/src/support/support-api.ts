@@ -4,6 +4,7 @@ import type {
   SupportTicketCreated,
   SupportTicketDetailResponse,
   SupportTicketListItem,
+  SupportTicketListResponse,
 } from "./models";
 
 export function createSupportApi(client: ApiClient) {
@@ -30,10 +31,36 @@ export function createSupportApi(client: ApiClient) {
       });
     },
 
-    async listTickets(): Promise<{ tickets: SupportTicketListItem[] }> {
-      return client.requestJson<{ tickets: SupportTicketListItem[] }>(
-        "/support/tickets"
+    async listTickets(params?: {
+      q?: string;
+      status?: "open" | "pending" | "closed";
+      limit?: number;
+      cursor?: string;
+      includeTotal?: boolean;
+    }): Promise<{
+      tickets: SupportTicketListItem[];
+      cursor: string | null;
+      hasMore: boolean;
+      total: number | null;
+    }> {
+      const raw = await client.requestJson<SupportTicketListResponse>(
+        "/support/tickets",
+        {
+          query: {
+            q: params?.q,
+            status: params?.status,
+            limit: params?.limit,
+            cursor: params?.cursor,
+            include_total: params?.includeTotal,
+          },
+        }
       );
+      return {
+        tickets: raw.tickets ?? [],
+        cursor: raw.cursor ?? null,
+        hasMore: raw.has_more ?? false,
+        total: raw.total ?? null,
+      };
     },
 
     async getTicket(ticketId: string): Promise<SupportTicketDetailResponse> {

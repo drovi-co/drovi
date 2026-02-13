@@ -2,14 +2,15 @@ import type { ApiClient } from "../http/client";
 
 import type {
   DriveAskResponse,
-  DriveDocument,
   DriveDocumentChunk,
   DriveDocumentChunkDetail,
+  DriveDocumentListResponse,
   DriveSearchResponse,
   DriveUploadCompleteResponse,
   DriveUploadCreateResponse,
   DriveUploadPartsResponse,
   EvidenceArtifact,
+  EvidenceArtifactPresign,
 } from "./models";
 import {
   transformDriveChunk,
@@ -84,20 +85,30 @@ export function createDocumentsApi(client: ApiClient) {
     async list(params: {
       organizationId?: string;
       limit?: number;
-    }): Promise<{ success: boolean; items: DriveDocument[] }> {
+      cursor?: string;
+      includeTotal?: boolean;
+    }): Promise<DriveDocumentListResponse> {
       const raw = await client.requestJson<{
         success: boolean;
         items: Array<Record<string, unknown>>;
+        cursor?: string | null;
+        has_more?: boolean;
+        total?: number | null;
       }>("/documents", {
         query: {
           organization_id: params.organizationId,
           limit: params.limit,
+          cursor: params.cursor,
+          include_total: params.includeTotal,
         },
       });
 
       return {
         success: raw.success,
         items: (raw.items ?? []).map(transformDriveDocument),
+        cursor: raw.cursor ?? null,
+        hasMore: raw.has_more ?? false,
+        total: raw.total ?? null,
       };
     },
 
@@ -177,7 +188,22 @@ export function createDocumentsApi(client: ApiClient) {
         {
           query: {
             organization_id: params.organizationId,
-            include_url: params.includeUrl === false ? "false" : undefined,
+            include_url: params.includeUrl === true ? "true" : undefined,
+          },
+        }
+      );
+    },
+
+    async requestEvidenceArtifactUrl(params: {
+      organizationId: string;
+      artifactId: string;
+    }): Promise<EvidenceArtifactPresign> {
+      return client.requestJson<EvidenceArtifactPresign>(
+        `/evidence/artifacts/${params.artifactId}/presign`,
+        {
+          method: "POST",
+          query: {
+            organization_id: params.organizationId,
           },
         }
       );

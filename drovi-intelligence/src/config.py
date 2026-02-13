@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     database_url: PostgresDsn = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/drovi"
     )
+    # Connection pooling mode:
+    # - "pooled": async SQLAlchemy QueuePool (container/server deployments)
+    # - "null": NullPool (serverless / one-shot workers)
+    db_pool_mode: Literal["pooled", "null"] = Field(default="pooled")
+    db_pool_size: int = Field(default=20)
+    db_pool_max_overflow: int = Field(default=20)
+    db_pool_timeout_seconds: int = Field(default=30)
+    db_pool_recycle_seconds: int = Field(default=1800)
+    db_raw_pool_min_size: int = Field(default=5)
+    db_raw_pool_max_size: int = Field(default=20)
 
     # FalkorDB (Graph Database)
     falkordb_host: str = Field(default="localhost")

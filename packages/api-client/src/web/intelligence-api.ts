@@ -11,10 +11,11 @@ export function createIntelligenceApi(client: ApiClient) {
       time_range?: string;
       cursor?: string;
       limit?: number;
+      includeTotal?: boolean;
     }): Promise<UIOListResponse> {
       const raw = await client.requestJson<{
         items: Record<string, unknown>[];
-        total: number;
+        total?: number | null;
         cursor: string | null;
         has_more: boolean;
       }>("/uios/v2", {
@@ -24,12 +25,13 @@ export function createIntelligenceApi(client: ApiClient) {
           time_range: params?.time_range,
           cursor: params?.cursor,
           limit: params?.limit,
+          include_total: params?.includeTotal,
         },
       });
 
       return {
         items: raw.items.map(transformUIO),
-        total: raw.total,
+        total: raw.total ?? raw.items.length,
         cursor: raw.cursor,
         hasMore: raw.has_more,
       };

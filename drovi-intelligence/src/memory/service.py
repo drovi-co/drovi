@@ -350,11 +350,11 @@ class MemoryService:
             params["status"] = status
 
         if mode in ("truth", "both"):
-            conditions.append("valid_from <= :as_of")
-            conditions.append("(valid_to IS NULL OR valid_to > :as_of)")
+            conditions.append("valid_range @> :as_of")
         if mode in ("knowledge", "both"):
-            conditions.append("system_from <= :as_of")
-            conditions.append("(system_to IS NULL OR system_to > :as_of)")
+            conditions.append(
+                "tstzrange(system_from, COALESCE(system_to, 'infinity'::timestamptz), '[)') @> :as_of"
+            )
 
         where_clause = ""
         if conditions:

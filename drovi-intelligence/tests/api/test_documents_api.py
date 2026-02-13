@@ -195,3 +195,61 @@ class TestDocumentUploads:
         assert data["success"] is True
         assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_existing"
+
+
+class TestDocumentListing:
+    async def test_list_documents_returns_keyset_cursor_and_optional_total(self, async_client):
+        session = AsyncMock()
+        list_result = MagicMock()
+        list_result.fetchall.return_value = [
+            SimpleNamespace(
+                id="doc_1",
+                title="Doc 1",
+                file_name="doc1.pdf",
+                mime_type="application/pdf",
+                byte_size=100,
+                sha256="a" * 64,
+                status="uploaded",
+                folder_path="/",
+                tags=[],
+                page_count=1,
+                evidence_artifact_id="evh_1",
+                created_at="2026-02-09T10:00:00+00:00",
+                updated_at="2026-02-09T10:00:00+00:00",
+            ),
+            SimpleNamespace(
+                id="doc_0",
+                title="Doc 0",
+                file_name="doc0.pdf",
+                mime_type="application/pdf",
+                byte_size=50,
+                sha256="b" * 64,
+                status="uploaded",
+                folder_path="/",
+                tags=[],
+                page_count=1,
+                evidence_artifact_id="evh_0",
+                created_at="2026-02-08T10:00:00+00:00",
+                updated_at="2026-02-08T10:00:00+00:00",
+            ),
+        ]
+        count_result = MagicMock()
+        count_result.fetchone.return_value = SimpleNamespace(count=12)
+        session.execute = AsyncMock(side_effect=[list_result, count_result])
+
+        @asynccontextmanager
+        async def fake_session():
+            yield session
+
+        with patch("src.api.routes.documents.get_db_session", fake_session):
+            resp = await async_client.get(
+                "/api/v1/documents?organization_id=org_test&limit=1&include_total=true"
+            )
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["success"] is True
+        assert len(payload["items"]) == 1
+        assert payload["has_more"] is True
+        assert payload["cursor"]
+        assert payload["total"] == 12

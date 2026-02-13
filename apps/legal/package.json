@@ -1,0 +1,38 @@
+{
+  "name": "legal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "serve": "vite preview",
+    "start": "vite",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorystack/mod-ask": "workspace:*",
+    "@memorystack/mod-auth": "workspace:*",
+    "@memorystack/mod-console": "workspace:*",
+    "@memorystack/mod-continuums": "workspace:*",
+    "@memorystack/mod-drive": "workspace:*",
+    "@memorystack/mod-evidence": "workspace:*",
+    "@memorystack/mod-kit": "workspace:*",
+    "@memorystack/mod-onboarding": "workspace:*",
+    "@memorystack/mod-sources": "workspace:*",
+    "@memorystack/mod-teams": "workspace:*",
+    "@memorystack/ui-theme": "workspace:*",
+    "@memorystack/vertical-runtime": "workspace:*",
+    "@tailwindcss/vite": "^4.0.15",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "catalog:",
+    "vite": "^6.2.2"
+  }
+}

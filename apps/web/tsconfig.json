@@ -23,11 +23,41 @@
       "@memorystack/core-hooks/*": ["../../packages/core-hooks/src/*"],
       "@memorystack/core-shell": ["../../packages/core-shell/src/index.ts"],
       "@memorystack/core-shell/*": ["../../packages/core-shell/src/*"],
+      "@memorystack/mod-ask": ["../../packages/mod-ask/src/index.ts"],
+      "@memorystack/mod-ask/*": ["../../packages/mod-ask/src/*"],
+      "@memorystack/mod-auth": ["../../packages/mod-auth/src/index.ts"],
+      "@memorystack/mod-auth/*": ["../../packages/mod-auth/src/*"],
+      "@memorystack/mod-console": ["../../packages/mod-console/src/index.ts"],
+      "@memorystack/mod-console/*": ["../../packages/mod-console/src/*"],
+      "@memorystack/mod-continuums": [
+        "../../packages/mod-continuums/src/index.ts"
+      ],
+      "@memorystack/mod-continuums/*": ["../../packages/mod-continuums/src/*"],
+      "@memorystack/mod-drive": ["../../packages/mod-drive/src/index.ts"],
+      "@memorystack/mod-drive/*": ["../../packages/mod-drive/src/*"],
+      "@memorystack/mod-evidence": ["../../packages/mod-evidence/src/index.ts"],
+      "@memorystack/mod-evidence/*": ["../../packages/mod-evidence/src/*"],
+      "@memorystack/mod-kit": ["../../packages/mod-kit/src/index.ts"],
+      "@memorystack/mod-kit/*": ["../../packages/mod-kit/src/*"],
+      "@memorystack/mod-onboarding": [
+        "../../packages/mod-onboarding/src/index.ts"
+      ],
+      "@memorystack/mod-onboarding/*": ["../../packages/mod-onboarding/src/*"],
+      "@memorystack/mod-sources": ["../../packages/mod-sources/src/index.ts"],
+      "@memorystack/mod-sources/*": ["../../packages/mod-sources/src/*"],
+      "@memorystack/mod-teams": ["../../packages/mod-teams/src/index.ts"],
+      "@memorystack/mod-teams/*": ["../../packages/mod-teams/src/*"],
       "@memorystack/ui-theme": ["../../packages/ui-theme/src/index.ts"],
       "@memorystack/ui-theme/*": ["../../packages/ui-theme/src/*"],
       "@memorystack/ui-core": ["../../packages/ui-core/src/index.ts"],
       "@memorystack/ui-core/*": ["../../packages/ui-core/src/*"],
-      "@memorystack/i18n": ["../../packages/i18n/src/index.tsx"]
+      "@memorystack/i18n": ["../../packages/i18n/src/index.tsx"],
+      "@memorystack/vertical-runtime": [
+        "../../packages/vertical-runtime/src/index.ts"
+      ],
+      "@memorystack/vertical-runtime/*": [
+        "../../packages/vertical-runtime/src/*"
+      ]
     }
   }
 }

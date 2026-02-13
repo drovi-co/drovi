@@ -20,6 +20,13 @@ export interface SupportTicketListItem {
   last_message_preview: string | null;
 }
 
+export interface SupportTicketListResponse {
+  tickets: SupportTicketListItem[];
+  cursor: string | null;
+  has_more: boolean;
+  total: number | null;
+}
+
 export interface SupportTicketMessageItem {
   id: string;
   direction: "inbound" | "outbound" | string;

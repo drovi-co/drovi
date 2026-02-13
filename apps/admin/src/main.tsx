@@ -5,7 +5,7 @@ import ReactDOM from "react-dom/client";
 import { I18nProvider, normalizeLocale } from "./i18n";
 import { queryClient } from "./lib/query-client";
 import { initSentry } from "./lib/sentry";
-import { routeTree } from "./routeTree.gen";
+import { routeTree } from "./route-tree";
 
 // Initialize Sentry for error tracking
 initSentry();

@@ -1,62 +1,33 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
-import { AuthLayout, SignInForm, SignUpForm } from "@/components/auth";
-import { useT } from "@/i18n";
+import { requireGuest } from "@memorystack/mod-auth";
+import {
+  createFileRoute,
+  lazyRouteComponent,
+  redirect,
+} from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/auth";
+import { getWebPostLoginRedirect } from "@/modules/runtime";
 
 export const Route = createFileRoute("/login")({
-  component: LoginPage,
+  component: lazyRouteComponent(
+    () => import("@/modules/auth/pages/login-page"),
+    "LoginPage"
+  ),
   beforeLoad: async () => {
     const store = useAuthStore.getState();
     if (!store.user) {
       await store.checkAuth();
     }
-    const user = useAuthStore.getState().user;
-    if (user) {
-      throw redirect({ to: "/dashboard" });
+    const state = useAuthStore.getState();
+    const decision = requireGuest(
+      {
+        isAuthenticated: Boolean(state.user),
+        isLoading: state.isLoading,
+      },
+      getWebPostLoginRedirect()
+    );
+
+    if (!(decision.allow || !decision.redirectTo)) {
+      throw redirect({ to: decision.redirectTo as "/dashboard" });
     }
   },
 });
-
-type AuthView = "sign-in" | "sign-up";
-
-function LoginPage() {
-  const [view, setView] = useState<AuthView>(() => {
-    if (typeof window === "undefined") return "sign-in";
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode");
-    const invite = params.get("invite");
-    if (mode === "sign-up" || invite) return "sign-up";
-    return "sign-in";
-  });
-  const t = useT();
-
-  const getTitle = () => {
-    switch (view) {
-      case "sign-in":
-        return t("auth.signInTitle");
-      case "sign-up":
-        return t("auth.signUpTitle");
-    }
-  };
-
-  const getDescription = () => {
-    switch (view) {
-      case "sign-in":
-        return t("auth.signInDescription");
-      case "sign-up":
-        return t("auth.signUpDescription");
-    }
-  };
-
-  return (
-    <AuthLayout description={getDescription()} title={getTitle()}>
-      {view === "sign-in" && (
-        <SignInForm onSwitchToSignUp={() => setView("sign-up")} />
-      )}
-      {view === "sign-up" && (
-        <SignUpForm onSwitchToSignIn={() => setView("sign-in")} />
-      )}
-    </AuthLayout>
-  );
-}

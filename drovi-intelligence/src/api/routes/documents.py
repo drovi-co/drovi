@@ -8,6 +8,7 @@ Implements:
 
 from __future__ import annotations
 
+import base64
 import json
 from datetime import datetime
 from typing import Any
@@ -16,12 +17,18 @@ from uuid import uuid4
 import structlog
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import text
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
 from src.config import get_settings
 from src.db.client import get_db_session
+from src.documents.events import (
+    emit_document_failed,
+    emit_document_uploaded,
+    get_document_broadcaster,
+)
 from src.evidence.register import register_evidence_artifact
 from src.jobs.queue import EnqueueJobRequest, enqueue_job
 from src.documents.storage import (
@@ -471,6 +478,14 @@ async def complete_document_upload(
                 {"doc_id": str(getattr(row, "document_id")), "org_id": org_id},
             )
             await session.commit()
+        try:
+            await emit_document_failed(
+                organization_id=org_id,
+                document_id=str(getattr(row, "document_id")),
+                error="upload_complete_failed",
+            )
+        except Exception:
+            pass
         raise DroviError(
             code="documents.upload.complete_failed",
             message="Failed to complete upload",
@@ -542,6 +557,14 @@ async def complete_document_upload(
             {"doc_id": str(getattr(row, "document_id")), "org_id": org_id, "evidence_id": evidence_id},
         )
         await session.commit()
+    try:
+        await emit_document_uploaded(
+            organization_id=org_id,
+            document_id=str(getattr(row, "document_id")),
+            file_name=None,
+        )
+    except Exception:
+        pass
 
     return DocumentUploadCompleteResponse(
         document_id=str(getattr(row, "document_id")),
@@ -574,19 +597,87 @@ class DocumentListItem(BaseModel):
 class DocumentListResponse(BaseModel):
     success: bool = True
     items: list[DocumentListItem] = Field(default_factory=list)
+    cursor: str | None = None
+    has_more: bool = False
+    total: int | None = None
+
+
+@router.get("/events")
+async def stream_document_events(
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    org_id = organization_id or ctx.organization_id
+    _validate_org(ctx, org_id)
+
+    async def event_generator():
+        yield {
+            "event": "connected",
+            "data": json.dumps({"organization_id": org_id}),
+        }
+        broadcaster = get_document_broadcaster()
+        async for event in broadcaster.subscribe(org_id):
+            yield {
+                "event": event.event_type,
+                "data": event.model_dump_json(),
+            }
+
+    return EventSourceResponse(event_generator())
+
+
+def _encode_documents_cursor(created_at: datetime, document_id: str) -> str:
+    payload = {
+        "v": 1,
+        "kind": "keyset",
+        "created_at": created_at.isoformat(),
+        "id": document_id,
+    }
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+
+
+def _decode_documents_cursor(cursor: str | None) -> tuple[datetime, str] | tuple[None, None]:
+    if not cursor:
+        return None, None
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+    except Exception:
+        return None, None
+
+    created_at = payload.get("created_at")
+    item_id = payload.get("id")
+    if not isinstance(created_at, str) or not isinstance(item_id, str):
+        return None, None
+
+    try:
+        return datetime.fromisoformat(created_at), item_id
+    except ValueError:
+        return None, None
 
 
 @router.get("", response_model=DocumentListResponse)
 async def list_documents(
     organization_id: str | None = None,
     limit: int = 50,
+    cursor: str | None = None,
+    include_total: bool = False,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> DocumentListResponse:
     org_id = organization_id or ctx.organization_id
     _validate_org(ctx, org_id)
     limit = max(1, min(int(limit), 200))
+    cursor_created_at, cursor_id = _decode_documents_cursor(cursor)
 
     async with get_db_session() as session:
+        where_clauses = ["organization_id = :org_id"]
+        params: dict[str, Any] = {"org_id": org_id, "limit": limit + 1}
+        if cursor_created_at and cursor_id:
+            where_clauses.append(
+                "(created_at < :cursor_created_at OR (created_at = :cursor_created_at AND id::text < :cursor_id))"
+            )
+            params["cursor_created_at"] = cursor_created_at
+            params["cursor_id"] = cursor_id
+        where_sql = " AND ".join(where_clauses)
+
         rows = (
             await session.execute(
                 text(
@@ -606,17 +697,33 @@ async def list_documents(
                         created_at,
                         updated_at
                     FROM document
-                    WHERE organization_id = :org_id
-                    ORDER BY created_at DESC
+                    WHERE {where_sql}
+                    ORDER BY created_at DESC, id DESC
                     LIMIT :limit
-                    """
+                    """.format(where_sql=where_sql)
                 ),
-                {"org_id": org_id, "limit": limit},
+                params,
             )
         ).fetchall()
 
+        total: int | None = None
+        if include_total:
+            total_row = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*) AS count
+                        FROM document
+                        WHERE organization_id = :org_id
+                        """
+                    ),
+                    {"org_id": org_id},
+                )
+            ).fetchone()
+            total = int(getattr(total_row, "count", 0) or 0)
+
     items: list[DocumentListItem] = []
-    for row in rows:
+    for row in rows[:limit]:
         items.append(
             DocumentListItem(
                 id=str(row.id),
@@ -635,7 +742,18 @@ async def list_documents(
             )
         )
 
-    return DocumentListResponse(success=True, items=items)
+    has_more = len(rows) > limit
+    next_cursor: str | None = None
+    if has_more and items and items[-1].created_at:
+        next_cursor = _encode_documents_cursor(items[-1].created_at, items[-1].id)
+
+    return DocumentListResponse(
+        success=True,
+        items=items,
+        cursor=next_cursor,
+        has_more=has_more,
+        total=total,
+    )
 
 
 class DocumentChunkListItem(BaseModel):

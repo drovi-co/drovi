@@ -18,7 +18,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "check-types": "turbo check-types",
+    "check-types": "turbo check-types && bun run check:module-contracts",
     "typecheck": "turbo check-types",
     "lint": "bun x ultracite check",
     "lint:fix": "bun x ultracite fix",
@@ -49,7 +49,8 @@
     "test:run": "vitest run --config vitest.node.config.ts && vitest run --config vitest.browser.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.node.config.ts && vitest run --coverage --config vitest.browser.config.ts",
     "test:e2e": "playwright test",
-    "api:generate": "python3 scripts/generate_api_types.py"
+    "api:generate": "python3 scripts/generate_api_types.py",
+    "check:module-contracts": "node scripts/check_module_contracts.mjs"
   },
   "dependencies": {
     "@memorystack/env": "workspace:*",

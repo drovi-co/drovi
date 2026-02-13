@@ -11,11 +11,28 @@ export interface PluginManifestTypeSpec {
   high_stakes?: boolean;
 }
 
+export interface PluginManifestExtensionTypeSpec {
+  type: string;
+  schema_version?: string;
+  typed_table?: string | null;
+  description?: string | null;
+}
+
+export interface PluginManifestStorageRules {
+  canonical_spine_table: string;
+  extension_payload_table: string;
+  typed_tables: Record<string, string>;
+  notes?: string | null;
+}
+
 export interface PluginManifest {
   plugins: string[];
   uio_types: PluginManifestTypeSpec[];
+  extension_types: PluginManifestExtensionTypeSpec[];
   capabilities: Record<string, boolean>;
   ui_hints: Record<string, unknown>;
+  storage_rules: PluginManifestStorageRules;
+  i18n_overrides?: Record<string, Record<string, string>>;
 }
 
 export interface VerticalManifestCache {

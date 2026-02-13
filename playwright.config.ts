@@ -11,7 +11,8 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "bun --cwd apps/web run dev -- --host 127.0.0.1 --port 5173",
+    command: "bun run dev -- --host 127.0.0.1 --port 5173",
+    cwd: "apps/web",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

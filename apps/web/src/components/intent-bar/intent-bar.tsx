@@ -1,13 +1,13 @@
 import {
   Command,
+  CommandBarDialog,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
   Kbd,
-} from "@memorystack/ui-core/command";
-import { Dialog, DialogContent } from "@memorystack/ui-core/dialog";
+} from "@memorystack/core-shell";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -1160,165 +1160,165 @@ export function IntentBar() {
   };
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <DialogContent
-        className="max-w-[760px] gap-0 overflow-hidden p-0"
-        showCloseButton={false}
-      >
-        <div className="border-border border-b bg-muted/15">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <ModePill
-              current={mode}
-              mode="ask"
-              onSelect={setMode}
-              shortcut="⌥1"
-            />
-            <ModePill
-              current={mode}
-              mode="find"
-              onSelect={setMode}
-              shortcut="⌥2"
-            />
-            <ModePill
-              current={mode}
-              mode="build"
-              onSelect={setMode}
-              shortcut="⌥3"
-            />
-            <ModePill
-              current={mode}
-              mode="act"
-              onSelect={setMode}
-              shortcut="⌥4"
-            />
-            <ModePill
-              current={mode}
-              mode="inspect"
-              onSelect={setMode}
-              shortcut="⌥5"
-            />
-            <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
-              <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
-                {t(modeMeta.hintKey)}
-              </span>
-              <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
-                esc
-              </span>
-            </div>
+    <CommandBarDialog
+      className="max-w-[760px] gap-0 overflow-hidden p-0"
+      onOpenChange={setOpen}
+      open={open}
+      showCloseButton={false}
+    >
+      <div className="border-border border-b bg-muted/15">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <ModePill
+            current={mode}
+            mode="ask"
+            onSelect={setMode}
+            shortcut="⌥1"
+          />
+          <ModePill
+            current={mode}
+            mode="find"
+            onSelect={setMode}
+            shortcut="⌥2"
+          />
+          <ModePill
+            current={mode}
+            mode="build"
+            onSelect={setMode}
+            shortcut="⌥3"
+          />
+          <ModePill
+            current={mode}
+            mode="act"
+            onSelect={setMode}
+            shortcut="⌥4"
+          />
+          <ModePill
+            current={mode}
+            mode="inspect"
+            onSelect={setMode}
+            shortcut="⌥5"
+          />
+          <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
+            <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
+              {t(modeMeta.hintKey)}
+            </span>
+            <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
+              esc
+            </span>
           </div>
+        </div>
 
-          {mode === "find" ? (
-            <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
-              <FilterPill
-                active={findFilters.uios}
-                label={t("intentBar.filters.uios")}
-                onClick={() =>
-                  setFindFilters((prev) => ({ ...prev, uios: !prev.uios }))
-                }
-              />
-              <FilterPill
-                active={findFilters.messages}
-                label={t("intentBar.filters.messages")}
-                onClick={() =>
-                  setFindFilters((prev) => ({
-                    ...prev,
-                    messages: !prev.messages,
-                  }))
-                }
-              />
-              <FilterPill
-                active={findFilters.docs}
-                label={t("intentBar.filters.docs")}
-                onClick={() =>
-                  setFindFilters((prev) => ({ ...prev, docs: !prev.docs }))
-                }
-              />
-              <FilterPill
-                active={findFilters.continuums}
-                label={t("intentBar.filters.continuums")}
-                onClick={() =>
-                  setFindFilters((prev) => ({
-                    ...prev,
-                    continuums: !prev.continuums,
-                  }))
-                }
-              />
-              <div className="ml-auto flex items-center gap-2">
-                <FilterPill
-                  active={showDebug}
-                  label={t("intentBar.filters.debug")}
-                  onClick={() => setShowDebug((prev) => !prev)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-end px-3 pb-2">
+        {mode === "find" ? (
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+            <FilterPill
+              active={findFilters.uios}
+              label={t("intentBar.filters.uios")}
+              onClick={() =>
+                setFindFilters((prev) => ({ ...prev, uios: !prev.uios }))
+              }
+            />
+            <FilterPill
+              active={findFilters.messages}
+              label={t("intentBar.filters.messages")}
+              onClick={() =>
+                setFindFilters((prev) => ({
+                  ...prev,
+                  messages: !prev.messages,
+                }))
+              }
+            />
+            <FilterPill
+              active={findFilters.docs}
+              label={t("intentBar.filters.docs")}
+              onClick={() =>
+                setFindFilters((prev) => ({ ...prev, docs: !prev.docs }))
+              }
+            />
+            <FilterPill
+              active={findFilters.continuums}
+              label={t("intentBar.filters.continuums")}
+              onClick={() =>
+                setFindFilters((prev) => ({
+                  ...prev,
+                  continuums: !prev.continuums,
+                }))
+              }
+            />
+            <div className="ml-auto flex items-center gap-2">
               <FilterPill
                 active={showDebug}
                 label={t("intentBar.filters.debug")}
                 onClick={() => setShowDebug((prev) => !prev)}
               />
             </div>
-          )}
-        </div>
-
-        <Command
-          className={cn(
-            "h-[420px] rounded-none border-0 shadow-none",
-            // Slightly denser list in the command bar
-            "[&_[cmdk-list]]:max-h-[340px]"
-          )}
-        >
-          <CommandInput
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return;
-              if (mode === "ask") {
-                e.preventDefault();
-                handleAsk();
-              }
-            }}
-            onValueChange={(value) => {
-              setQuery(value);
-              setAskResult(null);
-            }}
-            placeholder={t(modeMeta.placeholderKey)}
-            ref={(node) => {
-              inputRef.current = node;
-            }}
-            value={query}
-          />
-          <CommandList>{renderBody()}</CommandList>
-        </Command>
-
-        <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">
-              {t("intentBar.footer.openWith")}
-            </span>
-            <span className="inline-flex items-center gap-1 font-mono">
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </span>
-            <span className="hidden sm:inline">{t("intentBar.footer.or")}</span>
-            <span className="inline-flex items-center gap-1 font-mono sm:hidden">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-            </span>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
+        ) : (
+          <div className="flex items-center justify-end px-3 pb-2">
+            <FilterPill
+              active={showDebug}
+              label={t("intentBar.filters.debug")}
+              onClick={() => setShowDebug((prev) => !prev)}
+            />
+          </div>
+        )}
+      </div>
+
+      <Command
+        className={cn(
+          "h-[420px] rounded-none border-0 shadow-none",
+          // Slightly denser list in the command bar
+          "[&_[cmdk-list]]:max-h-[340px]"
+        )}
+      >
+        <CommandInput
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            if (mode === "ask") {
+              e.preventDefault();
+              handleAsk();
+            }
+          }}
+          onValueChange={(value) => {
+            setQuery(value);
+            setAskResult(null);
+          }}
+          placeholder={t(modeMeta.placeholderKey)}
+          ref={(node) => {
+            inputRef.current = node;
+          }}
+          value={query}
+        />
+        <CommandList>{renderBody()}</CommandList>
+      </Command>
+
+      <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:inline">
+            {t("intentBar.footer.openWith")}
+          </span>
+          <span className="inline-flex items-center gap-1 font-mono">
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+          <span className="hidden sm:inline">{t("intentBar.footer.or")}</span>
+          <span className="inline-flex items-center gap-1 font-mono sm:hidden">
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+        </div>
+        <div className="hidden items-center gap-2 sm:flex">
+          <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
+            {user?.org_id ?? t("intentBar.footer.orgFallback")}
+          </span>
+          {showDebug ? (
             <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
-              {user?.org_id ?? t("intentBar.footer.orgFallback")}
+              {pathname}
             </span>
-            {showDebug ? (
-              <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
-                {pathname}
-              </span>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </CommandBarDialog>
   );
 }
 

@@ -20,6 +20,7 @@
   },
   "peerDependencies": {
     "@memorystack/ui-core": "workspace:*",
+    "lucide-react": "^0.555.0",
     "next-themes": "^0.4.6",
     "react": "^19",
     "react-dom": "^19",

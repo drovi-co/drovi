@@ -104,6 +104,57 @@ class TestSupportTicketAdminList:
         payload = response.json()
         assert payload["tickets"][0]["id"] == "tkt_abc123"
 
+    async def test_list_tickets_returns_cursor_and_optional_total(self, async_client):
+        session = AsyncMock()
+        list_result = MagicMock()
+        list_result.fetchall.return_value = [
+            SimpleNamespace(
+                id="tkt_abc123",
+                organization_id="org_test",
+                subject="Newest",
+                status="open",
+                priority="normal",
+                created_by_email="alice@example.com",
+                assignee_email=None,
+                created_via="web",
+                created_at="2026-02-08T00:00:00+00:00",
+                updated_at="2026-02-09T00:00:00+00:00",
+                last_message_at="2026-02-09T00:00:00+00:00",
+                message_count=1,
+                last_message_preview="hello",
+            ),
+            SimpleNamespace(
+                id="tkt_old",
+                organization_id="org_test",
+                subject="Older",
+                status="open",
+                priority="normal",
+                created_by_email="alice@example.com",
+                assignee_email=None,
+                created_via="web",
+                created_at="2026-02-07T00:00:00+00:00",
+                updated_at="2026-02-08T00:00:00+00:00",
+                last_message_at="2026-02-08T00:00:00+00:00",
+                message_count=1,
+                last_message_preview="older",
+            ),
+        ]
+        count_result = MagicMock()
+        count_result.fetchone.return_value = SimpleNamespace(count=9)
+        session.execute = AsyncMock(side_effect=[list_result, count_result])
+
+        with patch("src.api.routes.support.get_db_session", lambda: _fake_session(session)):
+            response = await async_client.get(
+                "/api/v1/support/tickets?limit=1&include_total=true"
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert len(payload["tickets"]) == 1
+        assert payload["has_more"] is True
+        assert payload["cursor"]
+        assert payload["total"] == 9
+
 
 class TestSupportTicketAdminDetail:
     async def test_get_ticket_returns_ticket_and_messages(self, async_client):

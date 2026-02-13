@@ -158,9 +158,9 @@ class ChangeTracker:
         Returns:
             List of ChangeRecords
         """
-        from src.db.client import get_db_pool
+        from src.db import get_raw_query_pool
 
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Build query
         query = """
@@ -367,9 +367,9 @@ class ChangeTracker:
         Returns:
             Dict mapping entity_type -> list of entity_ids
         """
-        from src.db.client import get_db_pool
+        from src.db import get_raw_query_pool
 
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         query = """
             SELECT DISTINCT entity_id, entity_type

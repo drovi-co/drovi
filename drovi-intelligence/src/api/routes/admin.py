@@ -107,6 +107,10 @@ class KPIsResponse(BaseModel):
     breakdowns: dict[str, Any] = Field(default_factory=dict)
 
 
+_KPI_CACHE_TTL_SECONDS = 30
+_kpi_cache: dict[str, tuple[datetime, KPIsResponse]] = {}
+
+
 @router.post("/login", response_model=AdminLoginResponse)
 async def admin_login(request: AdminLoginRequest, response: Response) -> AdminLoginResponse:
     """
@@ -173,6 +177,7 @@ async def admin_me(
 
 @router.get("/kpis", response_model=KPIsResponse)
 async def admin_kpis(
+    use_cache: bool = True,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
 ) -> KPIsResponse:
     """
@@ -185,6 +190,14 @@ async def admin_kpis(
         raise HTTPException(status_code=403, detail="Admin access required")
 
     now = datetime.now(timezone.utc)
+    cache_key = "global"
+    if use_cache:
+        cached = _kpi_cache.get(cache_key)
+        if cached:
+            cached_at, payload = cached
+            if (now - cached_at).total_seconds() <= _KPI_CACHE_TTL_SECONDS:
+                return payload
+
     since_24h = now - timedelta(hours=24)
     since_7d = now - timedelta(days=7)
 
@@ -393,7 +406,7 @@ async def admin_kpis(
         ),
     ]
 
-    return KPIsResponse(
+    response_payload = KPIsResponse(
         generated_at=now,
         blocks=blocks,
         breakdowns={
@@ -413,6 +426,9 @@ async def admin_kpis(
             ],
         },
     )
+    if use_cache:
+        _kpi_cache[cache_key] = (now, response_payload)
+    return response_payload
 
 
 class AdminOrgListItem(BaseModel):

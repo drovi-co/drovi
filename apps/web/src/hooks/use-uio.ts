@@ -7,7 +7,12 @@
  * Uses the Python backend API directly via the intelligenceAPI client.
  */
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { intelligenceAPI, type UIO, type UIOListResponse } from "@/lib/api";
 
 // =============================================================================
@@ -47,6 +52,35 @@ const uioKeys = {
       params.id,
     ] as const,
 };
+
+function patchUpdatedUIOInCache(queryClient: QueryClient, updated: UIO): void {
+  queryClient.setQueriesData<UIO>(
+    {
+      queryKey: uioKeys.details(),
+    },
+    (current) => {
+      if (!current) return current;
+      return current.id === updated.id ? updated : current;
+    }
+  );
+
+  queryClient.setQueriesData<UIOListResponse>(
+    {
+      queryKey: uioKeys.lists(),
+    },
+    (current) => {
+      if (!current) return current;
+      let changed = false;
+      const items = current.items.map((item) => {
+        if (item.id !== updated.id) return item;
+        changed = true;
+        return updated;
+      });
+      if (!changed) return current;
+      return { ...current, items };
+    }
+  );
+}
 
 // =============================================================================
 // Generic UIO Hooks
@@ -131,7 +165,12 @@ export function useUIOStats(params: {
       "stats",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "commitment", status: "all", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "commitment",
+        status: "all",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 
@@ -144,7 +183,12 @@ export function useUIOStats(params: {
       "stats",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "decision", status: "all", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "decision",
+        status: "all",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 
@@ -154,7 +198,12 @@ export function useUIOStats(params: {
       "stats",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "task", status: "all", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "task",
+        status: "all",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 
@@ -164,7 +213,12 @@ export function useUIOStats(params: {
       "stats",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "risk", status: "all", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "risk",
+        status: "all",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 
@@ -450,8 +504,8 @@ export function useUpdateUIO() {
     }) => {
       return intelligenceAPI.updateStatus(id, status);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -478,8 +532,8 @@ export function useCorrectUIO() {
     }) => {
       return intelligenceAPI.updateUIO(id, updates, organizationId);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -494,8 +548,8 @@ export function useDismissUIO() {
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
       return intelligenceAPI.updateStatus(id, "archived");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -510,8 +564,8 @@ export function useVerifyUIO() {
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
       return intelligenceAPI.updateStatus(id, "active");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -526,8 +580,8 @@ export function useArchiveUIO() {
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
       return intelligenceAPI.updateStatus(id, "archived");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -542,8 +596,8 @@ export function useMarkCompleteUIO() {
     mutationFn: async ({ id }: { id: string; organizationId?: string }) => {
       return intelligenceAPI.updateStatus(id, "completed");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -565,8 +619,8 @@ export function useSnoozeUIO() {
       // For now, just mark as in_progress (snooze functionality would need backend support)
       return intelligenceAPI.updateStatus(id, "in_progress");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -588,8 +642,8 @@ export function useUpdateTaskStatusUIO() {
     }) => {
       return intelligenceAPI.updateStatus(id, status);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
     },
   });
 }
@@ -613,7 +667,7 @@ export function useUpdateTaskPriorityUIO() {
       return { id };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.all });
+      queryClient.invalidateQueries({ queryKey: uioKeys.lists() });
     },
   });
 }
@@ -645,6 +699,7 @@ export function useCommitmentStats(params: {
         type: "commitment",
         status: "open",
         limit: 1,
+        includeTotal: true,
       }),
     enabled,
   });
@@ -663,6 +718,7 @@ export function useCommitmentStats(params: {
         type: "commitment",
         status: "overdue",
         limit: 1,
+        includeTotal: true,
       }),
     enabled,
   });
@@ -681,6 +737,7 @@ export function useCommitmentStats(params: {
         type: "commitment",
         status: "completed",
         limit: 1,
+        includeTotal: true,
       }),
     enabled,
   });
@@ -727,6 +784,7 @@ export function useDecisionStats(params: {
         type: "decision",
         status: "all",
         limit: 1,
+        includeTotal: true,
       });
       return {
         data: {
@@ -757,7 +815,12 @@ export function useTaskStats(params: {
       "count",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "task", status: "open", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "task",
+        status: "open",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 
@@ -771,7 +834,12 @@ export function useTaskStats(params: {
       "count",
     ],
     queryFn: () =>
-      intelligenceAPI.listUIOs({ type: "task", status: "completed", limit: 1 }),
+      intelligenceAPI.listUIOs({
+        type: "task",
+        status: "completed",
+        limit: 1,
+        includeTotal: true,
+      }),
     enabled,
   });
 

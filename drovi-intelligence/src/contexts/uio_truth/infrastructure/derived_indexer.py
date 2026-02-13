@@ -21,6 +21,9 @@ from src.contexts.uio_truth.infrastructure.derived_indexer_evidence import (
 from src.contexts.uio_truth.infrastructure.derived_indexer_uio import (
     process_indexes_derived_batch_event,
 )
+from src.contexts.uio_truth.infrastructure.console_preaggregates import (
+    refresh_console_preaggregates,
+)
 
 
 async def process_outbox_event(
@@ -40,6 +43,14 @@ async def process_outbox_event(
         return await process_indexes_evidence_artifact_registered_event(graph=graph, payload=payload)
     if event_type == "indexes.documents.processed":
         return await process_indexes_documents_processed_event(graph=graph, payload=payload)
+    if event_type == "indexes.console.preaggregate.refresh":
+        organization_id = str(payload.get("organization_id") or "")
+        if not organization_id:
+            raise ValueError("indexes.console.preaggregate.refresh missing organization_id")
+        lookback_days = int(payload.get("lookback_days") or 90)
+        return await refresh_console_preaggregates(
+            organization_id=organization_id,
+            lookback_days=lookback_days,
+        )
 
     raise ValueError(f"Unknown outbox event_type: {event_type}")
-
