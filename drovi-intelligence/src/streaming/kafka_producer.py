@@ -321,6 +321,35 @@ class DroviKafkaProducer:
 
         return msg_id
 
+    async def produce_agent_inbox_event(
+        self,
+        *,
+        organization_id: str,
+        channel_type: str,
+        event_type: str,
+        payload: dict[str, Any],
+        source_id: str | None = None,
+    ) -> str:
+        """Produce AgentOS inbox presence events to the dedicated topic."""
+        settings = get_settings()
+        event = {
+            "organization_id": organization_id,
+            "channel_type": channel_type,
+            "event_type": event_type,
+            "source_id": source_id,
+            "payload": payload,
+        }
+        return await self.produce(
+            topic=settings.kafka_topic_agent_inbox_events,
+            value=event,
+            key=f"{organization_id}:{channel_type}:{source_id or event_type}",
+            headers={
+                "organization_id": organization_id,
+                "channel_type": channel_type,
+                "event_type": event_type,
+            },
+        )
+
     async def produce_normalized_record(
         self,
         organization_id: str,

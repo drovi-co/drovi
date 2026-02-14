@@ -1,8 +1,11 @@
-import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+
+import { AgentsMigrationPage } from "@/modules/agents/pages/agents-migration-page";
 
 export const Route = createFileRoute("/dashboard/continuums")({
-  component: lazyRouteComponent(
-    () => import("@/modules/continuums/pages/continuums-page"),
-    "ContinuumsPage"
-  ),
+  component: ContinuumsMigrationRoute,
 });
+
+function ContinuumsMigrationRoute() {
+  return <AgentsMigrationPage surface="continuums" />;
+}

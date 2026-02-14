@@ -6,6 +6,11 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AiRouteImport } from "./routes/ai";
 import { Route as DashboardActuationsRouteImport } from "./routes/dashboard/actuations";
+import { Route as DashboardAgentsCatalogRouteImport } from "./routes/dashboard/agents/catalog";
+import { Route as DashboardAgentsInboxRouteImport } from "./routes/dashboard/agents/inbox";
+import { Route as DashboardAgentsRunsRouteImport } from "./routes/dashboard/agents/runs";
+import { Route as DashboardAgentsStudioRouteImport } from "./routes/dashboard/agents/studio";
+import { Route as DashboardAgentsWorkforcesRouteImport } from "./routes/dashboard/agents/workforces";
 import { Route as DashboardBuilderRouteImport } from "./routes/dashboard/builder";
 import { Route as DashboardCommitmentsCommitmentIdRouteImport } from "./routes/dashboard/commitments/$commitmentId";
 import { Route as DashboardCommitmentsIndexRouteImport } from "./routes/dashboard/commitments/index";
@@ -161,6 +166,32 @@ const DashboardActuationsRoute = DashboardActuationsRouteImport.update({
   path: "/actuations",
   getParentRoute: () => DashboardRouteRoute,
 } as any);
+const DashboardAgentsCatalogRoute = DashboardAgentsCatalogRouteImport.update({
+  id: "/agents/catalog",
+  path: "/agents/catalog",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardAgentsInboxRoute = DashboardAgentsInboxRouteImport.update({
+  id: "/agents/inbox",
+  path: "/agents/inbox",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardAgentsRunsRoute = DashboardAgentsRunsRouteImport.update({
+  id: "/agents/runs",
+  path: "/agents/runs",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardAgentsStudioRoute = DashboardAgentsStudioRouteImport.update({
+  id: "/agents/studio",
+  path: "/agents/studio",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardAgentsWorkforcesRoute =
+  DashboardAgentsWorkforcesRouteImport.update({
+    id: "/agents/workforces",
+    path: "/agents/workforces",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
 const DashboardTeamIndexRoute = DashboardTeamIndexRouteImport.update({
   id: "/team/",
   path: "/team/",
@@ -272,6 +303,11 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute.addChildren([
   DashboardConsoleRoute,
   DashboardBuilderRoute,
   DashboardActuationsRoute,
+  DashboardAgentsCatalogRoute,
+  DashboardAgentsInboxRoute,
+  DashboardAgentsRunsRoute,
+  DashboardAgentsStudioRoute,
+  DashboardAgentsWorkforcesRoute,
   DashboardTeamIndexRoute,
   DashboardTasksIndexRoute,
   DashboardSourcesIndexRoute,

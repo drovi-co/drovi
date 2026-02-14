@@ -4,5 +4,8 @@
 import type { TicketListItem } from "./TicketListItem";
 
 export type ListTicketsResponse = {
+  cursor?: string | null;
+  has_more?: boolean;
   tickets: Array<TicketListItem>;
+  total?: number | null;
 };

@@ -109,6 +109,41 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: any;
       parentRoute: any;
     };
+    "/dashboard/agents/catalog": {
+      id: "/dashboard/agents/catalog";
+      path: "/agents/catalog";
+      fullPath: "/dashboard/agents/catalog";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/agents/inbox": {
+      id: "/dashboard/agents/inbox";
+      path: "/agents/inbox";
+      fullPath: "/dashboard/agents/inbox";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/agents/runs": {
+      id: "/dashboard/agents/runs";
+      path: "/agents/runs";
+      fullPath: "/dashboard/agents/runs";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/agents/studio": {
+      id: "/dashboard/agents/studio";
+      path: "/agents/studio";
+      fullPath: "/dashboard/agents/studio";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/agents/workforces": {
+      id: "/dashboard/agents/workforces";
+      path: "/agents/workforces";
+      fullPath: "/dashboard/agents/workforces";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
     "/dashboard/builder": {
       id: "/dashboard/builder";
       path: "/builder";

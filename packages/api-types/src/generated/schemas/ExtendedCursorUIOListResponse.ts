@@ -7,5 +7,5 @@ export type ExtendedCursorUIOListResponse = {
   cursor?: string | null;
   has_more?: boolean;
   items: Array<UIOResponse>;
-  total: number;
+  total?: number | null;
 };

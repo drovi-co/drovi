@@ -25,6 +25,8 @@ from src.monitoring.prometheus_server import maybe_start_prometheus_http_server
 from src.contexts.workflows.application.connector_backfill_workflow import (
     ConnectorBackfillWorkflow,
 )
+from src.contexts.workflows.application.agent_run_workflow import AgentRunWorkflow
+from src.contexts.workflows.application.agent_team_monitor_workflow import AgentTeamMonitorWorkflow
 from src.contexts.workflows.application.connector_sync_workflow import ConnectorSyncWorkflow
 from src.contexts.workflows.application.connector_webhook_ingest_workflow import (
     ConnectorWebhookIngestWorkflow,
@@ -49,6 +51,23 @@ from src.contexts.workflows.infrastructure.activities import (
     enqueue_background_job,
     get_background_job_snapshot,
     list_active_connections,
+)
+from src.contexts.workflows.infrastructure.agent_run_activities import (
+    acquire_lane,
+    acquire_org_slot,
+    compensate_run,
+    emit_run_event,
+    enqueue_dead_letter,
+    execute_step,
+    record_run_step,
+    release_lane,
+    release_org_slot,
+    update_run_status,
+)
+from src.contexts.workflows.infrastructure.agent_team_activities import (
+    fetch_run_statuses,
+    mark_runs_skipped,
+    start_child_run,
 )
 
 logger = structlog.get_logger()
@@ -204,6 +223,8 @@ async def _run() -> None:
             signal.signal(sig, lambda *_: stop_event.set())
 
     workflows = [
+        AgentRunWorkflow,
+        AgentTeamMonitorWorkflow,
         ConnectorSyncWorkflow,
         ConnectorBackfillWorkflow,
         ConnectorWebhookIngestWorkflow,
@@ -219,6 +240,19 @@ async def _run() -> None:
         IndexesOutboxDrainCronWorkflow,
     ]
     activities = [
+        update_run_status,
+        record_run_step,
+        acquire_lane,
+        acquire_org_slot,
+        release_lane,
+        release_org_slot,
+        execute_step,
+        compensate_run,
+        enqueue_dead_letter,
+        emit_run_event,
+        start_child_run,
+        fetch_run_statuses,
+        mark_runs_skipped,
         enqueue_background_job,
         get_background_job_snapshot,
         list_active_connections,

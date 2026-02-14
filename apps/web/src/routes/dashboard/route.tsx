@@ -135,6 +135,31 @@ function getBreadcrumbs(
     return breadcrumbs;
   }
 
+  if (pathname === "/dashboard/agents/workforces") {
+    breadcrumbs.push({ label: t("nav.items.agentWorkforces") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/studio") {
+    breadcrumbs.push({ label: t("nav.items.agentStudio") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/runs") {
+    breadcrumbs.push({ label: t("nav.items.agentRuns") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/catalog") {
+    breadcrumbs.push({ label: t("nav.items.agentCatalog") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/inbox") {
+    breadcrumbs.push({ label: t("nav.items.agentInbox") });
+    return breadcrumbs;
+  }
+
   // Simulations
   if (pathname === "/dashboard/simulations") {
     breadcrumbs.push({ label: t("nav.items.simulations") });
@@ -241,7 +266,7 @@ function getHeaderConfig(
   return {
     primaryAction: {
       id: "primary",
-      label: "pages.dashboard.home.primaryAction.newContinuum",
+      label: "nav.items.agentStudio",
       icon: Plus,
       onClick: handlers.onPrimaryAction,
     },
@@ -257,7 +282,7 @@ function DashboardLayout() {
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
-    onPrimaryAction: () => navigate({ to: "/dashboard/builder" }),
+    onPrimaryAction: () => navigate({ to: "/dashboard/agents/studio" }),
   });
 
   return (

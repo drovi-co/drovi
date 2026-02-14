@@ -4,6 +4,9 @@
 import type { DocumentListItem } from "./DocumentListItem";
 
 export type DocumentListResponse = {
+  cursor?: string | null;
+  has_more?: boolean;
   items?: Array<DocumentListItem>;
   success?: boolean;
+  total?: number | null;
 };

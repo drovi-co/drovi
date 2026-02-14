@@ -1,5 +1,5 @@
 export { createActuationsApi } from "./actuations-api";
-
+export { createAgentsApi } from "./agents-api";
 export { createAskApi } from "./ask-api";
 export { createAuditApi } from "./audit-api";
 export { createAuthApi } from "./auth-api";

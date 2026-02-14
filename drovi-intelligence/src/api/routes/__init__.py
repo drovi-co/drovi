@@ -1,6 +1,9 @@
 """API route modules."""
 
 from . import (
+    agents,
+    agents_starter_packs,
+    agents_work_products,
     analyze,
     analytics,
     actuations,
@@ -44,6 +47,9 @@ from . import (
 )
 
 __all__ = [
+    "agents",
+    "agents_starter_packs",
+    "agents_work_products",
     "analyze",
     "analytics",
     "actuations",

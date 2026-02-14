@@ -258,6 +258,7 @@ class Settings(BaseSettings):
             "intelligence.pipeline.input": 2,
             "drovi-intelligence": 3,
             "graph.changes": 4,
+            "agent.inbox.events": 1,
         }
     )
 
@@ -267,6 +268,7 @@ class Settings(BaseSettings):
     kafka_topic_pipeline_input: str = Field(default="intelligence.pipeline.input")
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
     kafka_topic_graph_changes: str = Field(default="graph.changes")
+    kafka_topic_agent_inbox_events: str = Field(default="agent.inbox.events")
     kafka_raw_event_mode: Literal["full", "webhook_only", "disabled"] = Field(default="full")
     kafka_retry_suffix: str = Field(default=".retry")
     kafka_dlq_suffix: str = Field(default=".dlq")
@@ -344,6 +346,34 @@ class Settings(BaseSettings):
     support_inbound_token: str | None = Field(default=None)
     support_inbox_email: str = Field(default="support@drovi.co")
     support_portal_url: str | None = Field(default=None)
+    agent_inbox_inbound_token: str | None = Field(default=None)
+    agent_identity_email_domain: str = Field(default="agents.drovi.co")
+    agent_identity_default_mode: Literal["virtual_persona", "dedicated_account"] = Field(default="virtual_persona")
+    agent_channel_allowed_domains: list[str] = Field(default_factory=list)
+    agent_channel_blocked_domains: list[str] = Field(default_factory=list)
+    browser_default_provider: Literal["local", "managed", "parallel"] = Field(default="local")
+    browser_provider_fallback_order: list[str] = Field(default_factory=lambda: ["managed", "parallel", "local"])
+    browser_action_timeout_ms: int = Field(default=15000)
+    browser_artifact_storage_path: str = Field(default="/tmp/drovi-browser-artifacts")
+    browser_local_playwright_enabled: bool = Field(default=False)
+    browser_local_headless: bool = Field(default=True)
+    browser_managed_base_url: str | None = Field(default=None)
+    browser_managed_api_key: str | None = Field(default=None)
+    browser_managed_timeout_seconds: float = Field(default=45.0)
+    browser_parallel_base_url: str | None = Field(default=None)
+    browser_parallel_api_key: str | None = Field(default=None)
+    browser_parallel_timeout_seconds: float = Field(default=45.0)
+    browser_allowed_domains: list[str] = Field(default_factory=list)
+    browser_blocked_domains: list[str] = Field(default_factory=list)
+    browser_block_private_network: bool = Field(default=True)
+    browser_uploads_enabled: bool = Field(default=True)
+    browser_downloads_enabled: bool = Field(default=True)
+    browser_secrets_encryption_key: str | None = Field(default=None)
+    agent_desktop_bridge_url: str = Field(default="http://127.0.0.1:43111")
+    agent_desktop_allowed_hosts: list[str] = Field(default_factory=lambda: ["127.0.0.1", "localhost"])
+    agent_desktop_bridge_bootstrap_secret: str | None = Field(default=None)
+    agent_desktop_bridge_remote_disable_token: str | None = Field(default=None)
+    agent_desktop_request_timeout_seconds: float = Field(default=15.0)
 
     # Orchestrator
     orchestrator_timeout_seconds: int = Field(default=60)

@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { defineConfig } from "vitest/config";
 
 import {
   sharedCoverageConfig,
@@ -21,10 +21,7 @@ export default defineConfig({
       ...sharedResolveAlias,
       // Force a single React runtime pair for browser tests.
       react: path.resolve(__dirname, "./apps/web/node_modules/react"),
-      "react-dom": path.resolve(
-        __dirname,
-        "./apps/web/node_modules/react-dom"
-      ),
+      "react-dom": path.resolve(__dirname, "./apps/web/node_modules/react-dom"),
       "react/jsx-runtime": path.resolve(
         __dirname,
         "./apps/web/node_modules/react/jsx-runtime.js"

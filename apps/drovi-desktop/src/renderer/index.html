@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drovi Desktop Companion</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="header">
+        <div class="brand">
+          <span class="brand-pulse"></span>
+          <div>
+            <h1>Drovi Desktop Companion</h1>
+            <p>Attended Mode for local AI employee actions</p>
+          </div>
+        </div>
+        <div id="bridge-status" class="status-chip status-starting">
+          Bridge Starting
+        </div>
+      </header>
+
+      <main class="content-grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Permission Queue</h2>
+            <p>Every high-risk desktop action requires an explicit decision.</p>
+          </div>
+          <div id="queue-list" class="queue-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Audit Stream</h2>
+            <p>Immutable local audit trail for attended execution.</p>
+          </div>
+          <div id="audit-list" class="audit-list"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -30,6 +30,7 @@ from src.api.middleware import (
 
 from src.config import get_settings
 from src.api.routes import (
+    agents,
     analyze,
     analytics,
     actuations,
@@ -77,6 +78,7 @@ from src.mcp.http import router as mcp_router
 from src.connectors.webhooks import webhook_router
 from src.connectors.scheduling.scheduler import init_scheduler, shutdown_scheduler
 from src.continuum.runtime import init_continuum_scheduler, shutdown_continuum_scheduler
+from src.contexts.workflows.infrastructure.client import close_temporal_client
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
 from src.streaming import init_streaming, shutdown_streaming
@@ -178,6 +180,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await shutdown_scheduler()
     if get_settings().continuum_scheduler_run_in_api and get_settings().environment != "test":
         await shutdown_continuum_scheduler()
+    await close_temporal_client()
     await close_graph_client()
     await close_db()
 
@@ -269,6 +272,7 @@ app.mount("/metrics", metrics_app)
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
 app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(extensions.router, prefix="/api/v1", tags=["Extensions"])

@@ -20,6 +20,7 @@ import {
   Gauge,
   Loader2,
   Mail,
+  MessageSquare,
   Search,
   Sparkles,
   Zap,
@@ -600,7 +601,7 @@ export function IntentBar() {
         title: t("intentBar.commands.goBuilder.title"),
         description: t("intentBar.commands.goBuilder.description"),
         icon: Code2,
-        to: "/dashboard/builder",
+        to: "/dashboard/agents/studio",
         shortcut: "⌥3",
       },
       {
@@ -608,14 +609,28 @@ export function IntentBar() {
         title: t("intentBar.commands.goContinuums.title"),
         description: t("intentBar.commands.goContinuums.description"),
         icon: Sparkles,
-        to: "/dashboard/continuums",
+        to: "/dashboard/agents/workforces",
       },
       {
         id: "go-exchange",
         title: t("intentBar.commands.goExchange.title"),
         description: t("intentBar.commands.goExchange.description"),
         icon: ClipboardList,
-        to: "/dashboard/exchange",
+        to: "/dashboard/agents/catalog",
+      },
+      {
+        id: "go-agent-runs",
+        title: t("intentBar.commands.goAgentRuns.title"),
+        description: t("intentBar.commands.goAgentRuns.description"),
+        icon: Activity,
+        to: "/dashboard/agents/runs",
+      },
+      {
+        id: "go-agent-inbox",
+        title: t("intentBar.commands.goAgentInbox.title"),
+        description: t("intentBar.commands.goAgentInbox.description"),
+        icon: MessageSquare,
+        to: "/dashboard/agents/inbox",
       },
     ];
 
@@ -1010,7 +1025,9 @@ export function IntentBar() {
                 {continuumResults.map((continuum) => (
                   <CommandItem
                     key={`continuum:${continuum.id}`}
-                    onSelect={() => handleNavigate("/dashboard/continuums")}
+                    onSelect={() =>
+                      handleNavigate("/dashboard/agents/workforces")
+                    }
                     value={`continuum ${continuum.name} ${continuum.description ?? ""}`}
                   >
                     <Sparkles className="h-4 w-4" />

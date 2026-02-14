@@ -24,7 +24,8 @@
       "!**/wrangler.jsonc",
       "!**/.source",
       "!**/convex/_generated",
-      "!**/.claude"
+      "!**/.claude",
+      "!openapi/openapi.json"
     ]
   },
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],

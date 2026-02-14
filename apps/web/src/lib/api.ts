@@ -17,6 +17,7 @@ import {
 } from "@memorystack/api-client";
 import {
   createActuationsApi,
+  createAgentsApi,
   createAskApi,
   createAuditApi,
   createAuthApi,
@@ -169,6 +170,7 @@ export async function apiFetch<T>(
 // =============================================================================
 
 export const authAPI = createAuthApi(client);
+export const agentsAPI = createAgentsApi(client);
 export const orgAPI = createOrgApi(client);
 export const connectionsAPI = createConnectionsApi(client);
 export const intelligenceAPI = createIntelligenceApi(client);

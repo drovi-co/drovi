@@ -8,9 +8,11 @@ import {
 import {
   Activity,
   BookOpen,
+  Bot,
   Calendar,
   CheckCircle2,
   FileText,
+  Inbox,
   Link2,
   ListTodo,
   Network,
@@ -20,6 +22,7 @@ import {
   Store,
   Terminal,
   Users,
+  Wrench,
   Zap,
 } from "lucide-react";
 import { useT } from "@/i18n";
@@ -92,22 +95,32 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     },
   ];
 
-  // Continuums and execution
-  const continuumNavItems: NavItem[] = [
+  // AgentOS surfaces
+  const agentNavItems: NavItem[] = [
     {
-      title: t("nav.items.continuums"),
-      url: "/dashboard/continuums",
-      icon: Sparkles,
+      title: t("nav.items.agentWorkforces"),
+      url: "/dashboard/agents/workforces",
+      icon: Bot,
     },
     {
-      title: t("nav.items.builder"),
-      url: "/dashboard/builder",
-      icon: FileText,
+      title: t("nav.items.agentStudio"),
+      url: "/dashboard/agents/studio",
+      icon: Wrench,
     },
     {
-      title: t("nav.items.exchange"),
-      url: "/dashboard/exchange",
+      title: t("nav.items.agentRuns"),
+      url: "/dashboard/agents/runs",
+      icon: Activity,
+    },
+    {
+      title: t("nav.items.agentCatalog"),
+      url: "/dashboard/agents/catalog",
       icon: Store,
+    },
+    {
+      title: t("nav.items.agentInbox"),
+      url: "/dashboard/agents/inbox",
+      icon: Inbox,
     },
   ];
 
@@ -175,7 +188,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={consoleNavItems} label={t("nav.groups.console")} />
         <NavMain items={memoryNavItems} label={t("nav.groups.memory")} />
         <NavMain items={discoveryNavItems} label={t("nav.groups.discovery")} />
-        <NavMain items={continuumNavItems} label={t("nav.groups.continuums")} />
+        <NavMain items={agentNavItems} label={t("nav.groups.continuums")} />
         <NavMain items={executionNavItems} label={t("nav.groups.execution")} />
         <NavMain items={sourcesNavItems} label={t("nav.groups.sources")} />
         <NavMain items={teamNavItems} label={t("nav.groups.management")} />
