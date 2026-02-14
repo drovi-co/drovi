@@ -24,7 +24,9 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
           <img
             alt="Drovi"
             className="h-8 w-8 rounded-lg"
+            height={32}
             src="/logo-dark.jpg"
+            width={32}
           />
           <span>{t("common.app")}</span>
         </Link>
@@ -49,7 +51,9 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
         </div>
 
         <div className="relative z-10 flex items-center gap-4 text-muted-foreground text-sm">
-          <span>&copy; {new Date().getFullYear()} {t("common.app")}</span>
+          <span>
+            &copy; {new Date().getFullYear()} {t("common.app")}
+          </span>
           <span className="text-border">&middot;</span>
           <Link className="transition-colors hover:text-foreground" to="/">
             {t("auth.links.privacy")}
@@ -73,7 +77,9 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
               <img
                 alt="Drovi"
                 className="h-8 w-8 rounded-lg"
+                height={32}
                 src="/logo-dark.jpg"
+                width={32}
               />
               <span>{t("common.app")}</span>
             </Link>

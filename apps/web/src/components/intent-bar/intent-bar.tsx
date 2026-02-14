@@ -1,3 +1,13 @@
+import {
+  Command,
+  CommandBarDialog,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  Kbd,
+} from "@memorystack/core-shell";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -10,6 +20,7 @@ import {
   Gauge,
   Loader2,
   Mail,
+  MessageSquare,
   Search,
   Sparkles,
   Zap,
@@ -17,30 +28,19 @@ import {
 import type { ElementType, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  Kbd,
-} from "@/components/ui/command";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  askAPI,
-  contentAPI,
-  continuumsAPI,
-  searchAPI,
-  type AskResponse,
-  type ContentSearchResult,
-  type SearchResult,
-} from "@/lib/api";
-import { useAuthStore } from "@/lib/auth";
-import { useApiTraceStore } from "@/lib/api-trace";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import {
+  type AskResponse,
+  agentsAPI,
+  askAPI,
+  type ContentSearchResult,
+  contentAPI,
+  type SearchResult,
+  searchAPI,
+} from "@/lib/api";
+import { useApiTraceStore } from "@/lib/api-trace";
+import { useAuthStore } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 type IntentBarMode = "ask" | "find" | "build" | "act" | "inspect";
 
@@ -169,7 +169,9 @@ function getResultSubtitle(result: SearchResult): string | null {
     props["summary"] ??
     props["text"];
   if (typeof description === "string" && description.trim().length > 0) {
-    return description.length > 120 ? `${description.slice(0, 120)}…` : description;
+    return description.length > 120
+      ? `${description.slice(0, 120)}…`
+      : description;
   }
   return null;
 }
@@ -251,9 +253,6 @@ function FilterPill({
 }) {
   return (
     <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] transition-colors",
         disabled ? "opacity-50" : "",
@@ -261,6 +260,9 @@ function FilterPill({
           ? "border-border bg-background text-foreground shadow-sm"
           : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
     >
       <span>{label}</span>
     </button>
@@ -284,7 +286,7 @@ export function IntentBar() {
     uios: true,
     messages: true,
     docs: true,
-    continuums: true,
+    agents: true,
   });
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -338,7 +340,7 @@ export function IntentBar() {
       uios: true,
       messages: true,
       docs: true,
-      continuums: true,
+      agents: true,
     });
   }, [open]);
 
@@ -361,9 +363,11 @@ export function IntentBar() {
     () => traces.find((t) => t.endpoint === "/api/v1/content/search") ?? null,
     [traces]
   );
-  const continuumsTrace = useMemo(
+  const agentsTrace = useMemo(
     () =>
-      traces.find((t) => t.endpoint.startsWith("/api/v1/continuums?")) ?? null,
+      traces.find((t) =>
+        t.endpoint.startsWith("/api/v1/agents/deployments?")
+      ) ?? null,
     [traces]
   );
 
@@ -390,15 +394,15 @@ export function IntentBar() {
         durationMs: contentTrace.durationMs,
       };
     }
-    if (continuumsTrace) {
-      snapshot.continuums = {
-        requestId: continuumsTrace.requestId,
-        status: continuumsTrace.status,
-        durationMs: continuumsTrace.durationMs,
+    if (agentsTrace) {
+      snapshot.agents = {
+        requestId: agentsTrace.requestId,
+        status: agentsTrace.status,
+        durationMs: agentsTrace.durationMs,
       };
     }
     return snapshot;
-  }, [askTrace, contentTrace, continuumsTrace, searchTrace]);
+  }, [agentsTrace, askTrace, contentTrace, searchTrace]);
 
   const {
     data: uioSearchResponse,
@@ -460,28 +464,31 @@ export function IntentBar() {
     staleTime: 10_000,
   });
 
-  const { data: continuums, isLoading: loadingContinuums } = useQuery({
-    queryKey: ["intent-bar-continuums", user?.org_id ?? "none"],
-    queryFn: () => continuumsAPI.list(user?.org_id ?? ""),
+  const { data: deployments, isLoading: loadingAgents } = useQuery({
+    queryKey: ["intent-bar-agent-deployments", user?.org_id ?? "none"],
+    queryFn: () => agentsAPI.listDeployments(user?.org_id ?? ""),
     enabled: open && mode === "find" && Boolean(user?.org_id),
     staleTime: 60_000,
   });
 
   const uioResults = uioSearchResponse?.results ?? [];
   const contentResults = contentSearchResponse?.results ?? [];
-  const continuumResults = useMemo(() => {
-    if (!findFilters.continuums) return [];
-    if (!continuums) return [];
+  const agentResults = useMemo(() => {
+    if (!findFilters.agents) return [];
+    if (!deployments) return [];
     const q = debouncedQuery.trim().toLowerCase();
     if (q.length < 2) return [];
-    return continuums
-      .filter((c) => {
-        const name = String(c.name ?? "").toLowerCase();
-        const desc = String(c.description ?? "").toLowerCase();
-        return name.includes(q) || desc.includes(q);
+    return deployments
+      .filter((deployment) => {
+        const deploymentId = deployment.id.toLowerCase();
+        const roleId = deployment.role_id.toLowerCase();
+        const status = deployment.status.toLowerCase();
+        return (
+          deploymentId.includes(q) || roleId.includes(q) || status.includes(q)
+        );
       })
       .slice(0, 8);
-  }, [continuums, debouncedQuery, findFilters.continuums]);
+  }, [debouncedQuery, deployments, findFilters.agents]);
 
   const handleAsk = async (overrideQuestion?: string) => {
     if (!user?.org_id) {
@@ -570,10 +577,8 @@ export function IntentBar() {
         when: () => pathname.startsWith("/dashboard/"),
         action: () => {
           const url =
-            typeof window !== "undefined"
-              ? window.location.href
-              : pathname;
-          void navigator.clipboard
+            typeof window !== "undefined" ? window.location.href : pathname;
+          navigator.clipboard
             .writeText(url)
             .then(() => toast.success(t("intentBar.toasts.linkCopied")))
             .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
@@ -587,7 +592,7 @@ export function IntentBar() {
         when: () => Boolean(currentUioId),
         action: () => {
           if (!currentUioId) return;
-          void navigator.clipboard
+          navigator.clipboard
             .writeText(currentUioId)
             .then(() => toast.success(t("intentBar.toasts.uioIdCopied")))
             .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
@@ -601,7 +606,7 @@ export function IntentBar() {
         title: t("intentBar.commands.goBuilder.title"),
         description: t("intentBar.commands.goBuilder.description"),
         icon: Code2,
-        to: "/dashboard/builder",
+        to: "/dashboard/agents/studio",
         shortcut: "⌥3",
       },
       {
@@ -609,14 +614,28 @@ export function IntentBar() {
         title: t("intentBar.commands.goContinuums.title"),
         description: t("intentBar.commands.goContinuums.description"),
         icon: Sparkles,
-        to: "/dashboard/continuums",
+        to: "/dashboard/agents/workforces",
       },
       {
         id: "go-exchange",
         title: t("intentBar.commands.goExchange.title"),
         description: t("intentBar.commands.goExchange.description"),
         icon: ClipboardList,
-        to: "/dashboard/exchange",
+        to: "/dashboard/agents/catalog",
+      },
+      {
+        id: "go-agent-runs",
+        title: t("intentBar.commands.goAgentRuns.title"),
+        description: t("intentBar.commands.goAgentRuns.description"),
+        icon: Activity,
+        to: "/dashboard/agents/runs",
+      },
+      {
+        id: "go-agent-inbox",
+        title: t("intentBar.commands.goAgentInbox.title"),
+        description: t("intentBar.commands.goAgentInbox.description"),
+        icon: MessageSquare,
+        to: "/dashboard/agents/inbox",
       },
     ];
 
@@ -700,7 +719,7 @@ export function IntentBar() {
                   : t("intentBar.answer.headingNoEvidence")
               }
             >
-              <div className="px-2 py-2 text-[13px] leading-relaxed text-foreground">
+              <div className="px-2 py-2 text-[13px] text-foreground leading-relaxed">
                 <div className="whitespace-pre-wrap">{askResult.answer}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
@@ -726,23 +745,16 @@ export function IntentBar() {
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading={t("intentBar.evidence.heading")}>
-              {!hasEvidence ? (
-                <>
-                  <IntentBarHint>
-                    {t("intentBar.evidence.noEvidence")}
-                  </IntentBarHint>
-                  <CommandItem onSelect={() => handleNavigate("/dashboard/sources")}>
-                    <ArrowRight className="h-4 w-4" />
-                    {t("intentBar.evidence.checkSources")}
-                  </CommandItem>
-                </>
-              ) : (
+              {hasEvidence ? (
                 citations.slice(0, 8).map((source, idx) => (
                   <CommandItem
                     key={`${source.segment_hash ?? idx}`}
                     onSelect={() => {
                       // Best-effort: jump to UIO if present, otherwise open the Sources page.
-                      const uioId = typeof source.uio_id === "string" ? source.uio_id : null;
+                      const uioId =
+                        typeof source.uio_id === "string"
+                          ? source.uio_id
+                          : null;
                       if (uioId) {
                         handleNavigate(`/dashboard/uio/${uioId}`);
                         return;
@@ -763,7 +775,8 @@ export function IntentBar() {
                           #{idx + 1}
                         </span>
                       </div>
-                      {typeof source.quoted_text === "string" && source.quoted_text.trim().length > 0 ? (
+                      {typeof source.quoted_text === "string" &&
+                      source.quoted_text.trim().length > 0 ? (
                         <span className="line-clamp-2 text-[12px] text-muted-foreground">
                           {source.quoted_text}
                         </span>
@@ -771,20 +784,26 @@ export function IntentBar() {
                     </div>
                   </CommandItem>
                 ))
+              ) : (
+                <>
+                  <IntentBarHint>
+                    {t("intentBar.evidence.noEvidence")}
+                  </IntentBarHint>
+                  <CommandItem
+                    onSelect={() => handleNavigate("/dashboard/sources")}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    {t("intentBar.evidence.checkSources")}
+                  </CommandItem>
+                </>
               )}
             </CommandGroup>
             {showDebug ? (
               <>
                 <CommandSeparator />
                 <CommandGroup heading={t("intentBar.groups.debug")}>
-                  <DebugTraceItem
-                    label="ask"
-                    trace={latestTraces.ask}
-                  />
-                  <DebugTraceItem
-                    label="search"
-                    trace={latestTraces.search}
-                  />
+                  <DebugTraceItem label="ask" trace={latestTraces.ask} />
+                  <DebugTraceItem label="search" trace={latestTraces.search} />
                   <DebugTraceItem
                     label="content"
                     trace={latestTraces.content}
@@ -806,7 +825,9 @@ export function IntentBar() {
       return (
         <>
           <IntentBarHint>
-            {asking ? t("intentBar.ask.hintAsking") : t("intentBar.ask.hintIdle")}
+            {asking
+              ? t("intentBar.ask.hintAsking")
+              : t("intentBar.ask.hintIdle")}
           </IntentBarHint>
           <CommandGroup heading={t("intentBar.ask.examplesHeading")}>
             {askExamples.map((example) => (
@@ -814,7 +835,7 @@ export function IntentBar() {
                 key={example}
                 onSelect={() => {
                   setQuery(example);
-                  void handleAsk(example);
+                  handleAsk(example);
                 }}
               >
                 <Sparkles className="h-4 w-4" />
@@ -828,10 +849,10 @@ export function IntentBar() {
 
     if (mode === "find") {
       const q = debouncedQuery.trim();
-      const anyLoading = searchingUios || searchingContent || loadingContinuums;
+      const anyLoading = searchingUios || searchingContent || loadingAgents;
       const anyError = uioSearchError || contentSearchError;
       const totalResults =
-        uioResults.length + contentResults.length + continuumResults.length;
+        uioResults.length + contentResults.length + agentResults.length;
 
       return (
         <>
@@ -914,7 +935,7 @@ export function IntentBar() {
                       <CommandItem
                         key={`uem:${result.id}`}
                         onSelect={() => {
-                          void navigator.clipboard
+                          navigator.clipboard
                             .writeText(snippet || title)
                             .then(() =>
                               toast.success(t("intentBar.toasts.copiedSnippet"))
@@ -928,7 +949,9 @@ export function IntentBar() {
                         <Mail className="h-4 w-4" />
                         <div className="flex w-full flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-medium">{title}</span>
+                            <span className="truncate font-medium">
+                              {title}
+                            </span>
                             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                               message
                             </span>
@@ -966,7 +989,7 @@ export function IntentBar() {
                       <CommandItem
                         key={`uem:${result.id}`}
                         onSelect={() => {
-                          void navigator.clipboard
+                          navigator.clipboard
                             .writeText(snippet || title)
                             .then(() =>
                               toast.success(t("intentBar.toasts.copiedSnippet"))
@@ -980,7 +1003,9 @@ export function IntentBar() {
                         <FileText className="h-4 w-4" />
                         <div className="flex w-full flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-medium">{title}</span>
+                            <span className="truncate font-medium">
+                              {title}
+                            </span>
                             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                               document
                             </span>
@@ -998,26 +1023,26 @@ export function IntentBar() {
             </>
           ) : null}
 
-          {continuumResults.length > 0 ? (
+          {agentResults.length > 0 ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading={t("intentBar.find.groups.continuums")}>
-                {continuumResults.map((continuum) => (
+              <CommandGroup heading={t("nav.items.agentWorkforces")}>
+                {agentResults.map((deployment) => (
                   <CommandItem
-                    key={`continuum:${continuum.id}`}
-                    onSelect={() => handleNavigate("/dashboard/continuums")}
-                    value={`continuum ${continuum.name} ${continuum.description ?? ""}`}
+                    key={`deployment:${deployment.id}`}
+                    onSelect={() =>
+                      handleNavigate("/dashboard/agents/workforces")
+                    }
+                    value={`deployment ${deployment.id} ${deployment.role_id} ${deployment.status}`}
                   >
                     <Sparkles className="h-4 w-4" />
                     <div className="flex w-full flex-col">
                       <span className="truncate font-medium">
-                        {continuum.name}
+                        {deployment.role_id}
                       </span>
-                      {continuum.description ? (
-                        <span className="line-clamp-2 text-[12px] text-muted-foreground">
-                          {continuum.description}
-                        </span>
-                      ) : null}
+                      <span className="line-clamp-2 text-[12px] text-muted-foreground">
+                        {deployment.id} · {deployment.status}
+                      </span>
                     </div>
                   </CommandItem>
                 ))}
@@ -1056,10 +1081,7 @@ export function IntentBar() {
               <CommandGroup heading={t("intentBar.groups.debug")}>
                 <DebugTraceItem label="search" trace={latestTraces.search} />
                 <DebugTraceItem label="content" trace={latestTraces.content} />
-                <DebugTraceItem
-                  label="continuums"
-                  trace={latestTraces.continuums}
-                />
+                <DebugTraceItem label="agents" trace={latestTraces.agents} />
               </CommandGroup>
             </>
           ) : null}
@@ -1071,7 +1093,7 @@ export function IntentBar() {
       {
         heading:
           mode === "build"
-            ? t("intentBar.groups.continuums")
+            ? t("nav.items.agentWorkforces")
             : mode === "act"
               ? t("intentBar.groups.execution")
               : t("intentBar.groups.surfaces"),
@@ -1143,10 +1165,7 @@ export function IntentBar() {
               <DebugTraceItem label="ask" trace={latestTraces.ask} />
               <DebugTraceItem label="search" trace={latestTraces.search} />
               <DebugTraceItem label="content" trace={latestTraces.content} />
-              <DebugTraceItem
-                label="continuums"
-                trace={latestTraces.continuums}
-              />
+              <DebugTraceItem label="agents" trace={latestTraces.agents} />
             </CommandGroup>
           </>
         ) : null}
@@ -1155,142 +1174,165 @@ export function IntentBar() {
   };
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <DialogContent
-        className="max-w-[760px] gap-0 overflow-hidden p-0"
-        showCloseButton={false}
-      >
-        <div className="border-border border-b bg-muted/15">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <ModePill current={mode} mode="ask" onSelect={setMode} shortcut="⌥1" />
-            <ModePill current={mode} mode="find" onSelect={setMode} shortcut="⌥2" />
-            <ModePill current={mode} mode="build" onSelect={setMode} shortcut="⌥3" />
-            <ModePill current={mode} mode="act" onSelect={setMode} shortcut="⌥4" />
-            <ModePill current={mode} mode="inspect" onSelect={setMode} shortcut="⌥5" />
-            <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
-              <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
-                {t(modeMeta.hintKey)}
-              </span>
-              <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
-                esc
-              </span>
-            </div>
+    <CommandBarDialog
+      className="max-w-[760px] gap-0 overflow-hidden p-0"
+      onOpenChange={setOpen}
+      open={open}
+      showCloseButton={false}
+    >
+      <div className="border-border border-b bg-muted/15">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <ModePill
+            current={mode}
+            mode="ask"
+            onSelect={setMode}
+            shortcut="⌥1"
+          />
+          <ModePill
+            current={mode}
+            mode="find"
+            onSelect={setMode}
+            shortcut="⌥2"
+          />
+          <ModePill
+            current={mode}
+            mode="build"
+            onSelect={setMode}
+            shortcut="⌥3"
+          />
+          <ModePill
+            current={mode}
+            mode="act"
+            onSelect={setMode}
+            shortcut="⌥4"
+          />
+          <ModePill
+            current={mode}
+            mode="inspect"
+            onSelect={setMode}
+            shortcut="⌥5"
+          />
+          <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
+            <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5">
+              {t(modeMeta.hintKey)}
+            </span>
+            <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
+              esc
+            </span>
           </div>
+        </div>
 
-          {mode === "find" ? (
-            <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
-              <FilterPill
-                active={findFilters.uios}
-                label={t("intentBar.filters.uios")}
-                onClick={() =>
-                  setFindFilters((prev) => ({ ...prev, uios: !prev.uios }))
-                }
-              />
-              <FilterPill
-                active={findFilters.messages}
-                label={t("intentBar.filters.messages")}
-                onClick={() =>
-                  setFindFilters((prev) => ({
-                    ...prev,
-                    messages: !prev.messages,
-                  }))
-                }
-              />
-              <FilterPill
-                active={findFilters.docs}
-                label={t("intentBar.filters.docs")}
-                onClick={() =>
-                  setFindFilters((prev) => ({ ...prev, docs: !prev.docs }))
-                }
-              />
-              <FilterPill
-                active={findFilters.continuums}
-                label={t("intentBar.filters.continuums")}
-                onClick={() =>
-                  setFindFilters((prev) => ({
-                    ...prev,
-                    continuums: !prev.continuums,
-                  }))
-                }
-              />
-              <div className="ml-auto flex items-center gap-2">
-                <FilterPill
-                  active={showDebug}
-                  label={t("intentBar.filters.debug")}
-                  onClick={() => setShowDebug((prev) => !prev)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-end px-3 pb-2">
+        {mode === "find" ? (
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+            <FilterPill
+              active={findFilters.uios}
+              label={t("intentBar.filters.uios")}
+              onClick={() =>
+                setFindFilters((prev) => ({ ...prev, uios: !prev.uios }))
+              }
+            />
+            <FilterPill
+              active={findFilters.messages}
+              label={t("intentBar.filters.messages")}
+              onClick={() =>
+                setFindFilters((prev) => ({
+                  ...prev,
+                  messages: !prev.messages,
+                }))
+              }
+            />
+            <FilterPill
+              active={findFilters.docs}
+              label={t("intentBar.filters.docs")}
+              onClick={() =>
+                setFindFilters((prev) => ({ ...prev, docs: !prev.docs }))
+              }
+            />
+            <FilterPill
+              active={findFilters.agents}
+              label={t("nav.items.agentWorkforces")}
+              onClick={() =>
+                setFindFilters((prev) => ({
+                  ...prev,
+                  agents: !prev.agents,
+                }))
+              }
+            />
+            <div className="ml-auto flex items-center gap-2">
               <FilterPill
                 active={showDebug}
                 label={t("intentBar.filters.debug")}
                 onClick={() => setShowDebug((prev) => !prev)}
               />
             </div>
-          )}
-        </div>
-
-        <Command
-          className={cn(
-            "h-[420px] rounded-none border-0 shadow-none",
-            // Slightly denser list in the command bar
-            "[&_[cmdk-list]]:max-h-[340px]"
-          )}
-        >
-          <CommandInput
-            autoFocus
-            ref={(node) => {
-              inputRef.current = node;
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return;
-              if (mode === "ask") {
-                e.preventDefault();
-                void handleAsk();
-              }
-            }}
-            onValueChange={(value) => {
-              setQuery(value);
-              setAskResult(null);
-            }}
-            placeholder={t(modeMeta.placeholderKey)}
-            value={query}
-          />
-          <CommandList>
-            {renderBody()}
-          </CommandList>
-        </Command>
-
-        <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">
-              {t("intentBar.footer.openWith")}
-            </span>
-            <span className="inline-flex items-center gap-1 font-mono">
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </span>
-            <span className="hidden sm:inline">{t("intentBar.footer.or")}</span>
-            <span className="inline-flex items-center gap-1 font-mono sm:hidden">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-            </span>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
+        ) : (
+          <div className="flex items-center justify-end px-3 pb-2">
+            <FilterPill
+              active={showDebug}
+              label={t("intentBar.filters.debug")}
+              onClick={() => setShowDebug((prev) => !prev)}
+            />
+          </div>
+        )}
+      </div>
+
+      <Command
+        className={cn(
+          "h-[420px] rounded-none border-0 shadow-none",
+          // Slightly denser list in the command bar
+          "[&_[cmdk-list]]:max-h-[340px]"
+        )}
+      >
+        <CommandInput
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            if (mode === "ask") {
+              e.preventDefault();
+              handleAsk();
+            }
+          }}
+          onValueChange={(value) => {
+            setQuery(value);
+            setAskResult(null);
+          }}
+          placeholder={t(modeMeta.placeholderKey)}
+          ref={(node) => {
+            inputRef.current = node;
+          }}
+          value={query}
+        />
+        <CommandList>{renderBody()}</CommandList>
+      </Command>
+
+      <div className="flex items-center justify-between border-border border-t bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:inline">
+            {t("intentBar.footer.openWith")}
+          </span>
+          <span className="inline-flex items-center gap-1 font-mono">
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+          <span className="hidden sm:inline">{t("intentBar.footer.or")}</span>
+          <span className="inline-flex items-center gap-1 font-mono sm:hidden">
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+        </div>
+        <div className="hidden items-center gap-2 sm:flex">
+          <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
+            {user?.org_id ?? t("intentBar.footer.orgFallback")}
+          </span>
+          {showDebug ? (
             <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
-              {user?.org_id ?? t("intentBar.footer.orgFallback")}
+              {pathname}
             </span>
-            {showDebug ? (
-              <span className="rounded border border-border/70 bg-muted/20 px-2 py-0.5 font-mono">
-                {pathname}
-              </span>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </CommandBarDialog>
   );
 }
 
@@ -1324,17 +1366,19 @@ function DebugTraceItem({
 
   return (
     <CommandItem
+      disabled={!requestId}
       onSelect={() => {
         if (!requestId) return;
-        void navigator.clipboard
+        navigator.clipboard
           .writeText(requestId)
           .then(() => toast.success(t("intentBar.toasts.requestIdCopied")))
           .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
       }}
-      disabled={!requestId}
       value={`trace ${label} ${requestId} ${statusLabel}`}
     >
-      <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {label}
+      </span>
       <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
         <span>{statusLabel}</span>
         <span>{duration}</span>

@@ -34,8 +34,9 @@ export function recordApiTrace(entry: ApiTraceEntry) {
   useApiTraceStore.getState().record(entry);
 }
 
-export function getLastTraceForEndpoint(endpoint: string): ApiTraceEntry | null {
+export function getLastTraceForEndpoint(
+  endpoint: string
+): ApiTraceEntry | null {
   const traces = useApiTraceStore.getState().traces;
   return traces.find((t) => t.endpoint === endpoint) ?? null;
 }
-

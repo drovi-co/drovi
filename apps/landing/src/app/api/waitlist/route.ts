@@ -23,8 +23,11 @@ export async function POST(request: Request) {
   const email = (payload.email || "").trim();
   const name = (payload.name || "").trim();
 
-  if (!email || !isValidEmail(email)) {
-    return Response.json({ ok: false, error: "Invalid email" }, { status: 400 });
+  if (!(email && isValidEmail(email))) {
+    return Response.json(
+      { ok: false, error: "Invalid email" },
+      { status: 400 }
+    );
   }
   if (!name || name.length < 2) {
     return Response.json({ ok: false, error: "Invalid name" }, { status: 400 });
@@ -33,7 +36,8 @@ export async function POST(request: Request) {
   const apiKey = process.env.RESEND_API_KEY;
   if (apiKey) {
     const to = process.env.WAITLIST_NOTIFY_TO || "support@drovi.co";
-    const from = process.env.WAITLIST_NOTIFY_FROM || "Drovi <onboarding@resend.dev>";
+    const from =
+      process.env.WAITLIST_NOTIFY_FROM || "Drovi <onboarding@resend.dev>";
 
     const lines = [
       `email: ${email}`,
@@ -73,4 +77,3 @@ export async function POST(request: Request) {
   // If Resend is not configured, we still return OK so the UI works in dev.
   return Response.json({ ok: true });
 }
-

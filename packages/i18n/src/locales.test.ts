@@ -1,4 +1,5 @@
 import { baseResources } from "@memorystack/i18n";
+import { describe, expect, test } from "vitest";
 
 function flattenKeys(node: unknown, prefix = ""): string[] {
   if (!node || typeof node !== "object" || Array.isArray(node)) {
@@ -28,4 +29,3 @@ describe("i18n locales", () => {
     expect(missingInEn).toEqual([]);
   });
 });
-

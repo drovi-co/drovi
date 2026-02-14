@@ -8,7 +8,9 @@
 /**
  * Safely parse a date value, returning null for invalid inputs.
  */
-export function safeParseDate(value: string | Date | null | undefined): Date | null {
+export function safeParseDate(
+  value: string | Date | null | undefined
+): Date | null {
   if (!value) return null;
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
@@ -134,7 +136,9 @@ export function formatDueDate(
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.floor((dateOnly.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor(
+    (dateOnly.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
   const isOverdue = diffDays < 0;
   const isToday = diffDays === 0;

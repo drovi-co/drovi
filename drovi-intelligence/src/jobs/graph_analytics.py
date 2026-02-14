@@ -19,19 +19,16 @@ Scheduling:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import structlog
 
-from src.graph.client import get_graph_client, get_analytics_engine, GraphAnalyticsEngine
+from src.graph.analytics import GraphAnalyticsEngine, get_analytics_engine
+from src.graph.client import get_graph_client
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @dataclass
@@ -100,7 +97,7 @@ class GraphAnalyticsJob:
             organization_id=organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
 
         # Get list of organizations to process
         org_ids = await self._get_organizations(organization_id)
@@ -146,8 +143,8 @@ class GraphAnalyticsJob:
                     "error": str(e),
                 })
 
-        results["completed_at"] = utc_now().isoformat()
-        results["duration_seconds"] = (utc_now() - start_time).total_seconds()
+        results["completed_at"] = utc_now_naive().isoformat()
+        results["duration_seconds"] = (utc_now_naive() - start_time).total_seconds()
 
         logger.info(
             "Graph analytics job completed",
@@ -177,7 +174,7 @@ class GraphAnalyticsJob:
             organization_id=organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
         engine = await self._get_engine()
 
         # Get organizations
@@ -222,8 +219,8 @@ class GraphAnalyticsJob:
                     "error": str(e),
                 })
 
-        results["completed_at"] = utc_now().isoformat()
-        results["duration_seconds"] = (utc_now() - start_time).total_seconds()
+        results["completed_at"] = utc_now_naive().isoformat()
+        results["duration_seconds"] = (utc_now_naive() - start_time).total_seconds()
 
         logger.info(
             "PageRank job completed",
@@ -253,7 +250,7 @@ class GraphAnalyticsJob:
             organization_id=organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
         engine = await self._get_engine()
 
         org_ids = await self._get_organizations(organization_id)
@@ -301,8 +298,8 @@ class GraphAnalyticsJob:
                     "error": str(e),
                 })
 
-        results["completed_at"] = utc_now().isoformat()
-        results["duration_seconds"] = (utc_now() - start_time).total_seconds()
+        results["completed_at"] = utc_now_naive().isoformat()
+        results["duration_seconds"] = (utc_now_naive() - start_time).total_seconds()
 
         logger.info(
             "Community detection job completed",
@@ -332,7 +329,7 @@ class GraphAnalyticsJob:
             organization_id=organization_id,
         )
 
-        start_time = utc_now()
+        start_time = utc_now_naive()
         engine = await self._get_engine()
 
         org_ids = await self._get_organizations(organization_id)
@@ -380,8 +377,8 @@ class GraphAnalyticsJob:
                     "error": str(e),
                 })
 
-        results["completed_at"] = utc_now().isoformat()
-        results["duration_seconds"] = (utc_now() - start_time).total_seconds()
+        results["completed_at"] = utc_now_naive().isoformat()
+        results["duration_seconds"] = (utc_now_naive() - start_time).total_seconds()
 
         logger.info(
             "Betweenness job completed",
@@ -460,7 +457,7 @@ class GraphAnalyticsJob:
     ) -> int:
         """Persist PageRank scores to Contact nodes."""
         graph = await get_graph_client()
-        now = utc_now().isoformat()
+        now = utc_now_naive().isoformat()
         updated = 0
 
         for contact_id, score in scores.items():
@@ -495,7 +492,7 @@ class GraphAnalyticsJob:
     ) -> int:
         """Persist community assignments to Contact nodes."""
         graph = await get_graph_client()
-        now = utc_now().isoformat()
+        now = utc_now_naive().isoformat()
         updated = 0
 
         for contact_id, community_id in communities.items():
@@ -530,7 +527,7 @@ class GraphAnalyticsJob:
     ) -> int:
         """Persist betweenness centrality scores to Contact nodes."""
         graph = await get_graph_client()
-        now = utc_now().isoformat()
+        now = utc_now_naive().isoformat()
         updated = 0
 
         for contact_id, score in scores.items():
@@ -627,14 +624,14 @@ class AnalyticsCache:
         """Get cached value if not expired."""
         if key in self._cache:
             value, timestamp = self._cache[key]
-            if (utc_now() - timestamp).total_seconds() < self.ttl_seconds:
+            if (utc_now_naive() - timestamp).total_seconds() < self.ttl_seconds:
                 return value
             del self._cache[key]
         return None
 
     def set(self, key: str, value: Any) -> None:
         """Set cached value with current timestamp."""
-        self._cache[key] = (value, utc_now())
+        self._cache[key] = (value, utc_now_naive())
 
     def invalidate(self, pattern: str | None = None) -> int:
         """Invalidate cache entries matching pattern."""

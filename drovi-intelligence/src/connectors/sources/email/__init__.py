@@ -1,6 +1,7 @@
-"""Email connectors."""
+"""Email connector sources.
 
-from src.connectors.sources.email.gmail.connector import GmailConnector
-from src.connectors.sources.email.outlook.connector import OutlookConnector
+Keep this module import-free to prevent circular imports during definition/registry loading.
+"""
 
-__all__ = ["GmailConnector", "OutlookConnector"]
+from __future__ import annotations
+

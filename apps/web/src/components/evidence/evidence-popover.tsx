@@ -7,6 +7,14 @@
 // in a popover that appears on hover or click.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@memorystack/ui-core/popover";
+import { Progress } from "@memorystack/ui-core/progress";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle2,
@@ -20,15 +28,6 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 import type { EvidenceType } from "./evidence-detail-sheet";

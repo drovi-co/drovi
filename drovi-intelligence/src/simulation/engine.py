@@ -11,7 +11,7 @@ from sqlalchemy import text
 from src.continuum.manager import compute_next_run_at, fetch_continuum_definition
 from src.db.client import get_db_session
 from src.db.rls import set_rls_context
-from src.memory.service import utc_now
+from src.kernel.time import utc_now_naive
 from src.simulation.models import (
     ContinuumPreviewResponse,
     RiskSnapshot,
@@ -159,7 +159,7 @@ async def _fetch_commitments(organization_id: str) -> list[dict[str, Any]]:
 
 async def run_simulation(request: SimulationRequest) -> SimulationResponse:
     commitments = await _fetch_commitments(request.organization_id)
-    now = utc_now()
+    now = utc_now_naive()
 
     baseline = _summarize_commitments(
         commitments,
@@ -255,7 +255,7 @@ async def preview_continuum(
     )
 
     commitments = await _fetch_commitments(organization_id)
-    now = utc_now()
+    now = utc_now_naive()
     snapshot = _summarize_commitments(commitments, now=now, horizon_days=horizon_days)
 
     next_run = compute_next_run_at(definition, now)

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 import structlog
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, BackgroundTasks, Request, Response
 from fastapi.responses import StreamingResponse
 from prometheus_client import Counter
 from pydantic import BaseModel, Field
@@ -37,6 +37,10 @@ from src.auth.pilot_accounts import (
 from src.db.models.pilot import Organization
 from src.notifications.invites import render_org_invite_email
 from src.notifications.resend import send_resend_email
+from src.contexts.org.application.plugin_manifest import get_org_plugin_manifest
+from src.kernel.hashing import sha256_hexdigest
+from src.kernel.serialization import json_dumps_canonical
+from src.plugins.contracts import PluginManifest
 
 logger = structlog.get_logger()
 
@@ -257,6 +261,32 @@ async def update_org_info(
         member_count=member_count,
         connection_count=connection_count,
     )
+
+
+@router.get("/manifest", response_model=PluginManifest)
+async def get_plugin_manifest(
+    request: Request,
+    response: Response,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> PluginManifest | Response:
+    """Return enabled plugins, registered types, and UI capability hints for this org.
+
+    This is consumed by vertical runtimes to decide which modules/routes to enable
+    and how to render type-specific UIs.
+    """
+    manifest = get_org_plugin_manifest(org_id=token.org_id)
+
+    raw = json_dumps_canonical(manifest.model_dump())
+    etag = sha256_hexdigest(raw.encode("utf-8"))
+    cache_control = "private, max-age=60"
+
+    if_none_match = request.headers.get("If-None-Match")
+    if if_none_match and if_none_match.strip().strip('"') == etag:
+        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": cache_control})
+
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = cache_control
+    return manifest
 
 
 @router.get("/members", response_model=MembersResponse)

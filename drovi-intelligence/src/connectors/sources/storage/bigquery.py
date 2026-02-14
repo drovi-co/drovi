@@ -15,6 +15,7 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.storage.bigquery_definition import CAPABILITIES
 
 logger = structlog.get_logger()
 
@@ -32,6 +33,9 @@ class BigQueryConnector(BaseConnector):
     - Full refresh mode
     - Large table streaming
     """
+
+    connector_type = "bigquery"
+    capabilities = CAPABILITIES
 
     def __init__(self):
         """Initialize BigQuery connector."""

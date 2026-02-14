@@ -11,22 +11,23 @@ import {
   Controls,
   MiniMap,
   type NodeMouseHandler,
+  type NodeTypes,
   Panel,
   ReactFlow,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Badge } from "@memorystack/ui-core/badge";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useT } from "@/i18n";
 import type { GraphEdge, GraphNode, GraphNodeData } from "../-types";
 import { useGraphLayout } from "../hooks/-use-graph-layout";
 import { CommitmentNode } from "./nodes/-commitment-node";
 import { ContactNode } from "./nodes/-contact-node";
 import { DecisionNode } from "./nodes/-decision-node";
 import { TaskNode } from "./nodes/-task-node";
-import { useT } from "@/i18n";
 
 // =============================================================================
 // NODE TYPES REGISTRATION
@@ -39,8 +40,7 @@ const nodeTypes = {
   commitment: CommitmentNode,
   decision: DecisionNode,
   task: TaskNode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any;
+} as unknown as NodeTypes;
 
 // =============================================================================
 // PROPS

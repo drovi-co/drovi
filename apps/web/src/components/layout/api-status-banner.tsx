@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { Button } from "@memorystack/ui-core/button";
 import { AlertTriangle, Copy, RefreshCw, ServerCog } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
 import { getApiBase, healthAPI } from "@/lib/api";
 import { useApiReachability } from "@/lib/api-reachability";
 import { cn } from "@/lib/utils";
@@ -45,20 +44,20 @@ export function ApiStatusBanner() {
   };
 
   return (
-    <div className="sticky top-0 z-40 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-background to-rose-500/10 px-4 py-3 backdrop-blur">
+    <div className="sticky top-0 z-40 border-amber-500/20 border-b bg-gradient-to-r from-amber-500/10 via-background to-rose-500/10 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600">
             <AlertTriangle className="h-4 w-4" />
           </div>
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
               Drovi API unreachable
-              <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-amber-600">
+              <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] text-amber-600 uppercase tracking-[0.2em]">
                 offline
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               We can’t reach{" "}
               <span className="font-mono text-foreground">{getApiBase()}</span>.
               Check that the docker stack is running and the API is healthy.

@@ -6,18 +6,18 @@
 // Used in task rows, task cards, inbox rows, commitment/decision cards.
 //
 
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@memorystack/ui-core/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useUpdateTaskStatusUIO } from "@/hooks/use-uio";
-import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 import { STATUS_CONFIG, STATUS_ORDER, type TaskStatus } from "./task-types";
 

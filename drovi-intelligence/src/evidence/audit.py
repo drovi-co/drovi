@@ -3,17 +3,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
 
 from src.db.client import get_db_session
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
+from src.kernel.time import utc_now
 
 async def record_evidence_audit(
     artifact_id: str,
@@ -48,3 +44,4 @@ async def record_evidence_audit(
                 "created_at": utc_now(),
             },
         )
+        await session.commit()

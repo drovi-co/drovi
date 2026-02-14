@@ -34,11 +34,23 @@ async def init_db() -> None:
     settings = get_settings()
     database_url = str(settings.database_url)
 
+    engine_kwargs: dict[str, object] = {
+        "echo": settings.log_level == "DEBUG",
+    }
+    if settings.db_pool_mode == "null":
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        # QueuePool-backed defaults for long-running container workloads.
+        engine_kwargs["pool_size"] = max(1, int(settings.db_pool_size))
+        engine_kwargs["max_overflow"] = max(0, int(settings.db_pool_max_overflow))
+        engine_kwargs["pool_timeout"] = max(1, int(settings.db_pool_timeout_seconds))
+        engine_kwargs["pool_recycle"] = max(60, int(settings.db_pool_recycle_seconds))
+        engine_kwargs["pool_pre_ping"] = True
+
     # Create async engine
     _engine = create_async_engine(
         database_url,
-        echo=settings.log_level == "DEBUG",
-        poolclass=NullPool,  # Use NullPool for serverless compatibility
+        **engine_kwargs,
     )
 
     # Create session factory
@@ -49,7 +61,11 @@ async def init_db() -> None:
         autoflush=False,
     )
 
-    logger.info("Database connection pool initialized", url=database_url[:50] + "...")
+    logger.info(
+        "Database connection pool initialized",
+        url=database_url[:50] + "...",
+        pool_mode=settings.db_pool_mode,
+    )
 
 
 async def close_db() -> None:
@@ -140,7 +156,15 @@ async def get_db_pool():
                 format="text",
             )
 
-        raw_pool = await asyncpg.create_pool(db_url, init=_init_connection)
+        raw_pool = await asyncpg.create_pool(
+            db_url,
+            init=_init_connection,
+            min_size=max(1, int(settings.db_raw_pool_min_size)),
+            max_size=max(
+                max(1, int(settings.db_raw_pool_min_size)),
+                int(settings.db_raw_pool_max_size),
+            ),
+        )
         _pool = _RLSAwarePool(raw_pool)
     return _pool
 

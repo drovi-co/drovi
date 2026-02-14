@@ -386,7 +386,7 @@ class ExtendedCursorUIOListResponse(BaseModel):
     """Extended cursor-paginated UIO listing with full data."""
 
     items: list[UIOResponse]
-    total: int
+    total: int | None = None
     cursor: str | None = None
     has_more: bool = False
 
@@ -421,23 +421,62 @@ class CursorUIOListResponse(BaseModel):
     """Response for cursor-paginated UIO listing (legacy)."""
 
     items: list[UIOItem]
-    total: int
+    total: int | None = None
     cursor: str | None = None
     has_more: bool = False
 
 
-def encode_cursor(offset: int) -> str:
-    """Encode pagination offset as opaque cursor."""
-    return base64.urlsafe_b64encode(json.dumps({"offset": offset}).encode()).decode()
+def _encode_cursor_payload(payload: dict) -> str:
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
 
 
-def decode_cursor(cursor: str) -> int:
-    """Decode opaque cursor to pagination offset."""
+def _decode_cursor_payload(cursor: str) -> dict:
+    return json.loads(base64.urlsafe_b64decode(cursor.encode()))
+
+
+def encode_keyset_cursor(created_at: datetime, item_id: str) -> str:
+    """Encode keyset cursor based on (created_at, id)."""
+    return _encode_cursor_payload(
+        {
+            "v": 2,
+            "kind": "keyset",
+            "created_at": created_at.isoformat(),
+            "id": item_id,
+        }
+    )
+
+
+def decode_uios_cursor(cursor: str | None) -> tuple[datetime, str] | tuple[None, None]:
+    """
+    Decode cursor payload.
+
+    Supports:
+    - Keyset cursor (v2): {"kind":"keyset","created_at":"...","id":"..."}
+    - Legacy offset cursor: {"offset": N} (treated as no keyset)
+    """
+    if not cursor:
+        return None, None
+
     try:
-        data = json.loads(base64.urlsafe_b64decode(cursor.encode()))
-        return data.get("offset", 0)
+        data = _decode_cursor_payload(cursor)
     except Exception:
-        return 0
+        return None, None
+
+    # Legacy cursor compatibility: ignore and return first page.
+    if "offset" in data:
+        return None, None
+
+    created_at_raw = data.get("created_at")
+    item_id = data.get("id")
+    if not isinstance(created_at_raw, str) or not isinstance(item_id, str):
+        return None, None
+
+    try:
+        created_at = datetime.fromisoformat(created_at_raw)
+    except ValueError:
+        return None, None
+
+    return created_at, item_id
 
 
 def confidence_to_tier(confidence: float) -> Literal["high", "medium", "low"]:
@@ -836,6 +875,10 @@ async def list_uios_v2(
     as_of: str | None = Query(default=None, description="ISO timestamp for time-slice queries"),
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = None,
+    include_total: bool = Query(
+        default=False,
+        description="Include total count (expensive on large orgs).",
+    ),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
@@ -850,6 +893,7 @@ async def list_uios_v2(
         range: Time range (7d, 30d, 90d, all)
         limit: Maximum results per page (default 20, max 100)
         cursor: Pagination cursor from previous response
+        include_total: Whether to include total count
 
     Returns:
         ExtendedCursorUIOListResponse with full UIO data
@@ -869,8 +913,7 @@ async def list_uios_v2(
     type_label = type or "all"
     UIOS_REQUESTS.labels(org_id=org_id, type=type_label).inc()
 
-    # Decode cursor to offset
-    offset = decode_cursor(cursor) if cursor else 0
+    cursor_created_at, cursor_id = decode_uios_cursor(cursor)
 
     # Calculate date range
     now = datetime.now(timezone.utc)
@@ -905,33 +948,47 @@ async def list_uios_v2(
     from src.finetuning.confidence_calibrator import record_calibration_event
 
     items: list[UIOResponse] = []
-    total = 0
+    total: int | None = None
 
     try:
         async with get_db_session() as session:
             # Build query conditions
             conditions = ["u.organization_id = :org_id"]
-            params: dict = {"org_id": org_id, "limit": limit + 1, "offset": offset}
+            params: dict = {"org_id": org_id, "limit": limit + 1}
 
             # Always filter to valid UIO types only
-            valid_types = ["commitment", "decision", "risk", "task", "claim", "brief"]
+            from src.contexts.uio_truth.application.uio_types import list_allowed_uio_types, validate_uio_type
+
+            valid_types = list_allowed_uio_types()
             if type:
+                type = validate_uio_type(type)
                 conditions.append("u.type = :type")
                 params["type"] = type
             else:
                 # Filter to valid types when no specific type is requested
-                conditions.append("u.type IN (:type_0, :type_1, :type_2, :type_3, :type_4, :type_5)")
+                if not valid_types:
+                    raise HTTPException(status_code=500, detail="No UIO types registered")
+                placeholders: list[str] = []
                 for i, t in enumerate(valid_types):
-                    params[f"type_{i}"] = t
+                    key = f"type_{i}"
+                    placeholders.append(f":{key}")
+                    params[key] = t
+                conditions.append(f"u.type IN ({', '.join(placeholders)})")
 
             if period_start:
                 conditions.append("u.created_at >= :period_start")
                 params["period_start"] = period_start
 
             if as_of_ts:
-                conditions.append("u.valid_from <= :as_of")
-                conditions.append("(u.valid_to IS NULL OR u.valid_to > :as_of)")
+                conditions.append("u.valid_range @> :as_of")
                 params["as_of"] = as_of_ts
+
+            if cursor_created_at and cursor_id:
+                conditions.append(
+                    "(u.created_at < :cursor_created_at OR (u.created_at = :cursor_created_at AND u.id < :cursor_id))"
+                )
+                params["cursor_created_at"] = cursor_created_at
+                params["cursor_id"] = cursor_id
 
             if status == "overdue":
                 conditions.append("u.status IN ('draft', 'active', 'in_progress')")
@@ -951,26 +1008,27 @@ async def list_uios_v2(
 
             where_clause = " AND ".join(conditions)
 
-            # Count total
-            count_result = await session.execute(
-                text(f"""
-                    SELECT COUNT(*) as count
-                    FROM unified_intelligence_object u
-                    WHERE {where_clause}
-                """),
-                {k: v for k, v in params.items() if k not in ("limit", "offset")},
-            )
-            count_row = count_result.fetchone()
-            total = count_row.count if count_row else 0
+            if include_total:
+                count_result = await session.execute(
+                    text(
+                        f"""
+                        SELECT COUNT(*) as count
+                        FROM unified_intelligence_object u
+                        WHERE {where_clause}
+                    """
+                    ),
+                    {k: v for k, v in params.items() if k not in ("limit",)},
+                )
+                count_row = count_result.fetchone()
+                total = int(count_row.count) if count_row else 0
 
             # Fetch items with full JOIN query
             result = await session.execute(
                 text(f"""
                     {FULL_UIO_QUERY}
                     WHERE {where_clause}
-                    ORDER BY u.created_at DESC
+                    ORDER BY u.created_at DESC, u.id DESC
                     LIMIT :limit
-                    OFFSET :offset
                 """),
                 params,
             )
@@ -993,7 +1051,10 @@ async def list_uios_v2(
         raise HTTPException(status_code=500, detail="Failed to list UIOs")
 
     # Generate next cursor if has_more
-    next_cursor = encode_cursor(offset + limit) if has_more else None
+    next_cursor = None
+    if has_more and items:
+        last = items[-1]
+        next_cursor = encode_keyset_cursor(last.created_at, last.id)
 
     # Record latency
     latency = time.time() - start_time
@@ -1007,6 +1068,7 @@ async def list_uios_v2(
         time_range=time_range,
         count=len(items),
         total=total,
+        include_total=include_total,
         latency_ms=latency * 1000,
     )
 

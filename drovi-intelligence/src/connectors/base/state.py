@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from src.connectors.cursors import merge_cursor_state_monotonic
 
 class SyncCheckpoint(BaseModel):
     """
@@ -47,7 +48,8 @@ class SyncCheckpoint(BaseModel):
 
     def update_cursor(self, new_cursor: dict[str, Any]) -> None:
         """Update the cursor with new values."""
-        self.cursor.update(new_cursor)
+        # Prevent obvious cursor regressions; only blocks when comparable and new < old.
+        self.cursor = merge_cursor_state_monotonic(self.cursor, new_cursor)
 
     def mark_started(self) -> None:
         """Mark sync as started."""

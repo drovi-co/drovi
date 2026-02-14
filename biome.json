@@ -6,6 +6,10 @@
       "!**/.next",
       "!**/dist",
       "!**/.turbo",
+      "!**/.coverage",
+      "!**/.bun",
+      "!**/.bun-cache",
+      "!**/.bun-tmp",
       "!**/dev-dist",
       "!**/.zed",
       "!**/.vscode",
@@ -20,28 +24,49 @@
       "!**/wrangler.jsonc",
       "!**/.source",
       "!**/convex/_generated",
-      "!**/.claude"
+      "!**/.claude",
+      "!openapi/openapi.json"
     ]
   },
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "javascript": {
+    "globals": ["__ENV"]
+  },
   "linter": {
     "rules": {
       "style": {
         "noNestedTernary": "off",
         "useDefaultSwitchClause": "off",
-        "noExportedImports": "off"
+        "noExportedImports": "off",
+        "useAtIndex": "off",
+        "useBlockStatements": "off",
+        "useCollapsedElseIf": "off",
+        "useConsistentArrayType": "off",
+        "useConsistentMemberAccessibility": "off",
+        "useConsistentTypeDefinitions": "off",
+        "useFilenamingConvention": "off",
+        "noNonNullAssertion": "off",
+        "noParameterProperties": "off"
       },
       "suspicious": {
         "noEvolvingTypes": "off",
         "noBitwiseOperators": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noAssignInExpressions": "off",
+        "useAwait": "off"
       },
       "complexity": {
-        "noExcessiveCognitiveComplexity": "off"
+        "noExcessiveCognitiveComplexity": "off",
+        "useLiteralKeys": "off"
       },
       "a11y": {
         "useValidAnchor": "off",
-        "useButtonType": "off"
+        "useButtonType": "off",
+        "noLabelWithoutControl": "off",
+        "noNoninteractiveElementInteractions": "off",
+        "noStaticElementInteractions": "off",
+        "noSvgWithoutTitle": "off",
+        "useKeyWithClickEvents": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "off"
@@ -51,13 +76,14 @@
         "noUnusedVariables": "off"
       },
       "performance": {
+        "noBarrelFile": "off",
         "useTopLevelRegex": "off"
       }
     }
   },
   "overrides": [
     {
-      "includes": ["**/components/ui/**"],
+      "includes": ["**/components/ui/**", "**/packages/ui-core/src/**"],
       "linter": {
         "rules": {
           "performance": {

@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from src.kernel.time import utc_now
 
 # =============================================================================
 # UIO (Universal Intelligence Object) Lifecycle
@@ -36,8 +37,8 @@ class UIOBase(BaseModel):
     status: UIOStatus = UIOStatus.DRAFT
 
     # Temporal tracking
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
     status_changed_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -345,8 +346,8 @@ class ExtractedContact(BaseModel):
 
     # Source tracking
     source_type: str | None = None
-    first_seen_at: datetime = Field(default_factory=datetime.utcnow)
-    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    first_seen_at: datetime = Field(default_factory=utc_now)
+    last_seen_at: datetime = Field(default_factory=utc_now)
 
     # Confidence
     confidence: float = 0.0
@@ -383,7 +384,7 @@ class ExtractedRelationship(BaseModel):
     health_indicator: Literal["good", "strained", "improving", "declining"] | None = None
 
     # Metadata
-    extracted_at: datetime = Field(default_factory=datetime.utcnow)
+    extracted_at: datetime = Field(default_factory=utc_now)
     source_message_id: str | None = None
 
 
@@ -565,7 +566,7 @@ class NodeTiming(BaseModel):
 class Trace(BaseModel):
     """Execution trace for debugging and monitoring."""
 
-    started_at: float = Field(default_factory=lambda: datetime.utcnow().timestamp())
+    started_at: float = Field(default_factory=lambda: utc_now().timestamp())
     completed_at: float | None = None
     nodes: list[str] = Field(default_factory=list)
     current_node: str | None = None

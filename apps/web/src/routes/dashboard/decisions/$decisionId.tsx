@@ -7,6 +7,28 @@
 // - Right: Properties sidebar (status, decision maker, alternatives, supersession)
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Input } from "@memorystack/ui-core/input";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Textarea } from "@memorystack/ui-core/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -30,24 +52,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useDismissUIO, useUIO, useVerifyUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -194,7 +198,9 @@ function DecisionDetailPage() {
         return {
           id: decisionData.id,
           title:
-            decisionData.userCorrectedTitle ?? decisionData.canonicalTitle ?? "",
+            decisionData.userCorrectedTitle ??
+            decisionData.canonicalTitle ??
+            "",
           statement:
             decisionData.decisionDetails?.statement ??
             decisionData.canonicalDescription ??
@@ -204,7 +210,8 @@ function DecisionDetailPage() {
             "made") as DecisionStatus,
           confidence: decisionData.overallConfidence ?? 0.8,
           isUserVerified: decisionData.isUserVerified ?? false,
-          decisionMaker: decisionData.decisionMaker ?? decisionData.owner ?? null,
+          decisionMaker:
+            decisionData.decisionMaker ?? decisionData.owner ?? null,
           impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
           evidence: primarySource
             ? {
@@ -217,7 +224,8 @@ function DecisionDetailPage() {
           decidedAt: decisionData.decisionDetails?.decidedAt
             ? new Date(decisionData.decisionDetails.decidedAt)
             : null,
-          supersedesUioId: decisionData.decisionDetails?.supersedesUioId ?? null,
+          supersedesUioId:
+            decisionData.decisionDetails?.supersedesUioId ?? null,
           supersededByUioId:
             decisionData.decisionDetails?.supersededByUioId ?? null,
           sources: decisionData.sources ?? [],
@@ -661,8 +669,8 @@ function DecisionDetailPage() {
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates directly
-                  in decision notes or attach supporting evidence.
+                  Collaborative threads are coming soon. Capture updates
+                  directly in decision notes or attach supporting evidence.
                 </div>
               </div>
             </div>

@@ -14,7 +14,6 @@ Features:
 import asyncio
 import json
 from collections.abc import Callable
-from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -23,16 +22,12 @@ import structlog
 from src.config import get_settings
 from src.graph.client import get_graph_client, DroviGraph
 from src.graph.types import GraphNodeType
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 # Global sink instance
 _falkordb_sink: "FalkorDBStreamSink | None" = None
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class FalkorDBStreamSink:
@@ -264,7 +259,7 @@ class FalkorDBStreamSink:
             intelligence_type.title(),
         )
 
-        now = utc_now().isoformat()
+        now = utc_now_naive().isoformat()
 
         # Prepare properties
         properties = {

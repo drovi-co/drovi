@@ -14,23 +14,18 @@ Topics:
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 # Global producer instance
 _kafka_producer: "DroviKafkaProducer | None" = None
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class DroviKafkaProducer:
@@ -166,7 +161,7 @@ class DroviKafkaProducer:
             Message ID
         """
         msg_id = key or str(uuid4())
-        timestamp = utc_now().isoformat()
+        timestamp = utc_now_naive().isoformat()
 
         # Add metadata to payload
         enriched_value = {
@@ -325,6 +320,35 @@ class DroviKafkaProducer:
         )
 
         return msg_id
+
+    async def produce_agent_inbox_event(
+        self,
+        *,
+        organization_id: str,
+        channel_type: str,
+        event_type: str,
+        payload: dict[str, Any],
+        source_id: str | None = None,
+    ) -> str:
+        """Produce AgentOS inbox presence events to the dedicated topic."""
+        settings = get_settings()
+        event = {
+            "organization_id": organization_id,
+            "channel_type": channel_type,
+            "event_type": event_type,
+            "source_id": source_id,
+            "payload": payload,
+        }
+        return await self.produce(
+            topic=settings.kafka_topic_agent_inbox_events,
+            value=event,
+            key=f"{organization_id}:{channel_type}:{source_id or event_type}",
+            headers={
+                "organization_id": organization_id,
+                "channel_type": channel_type,
+                "event_type": event_type,
+            },
+        )
 
     async def produce_normalized_record(
         self,

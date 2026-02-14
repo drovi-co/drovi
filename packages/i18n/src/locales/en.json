@@ -610,10 +610,10 @@
         }
       },
       "exchange": {
-        "kicker": "Continuum Exchange",
+        "kicker": "Agent Agent Catalog",
         "title": "Install proven intelligence playbooks",
-        "description": "Discover curated Continuums, publish your own playbooks, and keep governance tight.",
-        "selectOrg": "Select an organization to browse the Exchange",
+        "description": "Discover curated Agents, publish your own playbooks, and keep governance tight.",
+        "selectOrg": "Select an organization to browse the Agent Catalog",
         "actions": {
           "publish": "Publish bundle",
           "install": "Install",
@@ -639,7 +639,7 @@
         },
         "empty": {
           "title": "No bundles yet",
-          "description": "Publish your first bundle to bootstrap the Exchange."
+          "description": "Publish your first bundle to bootstrap the Agent Catalog."
         },
         "noDescription": "No description",
         "price": {
@@ -666,7 +666,7 @@
           }
         },
         "publishDialog": {
-          "title": "Publish Continuum Bundle",
+          "title": "Publish Agent Bundle",
           "description": "Upload a manifest. Governance review is required before public listing.",
           "fields": {
             "name": "Name",
@@ -1164,7 +1164,7 @@
       "home": {
         "breadcrumb": "Dashboard",
         "primaryAction": {
-          "newContinuum": "New Continuum"
+          "newContinuum": "New Agent"
         }
       },
       "contacts": {
@@ -1200,7 +1200,7 @@
       },
       "schedule": {
         "kicker": "Schedule",
-        "title": "Timeline of commitments and continuum runs",
+        "title": "Timeline of commitments and agent runs",
         "description": "Align obligations with automated missions so nothing slips past the horizon.",
         "selectOrg": "Select an organization to view schedules",
         "commitments": {
@@ -1208,9 +1208,9 @@
           "description": "Due dates and urgency across the week ahead."
         },
         "continuums": {
-          "title": "Continuum cadence",
+          "title": "Agent cadence",
           "description": "Upcoming runs and status signals.",
-          "empty": "No Continuums scheduled yet.",
+          "empty": "No Agents scheduled yet.",
           "nextRun": "Next run:",
           "note": "Align scheduled runs with mission-critical work for tighter accountability."
         }
@@ -1336,12 +1336,12 @@
         }
       },
       "continuums": {
-        "selectOrg": "Select an organization to view Continuums",
-        "kicker": "Continuum Runtime",
+        "selectOrg": "Select an organization to view Agents",
+        "kicker": "Agent Runtime",
         "title": "Orchestrate long-horizon intelligence",
-        "description": "Continuums are self-sustaining missions. Keep them active, preview next actions, and audit every run with confidence.",
+        "description": "Agents are self-sustaining missions. Keep them active, preview next actions, and audit every run with confidence.",
         "actions": {
-          "create": "Create Continuum",
+          "create": "Create Agent",
           "runNow": "Run now",
           "preview": "Preview",
           "pause": "Pause",
@@ -1355,11 +1355,11 @@
           "escalated": "Escalated"
         },
         "empty": {
-          "title": "No Continuums yet",
-          "description": "Define your first mission in Continuum Builder.",
-          "openBuilder": "Open Builder"
+          "title": "No Agents yet",
+          "description": "Define your first mission in Agent Studio.",
+          "openBuilder": "Open Agent Studio"
         },
-        "noDescription": "No description yet — refine in Builder.",
+        "noDescription": "No description yet — refine in Agent Studio.",
         "fields": {
           "version": "Version",
           "nextRun": "Next run",
@@ -1367,15 +1367,15 @@
         },
         "ledger": {
           "kicker": "Run Ledger",
-          "selectPrompt": "Select a continuum",
+          "selectPrompt": "Select a agent",
           "runsCount": "{{count}} runs",
-          "pickPrompt": "Pick a continuum to inspect its run history and alerts.",
+          "pickPrompt": "Pick a agent to inspect its run history and alerts.",
           "empty": "No runs yet. Trigger the first run from the list."
         },
         "preview": {
-          "title": "Continuum Preview",
+          "title": "Agent Preview",
           "description": "{{name}} · Horizon {{days}} days",
-          "unknownContinuum": "Continuum",
+          "unknownContinuum": "Agent",
           "expectedActions": {
             "title": "Expected Actions",
             "description": "Projected execution cadence.",
@@ -1383,7 +1383,7 @@
           },
           "riskSnapshot": {
             "title": "Risk Snapshot",
-            "description": "Continuum impact on commitments.",
+            "description": "Agent impact on commitments.",
             "open": "Open",
             "overdue": "Overdue",
             "atRisk": "At risk",
@@ -1398,14 +1398,14 @@
           "proofFallbackCriteria": "No criteria defined"
         },
         "toasts": {
-          "runQueued": "Continuum run queued",
-          "runFailed": "Failed to run continuum",
-          "paused": "Continuum paused",
-          "pauseFailed": "Failed to pause continuum",
-          "activated": "Continuum activated",
-          "activateFailed": "Failed to activate continuum",
+          "runQueued": "Agent run queued",
+          "runFailed": "Failed to run agent",
+          "paused": "Agent paused",
+          "pauseFailed": "Failed to pause agent",
+          "activated": "Agent activated",
+          "activateFailed": "Failed to activate agent",
           "rollbackQueued": "Rollback queued",
-          "rollbackFailed": "Failed to rollback continuum",
+          "rollbackFailed": "Failed to rollback agent",
           "previewFailed": "Failed to generate preview"
         },
         "runRow": {
@@ -1463,33 +1463,33 @@
         }
       },
       "builder": {
-        "kicker": "Continuum Builder",
-        "title": "Builder",
-        "description": "Draft Continuums with intent, validate the definition, then publish to runtime.",
-        "noOrg": "Select an organization to build Continuums",
+        "kicker": "Agent Studio",
+        "title": "Agent Studio",
+        "description": "Draft Agents with intent, validate the definition, then publish to runtime.",
+        "noOrg": "Select an organization to build Agents",
         "badges": {
           "dsl": "DSL"
         },
         "actions": {
           "validateJson": "Validate JSON",
-          "publishContinuum": "Publish continuum",
+          "publishContinuum": "Publish agent",
           "publishVersion": "Publish version"
         },
         "publishMode": {
           "label": "Publish mode",
           "placeholder": "Select mode",
           "options": {
-            "create": "Create new continuum",
+            "create": "Create new agent",
             "update": "Update existing"
           }
         },
         "target": {
           "label": "Target",
-          "selectPlaceholder": "Select a continuum",
+          "selectPlaceholder": "Select a agent",
           "reload": "Reload",
           "badge": "Optional",
           "notRequired": "Not required",
-          "hint": "Only needed when updating an existing continuum."
+          "hint": "Only needed when updating an existing agent."
         },
         "intent": {
           "title": "Intent",
@@ -1523,11 +1523,11 @@
           "missingFields": "Missing required fields"
         },
         "toasts": {
-          "created": "Continuum published",
-          "createFailed": "Failed to publish continuum",
+          "created": "Agent published",
+          "createFailed": "Failed to publish agent",
           "versionAdded": "Version published",
           "versionAddFailed": "Failed to publish version",
-          "selectToUpdate": "Select a continuum to update"
+          "selectToUpdate": "Select a agent to update"
         }
       },
       "patterns": {
@@ -1632,12 +1632,12 @@
       },
       "find": {
         "label": "Find",
-        "hint": "Search UIOs, messages, documents, and continuums",
+        "hint": "Search UIOs, messages, documents, and agents",
         "placeholder": "Search memory, messages, documents…"
       },
       "build": {
         "label": "Build",
-        "hint": "Create or edit continuums and automation logic",
+        "hint": "Create or edit agents and automation logic",
         "placeholder": "Search build surfaces or type a command…"
       },
       "act": {
@@ -1690,7 +1690,7 @@
         "memory": "Memory (UIOs)",
         "messages": "Messages (UEM)",
         "documents": "Documents (UEM)",
-        "continuums": "Continuums",
+        "continuums": "Agents",
         "commands": "Commands"
       }
     },
@@ -1698,13 +1698,13 @@
       "uios": "UIOs",
       "messages": "Messages",
       "docs": "Docs",
-      "continuums": "Continuums",
+      "continuums": "Agents",
       "debug": "Debug"
     },
     "groups": {
       "session": "Session",
       "debug": "Debug",
-      "continuums": "Continuums",
+      "continuums": "Agents",
       "execution": "Execution",
       "surfaces": "Surfaces",
       "global": "Global"
@@ -1730,16 +1730,16 @@
         "description": "Manage members, invites, and organization settings."
       },
       "goBuilder": {
-        "title": "Continuum Builder",
-        "description": "Build and iterate on continuum logic."
+        "title": "Agent Studio",
+        "description": "Build and iterate on agent logic."
       },
       "goContinuums": {
-        "title": "Continuums",
-        "description": "Browse and run continuum bundles."
+        "title": "Agents",
+        "description": "Browse and run agent bundles."
       },
       "goExchange": {
-        "title": "Exchange",
-        "description": "Install or publish continuum bundles."
+        "title": "Agent Catalog",
+        "description": "Install or publish agent bundles."
       },
       "goSimulations": {
         "title": "Simulations",
@@ -1768,6 +1768,14 @@
       "copyUioId": {
         "title": "Copy UIO ID",
         "description": "Copy the current Unified Intelligence Object ID."
+      },
+      "goAgentRuns": {
+        "title": "Agent Runs",
+        "description": "Inspect run traces, receipts, and runtime diagnostics."
+      },
+      "goAgentInbox": {
+        "title": "Agent Inbox",
+        "description": "Manage channel threads, approvals, and direct commands."
       }
     },
     "toasts": {
@@ -2042,6 +2050,7 @@
         "users": "Users",
         "connectors": "Connectors",
         "jobs": "Jobs",
+        "governance": "Governance",
         "tickets": "Tickets",
         "exchange": "Exchange"
       }
@@ -2126,6 +2135,21 @@
         "retryFailed": "Retry failed"
       }
     },
+    "governance": {
+      "errors": {
+        "failedToLoad": "Failed to load governance overview"
+      },
+      "sections": {
+        "approvalsByStatus": "Approvals by Status",
+        "recentSignals": "Recent Governance Signals",
+        "noApprovals": "No approval records yet.",
+        "noSignals": "No governance signals."
+      },
+      "table": {
+        "status": "Status",
+        "count": "Count"
+      }
+    },
     "exchange": {
       "title": "Exchange Moderation",
       "description": "Approve/reject bundles per organization.",
@@ -2161,7 +2185,7 @@
       "console": "Console",
       "memory": "Memory",
       "discovery": "Discovery",
-      "continuums": "Continuums",
+      "continuums": "Agents",
       "execution": "Execution",
       "sources": "Sources",
       "management": "Management"
@@ -2177,9 +2201,9 @@
       "drive": "Drive",
       "people": "People",
       "patterns": "Patterns",
-      "continuums": "Continuums",
-      "builder": "Builder",
-      "exchange": "Exchange",
+      "continuums": "Agents",
+      "builder": "Agent Studio",
+      "exchange": "Agent Catalog",
       "simulations": "Simulations",
       "actuations": "Actuations",
       "trustAudit": "Trust & Audit",
@@ -2187,7 +2211,12 @@
       "team": "Team",
       "members": "Members",
       "invitations": "Invitations",
-      "settings": "Settings"
+      "settings": "Settings",
+      "agentWorkforces": "Agent Workforces",
+      "agentStudio": "Agent Studio",
+      "agentRuns": "Agent Runs",
+      "agentCatalog": "Agent Catalog",
+      "agentInbox": "Agent Inbox"
     }
   }
 }

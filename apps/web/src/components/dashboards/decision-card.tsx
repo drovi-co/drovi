@@ -7,6 +7,19 @@
 // evolve, and this component shows that history.
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
 import { format, isToday, isYesterday } from "date-fns";
 import {
   Copy,
@@ -20,7 +33,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import {
   type TaskAssignee,
@@ -29,22 +41,13 @@ import {
   type TaskStatus,
   TaskStatusDropdown,
 } from "@/components/tasks";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import {
   getSourceColor,
   getSourceConfig,
   type SourceType,
 } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
-import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 
 // =============================================================================
 // TYPES
@@ -147,7 +150,7 @@ export function DecisionCard({
   onDismiss,
   onVerify,
   onThreadClick,
-  onContactClick,
+  onContactClick: _onContactClick,
   onViewSupersession,
   onShowEvidence,
   organizationId,
@@ -155,7 +158,10 @@ export function DecisionCard({
   const [isHovered, setIsHovered] = useState(false);
   const hasTaskData = decision.task && organizationId;
 
-  const quotedText = extractQuotedText(decision.evidence?.[0], decision.statement);
+  const quotedText = extractQuotedText(
+    decision.evidence?.[0],
+    decision.statement
+  );
   const evidencePopover = onShowEvidence
     ? {
         id: decision.id,
@@ -285,8 +291,7 @@ export function DecisionCard({
                   </AvatarFallback>
                 </Avatar>
                 <span className="max-w-[72px] truncate">
-                  {decision.task.assignee.name ??
-                    decision.task.assignee.email}
+                  {decision.task.assignee.name ?? decision.task.assignee.email}
                 </span>
               </div>
             )}
@@ -319,26 +324,25 @@ export function DecisionCard({
         />
 
         {/* Show Me - Evidence button */}
-        {onShowEvidence &&
-          evidencePopover && (
-            <EvidencePopover
-              evidence={evidencePopover}
-              onShowFullEvidence={() => onShowEvidence(decision.id)}
-              side="left"
+        {onShowEvidence && evidencePopover && (
+          <EvidencePopover
+            evidence={evidencePopover}
+            onShowFullEvidence={() => onShowEvidence(decision.id)}
+            side="left"
+          >
+            <button
+              className="rounded-md p-1.5 transition-colors hover:bg-background"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowEvidence(decision.id);
+              }}
+              title="Show evidence"
+              type="button"
             >
-              <button
-                className="rounded-md p-1.5 transition-colors hover:bg-background"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onShowEvidence(decision.id);
-                }}
-                title="Show evidence"
-                type="button"
-              >
-                <Eye className="h-4 w-4 text-purple-500" />
-              </button>
-            </EvidencePopover>
-          )}
+              <Eye className="h-4 w-4 text-purple-500" />
+            </button>
+          </EvidencePopover>
+        )}
 
         {/* Source thread link */}
         {decision.sourceThread && (

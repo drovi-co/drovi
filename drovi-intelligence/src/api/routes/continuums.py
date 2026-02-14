@@ -4,10 +4,11 @@ Continuum API - Runtime scheduling and lifecycle endpoints.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -24,12 +25,16 @@ from src.continuum.manager import (
     set_continuum_status,
 )
 from src.continuum.models import ContinuumStatus
-from src.continuum.runtime import trigger_continuum_run
 from src.db.client import get_db_session
 from src.simulation.engine import preview_continuum
 from src.simulation.models import ContinuumPreviewRequest, ContinuumPreviewResponse
 
 router = APIRouter(prefix="/continuums", tags=["Continuums"])
+
+LEGACY_WRITE_BLOCK_MESSAGE = (
+    "Continuum write operations are decommissioned. "
+    "Use AgentOS migration APIs at /api/v1/agents/control/legacy/continuums."
+)
 
 
 def _utc_now() -> datetime:
@@ -39,6 +44,10 @@ def _utc_now() -> datetime:
 def _validate_org(ctx: APIKeyContext, organization_id: str) -> None:
     if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _raise_legacy_write_block() -> None:
+    raise HTTPException(status_code=410, detail=LEGACY_WRITE_BLOCK_MESSAGE)
 
 
 class ContinuumCreateRequest(BaseModel):
@@ -89,6 +98,7 @@ async def create_continuum_endpoint(
     request: ContinuumCreateRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     definition = ContinuumDefinition.model_validate(request.definition)
     result = await create_continuum(
@@ -106,6 +116,7 @@ async def create_version_endpoint(
     request: ContinuumVersionRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     definition = ContinuumDefinition.model_validate(request.definition)
     return await add_continuum_version(
@@ -123,6 +134,7 @@ async def activate_continuum_endpoint(
     request: ContinuumStatusRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     definition = await fetch_continuum_definition(
         continuum_id=continuum_id,
@@ -144,6 +156,7 @@ async def pause_continuum_endpoint(
     request: ContinuumStatusRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     await set_continuum_status(
         continuum_id=continuum_id,
@@ -160,12 +173,8 @@ async def run_continuum_endpoint(
     request: ContinuumRunRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
-    _validate_org(ctx, request.organization_id)
-    return await trigger_continuum_run(
-        continuum_id=continuum_id,
-        organization_id=request.organization_id,
-        triggered_by=request.triggered_by,
-    )
+    del continuum_id, request, ctx
+    _raise_legacy_write_block()
 
 
 @router.post("/{continuum_id}/rollback")
@@ -174,6 +183,7 @@ async def rollback_continuum_endpoint(
     request: ContinuumRollbackRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     return await rollback_continuum(
         continuum_id=continuum_id,
@@ -189,6 +199,7 @@ async def override_continuum_endpoint(
     request: ContinuumOverrideRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_write_block()
     _validate_org(ctx, request.organization_id)
     await resolve_alert(
         alert_id=request.alert_id,
@@ -287,3 +298,67 @@ async def list_continuum_runs(
             {"continuum_id": continuum_id, "org_id": organization_id},
         )
         return [dict(row._mapping) for row in result.fetchall()]
+
+
+@router.get("/{continuum_id}/history")
+async def list_continuum_history(
+    continuum_id: str,
+    organization_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    _validate_org(ctx, organization_id)
+    async with get_db_session() as session:
+        continuum_result = await session.execute(
+            text(
+                """
+                SELECT id
+                FROM continuum
+                WHERE id = :continuum_id AND organization_id = :org_id
+                """
+            ),
+            {"continuum_id": continuum_id, "org_id": organization_id},
+        )
+        if continuum_result.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Continuum not found")
+
+        version_result = await session.execute(
+            text(
+                """
+                SELECT version, created_at, created_by, is_active, definition_hash, definition
+                FROM continuum_version
+                WHERE continuum_id = :continuum_id AND organization_id = :org_id
+                ORDER BY version DESC
+                LIMIT :limit
+                """
+            ),
+            {
+                "continuum_id": continuum_id,
+                "org_id": organization_id,
+                "limit": limit,
+            },
+        )
+        rows = []
+        for row in version_result.fetchall():
+            payload = dict(row._mapping)
+            definition = payload.get("definition")
+            if isinstance(definition, str):
+                try:
+                    definition = json.loads(definition)
+                except Exception:
+                    definition = {}
+            if not isinstance(definition, dict):
+                definition = {}
+            rows.append(
+                {
+                    "version": payload.get("version"),
+                    "created_at": payload.get("created_at"),
+                    "created_by": payload.get("created_by"),
+                    "is_active": payload.get("is_active"),
+                    "definition_hash": payload.get("definition_hash"),
+                    "name": definition.get("name"),
+                    "goal": definition.get("goal"),
+                    "schedule": definition.get("schedule"),
+                }
+            )
+        return rows

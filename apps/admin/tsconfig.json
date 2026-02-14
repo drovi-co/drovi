@@ -13,6 +13,26 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@memorystack/api-types": ["../../packages/api-types/src/index.ts"],
+      "@memorystack/api-types/*": ["../../packages/api-types/src/*"],
+      "@memorystack/api-client": ["../../packages/api-client/src/index.ts"],
+      "@memorystack/api-client/*": ["../../packages/api-client/src/*"],
+      "@memorystack/api-react": ["../../packages/api-react/src/index.ts"],
+      "@memorystack/api-react/*": ["../../packages/api-react/src/*"],
+      "@memorystack/core-hooks": ["../../packages/core-hooks/src/index.ts"],
+      "@memorystack/core-hooks/*": ["../../packages/core-hooks/src/*"],
+      "@memorystack/core-shell": ["../../packages/core-shell/src/index.ts"],
+      "@memorystack/core-shell/*": ["../../packages/core-shell/src/*"],
+      "@memorystack/mod-auth": ["../../packages/mod-auth/src/index.ts"],
+      "@memorystack/mod-auth/*": ["../../packages/mod-auth/src/*"],
+      "@memorystack/mod-console": ["../../packages/mod-console/src/index.ts"],
+      "@memorystack/mod-console/*": ["../../packages/mod-console/src/*"],
+      "@memorystack/mod-kit": ["../../packages/mod-kit/src/index.ts"],
+      "@memorystack/mod-kit/*": ["../../packages/mod-kit/src/*"],
+      "@memorystack/ui-theme": ["../../packages/ui-theme/src/index.ts"],
+      "@memorystack/ui-theme/*": ["../../packages/ui-theme/src/*"],
+      "@memorystack/ui-core": ["../../packages/ui-core/src/index.ts"],
+      "@memorystack/ui-core/*": ["../../packages/ui-core/src/*"],
       "@memorystack/i18n": ["../../packages/i18n/src/index.tsx"]
     }
   }

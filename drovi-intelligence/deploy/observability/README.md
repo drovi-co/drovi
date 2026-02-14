@@ -36,6 +36,9 @@ The docker compose wiring lives at:
 - Evidence: `drovi_evidence_latency_seconds`, `drovi_evidence_requests_total`
 - Proof-first: `drovi_evidence_completeness_total`
 - Live sessions: `drovi_streaming_latency_seconds`, `drovi_streaming_backpressure_total`, `drovi_streaming_dropped_total`, `drovi_transcript_ingest_duration_seconds`
+- Agent runs: `drovi_agent_runs_status_total`, `drovi_agent_run_duration_seconds`
+- Agent approvals: `drovi_agent_approval_backlog`, `drovi_agent_approval_latency_seconds`
+- Agent quality: `drovi_agent_quality_drift_score`
 - Identity resolution: `drovi_identity_resolution_attempts_total`, `drovi_identity_resolution_success_total`
 - Memory decay: `drovi_memory_decay_runs_total`, `drovi_nodes_decayed_total`, `drovi_nodes_archived_total`
 - Build info: `drovi_build_info`
@@ -65,6 +68,14 @@ Suggested SLOs and where to measure them:
   - `drovi_extractions_total{status="ok"|"error"}`.
 - Evidence completeness rate
   - Track evidence-present vs evidence-missing at persistence time (TODO: metric hardening as we add doc spans + proof-first).
+- Agent run success rate
+  - `drovi_agent_runs_status_total` terminal status ratio (`completed` / terminal total).
+- Agent run p95 latency
+  - `drovi_agent_run_duration_seconds_bucket` histogram quantile.
+- Approval queue health
+  - `drovi_agent_approval_backlog` by organization.
+- Quality drift guardrail
+  - `drovi_agent_quality_drift_score` by role scope.
 
 ## Notes
 - In production, secure the admin APIs and metrics endpoints via network-level controls and auth.

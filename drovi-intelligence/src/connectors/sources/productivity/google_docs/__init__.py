@@ -1,9 +1,4 @@
-"""
-Google Docs Connector
+"""Google Docs connector source package (import-free)."""
 
-Extracts documents from Google Drive with full content.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.productivity.google_docs.connector import GoogleDocsConnector
-
-__all__ = ["GoogleDocsConnector"]

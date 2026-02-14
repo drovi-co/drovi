@@ -7,6 +7,43 @@
 // - Right: Properties sidebar (status, priority, assignee, labels, due date)
 //
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@memorystack/ui-core/alert-dialog";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Input } from "@memorystack/ui-core/input";
+import {
+  type Priority,
+  PriorityIcon,
+} from "@memorystack/ui-core/priority-icon";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
+import { Textarea } from "@memorystack/ui-core/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -35,37 +72,17 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from "@/components/tasks";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
-import { Skeleton } from "@/components/ui/skeleton";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   useArchiveUIO,
-  useUIO,
   useCorrectUIO,
+  useUIO,
   useUpdateTaskPriorityUIO,
   useUpdateTaskStatusUIO,
 } from "@/hooks/use-uio";
-import { authClient } from "@/lib/auth-client";
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { authClient } from "@/lib/auth-client";
 import { formatRelativeTime } from "@/lib/intl-time";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -104,7 +121,9 @@ function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
   }
 }
 
-function normalizeTaskPriority(priority: string | null | undefined): TaskPriority {
+function normalizeTaskPriority(
+  priority: string | null | undefined
+): TaskPriority {
   switch (priority) {
     case "low":
     case "medium":
@@ -136,6 +155,7 @@ function TaskDetailPage() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -157,28 +177,36 @@ function TaskDetailPage() {
         if (uioData.createdAt) {
           timeline.push({
             id: "created",
-            eventDescription: tr("pages.dashboard.tasks.detail.timeline.created"),
+            eventDescription: tr(
+              "pages.dashboard.tasks.detail.timeline.created"
+            ),
             eventAt: uioData.createdAt,
           });
         }
         if (uioData.updatedAt) {
           timeline.push({
             id: "updated",
-            eventDescription: tr("pages.dashboard.tasks.detail.timeline.updated"),
+            eventDescription: tr(
+              "pages.dashboard.tasks.detail.timeline.updated"
+            ),
             eventAt: uioData.updatedAt,
           });
         }
         if (uioData.dueDate) {
           timeline.push({
             id: "due-date",
-            eventDescription: tr("pages.dashboard.tasks.detail.timeline.dueDateSet"),
+            eventDescription: tr(
+              "pages.dashboard.tasks.detail.timeline.dueDateSet"
+            ),
             eventAt: uioData.dueDate,
           });
         }
         if (uioData.taskDetails?.completedAt) {
           timeline.push({
             id: "completed",
-            eventDescription: tr("pages.dashboard.tasks.detail.timeline.completed"),
+            eventDescription: tr(
+              "pages.dashboard.tasks.detail.timeline.completed"
+            ),
             eventAt: uioData.taskDetails.completedAt,
           });
         }
@@ -309,7 +337,9 @@ function TaskDetailPage() {
             queryClientInstance.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error(tr("pages.dashboard.tasks.toasts.priorityUpdateFailed"));
+            toast.error(
+              tr("pages.dashboard.tasks.toasts.priorityUpdateFailed")
+            );
           },
         }
       );
@@ -330,7 +360,9 @@ function TaskDetailPage() {
             navigate({ to: "/dashboard/tasks" });
           },
           onError: () => {
-            toast.error(tr("pages.dashboard.tasks.detail.toasts.archiveFailed"));
+            toast.error(
+              tr("pages.dashboard.tasks.detail.toasts.archiveFailed")
+            );
           },
         }
       );
@@ -437,16 +469,18 @@ function TaskDetailPage() {
   );
 
   const handleDelete = useCallback(() => {
-    if (!task) {
-      return;
-    }
-    if (window.confirm(tr("pages.dashboard.tasks.detail.confirmDelete"))) {
-      deleteMutation.mutate({
-        organizationId,
-        taskId: task.id,
-      });
-    }
-  }, [task, deleteMutation, organizationId, tr]);
+    if (!task) return;
+    setDeleteDialogOpen(true);
+  }, [task]);
+
+  const confirmDelete = useCallback(() => {
+    if (!task) return;
+    setDeleteDialogOpen(false);
+    deleteMutation.mutate({
+      organizationId,
+      taskId: task.id,
+    });
+  }, [task, deleteMutation, organizationId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -503,7 +537,9 @@ function TaskDetailPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <h2 className="font-medium text-lg">{tr("pages.dashboard.tasks.detail.notFound.title")}</h2>
+          <h2 className="font-medium text-lg">
+            {tr("pages.dashboard.tasks.detail.notFound.title")}
+          </h2>
           <p className="mt-1 text-muted-foreground text-sm">
             {tr("pages.dashboard.tasks.detail.notFound.description")}
           </p>
@@ -546,6 +582,28 @@ function TaskDetailPage() {
 
   return (
     <div className="h-full" data-no-shell-padding>
+      <AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {tr("pages.dashboard.tasks.detail.actions.deleteTask")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {tr("pages.dashboard.tasks.detail.confirmDelete")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tr("common.actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+            >
+              {tr("pages.dashboard.tasks.detail.actions.deleteTask")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex h-[calc(100vh-var(--header-height))] flex-col bg-card">
         {/* Top Navigation Bar */}
         <div className="z-20 shrink-0 border-border border-b bg-card">
@@ -562,13 +620,17 @@ function TaskDetailPage() {
                     <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{tr("pages.dashboard.tasks.detail.tooltips.back")}</TooltipContent>
+                <TooltipContent>
+                  {tr("pages.dashboard.tasks.detail.tooltips.back")}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{tr("nav.items.tasks")}</span>
+              <span className="text-muted-foreground">
+                {tr("nav.items.tasks")}
+              </span>
               <span className="text-muted-foreground">/</span>
               <span className="max-w-[300px] truncate font-medium text-foreground">
                 {task.title}
@@ -595,7 +657,9 @@ function TaskDetailPage() {
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{tr("components.timeline.actions.viewSource")}</TooltipContent>
+                    <TooltipContent>
+                      {tr("components.timeline.actions.viewSource")}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -646,7 +710,9 @@ function TaskDetailPage() {
                         setEditingTitle(false);
                       }
                     }}
-                    placeholder={tr("pages.dashboard.tasks.detail.fields.title.placeholder")}
+                    placeholder={tr(
+                      "pages.dashboard.tasks.detail.fields.title.placeholder"
+                    )}
                     ref={titleInputRef}
                     value={title}
                   />
@@ -680,7 +746,9 @@ function TaskDetailPage() {
                         handleSaveDescription();
                       }
                     }}
-                    placeholder={tr("pages.dashboard.tasks.detail.fields.description.placeholder")}
+                    placeholder={tr(
+                      "pages.dashboard.tasks.detail.fields.description.placeholder"
+                    )}
                     ref={descriptionRef}
                     rows={6}
                     value={description}
@@ -692,7 +760,9 @@ function TaskDetailPage() {
                   >
                     {task.description || (
                       <span className="text-muted-foreground">
-                        {tr("pages.dashboard.tasks.detail.fields.description.emptyHint")}
+                        {tr(
+                          "pages.dashboard.tasks.detail.fields.description.emptyHint"
+                        )}
                       </span>
                     )}
                   </div>
@@ -728,7 +798,11 @@ function TaskDetailPage() {
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
                         onClick={() =>
-                          toast.message(tr("pages.dashboard.tasks.detail.toasts.sourceViewerSoon"))
+                          toast.message(
+                            tr(
+                              "pages.dashboard.tasks.detail.toasts.sourceViewerSoon"
+                            )
+                          )
                         }
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -736,7 +810,10 @@ function TaskDetailPage() {
                           <p className="truncate text-foreground text-sm">
                             {source.sourceType
                               ? source.sourceType.toUpperCase()
-                              : tr("pages.dashboard.tasks.detail.sources.fallback", { index: index + 1 })}
+                              : tr(
+                                  "pages.dashboard.tasks.detail.sources.fallback",
+                                  { index: index + 1 }
+                                )}
                           </p>
                           {source.quotedText && (
                             <p className="mt-0.5 truncate text-muted-foreground text-xs">
@@ -781,7 +858,10 @@ function TaskDetailPage() {
                               {event.eventDescription}
                             </p>
                             <p className="mt-0.5 text-muted-foreground text-xs">
-                              {formatRelativeTime(new Date(event.eventAt), locale)}
+                              {formatRelativeTime(
+                                new Date(event.eventAt),
+                                locale
+                              )}
                             </p>
                           </div>
                         </div>
@@ -800,7 +880,9 @@ function TaskDetailPage() {
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  {tr("pages.dashboard.tasks.detail.teamDiscussion.placeholder")}
+                  {tr(
+                    "pages.dashboard.tasks.detail.teamDiscussion.placeholder"
+                  )}
                 </div>
               </div>
 
@@ -834,7 +916,9 @@ function TaskDetailPage() {
           <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
               {/* Status */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.status")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.status")}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
@@ -882,7 +966,9 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Priority */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.priority")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.priority")}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-accent">
@@ -929,7 +1015,9 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Assignee */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.assignee")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.assignee")}
+              >
                 <div className="flex w-full items-center gap-2 rounded px-2 py-1.5">
                   {task.assignee ? (
                     <>
@@ -941,10 +1029,7 @@ function TaskDetailPage() {
                           />
                         )}
                         <AvatarFallback className="bg-secondary text-[9px] text-white">
-                          {getInitials(
-                            task.assignee.name,
-                            task.assignee.email
-                          )}
+                          {getInitials(task.assignee.name, task.assignee.email)}
                         </AvatarFallback>
                       </Avatar>
                       <span className="truncate text-foreground text-sm">
@@ -957,7 +1042,9 @@ function TaskDetailPage() {
                         <User className="h-3 w-3 text-muted-foreground" />
                       </div>
                       <span className="text-muted-foreground text-sm">
-                        {tr("pages.dashboard.tasks.detail.properties.noAssignee")}
+                        {tr(
+                          "pages.dashboard.tasks.detail.properties.noAssignee"
+                        )}
                       </span>
                     </>
                   )}
@@ -965,7 +1052,9 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Labels */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.labels")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.labels")}
+              >
                 <div className="px-2 py-1.5">
                   {task.labels.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -995,7 +1084,9 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Due Date */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.dueDate")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.dueDate")}
+              >
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <input
@@ -1014,9 +1105,7 @@ function TaskDetailPage() {
                       }
                     }}
                     type="date"
-                    value={
-                      task.dueDate ? toDateInputValue(task.dueDate) : ""
-                    }
+                    value={task.dueDate ? toDateInputValue(task.dueDate) : ""}
                   />
                   {task.dueDate && (
                     <Button
@@ -1032,7 +1121,9 @@ function TaskDetailPage() {
               </PropertyRow>
 
               {/* Source Type */}
-              <PropertyRow label={tr("pages.dashboard.tasks.detail.properties.source")}>
+              <PropertyRow
+                label={tr("pages.dashboard.tasks.detail.properties.source")}
+              >
                 <div className="px-2 py-1.5">
                   <Badge
                     className={cn(
@@ -1051,11 +1142,15 @@ function TaskDetailPage() {
               <div className="border-border border-t pt-4">
                 <div className="space-y-1 text-muted-foreground text-xs">
                   <div className="flex items-center justify-between">
-                    <span>{tr("pages.dashboard.tasks.detail.keyboard.setStatus")}</span>
+                    <span>
+                      {tr("pages.dashboard.tasks.detail.keyboard.setStatus")}
+                    </span>
                     <span className="font-mono">1-6</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>{tr("pages.dashboard.tasks.detail.keyboard.goBack")}</span>
+                    <span>
+                      {tr("pages.dashboard.tasks.detail.keyboard.goBack")}
+                    </span>
                     <kbd className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
                       Esc
                     </kbd>
@@ -1140,7 +1235,7 @@ function parseDateInputValue(value: string): Date {
   const year = Number(yearRaw);
   const month = Number(monthRaw);
   const day = Number(dayRaw);
-  if (!year || !month || !day) {
+  if (!(year && month && day)) {
     return new Date(value);
   }
   // Use local time for date-only inputs (avoid UTC parsing shifts).

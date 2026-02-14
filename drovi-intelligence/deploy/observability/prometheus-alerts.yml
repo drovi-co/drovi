@@ -114,3 +114,51 @@ groups:
         annotations:
           summary: "Evidence completeness low"
           description: "Less than 95% of extracted items have evidence spans over the last 15m."
+
+      - alert: DroviAgentRunSuccessRateLow
+        expr: |
+          (
+            sum(rate(drovi_agent_runs_status_total{status="completed"}[15m]))
+            /
+            clamp_min(
+              sum(rate(drovi_agent_runs_status_total{status=~"completed|failed|cancelled"}[15m])),
+              0.001
+            )
+          ) < 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent run success rate below SLO"
+          description: "Run success dropped below 90% over 15m."
+
+      - alert: DroviAgentRunLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(drovi_agent_run_duration_seconds_bucket{status=~"completed|failed|cancelled"}[15m])) by (le)
+          ) > 120
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent run latency p95 high"
+          description: "Agent run p95 exceeded 120s."
+
+      - alert: DroviAgentApprovalBacklogHigh
+        expr: max by (organization_id) (drovi_agent_approval_backlog) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent approval backlog high"
+          description: "Pending approvals exceeded 20 for at least one organization."
+
+      - alert: DroviAgentQualityDriftHigh
+        expr: max by (organization_id, role_scope) (drovi_agent_quality_drift_score) > 0.80
+        for: 20m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent quality drift high"
+          description: "Quality drift score exceeded 0.8. Freeze promotions and run remediation."

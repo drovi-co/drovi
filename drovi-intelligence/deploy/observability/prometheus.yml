@@ -26,10 +26,10 @@ scrape_configs:
     static_configs:
       - targets: ["drovi-jobs-worker:9102"]
 
-  - job_name: "drovi-scheduler"
+  - job_name: "drovi-temporal-worker"
     metrics_path: /metrics
     static_configs:
-      - targets: ["drovi-scheduler:9103"]
+      - targets: ["drovi-temporal-worker:9104"]
 
   - job_name: "postgres"
     static_configs:
@@ -48,4 +48,3 @@ scrape_configs:
     metrics_path: /minio/v2/metrics/cluster
     static_configs:
       - targets: ["minio:9000"]
-

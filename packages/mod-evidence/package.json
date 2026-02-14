@@ -1,0 +1,27 @@
+{
+  "name": "@memorystack/mod-evidence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.node.config.ts"
+  },
+  "dependencies": {
+    "@memorystack/mod-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}

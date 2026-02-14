@@ -9,6 +9,7 @@ import signal
 
 import structlog
 
+from src.config import get_settings
 from src.connectors.scheduling.scheduler import init_scheduler, shutdown_scheduler
 from src.db.client import close_db, init_db
 from src.graph.client import close_graph_client, get_graph_client
@@ -17,6 +18,19 @@ logger = structlog.get_logger()
 
 
 async def _run() -> None:
+    settings = get_settings()
+    if settings.temporal_enabled:
+        # If Temporal is enabled, connector orchestration is Temporal-first and
+        # the legacy APScheduler process should not run.
+        logger.warning(
+            "Legacy scheduler disabled because Temporal is enabled",
+            temporal_address=settings.temporal_address,
+            temporal_namespace=settings.temporal_namespace,
+            temporal_task_queue=settings.temporal_task_queue,
+        )
+        await asyncio.Event().wait()
+        return
+
     await init_db()
 
     # Some scheduled jobs touch the graph directly (reports, candidates). Ensure

@@ -87,6 +87,7 @@ services:
        rpk topic create intelligence.pipeline.input -p 1 -r 1 --brokers redpanda:9092 || true;
        rpk topic create drovi-intelligence -p 1 -r 1 --brokers redpanda:9092 || true;
        rpk topic create graph.changes -p 1 -r 1 --brokers redpanda:9092 || true;
+       rpk topic create agent.inbox.events -p 1 -r 1 --brokers redpanda:9092 || true;
        rpk topic create raw.connector.events.retry -p 1 -r 1 --brokers redpanda:9092 || true;
        rpk topic create normalized.records.retry -p 1 -r 1 --brokers redpanda:9092 || true;
        rpk topic create intelligence.pipeline.input.retry -p 1 -r 1 --brokers redpanda:9092 || true;
@@ -141,6 +142,54 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
+  # Temporal (Workflow Engine) + Postgres (Temporal persistence)
+  # ---------------------------------------------------------------------------
+  temporal-postgres:
+    image: postgres:16
+    container_name: drovi-temporal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - drovi_temporal_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: drovi-temporal
+    restart: unless-stopped
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: temporal-postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_DB: temporal
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: drovi-temporal-ui
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3001,http://localhost:3003
+    ports:
+      - "8088:8080"
+
+  # ---------------------------------------------------------------------------
   # Drovi Intelligence API
   # ---------------------------------------------------------------------------
   drovi-intelligence:
@@ -162,6 +211,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
       ENVIRONMENT: development
       REDIS_URL: redis://redis:6379/0
+      TEMPORAL_ENABLED: "true"
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: drovi-workflows
       SCHEDULER_RUN_IN_API: "false"
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: 6379
@@ -175,6 +228,7 @@ services:
       KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
       KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
       KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      KAFKA_TOPIC_AGENT_INBOX_EVENTS: agent.inbox.events
       EVIDENCE_STORAGE_BACKEND: s3
       EVIDENCE_S3_BUCKET: drovi-evidence
       EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
@@ -187,6 +241,8 @@ services:
       DOCUMENTS_S3_PREFIX: drovi-documents
       S3_FORCE_PATH_STYLE: "true"
       WEB_APP_URL: http://localhost:3001
+      AGENT_INBOX_INBOUND_TOKEN: ${AGENT_INBOX_INBOUND_TOKEN:-dev-agent-inbox-token}
+      AGENT_IDENTITY_EMAIL_DOMAIN: ${AGENT_IDENTITY_EMAIL_DOMAIN:-agents.drovi.co}
       LOG_LEVEL: INFO
       LOG_FORMAT: json
       EMBEDDING_MODEL: text-embedding-3-small
@@ -237,6 +293,7 @@ services:
       KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
       KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
       KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      KAFKA_TOPIC_AGENT_INBOX_EVENTS: agent.inbox.events
       KAFKA_RAW_EVENT_MODE: webhook_only
       EVIDENCE_STORAGE_BACKEND: s3
       EVIDENCE_S3_BUCKET: drovi-evidence
@@ -292,6 +349,7 @@ services:
       KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
       KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
       KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      KAFKA_TOPIC_AGENT_INBOX_EVENTS: agent.inbox.events
       EVIDENCE_STORAGE_BACKEND: s3
       EVIDENCE_S3_BUCKET: drovi-evidence
       EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
@@ -328,7 +386,7 @@ services:
       LOG_LEVEL: INFO
 
   # ---------------------------------------------------------------------------
-  # Scheduler
+  # Scheduler (Legacy APScheduler)
   # ---------------------------------------------------------------------------
   drovi-scheduler:
     build:
@@ -336,6 +394,7 @@ services:
       dockerfile: Dockerfile
     container_name: drovi-intel-scheduler
     restart: unless-stopped
+    profiles: ["legacy"]
     healthcheck:
       disable: true
     command: ["python", "-m", "src.connectors.scheduling.runner"]
@@ -365,6 +424,7 @@ services:
       KAFKA_TOPIC_PIPELINE_INPUT: intelligence.pipeline.input
       KAFKA_TOPIC_INTELLIGENCE: drovi-intelligence
       KAFKA_TOPIC_GRAPH_CHANGES: graph.changes
+      KAFKA_TOPIC_AGENT_INBOX_EVENTS: agent.inbox.events
       EVIDENCE_STORAGE_BACKEND: s3
       EVIDENCE_S3_BUCKET: drovi-evidence
       EVIDENCE_S3_ENDPOINT_URL: http://minio:9000
@@ -380,6 +440,42 @@ services:
       LOG_FORMAT: json
       EMBEDDING_MODEL: text-embedding-3-small
       PROMETHEUS_METRICS_PORT: "9103"
+
+  # ---------------------------------------------------------------------------
+  # Temporal Workflows Worker
+  # ---------------------------------------------------------------------------
+  drovi-temporal-worker:
+    build:
+      context: ./drovi-intelligence
+      dockerfile: Dockerfile
+    container_name: drovi-temporal-worker
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./drovi-intelligence/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/drovi
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/0
+      TEMPORAL_ENABLED: "true"
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: drovi-workflows
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      PROMETHEUS_METRICS_PORT: "9104"
+    healthcheck:
+      test: ["CMD", "python", "-m", "src.contexts.workflows.infrastructure.healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    command: ["python", "-m", "src.contexts.workflows.infrastructure.worker"]
 
   # ---------------------------------------------------------------------------
   # Web App (Vite build + Nginx)
@@ -424,7 +520,7 @@ services:
       - drovi-intelligence
       - drovi-worker
       - drovi-jobs-worker
-      - drovi-scheduler
+      - drovi-temporal-worker
       - postgres
       - redis
       - redpanda
@@ -498,6 +594,8 @@ volumes:
   drovi_falkordb_data:
     driver: local
   drovi_minio_data:
+    driver: local
+  drovi_temporal_postgres_data:
     driver: local
   prometheus_data:
     driver: local

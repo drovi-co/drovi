@@ -15,6 +15,7 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.databases.postgres_definition import CAPABILITIES
 
 logger = structlog.get_logger()
 
@@ -32,6 +33,9 @@ class PostgresConnector(BaseConnector):
     - Full refresh mode
     - Custom query execution
     """
+
+    connector_type = "postgres"
+    capabilities = CAPABILITIES
 
     def __init__(self):
         """Initialize PostgreSQL connector."""

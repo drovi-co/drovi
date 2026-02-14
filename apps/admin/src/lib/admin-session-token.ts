@@ -39,4 +39,3 @@ export function clearAdminSessionToken() {
   window.sessionStorage.removeItem(STORAGE_KEY);
   window.localStorage.removeItem(STORAGE_KEY);
 }
-

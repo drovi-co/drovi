@@ -1,21 +1,24 @@
 "use client";
 
-import { Check, Clock, Eye, MoreHorizontal } from "lucide-react";
-import type * as React from "react";
-import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
-import { SourceIcon } from "@/components/inbox/source-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
+import { AssigneeIcon } from "@memorystack/ui-core/assignee-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
-import { useI18n, type TFunction } from "@/i18n";
+} from "@memorystack/ui-core/dropdown-menu";
+import { IssueCheckbox } from "@memorystack/ui-core/issue-checkbox";
+import {
+  type Priority,
+  PriorityIcon,
+} from "@memorystack/ui-core/priority-icon";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
+import { Check, Clock, Eye, MoreHorizontal } from "lucide-react";
+import type * as React from "react";
+import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
+import { SourceIcon } from "@/components/inbox/source-icon";
+import { type TFunction, useI18n } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
@@ -125,8 +128,7 @@ function getPersonName(
   person:
     | { displayName?: string | null; primaryEmail: string }
     | null
-    | undefined
-  ,
+    | undefined,
   t: TFunction
 ): string {
   if (!person) {
@@ -148,9 +150,7 @@ function formatDueDate(
   }
   const diffDays = getLocalDayDiff(date);
   if (diffDays < 0) {
-    const days =
-      options.daysOverdue ??
-      Math.abs(diffDays);
+    const days = options.daysOverdue ?? Math.abs(diffDays);
     return options.t("components.commitments.due.overdueShort", { days });
   }
   if (diffDays === 0) {
@@ -242,10 +242,11 @@ function CommitmentRow({
       ? commitment.creditor
       : commitment.debtor;
   const personName = getPersonName(otherPerson, t);
-  const dueDateDisplay = formatDueDate(
-    commitment.dueDate,
-    { daysOverdue: commitment.daysOverdue, locale, t }
-  );
+  const dueDateDisplay = formatDueDate(commitment.dueDate, {
+    daysOverdue: commitment.daysOverdue,
+    locale,
+    t,
+  });
   const isOverdue =
     commitment.status === "overdue" ||
     (commitment.dueDate && getLocalDayDiff(commitment.dueDate) < 0);
@@ -267,10 +268,7 @@ function CommitmentRow({
         isUserVerified: commitment.isUserVerified,
         sourceMessage: extractSourceMessage(commitment.evidence?.[0]),
         threadId: commitment.sourceThreadId ?? undefined,
-        extractedAt:
-          commitment.extractedAt ??
-          commitment.dueDate ??
-          new Date(),
+        extractedAt: commitment.extractedAt ?? commitment.dueDate ?? new Date(),
       }
     : null;
 
@@ -581,15 +579,21 @@ function CommitmentListHeader({
       <div className={cn(COL.status, "shrink-0")} />
 
       {/* Person */}
-      <div className={cn(COL.person, "shrink-0 px-1")}>{t("components.commitments.listHeader.person")}</div>
+      <div className={cn(COL.person, "shrink-0 px-1")}>
+        {t("components.commitments.listHeader.person")}
+      </div>
 
       {/* Title */}
-      <div className="flex-1 px-2">{t("components.commitments.listHeader.commitment")}</div>
+      <div className="flex-1 px-2">
+        {t("components.commitments.listHeader.commitment")}
+      </div>
 
       {/* Right section */}
       <div className="flex w-[140px] shrink-0 items-center justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="w-14 whitespace-nowrap text-right">{t("components.commitments.listHeader.due")}</span>
+          <span className="w-14 whitespace-nowrap text-right">
+            {t("components.commitments.listHeader.due")}
+          </span>
           <div className="w-7" />
           <div className="w-7" />
         </div>

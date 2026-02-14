@@ -14,10 +14,11 @@ import httpx
 import structlog
 
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
-from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, RecordBatch, ConnectorRegistry
+from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.productivity.notion.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -83,22 +84,9 @@ class NotionConnector(BaseConnector):
 
     connector_type = "notion"
 
-    capabilities = ConnectorCapabilities(
-        supports_incremental=True,
-        supports_full_refresh=True,
-        supports_backfill=True,
-        supports_webhooks=False,  # Notion webhooks are limited
-        supports_real_time=False,
-        default_rate_limit_per_minute=100,
-        supports_concurrency=True,
-        max_concurrent_streams=2,
-        supports_schema_discovery=True,
-    )
+    capabilities = CAPABILITIES
 
-    SCOPES = [
-        "read_user",
-        "read_content",
-    ]
+    SCOPES = list(OAUTH_SCOPES)
 
     def __init__(self):
         """Initialize Notion connector."""
@@ -116,13 +104,14 @@ class NotionConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{NOTION_BASE_URL}/users/me",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{NOTION_BASE_URL}/users/me",
+                    operation="check_connection",
                     headers=self._get_headers(access_token),
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -146,18 +135,7 @@ class NotionConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Notion streams."""
-        return [
-            StreamConfig(
-                stream_name="pages",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="last_edited_time",
-            ),
-            StreamConfig(
-                stream_name="databases",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="last_edited_time",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -202,14 +180,15 @@ class NotionConnector(BaseConnector):
                 if start_cursor:
                     filter_params["start_cursor"] = start_cursor
 
-                response = await request_with_retry(
-                    client,
-                    "POST",
-                    f"{NOTION_BASE_URL}/search",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="POST",
+                    url=f"{NOTION_BASE_URL}/search",
+                    operation="read_pages",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -226,7 +205,7 @@ class NotionConnector(BaseConnector):
                         break
 
                     # Fetch full page content
-                    page = await self._fetch_page_content(client, result)
+                    page = await self._fetch_page_content(config, client, result)
                     record = self.create_record(
                         record_id=page.id,
                         stream_name=stream.stream_name,
@@ -274,14 +253,15 @@ class NotionConnector(BaseConnector):
                 if start_cursor:
                     filter_params["start_cursor"] = start_cursor
 
-                response = await request_with_retry(
-                    client,
-                    "POST",
-                    f"{NOTION_BASE_URL}/search",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="POST",
+                    url=f"{NOTION_BASE_URL}/search",
+                    operation="read_databases",
                     headers=self._get_headers(self._access_token),
                     json=filter_params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -297,7 +277,7 @@ class NotionConnector(BaseConnector):
                         break
 
                     # Fetch database with rows
-                    db = await self._fetch_database_rows(client, result)
+                    db = await self._fetch_database_rows(config, client, result)
                     record = self.create_record(
                         record_id=db.id,
                         stream_name=stream.stream_name,
@@ -322,6 +302,7 @@ class NotionConnector(BaseConnector):
 
     async def _fetch_page_content(
         self,
+        config: ConnectorConfig,
         client: httpx.AsyncClient,
         page_data: dict[str, Any],
     ) -> NotionPage:
@@ -332,7 +313,7 @@ class NotionConnector(BaseConnector):
         title = self._extract_title(page_data.get("properties", {}))
 
         # Fetch blocks
-        blocks = await self._fetch_blocks(client, page_id)
+        blocks = await self._fetch_blocks(config, client, page_id)
 
         # Convert blocks to plain text
         plain_text = self._blocks_to_plain_text(blocks)
@@ -359,6 +340,7 @@ class NotionConnector(BaseConnector):
 
     async def _fetch_blocks(
         self,
+        config: ConnectorConfig,
         client: httpx.AsyncClient,
         block_id: str,
         depth: int = 0,
@@ -377,14 +359,15 @@ class NotionConnector(BaseConnector):
             if start_cursor:
                 params["start_cursor"] = start_cursor
 
-            response = await request_with_retry(
-                client,
-                "GET",
-                f"{NOTION_BASE_URL}/blocks/{block_id}/children",
+            response = await connector_request(
+                connector=self,
+                config=config,
+                client=client,
+                method="GET",
+                url=f"{NOTION_BASE_URL}/blocks/{block_id}/children",
+                operation="fetch_blocks",
                 headers=self._get_headers(self._access_token),
                 params=params,
-                rate_limit_key=self.connector_type,
-                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()
@@ -403,7 +386,7 @@ class NotionConnector(BaseConnector):
                 # Fetch children if any
                 if block.has_children:
                     block.children = await self._fetch_blocks(
-                        client, block.id, depth + 1, max_depth
+                        config, client, block.id, depth + 1, max_depth
                     )
 
                 blocks.append(block)
@@ -415,6 +398,7 @@ class NotionConnector(BaseConnector):
 
     async def _fetch_database_rows(
         self,
+        config: ConnectorConfig,
         client: httpx.AsyncClient,
         db_data: dict[str, Any],
     ) -> NotionDatabase:
@@ -432,14 +416,15 @@ class NotionConnector(BaseConnector):
             if start_cursor:
                 params["start_cursor"] = start_cursor
 
-            response = await request_with_retry(
-                client,
-                "POST",
-                f"{NOTION_BASE_URL}/databases/{db_id}/query",
+            response = await connector_request(
+                connector=self,
+                config=config,
+                client=client,
+                method="POST",
+                url=f"{NOTION_BASE_URL}/databases/{db_id}/query",
+                operation="fetch_database_rows",
                 headers=self._get_headers(self._access_token),
                 json=params,
-                rate_limit_key=self.connector_type,
-                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()

@@ -1976,8 +1976,9 @@ class UIOManager:
         evidence_quote: str | None = None,
         evidence_artifact_id: str | None = None,
         detected_by: str | None = None,
+        sync_graph: bool = True,
     ) -> str:
-        """Record a contradiction between two UIOs (SQL + graph)."""
+        """Record a contradiction between two UIOs (SQL + optional graph)."""
         now = datetime.utcnow()
         if uio_a_id == uio_b_id:
             raise ValueError("Cannot record contradiction against the same UIO")
@@ -2101,50 +2102,51 @@ class UIOManager:
                     },
                 )
 
-        try:
-            graph = await self._get_graph()
-            contradiction_node = {
-                "id": contradiction_id,
-                "organizationId": self.organization_id,
-                "contradictionType": contradiction_type,
-                "severity": severity,
-                "status": "open",
-                "evidenceQuote": evidence_quote,
-                "evidenceArtifactId": evidence_artifact_id,
-                "detectedAt": now.isoformat(),
-                "createdAt": now.isoformat(),
-                "updatedAt": now.isoformat(),
-                "validFrom": now.isoformat(),
-                "validTo": None,
-            }
-            props_clause, props_params = graph.build_create_properties(contradiction_node)
-            await graph.query(
-                f"CREATE (c:Contradiction {{{props_clause}}})",
-                props_params,
-            )
+        if sync_graph:
+            try:
+                graph = await self._get_graph()
+                contradiction_node = {
+                    "id": contradiction_id,
+                    "organizationId": self.organization_id,
+                    "contradictionType": contradiction_type,
+                    "severity": severity,
+                    "status": "open",
+                    "evidenceQuote": evidence_quote,
+                    "evidenceArtifactId": evidence_artifact_id,
+                    "detectedAt": now.isoformat(),
+                    "createdAt": now.isoformat(),
+                    "updatedAt": now.isoformat(),
+                    "validFrom": now.isoformat(),
+                    "validTo": None,
+                }
+                props_clause, props_params = graph.build_create_properties(contradiction_node)
+                await graph.query(
+                    f"CREATE (c:Contradiction {{{props_clause}}})",
+                    props_params,
+                )
 
-            await graph.query(
-                """
-                MATCH (c:Contradiction {id: $cid})
-                MATCH (a:UIO {id: $a_id})
-                MATCH (b:UIO {id: $b_id})
-                CREATE (c)-[:HAS_CONTRADICTION]->(a)
-                CREATE (c)-[:HAS_CONTRADICTION]->(b)
-                """,
-                {"cid": contradiction_id, "a_id": uio_a_id, "b_id": uio_b_id},
-            )
+                await graph.query(
+                    """
+                    MATCH (c:Contradiction {id: $cid})
+                    MATCH (a:UIO {id: $a_id})
+                    MATCH (b:UIO {id: $b_id})
+                    CREATE (c)-[:HAS_CONTRADICTION]->(a)
+                    CREATE (c)-[:HAS_CONTRADICTION]->(b)
+                    """,
+                    {"cid": contradiction_id, "a_id": uio_a_id, "b_id": uio_b_id},
+                )
 
-            evolution = MemoryEvolution(graph)
-            await evolution.record_contradiction(
-                node_a_id=uio_a_id,
-                node_b_id=uio_b_id,
-                node_type=GraphNodeType.UIO,
-                contradiction_type=contradiction_type,
-                evidence=evidence_quote,
-                severity=severity,
-            )
-        except Exception as exc:
-            logger.warning("Failed to sync contradiction to graph", error=str(exc))
+                evolution = MemoryEvolution(graph)
+                await evolution.record_contradiction(
+                    node_a_id=uio_a_id,
+                    node_b_id=uio_b_id,
+                    node_type=GraphNodeType.UIO,
+                    contradiction_type=contradiction_type,
+                    evidence=evidence_quote,
+                    severity=severity,
+                )
+            except Exception as exc:
+                logger.warning("Failed to sync contradiction to graph", error=str(exc))
 
         return contradiction_id
 

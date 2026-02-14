@@ -17,14 +17,17 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
 
-# Set test environment variables before importing app
-os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = "postgresql://test:test@localhost:5432/test_drovi"
-os.environ["FALKORDB_HOST"] = "localhost"
-os.environ["FALKORDB_PORT"] = "6379"
-os.environ["REDIS_URL"] = "redis://localhost:6379/1"
-os.environ["LOG_LEVEL"] = "WARNING"
-os.environ["OPENAI_API_KEY"] = "test-key"
+# Set test environment variables before importing app.
+#
+# Use setdefault so CI/Docker can override these to point at real services when
+# running integration-style suites (e.g. compose postgres on the service network).
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test_drovi")
+os.environ.setdefault("FALKORDB_HOST", "localhost")
+os.environ.setdefault("FALKORDB_PORT", "6379")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+os.environ.setdefault("LOG_LEVEL", "WARNING")
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 
 # =============================================================================
@@ -42,12 +45,48 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "mcp: MCP server/tool tests")
 
 
+def pytest_collection_modifyitems(config, items):
+    """
+    Auto-assign tier markers so we can run:
+    - pytest -m unit
+    - pytest -m integration
+    - pytest -m e2e
+
+    Convention:
+    - tests/integration/** => integration
+    - tests/e2e/**         => e2e
+    - tests/chaos/**       => integration (failure-mode / reliability suite)
+    - everything else      => unit
+    """
+    for item in items:
+        path = str(getattr(item, "fspath", ""))
+        # If the test is already explicitly tiered, do not override.
+        if item.get_closest_marker("integration") or item.get_closest_marker("e2e") or item.get_closest_marker("unit"):
+            continue
+        if "/tests/integration/" in path or path.endswith("\\tests\\integration\\"):
+            item.add_marker(pytest.mark.integration)
+        elif "/tests/e2e/" in path or path.endswith("\\tests\\e2e\\"):
+            item.add_marker(pytest.mark.e2e)
+        elif "/tests/chaos/" in path or path.endswith("\\tests\\chaos\\"):
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.unit)
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Create event loop for async tests."""
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def fake_clock():
+    """Deterministic clock for tests (Phase 1 will wire this into kernel time)."""
+    from tests.support.clock import FakeClock
+
+    return FakeClock.fixed()
 
 
 # =============================================================================
@@ -63,26 +102,42 @@ def mock_auth_context():
     Uses "internal" as org_id to bypass org validation checks,
     allowing tests to use any organization_id in their requests.
     """
+    from src.auth.context import AuthMetadata, AuthType
     from src.auth.middleware import APIKeyContext
 
     return APIKeyContext(
         organization_id="internal",  # Special value that bypasses org validation
+        auth_subject_id="service_test",
         scopes=["read", "write", "read:graph", "read:analytics", "write:connections", "admin", "*"],
-        key_id="test_key_123",
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE,
+            key_id="internal:test",
+            key_name="Internal: test",
+            service_name="tests",
+        ),
         is_internal=True,  # Mark as internal to get all permissions
+        rate_limit_per_minute=10000,
     )
 
 
 @pytest.fixture
 def internal_auth_context():
     """Create an internal auth context for testing."""
+    from src.auth.context import AuthMetadata, AuthType
     from src.auth.middleware import APIKeyContext
 
     return APIKeyContext(
         organization_id="internal",
+        auth_subject_id="service_internal",
         scopes=["*"],
-        key_id="internal",
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE,
+            key_id="internal",
+            key_name="Internal",
+            service_name="tests",
+        ),
         is_internal=True,
+        rate_limit_per_minute=10000,
     )
 
 
@@ -117,13 +172,14 @@ def mock_rate_limit():
 def app(mock_auth_context):
     """Create FastAPI application for testing with auth overrides."""
     from src.api.main import app as fastapi_app
-    from src.auth.middleware import get_api_key_context
+    from src.auth.middleware import get_api_key_context, get_auth_context
 
     # Override the auth dependency - must match signature or use no params
     async def get_mock_context():
         return mock_auth_context
 
     fastapi_app.dependency_overrides[get_api_key_context] = get_mock_context
+    fastapi_app.dependency_overrides[get_auth_context] = get_mock_context
 
     yield fastapi_app
 
@@ -228,7 +284,7 @@ async def mock_redis():
 @pytest_asyncio.fixture
 async def mock_llm_service():
     """Mock LLM service for testing."""
-    from src.llm import LLMCall
+    from src.llm.service import LLMCall
 
     service = AsyncMock()
 

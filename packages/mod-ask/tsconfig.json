@@ -1,0 +1,13 @@
+{
+  "extends": "@memorystack/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@memorystack/mod-kit": ["../mod-kit/src/index.ts"],
+      "@memorystack/mod-kit/*": ["../mod-kit/src/*"]
+    }
+  },
+  "include": ["src", "test"]
+}

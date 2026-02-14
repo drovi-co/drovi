@@ -20,9 +20,7 @@ function isRecord(value: unknown): value is EvidenceContext {
 }
 
 function getString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
 function parseContext(raw: unknown): EvidenceContext | null {
@@ -107,7 +105,7 @@ export function extractSourceMessage(
     (isRecord(context.source) && context.source) ||
     null;
 
-  if (!source || !isRecord(source)) {
+  if (!(source && isRecord(source))) {
     return null;
   }
 
@@ -129,7 +127,7 @@ export function extractSourceMessage(
     getString(source.sent_at) ??
     getString(source.timestamp);
 
-  if (!senderEmail || !sentAtRaw) {
+  if (!(senderEmail && sentAtRaw)) {
     return null;
   }
 
@@ -145,4 +143,3 @@ export function extractSourceMessage(
     threadSubject,
   };
 }
-

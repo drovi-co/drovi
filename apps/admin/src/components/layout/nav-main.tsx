@@ -1,11 +1,8 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronRight, type LucideIcon } from "lucide-react";
-
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@memorystack/ui-core/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -15,7 +12,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
+} from "@memorystack/ui-core/sidebar";
+import { Link, useLocation } from "@tanstack/react-router";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { useT } from "@/i18n";
 
 export interface NavItem {

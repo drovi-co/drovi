@@ -5,6 +5,26 @@
 // Discover and promote recognition patterns from the memory graph.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@memorystack/ui-core/dialog";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { Sheet, SheetContent } from "@memorystack/ui-core/sheet";
+import { Textarea } from "@memorystack/ui-core/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -17,37 +37,12 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { PatternCard, type Pattern } from "@/components/patterns/pattern-card";
+import { type Pattern, PatternCard } from "@/components/patterns/pattern-card";
 import { PatternDetail } from "@/components/patterns/pattern-detail";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
-import { authClient } from "@/lib/auth-client";
-import {
-  graphAPI,
-  patternsAPI,
-  type PatternCandidate,
-} from "@/lib/api";
 import { useT } from "@/i18n";
+import { graphAPI, type PatternCandidate, patternsAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard/patterns/")({
   component: PatternsPage,
@@ -78,11 +73,16 @@ LIMIT 100
 
 function toPattern(
   raw: Record<string, unknown>,
-  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+  t: (
+    key: string,
+    params?: Record<string, string | number | boolean | null | undefined>
+  ) => string
 ): Pattern {
   return {
     id: raw.id as string,
-    name: (raw.name as string) ?? t("pages.dashboard.patterns.fallback.untitledPattern"),
+    name:
+      (raw.name as string) ??
+      t("pages.dashboard.patterns.fallback.untitledPattern"),
     description: (raw.description as string) ?? "",
     domain: (raw.domain as string) ?? "general",
     salientFeatures: (raw.salient_features as string[]) ?? [],
@@ -150,7 +150,8 @@ function PatternsPage() {
       toast.success(t("pages.dashboard.patterns.toasts.discoveryComplete"));
       refetchCandidates();
     },
-    onError: () => toast.error(t("pages.dashboard.patterns.toasts.discoveryFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.patterns.toasts.discoveryFailed")),
   });
 
   const promoteMutation = useMutation({
@@ -168,7 +169,8 @@ function PatternsPage() {
       refetch();
       refetchCandidates();
     },
-    onError: () => toast.error(t("pages.dashboard.patterns.toasts.promoteFailed")),
+    onError: () =>
+      toast.error(t("pages.dashboard.patterns.toasts.promoteFailed")),
   });
 
   const patterns = useMemo(() => {
@@ -196,7 +198,7 @@ function PatternsPage() {
       <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
               <Brain className="h-3 w-3" />
               {t("pages.dashboard.patterns.kicker")}
             </div>
@@ -241,7 +243,10 @@ function PatternsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : patternsError ? (
-              <ApiErrorPanel error={patternsErrorObj} onRetry={() => refetch()} />
+              <ApiErrorPanel
+                error={patternsErrorObj}
+                onRetry={() => refetch()}
+              />
             ) : patterns.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 {t("pages.dashboard.patterns.active.empty")}
@@ -276,7 +281,10 @@ function PatternsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : candidatesError ? (
-              <ApiErrorPanel error={candidatesErrorObj} onRetry={() => refetchCandidates()} />
+              <ApiErrorPanel
+                error={candidatesErrorObj}
+                onRetry={() => refetchCandidates()}
+              />
             ) : (candidates ?? []).length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 {t("pages.dashboard.patterns.candidates.empty")}
@@ -288,9 +296,15 @@ function PatternsPage() {
                   key={candidate.id}
                   onPromote={() => {
                     setPromotionTarget(candidate);
-                    setPromotionName(candidate.sample_titles?.[0] ?? t("pages.dashboard.patterns.fallback.patternName"));
+                    setPromotionName(
+                      candidate.sample_titles?.[0] ??
+                        t("pages.dashboard.patterns.fallback.patternName")
+                    );
                     setPromotionDescription(
-                      candidate.top_terms?.join(", ") ?? t("pages.dashboard.patterns.fallback.autoPromotedDescription")
+                      candidate.top_terms?.join(", ") ??
+                        t(
+                          "pages.dashboard.patterns.fallback.autoPromotedDescription"
+                        )
                     );
                     setPromotionDomain("general");
                   }}
@@ -306,9 +320,7 @@ function PatternsPage() {
         open={!!selectedPattern}
       >
         <SheetContent className="w-[520px] sm:max-w-[520px]">
-          {selectedPattern && (
-            <PatternDetail pattern={selectedPattern} />
-          )}
+          {selectedPattern && <PatternDetail pattern={selectedPattern} />}
         </SheetContent>
       </Sheet>
 
@@ -318,7 +330,9 @@ function PatternsPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t("pages.dashboard.patterns.dialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("pages.dashboard.patterns.dialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("pages.dashboard.patterns.dialog.description")}
             </DialogDescription>
@@ -332,7 +346,9 @@ function PatternsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("pages.dashboard.patterns.dialog.fields.description")}</Label>
+              <Label>
+                {t("pages.dashboard.patterns.dialog.fields.description")}
+              </Label>
               <Textarea
                 onChange={(event) =>
                   setPromotionDescription(event.target.value)
@@ -341,7 +357,9 @@ function PatternsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("pages.dashboard.patterns.dialog.fields.domain")}</Label>
+              <Label>
+                {t("pages.dashboard.patterns.dialog.fields.domain")}
+              </Label>
               <Input
                 onChange={(event) => setPromotionDomain(event.target.value)}
                 value={promotionDomain}
@@ -378,10 +396,13 @@ function CandidateCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-sm">
-            {candidate.sample_titles?.[0] ?? t("pages.dashboard.patterns.fallback.cluster")}
+            {candidate.sample_titles?.[0] ??
+              t("pages.dashboard.patterns.fallback.cluster")}
           </p>
           <p className="text-muted-foreground text-xs">
-            {t("pages.dashboard.patterns.candidates.members", { count: candidate.member_count })}
+            {t("pages.dashboard.patterns.candidates.members", {
+              count: candidate.member_count,
+            })}
           </p>
         </div>
         <Badge variant="secondary">+{candidate.confidence_boost}</Badge>

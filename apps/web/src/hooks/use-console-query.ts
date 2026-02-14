@@ -100,7 +100,7 @@ export interface EntitySuggestion {
 // =============================================================================
 
 async function fetchConsoleQuery(
-  organizationId: string,
+  _organizationId: string,
   parsed: ParsedQuery,
   options: {
     groupBy?: string | null;
@@ -118,7 +118,7 @@ async function fetchConsoleQuery(
 }
 
 async function fetchEntitySuggestions(
-  organizationId: string,
+  _organizationId: string,
   entity: string,
   query: string,
   limit: number
@@ -215,14 +215,14 @@ export interface RelatedItem {
 // =============================================================================
 
 async function fetchUioSources(
-  organizationId: string,
+  _organizationId: string,
   uioId: string
 ): Promise<SourceItem[]> {
   return apiFetch<SourceItem[]>(`/console/sources/${uioId}`);
 }
 
 async function fetchRelatedUios(
-  organizationId: string,
+  _organizationId: string,
   uioId: string,
   limit = 10
 ): Promise<RelatedItem[]> {
@@ -299,7 +299,7 @@ export interface MessageDetail {
 // =============================================================================
 
 async function fetchSourceDetail(
-  organizationId: string,
+  _organizationId: string,
   sourceId: string
 ): Promise<MessageDetail> {
   return apiFetch<MessageDetail>(`/console/source/${sourceId}`);

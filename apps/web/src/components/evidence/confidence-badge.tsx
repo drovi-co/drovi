@@ -6,14 +6,14 @@
 // Shows at-a-glance confidence with optional expandable explanation.
 //
 
-import { HelpCircle, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@memorystack/ui-core/badge";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
+} from "@memorystack/ui-core/popover";
+import { Progress } from "@memorystack/ui-core/progress";
+import { HelpCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

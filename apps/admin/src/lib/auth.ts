@@ -8,8 +8,11 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import { APIError, adminAuthAPI, type AdminMe } from "./api";
-import { clearAdminSessionToken, setAdminSessionToken } from "./admin-session-token";
+import {
+  clearAdminSessionToken,
+  setAdminSessionToken,
+} from "./admin-session-token";
+import { type AdminMe, APIError, adminAuthAPI } from "./api";
 
 let interactiveAuthSeq = 0;
 let checkAuthSeq = 0;
@@ -56,12 +59,18 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
       // happens when the web app's session cookie is picked up instead
       // of the admin Bearer token.
       const message = e instanceof Error ? e.message : "Failed to check auth";
-      const isAuthFailure = e instanceof APIError
-        ? e.status === 401 || e.status === 403
-        : message.toLowerCase().includes("not authenticated");
+      const isAuthFailure =
+        e instanceof APIError
+          ? e.status === 401 || e.status === 403
+          : message.toLowerCase().includes("not authenticated");
       if (isAuthFailure) {
         clearAdminSessionToken();
-        set({ me: null, isAuthenticated: false, isLoading: false, error: null });
+        set({
+          me: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+        });
         return;
       }
 
@@ -110,8 +119,9 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
       // Best-effort; continue to clear local state.
     } finally {
       clearAdminSessionToken();
-      if (opSeq !== interactiveAuthSeq) return;
-      set({ me: null, isAuthenticated: false, isLoading: false });
+      if (opSeq === interactiveAuthSeq) {
+        set({ me: null, isAuthenticated: false, isLoading: false });
+      }
     }
   },
 
@@ -139,8 +149,10 @@ export async function initializeAdminAuth() {
 export function useRequireAdminAuth() {
   const { me, isLoading, isAuthenticated, checkAuth } = useAdminAuth();
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && me === null) {
-      void checkAuth();
+    if (!(isLoading || isAuthenticated) && me === null) {
+      checkAuth().catch(() => {
+        // Best-effort. The auth store tracks errors for display.
+      });
     }
   }, [checkAuth, isAuthenticated, isLoading, me]);
   return { me, isLoading, isAuthenticated };

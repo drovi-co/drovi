@@ -50,7 +50,7 @@ class TestDocumentUploads:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["document_id"] == f"doc_{'a' * 64}"
+        assert data["document_id"] == f"doc_org_test_{'a' * 64}"
         assert data["upload_session_id"].startswith("upl_")
         assert data["multipart_upload_id"] == "u1"
         assert data["s3_key"] == "k"
@@ -87,7 +87,7 @@ class TestDocumentUploads:
         session1 = AsyncMock()
         row = SimpleNamespace(
             organization_id="org_test",
-            document_id="doc_" + ("a" * 64),
+            document_id="doc_org_test_" + ("a" * 64),
             s3_key="k",
             s3_upload_id="u1",
             status="initiated",
@@ -126,7 +126,7 @@ class TestDocumentUploads:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_123"
         assert data["status"] == "uploaded"
 
@@ -134,7 +134,7 @@ class TestDocumentUploads:
         # First DB session: document exists.
         session1 = AsyncMock()
         result1 = MagicMock()
-        result1.fetchone.return_value = SimpleNamespace(id="doc_" + ("a" * 64))
+        result1.fetchone.return_value = SimpleNamespace(id="doc_org_test_" + ("a" * 64))
         session1.execute = AsyncMock(return_value=result1)
 
         # Second DB session: no active job exists.
@@ -154,20 +154,20 @@ class TestDocumentUploads:
             AsyncMock(return_value="job_456"),
         ):
             resp = await async_client.post(
-                f"/api/v1/documents/doc_{'a' * 64}/reprocess?organization_id=org_test",
+                f"/api/v1/documents/doc_org_test_{'a' * 64}/reprocess?organization_id=org_test",
             )
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_456"
 
     async def test_reprocess_document_returns_existing_active_job(self, async_client):
         # First DB session: document exists.
         session1 = AsyncMock()
         result1 = MagicMock()
-        result1.fetchone.return_value = SimpleNamespace(id="doc_" + ("a" * 64))
+        result1.fetchone.return_value = SimpleNamespace(id="doc_org_test_" + ("a" * 64))
         session1.execute = AsyncMock(return_value=result1)
 
         # Second DB session: active queued/running job exists.
@@ -187,11 +187,69 @@ class TestDocumentUploads:
             AsyncMock(side_effect=AssertionError("enqueue_job should not be called when active job exists")),
         ):
             resp = await async_client.post(
-                f"/api/v1/documents/doc_{'a' * 64}/reprocess?organization_id=org_test",
+                f"/api/v1/documents/doc_org_test_{'a' * 64}/reprocess?organization_id=org_test",
             )
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
-        assert data["document_id"] == "doc_" + ("a" * 64)
+        assert data["document_id"] == "doc_org_test_" + ("a" * 64)
         assert data["queued_job_id"] == "job_existing"
+
+
+class TestDocumentListing:
+    async def test_list_documents_returns_keyset_cursor_and_optional_total(self, async_client):
+        session = AsyncMock()
+        list_result = MagicMock()
+        list_result.fetchall.return_value = [
+            SimpleNamespace(
+                id="doc_1",
+                title="Doc 1",
+                file_name="doc1.pdf",
+                mime_type="application/pdf",
+                byte_size=100,
+                sha256="a" * 64,
+                status="uploaded",
+                folder_path="/",
+                tags=[],
+                page_count=1,
+                evidence_artifact_id="evh_1",
+                created_at="2026-02-09T10:00:00+00:00",
+                updated_at="2026-02-09T10:00:00+00:00",
+            ),
+            SimpleNamespace(
+                id="doc_0",
+                title="Doc 0",
+                file_name="doc0.pdf",
+                mime_type="application/pdf",
+                byte_size=50,
+                sha256="b" * 64,
+                status="uploaded",
+                folder_path="/",
+                tags=[],
+                page_count=1,
+                evidence_artifact_id="evh_0",
+                created_at="2026-02-08T10:00:00+00:00",
+                updated_at="2026-02-08T10:00:00+00:00",
+            ),
+        ]
+        count_result = MagicMock()
+        count_result.fetchone.return_value = SimpleNamespace(count=12)
+        session.execute = AsyncMock(side_effect=[list_result, count_result])
+
+        @asynccontextmanager
+        async def fake_session():
+            yield session
+
+        with patch("src.api.routes.documents.get_db_session", fake_session):
+            resp = await async_client.get(
+                "/api/v1/documents?organization_id=org_test&limit=1&include_total=true"
+            )
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["success"] is True
+        assert len(payload["items"]) == 1
+        assert payload["has_more"] is True
+        assert payload["cursor"]
+        assert payload["total"] == 12

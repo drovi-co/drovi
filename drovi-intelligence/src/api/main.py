@@ -30,6 +30,7 @@ from src.api.middleware import (
 
 from src.config import get_settings
 from src.api.routes import (
+    agents,
     analyze,
     analytics,
     actuations,
@@ -51,6 +52,7 @@ from src.api.routes import (
     contradictions,
     customer,
     events,
+    extensions,
     evidence,
     guardrails,
     graph,
@@ -76,9 +78,11 @@ from src.mcp.http import router as mcp_router
 from src.connectors.webhooks import webhook_router
 from src.connectors.scheduling.scheduler import init_scheduler, shutdown_scheduler
 from src.continuum.runtime import init_continuum_scheduler, shutdown_continuum_scheduler
+from src.contexts.workflows.infrastructure.client import close_temporal_client
 from src.graph.client import get_graph_client, close_graph_client
 from src.db.client import init_db, close_db
 from src.streaming import init_streaming, shutdown_streaming
+from src.kernel.http.errors import register_exception_handlers
 
 # Map log level string to logging constant
 _LOG_LEVEL_MAP = {
@@ -148,14 +152,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         logger.info("Connector scheduler disabled in API process")
 
-    # Initialize Continuum scheduler
+    # Legacy continuum runtime has been replaced by AgentOS.
     if settings.environment == "test":
         logger.info("Skipping Continuum scheduler in test environment")
-    elif settings.continuum_scheduler_run_in_api:
+    elif settings.continuum_runtime_enabled and settings.continuum_scheduler_run_in_api:
         await init_continuum_scheduler()
-        logger.info("Continuum scheduler initialized")
+        logger.info("Legacy Continuum scheduler initialized")
     else:
-        logger.info("Continuum scheduler disabled in API process")
+        logger.info("Legacy Continuum scheduler disabled (AgentOS runtime active)")
 
     # Initialize Kafka streaming (if enabled)
     if settings.environment == "test":
@@ -174,8 +178,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await shutdown_streaming()
     if get_settings().scheduler_run_in_api and get_settings().environment != "test":
         await shutdown_scheduler()
-    if get_settings().continuum_scheduler_run_in_api and get_settings().environment != "test":
+    if (
+        get_settings().continuum_runtime_enabled
+        and get_settings().continuum_scheduler_run_in_api
+        and get_settings().environment != "test"
+    ):
         await shutdown_continuum_scheduler()
+    await close_temporal_client()
     await close_graph_client()
     await close_db()
 
@@ -216,6 +225,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+
+# Consistent typed error mapping (+ request_id) for all routes.
+register_exception_handlers(app)
 
 # -----------------------------------------------------------------------------
 # Prometheus HTTP instrumentation
@@ -264,8 +276,10 @@ app.mount("/metrics", metrics_app)
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
 app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
+app.include_router(extensions.router, prefix="/api/v1", tags=["Extensions"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(actuations.router, prefix="/api/v1", tags=["Actuations"])

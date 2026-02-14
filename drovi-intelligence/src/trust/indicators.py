@@ -10,7 +10,8 @@ from sqlalchemy import text
 
 from src.db.client import get_db_session
 from src.db.rls import set_rls_context
-from src.memory.service import get_memory_service, utc_now
+from src.kernel.time import utc_now_naive
+from src.memory.service import get_memory_service
 
 logger = structlog.get_logger()
 
@@ -55,7 +56,7 @@ def _compute_trust_score(
         score -= 0.2
     if last_updated_at:
         normalized_last_updated_at = _to_utc_naive(last_updated_at)
-        age_days = max((utc_now() - normalized_last_updated_at).days, 0)
+        age_days = max((utc_now_naive() - normalized_last_updated_at).days, 0)
         if age_days > 180:
             score -= 0.1
         elif age_days > 30:

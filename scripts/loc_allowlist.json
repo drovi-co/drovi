@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "exemptions": [
+    {
+      "path": "drovi-intelligence/src/api/routes/uios.py",
+      "max_lines": 3000,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 7/Phase 2 adapters",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/org.py",
+      "max_lines": 2500,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 7 once auth/contracts stabilize",
+      "allow_touched": true
+    }
+  ]
+}

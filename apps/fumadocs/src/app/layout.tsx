@@ -50,13 +50,9 @@ export const viewport: Viewport = {
   themeColor: "#0f0906",
 };
 
-export default function Layout({ children }: LayoutProps<"/"> ) {
+export default function Layout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      className={inter.variable}
-      lang="en"
-      suppressHydrationWarning
-    >
+    <html className={inter.variable} lang="en" suppressHydrationWarning>
       <body className="flex min-h-screen flex-col antialiased">
         <RootProvider
           theme={{

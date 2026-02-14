@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -11,12 +11,9 @@ import structlog
 
 from src.db import client as db_client
 from src.db.rls import rls_context
+from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -316,3 +313,65 @@ def compute_backoff_seconds(*, attempt: int) -> int:
     # Small exponential backoff with clamp.
     # attempt=1 -> 2s, attempt=2 -> 4s, attempt=3 -> 8s
     return min(300, max(2, 2 ** attempt))
+
+
+@dataclass(frozen=True)
+class JobSnapshot:
+    id: str
+    organization_id: str
+    job_type: str
+    status: str
+    attempts: int
+    max_attempts: int
+    run_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    last_error: str | None
+    result: dict[str, Any] | None
+
+
+async def get_job_snapshot(*, job_id: str) -> JobSnapshot | None:
+    """
+    Fetch the current state of a background job.
+
+    This is used by orchestration layers (e.g., Temporal) to wait for completion.
+    """
+    with rls_context(None, is_internal=True):
+        pool = await db_client.get_db_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    id::text,
+                    organization_id,
+                    job_type,
+                    status,
+                    attempts,
+                    max_attempts,
+                    run_at,
+                    started_at,
+                    completed_at,
+                    last_error,
+                    result
+                FROM background_job
+                WHERE id = $1
+                """,
+                str(job_id),
+            )
+
+    if not row:
+        return None
+
+    return JobSnapshot(
+        id=str(row["id"]),
+        organization_id=row["organization_id"],
+        job_type=row["job_type"],
+        status=row["status"],
+        attempts=int(row["attempts"] or 0),
+        max_attempts=int(row["max_attempts"] or 0),
+        run_at=row["run_at"],
+        started_at=row["started_at"],
+        completed_at=row["completed_at"],
+        last_error=row["last_error"],
+        result=row["result"] or None,
+    )

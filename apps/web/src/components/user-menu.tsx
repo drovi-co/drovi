@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "@memorystack/ui-core/button";
 
 import {
   DropdownMenu,
@@ -8,11 +8,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@memorystack/ui-core/dropdown-menu";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
-
-import { Button } from "./ui/button";
-import { Skeleton } from "./ui/skeleton";
 
 export default function UserMenu() {
   const navigate = useNavigate();

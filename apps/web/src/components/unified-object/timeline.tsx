@@ -1,5 +1,13 @@
 "use client";
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import {
   AlertCircle,
   Calendar,
@@ -13,14 +21,6 @@ import {
   Users,
 } from "lucide-react";
 import type * as React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useI18n, useT } from "@/i18n";
 import { formatRelativeTime } from "@/lib/intl-time";
 import { cn } from "@/lib/utils";
@@ -184,9 +184,7 @@ export function Timeline({
                           {event.sourceName}
                         </Badge>
                       )}
-                      <span>
-                        {formatRelativeTime(event.eventAt, locale)}
-                      </span>
+                      <span>{formatRelativeTime(event.eventAt, locale)}</span>
                       {event.confidence && event.confidence < 0.8 && (
                         <Tooltip>
                           <TooltipTrigger>

@@ -7,6 +7,18 @@
 // owe, what others owe you, urgency, and the evidence behind each commitment.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import { Input } from "@memorystack/ui-core/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@memorystack/ui-core/select";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@memorystack/ui-core/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Calendar, CheckCircle2, List, RefreshCw, Search } from "lucide-react";
@@ -20,18 +32,6 @@ import {
   CommitmentTimeline,
 } from "@/components/dashboards";
 import { EvidenceDetailSheet } from "@/components/evidence";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCommitmentStats,
   useCommitmentUIOs,
@@ -143,7 +143,9 @@ function CommitmentsPage() {
             queryClient.invalidateQueries({ queryKey: [["uio"]] });
           },
           onError: () => {
-            toast.error(t("pages.dashboard.commitments.toasts.markCompleteFailed"));
+            toast.error(
+              t("pages.dashboard.commitments.toasts.markCompleteFailed")
+            );
           },
         }
       );
@@ -231,25 +233,45 @@ function CommitmentsPage() {
 
       // Generate a simple follow-up template
       const debtor = commitment.owner;
-      const fallbackTitle = t("pages.dashboard.commitments.followUp.fallbackTitle");
+      const fallbackTitle = t(
+        "pages.dashboard.commitments.followUp.fallbackTitle"
+      );
       const subject = t("pages.dashboard.commitments.followUp.subject", {
         title: commitment.canonicalTitle || fallbackTitle,
       });
       const body = t("pages.dashboard.commitments.followUp.body", {
         name: debtor?.displayName ? ` ${debtor.displayName}` : "",
-        title: commitment.canonicalTitle || t("pages.dashboard.commitments.followUp.ourCommitment"),
+        title:
+          commitment.canonicalTitle ||
+          t("pages.dashboard.commitments.followUp.ourCommitment"),
       });
 
-      const draft = t("pages.dashboard.commitments.followUp.draft", { subject, body });
+      const draft = t("pages.dashboard.commitments.followUp.draft", {
+        subject,
+        body,
+      });
       if (navigator.clipboard?.writeText) {
         navigator.clipboard
           .writeText(draft)
-          .then(() => toast.success(t("pages.dashboard.commitments.toasts.followUpCopied")))
-          .catch(() => toast.error(t("pages.dashboard.commitments.toasts.followUpCopyFailed")));
+          .then(() =>
+            toast.success(
+              t("pages.dashboard.commitments.toasts.followUpCopied")
+            )
+          )
+          .catch(() =>
+            toast.error(
+              t("pages.dashboard.commitments.toasts.followUpCopyFailed")
+            )
+          );
       } else {
-        toast.success(t("pages.dashboard.commitments.toasts.followUpGenerated"), {
-          description: t("pages.dashboard.commitments.toasts.followUpGeneratedDescription"),
-        });
+        toast.success(
+          t("pages.dashboard.commitments.toasts.followUpGenerated"),
+          {
+            description: t(
+              "pages.dashboard.commitments.toasts.followUpGeneratedDescription"
+            ),
+          }
+        );
       }
     },
     [commitmentsData, t]
@@ -350,12 +372,9 @@ function CommitmentsPage() {
     [handleFollowUpGenerate]
   );
 
-  const handleThreadClick = useCallback(
-    () => {
-      toast.message(t("pages.dashboard.commitments.toasts.sourceViewerSoon"));
-    },
-    [t]
-  );
+  const handleThreadClick = useCallback(() => {
+    toast.message(t("pages.dashboard.commitments.toasts.sourceViewerSoon"));
+  }, [t]);
 
   const handleContactClick = useCallback(
     (email: string) => {
@@ -603,13 +622,25 @@ function CommitmentsPage() {
                 value={statusFilter}
               >
                 <SelectTrigger className="h-8 w-[120px] text-sm">
-                  <SelectValue placeholder={t("pages.dashboard.commitments.filters.status.placeholder")} />
+                  <SelectValue
+                    placeholder={t(
+                      "pages.dashboard.commitments.filters.status.placeholder"
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">{t("pages.dashboard.commitments.filters.status.active")}</SelectItem>
-                  <SelectItem value="overdue">{t("pages.dashboard.commitments.filters.status.overdue")}</SelectItem>
-                  <SelectItem value="completed">{t("pages.dashboard.commitments.filters.status.completed")}</SelectItem>
-                  <SelectItem value="snoozed">{t("pages.dashboard.commitments.filters.status.snoozed")}</SelectItem>
+                  <SelectItem value="active">
+                    {t("pages.dashboard.commitments.filters.status.active")}
+                  </SelectItem>
+                  <SelectItem value="overdue">
+                    {t("pages.dashboard.commitments.filters.status.overdue")}
+                  </SelectItem>
+                  <SelectItem value="completed">
+                    {t("pages.dashboard.commitments.filters.status.completed")}
+                  </SelectItem>
+                  <SelectItem value="snoozed">
+                    {t("pages.dashboard.commitments.filters.status.snoozed")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -619,7 +650,9 @@ function CommitmentsPage() {
                 <Input
                   className="h-8 w-[180px] pl-8 text-sm"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("pages.dashboard.commitments.search.placeholder")}
+                  placeholder={t(
+                    "pages.dashboard.commitments.search.placeholder"
+                  )}
                   value={searchQuery}
                 />
               </div>
@@ -704,7 +737,9 @@ function CommitmentsPage() {
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h3 className="font-medium text-lg">{t("pages.dashboard.commitments.empty.title")}</h3>
+                <h3 className="font-medium text-lg">
+                  {t("pages.dashboard.commitments.empty.title")}
+                </h3>
                 <p className="mt-1 text-muted-foreground text-sm">
                   {t("pages.dashboard.commitments.empty.description")}
                 </p>

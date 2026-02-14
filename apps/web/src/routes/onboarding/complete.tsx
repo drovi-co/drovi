@@ -1,3 +1,12 @@
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Progress } from "@memorystack/ui-core/progress";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -9,15 +18,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { OnboardingLayout } from "@/components/onboarding/onboarding-layout";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 
@@ -130,7 +130,9 @@ function CompletePage() {
     {
       icon: Users,
       title: t("onboarding.complete.features.teamCollaboration.title"),
-      description: t("onboarding.complete.features.teamCollaboration.description"),
+      description: t(
+        "onboarding.complete.features.teamCollaboration.description"
+      ),
     },
     {
       icon: Zap,
@@ -154,7 +156,9 @@ function CompletePage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
               <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
             </div>
-            <CardTitle className="text-2xl">{t("onboarding.complete.title")}</CardTitle>
+            <CardTitle className="text-2xl">
+              {t("onboarding.complete.title")}
+            </CardTitle>
             <CardDescription className="text-base">
               {t("onboarding.complete.welcomeTo")}{" "}
               <span className="font-medium text-foreground">
@@ -168,7 +172,9 @@ function CompletePage() {
               <Sparkles className="mx-auto mb-2 h-6 w-6 text-primary" />
               <p className="text-sm">
                 {t("onboarding.complete.welcomeCard.line1", {
-                  name: session?.user?.name || t("onboarding.complete.welcomeCard.fallbackName"),
+                  name:
+                    session?.user?.name ||
+                    t("onboarding.complete.welcomeCard.fallbackName"),
                 })}
                 <br />
                 <span className="text-muted-foreground">
