@@ -1,7 +1,6 @@
 import { createAskModule } from "@memorystack/mod-ask";
 import { createAuthModule } from "@memorystack/mod-auth";
 import { createConsoleModule } from "@memorystack/mod-console";
-import { createContinuumsModule } from "@memorystack/mod-continuums";
 import { createDriveModule } from "@memorystack/mod-drive";
 import { createEvidenceModule } from "@memorystack/mod-evidence";
 import { resolveModules } from "@memorystack/mod-kit";
@@ -37,7 +36,6 @@ const webModules = resolveModules({
     createEvidenceModule(),
     createAskModule(),
     createConsoleModule(),
-    createContinuumsModule(),
   ],
   enabledCapabilities: {
     "ops.internal": true,

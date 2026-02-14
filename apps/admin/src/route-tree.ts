@@ -6,6 +6,7 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as DashboardConnectorsRouteImport } from "./routes/dashboard/connectors";
 import { Route as DashboardExchangeRouteImport } from "./routes/dashboard/exchange";
+import { Route as DashboardGovernanceRouteImport } from "./routes/dashboard/governance";
 import { Route as DashboardIndexRouteImport } from "./routes/dashboard/index";
 import { Route as DashboardJobsRouteImport } from "./routes/dashboard/jobs";
 import { Route as DashboardOrgsOrgIdRouteImport } from "./routes/dashboard/orgs/$orgId";
@@ -46,6 +47,11 @@ const DashboardJobsRoute = DashboardJobsRouteImport.update({
 const DashboardExchangeRoute = DashboardExchangeRouteImport.update({
   id: "/exchange",
   path: "/exchange",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardGovernanceRoute = DashboardGovernanceRouteImport.update({
+  id: "/governance",
+  path: "/governance",
   getParentRoute: () => DashboardRouteRoute,
 } as any);
 const DashboardConnectorsRoute = DashboardConnectorsRouteImport.update({
@@ -89,6 +95,7 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute.addChildren([
   DashboardIndexRoute,
   DashboardJobsRoute,
   DashboardExchangeRoute,
+  DashboardGovernanceRoute,
   DashboardConnectorsRoute,
   DashboardUsersIndexRoute,
   DashboardTicketsIndexRoute,

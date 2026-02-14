@@ -15,6 +15,8 @@ import {
   type AdminMe,
   createAdminApi,
   createAdminAuthApi,
+  type GovernanceOverviewResponse,
+  type GovernanceSignal,
   type KPIBlock,
 } from "@memorystack/api-client/admin";
 import type {
@@ -28,6 +30,8 @@ import { getAdminSessionToken } from "./admin-session-token";
 export { APIError };
 export type {
   AdminMe,
+  GovernanceOverviewResponse,
+  GovernanceSignal,
   KPIBlock,
   SupportTicketListItem,
   SupportTicketMessageItem,

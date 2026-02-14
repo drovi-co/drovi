@@ -25,7 +25,7 @@ const LEGAL_PRESET: VerticalPreset = {
   id: "legal",
   title: "Drovi Legal",
   themePack: "legal",
-  moduleIds: [...BASE_MODULES, "mod-continuums"],
+  moduleIds: [...BASE_MODULES, "mod-console"],
   appOverrides: {
     "mod-drive": {
       nav: {
@@ -60,7 +60,7 @@ const ACCOUNTING_PRESET: VerticalPreset = {
   id: "accounting",
   title: "Drovi Accounting",
   themePack: "accounting",
-  moduleIds: [...BASE_MODULES, "mod-continuums"],
+  moduleIds: [...BASE_MODULES, "mod-console"],
   appOverrides: {
     "mod-drive": {
       nav: {
@@ -113,16 +113,16 @@ const CONSTRUCTION_PRESET: VerticalPreset = {
   id: "construction",
   title: "Drovi Construction",
   themePack: "construction",
-  moduleIds: [...BASE_MODULES, "mod-continuums"],
+  moduleIds: [...BASE_MODULES, "mod-console"],
   appOverrides: {
     "mod-drive": {
       nav: {
         "drive.nav": { label: "Site Documents" },
       },
     },
-    "mod-continuums": {
+    "mod-console": {
       nav: {
-        "continuums.nav": { label: "Playbooks" },
+        "console.nav": { label: "Operations Playbooks" },
       },
     },
   },

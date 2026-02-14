@@ -4,6 +4,10 @@ import type {
   AgentChannelBindingRecord,
   AgentDeploymentCreateRequest,
   AgentDeploymentModel,
+  AgentEvalCreateRequest,
+  AgentEvalResultModel,
+  AgentFeedbackCreateRequest,
+  AgentFeedbackModel,
   AgentHandoffModel,
   AgentIdentityRecord,
   AgentInboxThreadRecord,
@@ -32,6 +36,7 @@ import type {
   AgentTriggerUpdateRequest,
   ApprovalDecisionRequest,
   ApprovalRequestRecord,
+  CalibrationSnapshot,
   ChannelBindingUpsertRequest,
   ConfigLintRequest,
   ConfigLintResponse,
@@ -44,8 +49,16 @@ import type {
   DesktopBridgeHealthRequest,
   DesktopBridgeHealthResponse,
   IdentityProvisionRequest,
+  OfflineEvalRunRequest,
+  OfflineEvalRunResult,
   PlaybookLintRequest,
   PlaybookLintResponse,
+  QualityRecommendationRecord,
+  QualityTrendResponse,
+  RegressionGateCreateRequest,
+  RegressionGateEvaluationResponse,
+  RegressionGateRecord,
+  RunQualityScoreRecord,
   StarterPackEvalRunRequest,
   StarterPackEvalRunResponse,
   StarterPackInstallRequest,
@@ -372,6 +385,257 @@ export function createAgentsApi(client: ApiClient) {
       );
     },
 
+    async listEvals(params: {
+      organizationId: string;
+      deploymentId?: string | null;
+    }): Promise<AgentEvalResultModel[]> {
+      return client.requestJson<AgentEvalResultModel[]>("/agents/evals", {
+        query: {
+          organization_id: params.organizationId,
+          deployment_id: params.deploymentId ?? undefined,
+        },
+      });
+    },
+
+    async createEval(
+      request: AgentEvalCreateRequest
+    ): Promise<AgentEvalResultModel> {
+      return client.requestJson<AgentEvalResultModel>("/agents/evals", {
+        method: "POST",
+        body: request,
+      });
+    },
+
+    async listFeedback(params: {
+      organizationId: string;
+      runId?: string | null;
+    }): Promise<AgentFeedbackModel[]> {
+      return client.requestJson<AgentFeedbackModel[]>("/agents/feedback", {
+        query: {
+          organization_id: params.organizationId,
+          run_id: params.runId ?? undefined,
+        },
+      });
+    },
+
+    async createFeedback(
+      request: AgentFeedbackCreateRequest
+    ): Promise<AgentFeedbackModel> {
+      return client.requestJson<AgentFeedbackModel>("/agents/feedback", {
+        method: "POST",
+        body: request,
+      });
+    },
+
+    async runOfflineEval(
+      request: OfflineEvalRunRequest
+    ): Promise<OfflineEvalRunResult> {
+      return client.requestJson<OfflineEvalRunResult>(
+        "/agents/quality/evals/offline/run",
+        {
+          method: "POST",
+          body: request,
+        }
+      );
+    },
+
+    async scoreRunQuality(params: {
+      runId: string;
+      organizationId: string;
+    }): Promise<RunQualityScoreRecord> {
+      return client.requestJson<RunQualityScoreRecord>(
+        `/agents/quality/runs/${params.runId}/score`,
+        {
+          method: "POST",
+          body: { organization_id: params.organizationId },
+        }
+      );
+    },
+
+    async listRunQualityScores(params: {
+      organizationId: string;
+      runId?: string | null;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      limit?: number;
+      offset?: number;
+    }): Promise<RunQualityScoreRecord[]> {
+      return client.requestJson<RunQualityScoreRecord[]>(
+        "/agents/quality/runs/scores",
+        {
+          query: {
+            organization_id: params.organizationId,
+            run_id: params.runId ?? undefined,
+            role_id: params.roleId ?? undefined,
+            deployment_id: params.deploymentId ?? undefined,
+            limit: params.limit ?? 200,
+            offset: params.offset ?? 0,
+          },
+        }
+      );
+    },
+
+    async getQualityTrends(params: {
+      organizationId: string;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      lookbackDays?: number;
+    }): Promise<QualityTrendResponse> {
+      return client.requestJson<QualityTrendResponse>(
+        "/agents/quality/trends",
+        {
+          query: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? undefined,
+            deployment_id: params.deploymentId ?? undefined,
+            lookback_days: params.lookbackDays ?? 30,
+          },
+        }
+      );
+    },
+
+    async recomputeCalibration(params: {
+      organizationId: string;
+      roleId?: string | null;
+      minSamples?: number;
+    }): Promise<CalibrationSnapshot> {
+      return client.requestJson<CalibrationSnapshot>(
+        "/agents/quality/calibration/recompute",
+        {
+          method: "POST",
+          body: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? null,
+            min_samples: params.minSamples ?? 5,
+          },
+        }
+      );
+    },
+
+    async getCalibration(params: {
+      organizationId: string;
+      roleId?: string | null;
+    }): Promise<CalibrationSnapshot | null> {
+      return client.requestJson<CalibrationSnapshot | null>(
+        "/agents/quality/calibration",
+        {
+          query: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? undefined,
+          },
+        }
+      );
+    },
+
+    async generateRecommendations(params: {
+      organizationId: string;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      lookbackDays?: number;
+    }): Promise<QualityRecommendationRecord[]> {
+      return client.requestJson<QualityRecommendationRecord[]>(
+        "/agents/quality/recommendations/generate",
+        {
+          method: "POST",
+          body: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? null,
+            deployment_id: params.deploymentId ?? null,
+            lookback_days: params.lookbackDays ?? 30,
+          },
+        }
+      );
+    },
+
+    async listRecommendations(params: {
+      organizationId: string;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      status?: string | null;
+      limit?: number;
+      offset?: number;
+    }): Promise<QualityRecommendationRecord[]> {
+      return client.requestJson<QualityRecommendationRecord[]>(
+        "/agents/quality/recommendations",
+        {
+          query: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? undefined,
+            deployment_id: params.deploymentId ?? undefined,
+            status: params.status ?? undefined,
+            limit: params.limit ?? 200,
+            offset: params.offset ?? 0,
+          },
+        }
+      );
+    },
+
+    async createRegressionGate(
+      request: RegressionGateCreateRequest
+    ): Promise<RegressionGateRecord> {
+      return client.requestJson<RegressionGateRecord>(
+        "/agents/quality/regression-gates",
+        {
+          method: "POST",
+          body: request,
+        }
+      );
+    },
+
+    async listRegressionGates(params: {
+      organizationId: string;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      onlyEnabled?: boolean;
+      limit?: number;
+      offset?: number;
+    }): Promise<RegressionGateRecord[]> {
+      return client.requestJson<RegressionGateRecord[]>(
+        "/agents/quality/regression-gates",
+        {
+          query: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? undefined,
+            deployment_id: params.deploymentId ?? undefined,
+            only_enabled:
+              typeof params.onlyEnabled === "boolean"
+                ? params.onlyEnabled
+                : undefined,
+            limit: params.limit ?? 200,
+            offset: params.offset ?? 0,
+          },
+        }
+      );
+    },
+
+    async evaluateRegressionGates(params: {
+      organizationId: string;
+      roleId?: string | null;
+      deploymentId?: string | null;
+      onlyEnabled?: boolean;
+      persistEvents?: boolean;
+    }): Promise<RegressionGateEvaluationResponse> {
+      return client.requestJson<RegressionGateEvaluationResponse>(
+        "/agents/quality/regression-gates/evaluate",
+        {
+          method: "POST",
+          body: {
+            organization_id: params.organizationId,
+            role_id: params.roleId ?? null,
+            deployment_id: params.deploymentId ?? null,
+            only_enabled:
+              typeof params.onlyEnabled === "boolean"
+                ? params.onlyEnabled
+                : true,
+            persist_events:
+              typeof params.persistEvents === "boolean"
+                ? params.persistEvents
+                : true,
+          },
+        }
+      );
+    },
+
     async listWorkProducts(params: {
       organizationId: string;
       runId?: string | null;
@@ -594,6 +858,85 @@ export function createAgentsApi(client: ApiClient) {
         {
           method: "POST",
           body: request,
+        }
+      );
+    },
+
+    async listLegacyContinuums(params: {
+      organizationId: string;
+      continuumId?: string;
+      limit?: number;
+    }): Promise<Record<string, unknown>[]> {
+      return client.requestJson<Record<string, unknown>[]>(
+        "/agents/control/legacy/continuums",
+        {
+          query: {
+            organization_id: params.organizationId,
+            continuum_id: params.continuumId,
+            limit: params.limit ?? 200,
+          },
+        }
+      );
+    },
+
+    async migrateLegacyContinuums(request: {
+      organization_id: string;
+      continuum_ids?: string[];
+      dry_run?: boolean;
+    }): Promise<Record<string, unknown>[]> {
+      return client.requestJson<Record<string, unknown>[]>(
+        "/agents/control/legacy/continuums/migrate",
+        {
+          method: "POST",
+          body: request,
+        }
+      );
+    },
+
+    async listLegacyMigrations(params: {
+      organizationId: string;
+      continuumId?: string;
+      limit?: number;
+    }): Promise<Record<string, unknown>[]> {
+      return client.requestJson<Record<string, unknown>[]>(
+        "/agents/control/legacy/continuums/migrations",
+        {
+          query: {
+            organization_id: params.organizationId,
+            continuum_id: params.continuumId,
+            limit: params.limit ?? 100,
+          },
+        }
+      );
+    },
+
+    async runLegacyShadowValidation(request: {
+      organization_id: string;
+      continuum_ids?: string[];
+      lookback_days?: number;
+    }): Promise<Record<string, unknown>[]> {
+      return client.requestJson<Record<string, unknown>[]>(
+        "/agents/control/legacy/continuums/shadow-validate",
+        {
+          method: "POST",
+          body: request,
+        }
+      );
+    },
+
+    async listLegacyShadowValidations(params: {
+      organizationId: string;
+      continuumId?: string;
+      limit?: number;
+    }): Promise<Record<string, unknown>[]> {
+      return client.requestJson<Record<string, unknown>[]>(
+        "/agents/control/legacy/continuums/shadow-validations",
+        {
+          query: {
+            organization_id: params.organizationId,
+            continuum_id: params.continuumId,
+            limit: params.limit ?? 100,
+          },
         }
       );
     },

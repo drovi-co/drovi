@@ -4,6 +4,8 @@ import pytest
 
 from src.agentos.control_plane.models import (
     CompiledPolicy,
+    DelegatedAuthorityEvaluation,
+    GovernancePolicyRecord,
     PolicyOverlayRecord,
     ToolManifestRecord,
 )
@@ -50,6 +52,40 @@ class _FakeSnapshotCompiler:
         return _Snapshot(self._compiled_policy)
 
 
+class _FakeGovernanceService:
+    def __init__(self, policy: GovernancePolicyRecord) -> None:
+        self._policy = policy
+
+    async def get_policy(self, *, organization_id: str) -> GovernancePolicyRecord:
+        assert organization_id == self._policy.organization_id
+        return self._policy
+
+
+class _MutableGovernanceService:
+    def __init__(self, policy: GovernancePolicyRecord) -> None:
+        self.policy = policy
+
+    async def get_policy(self, *, organization_id: str) -> GovernancePolicyRecord:
+        assert organization_id == self.policy.organization_id
+        return self.policy
+
+
+class _FakeDelegatedAuthorityService:
+    def __init__(self, evaluation: DelegatedAuthorityEvaluation) -> None:
+        self._evaluation = evaluation
+
+    async def evaluate(
+        self,
+        *,
+        organization_id: str,
+        deployment_id: str,
+        tool_id: str,
+        action_tier: str,
+    ) -> DelegatedAuthorityEvaluation:
+        del organization_id, deployment_id, tool_id, action_tier
+        return self._evaluation
+
+
 def _compiled_policy() -> CompiledPolicy:
     return CompiledPolicy(
         autonomy_tier="L2",
@@ -84,6 +120,22 @@ def _manifest(tool_id: str, **overrides) -> ToolManifestRecord:
     return ToolManifestRecord.model_validate(payload)
 
 
+def _governance_policy(**overrides) -> GovernancePolicyRecord:
+    payload = {
+        "organization_id": "org_demo",
+        "residency_region": "global",
+        "allowed_regions": [],
+        "data_retention_days": 365,
+        "evidence_retention_days": 3650,
+        "require_residency_enforcement": True,
+        "enforce_delegated_authority": False,
+        "kill_switch_enabled": False,
+        "metadata": {},
+    }
+    payload.update(overrides)
+    return GovernancePolicyRecord.model_validate(payload)
+
+
 @pytest.mark.asyncio
 async def test_policy_engine_emergency_deny_overrides_deployment_allow() -> None:
     engine = PolicyDecisionEngine(
@@ -95,6 +147,10 @@ async def test_policy_engine_emergency_deny_overrides_deployment_allow() -> None
             )
         ),
         snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy()),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
     )
 
     decision = await engine.decide(
@@ -119,6 +175,10 @@ async def test_policy_engine_require_approval_from_org_overlay() -> None:
             )
         ),
         snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy()),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
     )
 
     decision = await engine.decide(
@@ -147,6 +207,10 @@ async def test_policy_engine_blocks_high_stakes_without_evidence() -> None:
         ),
         overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
         snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy()),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
     )
 
     decision = await engine.decide(
@@ -166,6 +230,10 @@ async def test_policy_engine_blocks_unregistered_tool_alternate_path() -> None:
         tool_registry=_FakeToolRegistry({}),
         overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
         snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy()),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
     )
 
     decision = await engine.decide(
@@ -177,3 +245,178 @@ async def test_policy_engine_blocks_unregistered_tool_alternate_path() -> None:
 
     assert decision.action == "deny"
     assert decision.code == "agentos.policy.tool_unregistered"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_kill_switch_blocks_side_effects() -> None:
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:crm.update": _manifest("crm.update")}),
+        overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy(kill_switch_enabled=True)),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
+    )
+
+    decision = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="crm.update",
+        evidence_refs={"count": 1},
+    )
+
+    assert decision.action == "deny"
+    assert decision.code == "agentos.policy.kill_switch"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_blocks_residency_violation() -> None:
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:crm.update": _manifest("crm.update")}),
+        overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(
+            _governance_policy(residency_region="eu-west-1", allowed_regions=["eu-west-1"])
+        ),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
+    )
+
+    decision = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="crm.update",
+        evidence_refs={"count": 1},
+        metadata={"target_region": "us-east-1"},
+    )
+
+    assert decision.action == "deny"
+    assert decision.code == "agentos.policy.residency_violation"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_blocks_retention_violation() -> None:
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:crm.update": _manifest("crm.update")}),
+        overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy(data_retention_days=7)),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
+    )
+
+    decision = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="crm.update",
+        evidence_refs={"count": 1},
+        metadata={"retention_days": 120},
+    )
+
+    assert decision.action == "deny"
+    assert decision.code == "agentos.policy.retention_violation"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_requires_delegated_authority_when_enabled() -> None:
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:crm.update": _manifest("crm.update")}),
+        overlay_service=_FakeOverlayService(PolicyOverlayRecord(organization_id="org_demo")),
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy(enforce_delegated_authority=True)),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(
+                allowed=False,
+                code="agentos.authority.no_active_delegation",
+                reason="No active authority",
+            )
+        ),
+    )
+
+    decision = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="crm.update",
+        evidence_refs={"count": 1},
+    )
+
+    assert decision.action == "deny"
+    assert decision.code == "agentos.policy.delegated_authority_required"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_normalizes_tool_id_against_overlay_denylist() -> None:
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:email.send": _manifest("email.send")}),
+        overlay_service=_FakeOverlayService(
+            PolicyOverlayRecord(
+                organization_id="org_demo",
+                deny_tools=["EMAIL.SEND"],
+            )
+        ),
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=_FakeGovernanceService(_governance_policy()),
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
+    )
+
+    decision = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="  EmAiL.SeNd  ",
+        evidence_refs={"count": 1},
+    )
+
+    assert decision.action == "deny"
+    assert decision.code == "agentos.policy.org_deny"
+
+
+@pytest.mark.asyncio
+async def test_policy_engine_applies_updated_emergency_denylist_without_restart() -> None:
+    class _MutableOverlayService:
+        def __init__(self, overlay: PolicyOverlayRecord) -> None:
+            self.overlay = overlay
+
+        async def get_overlay(self, *, organization_id: str) -> PolicyOverlayRecord:
+            assert organization_id == self.overlay.organization_id
+            return self.overlay
+
+    overlay_service = _MutableOverlayService(PolicyOverlayRecord(organization_id="org_demo"))
+    governance_service = _MutableGovernanceService(_governance_policy(kill_switch_enabled=False))
+
+    engine = PolicyDecisionEngine(
+        tool_registry=_FakeToolRegistry({"org_demo:email.send": _manifest("email.send")}),
+        overlay_service=overlay_service,
+        snapshot_compiler=_FakeSnapshotCompiler(_compiled_policy()),
+        governance_service=governance_service,
+        delegated_authority_service=_FakeDelegatedAuthorityService(
+            DelegatedAuthorityEvaluation(allowed=True, code="ok", reason="ok")
+        ),
+    )
+
+    first = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="email.send",
+        evidence_refs={"count": 1},
+    )
+    assert first.action in {"allow", "require_approval"}
+
+    overlay_service.overlay = PolicyOverlayRecord(
+        organization_id="org_demo",
+        emergency_denylist=["email.send"],
+    )
+    governance_service.policy = _governance_policy(kill_switch_enabled=True)
+
+    second = await engine.decide(
+        organization_id="org_demo",
+        deployment_id="agdep_1",
+        tool_id="email.send",
+        evidence_refs={"count": 1},
+    )
+    assert second.action == "deny"
+    assert second.code in {"agentos.policy.emergency_denylist", "agentos.policy.kill_switch"}

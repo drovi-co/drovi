@@ -14,12 +14,14 @@ from src.agentos.control_plane import (
     emit_control_plane_audit_event,
 )
 from src.agentos.control_plane.models import (
+    ApprovalDecisionRecord,
     ActionReceiptRecord,
     ApprovalRequestRecord,
     PolicyDecisionRecord,
     PolicyOverlayRecord,
     ToolManifestRecord,
 )
+from src.agentos.control_plane.red_team import RedTeamCase, RedTeamPolicyHarness, RedTeamRunResult
 from src.auth.context import AuthContext
 from src.auth.middleware import get_auth_context
 
@@ -32,6 +34,7 @@ _policy_overlays = PolicyOverlayService()
 _policy_engine = PolicyDecisionEngine(tool_registry=_tool_registry, overlay_service=_policy_overlays)
 _approvals = ApprovalService()
 _receipts = ActionReceiptService()
+_red_team_harness = RedTeamPolicyHarness(policy_engine=_policy_engine)
 
 
 class ToolManifestUpsertRequest(BaseModel):
@@ -80,6 +83,9 @@ class ApprovalCreateRequest(BaseModel):
     reason: str | None = None
     sla_minutes: int = Field(default=15, ge=1, le=1440)
     escalation_path: dict[str, Any] = Field(default_factory=dict)
+    chain_mode: Literal["single", "multi"] = "single"
+    required_approvals: int = Field(default=1, ge=1, le=20)
+    approval_chain: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -97,6 +103,37 @@ class ReceiptFinalizeRequest(BaseModel):
     final_status: str
     result_payload: dict[str, Any] = Field(default_factory=dict)
     approval_request_id: str | None = None
+
+
+class PolicySimulationScenario(BaseModel):
+    case_id: str | None = None
+    tool_id: str
+    evidence_refs: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PolicySimulationRequest(BaseModel):
+    organization_id: str
+    deployment_id: str | None = None
+    scenarios: list[PolicySimulationScenario] = Field(default_factory=list)
+
+
+class PolicySimulationCaseResult(BaseModel):
+    case_id: str
+    decision: PolicyDecisionRecord
+
+
+class PolicySimulationResponse(BaseModel):
+    organization_id: str
+    deployment_id: str | None = None
+    results: list[PolicySimulationCaseResult] = Field(default_factory=list)
+    summary: dict[str, int] = Field(default_factory=dict)
+
+
+class RedTeamRunRequest(BaseModel):
+    organization_id: str
+    deployment_id: str | None = None
+    cases: list[RedTeamCase] | None = None
 
 
 @router.get("/tools/manifests", response_model=list[ToolManifestRecord])
@@ -212,13 +249,106 @@ async def decide_tool_policy(
     auth: AuthContext = Depends(get_auth_context),
 ) -> PolicyDecisionRecord:
     org_id = resolve_org_id(auth, request.organization_id)
-    return await _policy_engine.decide(
+    decision = await _policy_engine.decide(
         organization_id=org_id,
         tool_id=request.tool_id,
         deployment_id=request.deployment_id,
         evidence_refs=request.evidence_refs,
         metadata=request.metadata,
     )
+    await emit_control_plane_audit_event(
+        organization_id=org_id,
+        action="agentos.policy.decision",
+        actor_id=auth.user_id,
+        resource_type="agent_policy_decision",
+        resource_id=request.tool_id,
+        metadata={
+            "deployment_id": request.deployment_id,
+            "action": decision.action,
+            "code": decision.code,
+            "reason": decision.reason,
+        },
+    )
+    return decision
+
+
+@router.post("/policies/simulate", response_model=PolicySimulationResponse)
+async def simulate_tool_policy(
+    request: PolicySimulationRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> PolicySimulationResponse:
+    org_id = resolve_org_id(auth, request.organization_id)
+    simulation_results: list[PolicySimulationCaseResult] = []
+    scenarios = request.scenarios or []
+    for index, scenario in enumerate(scenarios, start=1):
+        decision = await _policy_engine.decide(
+            organization_id=org_id,
+            tool_id=scenario.tool_id,
+            deployment_id=request.deployment_id,
+            evidence_refs=scenario.evidence_refs,
+            metadata={**scenario.metadata, "simulation_mode": True},
+        )
+        simulation_results.append(
+            PolicySimulationCaseResult(
+                case_id=scenario.case_id or f"case_{index}",
+                decision=decision,
+            )
+        )
+
+    summary = {
+        "allow": sum(1 for result in simulation_results if result.decision.action == "allow"),
+        "deny": sum(1 for result in simulation_results if result.decision.action == "deny"),
+        "require_approval": sum(
+            1 for result in simulation_results if result.decision.action == "require_approval"
+        ),
+        "total": len(simulation_results),
+    }
+    await emit_control_plane_audit_event(
+        organization_id=org_id,
+        action="agentos.policy.simulation_ran",
+        actor_id=auth.user_id,
+        resource_type="agent_policy_simulation",
+        resource_id=org_id,
+        metadata={
+            "deployment_id": request.deployment_id,
+            "scenario_count": len(simulation_results),
+            "summary": summary,
+        },
+    )
+    return PolicySimulationResponse(
+        organization_id=org_id,
+        deployment_id=request.deployment_id,
+        results=simulation_results,
+        summary=summary,
+    )
+
+
+@router.post("/policies/red-team/run", response_model=RedTeamRunResult)
+async def run_policy_red_team(
+    request: RedTeamRunRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> RedTeamRunResult:
+    org_id = resolve_org_id(auth, request.organization_id)
+    result = await _red_team_harness.run(
+        organization_id=org_id,
+        deployment_id=request.deployment_id,
+        cases=request.cases,
+    )
+    await emit_control_plane_audit_event(
+        organization_id=org_id,
+        action="agentos.policy.red_team_ran",
+        actor_id=auth.user_id,
+        resource_type="agent_policy_red_team",
+        resource_id=org_id,
+        metadata={
+            "deployment_id": request.deployment_id,
+            "passed": result.passed,
+            "passed_count": result.passed_count,
+            "failed_count": result.failed_count,
+            "total_count": result.total_count,
+        },
+    )
+    return result
 
 
 @router.post("/approvals", response_model=ApprovalRequestRecord)
@@ -237,15 +367,10 @@ async def create_action_approval(
         requested_by=auth.user_id,
         sla_minutes=request.sla_minutes,
         escalation_path=request.escalation_path,
+        chain_mode=request.chain_mode,
+        required_approvals=request.required_approvals,
+        approval_chain=request.approval_chain,
         metadata=request.metadata,
-    )
-    await emit_control_plane_audit_event(
-        organization_id=org_id,
-        action="agentos.approval.created",
-        actor_id=auth.user_id,
-        resource_type="agent_action_approval",
-        resource_id=approval.id,
-        metadata={"tool_id": request.tool_id, "run_id": request.run_id},
     )
     return approval
 
@@ -269,6 +394,23 @@ async def list_action_approvals(
     )
 
 
+@router.get("/approvals/{approval_id}/decisions", response_model=list[ApprovalDecisionRecord])
+async def list_action_approval_decisions(
+    approval_id: str,
+    organization_id: str | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[ApprovalDecisionRecord]:
+    org_id = resolve_org_id(auth, organization_id)
+    return await _approvals.list_decisions(
+        organization_id=org_id,
+        approval_id=approval_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.post("/approvals/escalate", response_model=ApprovalEscalationResponse)
 async def escalate_overdue_approvals(
     organization_id: str,
@@ -276,14 +418,6 @@ async def escalate_overdue_approvals(
 ) -> ApprovalEscalationResponse:
     org_id = resolve_org_id(auth, organization_id)
     count = await _approvals.escalate_overdue(organization_id=org_id)
-    await emit_control_plane_audit_event(
-        organization_id=org_id,
-        action="agentos.approval.escalated",
-        actor_id=auth.user_id,
-        resource_type="agent_action_approval",
-        resource_id=org_id,
-        metadata={"escalated_count": count},
-    )
     return ApprovalEscalationResponse(escalated_count=count)
 
 
@@ -294,21 +428,13 @@ async def approve_action_approval(
     auth: AuthContext = Depends(get_auth_context),
 ) -> ApprovalRequestRecord:
     org_id = resolve_org_id(auth, request.organization_id)
-    approval = await _approvals.decide_request(
+    return await _approvals.decide_request(
         organization_id=org_id,
         approval_id=approval_id,
         decision="approved",
         approver_id=auth.user_id,
         reason=request.reason,
     )
-    await emit_control_plane_audit_event(
-        organization_id=org_id,
-        action="agentos.approval.approved",
-        actor_id=auth.user_id,
-        resource_type="agent_action_approval",
-        resource_id=approval_id,
-    )
-    return approval
 
 
 @router.post("/approvals/{approval_id}/deny", response_model=ApprovalRequestRecord)
@@ -318,21 +444,13 @@ async def deny_action_approval(
     auth: AuthContext = Depends(get_auth_context),
 ) -> ApprovalRequestRecord:
     org_id = resolve_org_id(auth, request.organization_id)
-    approval = await _approvals.decide_request(
+    return await _approvals.decide_request(
         organization_id=org_id,
         approval_id=approval_id,
         decision="denied",
         approver_id=auth.user_id,
         reason=request.reason,
     )
-    await emit_control_plane_audit_event(
-        organization_id=org_id,
-        action="agentos.approval.denied",
-        actor_id=auth.user_id,
-        resource_type="agent_action_approval",
-        resource_id=approval_id,
-    )
-    return approval
 
 
 @router.get("/receipts", response_model=list[ActionReceiptRecord])
@@ -361,19 +479,10 @@ async def finalize_action_receipt(
     auth: AuthContext = Depends(get_auth_context),
 ) -> ActionReceiptRecord:
     org_id = resolve_org_id(auth, request.organization_id)
-    receipt = await _receipts.finalize_receipt(
+    return await _receipts.finalize_receipt(
         organization_id=org_id,
         receipt_id=receipt_id,
         final_status=request.final_status,
         result_payload=request.result_payload,
         approval_request_id=request.approval_request_id,
     )
-    await emit_control_plane_audit_event(
-        organization_id=org_id,
-        action="agentos.receipt.finalized",
-        actor_id=auth.user_id,
-        resource_type="agent_action_receipt",
-        resource_id=receipt_id,
-        metadata={"final_status": request.final_status},
-    )
-    return receipt

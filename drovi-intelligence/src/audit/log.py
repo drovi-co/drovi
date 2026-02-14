@@ -93,7 +93,7 @@ async def record_audit_event(
                     "actor_id": actor_id,
                     "resource_type": resource_type,
                     "resource_id": resource_id,
-                    "metadata": json.dumps(metadata_payload),
+                    "metadata": json_dumps_canonical(metadata_payload),
                     "created_at": now,
                     "sequence": sequence,
                     "prev_hash": last_hash,

@@ -175,6 +175,58 @@ class PolicyOverlayRecord(BaseModel):
     updated_at: datetime | None = None
 
 
+class GovernancePolicyRecord(BaseModel):
+    organization_id: str
+    residency_region: str = "global"
+    allowed_regions: list[str] = Field(default_factory=list)
+    data_retention_days: int = 365
+    evidence_retention_days: int = 3650
+    require_residency_enforcement: bool = True
+    enforce_delegated_authority: bool = False
+    kill_switch_enabled: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    updated_by_user_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class AgentServicePrincipalRecord(BaseModel):
+    id: str
+    organization_id: str
+    deployment_id: str
+    principal_name: str
+    status: Literal["active", "disabled"] = "active"
+    allowed_scopes: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DelegatedAuthorityRecord(BaseModel):
+    id: str
+    organization_id: str
+    principal_id: str
+    authorized_by_user_id: str | None = None
+    authority_scope: dict[str, Any] = Field(default_factory=dict)
+    authority_reason: str | None = None
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    revoked_at: datetime | None = None
+    revoked_by_user_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+
+
+class DelegatedAuthorityEvaluation(BaseModel):
+    allowed: bool
+    code: str
+    reason: str
+    matched_authority_ids: list[str] = Field(default_factory=list)
+    matched_principal_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class PolicyDecisionRecord(BaseModel):
     action: PolicyDecisionAction
     code: str
@@ -199,12 +251,29 @@ class ApprovalRequestRecord(BaseModel):
     action_tier: ToolSideEffectTier
     reason: str | None = None
     status: Literal["pending", "approved", "denied", "expired", "escalated"] = "pending"
+    chain_mode: Literal["single", "multi"] = "single"
+    required_approvals: int = 1
+    approval_chain: list[dict[str, Any]] = Field(default_factory=list)
+    approvals_received: int = 0
+    decision_summary: dict[str, Any] = Field(default_factory=dict)
     requested_by: str | None = None
     requested_at: datetime | None = None
     sla_due_at: datetime | None = None
     escalation_path: dict[str, Any] = Field(default_factory=dict)
     approver_id: str | None = None
     approval_reason: str | None = None
+    decided_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ApprovalDecisionRecord(BaseModel):
+    id: str
+    organization_id: str
+    approval_id: str
+    step_index: int = 1
+    approver_id: str | None = None
+    decision: Literal["approved", "denied", "escalated"]
+    reason: str | None = None
     decided_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 

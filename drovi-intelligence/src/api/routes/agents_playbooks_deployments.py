@@ -7,7 +7,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 import structlog
 
-from src.agentos.control_plane import DeploymentSnapshotCompiler, emit_control_plane_audit_event
+from src.agentos.control_plane import (
+    DeploymentSnapshotCompiler,
+    ServicePrincipalService,
+    emit_control_plane_audit_event,
+)
+from src.agentos.quality import RegressionGateService
 from src.auth.context import AuthContext
 from src.auth.middleware import get_auth_context
 from src.db.client import get_db_session
@@ -18,6 +23,8 @@ from .agents_common import assert_org_access, as_json, build_snapshot_hash, reso
 
 router = APIRouter()
 _snapshot_compiler = DeploymentSnapshotCompiler()
+_service_principal_service = ServicePrincipalService()
+_regression_gate_service = RegressionGateService()
 logger = structlog.get_logger()
 
 
@@ -484,6 +491,25 @@ async def create_deployment(
             "snapshot_hash": snapshot.snapshot_hash,
         },
     )
+    principal = await _service_principal_service.ensure_principal_for_deployment(
+        organization_id=org_id,
+        deployment_id=deployment_id,
+        created_by_user_id=auth.user_id,
+        principal_name=f"agent-{request.role_id}-v{version}",
+        allowed_scopes={
+            "tool_policy": "compiled_from_profile",
+            "memory_scope": "compiled_from_role",
+        },
+        metadata={"auto_provisioned": True},
+    )
+    await emit_control_plane_audit_event(
+        organization_id=org_id,
+        action="agentos.governance.principal.auto_provisioned",
+        actor_id=auth.user_id,
+        resource_type="agent_service_principal",
+        resource_id=principal.id,
+        metadata={"deployment_id": deployment_id},
+    )
     return AgentDeploymentModel.model_validate(row_dict(row, json_fields={"rollout_strategy"}))
 
 
@@ -515,15 +541,54 @@ async def promote_deployment(
     auth: AuthContext = Depends(get_auth_context),
 ) -> DeploymentActionResponse:
     now = utc_now()
+    row: Any | None = None
     async with get_db_session() as session:
         row_result = await session.execute(
-            text("SELECT organization_id FROM agent_deployment WHERE id = :id"),
+            text("SELECT organization_id, role_id FROM agent_deployment WHERE id = :id"),
             {"id": deployment_id},
         )
         row = row_result.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Deployment not found")
         assert_org_access(auth, str(row.organization_id))
+
+    gate_result = await _regression_gate_service.evaluate(
+        organization_id=str(row.organization_id),
+        role_id=str(row.role_id) if row and row.role_id else None,
+        deployment_id=deployment_id,
+        only_enabled=True,
+        persist_events=True,
+    )
+    if gate_result.blocked:
+        await emit_control_plane_audit_event(
+            organization_id=str(row.organization_id),
+            action="agentos.deployment.promotion_blocked",
+            actor_id=auth.user_id,
+            resource_type="agent_deployment",
+            resource_id=deployment_id,
+            metadata={
+                "reason": "quality_regression_gate",
+                "blocking_gates": [
+                    {
+                        "gate_id": evaluation.gate_id,
+                        "metric_name": evaluation.metric_name,
+                        "verdict": evaluation.verdict,
+                    }
+                    for evaluation in gate_result.evaluations
+                    if evaluation.blocked
+                ],
+            },
+        )
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "quality_regression_gate_blocked",
+                "message": "Deployment promotion blocked by quality regression gates",
+                "evaluations": [evaluation.model_dump(mode="json") for evaluation in gate_result.evaluations],
+            },
+        )
+
+    async with get_db_session() as session:
         await session.execute(
             text(
                 """

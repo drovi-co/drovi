@@ -12,12 +12,14 @@ from temporalio.exceptions import ApplicationError
 
 from src.agentos.browser import BrowserActionRequest, BrowserCreateSessionRequest, BrowserService
 from src.agentos.control_plane import ActionReceiptService, ApprovalService, PolicyDecisionEngine
+from src.agentos.control_plane.audit import emit_control_plane_audit_event
 from src.agentos.desktop import DesktopActionRequest, DesktopBridgeService
 from src.agentos.work_products import WorkProductDeliveryRequest, WorkProductGenerateRequest, WorkProductService
 from src.db.client import get_db_session
 from src.jobs.queue import EnqueueJobRequest, enqueue_job
 from src.kernel.serialization import json_dumps_canonical
 from src.kernel.time import utc_now
+from src.monitoring import get_metrics
 
 logger = structlog.get_logger()
 
@@ -31,6 +33,79 @@ _work_product_service = WorkProductService()
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+async def _emit_action_observability(
+    *,
+    organization_id: str,
+    run_id: str,
+    action_name: str,
+    status: str,
+    step_type: str,
+    tool_id: str,
+    action_receipt_id: str | None,
+    approval_request_id: str | None,
+    policy_result: dict[str, Any] | None,
+    result_payload: dict[str, Any] | None,
+) -> None:
+    if not organization_id or not tool_id:
+        return
+
+    metadata = {
+        "run_id": run_id,
+        "step_type": step_type,
+        "tool_id": tool_id,
+        "status": status,
+        "action_receipt_id": action_receipt_id,
+        "approval_request_id": approval_request_id,
+        "policy_result": policy_result or {},
+        "result_payload": result_payload or {},
+    }
+
+    try:
+        await emit_control_plane_audit_event(
+            organization_id=organization_id,
+            action=f"agentos.runtime.{action_name}",
+            actor_id=None,
+            resource_type="agent_run",
+            resource_id=run_id or "unknown",
+            metadata=metadata,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to emit action audit event",
+            organization_id=organization_id,
+            run_id=run_id,
+            tool_id=tool_id,
+            action_name=action_name,
+            error=str(exc),
+        )
+
+    if run_id:
+        try:
+            await emit_run_event(
+                {
+                    "organization_id": organization_id,
+                    "event_type": f"action.{status}",
+                    "run_id": run_id,
+                    "payload": {
+                        "action": action_name,
+                        "step_type": step_type,
+                        "tool_id": tool_id,
+                        "action_receipt_id": action_receipt_id,
+                        "approval_request_id": approval_request_id,
+                    },
+                }
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to emit action run event",
+                organization_id=organization_id,
+                run_id=run_id,
+                tool_id=tool_id,
+                action_name=action_name,
+                error=str(exc),
+            )
 
 
 async def _get_redis():
@@ -86,7 +161,47 @@ async def update_run_status(req: dict[str, Any]) -> None:
                 "now": now,
             },
         )
+
+        run_result = await session.execute(
+            text(
+                """
+                SELECT started_at, completed_at
+                FROM agent_run
+                WHERE id = :run_id
+                  AND organization_id = :organization_id
+                """
+            ),
+            {"run_id": run_id, "organization_id": organization_id},
+        )
+        run_row = run_result.fetchone()
+
+        backlog_result = await session.execute(
+            text(
+                """
+                SELECT COUNT(*) AS pending_count
+                FROM agent_action_approval
+                WHERE organization_id = :organization_id
+                  AND status = 'pending'
+                """
+            ),
+            {"organization_id": organization_id},
+        )
+        backlog_row = backlog_result.fetchone()
         await session.commit()
+
+    duration_seconds: float | None = None
+    if run_row and run_row.started_at and run_row.completed_at:
+        duration_seconds = max(
+            (run_row.completed_at - run_row.started_at).total_seconds(),
+            0.0,
+        )
+
+    metrics = get_metrics()
+    metrics.track_agent_run_status(status=status, duration_seconds=duration_seconds)
+    metrics.set_agent_approval_backlog(
+        organization_id=organization_id,
+        pending_count=int(getattr(backlog_row, "pending_count", 0) or 0),
+    )
 
 
 @activity.defn(name="agent_runs.record_step")
@@ -326,12 +441,36 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
             final_status="policy_evaluated",
         )
         action_receipt_id = receipt.id
+        await _emit_action_observability(
+            organization_id=organization_id,
+            run_id=run_id,
+            action_name="action_policy_evaluated",
+            status="policy_evaluated",
+            step_type=step_type,
+            tool_id=tool_id,
+            action_receipt_id=action_receipt_id,
+            approval_request_id=approval_request_id,
+            policy_result=policy_result_payload,
+            result_payload={"decision": policy_result_payload or {}},
+        )
 
         if decision.action == "deny":
             await _receipt_service.finalize_receipt(
                 organization_id=organization_id,
                 receipt_id=receipt.id,
                 final_status="denied",
+                result_payload={"code": decision.code, "reason": decision.reason},
+            )
+            await _emit_action_observability(
+                organization_id=organization_id,
+                run_id=run_id,
+                action_name="action_denied",
+                status="denied",
+                step_type=step_type,
+                tool_id=tool_id,
+                action_receipt_id=action_receipt_id,
+                approval_request_id=approval_request_id,
+                policy_result=policy_result_payload,
                 result_payload={"code": decision.code, "reason": decision.reason},
             )
             raise ApplicationError(
@@ -361,6 +500,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 receipt_id=receipt.id,
                 final_status="waiting_approval",
                 approval_request_id=approval_request_id,
+                result_payload={"approval_request_id": approval_request_id, "reason": approval.reason},
+            )
+            await _emit_action_observability(
+                organization_id=organization_id,
+                run_id=run_id,
+                action_name="action_waiting_approval",
+                status="waiting_approval",
+                step_type=step_type,
+                tool_id=tool_id,
+                action_receipt_id=action_receipt_id,
+                approval_request_id=approval_request_id,
+                policy_result=policy_result_payload,
                 result_payload={"approval_request_id": approval_request_id, "reason": approval.reason},
             )
             return {
@@ -404,6 +555,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 final_status="waiting_approval",
                 result_payload={"reason": "approval_step_override"},
             )
+        await _emit_action_observability(
+            organization_id=organization_id,
+            run_id=run_id,
+            action_name="action_waiting_approval",
+            status="waiting_approval",
+            step_type=step_type,
+            tool_id=tool_id,
+            action_receipt_id=action_receipt_id,
+            approval_request_id=approval_request_id,
+            policy_result=policy_result_payload,
+            result_payload={"reason": "approval_step_override"},
+        )
         return {
             "status": "waiting_approval",
             "message": f"Step requires approval: {step_type}",
@@ -442,6 +605,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 approval_request_id=approval_request_id,
                 result_payload={"status": "completed", "output": browser_output},
             )
+        await _emit_action_observability(
+            organization_id=organization_id,
+            run_id=run_id,
+            action_name="action_completed",
+            status="completed",
+            step_type=step_type,
+            tool_id=tool_id or f"browser.{browser_action}",
+            action_receipt_id=action_receipt_id,
+            approval_request_id=approval_request_id,
+            policy_result=policy_result_payload,
+            result_payload={"status": "completed"},
+        )
         return result
 
     desktop_capability = _resolve_desktop_capability(tool_id=tool_id, payload=payload)
@@ -470,6 +645,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 approval_request_id=approval_request_id,
                 result_payload={"status": "completed", "output": desktop_output},
             )
+        await _emit_action_observability(
+            organization_id=organization_id,
+            run_id=run_id,
+            action_name="action_completed",
+            status="completed",
+            step_type=step_type,
+            tool_id=tool_id or f"desktop.{desktop_capability}",
+            action_receipt_id=action_receipt_id,
+            approval_request_id=approval_request_id,
+            policy_result=policy_result_payload,
+            result_payload={"status": "completed"},
+        )
         return result
 
     work_product_action = _resolve_work_product_action(tool_id=tool_id, payload=payload)
@@ -501,6 +688,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                     approval_request_id=str(work_product_output.get("approval_request_id") or "") or None,
                     result_payload=work_product_output,
                 )
+            await _emit_action_observability(
+                organization_id=organization_id,
+                run_id=run_id,
+                action_name="action_waiting_approval",
+                status="waiting_approval",
+                step_type=step_type,
+                tool_id=tool_id or f"work_product.{work_product_action}",
+                action_receipt_id=action_receipt_id,
+                approval_request_id=str(work_product_output.get("approval_request_id") or "") or None,
+                policy_result=policy_result_payload,
+                result_payload=work_product_output,
+            )
             return waiting_result
 
         if work_product_status in {"failed", "rolled_back"}:
@@ -511,6 +710,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                     final_status="failed",
                     result_payload=work_product_output,
                 )
+            await _emit_action_observability(
+                organization_id=organization_id,
+                run_id=run_id,
+                action_name="action_failed",
+                status="failed",
+                step_type=step_type,
+                tool_id=tool_id or f"work_product.{work_product_action}",
+                action_receipt_id=action_receipt_id,
+                approval_request_id=str(work_product_output.get("approval_request_id") or "") or None,
+                policy_result=policy_result_payload,
+                result_payload=work_product_output,
+            )
             return {
                 "status": "failed",
                 "failure_type": "work_product_delivery_failed",
@@ -540,6 +751,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 approval_request_id=str(work_product_output.get("approval_request_id") or "") or None,
                 result_payload=work_product_output,
             )
+        await _emit_action_observability(
+            organization_id=organization_id,
+            run_id=run_id,
+            action_name="action_completed",
+            status="completed",
+            step_type=step_type,
+            tool_id=tool_id or f"work_product.{work_product_action}",
+            action_receipt_id=action_receipt_id,
+            approval_request_id=str(work_product_output.get("approval_request_id") or "") or None,
+            policy_result=policy_result_payload,
+            result_payload=work_product_output,
+        )
         return result
 
     result = {
@@ -565,6 +788,18 @@ async def execute_step(req: dict[str, Any]) -> dict[str, Any]:
                 approval_request_id=approval_request_id,
                 result_payload={"status": "completed", "output": result.get("output") or {}},
             )
+    await _emit_action_observability(
+        organization_id=organization_id,
+        run_id=run_id,
+        action_name="action_completed",
+        status="completed",
+        step_type=step_type,
+        tool_id=tool_id or step_type,
+        action_receipt_id=action_receipt_id,
+        approval_request_id=approval_request_id,
+        policy_result=policy_result_payload,
+        result_payload={"status": "completed"},
+    )
     return result
 
 

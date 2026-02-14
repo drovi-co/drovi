@@ -3,6 +3,10 @@
 
 export type ApprovalCreateRequest = {
   action_tier: 'read_only' | 'low_risk_write' | 'high_risk_write' | 'external_commit';
+  approval_chain?: Array<({
+
+} & Record<string, unknown>)>;
+  chain_mode?: 'single' | 'multi';
   deployment_id?: string | null;
   escalation_path?: {
 
@@ -12,6 +16,7 @@ export type ApprovalCreateRequest = {
 } & Record<string, unknown>;
   organization_id: string;
   reason?: string | null;
+  required_approvals?: number;
   run_id?: string | null;
   sla_minutes?: number;
   tool_id: string;

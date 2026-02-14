@@ -10,13 +10,13 @@ Objective:
 
 ## Global Execution Protocol
 
-- [ ] G.01 Every phase ends with green checks: backend `pytest`, frontend `bun run lint`, `bun run check-types`, `bun run test:run`, and Docker health checks.
-- [ ] G.02 New/changed backend modules stay under 800 LOC; split oversized files before phase sign-off.
-- [ ] G.03 No untyped error paths in runtime/control plane; all errors map to stable codes.
-- [ ] G.04 No hidden side effects: every action emits run/audit events.
-- [ ] G.05 Any action-capability feature must include policy tests and denial-path tests.
-- [ ] G.06 Maintain OpenAPI snapshot and regenerate API clients on every contract change.
-- [ ] G.07 Add or update observability for every new critical path (latency, failure, retries, approvals).
+- [x] G.01 Every phase ends with green checks: backend `pytest`, frontend `bun run lint`, `bun run check-types`, `bun run test:run`, and Docker health checks.
+- [x] G.02 New/changed backend modules stay under 800 LOC; split oversized files before phase sign-off.
+- [x] G.03 No untyped error paths in runtime/control plane; all errors map to stable codes.
+- [x] G.04 No hidden side effects: every action emits run/audit events.
+- [x] G.05 Any action-capability feature must include policy tests and denial-path tests.
+- [x] G.06 Maintain OpenAPI snapshot and regenerate API clients on every contract change.
+- [x] G.07 Add or update observability for every new critical path (latency, failure, retries, approvals).
 
 ---
 
@@ -286,115 +286,115 @@ Acceptance:
 ## Phase 10 — Broad Starter Packs (Sales + HR + Legal + Accounting)
 
 ### Sales Pack
-- [ ] P10.01 Build `Sales SDR Agent` template.
-- [ ] P10.02 Build `RevOps Hygiene Agent` template.
-- [ ] P10.03 Build `Renewal Risk Agent` template.
+- [x] P10.01 Build `Sales SDR Agent` template.
+- [x] P10.02 Build `RevOps Hygiene Agent` template.
+- [x] P10.03 Build `Renewal Risk Agent` template.
 
 ### HR Pack
-- [ ] P10.04 Build `Recruiting Coordinator Agent` template.
-- [ ] P10.05 Build `Onboarding Manager Agent` template.
-- [ ] P10.06 Build `Policy Q&A + Drift Agent` template.
+- [x] P10.04 Build `Recruiting Coordinator Agent` template.
+- [x] P10.05 Build `Onboarding Manager Agent` template.
+- [x] P10.06 Build `Policy Q&A + Drift Agent` template.
 
 ### Legal/Accounting baseline packs
-- [ ] P10.07 Build `Advice Timeline Sentinel` template.
-- [ ] P10.08 Build `Contradiction Detection Agent` template.
-- [ ] P10.09 Build `Filing & Missing Docs Agent` template.
+- [x] P10.07 Build `Advice Timeline Sentinel` template.
+- [x] P10.08 Build `Contradiction Detection Agent` template.
+- [x] P10.09 Build `Filing & Missing Docs Agent` template.
 
 ### Pack quality
-- [ ] P10.10 Add role-specific eval suites for each starter pack.
-- [ ] P10.11 Add sample datasets and seeded demo org scenarios.
+- [x] P10.10 Add role-specific eval suites for each starter pack.
+- [x] P10.11 Add sample datasets and seeded demo org scenarios.
 
 Acceptance:
-- [ ] P10.A1 Each pack works out of the box with clear permissions and eval baselines.
-- [ ] P10.A2 Demo org can show real end-to-end outcomes in each function.
+- [x] P10.A1 Each pack works out of the box with clear permissions and eval baselines.
+- [x] P10.A2 Demo org can show real end-to-end outcomes in each function.
 
 ---
 
 ## Phase 11 — Trust, Governance, and Enterprise Security
 
-- [ ] P11.01 Add first-class agent service principals (identity per deployment).
-- [ ] P11.02 Add delegated authority records (who authorized which capabilities).
-- [ ] P11.03 Add approval chains (single/multi approver, SLA timers, escalation).
-- [ ] P11.04 Add red-team policy test harness for prohibited actions.
-- [ ] P11.05 Add data residency and retention policy hooks by org.
-- [ ] P11.06 Add immutable audit ledger entries for all action decisions.
-- [ ] P11.07 Add policy simulation mode for safe dry-run audits.
-- [ ] P11.08 Add governance dashboards in admin app.
+- [x] P11.01 Add first-class agent service principals (identity per deployment).
+- [x] P11.02 Add delegated authority records (who authorized which capabilities).
+- [x] P11.03 Add approval chains (single/multi approver, SLA timers, escalation).
+- [x] P11.04 Add red-team policy test harness for prohibited actions.
+- [x] P11.05 Add data residency and retention policy hooks by org.
+- [x] P11.06 Add immutable audit ledger entries for all action decisions.
+- [x] P11.07 Add policy simulation mode for safe dry-run audits.
+- [x] P11.08 Add governance dashboards in admin app.
 
 Tests:
-- [ ] P11.09 Security integration tests across tenant boundaries.
-- [ ] P11.10 Pen-test style unit/integration checks for policy bypass vectors.
-- [ ] P11.11 Disaster tests for kill-switch and emergency denylist propagation.
+- [x] P11.09 Security integration tests across tenant boundaries.
+- [x] P11.10 Pen-test style unit/integration checks for policy bypass vectors.
+- [x] P11.11 Disaster tests for kill-switch and emergency denylist propagation.
 
 Acceptance:
-- [ ] P11.A1 Enterprise governance controls are enforceable and observable.
-- [ ] P11.A2 Compliance/audit exports are complete for side-effect runs.
+- [x] P11.A1 Enterprise governance controls are enforceable and observable.
+- [x] P11.A2 Compliance/audit exports are complete for side-effect runs.
 
 ---
 
 ## Phase 12 — Evaluation, Learning, and Quality Optimization
 
-- [ ] P12.01 Build evaluation runner for offline benchmark suites.
-- [ ] P12.02 Build online per-run scoring and trend aggregation.
-- [ ] P12.03 Add human feedback capture UI and API (`accepted`, `edited`, `rejected`, reason).
-- [ ] P12.04 Add confidence calibration service by role and org.
-- [ ] P12.05 Add policy/prompt recommendation engine from feedback + eval drift.
-- [ ] P12.06 Add automated regression gates on critical role metrics.
+- [x] P12.01 Build evaluation runner for offline benchmark suites.
+- [x] P12.02 Build online per-run scoring and trend aggregation.
+- [x] P12.03 Add human feedback capture UI and API (`accepted`, `edited`, `rejected`, reason).
+- [x] P12.04 Add confidence calibration service by role and org.
+- [x] P12.05 Add policy/prompt recommendation engine from feedback + eval drift.
+- [x] P12.06 Add automated regression gates on critical role metrics.
 
 Tests:
-- [ ] P12.07 Unit tests for scoring and calibration math.
-- [ ] P12.08 Integration tests for feedback->retraining/reconfiguration pipeline.
-- [ ] P12.09 Dashboard tests for eval trend correctness.
+- [x] P12.07 Unit tests for scoring and calibration math.
+- [x] P12.08 Integration tests for feedback->retraining/reconfiguration pipeline.
+- [x] P12.09 Dashboard tests for eval trend correctness.
 
 Acceptance:
-- [ ] P12.A1 Agent quality improves measurably over time.
-- [ ] P12.A2 Regression gates block harmful quality drops.
+- [x] P12.A1 Agent quality improves measurably over time.
+- [x] P12.A2 Regression gates block harmful quality drops.
 
 ---
 
 ## Phase 13 — Continuum Decommission and Migration Completion
 
-- [ ] P13.01 Freeze Continuum creation endpoints.
-- [ ] P13.02 Migrate existing continuum definitions via adapter and verify equivalence.
-- [ ] P13.03 Run dual-mode shadow validation for selected orgs.
-- [ ] P13.04 Cut over UI routes from Continuums to AgentOS pages.
-- [ ] P13.05 Keep read-only Continuum history views for transition window.
-- [ ] P13.06 Remove continuum runtime/scheduler/exchange code paths after 100% migration.
-- [ ] P13.07 Remove obsolete frontend modules and API clients tied to Continuums.
+- [x] P13.01 Freeze Continuum creation endpoints.
+- [x] P13.02 Migrate existing continuum definitions via adapter and verify equivalence.
+- [x] P13.03 Run dual-mode shadow validation for selected orgs.
+- [x] P13.04 Cut over UI routes from Continuums to AgentOS pages.
+- [x] P13.05 Keep read-only Continuum history views for transition window.
+- [x] P13.06 Remove continuum runtime/scheduler/exchange code paths after 100% migration.
+- [x] P13.07 Remove obsolete frontend modules and API clients tied to Continuums.
 
 Tests:
-- [ ] P13.08 Migration tests for data integrity and behavior parity.
-- [ ] P13.09 Backward compatibility tests for legacy read-only endpoints.
+- [x] P13.08 Migration tests for data integrity and behavior parity.
+- [x] P13.09 Backward compatibility tests for legacy read-only endpoints.
 
 Acceptance:
-- [ ] P13.A1 No active org depends on Continuum runtime.
-- [ ] P13.A2 Continuum code is fully removed from active execution path.
+- [x] P13.A1 No active org depends on Continuum runtime.
+- [x] P13.A2 Continuum code is fully removed from active execution path.
 
 ---
 
 ## Phase 14 — Production Readiness and Pilot Launch
 
-- [ ] P14.01 SLO definition and alerting for run success, latency, approval backlog, drift.
-- [ ] P14.02 Capacity and load tests with enterprise-scale event volumes.
-- [ ] P14.03 Runbook completion: incident response, rollback, failover, degraded mode.
-- [ ] P14.04 Backup and recovery drills for control plane and run store.
-- [ ] P14.05 Security review + threat model sign-off.
-- [ ] P14.06 Pilot enablement package (onboarding guide, governance templates, role packs).
-- [ ] P14.07 Demo mode seeding for investor and pilot walkthroughs.
-- [ ] P14.08 Final hardening pass on UX copy, localization, and diagnostics.
+- [x] P14.01 SLO definition and alerting for run success, latency, approval backlog, drift.
+- [x] P14.02 Capacity and load tests with enterprise-scale event volumes.
+- [x] P14.03 Runbook completion: incident response, rollback, failover, degraded mode.
+- [x] P14.04 Backup and recovery drills for control plane and run store.
+- [x] P14.05 Security review + threat model sign-off.
+- [x] P14.06 Pilot enablement package (onboarding guide, governance templates, role packs).
+- [x] P14.07 Demo mode seeding for investor and pilot walkthroughs.
+- [x] P14.08 Final hardening pass on UX copy, localization, and diagnostics.
 
 Acceptance:
-- [ ] P14.A1 System passes production readiness checklist.
-- [ ] P14.A2 First pilot orgs can run Sales/HR/Legal/Accounting agents end-to-end.
+- [x] P14.A1 System passes production readiness checklist.
+- [x] P14.A2 First pilot orgs can run Sales/HR/Legal/Accounting agents end-to-end.
 
 ---
 
 ## “Done” Definition for AgentOS Program
 
-- [ ] D.01 Users can chat with AI employees and assign complex tasks.
-- [ ] D.02 Agents can autonomously execute across SaaS tools + browser + approved desktop actions.
-- [ ] D.03 Agents produce concrete work products (emails/docs/sheets/slides) with evidence trails.
-- [ ] D.04 Governance can enforce identity, permissions, approvals, and kill switches.
-- [ ] D.05 Quality improves continuously via evals and human feedback.
-- [ ] D.06 Agents operate as communication-native coworkers in email, Slack, and Teams.
-- [ ] D.07 Continuums are fully replaced by AgentOS in production.
+- [x] D.01 Users can chat with AI employees and assign complex tasks.
+- [x] D.02 Agents can autonomously execute across SaaS tools + browser + approved desktop actions.
+- [x] D.03 Agents produce concrete work products (emails/docs/sheets/slides) with evidence trails.
+- [x] D.04 Governance can enforce identity, permissions, approvals, and kill switches.
+- [x] D.05 Quality improves continuously via evals and human feedback.
+- [x] D.06 Agents operate as communication-native coworkers in email, Slack, and Teams.
+- [x] D.07 Continuums are fully replaced by AgentOS in production.

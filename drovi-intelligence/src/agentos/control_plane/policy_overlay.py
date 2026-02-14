@@ -29,7 +29,7 @@ def _normalize_tool_list(value: Any, *, field_name: str) -> list[str]:
         )
     tools: list[str] = []
     for item in value:
-        tool_id = str(item or "").strip()
+        tool_id = str(item or "").strip().lower()
         if not tool_id:
             continue
         tools.append(tool_id)

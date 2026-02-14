@@ -24,3 +24,17 @@ export interface KPIsResponse {
   blocks: KPIBlock[];
   breakdowns: Record<string, unknown>;
 }
+
+export interface GovernanceSignal {
+  label: string;
+  value: string;
+  severity: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface GovernanceOverviewResponse {
+  generated_at: string;
+  blocks: KPIBlock[];
+  approvals_by_status: Array<Record<string, unknown>>;
+  recent_signals: GovernanceSignal[];
+}

@@ -199,3 +199,32 @@ class TestConfigLintEndpoint:
         assert any("Unknown required tools" in error for error in payload["errors"])
         assert any("Missing readable memory scopes" in error for error in payload["errors"])
 
+
+class TestAgentErrorContracts:
+    async def test_get_deployment_not_found_has_stable_error_code(self, async_client):
+        session = AsyncMock()
+        missing = MagicMock()
+        missing.fetchone.return_value = None
+        session.execute.return_value = missing
+
+        with patch("src.api.routes.agents_playbooks_deployments.get_db_session", lambda: _fake_session(session)):
+            response = await async_client.get("/api/v1/agents/deployments/agdep_missing")
+
+        assert response.status_code == 404
+        body = response.json()
+        assert body["code"] == "http.404"
+        assert body["detail"] == "Deployment not found"
+
+    async def test_get_run_not_found_has_stable_error_code(self, async_client):
+        session = AsyncMock()
+        missing = MagicMock()
+        missing.fetchone.return_value = None
+        session.execute.return_value = missing
+
+        with patch("src.api.routes.agents_runs_quality.get_db_session", lambda: _fake_session(session)):
+            response = await async_client.get("/api/v1/agents/runs/agrun_missing")
+
+        assert response.status_code == 404
+        body = response.json()
+        assert body["code"] == "http.404"
+        assert body["detail"] == "Run not found"

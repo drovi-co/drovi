@@ -25,6 +25,10 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     return dict(row._mapping if hasattr(row, "_mapping") else row)
 
 
+def _normalize_tool_id(tool_id: str) -> str:
+    return str(tool_id or "").strip().lower()
+
+
 def _validate_json_schema(schema: dict[str, Any], *, field_name: str) -> None:
     if not isinstance(schema, dict):
         raise ValidationError(
@@ -90,6 +94,7 @@ class ToolRegistryService:
         return [ToolManifestRecord.model_validate(_row_to_dict(row)) for row in rows]
 
     async def get_manifest(self, *, organization_id: str, tool_id: str) -> ToolManifestRecord:
+        normalized_tool_id = _normalize_tool_id(tool_id)
         async with get_db_session() as session:
             result = await session.execute(
                 text(
@@ -102,7 +107,7 @@ class ToolRegistryService:
                       AND tool_id = :tool_id
                     """
                 ),
-                {"organization_id": organization_id, "tool_id": tool_id},
+                {"organization_id": organization_id, "tool_id": normalized_tool_id},
             )
             row = result.fetchone()
 
@@ -110,7 +115,7 @@ class ToolRegistryService:
             raise NotFoundError(
                 code="agentos.tools.not_found",
                 message="Tool manifest not found",
-                meta={"organization_id": organization_id, "tool_id": tool_id},
+                meta={"organization_id": organization_id, "tool_id": normalized_tool_id},
             )
         return ToolManifestRecord.model_validate(_row_to_dict(row))
 
@@ -122,7 +127,7 @@ class ToolRegistryService:
     ) -> ToolManifestRecord:
         payload = manifest.model_dump(mode="json") if isinstance(manifest, ToolManifestRecord) else dict(manifest)
         payload["organization_id"] = organization_id
-        payload["tool_id"] = str(payload.get("tool_id") or "").strip()
+        payload["tool_id"] = _normalize_tool_id(payload.get("tool_id"))
 
         if not payload["tool_id"]:
             raise ValidationError(
@@ -213,6 +218,7 @@ class ToolRegistryService:
         tool_id: str,
         is_enabled: bool,
     ) -> ToolManifestRecord:
+        normalized_tool_id = _normalize_tool_id(tool_id)
         now = utc_now()
         async with get_db_session() as session:
             result = await session.execute(
@@ -227,7 +233,7 @@ class ToolRegistryService:
                 ),
                 {
                     "organization_id": organization_id,
-                    "tool_id": tool_id,
+                    "tool_id": normalized_tool_id,
                     "is_enabled": is_enabled,
                     "updated_at": now,
                 },
@@ -237,7 +243,7 @@ class ToolRegistryService:
                 raise NotFoundError(
                     code="agentos.tools.not_found",
                     message="Tool manifest not found",
-                    meta={"organization_id": organization_id, "tool_id": tool_id},
+                    meta={"organization_id": organization_id, "tool_id": normalized_tool_id},
                 )
             await session.commit()
-        return await self.get_manifest(organization_id=organization_id, tool_id=tool_id)
+        return await self.get_manifest(organization_id=organization_id, tool_id=normalized_tool_id)

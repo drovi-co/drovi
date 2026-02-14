@@ -334,6 +334,31 @@ class Metrics:
                 buckets=[1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
             )
 
+            self.agent_runs_status_total = Counter(
+                "drovi_agent_runs_status_total",
+                "Total agent run status transitions",
+                ["status"],
+            )
+
+            self.agent_run_duration_seconds = Histogram(
+                "drovi_agent_run_duration_seconds",
+                "Agent run duration in seconds for terminal states",
+                ["status"],
+                buckets=[0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
+            )
+
+            self.agent_approval_backlog = Gauge(
+                "drovi_agent_approval_backlog",
+                "Current pending approval queue size per organization",
+                ["organization_id"],
+            )
+
+            self.agent_quality_drift_score = Gauge(
+                "drovi_agent_quality_drift_score",
+                "Derived quality drift score (0-1) by organization and role scope",
+                ["organization_id", "role_scope"],
+            )
+
             self.agent_browser_sessions_total = Counter(
                 "drovi_agent_browser_sessions_total",
                 "Total browser session lifecycle events",
@@ -800,6 +825,35 @@ class Metrics:
         if not self._enabled:
             return
         self.agent_approval_latency_seconds.labels(channel_type=channel_type).observe(max(float(seconds), 0.0))
+
+    def track_agent_run_status(self, *, status: str, duration_seconds: float | None = None) -> None:
+        if not self._enabled:
+            return
+        normalized_status = status or "unknown"
+        self.agent_runs_status_total.labels(status=normalized_status).inc()
+        if duration_seconds is not None:
+            self.agent_run_duration_seconds.labels(status=normalized_status).observe(
+                max(float(duration_seconds), 0.0)
+            )
+
+    def set_agent_approval_backlog(self, *, organization_id: str, pending_count: int) -> None:
+        if not self._enabled:
+            return
+        self.agent_approval_backlog.labels(organization_id=organization_id).set(max(int(pending_count), 0))
+
+    def set_agent_quality_drift_score(
+        self,
+        *,
+        organization_id: str,
+        role_scope: str,
+        score: float,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_quality_drift_score.labels(
+            organization_id=organization_id,
+            role_scope=role_scope or "all",
+        ).set(max(min(float(score), 1.0), 0.0))
 
     def track_browser_session(self, *, provider: str, event: str) -> None:
         if not self._enabled:

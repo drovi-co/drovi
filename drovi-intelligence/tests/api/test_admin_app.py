@@ -312,3 +312,59 @@ async def test_admin_user_detail_smoke(monkeypatch, async_client_no_auth):
     data = res.json()
     assert data["id"] == "user_1"
     assert len(data["memberships"]) == 1
+
+
+async def test_admin_governance_overview_smoke(monkeypatch, async_client_no_auth):
+    _set_admin_env(monkeypatch)
+    login = await async_client_no_auth.post(
+        "/api/v1/admin/login",
+        json={"email": "founder@drovi.co", "password": "test-admin-pass"},
+    )
+    token = login.json()["session_token"]
+
+    fake_session = AsyncMock()
+
+    async def _execute(stmt, params=None):
+        del params
+        sql = str(stmt)
+        if "FROM agent_service_principal" in sql:
+            return _FakeResult(scalar=3)
+        if "FROM agent_delegated_authority" in sql and "COUNT(*)" in sql:
+            return _FakeResult(scalar=5)
+        if "FROM agent_org_governance_policy" in sql:
+            return _FakeResult(scalar=1)
+        if "FROM agent_action_approval" in sql and "status = 'pending'" in sql:
+            return _FakeResult(scalar=4)
+        if "FROM agent_action_approval" in sql and "status = 'escalated'" in sql:
+            return _FakeResult(scalar=2)
+        if "FROM audit_log" in sql and "agentos.policy.decision" in sql:
+            return _FakeResult(scalar=7)
+        if "FROM audit_log" in sql and "agentos.policy.red_team_ran" in sql:
+            return _FakeResult(scalar=1)
+        if "FROM agent_action_approval" in sql and "GROUP BY status" in sql:
+            return _FakeResult(
+                rows=[
+                    SimpleNamespace(status="pending", count=4),
+                    SimpleNamespace(status="escalated", count=2),
+                ]
+            )
+        if "FROM agent_action_approval_decision" in sql:
+            return _FakeResult(scalar=2)
+        raise AssertionError(f"Unexpected governance query: {sql}")
+
+    fake_session.execute.side_effect = _execute
+
+    @asynccontextmanager
+    async def fake_get_db_session():
+        yield fake_session
+
+    with patch("src.api.routes.admin.get_db_session", fake_get_db_session):
+        res = await async_client_no_auth.get(
+            "/api/v1/admin/governance/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert res.status_code == 200
+    payload = res.json()
+    assert len(payload["blocks"]) >= 6
+    assert len(payload["approvals_by_status"]) == 2

@@ -2050,6 +2050,7 @@
         "users": "Users",
         "connectors": "Connectors",
         "jobs": "Jobs",
+        "governance": "Governance",
         "tickets": "Tickets",
         "exchange": "Exchange"
       }
@@ -2132,6 +2133,21 @@
         "cancelFailed": "Cancel failed",
         "retried": "Job retried",
         "retryFailed": "Retry failed"
+      }
+    },
+    "governance": {
+      "errors": {
+        "failedToLoad": "Failed to load governance overview"
+      },
+      "sections": {
+        "approvalsByStatus": "Approvals by Status",
+        "recentSignals": "Recent Governance Signals",
+        "noApprovals": "No approval records yet.",
+        "noSignals": "No governance signals."
+      },
+      "table": {
+        "status": "Status",
+        "count": "Count"
       }
     },
     "exchange": {

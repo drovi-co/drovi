@@ -2050,6 +2050,7 @@
         "users": "Utilisateurs",
         "connectors": "Connecteurs",
         "jobs": "Jobs",
+        "governance": "Governance",
         "tickets": "Tickets",
         "exchange": "Echange"
       }
@@ -2132,6 +2133,21 @@
         "cancelFailed": "Annulation echouee",
         "retried": "Job relance",
         "retryFailed": "Relance echouee"
+      }
+    },
+    "governance": {
+      "errors": {
+        "failedToLoad": "Impossible de charger la vue governance"
+      },
+      "sections": {
+        "approvalsByStatus": "Approvals par statut",
+        "recentSignals": "Signaux governance recents",
+        "noApprovals": "Aucun approval pour le moment.",
+        "noSignals": "Aucun signal governance."
+      },
+      "table": {
+        "status": "Statut",
+        "count": "Nombre"
       }
     },
     "exchange": {

@@ -31,10 +31,10 @@ import { toast } from "sonner";
 import { useT } from "@/i18n";
 import {
   type AskResponse,
+  agentsAPI,
   askAPI,
   type ContentSearchResult,
   contentAPI,
-  continuumsAPI,
   type SearchResult,
   searchAPI,
 } from "@/lib/api";
@@ -286,7 +286,7 @@ export function IntentBar() {
     uios: true,
     messages: true,
     docs: true,
-    continuums: true,
+    agents: true,
   });
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -340,7 +340,7 @@ export function IntentBar() {
       uios: true,
       messages: true,
       docs: true,
-      continuums: true,
+      agents: true,
     });
   }, [open]);
 
@@ -363,9 +363,11 @@ export function IntentBar() {
     () => traces.find((t) => t.endpoint === "/api/v1/content/search") ?? null,
     [traces]
   );
-  const continuumsTrace = useMemo(
+  const agentsTrace = useMemo(
     () =>
-      traces.find((t) => t.endpoint.startsWith("/api/v1/continuums?")) ?? null,
+      traces.find((t) =>
+        t.endpoint.startsWith("/api/v1/agents/deployments?")
+      ) ?? null,
     [traces]
   );
 
@@ -392,15 +394,15 @@ export function IntentBar() {
         durationMs: contentTrace.durationMs,
       };
     }
-    if (continuumsTrace) {
-      snapshot.continuums = {
-        requestId: continuumsTrace.requestId,
-        status: continuumsTrace.status,
-        durationMs: continuumsTrace.durationMs,
+    if (agentsTrace) {
+      snapshot.agents = {
+        requestId: agentsTrace.requestId,
+        status: agentsTrace.status,
+        durationMs: agentsTrace.durationMs,
       };
     }
     return snapshot;
-  }, [askTrace, contentTrace, continuumsTrace, searchTrace]);
+  }, [agentsTrace, askTrace, contentTrace, searchTrace]);
 
   const {
     data: uioSearchResponse,
@@ -462,28 +464,31 @@ export function IntentBar() {
     staleTime: 10_000,
   });
 
-  const { data: continuums, isLoading: loadingContinuums } = useQuery({
-    queryKey: ["intent-bar-continuums", user?.org_id ?? "none"],
-    queryFn: () => continuumsAPI.list(user?.org_id ?? ""),
+  const { data: deployments, isLoading: loadingAgents } = useQuery({
+    queryKey: ["intent-bar-agent-deployments", user?.org_id ?? "none"],
+    queryFn: () => agentsAPI.listDeployments(user?.org_id ?? ""),
     enabled: open && mode === "find" && Boolean(user?.org_id),
     staleTime: 60_000,
   });
 
   const uioResults = uioSearchResponse?.results ?? [];
   const contentResults = contentSearchResponse?.results ?? [];
-  const continuumResults = useMemo(() => {
-    if (!findFilters.continuums) return [];
-    if (!continuums) return [];
+  const agentResults = useMemo(() => {
+    if (!findFilters.agents) return [];
+    if (!deployments) return [];
     const q = debouncedQuery.trim().toLowerCase();
     if (q.length < 2) return [];
-    return continuums
-      .filter((c) => {
-        const name = String(c.name ?? "").toLowerCase();
-        const desc = String(c.description ?? "").toLowerCase();
-        return name.includes(q) || desc.includes(q);
+    return deployments
+      .filter((deployment) => {
+        const deploymentId = deployment.id.toLowerCase();
+        const roleId = deployment.role_id.toLowerCase();
+        const status = deployment.status.toLowerCase();
+        return (
+          deploymentId.includes(q) || roleId.includes(q) || status.includes(q)
+        );
       })
       .slice(0, 8);
-  }, [continuums, debouncedQuery, findFilters.continuums]);
+  }, [debouncedQuery, deployments, findFilters.agents]);
 
   const handleAsk = async (overrideQuestion?: string) => {
     if (!user?.org_id) {
@@ -844,10 +849,10 @@ export function IntentBar() {
 
     if (mode === "find") {
       const q = debouncedQuery.trim();
-      const anyLoading = searchingUios || searchingContent || loadingContinuums;
+      const anyLoading = searchingUios || searchingContent || loadingAgents;
       const anyError = uioSearchError || contentSearchError;
       const totalResults =
-        uioResults.length + contentResults.length + continuumResults.length;
+        uioResults.length + contentResults.length + agentResults.length;
 
       return (
         <>
@@ -1018,28 +1023,26 @@ export function IntentBar() {
             </>
           ) : null}
 
-          {continuumResults.length > 0 ? (
+          {agentResults.length > 0 ? (
             <>
               <CommandSeparator />
-              <CommandGroup heading={t("intentBar.find.groups.continuums")}>
-                {continuumResults.map((continuum) => (
+              <CommandGroup heading={t("nav.items.agentWorkforces")}>
+                {agentResults.map((deployment) => (
                   <CommandItem
-                    key={`continuum:${continuum.id}`}
+                    key={`deployment:${deployment.id}`}
                     onSelect={() =>
                       handleNavigate("/dashboard/agents/workforces")
                     }
-                    value={`continuum ${continuum.name} ${continuum.description ?? ""}`}
+                    value={`deployment ${deployment.id} ${deployment.role_id} ${deployment.status}`}
                   >
                     <Sparkles className="h-4 w-4" />
                     <div className="flex w-full flex-col">
                       <span className="truncate font-medium">
-                        {continuum.name}
+                        {deployment.role_id}
                       </span>
-                      {continuum.description ? (
-                        <span className="line-clamp-2 text-[12px] text-muted-foreground">
-                          {continuum.description}
-                        </span>
-                      ) : null}
+                      <span className="line-clamp-2 text-[12px] text-muted-foreground">
+                        {deployment.id} · {deployment.status}
+                      </span>
                     </div>
                   </CommandItem>
                 ))}
@@ -1078,10 +1081,7 @@ export function IntentBar() {
               <CommandGroup heading={t("intentBar.groups.debug")}>
                 <DebugTraceItem label="search" trace={latestTraces.search} />
                 <DebugTraceItem label="content" trace={latestTraces.content} />
-                <DebugTraceItem
-                  label="continuums"
-                  trace={latestTraces.continuums}
-                />
+                <DebugTraceItem label="agents" trace={latestTraces.agents} />
               </CommandGroup>
             </>
           ) : null}
@@ -1093,7 +1093,7 @@ export function IntentBar() {
       {
         heading:
           mode === "build"
-            ? t("intentBar.groups.continuums")
+            ? t("nav.items.agentWorkforces")
             : mode === "act"
               ? t("intentBar.groups.execution")
               : t("intentBar.groups.surfaces"),
@@ -1165,10 +1165,7 @@ export function IntentBar() {
               <DebugTraceItem label="ask" trace={latestTraces.ask} />
               <DebugTraceItem label="search" trace={latestTraces.search} />
               <DebugTraceItem label="content" trace={latestTraces.content} />
-              <DebugTraceItem
-                label="continuums"
-                trace={latestTraces.continuums}
-              />
+              <DebugTraceItem label="agents" trace={latestTraces.agents} />
             </CommandGroup>
           </>
         ) : null}
@@ -1252,12 +1249,12 @@ export function IntentBar() {
               }
             />
             <FilterPill
-              active={findFilters.continuums}
-              label={t("intentBar.filters.continuums")}
+              active={findFilters.agents}
+              label={t("nav.items.agentWorkforces")}
               onClick={() =>
                 setFindFilters((prev) => ({
                   ...prev,
-                  continuums: !prev.continuums,
+                  agents: !prev.agents,
                 }))
               }
             />

@@ -8,10 +8,34 @@ import pytest
 
 import src.api.routes.agents_teams as agents_teams_route
 import src.api.routes.agents_starter_packs as agents_starter_packs_route
+import src.api.routes.agents_governance as agents_governance_route
+import src.api.routes.agents_playbooks_deployments as agents_playbooks_route
+import src.api.routes.agents_quality_optimization as agents_quality_route
+import src.api.routes.agents_tools_policy as agents_tools_policy_route
 import src.api.routes.agents_work_products as agents_work_products_route
 from src.agentos.orchestration import TeamMemberSpec
 from src.agentos.orchestration.service import TeamRecord
-from src.agentos.control_plane.models import ActionReceiptRecord, ApprovalRequestRecord, PolicyDecisionRecord
+from src.agentos.control_plane.models import (
+    ActionReceiptRecord,
+    AgentServicePrincipalRecord,
+    ApprovalDecisionRecord,
+    ApprovalRequestRecord,
+    DelegatedAuthorityRecord,
+    GovernancePolicyRecord,
+    PolicyDecisionRecord,
+)
+from src.agentos.control_plane.red_team import RedTeamRunResult
+from src.agentos.quality.models import (
+    CalibrationSnapshot,
+    OfflineEvalMetricResult,
+    OfflineEvalRunResult,
+    QualityRecommendationRecord,
+    QualityTrendResponse,
+    RegressionGateEvaluation,
+    RegressionGateEvaluationResponse,
+    RegressionGateRecord,
+    RunQualityScoreRecord,
+)
 from src.agentos.starter_packs.models import (
     StarterPackEvalMetricResult,
     StarterPackEvalRunResponse,
@@ -133,11 +157,28 @@ class TestDeployments:
     async def test_promote_deployment_transitions_to_active(self, async_client):
         session = AsyncMock()
         select_result = MagicMock()
-        select_result.fetchone.return_value = _row({"organization_id": "org_test"})
+        select_result.fetchone.return_value = _row(
+            {"organization_id": "org_test", "role_id": "agrole_1"}
+        )
         update_result = MagicMock()
         session.execute = AsyncMock(side_effect=[select_result, update_result])
+        gate_response = RegressionGateEvaluationResponse(
+            organization_id="org_test",
+            role_id="agrole_1",
+            deployment_id="agdep_1",
+            evaluated_at="2026-02-14T00:00:00Z",
+            blocked=False,
+            evaluations=[],
+        )
 
-        with patch("src.api.routes.agents_playbooks_deployments.get_db_session", lambda: _fake_session(session)):
+        with (
+            patch("src.api.routes.agents_playbooks_deployments.get_db_session", lambda: _fake_session(session)),
+            patch.object(
+                agents_playbooks_route._regression_gate_service,
+                "evaluate",
+                AsyncMock(return_value=gate_response),
+            ),
+        ):
             response = await async_client.post("/api/v1/agents/deployments/agdep_1/promote")
 
         assert response.status_code == 200
@@ -145,6 +186,51 @@ class TestDeployments:
         assert payload["deployment_id"] == "agdep_1"
         assert payload["status"] == "active"
         session.commit.assert_awaited_once()
+
+    async def test_promote_deployment_blocks_when_quality_gate_fails(self, async_client):
+        session = AsyncMock()
+        select_result = MagicMock()
+        select_result.fetchone.return_value = _row(
+            {"organization_id": "org_test", "role_id": "agrole_1"}
+        )
+        session.execute = AsyncMock(side_effect=[select_result])
+        gate_response = RegressionGateEvaluationResponse(
+            organization_id="org_test",
+            role_id="agrole_1",
+            deployment_id="agdep_1",
+            evaluated_at="2026-02-14T00:00:00Z",
+            blocked=True,
+            evaluations=[
+                RegressionGateEvaluation(
+                    gate_id="aggate_1",
+                    metric_name="quality_score",
+                    comparator="max_drop",
+                    threshold=0.1,
+                    baseline_value=0.84,
+                    current_value=0.61,
+                    delta_value=-0.23,
+                    sample_count=20,
+                    verdict="block",
+                    blocked=True,
+                    severity="blocker",
+                    metadata={},
+                )
+            ],
+        )
+
+        with (
+            patch("src.api.routes.agents_playbooks_deployments.get_db_session", lambda: _fake_session(session)),
+            patch.object(
+                agents_playbooks_route._regression_gate_service,
+                "evaluate",
+                AsyncMock(return_value=gate_response),
+            ),
+        ):
+            response = await async_client.post("/api/v1/agents/deployments/agdep_1/promote")
+
+        assert response.status_code == 409
+        payload = response.json()
+        assert payload["detail"]["code"] == "quality_regression_gate_blocked"
 
 
 class TestRunsReplay:
@@ -645,8 +731,16 @@ class TestOrgBoundaryAcrossAgentFamilies:
             ("/api/v1/agents/feedback", {"organization_id": "org_b"}),
             ("/api/v1/agents/tools/manifests", {"organization_id": "org_b"}),
             ("/api/v1/agents/policies/overlay", {"organization_id": "org_b"}),
+            ("/api/v1/agents/governance/policy", {"organization_id": "org_b"}),
             ("/api/v1/agents/approvals", {"organization_id": "org_b"}),
+            ("/api/v1/agents/approvals/agapr_1/decisions", {"organization_id": "org_b"}),
             ("/api/v1/agents/receipts", {"organization_id": "org_b"}),
+            ("/api/v1/agents/governance/principals", {"organization_id": "org_b"}),
+            ("/api/v1/agents/governance/authorities", {"organization_id": "org_b"}),
+            ("/api/v1/agents/quality/trends", {"organization_id": "org_b"}),
+            ("/api/v1/agents/quality/recommendations", {"organization_id": "org_b"}),
+            ("/api/v1/agents/quality/regression-gates", {"organization_id": "org_b"}),
+            ("/api/v1/agents/quality/runs/scores", {"organization_id": "org_b"}),
             ("/api/v1/agents/teams", {"organization_id": "org_b"}),
             ("/api/v1/agents/work-products", {"organization_id": "org_b"}),
             ("/api/v1/agents/starter-packs", {"organization_id": "org_b"}),
@@ -717,6 +811,64 @@ class TestOrgBoundaryAcrossAgentFamilies:
             (
                 "/api/v1/agents/policies/decide",
                 {"organization_id": "org_b", "tool_id": "email.send"},
+            ),
+            (
+                "/api/v1/agents/policies/simulate",
+                {"organization_id": "org_b", "scenarios": [{"tool_id": "email.send"}]},
+            ),
+            (
+                "/api/v1/agents/policies/red-team/run",
+                {"organization_id": "org_b"},
+            ),
+            (
+                "/api/v1/agents/governance/principals/ensure",
+                {"organization_id": "org_b", "deployment_id": "agdep_1"},
+            ),
+            (
+                "/api/v1/agents/governance/authorities",
+                {"organization_id": "org_b", "principal_id": "agsp_1"},
+            ),
+            (
+                "/api/v1/agents/governance/authorities/agauth_1/revoke",
+                {"organization_id": "org_b"},
+            ),
+            (
+                "/api/v1/agents/quality/evals/offline/run",
+                {
+                    "organization_id": "org_b",
+                    "suite_name": "offline.sales.smoke",
+                    "cases": [
+                        {
+                            "scenario_id": "case_1",
+                            "expected": {"status": "ok"},
+                            "observed": {"status": "ok"},
+                        }
+                    ],
+                },
+            ),
+            (
+                "/api/v1/agents/quality/runs/agrun_1/score",
+                {"organization_id": "org_b"},
+            ),
+            (
+                "/api/v1/agents/quality/calibration/recompute",
+                {"organization_id": "org_b"},
+            ),
+            (
+                "/api/v1/agents/quality/recommendations/generate",
+                {"organization_id": "org_b"},
+            ),
+            (
+                "/api/v1/agents/quality/regression-gates",
+                {
+                    "organization_id": "org_b",
+                    "metric_name": "quality_score",
+                    "threshold": 0.2,
+                },
+            ),
+            (
+                "/api/v1/agents/quality/regression-gates/evaluate",
+                {"organization_id": "org_b"},
             ),
             (
                 "/api/v1/agents/teams",
@@ -794,6 +946,29 @@ class TestOrgBoundaryAcrossAgentFamilies:
         app.dependency_overrides[get_auth_context] = fake_ctx
 
         response = await async_client.post(path, json=payload)
+        assert response.status_code == 403
+        assert "Organization ID mismatch" in response.json()["detail"]
+
+    async def test_governance_put_endpoint_rejects_cross_org(self, app, async_client):
+        async def fake_ctx():
+            return _session_ctx(org_id="org_a")
+
+        app.dependency_overrides[get_api_key_context] = fake_ctx
+        app.dependency_overrides[get_auth_context] = fake_ctx
+
+        response = await async_client.put(
+            "/api/v1/agents/governance/policy",
+            json={
+                "organization_id": "org_b",
+                "residency_region": "eu-west-1",
+                "allowed_regions": ["eu-west-1"],
+                "data_retention_days": 120,
+                "evidence_retention_days": 3650,
+                "require_residency_enforcement": True,
+                "enforce_delegated_authority": False,
+                "kill_switch_enabled": False,
+            },
+        )
         assert response.status_code == 403
         assert "Organization ID mismatch" in response.json()["detail"]
 
@@ -922,3 +1097,455 @@ class TestToolPolicyPlane:
         body = response.json()
         assert len(body) == 1
         assert body[0]["id"] == "agrcp_1"
+
+    async def test_policy_simulation_endpoint_returns_summary(self, async_client):
+        decisions = [
+            PolicyDecisionRecord(
+                action="allow",
+                code="agentos.policy.allowed",
+                reason="Allowed",
+                reasons=["allowed"],
+                tool_id="crm.update",
+                organization_id="org_test",
+                deployment_id="agdep_1",
+                action_tier="low_risk_write",
+            ),
+            PolicyDecisionRecord(
+                action="deny",
+                code="agentos.policy.kill_switch",
+                reason="Blocked",
+                reasons=["governance_kill_switch"],
+                tool_id="email.send",
+                organization_id="org_test",
+                deployment_id="agdep_1",
+                action_tier="external_commit",
+            ),
+        ]
+        with (
+            patch("src.api.routes.agents_tools_policy._policy_engine.decide", AsyncMock(side_effect=decisions)),
+            patch("src.api.routes.agents_tools_policy.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/policies/simulate",
+                json={
+                    "organization_id": "org_test",
+                    "deployment_id": "agdep_1",
+                    "scenarios": [
+                        {"case_id": "c1", "tool_id": "crm.update", "evidence_refs": {"count": 1}},
+                        {"case_id": "c2", "tool_id": "email.send", "evidence_refs": {"count": 1}},
+                    ],
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["summary"]["total"] == 2
+        assert body["summary"]["allow"] == 1
+        assert body["summary"]["deny"] == 1
+
+    async def test_policy_red_team_endpoint(self, async_client):
+        run_result = RedTeamRunResult(
+            organization_id="org_test",
+            deployment_id="agdep_1",
+            passed=True,
+            passed_count=4,
+            failed_count=0,
+            total_count=4,
+            results=[],
+        )
+        with (
+            patch.object(agents_tools_policy_route._red_team_harness, "run", AsyncMock(return_value=run_result)),
+            patch("src.api.routes.agents_tools_policy.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/policies/red-team/run",
+                json={"organization_id": "org_test", "deployment_id": "agdep_1"},
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["passed"] is True
+        assert body["total_count"] == 4
+
+    async def test_approval_decisions_endpoint(self, async_client):
+        decisions = [
+            ApprovalDecisionRecord(
+                id="agapd_1",
+                organization_id="org_test",
+                approval_id="agapr_1",
+                step_index=1,
+                approver_id="user_a",
+                decision="approved",
+                reason="ok",
+                decided_at="2026-02-13T10:01:00Z",
+                metadata={},
+            )
+        ]
+        with patch("src.api.routes.agents_tools_policy._approvals.list_decisions", AsyncMock(return_value=decisions)):
+            response = await async_client.get(
+                "/api/v1/agents/approvals/agapr_1/decisions",
+                params={"organization_id": "org_test"},
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["decision"] == "approved"
+
+
+class TestAgentGovernanceEndpoints:
+    async def test_get_governance_policy_endpoint(self, async_client):
+        policy = GovernancePolicyRecord(
+            organization_id="org_test",
+            residency_region="eu-west-1",
+            allowed_regions=["eu-west-1"],
+            data_retention_days=90,
+            evidence_retention_days=3650,
+            require_residency_enforcement=True,
+            enforce_delegated_authority=False,
+            kill_switch_enabled=False,
+            metadata={},
+        )
+        with patch.object(
+            agents_governance_route._governance_policy,
+            "get_policy",
+            AsyncMock(return_value=policy),
+        ):
+            response = await async_client.get(
+                "/api/v1/agents/governance/policy",
+                params={"organization_id": "org_test"},
+            )
+        assert response.status_code == 200
+        assert response.json()["residency_region"] == "eu-west-1"
+
+    async def test_ensure_service_principal_endpoint(self, async_client):
+        principal = AgentServicePrincipalRecord(
+            id="agsp_1",
+            organization_id="org_test",
+            deployment_id="agdep_1",
+            principal_name="agent-sales-v1",
+            status="active",
+            allowed_scopes={},
+            metadata={},
+            created_by_user_id="user_a",
+            created_at="2026-02-13T10:00:00Z",
+            updated_at="2026-02-13T10:00:00Z",
+        )
+        with (
+            patch.object(
+                agents_governance_route._service_principals,
+                "ensure_principal_for_deployment",
+                AsyncMock(return_value=principal),
+            ),
+            patch("src.api.routes.agents_governance.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/governance/principals/ensure",
+                json={
+                    "organization_id": "org_test",
+                    "deployment_id": "agdep_1",
+                    "principal_name": "agent-sales-v1",
+                },
+            )
+        assert response.status_code == 200
+        assert response.json()["id"] == "agsp_1"
+
+    async def test_grant_authority_endpoint(self, async_client):
+        authority = DelegatedAuthorityRecord(
+            id="agauth_1",
+            organization_id="org_test",
+            principal_id="agsp_1",
+            authorized_by_user_id="user_a",
+            authority_scope={"allow_tools": ["email.send"]},
+            authority_reason="pilot",
+            valid_from="2026-02-13T10:00:00Z",
+            valid_to=None,
+            revoked_at=None,
+            revoked_by_user_id=None,
+            metadata={},
+            created_at="2026-02-13T10:00:00Z",
+        )
+        with (
+            patch.object(
+                agents_governance_route._delegated_authority,
+                "grant_authority",
+                AsyncMock(return_value=authority),
+            ),
+            patch("src.api.routes.agents_governance.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/governance/authorities",
+                json={
+                    "organization_id": "org_test",
+                    "principal_id": "agsp_1",
+                    "authority_scope": {"allow_tools": ["email.send"]},
+                },
+            )
+        assert response.status_code == 200
+        assert response.json()["id"] == "agauth_1"
+
+
+class TestAgentQualityEndpoints:
+    async def test_offline_eval_run_endpoint(self, async_client):
+        eval_result = OfflineEvalRunResult(
+            organization_id="org_test",
+            deployment_id="agdep_1",
+            suite_name="offline.sales.smoke",
+            passed=True,
+            case_count=2,
+            metrics=[
+                OfflineEvalMetricResult(
+                    metric_name="offline.accuracy",
+                    metric_value=0.9,
+                    threshold=0.8,
+                    comparator="gte",
+                    passed=True,
+                    description="accuracy",
+                )
+            ],
+            metadata={},
+        )
+        with (
+            patch.object(
+                agents_quality_route.OfflineEvaluationRunner,
+                "run_suite",
+                AsyncMock(return_value=eval_result),
+            ),
+            patch("src.api.routes.agents_quality_optimization.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/quality/evals/offline/run",
+                json={
+                    "organization_id": "org_test",
+                    "deployment_id": "agdep_1",
+                    "suite_name": "offline.sales.smoke",
+                    "cases": [
+                        {
+                            "scenario_id": "case_1",
+                            "expected": {"status": "ok"},
+                            "observed": {"status": "ok"},
+                        }
+                    ],
+                },
+            )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["suite_name"] == "offline.sales.smoke"
+        assert payload["passed"] is True
+
+    async def test_quality_trend_endpoint_returns_expected_summary(self, async_client):
+        trend = QualityTrendResponse(
+            organization_id="org_test",
+            role_id="agrole_1",
+            deployment_id=None,
+            lookback_days=30,
+            points=[],
+            summary={"run_count": 12, "avg_quality_score": 0.74},
+        )
+        with patch.object(
+            agents_quality_route._scoring_service,
+            "list_trends",
+            AsyncMock(return_value=trend),
+        ):
+            response = await async_client.get(
+                "/api/v1/agents/quality/trends",
+                params={"organization_id": "org_test", "role_id": "agrole_1"},
+            )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["summary"]["run_count"] == 12
+        assert payload["summary"]["avg_quality_score"] == 0.74
+
+    async def test_feedback_to_quality_recommendation_pipeline(self, async_client):
+        insert_result = MagicMock()
+        select_result = MagicMock()
+        select_result.fetchone.return_value = _row(
+            {
+                "id": "agfbk_1",
+                "organization_id": "org_test",
+                "run_id": "agrun_1",
+                "deployment_id": "agdep_1",
+                "user_id": "user_a",
+                "verdict": "rejected",
+                "reason": "Missing source evidence",
+                "metadata": {},
+                "created_at": "2026-02-14T00:00:00Z",
+            }
+        )
+        session = AsyncMock()
+        session.execute = AsyncMock(side_effect=[insert_result, select_result])
+
+        with patch("src.api.routes.agents_runs_quality.get_db_session", lambda: _fake_session(session)):
+            feedback_response = await async_client.post(
+                "/api/v1/agents/feedback",
+                json={
+                    "organization_id": "org_test",
+                    "run_id": "agrun_1",
+                    "deployment_id": "agdep_1",
+                    "verdict": "rejected",
+                    "reason": "Missing source evidence",
+                },
+            )
+        assert feedback_response.status_code == 200
+
+        score = RunQualityScoreRecord(
+            id="agqsc_1",
+            organization_id="org_test",
+            run_id="agrun_1",
+            deployment_id="agdep_1",
+            role_id="agrole_1",
+            quality_score=0.42,
+            confidence_score=0.68,
+            outcome_score=0.0,
+            status="calibrated",
+            score_breakdown={"feedback_score": 0.0},
+            evaluated_at="2026-02-14T00:01:00Z",
+            created_at="2026-02-14T00:01:00Z",
+            updated_at="2026-02-14T00:01:00Z",
+        )
+        recommendations = [
+            QualityRecommendationRecord(
+                id="agrec_1",
+                organization_id="org_test",
+                role_id="agrole_1",
+                deployment_id="agdep_1",
+                recommendation_type="prompt_refinement",
+                priority="high",
+                status="open",
+                summary="Tighten prompt requirements",
+                details={},
+                source_signals={},
+                created_at="2026-02-14T00:02:00Z",
+                updated_at="2026-02-14T00:02:00Z",
+                resolved_at=None,
+            )
+        ]
+        with (
+            patch.object(
+                agents_quality_route._scoring_service,
+                "score_run",
+                AsyncMock(return_value=score),
+            ),
+            patch.object(
+                agents_quality_route._recommendation_service,
+                "generate",
+                AsyncMock(return_value=recommendations),
+            ),
+            patch("src.api.routes.agents_quality_optimization.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            score_response = await async_client.post(
+                "/api/v1/agents/quality/runs/agrun_1/score",
+                json={"organization_id": "org_test"},
+            )
+            rec_response = await async_client.post(
+                "/api/v1/agents/quality/recommendations/generate",
+                json={"organization_id": "org_test", "deployment_id": "agdep_1"},
+            )
+        assert score_response.status_code == 200
+        assert score_response.json()["quality_score"] == 0.42
+        assert rec_response.status_code == 200
+        assert rec_response.json()[0]["recommendation_type"] == "prompt_refinement"
+
+    async def test_regression_gate_endpoints(self, async_client):
+        gate = RegressionGateRecord(
+            id="aggate_1",
+            organization_id="org_test",
+            role_id="agrole_1",
+            deployment_id=None,
+            metric_name="quality_score",
+            comparator="max_drop",
+            threshold=0.1,
+            lookback_days=14,
+            min_samples=10,
+            severity="blocker",
+            is_enabled=True,
+            metadata={},
+            created_by_user_id="user_a",
+            created_at="2026-02-14T00:00:00Z",
+            updated_at="2026-02-14T00:00:00Z",
+        )
+        eval_response = RegressionGateEvaluationResponse(
+            organization_id="org_test",
+            role_id="agrole_1",
+            deployment_id=None,
+            evaluated_at="2026-02-14T00:10:00Z",
+            blocked=False,
+            evaluations=[
+                RegressionGateEvaluation(
+                    gate_id="aggate_1",
+                    metric_name="quality_score",
+                    comparator="max_drop",
+                    threshold=0.1,
+                    baseline_value=0.78,
+                    current_value=0.73,
+                    delta_value=-0.05,
+                    sample_count=25,
+                    verdict="pass",
+                    blocked=False,
+                    severity="blocker",
+                    metadata={},
+                )
+            ],
+        )
+        with (
+            patch.object(
+                agents_quality_route._regression_gate_service,
+                "create_gate",
+                AsyncMock(return_value=gate),
+            ),
+            patch.object(
+                agents_quality_route._regression_gate_service,
+                "evaluate",
+                AsyncMock(return_value=eval_response),
+            ),
+            patch("src.api.routes.agents_quality_optimization.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            create_response = await async_client.post(
+                "/api/v1/agents/quality/regression-gates",
+                json={
+                    "organization_id": "org_test",
+                    "role_id": "agrole_1",
+                    "metric_name": "quality_score",
+                    "comparator": "max_drop",
+                    "threshold": 0.1,
+                },
+            )
+            evaluate_response = await async_client.post(
+                "/api/v1/agents/quality/regression-gates/evaluate",
+                json={"organization_id": "org_test", "role_id": "agrole_1"},
+            )
+
+        assert create_response.status_code == 200
+        assert create_response.json()["id"] == "aggate_1"
+        assert evaluate_response.status_code == 200
+        assert evaluate_response.json()["blocked"] is False
+
+    async def test_calibration_recompute_endpoint(self, async_client):
+        snapshot = CalibrationSnapshot(
+            id="agcal_1",
+            organization_id="org_test",
+            role_id="agrole_1",
+            sample_count=32,
+            mean_absolute_error=0.12,
+            brier_score=0.06,
+            calibration_error=0.08,
+            adjustment_factor=0.91,
+            bucket_stats=[],
+            metadata={},
+            computed_at="2026-02-14T00:00:00Z",
+            created_at="2026-02-14T00:00:00Z",
+        )
+        with (
+            patch.object(
+                agents_quality_route._calibration_service,
+                "recompute",
+                AsyncMock(return_value=snapshot),
+            ),
+            patch("src.api.routes.agents_quality_optimization.emit_control_plane_audit_event", AsyncMock()),
+        ):
+            response = await async_client.post(
+                "/api/v1/agents/quality/calibration/recompute",
+                json={"organization_id": "org_test", "role_id": "agrole_1"},
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["sample_count"] == 32
+        assert body["adjustment_factor"] == 0.91

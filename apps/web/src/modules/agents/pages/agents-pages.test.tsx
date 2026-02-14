@@ -37,6 +37,13 @@ const { agentApiMock } = vi.hoisted(() => ({
     approve: vi.fn(),
     deny: vi.fn(),
     listReceipts: vi.fn(),
+    listRunQualityScores: vi.fn(),
+    scoreRunQuality: vi.fn(),
+    listFeedback: vi.fn(),
+    createFeedback: vi.fn(),
+    getQualityTrends: vi.fn(),
+    listRecommendations: vi.fn(),
+    generateRecommendations: vi.fn(),
   },
 }));
 
@@ -356,6 +363,46 @@ beforeEach(() => {
     metadata: {},
   });
   agentApiMock.listReceipts.mockResolvedValue([]);
+  agentApiMock.listRunQualityScores.mockResolvedValue([]);
+  agentApiMock.scoreRunQuality.mockResolvedValue({
+    id: "agqsc_1",
+    organization_id: "org_test",
+    run_id: "agrun_1",
+    deployment_id: "agdep_1",
+    role_id: "agrole_1",
+    quality_score: 0.74,
+    confidence_score: 0.78,
+    outcome_score: 0.7,
+    status: "calibrated",
+    score_breakdown: {},
+    evaluated_at: "2026-02-13T00:02:00Z",
+    created_at: "2026-02-13T00:02:00Z",
+    updated_at: "2026-02-13T00:02:00Z",
+  });
+  agentApiMock.listFeedback.mockResolvedValue([]);
+  agentApiMock.createFeedback.mockResolvedValue({
+    id: "agfbk_1",
+    organization_id: "org_test",
+    run_id: "agrun_1",
+    deployment_id: "agdep_1",
+    user_id: "user_1",
+    verdict: "accepted",
+    reason: "Looks good",
+    metadata: {},
+    created_at: "2026-02-13T00:03:00Z",
+  });
+  agentApiMock.getQualityTrends.mockResolvedValue({
+    organization_id: "org_test",
+    role_id: null,
+    deployment_id: null,
+    lookback_days: 14,
+    points: [],
+    summary: {
+      run_count: 0,
+    },
+  });
+  agentApiMock.listRecommendations.mockResolvedValue([]);
+  agentApiMock.generateRecommendations.mockResolvedValue([]);
 });
 
 describe("AgentOS pages", () => {
@@ -463,6 +510,70 @@ describe("AgentOS pages", () => {
     });
 
     expect(await screen.findByText("retrieve_context")).toBeTruthy();
+  });
+
+  it("captures human feedback and rescoring from runs page", async () => {
+    agentApiMock.listRuns.mockResolvedValueOnce([
+      {
+        id: "agrun_10",
+        organization_id: "org_test",
+        deployment_id: "agdep_1",
+        trigger_id: null,
+        status: "completed",
+        initiated_by: "user_1",
+        started_at: "2026-02-13T00:00:00Z",
+        completed_at: "2026-02-13T00:00:30Z",
+        failure_reason: null,
+        metadata: {},
+        created_at: "2026-02-13T00:00:00Z",
+        updated_at: "2026-02-13T00:00:30Z",
+      },
+    ]);
+    agentApiMock.replayRun.mockResolvedValueOnce({
+      run: {
+        id: "agrun_10",
+        organization_id: "org_test",
+        deployment_id: "agdep_1",
+        trigger_id: null,
+        status: "completed",
+        initiated_by: "user_1",
+        started_at: "2026-02-13T00:00:00Z",
+        completed_at: "2026-02-13T00:00:30Z",
+        failure_reason: null,
+        metadata: {},
+        created_at: "2026-02-13T00:00:00Z",
+        updated_at: "2026-02-13T00:00:30Z",
+      },
+      steps: [],
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<AgentsRunsPage />);
+    await user.click(await screen.findByRole("button", { name: /agrun_10/i }));
+    await user.click(await screen.findByRole("button", { name: "rejected" }));
+    await user.type(
+      await screen.findByPlaceholderText(
+        "Why this output should be improved (optional)"
+      ),
+      "Missing evidence references"
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Submit feedback" })
+    );
+
+    await waitFor(() => {
+      expect(agentApiMock.createFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization_id: "org_test",
+          run_id: "agrun_10",
+          verdict: "rejected",
+        })
+      );
+      expect(agentApiMock.scoreRunQuality).toHaveBeenCalledWith({
+        runId: "agrun_10",
+        organizationId: "org_test",
+      });
+    });
   });
 
   it("installs a starter pack from catalog", async () => {

@@ -8,6 +8,8 @@ Documents:
 - `docs/agentos/autonomy-and-side-effects.md`: autonomy tiers and side-effect classes.
 - `docs/agentos/proof-requirements.md`: evidence requirements by output/action class.
 - `docs/agentos/approval-policy-matrix.md`: approver matrix, SLA, and escalation rules.
+- `docs/agentos/threat-model.md`: AgentOS security threat model and controls.
+- `docs/agentos/pilot-enablement.md`: pilot onboarding package, governance templates, and success criteria.
 
 Related ADRs:
 - `docs/adr/ADR-0002-agentos-desktop-companion.md`

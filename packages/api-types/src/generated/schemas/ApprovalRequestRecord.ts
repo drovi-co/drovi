@@ -3,9 +3,17 @@
 
 export type ApprovalRequestRecord = {
   action_tier: 'read_only' | 'low_risk_write' | 'high_risk_write' | 'external_commit';
+  approval_chain?: Array<({
+
+} & Record<string, unknown>)>;
   approval_reason?: string | null;
+  approvals_received?: number;
   approver_id?: string | null;
+  chain_mode?: 'single' | 'multi';
   decided_at?: string | null;
+  decision_summary?: {
+
+} & Record<string, unknown>;
   deployment_id?: string | null;
   escalation_path?: {
 
@@ -18,6 +26,7 @@ export type ApprovalRequestRecord = {
   reason?: string | null;
   requested_at?: string | null;
   requested_by?: string | null;
+  required_approvals?: number;
   run_id?: string | null;
   sla_due_at?: string | null;
   status?: 'pending' | 'approved' | 'denied' | 'expired' | 'escalated';

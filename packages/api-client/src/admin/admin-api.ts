@@ -1,6 +1,6 @@
 import type { ApiClient } from "../http/client";
 
-import type { KPIsResponse } from "./models";
+import type { GovernanceOverviewResponse, KPIsResponse } from "./models";
 
 export function createAdminApi(client: ApiClient) {
   return {
@@ -8,6 +8,15 @@ export function createAdminApi(client: ApiClient) {
       return client.requestJson<KPIsResponse>("/admin/kpis", {
         headers: { "X-Drovi-Client": "admin" },
       });
+    },
+
+    getGovernanceOverview: async (): Promise<GovernanceOverviewResponse> => {
+      return client.requestJson<GovernanceOverviewResponse>(
+        "/admin/governance/overview",
+        {
+          headers: { "X-Drovi-Client": "admin" },
+        }
+      );
     },
 
     getOrg: async (orgId: string): Promise<Record<string, unknown>> => {

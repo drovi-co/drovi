@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from src.agentos.control_plane import (
     AgentRegistryService,
+    ContinuumMigrationService,
     DeploymentSnapshotCompiler,
     TriggerRoutingService,
     convert_continuum_to_playbook,
@@ -29,6 +30,7 @@ router = APIRouter()
 _registry = AgentRegistryService()
 _snapshot_compiler = DeploymentSnapshotCompiler(registry=_registry)
 _routing_service = TriggerRoutingService(registry=_registry)
+_continuum_migration_service = ContinuumMigrationService()
 
 
 class AgentTriggerModel(BaseModel):
@@ -86,6 +88,63 @@ class ContinuumAdapterResponse(BaseModel):
     playbook: dict[str, Any]
     trigger_hint: dict[str, Any]
     warnings: list[str] = Field(default_factory=list)
+
+
+class LegacyContinuumModel(BaseModel):
+    id: str
+    organization_id: str
+    name: str
+    description: str | None = None
+    status: str
+    current_version: int
+    active_version: int | None = None
+    updated_at: Any
+    definition_hash: str | None = None
+    version_created_at: Any | None = None
+
+
+class ContinuumMigrationRequest(BaseModel):
+    organization_id: str
+    continuum_ids: list[str] = Field(default_factory=list)
+    dry_run: bool = True
+
+
+class ContinuumMigrationRecord(BaseModel):
+    migration_id: str
+    continuum_id: str
+    continuum_version: int
+    mode: Literal["dry_run", "applied"]
+    migration_status: Literal["completed", "failed", "skipped"]
+    equivalence_score: float
+    equivalence_report: dict[str, Any] = Field(default_factory=dict)
+    role_id: str | None = None
+    profile_id: str | None = None
+    playbook_id: str | None = None
+    deployment_id: str | None = None
+    trigger_id: str | None = None
+
+
+class ShadowValidationRequest(BaseModel):
+    organization_id: str
+    continuum_ids: list[str] = Field(default_factory=list)
+    lookback_days: int = Field(default=14, ge=1, le=180)
+
+
+class ShadowValidationRecord(BaseModel):
+    id: str
+    organization_id: str
+    continuum_id: str
+    migration_id: str | None = None
+    window_start: Any
+    window_end: Any
+    continuum_run_count: int
+    agent_run_count: int
+    status_parity: float
+    duration_parity: float
+    score: float
+    report: dict[str, Any] = Field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: Any
 
 
 class DeploymentSnapshotResponse(BaseModel):
@@ -314,6 +373,98 @@ async def continuum_adapter_preview(
     del auth
     adapted = convert_continuum_to_playbook(request.continuum_definition)
     return ContinuumAdapterResponse.model_validate(adapted)
+
+
+@router.get("/control/legacy/continuums", response_model=list[LegacyContinuumModel])
+async def list_legacy_continuums(
+    organization_id: str | None = None,
+    continuum_id: str | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[LegacyContinuumModel]:
+    org_id = resolve_org_id(auth, organization_id)
+    continuum_ids = [continuum_id] if continuum_id else None
+    rows = await _continuum_migration_service.list_legacy_continuums(
+        organization_id=org_id,
+        continuum_ids=continuum_ids,
+    )
+    limited_rows = rows[:limit]
+    return [
+        LegacyContinuumModel(
+            id=str(row.get("id")),
+            organization_id=str(row.get("organization_id")),
+            name=str(row.get("name") or ""),
+            description=row.get("description"),
+            status=str(row.get("status") or "draft"),
+            current_version=int(row.get("current_version") or 1),
+            active_version=int(row.get("active_version")) if row.get("active_version") is not None else None,
+            updated_at=row.get("updated_at"),
+            definition_hash=row.get("definition_hash"),
+            version_created_at=row.get("version_created_at"),
+        )
+        for row in limited_rows
+    ]
+
+
+@router.post("/control/legacy/continuums/migrate", response_model=list[ContinuumMigrationRecord])
+async def migrate_legacy_continuums(
+    request: ContinuumMigrationRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[ContinuumMigrationRecord]:
+    org_id = resolve_org_id(auth, request.organization_id)
+    migrated = await _continuum_migration_service.migrate_continuums(
+        organization_id=org_id,
+        continuum_ids=request.continuum_ids or None,
+        dry_run=request.dry_run,
+        actor_user_id=auth.user_id,
+    )
+    return [ContinuumMigrationRecord.model_validate(item) for item in migrated]
+
+
+@router.get("/control/legacy/continuums/migrations", response_model=list[dict[str, Any]])
+async def list_legacy_migrations(
+    organization_id: str | None = None,
+    continuum_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[dict[str, Any]]:
+    org_id = resolve_org_id(auth, organization_id)
+    return await _continuum_migration_service.list_migrations(
+        organization_id=org_id,
+        continuum_id=continuum_id,
+        limit=limit,
+    )
+
+
+@router.post("/control/legacy/continuums/shadow-validate", response_model=list[ShadowValidationRecord])
+async def run_legacy_shadow_validation(
+    request: ShadowValidationRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[ShadowValidationRecord]:
+    org_id = resolve_org_id(auth, request.organization_id)
+    validations = await _continuum_migration_service.run_shadow_validation(
+        organization_id=org_id,
+        continuum_ids=request.continuum_ids or None,
+        lookback_days=request.lookback_days,
+        actor_user_id=auth.user_id,
+    )
+    return [ShadowValidationRecord.model_validate(item) for item in validations]
+
+
+@router.get("/control/legacy/continuums/shadow-validations", response_model=list[ShadowValidationRecord])
+async def list_legacy_shadow_validations(
+    organization_id: str | None = None,
+    continuum_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[ShadowValidationRecord]:
+    org_id = resolve_org_id(auth, organization_id)
+    rows = await _continuum_migration_service.list_shadow_validations(
+        organization_id=org_id,
+        continuum_id=continuum_id,
+        limit=limit,
+    )
+    return [ShadowValidationRecord.model_validate(item) for item in rows]
 
 
 @router.get("/deployments/{deployment_id}/snapshot", response_model=DeploymentSnapshotResponse)

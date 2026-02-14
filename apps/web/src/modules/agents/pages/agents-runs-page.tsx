@@ -1,6 +1,8 @@
 import type {
   ActionReceiptRecord,
+  AgentFeedbackModel,
   AgentRunModel,
+  RunQualityScoreRecord,
 } from "@memorystack/api-types";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
@@ -13,13 +15,17 @@ import {
 } from "@memorystack/ui-core/card";
 import { ScrollArea } from "@memorystack/ui-core/scroll-area";
 import { Separator } from "@memorystack/ui-core/separator";
+import { Textarea } from "@memorystack/ui-core/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  BarChart3,
   CircleSlash2,
   Loader2,
   PauseCircle,
   PlayCircle,
   Skull,
+  Sparkles,
   TextSearch,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -51,6 +57,10 @@ export function AgentsRunsPage() {
   const organizationId = activeOrg?.id ?? "";
   const [selectedRunId, setSelectedRunId] = useState("");
   const [finalStatusFilter, setFinalStatusFilter] = useState("all");
+  const [feedbackVerdict, setFeedbackVerdict] = useState<
+    "accepted" | "edited" | "rejected"
+  >("accepted");
+  const [feedbackReason, setFeedbackReason] = useState("");
 
   const runsQuery = useQuery({
     queryKey: ["agent-runs-page-runs", organizationId],
@@ -91,6 +101,59 @@ export function AgentsRunsPage() {
     enabled: Boolean(organizationId && selectedRun?.id),
   });
 
+  const runQualityQuery = useQuery({
+    queryKey: [
+      "agent-runs-page-quality-score",
+      organizationId,
+      selectedRun?.id,
+    ],
+    queryFn: async () => {
+      const scores = await agentsAPI.listRunQualityScores({
+        organizationId,
+        runId: selectedRun?.id,
+        limit: 1,
+      });
+      return scores[0] ?? null;
+    },
+    enabled: Boolean(organizationId && selectedRun?.id),
+  });
+
+  const feedbackQuery = useQuery({
+    queryKey: ["agent-runs-page-feedback", organizationId, selectedRun?.id],
+    queryFn: () =>
+      agentsAPI.listFeedback({
+        organizationId,
+        runId: selectedRun?.id ?? undefined,
+      }),
+    enabled: Boolean(organizationId && selectedRun?.id),
+  });
+
+  const trendQuery = useQuery({
+    queryKey: ["agent-runs-page-quality-trends", organizationId],
+    queryFn: () =>
+      agentsAPI.getQualityTrends({
+        organizationId,
+        lookbackDays: 14,
+      }),
+    enabled: Boolean(organizationId),
+  });
+
+  const recommendationsQuery = useQuery({
+    queryKey: [
+      "agent-runs-page-quality-recommendations",
+      organizationId,
+      selectedRun?.deployment_id,
+    ],
+    queryFn: () =>
+      agentsAPI.listRecommendations({
+        organizationId,
+        deploymentId: selectedRun?.deployment_id ?? undefined,
+        status: "open",
+        limit: 5,
+      }),
+    enabled: Boolean(organizationId && selectedRun?.deployment_id),
+  });
+
   const runControlMutation = useMutation({
     mutationFn: async (params: {
       run: AgentRunModel;
@@ -117,6 +180,69 @@ export function AgentsRunsPage() {
     },
     onError: () => {
       toast.error("Failed to send run control signal");
+    },
+  });
+
+  const scoreRunMutation = useMutation({
+    mutationFn: async (runId: string) =>
+      agentsAPI.scoreRunQuality({
+        runId,
+        organizationId,
+      }),
+    onSuccess: async () => {
+      toast.success("Quality score updated");
+      await runQualityQuery.refetch();
+      await trendQuery.refetch();
+    },
+    onError: () => {
+      toast.error("Failed to compute quality score");
+    },
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedRun?.id) {
+        throw new Error("Run not selected");
+      }
+      return agentsAPI.createFeedback({
+        organization_id: organizationId,
+        run_id: selectedRun.id,
+        deployment_id: selectedRun.deployment_id ?? undefined,
+        verdict: feedbackVerdict,
+        reason: feedbackReason.trim() || undefined,
+      });
+    },
+    onSuccess: async () => {
+      setFeedbackReason("");
+      toast.success("Feedback recorded");
+      await feedbackQuery.refetch();
+      if (selectedRun?.id) {
+        await scoreRunMutation.mutateAsync(selectedRun.id);
+      }
+      await recommendationsQuery.refetch();
+    },
+    onError: () => {
+      toast.error("Failed to submit feedback");
+    },
+  });
+
+  const recommendationMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedRun?.deployment_id) {
+        throw new Error("Deployment missing");
+      }
+      return agentsAPI.generateRecommendations({
+        organizationId,
+        deploymentId: selectedRun.deployment_id,
+        lookbackDays: 30,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Recommendations refreshed");
+      await recommendationsQuery.refetch();
+    },
+    onError: () => {
+      toast.error("Failed to refresh recommendations");
     },
   });
 
@@ -374,6 +500,144 @@ export function AgentsRunsPage() {
                     <ReceiptsList receipts={receiptsQuery.data ?? []} />
                   )}
                 </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-sm">Run quality</p>
+                    <Button
+                      disabled={
+                        scoreRunMutation.isPending ||
+                        !selectedRun?.id ||
+                        runControlMutation.isPending
+                      }
+                      onClick={() =>
+                        selectedRun?.id
+                          ? scoreRunMutation.mutate(selectedRun.id)
+                          : undefined
+                      }
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Recompute score
+                    </Button>
+                  </div>
+                  {runQualityQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading quality metrics…
+                    </div>
+                  ) : runQualityQuery.isError ? (
+                    <ApiErrorPanel
+                      error={runQualityQuery.error}
+                      onRetry={() => runQualityQuery.refetch()}
+                    />
+                  ) : runQualityQuery.data ? (
+                    <RunQualityCard score={runQualityQuery.data} />
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+                      No quality score yet. Compute a score to initialize
+                      trends.
+                    </div>
+                  )}
+                  <QualityTrendSparkline
+                    isLoading={trendQuery.isLoading}
+                    points={trendQuery.data?.points ?? []}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <p className="font-medium text-sm">Human feedback</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["accepted", "edited", "rejected"] as const).map(
+                      (verdict) => (
+                        <Button
+                          className={cn(
+                            "capitalize",
+                            feedbackVerdict === verdict &&
+                              "border-primary bg-primary/10 text-primary"
+                          )}
+                          key={verdict}
+                          onClick={() => setFeedbackVerdict(verdict)}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {verdict}
+                        </Button>
+                      )
+                    )}
+                  </div>
+                  <Textarea
+                    onChange={(event) => setFeedbackReason(event.target.value)}
+                    placeholder="Why this output should be improved (optional)"
+                    rows={3}
+                    value={feedbackReason}
+                  />
+                  <Button
+                    disabled={feedbackMutation.isPending || !selectedRun?.id}
+                    onClick={() => feedbackMutation.mutate()}
+                    size="sm"
+                    type="button"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Submit feedback
+                  </Button>
+                  {feedbackQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading feedback history…
+                    </div>
+                  ) : feedbackQuery.isError ? (
+                    <ApiErrorPanel
+                      error={feedbackQuery.error}
+                      onRetry={() => feedbackQuery.refetch()}
+                    />
+                  ) : (
+                    <FeedbackHistory items={feedbackQuery.data ?? []} />
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-sm">Recommendations</p>
+                    <Button
+                      disabled={
+                        recommendationMutation.isPending ||
+                        !selectedRun?.deployment_id
+                      }
+                      onClick={() => recommendationMutation.mutate()}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      Refresh
+                    </Button>
+                  </div>
+                  {recommendationsQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading recommendations…
+                    </div>
+                  ) : recommendationsQuery.isError ? (
+                    <ApiErrorPanel
+                      error={recommendationsQuery.error}
+                      onRetry={() => recommendationsQuery.refetch()}
+                    />
+                  ) : (
+                    <RecommendationsList
+                      items={recommendationsQuery.data ?? []}
+                    />
+                  )}
+                </div>
               </>
             ) : (
               <div className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
@@ -413,5 +677,159 @@ function ReceiptsList({ receipts }: { receipts: ActionReceiptRecord[] }) {
         ))}
       </div>
     </ScrollArea>
+  );
+}
+
+function RunQualityCard({ score }: { score: RunQualityScoreRecord }) {
+  const qualityPercent = Math.round((score.quality_score ?? 0) * 100);
+  const confidencePercent = Math.round((score.confidence_score ?? 0) * 100);
+  const outcomePercent =
+    typeof score.outcome_score === "number"
+      ? Math.round(score.outcome_score * 100)
+      : null;
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <MetricPill label="Quality" value={`${qualityPercent}%`} />
+        <MetricPill label="Confidence" value={`${confidencePercent}%`} />
+        <MetricPill
+          label="Outcome"
+          value={outcomePercent === null ? "pending" : `${outcomePercent}%`}
+        />
+      </div>
+      <p className="mt-2 text-muted-foreground text-xs">
+        Last evaluated {formatDateTime(score.evaluated_at)}
+      </p>
+    </div>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
+        {label}
+      </p>
+      <p className="font-semibold text-sm">{value}</p>
+    </div>
+  );
+}
+
+function QualityTrendSparkline({
+  isLoading,
+  points,
+}: {
+  isLoading: boolean;
+  points: { avg_quality_score?: number | null; bucket_start: string }[];
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading trend…
+      </div>
+    );
+  }
+  if (points.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-3 text-muted-foreground text-xs">
+        No trend data in the selected lookback window.
+      </div>
+    );
+  }
+  const lastPoints = points.slice(-7);
+  return (
+    <div className="rounded-lg border bg-muted/10 p-3">
+      <p className="mb-2 text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
+        Last 7 days quality trend
+      </p>
+      <div className="flex items-end gap-1.5">
+        {lastPoints.map((point) => {
+          const value = Math.max(0, Math.min(1, point.avg_quality_score ?? 0));
+          return (
+            <div
+              className="flex flex-1 flex-col items-center"
+              key={point.bucket_start}
+            >
+              <div
+                className="w-full rounded-sm bg-primary/70"
+                style={{ height: `${Math.max(8, Math.round(value * 64))}px` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FeedbackHistory({ items }: { items: AgentFeedbackModel[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-3 text-muted-foreground text-xs">
+        No feedback recorded yet.
+      </div>
+    );
+  }
+  return (
+    <ScrollArea className="h-[120px] pr-2">
+      <div className="space-y-2">
+        {items.slice(0, 8).map((item) => (
+          <div
+            className="rounded-md border bg-muted/20 px-3 py-2"
+            key={item.id}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <Badge className="capitalize" variant="outline">
+                {item.verdict}
+              </Badge>
+              <p className="text-muted-foreground text-xs">
+                {formatDateTime(item.created_at)}
+              </p>
+            </div>
+            {item.reason ? (
+              <p className="mt-1 text-muted-foreground text-xs">
+                {item.reason}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  );
+}
+
+function RecommendationsList({
+  items,
+}: {
+  items: {
+    id: string;
+    priority?: string | null;
+    summary: string;
+    recommendation_type: string;
+  }[];
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-3 text-muted-foreground text-xs">
+        No active recommendations.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {items.slice(0, 5).map((item) => (
+        <div className="rounded-md border bg-muted/20 px-3 py-2" key={item.id}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium text-sm">{item.recommendation_type}</p>
+            <Badge className="capitalize" variant="outline">
+              {item.priority ?? "medium"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-muted-foreground text-xs">{item.summary}</p>
+        </div>
+      ))}
+    </div>
   );
 }

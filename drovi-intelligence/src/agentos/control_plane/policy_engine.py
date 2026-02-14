@@ -5,8 +5,10 @@ from typing import Any
 from src.kernel.errors import NotFoundError
 
 from .compiler import DeploymentSnapshotCompiler
+from .governance_policy import GovernancePolicyService
 from .models import CompiledPolicy, PolicyDecisionRecord, ToolManifestRecord, ToolSideEffectTier
 from .policy_overlay import PolicyOverlayService
+from .service_principals import DelegatedAuthorityService
 from .tool_registry import ToolRegistryService
 
 
@@ -29,6 +31,14 @@ def _action_tier(manifest: ToolManifestRecord | None) -> ToolSideEffectTier:
     return manifest.side_effect_tier
 
 
+def _normalize_tool_id(tool_id: str) -> str:
+    return str(tool_id or "").strip().lower()
+
+
+def _normalize_region(region: Any) -> str:
+    return str(region or "").strip().lower()
+
+
 class PolicyDecisionEngine:
     """Runtime policy decision engine for tool execution."""
 
@@ -38,10 +48,14 @@ class PolicyDecisionEngine:
         tool_registry: ToolRegistryService | None = None,
         overlay_service: PolicyOverlayService | None = None,
         snapshot_compiler: DeploymentSnapshotCompiler | None = None,
+        governance_service: GovernancePolicyService | None = None,
+        delegated_authority_service: DelegatedAuthorityService | None = None,
     ) -> None:
         self._tool_registry = tool_registry or ToolRegistryService()
         self._overlay_service = overlay_service or PolicyOverlayService()
         self._snapshot_compiler = snapshot_compiler or DeploymentSnapshotCompiler()
+        self._governance_service = governance_service or GovernancePolicyService()
+        self._delegated_authority_service = delegated_authority_service or DelegatedAuthorityService()
 
     async def decide(
         self,
@@ -53,7 +67,7 @@ class PolicyDecisionEngine:
         evidence_refs: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> PolicyDecisionRecord:
-        tool_id = str(tool_id or "").strip()
+        tool_id = _normalize_tool_id(tool_id)
         evidence_refs = evidence_refs or {}
         metadata = metadata or {}
         if not tool_id:
@@ -80,6 +94,7 @@ class PolicyDecisionEngine:
             effective_policy = snapshot.compiled_policy
 
         overlay = await self._overlay_service.get_overlay(organization_id=organization_id)
+        governance_policy = await self._governance_service.get_policy(organization_id=organization_id)
         manifest: ToolManifestRecord | None = None
         try:
             manifest = await self._tool_registry.get_manifest(organization_id=organization_id, tool_id=tool_id)
@@ -103,8 +118,151 @@ class PolicyDecisionEngine:
 
         reasons: list[str] = []
         action_tier = _action_tier(manifest)
+        overlay_allow_tools = {_normalize_tool_id(item) for item in overlay.allow_tools}
+        overlay_deny_tools = {_normalize_tool_id(item) for item in overlay.deny_tools}
+        overlay_require_approval_tools = {_normalize_tool_id(item) for item in overlay.require_approval_tools}
+        overlay_emergency_denylist = {_normalize_tool_id(item) for item in overlay.emergency_denylist}
+        deployment_allowed_tools = (
+            {_normalize_tool_id(item) for item in effective_policy.allowed_tools}
+            if effective_policy
+            else set()
+        )
+        deployment_denied_tools = (
+            {_normalize_tool_id(item) for item in effective_policy.denied_tools}
+            if effective_policy
+            else set()
+        )
+        governance_metadata = {
+            "governance_policy": {
+                "residency_region": governance_policy.residency_region,
+                "allowed_regions": governance_policy.allowed_regions,
+                "data_retention_days": governance_policy.data_retention_days,
+                "evidence_retention_days": governance_policy.evidence_retention_days,
+                "require_residency_enforcement": governance_policy.require_residency_enforcement,
+                "enforce_delegated_authority": governance_policy.enforce_delegated_authority,
+                "kill_switch_enabled": governance_policy.kill_switch_enabled,
+            }
+        }
 
-        if tool_id in set(overlay.emergency_denylist):
+        if governance_policy.kill_switch_enabled and action_tier != "read_only":
+            reasons.append("governance_kill_switch")
+            return PolicyDecisionRecord(
+                action="deny",
+                code="agentos.policy.kill_switch",
+                reason="Agent kill switch is enabled for side-effect actions",
+                reasons=reasons,
+                tool_id=tool_id,
+                organization_id=organization_id,
+                deployment_id=deployment_id,
+                action_tier=action_tier,
+                policy_hash=effective_policy.policy_hash if effective_policy else None,
+                requires_evidence=bool(manifest.requires_evidence) if manifest else False,
+                high_stakes=bool(manifest.high_stakes) if manifest else False,
+                metadata={**metadata, **governance_metadata},
+            )
+
+        if governance_policy.require_residency_enforcement:
+            allowed_regions = {_normalize_region(region) for region in governance_policy.allowed_regions}
+            residency_region = _normalize_region(governance_policy.residency_region)
+            if residency_region and residency_region != "global":
+                allowed_regions.add(residency_region)
+            target_region = _normalize_region(metadata.get("target_region") or metadata.get("region"))
+            if target_region and allowed_regions and target_region not in allowed_regions:
+                reasons.append("governance_residency")
+                return PolicyDecisionRecord(
+                    action="deny",
+                    code="agentos.policy.residency_violation",
+                    reason=f"Target region `{target_region}` violates governance residency policy",
+                    reasons=reasons,
+                    tool_id=tool_id,
+                    organization_id=organization_id,
+                    deployment_id=deployment_id,
+                    action_tier=action_tier,
+                    policy_hash=effective_policy.policy_hash if effective_policy else None,
+                    requires_evidence=bool(manifest.requires_evidence) if manifest else False,
+                    high_stakes=bool(manifest.high_stakes) if manifest else False,
+                    metadata={**metadata, **governance_metadata},
+                )
+
+        requested_retention_days: int | None = None
+        for key in ("retention_days", "data_retention_days", "requested_retention_days"):
+            value = metadata.get(key)
+            if value is None:
+                continue
+            try:
+                requested_retention_days = int(value)
+            except Exception:
+                requested_retention_days = None
+            break
+        if (
+            requested_retention_days is not None
+            and requested_retention_days > 0
+            and requested_retention_days > governance_policy.data_retention_days
+        ):
+            reasons.append("governance_retention")
+            return PolicyDecisionRecord(
+                action="deny",
+                code="agentos.policy.retention_violation",
+                reason=(
+                    f"Requested retention ({requested_retention_days} days) exceeds "
+                    f"policy limit ({governance_policy.data_retention_days} days)"
+                ),
+                reasons=reasons,
+                tool_id=tool_id,
+                organization_id=organization_id,
+                deployment_id=deployment_id,
+                action_tier=action_tier,
+                policy_hash=effective_policy.policy_hash if effective_policy else None,
+                requires_evidence=bool(manifest.requires_evidence) if manifest else False,
+                high_stakes=bool(manifest.high_stakes) if manifest else False,
+                metadata={**metadata, **governance_metadata},
+            )
+
+        if governance_policy.enforce_delegated_authority and action_tier != "read_only":
+            if not deployment_id:
+                reasons.append("delegated_authority_missing_deployment")
+                return PolicyDecisionRecord(
+                    action="deny",
+                    code="agentos.policy.delegated_authority_required",
+                    reason="Deployment id is required when delegated authority enforcement is enabled",
+                    reasons=reasons,
+                    tool_id=tool_id,
+                    organization_id=organization_id,
+                    deployment_id=deployment_id,
+                    action_tier=action_tier,
+                    policy_hash=effective_policy.policy_hash if effective_policy else None,
+                    requires_evidence=bool(manifest.requires_evidence) if manifest else False,
+                    high_stakes=bool(manifest.high_stakes) if manifest else False,
+                    metadata={**metadata, **governance_metadata},
+                )
+            authority = await self._delegated_authority_service.evaluate(
+                organization_id=organization_id,
+                deployment_id=deployment_id,
+                tool_id=tool_id,
+                action_tier=action_tier,
+            )
+            if not authority.allowed:
+                reasons.append("delegated_authority_denied")
+                return PolicyDecisionRecord(
+                    action="deny",
+                    code="agentos.policy.delegated_authority_required",
+                    reason=authority.reason,
+                    reasons=reasons,
+                    tool_id=tool_id,
+                    organization_id=organization_id,
+                    deployment_id=deployment_id,
+                    action_tier=action_tier,
+                    policy_hash=effective_policy.policy_hash if effective_policy else None,
+                    requires_evidence=bool(manifest.requires_evidence) if manifest else False,
+                    high_stakes=bool(manifest.high_stakes) if manifest else False,
+                    metadata={
+                        **metadata,
+                        **governance_metadata,
+                        "delegated_authority": authority.model_dump(mode="json"),
+                    },
+                )
+
+        if tool_id in overlay_emergency_denylist:
             reasons.append("emergency_denylist")
             return PolicyDecisionRecord(
                 action="deny",
@@ -118,7 +276,7 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=bool(manifest.requires_evidence) if manifest else False,
                 high_stakes=bool(manifest.high_stakes) if manifest else False,
-                metadata=metadata,
+                metadata={**metadata, **governance_metadata},
             )
 
         if manifest is None:
@@ -135,7 +293,7 @@ class PolicyDecisionEngine:
                 metadata=metadata,
             )
 
-        if tool_id in set(overlay.deny_tools):
+        if tool_id in overlay_deny_tools:
             reasons.append("org_overlay_deny")
             return PolicyDecisionRecord(
                 action="deny",
@@ -149,10 +307,10 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
-        if effective_policy and tool_id in set(effective_policy.denied_tools):
+        if effective_policy and tool_id in deployment_denied_tools:
             reasons.append("deployment_policy_deny")
             return PolicyDecisionRecord(
                 action="deny",
@@ -166,11 +324,11 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
         if effective_policy and effective_policy.allowed_tools:
-            allowed_tools = set(effective_policy.allowed_tools).union(set(overlay.allow_tools))
+            allowed_tools = deployment_allowed_tools.union(overlay_allow_tools)
             if tool_id not in allowed_tools:
                 reasons.append("deployment_allowlist")
                 return PolicyDecisionRecord(
@@ -185,7 +343,7 @@ class PolicyDecisionEngine:
                     policy_hash=effective_policy.policy_hash,
                     requires_evidence=manifest.requires_evidence,
                     high_stakes=manifest.high_stakes,
-                    metadata={**metadata, "tool_manifest_id": manifest.id},
+                    metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
                 )
 
         if (manifest.requires_evidence or manifest.high_stakes) and not _has_evidence(evidence_refs):
@@ -202,10 +360,10 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
-        require_approval_tools = set(overlay.require_approval_tools)
+        require_approval_tools = overlay_require_approval_tools
         if tool_id in require_approval_tools:
             reasons.append("org_overlay_requires_approval")
             return PolicyDecisionRecord(
@@ -220,7 +378,7 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
         if manifest.default_policy_action == "require_approval":
@@ -237,7 +395,7 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
         if manifest.default_policy_action == "deny":
@@ -254,10 +412,10 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
-        if overlay.default_policy_action == "deny" and tool_id not in set(overlay.allow_tools):
+        if overlay.default_policy_action == "deny" and tool_id not in overlay_allow_tools:
             reasons.append("org_overlay_default_deny")
             return PolicyDecisionRecord(
                 action="deny",
@@ -271,10 +429,10 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
-        if overlay.default_policy_action == "require_approval" and tool_id not in set(overlay.allow_tools):
+        if overlay.default_policy_action == "require_approval" and tool_id not in overlay_allow_tools:
             reasons.append("org_overlay_default_approval")
             return PolicyDecisionRecord(
                 action="require_approval",
@@ -288,7 +446,7 @@ class PolicyDecisionEngine:
                 policy_hash=effective_policy.policy_hash if effective_policy else None,
                 requires_evidence=manifest.requires_evidence,
                 high_stakes=manifest.high_stakes,
-                metadata={**metadata, "tool_manifest_id": manifest.id},
+                metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
             )
 
         reasons.append("allowed")
@@ -304,5 +462,5 @@ class PolicyDecisionEngine:
             policy_hash=effective_policy.policy_hash if effective_policy else None,
             requires_evidence=manifest.requires_evidence,
             high_stakes=manifest.high_stakes,
-            metadata={**metadata, "tool_manifest_id": manifest.id},
+            metadata={**metadata, **governance_metadata, "tool_manifest_id": manifest.id},
         )

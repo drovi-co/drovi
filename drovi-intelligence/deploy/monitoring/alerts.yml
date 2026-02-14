@@ -67,3 +67,47 @@ groups:
         annotations:
           summary: "Kafka consumer lag high"
           description: "Kafka lag exceeded 1000 messages for 10m. Investigate consumer throughput."
+      - alert: DroviAgentRunSuccessRateLow
+        expr: |
+          (
+            sum(rate(drovi_agent_runs_status_total{status="completed"}[15m]))
+            /
+            clamp_min(
+              sum(rate(drovi_agent_runs_status_total{status=~"completed|failed|cancelled"}[15m])),
+              0.001
+            )
+          ) < 0.90
+        for: 15m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Agent run success rate < 90%"
+          description: "Investigate failing agent runs, tool/provider stability, and policy denials."
+      - alert: DroviAgentRunLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(drovi_agent_run_duration_seconds_bucket{status=~"completed|failed|cancelled"}[15m])) by (le)
+          ) > 120
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Agent run p95 latency > 120s"
+          description: "Run execution latency is above SLO; inspect Temporal queues and tool call latency."
+      - alert: DroviAgentApprovalBacklogHigh
+        expr: max by (organization_id) (drovi_agent_approval_backlog) > 20
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Agent approval backlog high"
+          description: "Pending approvals exceeded 20 for an organization."
+      - alert: DroviAgentQualityDriftHigh
+        expr: max by (organization_id, role_scope) (drovi_agent_quality_drift_score) > 0.80
+        for: 20m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Agent quality drift high"
+          description: "Quality drift score exceeded 0.8; freeze promotions and run remediation evals."

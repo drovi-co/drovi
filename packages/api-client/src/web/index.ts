@@ -8,8 +8,6 @@ export { createChangesApi } from "./changes-api";
 export { createConnectionsApi } from "./connections-api";
 export { createContactsApi } from "./contacts-api";
 export { createContentApi } from "./content-api";
-export { createContinuumExchangeApi } from "./continuum-exchange-api";
-export { createContinuumsApi } from "./continuums-api";
 export { createCustomerApi } from "./customer-api";
 export { createDocumentsApi } from "./documents-api";
 export { createGraphApi } from "./graph-api";

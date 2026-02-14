@@ -46,6 +46,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: any;
       parentRoute: any;
     };
+    "/dashboard/governance": {
+      id: "/dashboard/governance";
+      path: "/governance";
+      fullPath: "/dashboard/governance";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
     "/dashboard/connectors": {
       id: "/dashboard/connectors";
       path: "/connectors";

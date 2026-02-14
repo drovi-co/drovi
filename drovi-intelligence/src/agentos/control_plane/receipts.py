@@ -10,6 +10,7 @@ from src.kernel.ids import new_prefixed_id
 from src.kernel.serialization import json_dumps_canonical
 from src.kernel.time import utc_now
 
+from .audit import emit_control_plane_audit_event
 from .models import ActionReceiptRecord
 
 
@@ -68,6 +69,20 @@ class ActionReceiptService:
                 },
             )
             await session.commit()
+        await emit_control_plane_audit_event(
+            organization_id=organization_id,
+            action="agentos.receipt.created",
+            actor_id=None,
+            resource_type="agent_action_receipt",
+            resource_id=receipt_id,
+            metadata={
+                "tool_id": tool_id,
+                "run_id": run_id,
+                "deployment_id": deployment_id,
+                "approval_request_id": approval_request_id,
+                "final_status": final_status,
+            },
+        )
         return await self.get_receipt(organization_id=organization_id, receipt_id=receipt_id)
 
     async def get_receipt(self, *, organization_id: str, receipt_id: str) -> ActionReceiptRecord:
@@ -134,6 +149,17 @@ class ActionReceiptService:
                     meta={"receipt_id": receipt_id},
                 )
             await session.commit()
+        await emit_control_plane_audit_event(
+            organization_id=organization_id,
+            action="agentos.receipt.finalized",
+            actor_id=None,
+            resource_type="agent_action_receipt",
+            resource_id=receipt_id,
+            metadata={
+                "final_status": final_status,
+                "approval_request_id": approval_request_id,
+            },
+        )
         return await self.get_receipt(organization_id=organization_id, receipt_id=receipt_id)
 
     async def list_receipts(

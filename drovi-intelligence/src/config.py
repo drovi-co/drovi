@@ -305,6 +305,7 @@ class Settings(BaseSettings):
 
     # Continuum scheduler settings
     continuum_scheduler_run_in_api: bool = Field(default=True)
+    continuum_runtime_enabled: bool = Field(default=False)
     continuum_scheduler_interval_seconds: int = Field(default=60)
     continuum_monitor_interval_seconds: int = Field(default=300)
     continuum_stuck_minutes: int = Field(default=30)

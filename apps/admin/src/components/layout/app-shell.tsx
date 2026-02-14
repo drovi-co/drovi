@@ -14,6 +14,7 @@ function getTitleKeyForPath(pathname: string): string {
   if (pathname === "/dashboard/users") return "admin.nav.items.users";
   if (pathname === "/dashboard/connectors") return "admin.nav.items.connectors";
   if (pathname === "/dashboard/jobs") return "admin.nav.items.jobs";
+  if (pathname === "/dashboard/governance") return "admin.nav.items.governance";
   if (pathname === "/dashboard/exchange") return "admin.nav.items.exchange";
   if (pathname === "/dashboard/tickets") return "admin.nav.items.tickets";
   return "admin.shell.titleFallback";

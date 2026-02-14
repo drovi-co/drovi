@@ -2,6 +2,7 @@
 
 from . import (
     agents,
+    agents_governance,
     agents_starter_packs,
     agents_work_products,
     analyze,
@@ -48,6 +49,7 @@ from . import (
 
 __all__ = [
     "agents",
+    "agents_governance",
     "agents_starter_packs",
     "agents_work_products",
     "analyze",

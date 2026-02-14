@@ -16,6 +16,7 @@ import {
   Inbox,
   Layers3,
   LogOut,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { useT } from "@/i18n";
@@ -41,6 +42,11 @@ const opsNav: NavItemTemplate[] = [
     icon: Cable,
   },
   { titleKey: "admin.nav.items.jobs", url: "/dashboard/jobs", icon: Layers3 },
+  {
+    titleKey: "admin.nav.items.governance",
+    url: "/dashboard/governance",
+    icon: ShieldCheck,
+  },
   {
     titleKey: "admin.nav.items.tickets",
     url: "/dashboard/tickets",

@@ -778,3 +778,238 @@ async def admin_get_user(
         last_login_at=user_row.last_login_at,
         memberships=memberships,
     )
+
+
+class GovernanceSignal(BaseModel):
+    label: str
+    value: str
+    severity: str = "info"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GovernanceOverviewResponse(BaseModel):
+    generated_at: datetime
+    blocks: list[KPIBlock]
+    approvals_by_status: list[dict[str, Any]] = Field(default_factory=list)
+    recent_signals: list[GovernanceSignal] = Field(default_factory=list)
+
+
+@router.get("/governance/overview", response_model=GovernanceOverviewResponse)
+async def admin_governance_overview(
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
+) -> GovernanceOverviewResponse:
+    if not ctx.is_internal and ctx.organization_id != "internal":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    now = datetime.now(timezone.utc)
+    since_24h = now - timedelta(hours=24)
+    since_1h = now - timedelta(hours=1)
+
+    async with get_db_session() as session:
+        principals_count = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_service_principal
+                        WHERE status = 'active'
+                        """
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        authorities_count = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_delegated_authority
+                        WHERE revoked_at IS NULL
+                          AND valid_from <= NOW()
+                          AND (valid_to IS NULL OR valid_to > NOW())
+                        """
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        kill_switch_orgs = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_org_governance_policy
+                        WHERE kill_switch_enabled = TRUE
+                        """
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        pending_approvals = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_action_approval
+                        WHERE status = 'pending'
+                        """
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        escalated_approvals = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_action_approval
+                        WHERE status = 'escalated'
+                        """
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        denied_policy_decisions_24h = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM audit_log
+                        WHERE action = 'agentos.policy.decision'
+                          AND created_at >= :since_24h
+                          AND COALESCE(metadata->>'action', '') = 'deny'
+                        """
+                    ),
+                    {"since_24h": since_24h},
+                )
+            ).scalar()
+            or 0
+        )
+        red_team_failures_24h = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM audit_log
+                        WHERE action = 'agentos.policy.red_team_ran'
+                          AND created_at >= :since_24h
+                          AND COALESCE(metadata->>'passed', 'true') = 'false'
+                        """
+                    ),
+                    {"since_24h": since_24h},
+                )
+            ).scalar()
+            or 0
+        )
+        approvals_by_status_result = await session.execute(
+            text(
+                """
+                SELECT status, COUNT(*) AS count
+                FROM agent_action_approval
+                GROUP BY status
+                ORDER BY count DESC
+                """
+            )
+        )
+        approvals_by_status = [
+            {"status": str(row.status), "count": int(row.count or 0)}
+            for row in approvals_by_status_result.fetchall()
+        ]
+        recent_escalations = int(
+            (
+                await session.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM agent_action_approval_decision
+                        WHERE decision = 'escalated'
+                          AND decided_at >= :since_1h
+                        """
+                    ),
+                    {"since_1h": since_1h},
+                )
+            ).scalar()
+            or 0
+        )
+
+    blocks = [
+        KPIBlock(
+            key="service_principals",
+            label="Active Service Principals",
+            value=float(principals_count),
+        ),
+        KPIBlock(
+            key="delegated_authorities",
+            label="Active Delegated Authorities",
+            value=float(authorities_count),
+        ),
+        KPIBlock(
+            key="pending_approvals",
+            label="Pending Approvals",
+            value=float(pending_approvals),
+        ),
+        KPIBlock(
+            key="escalated_approvals",
+            label="Escalated Approvals",
+            value=float(escalated_approvals),
+        ),
+        KPIBlock(
+            key="kill_switch_orgs",
+            label="Kill-Switch Orgs",
+            value=float(kill_switch_orgs),
+        ),
+        KPIBlock(
+            key="denied_decisions_24h",
+            label="Denied Policy Decisions (24h)",
+            value=float(denied_policy_decisions_24h),
+        ),
+    ]
+    signals: list[GovernanceSignal] = []
+    if kill_switch_orgs > 0:
+        signals.append(
+            GovernanceSignal(
+                label="Kill switch active",
+                value=f"{kill_switch_orgs} org(s)",
+                severity="critical",
+            )
+        )
+    if escalated_approvals > 0:
+        signals.append(
+            GovernanceSignal(
+                label="Escalated approvals open",
+                value=str(escalated_approvals),
+                severity="warning",
+            )
+        )
+    if red_team_failures_24h > 0:
+        signals.append(
+            GovernanceSignal(
+                label="Red-team failures (24h)",
+                value=str(red_team_failures_24h),
+                severity="critical",
+            )
+        )
+    signals.append(
+        GovernanceSignal(
+            label="Escalations in last hour",
+            value=str(recent_escalations),
+            severity="info" if recent_escalations == 0 else "warning",
+        )
+    )
+    return GovernanceOverviewResponse(
+        generated_at=now,
+        blocks=blocks,
+        approvals_by_status=approvals_by_status,
+        recent_signals=signals,
+    )

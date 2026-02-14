@@ -26,8 +26,6 @@ import {
   createConnectionsApi,
   createContactsApi,
   createContentApi,
-  createContinuumExchangeApi,
-  createContinuumsApi,
   createCustomerApi,
   createDocumentsApi,
   createGraphApi,
@@ -58,10 +56,6 @@ export type {
   ChangeRecord,
   ContactSummary,
   ContentSearchResult,
-  ContinuumBundle,
-  ContinuumPreview,
-  ContinuumRun,
-  ContinuumSummary,
   DriveDocument,
   DriveDocumentChunk,
   DriveDocumentChunkDetail,
@@ -181,8 +175,6 @@ export const documentsAPI = createDocumentsApi(client);
 export const briefAPI = createBriefApi(client);
 export const contactsAPI = createContactsApi(client);
 export const customerAPI = createCustomerApi(client);
-export const continuumsAPI = createContinuumsApi(client);
-export const continuumExchangeAPI = createContinuumExchangeApi(client);
 export const simulationsAPI = createSimulationsApi(client);
 export const actuationsAPI = createActuationsApi(client);
 export const trustAPI = createTrustApi(client);

@@ -26,18 +26,6 @@ export {
   transformMeetingBrief,
 } from "./contacts";
 export type {
-  ContinuumBundle,
-  ContinuumCreateResponse,
-  ContinuumPreview,
-  ContinuumRun,
-  ContinuumSummary,
-} from "./continuums";
-export {
-  transformBundle,
-  transformContinuumRun,
-  transformContinuumSummary,
-} from "./continuums";
-export type {
   CustomerCommitment,
   CustomerContact,
   CustomerContext,

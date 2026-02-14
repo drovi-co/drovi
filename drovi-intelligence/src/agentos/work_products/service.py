@@ -4,9 +4,11 @@ import time
 from typing import Any
 
 import httpx
+import structlog
 from sqlalchemy import text
 
 from src.agentos.control_plane import ApprovalService
+from src.agentos.control_plane.audit import emit_control_plane_audit_event
 from src.db.client import get_db_session
 from src.evidence.register import register_evidence_artifact
 from src.evidence.storage import get_evidence_storage
@@ -26,6 +28,8 @@ from .models import (
 )
 from .renderers import render_work_product
 from .verification import verify_work_product
+
+logger = structlog.get_logger()
 
 
 def _parse_payload(value: Any) -> dict[str, Any]:
@@ -47,6 +51,34 @@ class WorkProductService:
     def __init__(self) -> None:
         self._approval_service = ApprovalService()
         self._metrics = get_metrics()
+
+    async def _emit_work_product_audit(
+        self,
+        *,
+        organization_id: str,
+        action: str,
+        work_product_id: str,
+        run_id: str | None,
+        actor_id: str | None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            await emit_control_plane_audit_event(
+                organization_id=organization_id,
+                action=action,
+                actor_id=actor_id,
+                resource_type="agent_work_product",
+                resource_id=work_product_id,
+                metadata={"run_id": run_id, **(metadata or {})},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to emit work product audit event",
+                organization_id=organization_id,
+                work_product_id=work_product_id,
+                action=action,
+                error=str(exc),
+            )
 
     async def list_work_products(
         self,
@@ -188,6 +220,18 @@ class WorkProductService:
             )
             if created is None:
                 raise RuntimeError("Failed to load generated work product")
+            await self._emit_work_product_audit(
+                organization_id=request.organization_id,
+                action="agentos.work_product.generated",
+                work_product_id=work_product_id,
+                run_id=request.run_id,
+                actor_id=actor_id,
+                metadata={
+                    "product_type": request.product_type,
+                    "title": rendered.title,
+                    "artifact_ref": artifact.artifact_id,
+                },
+            )
             return created
         except Exception:
             metric_status = "error"
@@ -250,6 +294,18 @@ class WorkProductService:
                 details={"reason": "approval required"},
             )
             final_status = result.status
+            await self._emit_work_product_audit(
+                organization_id=request.organization_id,
+                action="agentos.work_product.delivery_pending_approval",
+                work_product_id=work_product.id,
+                run_id=work_product.run_id,
+                actor_id=actor_id,
+                metadata={
+                    "channel": request.channel,
+                    "approval_request_id": approval.id,
+                    "approval_tier": request.approval_tier,
+                },
+            )
             return result
 
         try:
@@ -281,6 +337,18 @@ class WorkProductService:
                 details=details,
             )
             final_status = result.status
+            await self._emit_work_product_audit(
+                organization_id=request.organization_id,
+                action="agentos.work_product.delivered",
+                work_product_id=work_product.id,
+                run_id=work_product.run_id,
+                actor_id=actor_id,
+                metadata={
+                    "channel": request.channel,
+                    "approval_tier": request.approval_tier,
+                    "details": details,
+                },
+            )
             return result
         except Exception as exc:
             error_text = str(exc)
@@ -306,6 +374,18 @@ class WorkProductService:
                     details={"error": error_text},
                 )
                 final_status = result.status
+                await self._emit_work_product_audit(
+                    organization_id=request.organization_id,
+                    action="agentos.work_product.delivery_rolled_back",
+                    work_product_id=work_product.id,
+                    run_id=work_product.run_id,
+                    actor_id=actor_id,
+                    metadata={
+                        "channel": request.channel,
+                        "approval_tier": request.approval_tier,
+                        "error": error_text,
+                    },
+                )
                 return result
 
             failed_payload = {
@@ -329,6 +409,18 @@ class WorkProductService:
                 details={"error": error_text},
             )
             final_status = result.status
+            await self._emit_work_product_audit(
+                organization_id=request.organization_id,
+                action="agentos.work_product.delivery_failed",
+                work_product_id=work_product.id,
+                run_id=work_product.run_id,
+                actor_id=actor_id,
+                metadata={
+                    "channel": request.channel,
+                    "approval_tier": request.approval_tier,
+                    "error": error_text,
+                },
+            )
             return result
         finally:
             self._metrics.track_agent_work_product_delivery(

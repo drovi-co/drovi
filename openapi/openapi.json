@@ -3303,6 +3303,88 @@
         "title": "AgentRunStepModel",
         "type": "object"
       },
+      "AgentServicePrincipalRecord": {
+        "properties": {
+          "allowed_scopes": {
+            "additionalProperties": true,
+            "title": "Allowed Scopes",
+            "type": "object"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "deployment_id": {
+            "title": "Deployment Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "principal_name": {
+            "title": "Principal Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "deployment_id",
+          "principal_name"
+        ],
+        "title": "AgentServicePrincipalRecord",
+        "type": "object"
+      },
       "AgentTeamCreateRequest": {
         "properties": {
           "description": {
@@ -4037,6 +4119,23 @@
             "title": "Action Tier",
             "type": "string"
           },
+          "approval_chain": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Approval Chain",
+            "type": "array"
+          },
+          "chain_mode": {
+            "default": "single",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "title": "Chain Mode",
+            "type": "string"
+          },
           "deployment_id": {
             "anyOf": [
               {
@@ -4073,6 +4172,13 @@
             ],
             "title": "Reason"
           },
+          "required_approvals": {
+            "default": 1,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Required Approvals",
+            "type": "integer"
+          },
           "run_id": {
             "anyOf": [
               {
@@ -4102,6 +4208,83 @@
           "action_tier"
         ],
         "title": "ApprovalCreateRequest",
+        "type": "object"
+      },
+      "ApprovalDecisionRecord": {
+        "properties": {
+          "approval_id": {
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "approver_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver Id"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decision": {
+            "enum": [
+              "approved",
+              "denied",
+              "escalated"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "step_index": {
+            "default": 1,
+            "title": "Step Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "approval_id",
+          "decision"
+        ],
+        "title": "ApprovalDecisionRecord",
         "type": "object"
       },
       "ApprovalDecisionRequest": {
@@ -4153,6 +4336,14 @@
             "title": "Action Tier",
             "type": "string"
           },
+          "approval_chain": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Approval Chain",
+            "type": "array"
+          },
           "approval_reason": {
             "anyOf": [
               {
@@ -4163,6 +4354,11 @@
               }
             ],
             "title": "Approval Reason"
+          },
+          "approvals_received": {
+            "default": 0,
+            "title": "Approvals Received",
+            "type": "integer"
           },
           "approver_id": {
             "anyOf": [
@@ -4175,6 +4371,15 @@
             ],
             "title": "Approver Id"
           },
+          "chain_mode": {
+            "default": "single",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "title": "Chain Mode",
+            "type": "string"
+          },
           "decided_at": {
             "anyOf": [
               {
@@ -4186,6 +4391,11 @@
               }
             ],
             "title": "Decided At"
+          },
+          "decision_summary": {
+            "additionalProperties": true,
+            "title": "Decision Summary",
+            "type": "object"
           },
           "deployment_id": {
             "anyOf": [
@@ -4249,6 +4459,11 @@
               }
             ],
             "title": "Requested By"
+          },
+          "required_approvals": {
+            "default": 1,
+            "title": "Required Approvals",
+            "type": "integer"
           },
           "run_id": {
             "anyOf": [
@@ -5767,6 +5982,39 @@
         "title": "BundlePublishResponse",
         "type": "object"
       },
+      "CalibrationBucket": {
+        "properties": {
+          "avg_confidence": {
+            "title": "Avg Confidence",
+            "type": "number"
+          },
+          "avg_outcome": {
+            "title": "Avg Outcome",
+            "type": "number"
+          },
+          "bucket_end": {
+            "title": "Bucket End",
+            "type": "number"
+          },
+          "bucket_start": {
+            "title": "Bucket Start",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket_start",
+          "bucket_end",
+          "count",
+          "avg_confidence",
+          "avg_outcome"
+        ],
+        "title": "CalibrationBucket",
+        "type": "object"
+      },
       "CalibrationMetricsResponse": {
         "description": "Calibration metrics for prediction accuracy.",
         "properties": {
@@ -5843,6 +6091,127 @@
           "analysis_period_days"
         ],
         "title": "CalibrationMetricsResponse",
+        "type": "object"
+      },
+      "CalibrationRecomputeRequest": {
+        "properties": {
+          "min_samples": {
+            "default": 5,
+            "maximum": 5000.0,
+            "minimum": 1.0,
+            "title": "Min Samples",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "CalibrationRecomputeRequest",
+        "type": "object"
+      },
+      "CalibrationSnapshot": {
+        "properties": {
+          "adjustment_factor": {
+            "title": "Adjustment Factor",
+            "type": "number"
+          },
+          "brier_score": {
+            "title": "Brier Score",
+            "type": "number"
+          },
+          "bucket_stats": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationBucket"
+            },
+            "title": "Bucket Stats",
+            "type": "array"
+          },
+          "calibration_error": {
+            "title": "Calibration Error",
+            "type": "number"
+          },
+          "computed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mean_absolute_error": {
+            "title": "Mean Absolute Error",
+            "type": "number"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "sample_count",
+          "mean_absolute_error",
+          "brier_score",
+          "calibration_error",
+          "adjustment_factor"
+        ],
+        "title": "CalibrationSnapshot",
         "type": "object"
       },
       "ChangeRecordResponse": {
@@ -8456,6 +8825,138 @@
         "title": "ContinuumCreateResponse",
         "type": "object"
       },
+      "ContinuumMigrationRecord": {
+        "properties": {
+          "continuum_id": {
+            "title": "Continuum Id",
+            "type": "string"
+          },
+          "continuum_version": {
+            "title": "Continuum Version",
+            "type": "integer"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "equivalence_report": {
+            "additionalProperties": true,
+            "title": "Equivalence Report",
+            "type": "object"
+          },
+          "equivalence_score": {
+            "title": "Equivalence Score",
+            "type": "number"
+          },
+          "migration_id": {
+            "title": "Migration Id",
+            "type": "string"
+          },
+          "migration_status": {
+            "enum": [
+              "completed",
+              "failed",
+              "skipped"
+            ],
+            "title": "Migration Status",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "dry_run",
+              "applied"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "playbook_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playbook Id"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "trigger_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Id"
+          }
+        },
+        "required": [
+          "migration_id",
+          "continuum_id",
+          "continuum_version",
+          "mode",
+          "migration_status",
+          "equivalence_score"
+        ],
+        "title": "ContinuumMigrationRecord",
+        "type": "object"
+      },
+      "ContinuumMigrationRequest": {
+        "properties": {
+          "continuum_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Continuum Ids",
+            "type": "array"
+          },
+          "dry_run": {
+            "default": true,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "ContinuumMigrationRequest",
+        "type": "object"
+      },
       "ContinuumOverrideRequest": {
         "properties": {
           "alert_id": {
@@ -9984,6 +10485,207 @@
           "status"
         ],
         "title": "DecisionResponse",
+        "type": "object"
+      },
+      "DelegatedAuthorityGrantRequest": {
+        "properties": {
+          "authority_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Reason"
+          },
+          "authority_scope": {
+            "additionalProperties": true,
+            "title": "Authority Scope",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "principal_id": {
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "organization_id",
+          "principal_id"
+        ],
+        "title": "DelegatedAuthorityGrantRequest",
+        "type": "object"
+      },
+      "DelegatedAuthorityRecord": {
+        "properties": {
+          "authority_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Reason"
+          },
+          "authority_scope": {
+            "additionalProperties": true,
+            "title": "Authority Scope",
+            "type": "object"
+          },
+          "authorized_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized By User Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "principal_id": {
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By User Id"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "principal_id"
+        ],
+        "title": "DelegatedAuthorityRecord",
+        "type": "object"
+      },
+      "DelegatedAuthorityRevokeRequest": {
+        "properties": {
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "DelegatedAuthorityRevokeRequest",
         "type": "object"
       },
       "DeleteDataRequest": {
@@ -12531,6 +13233,220 @@
         "title": "FraudSignal",
         "type": "object"
       },
+      "GovernanceOverviewResponse": {
+        "properties": {
+          "approvals_by_status": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Approvals By Status",
+            "type": "array"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/KPIBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "recent_signals": {
+            "items": {
+              "$ref": "#/components/schemas/GovernanceSignal"
+            },
+            "title": "Recent Signals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "blocks"
+        ],
+        "title": "GovernanceOverviewResponse",
+        "type": "object"
+      },
+      "GovernancePolicyRecord": {
+        "properties": {
+          "allowed_regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Regions",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "data_retention_days": {
+            "default": 365,
+            "title": "Data Retention Days",
+            "type": "integer"
+          },
+          "enforce_delegated_authority": {
+            "default": false,
+            "title": "Enforce Delegated Authority",
+            "type": "boolean"
+          },
+          "evidence_retention_days": {
+            "default": 3650,
+            "title": "Evidence Retention Days",
+            "type": "integer"
+          },
+          "kill_switch_enabled": {
+            "default": false,
+            "title": "Kill Switch Enabled",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "require_residency_enforcement": {
+            "default": true,
+            "title": "Require Residency Enforcement",
+            "type": "boolean"
+          },
+          "residency_region": {
+            "default": "global",
+            "title": "Residency Region",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By User Id"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "GovernancePolicyRecord",
+        "type": "object"
+      },
+      "GovernancePolicyUpsertRequest": {
+        "properties": {
+          "allowed_regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Regions",
+            "type": "array"
+          },
+          "data_retention_days": {
+            "default": 365,
+            "maximum": 36500.0,
+            "minimum": 1.0,
+            "title": "Data Retention Days",
+            "type": "integer"
+          },
+          "enforce_delegated_authority": {
+            "default": false,
+            "title": "Enforce Delegated Authority",
+            "type": "boolean"
+          },
+          "evidence_retention_days": {
+            "default": 3650,
+            "maximum": 36500.0,
+            "minimum": 1.0,
+            "title": "Evidence Retention Days",
+            "type": "integer"
+          },
+          "kill_switch_enabled": {
+            "default": false,
+            "title": "Kill Switch Enabled",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "require_residency_enforcement": {
+            "default": true,
+            "title": "Require Residency Enforcement",
+            "type": "boolean"
+          },
+          "residency_region": {
+            "default": "global",
+            "title": "Residency Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "GovernancePolicyUpsertRequest",
+        "type": "object"
+      },
+      "GovernanceSignal": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "severity": {
+            "default": "info",
+            "title": "Severity",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "GovernanceSignal",
+        "type": "object"
+      },
       "GraphQueryRequest": {
         "description": "Request body for graph queries.",
         "properties": {
@@ -13915,6 +14831,85 @@
         "title": "KnowledgeQueryResponse",
         "type": "object"
       },
+      "LegacyContinuumModel": {
+        "properties": {
+          "active_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Version"
+          },
+          "current_version": {
+            "title": "Current Version",
+            "type": "integer"
+          },
+          "definition_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Hash"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At"
+          },
+          "version_created_at": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Created At"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "name",
+          "status",
+          "current_version",
+          "updated_at"
+        ],
+        "title": "LegacyContinuumModel",
+        "type": "object"
+      },
       "ListJobsResponse": {
         "properties": {
           "jobs": {
@@ -15007,6 +16002,231 @@
           "state"
         ],
         "title": "OAuthInitResponse",
+        "type": "object"
+      },
+      "OfflineEvalCase": {
+        "properties": {
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "observed": {
+            "additionalProperties": true,
+            "title": "Observed",
+            "type": "object"
+          },
+          "policy_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Decision"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id"
+        ],
+        "title": "OfflineEvalCase",
+        "type": "object"
+      },
+      "OfflineEvalMetricResult": {
+        "properties": {
+          "comparator": {
+            "default": "gte",
+            "enum": [
+              "gte",
+              "lte"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "metric_name": {
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "metric_value": {
+            "title": "Metric Value",
+            "type": "number"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold"
+          }
+        },
+        "required": [
+          "metric_name",
+          "metric_value",
+          "passed"
+        ],
+        "title": "OfflineEvalMetricResult",
+        "type": "object"
+      },
+      "OfflineEvalRunRequest": {
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/OfflineEvalCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "persist_results": {
+            "default": true,
+            "title": "Persist Results",
+            "type": "boolean"
+          },
+          "suite_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Suite Name",
+            "type": "string"
+          },
+          "thresholds": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thresholds"
+          }
+        },
+        "required": [
+          "organization_id",
+          "suite_name"
+        ],
+        "title": "OfflineEvalRunRequest",
+        "type": "object"
+      },
+      "OfflineEvalRunResult": {
+        "properties": {
+          "case_count": {
+            "title": "Case Count",
+            "type": "integer"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/OfflineEvalMetricResult"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "suite_name": {
+            "title": "Suite Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "suite_name",
+          "passed",
+          "case_count"
+        ],
+        "title": "OfflineEvalRunResult",
         "type": "object"
       },
       "OrgInfoResponse": {
@@ -16613,6 +17833,126 @@
         "title": "PolicyOverlayUpsertRequest",
         "type": "object"
       },
+      "PolicySimulationCaseResult": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/PolicyDecisionRecord"
+          }
+        },
+        "required": [
+          "case_id",
+          "decision"
+        ],
+        "title": "PolicySimulationCaseResult",
+        "type": "object"
+      },
+      "PolicySimulationRequest": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/PolicySimulationScenario"
+            },
+            "title": "Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "PolicySimulationRequest",
+        "type": "object"
+      },
+      "PolicySimulationResponse": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PolicySimulationCaseResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "PolicySimulationResponse",
+        "type": "object"
+      },
+      "PolicySimulationScenario": {
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "evidence_refs": {
+            "additionalProperties": true,
+            "title": "Evidence Refs",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "tool_id": {
+            "title": "Tool Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_id"
+        ],
+        "title": "PolicySimulationScenario",
+        "type": "object"
+      },
       "PromoteRequest": {
         "properties": {
           "confidence_boost": {
@@ -16816,6 +18156,239 @@
           "message"
         ],
         "title": "PublishEventResponse",
+        "type": "object"
+      },
+      "QualityRecommendationRecord": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "priority": {
+            "default": "medium",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "title": "Priority",
+            "type": "string"
+          },
+          "recommendation_type": {
+            "title": "Recommendation Type",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "source_signals": {
+            "additionalProperties": true,
+            "title": "Source Signals",
+            "type": "object"
+          },
+          "status": {
+            "default": "open",
+            "enum": [
+              "open",
+              "accepted",
+              "dismissed",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "recommendation_type",
+          "summary"
+        ],
+        "title": "QualityRecommendationRecord",
+        "type": "object"
+      },
+      "QualityTrendPoint": {
+        "properties": {
+          "avg_confidence_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Confidence Score"
+          },
+          "avg_outcome_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Outcome Score"
+          },
+          "avg_quality_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Quality Score"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "eval_pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Pass Rate"
+          },
+          "run_count": {
+            "title": "Run Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket_start",
+          "run_count"
+        ],
+        "title": "QualityTrendPoint",
+        "type": "object"
+      },
+      "QualityTrendResponse": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "lookback_days": {
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/QualityTrendPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "organization_id",
+          "lookback_days"
+        ],
+        "title": "QualityTrendResponse",
         "type": "object"
       },
       "ReadinessResponse": {
@@ -17033,6 +18606,696 @@
           "final_status"
         ],
         "title": "ReceiptFinalizeRequest",
+        "type": "object"
+      },
+      "RecommendationGenerateRequest": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "lookback_days": {
+            "default": 30,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "RecommendationGenerateRequest",
+        "type": "object"
+      },
+      "RedTeamCase": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "additionalProperties": true,
+            "title": "Evidence Refs",
+            "type": "object"
+          },
+          "expected_action": {
+            "title": "Expected Action",
+            "type": "string"
+          },
+          "expected_code_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Code Prefix"
+          },
+          "governance_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governance Overrides"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tool_id": {
+            "title": "Tool Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "expected_action",
+          "tool_id"
+        ],
+        "title": "RedTeamCase",
+        "type": "object"
+      },
+      "RedTeamCaseResult": {
+        "properties": {
+          "actual_action": {
+            "title": "Actual Action",
+            "type": "string"
+          },
+          "actual_code": {
+            "title": "Actual Code",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expected_action": {
+            "title": "Expected Action",
+            "type": "string"
+          },
+          "expected_code_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Code Prefix"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "passed",
+          "expected_action",
+          "actual_action",
+          "actual_code",
+          "reason"
+        ],
+        "title": "RedTeamCaseResult",
+        "type": "object"
+      },
+      "RedTeamRunRequest": {
+        "properties": {
+          "cases": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RedTeamCase"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cases"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "RedTeamRunRequest",
+        "type": "object"
+      },
+      "RedTeamRunResult": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "failed_count": {
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "passed_count": {
+            "title": "Passed Count",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/RedTeamCaseResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "passed",
+          "passed_count",
+          "failed_count",
+          "total_count"
+        ],
+        "title": "RedTeamRunResult",
+        "type": "object"
+      },
+      "RegressionGateCreateRequest": {
+        "properties": {
+          "comparator": {
+            "default": "max_drop",
+            "enum": [
+              "min_value",
+              "max_value",
+              "max_drop",
+              "min_improvement"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "lookback_days": {
+            "default": 14,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric_name": {
+            "enum": [
+              "quality_score",
+              "confidence_score",
+              "eval_pass_rate",
+              "feedback_acceptance_rate",
+              "feedback_rejection_rate"
+            ],
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "min_samples": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Min Samples",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "severity": {
+            "default": "blocker",
+            "enum": [
+              "warn",
+              "blocker"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "organization_id",
+          "metric_name",
+          "threshold"
+        ],
+        "title": "RegressionGateCreateRequest",
+        "type": "object"
+      },
+      "RegressionGateEvaluateRequest": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "only_enabled": {
+            "default": true,
+            "title": "Only Enabled",
+            "type": "boolean"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "persist_events": {
+            "default": true,
+            "title": "Persist Events",
+            "type": "boolean"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "RegressionGateEvaluateRequest",
+        "type": "object"
+      },
+      "RegressionGateEvaluation": {
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "blocked": {
+            "default": false,
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "comparator": {
+            "enum": [
+              "min_value",
+              "max_value",
+              "max_drop",
+              "min_improvement"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "delta_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Value"
+          },
+          "gate_id": {
+            "title": "Gate Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric_name": {
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "sample_count": {
+            "default": 0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "severity": {
+            "default": "blocker",
+            "enum": [
+              "warn",
+              "blocker"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "warn",
+              "block",
+              "insufficient_data"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate_id",
+          "metric_name",
+          "comparator",
+          "threshold",
+          "verdict"
+        ],
+        "title": "RegressionGateEvaluation",
+        "type": "object"
+      },
+      "RegressionGateEvaluationResponse": {
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/RegressionGateEvaluation"
+            },
+            "title": "Evaluations",
+            "type": "array"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          }
+        },
+        "required": [
+          "organization_id",
+          "evaluated_at",
+          "blocked"
+        ],
+        "title": "RegressionGateEvaluationResponse",
+        "type": "object"
+      },
+      "RegressionGateRecord": {
+        "properties": {
+          "comparator": {
+            "default": "max_drop",
+            "enum": [
+              "min_value",
+              "max_value",
+              "max_drop",
+              "min_improvement"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "lookback_days": {
+            "default": 14,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "metric_name": {
+            "enum": [
+              "quality_score",
+              "confidence_score",
+              "eval_pass_rate",
+              "feedback_acceptance_rate",
+              "feedback_rejection_rate"
+            ],
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "min_samples": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Min Samples",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "severity": {
+            "default": "blocker",
+            "enum": [
+              "warn",
+              "blocker"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "metric_name",
+          "threshold"
+        ],
+        "title": "RegressionGateRecord",
         "type": "object"
       },
       "RelatedItem": {
@@ -17389,6 +19652,131 @@
         "title": "RiskSnapshot",
         "type": "object"
       },
+      "RunQualityScoreRecord": {
+        "properties": {
+          "confidence_score": {
+            "title": "Confidence Score",
+            "type": "number"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "outcome_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Score"
+          },
+          "quality_score": {
+            "title": "Quality Score",
+            "type": "number"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "score_breakdown": {
+            "additionalProperties": true,
+            "title": "Score Breakdown",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "run_id",
+          "quality_score",
+          "confidence_score",
+          "status"
+        ],
+        "title": "RunQualityScoreRecord",
+        "type": "object"
+      },
+      "RunQualityScoreRequest": {
+        "properties": {
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "RunQualityScoreRequest",
+        "type": "object"
+      },
       "ScopesResponse": {
         "description": "Available scopes information.",
         "properties": {
@@ -17714,6 +20102,45 @@
         "title": "SensorPermissionUpdate",
         "type": "object"
       },
+      "ServicePrincipalEnsureRequest": {
+        "properties": {
+          "allowed_scopes": {
+            "additionalProperties": true,
+            "title": "Allowed Scopes",
+            "type": "object"
+          },
+          "deployment_id": {
+            "title": "Deployment Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "principal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Name"
+          }
+        },
+        "required": [
+          "organization_id",
+          "deployment_id"
+        ],
+        "title": "ServicePrincipalEnsureRequest",
+        "type": "object"
+      },
       "SessionListResponse": {
         "description": "Response containing list of sessions.",
         "example": {
@@ -17832,6 +20259,120 @@
           "metadata"
         ],
         "title": "SessionResponse",
+        "type": "object"
+      },
+      "ShadowValidationRecord": {
+        "properties": {
+          "agent_run_count": {
+            "title": "Agent Run Count",
+            "type": "integer"
+          },
+          "continuum_id": {
+            "title": "Continuum Id",
+            "type": "string"
+          },
+          "continuum_run_count": {
+            "title": "Continuum Run Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "duration_parity": {
+            "title": "Duration Parity",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "migration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": true,
+            "title": "Report",
+            "type": "object"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status_parity": {
+            "title": "Status Parity",
+            "type": "number"
+          },
+          "window_end": {
+            "title": "Window End"
+          },
+          "window_start": {
+            "title": "Window Start"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "continuum_id",
+          "window_start",
+          "window_end",
+          "continuum_run_count",
+          "agent_run_count",
+          "status_parity",
+          "duration_parity",
+          "score",
+          "created_at"
+        ],
+        "title": "ShadowValidationRecord",
+        "type": "object"
+      },
+      "ShadowValidationRequest": {
+        "properties": {
+          "continuum_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Continuum Ids",
+            "type": "array"
+          },
+          "lookback_days": {
+            "default": 14,
+            "maximum": 180.0,
+            "minimum": 1.0,
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "ShadowValidationRequest",
         "type": "object"
       },
       "SignalCandidateRecord": {
@@ -18339,6 +20880,436 @@
           "source_type"
         ],
         "title": "SourceItem",
+        "type": "object"
+      },
+      "StarterPackEvalMetricResult": {
+        "properties": {
+          "comparator": {
+            "enum": [
+              "gte",
+              "lte"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "metric_name": {
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "metric_value": {
+            "title": "Metric Value",
+            "type": "number"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "metric_name",
+          "metric_value",
+          "threshold",
+          "comparator",
+          "passed",
+          "description"
+        ],
+        "title": "StarterPackEvalMetricResult",
+        "type": "object"
+      },
+      "StarterPackEvalMetricSpec": {
+        "properties": {
+          "comparator": {
+            "enum": [
+              "gte",
+              "lte"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "metric_name": {
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "metric_name",
+          "description",
+          "comparator",
+          "threshold"
+        ],
+        "title": "StarterPackEvalMetricSpec",
+        "type": "object"
+      },
+      "StarterPackEvalRunRequest": {
+        "properties": {
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "persist_results": {
+            "default": true,
+            "title": "Persist Results",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "StarterPackEvalRunRequest",
+        "type": "object"
+      },
+      "StarterPackEvalRunResponse": {
+        "properties": {
+          "deployment_id": {
+            "title": "Deployment Id",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/StarterPackEvalMetricResult"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "suite_name": {
+            "title": "Suite Name",
+            "type": "string"
+          },
+          "template_key": {
+            "enum": [
+              "sales_sdr",
+              "sales_revops",
+              "sales_renewal_risk",
+              "hr_recruiting",
+              "hr_onboarding",
+              "hr_policy_drift",
+              "legal_advice_timeline",
+              "legal_contradiction",
+              "accounting_filing_missing_docs"
+            ],
+            "title": "Template Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_key",
+          "organization_id",
+          "deployment_id",
+          "suite_name",
+          "passed"
+        ],
+        "title": "StarterPackEvalRunResponse",
+        "type": "object"
+      },
+      "StarterPackEvalSuiteSpec": {
+        "properties": {
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/StarterPackEvalMetricSpec"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "suite_name": {
+            "title": "Suite Name",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suite_name",
+          "summary"
+        ],
+        "title": "StarterPackEvalSuiteSpec",
+        "type": "object"
+      },
+      "StarterPackInstallRequest": {
+        "properties": {
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "StarterPackInstallRequest",
+        "type": "object"
+      },
+      "StarterPackInstallResponse": {
+        "properties": {
+          "created": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Created",
+            "type": "object"
+          },
+          "deployment_id": {
+            "title": "Deployment Id",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "playbook_id": {
+            "title": "Playbook Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "role_id": {
+            "title": "Role Id",
+            "type": "string"
+          },
+          "template_key": {
+            "enum": [
+              "sales_sdr",
+              "sales_revops",
+              "sales_renewal_risk",
+              "hr_recruiting",
+              "hr_onboarding",
+              "hr_policy_drift",
+              "legal_advice_timeline",
+              "legal_contradiction",
+              "accounting_filing_missing_docs"
+            ],
+            "title": "Template Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_key",
+          "organization_id",
+          "role_id",
+          "profile_id",
+          "playbook_id",
+          "deployment_id"
+        ],
+        "title": "StarterPackInstallResponse",
+        "type": "object"
+      },
+      "StarterPackSeedDemoRequest": {
+        "properties": {
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "runs_per_template": {
+            "default": 3,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Runs Per Template",
+            "type": "integer"
+          },
+          "template_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "sales_sdr",
+                    "sales_revops",
+                    "sales_renewal_risk",
+                    "hr_recruiting",
+                    "hr_onboarding",
+                    "hr_policy_drift",
+                    "legal_advice_timeline",
+                    "legal_contradiction",
+                    "accounting_filing_missing_docs"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Keys"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "StarterPackSeedDemoRequest",
+        "type": "object"
+      },
+      "StarterPackSeedDemoResponse": {
+        "properties": {
+          "created_eval_results": {
+            "default": 0,
+            "title": "Created Eval Results",
+            "type": "integer"
+          },
+          "created_runs": {
+            "default": 0,
+            "title": "Created Runs",
+            "type": "integer"
+          },
+          "created_work_products": {
+            "default": 0,
+            "title": "Created Work Products",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "seeded_templates": {
+            "items": {
+              "enum": [
+                "sales_sdr",
+                "sales_revops",
+                "sales_renewal_risk",
+                "hr_recruiting",
+                "hr_onboarding",
+                "hr_policy_drift",
+                "legal_advice_timeline",
+                "legal_contradiction",
+                "accounting_filing_missing_docs"
+              ],
+              "type": "string"
+            },
+            "title": "Seeded Templates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "StarterPackSeedDemoResponse",
+        "type": "object"
+      },
+      "StarterPackTemplateModel": {
+        "properties": {
+          "autonomy_tier": {
+            "title": "Autonomy Tier",
+            "type": "string"
+          },
+          "default_work_product_type": {
+            "title": "Default Work Product Type",
+            "type": "string"
+          },
+          "domain": {
+            "enum": [
+              "sales",
+              "hr",
+              "legal",
+              "accounting"
+            ],
+            "title": "Domain",
+            "type": "string"
+          },
+          "eval_suite": {
+            "$ref": "#/components/schemas/StarterPackEvalSuiteSpec"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "installed_deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Deployment Id"
+          },
+          "installed_role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Role Id"
+          },
+          "key": {
+            "enum": [
+              "sales_sdr",
+              "sales_revops",
+              "sales_renewal_risk",
+              "hr_recruiting",
+              "hr_onboarding",
+              "hr_policy_drift",
+              "legal_advice_timeline",
+              "legal_contradiction",
+              "accounting_filing_missing_docs"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role_key": {
+            "title": "Role Key",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "summary",
+          "domain",
+          "role_key",
+          "autonomy_tier",
+          "default_work_product_type",
+          "eval_suite"
+        ],
+        "title": "StarterPackTemplateModel",
         "type": "object"
       },
       "StatusChangeRequest": {
@@ -22435,6 +25406,77 @@
         ]
       }
     },
+    "/api/v1/admin/governance/overview": {
+      "get": {
+        "operationId": "admin_governance_overview_api_v1_admin_governance_overview_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Admin Governance Overview",
+        "tags": [
+          "Admin",
+          "Admin"
+        ]
+      }
+    },
     "/api/v1/admin/kpis": {
       "get": {
         "description": "KPI summary for the admin dashboard.\n\nThis endpoint is intentionally \"read-only\" and safe to poll frequently.",
@@ -23408,6 +26450,129 @@
           }
         ],
         "summary": "Approve Action Approval",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/approvals/{approval_id}/decisions": {
+      "get": {
+        "operationId": "list_action_approval_decisions_api_v1_agents_approvals__approval_id__decisions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalDecisionRecord"
+                  },
+                  "title": "Response List Action Approval Decisions Api V1 Agents Approvals  Approval Id  Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Action Approval Decisions",
         "tags": [
           "Agents",
           "Agents"
@@ -24898,6 +28063,534 @@
         ]
       }
     },
+    "/api/v1/agents/control/legacy/continuums": {
+      "get": {
+        "operationId": "list_legacy_continuums_api_v1_agents_control_legacy_continuums_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "continuum_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Continuum Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LegacyContinuumModel"
+                  },
+                  "title": "Response List Legacy Continuums Api V1 Agents Control Legacy Continuums Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Legacy Continuums",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/control/legacy/continuums/migrate": {
+      "post": {
+        "operationId": "migrate_legacy_continuums_api_v1_agents_control_legacy_continuums_migrate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinuumMigrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContinuumMigrationRecord"
+                  },
+                  "title": "Response Migrate Legacy Continuums Api V1 Agents Control Legacy Continuums Migrate Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Migrate Legacy Continuums",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/control/legacy/continuums/migrations": {
+      "get": {
+        "operationId": "list_legacy_migrations_api_v1_agents_control_legacy_continuums_migrations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "continuum_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Continuum Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Legacy Migrations Api V1 Agents Control Legacy Continuums Migrations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Legacy Migrations",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/control/legacy/continuums/shadow-validate": {
+      "post": {
+        "operationId": "run_legacy_shadow_validation_api_v1_agents_control_legacy_continuums_shadow_validate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShadowValidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShadowValidationRecord"
+                  },
+                  "title": "Response Run Legacy Shadow Validation Api V1 Agents Control Legacy Continuums Shadow Validate Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Run Legacy Shadow Validation",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/control/legacy/continuums/shadow-validations": {
+      "get": {
+        "operationId": "list_legacy_shadow_validations_api_v1_agents_control_legacy_continuums_shadow_validations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "continuum_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Continuum Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShadowValidationRecord"
+                  },
+                  "title": "Response List Legacy Shadow Validations Api V1 Agents Control Legacy Continuums Shadow Validations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Legacy Shadow Validations",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
     "/api/v1/agents/control/lint-config": {
       "post": {
         "operationId": "lint_config_api_v1_agents_control_lint_config_post",
@@ -26279,6 +29972,708 @@
           }
         ],
         "summary": "Create Feedback",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/governance/authorities": {
+      "get": {
+        "operationId": "list_delegated_authorities_api_v1_agents_governance_authorities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "principal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Principal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Active Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DelegatedAuthorityRecord"
+                  },
+                  "title": "Response List Delegated Authorities Api V1 Agents Governance Authorities Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Delegated Authorities",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      },
+      "post": {
+        "operationId": "grant_delegated_authority_api_v1_agents_governance_authorities_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DelegatedAuthorityGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DelegatedAuthorityRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Grant Delegated Authority",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/governance/authorities/{authority_id}/revoke": {
+      "post": {
+        "operationId": "revoke_delegated_authority_api_v1_agents_governance_authorities__authority_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "authority_id",
+            "required": true,
+            "schema": {
+              "title": "Authority Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DelegatedAuthorityRevokeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DelegatedAuthorityRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Revoke Delegated Authority",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/governance/policy": {
+      "get": {
+        "operationId": "get_governance_policy_api_v1_agents_governance_policy_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernancePolicyRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Governance Policy",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_governance_policy_api_v1_agents_governance_policy_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernancePolicyUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernancePolicyRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Upsert Governance Policy",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/governance/principals": {
+      "get": {
+        "operationId": "list_service_principals_api_v1_agents_governance_principals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deployment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deployment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentServicePrincipalRecord"
+                  },
+                  "title": "Response List Service Principals Api V1 Agents Governance Principals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Service Principals",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/governance/principals/ensure": {
+      "post": {
+        "operationId": "ensure_service_principal_api_v1_agents_governance_principals_ensure_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePrincipalEnsureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentServicePrincipalRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Ensure Service Principal",
         "tags": [
           "Agents",
           "Agents"
@@ -27884,6 +32279,168 @@
         ]
       }
     },
+    "/api/v1/agents/policies/red-team/run": {
+      "post": {
+        "operationId": "run_policy_red_team_api_v1_agents_policies_red_team_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedTeamRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedTeamRunResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Run Policy Red Team",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/policies/simulate": {
+      "post": {
+        "operationId": "simulate_tool_policy_api_v1_agents_policies_simulate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicySimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicySimulationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Simulate Tool Policy",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
     "/api/v1/agents/profiles": {
       "get": {
         "operationId": "list_profiles_api_v1_agents_profiles_get",
@@ -28321,6 +32878,1225 @@
           }
         ],
         "summary": "Update Profile",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/calibration": {
+      "get": {
+        "operationId": "get_latest_calibration_api_v1_agents_quality_calibration_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CalibrationSnapshot"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Latest Calibration Api V1 Agents Quality Calibration Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Latest Calibration",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/calibration/recompute": {
+      "post": {
+        "operationId": "recompute_calibration_api_v1_agents_quality_calibration_recompute_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalibrationRecomputeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Recompute Calibration",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/evals/offline/run": {
+      "post": {
+        "operationId": "run_offline_eval_api_v1_agents_quality_evals_offline_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfflineEvalRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflineEvalRunResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Run Offline Eval",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/recommendations": {
+      "get": {
+        "operationId": "list_recommendations_api_v1_agents_quality_recommendations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deployment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deployment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QualityRecommendationRecord"
+                  },
+                  "title": "Response List Recommendations Api V1 Agents Quality Recommendations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Recommendations",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/recommendations/generate": {
+      "post": {
+        "operationId": "generate_recommendations_api_v1_agents_quality_recommendations_generate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QualityRecommendationRecord"
+                  },
+                  "title": "Response Generate Recommendations Api V1 Agents Quality Recommendations Generate Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Generate Recommendations",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/regression-gates": {
+      "get": {
+        "operationId": "list_regression_gates_api_v1_agents_quality_regression_gates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deployment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deployment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_enabled",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Enabled",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegressionGateRecord"
+                  },
+                  "title": "Response List Regression Gates Api V1 Agents Quality Regression Gates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Regression Gates",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      },
+      "post": {
+        "operationId": "create_regression_gate_api_v1_agents_quality_regression_gates_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegressionGateCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegressionGateRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Create Regression Gate",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/regression-gates/evaluate": {
+      "post": {
+        "operationId": "evaluate_regression_gates_api_v1_agents_quality_regression_gates_evaluate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegressionGateEvaluateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegressionGateEvaluationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Evaluate Regression Gates",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/runs/scores": {
+      "get": {
+        "operationId": "list_run_scores_api_v1_agents_quality_runs_scores_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deployment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deployment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunQualityScoreRecord"
+                  },
+                  "title": "Response List Run Scores Api V1 Agents Quality Runs Scores Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Run Scores",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/runs/{run_id}/score": {
+      "post": {
+        "operationId": "score_run_api_v1_agents_quality_runs__run_id__score_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunQualityScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunQualityScoreRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Score Run",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/quality/trends": {
+      "get": {
+        "operationId": "get_quality_trends_api_v1_agents_quality_trends_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deployment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deployment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityTrendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Quality Trends",
         "tags": [
           "Agents",
           "Agents"
@@ -29942,6 +35718,380 @@
           }
         ],
         "summary": "Resume Run",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/starter-packs": {
+      "get": {
+        "operationId": "list_starter_packs_api_v1_agents_starter_packs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StarterPackTemplateModel"
+                  },
+                  "title": "Response List Starter Packs Api V1 Agents Starter Packs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Starter Packs",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/starter-packs/seed-demo": {
+      "post": {
+        "operationId": "seed_starter_pack_demo_api_v1_agents_starter_packs_seed_demo_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarterPackSeedDemoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterPackSeedDemoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Seed Starter Pack Demo",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/starter-packs/{template_key}/evals/run": {
+      "post": {
+        "operationId": "run_starter_pack_eval_api_v1_agents_starter_packs__template_key__evals_run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_key",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sales_sdr",
+                "sales_revops",
+                "sales_renewal_risk",
+                "hr_recruiting",
+                "hr_onboarding",
+                "hr_policy_drift",
+                "legal_advice_timeline",
+                "legal_contradiction",
+                "accounting_filing_missing_docs"
+              ],
+              "title": "Template Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarterPackEvalRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterPackEvalRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Run Starter Pack Eval",
+        "tags": [
+          "Agents",
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agents/starter-packs/{template_key}/install": {
+      "post": {
+        "operationId": "install_starter_pack_api_v1_agents_starter_packs__template_key__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_key",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sales_sdr",
+                "sales_revops",
+                "sales_renewal_risk",
+                "hr_recruiting",
+                "hr_onboarding",
+                "hr_policy_drift",
+                "legal_advice_timeline",
+                "legal_contradiction",
+                "accounting_filing_missing_docs"
+              ],
+              "title": "Template Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarterPackInstallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterPackInstallResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Install Starter Pack",
         "tags": [
           "Agents",
           "Agents"
@@ -39049,6 +45199,105 @@
         ]
       }
     },
+    "/api/v1/continuums/{continuum_id}/history": {
+      "get": {
+        "operationId": "list_continuum_history_api_v1_continuums__continuum_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "continuum_id",
+            "required": true,
+            "schema": {
+              "title": "Continuum Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Continuum History",
+        "tags": [
+          "Continuums",
+          "Continuums"
+        ]
+      }
+    },
     "/api/v1/continuums/{continuum_id}/override": {
       "post": {
         "operationId": "override_continuum_endpoint_api_v1_continuums__continuum_id__override_post",
@@ -41926,7 +48175,7 @@
     },
     "/api/v1/evidence/artifacts/ingest": {
       "post": {
-        "description": "Upload an evidence artifact and create a linked Unified Event.\n\nThis is the end\u2011to\u2011end ingestion path for audio, slides, and images.",
+        "description": "Upload an evidence artifact and create a linked Unified Event.\n\nThis is the end‑to‑end ingestion path for audio, slides, and images.",
         "operationId": "ingest_evidence_artifact_api_v1_evidence_artifacts_ingest_post",
         "parameters": [
           {
@@ -52416,7 +58665,7 @@
     },
     "/api/v1/uios/{uio_id}/status": {
       "patch": {
-        "description": "Change UIO status.\n\nValid transitions:\n- draft \u2192 active, cancelled\n- active \u2192 in_progress, completed, cancelled\n- in_progress \u2192 completed, cancelled, active\n- completed \u2192 archived\n- cancelled \u2192 archived\n\nRequires `write` scope.",
+        "description": "Change UIO status.\n\nValid transitions:\n- draft → active, cancelled\n- active → in_progress, completed, cancelled\n- in_progress → completed, cancelled, active\n- completed → archived\n- cancelled → archived\n\nRequires `write` scope.",
         "operationId": "update_status_api_v1_uios__uio_id__status_patch",
         "parameters": [
           {

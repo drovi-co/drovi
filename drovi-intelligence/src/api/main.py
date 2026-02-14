@@ -152,14 +152,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         logger.info("Connector scheduler disabled in API process")
 
-    # Initialize Continuum scheduler
+    # Legacy continuum runtime has been replaced by AgentOS.
     if settings.environment == "test":
         logger.info("Skipping Continuum scheduler in test environment")
-    elif settings.continuum_scheduler_run_in_api:
+    elif settings.continuum_runtime_enabled and settings.continuum_scheduler_run_in_api:
         await init_continuum_scheduler()
-        logger.info("Continuum scheduler initialized")
+        logger.info("Legacy Continuum scheduler initialized")
     else:
-        logger.info("Continuum scheduler disabled in API process")
+        logger.info("Legacy Continuum scheduler disabled (AgentOS runtime active)")
 
     # Initialize Kafka streaming (if enabled)
     if settings.environment == "test":
@@ -178,7 +178,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await shutdown_streaming()
     if get_settings().scheduler_run_in_api and get_settings().environment != "test":
         await shutdown_scheduler()
-    if get_settings().continuum_scheduler_run_in_api and get_settings().environment != "test":
+    if (
+        get_settings().continuum_runtime_enabled
+        and get_settings().continuum_scheduler_run_in_api
+        and get_settings().environment != "test"
+    ):
         await shutdown_continuum_scheduler()
     await close_temporal_client()
     await close_graph_client()
