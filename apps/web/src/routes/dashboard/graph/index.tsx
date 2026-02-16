@@ -5,6 +5,23 @@
 // Interactive visualization of the memory graph.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import { Input } from "@memorystack/ui-core/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@memorystack/ui-core/select";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -16,28 +33,10 @@ import {
   Search,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { authClient } from "@/lib/auth-client";
-import { graphAPI } from "@/lib/api";
 import { useT } from "@/i18n";
+import { graphAPI } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import type {
   GraphEdge,
   GraphEdgeType,
@@ -103,9 +102,9 @@ function mapEdgeType(raw: string): GraphEdgeType {
     "supersedes",
     "related_to",
   ];
-  return (allowed.includes(normalized as GraphEdgeType)
-    ? normalized
-    : "related_to") as GraphEdgeType;
+  return (
+    allowed.includes(normalized as GraphEdgeType) ? normalized : "related_to"
+  ) as GraphEdgeType;
 }
 
 function GraphPage() {
@@ -171,7 +170,7 @@ function GraphPage() {
     const edges: GraphEdge[] = [];
 
     const rawNodes = nodesQuery.data?.results ?? [];
-    rawNodes.forEach((row) => {
+    for (const row of rawNodes) {
       const rawNode = (row.node as Record<string, unknown>) ?? row;
       const label = getValue(
         rawNode,
@@ -179,7 +178,8 @@ function GraphPage() {
         t("pages.dashboard.graph.untitled")
       );
       const nodeId = getValue(rawNode, ["id"], "");
-      const nodeLabel = (row.node_label as string) ?? getValue(rawNode, ["label"], "");
+      const nodeLabel =
+        (row.node_label as string) ?? getValue(rawNode, ["label"], "");
       const finalType = mapNodeType(nodeLabel);
 
       const base = {
@@ -194,11 +194,27 @@ function GraphPage() {
               ...base,
               nodeType: "contact",
               email: getValue(rawNode, ["email", "primaryEmail"], ""),
-              company: getValue(rawNode, ["company", "organization"], undefined),
+              company: getValue(
+                rawNode,
+                ["company", "organization"],
+                undefined
+              ),
               title: getValue(rawNode, ["title"], undefined),
-              avatarUrl: getValue(rawNode, ["avatarUrl", "avatar_url"], undefined),
-              healthScore: getValue(rawNode, ["healthScore", "health_score"], undefined),
-              importanceScore: getValue(rawNode, ["importanceScore", "importance_score"], undefined),
+              avatarUrl: getValue(
+                rawNode,
+                ["avatarUrl", "avatar_url"],
+                undefined
+              ),
+              healthScore: getValue(
+                rawNode,
+                ["healthScore", "health_score"],
+                undefined
+              ),
+              importanceScore: getValue(
+                rawNode,
+                ["importanceScore", "importance_score"],
+                undefined
+              ),
               isVip: getValue(rawNode, ["isVip", "is_vip"], false),
               isAtRisk: getValue(rawNode, ["isAtRisk", "is_at_risk"], false),
             }
@@ -211,7 +227,11 @@ function GraphPage() {
                 direction: getValue(rawNode, ["direction"], "owed_by_me"),
                 dueDate: getValue(rawNode, ["dueDate", "due_date"], undefined),
                 confidence: getValue(rawNode, ["confidence"], 0.6),
-                isOverdue: getValue(rawNode, ["isOverdue", "is_overdue"], false),
+                isOverdue: getValue(
+                  rawNode,
+                  ["isOverdue", "is_overdue"],
+                  false
+                ),
               }
             : finalType === "decision"
               ? {
@@ -221,15 +241,27 @@ function GraphPage() {
                   decidedAt: getValue(rawNode, ["decidedAt", "decided_at"], ""),
                   confidence: getValue(rawNode, ["confidence"], 0.6),
                   rationale: getValue(rawNode, ["rationale"], undefined),
-                  isSuperseded: getValue(rawNode, ["isSuperseded", "is_superseded"], false),
+                  isSuperseded: getValue(
+                    rawNode,
+                    ["isSuperseded", "is_superseded"],
+                    false
+                  ),
                 }
               : {
                   ...base,
                   nodeType: "task",
                   status: getValue(rawNode, ["status"], "open"),
                   priority: getValue(rawNode, ["priority"], "medium"),
-                  dueDate: getValue(rawNode, ["dueDate", "due_date"], undefined),
-                  sourceType: getValue(rawNode, ["sourceType", "source_type"], undefined),
+                  dueDate: getValue(
+                    rawNode,
+                    ["dueDate", "due_date"],
+                    undefined
+                  ),
+                  sourceType: getValue(
+                    rawNode,
+                    ["sourceType", "source_type"],
+                    undefined
+                  ),
                 };
 
       nodes.push({
@@ -238,14 +270,14 @@ function GraphPage() {
         position: { x: 0, y: 0 },
         data,
       });
-    });
+    }
 
     const rawEdges = edgesQuery.data?.results ?? [];
-    rawEdges.forEach((row, index) => {
+    for (const [index, row] of rawEdges.entries()) {
       const source = row.source as string;
       const target = row.target as string;
       const relType = row.rel_type as string;
-      if (!source || !target) return;
+      if (!(source && target)) continue;
 
       edges.push({
         id: `${source}-${target}-${index}`,
@@ -258,7 +290,7 @@ function GraphPage() {
           label: relType,
         },
       });
-    });
+    }
 
     return { nodes, edges };
   }, [edgesQuery.data, nodesQuery.data, t]);
@@ -291,9 +323,14 @@ function GraphPage() {
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Network className="h-5 w-5 text-primary" />
-          <h1 className="font-semibold text-lg">{t("pages.dashboard.graph.title")}</h1>
+          <h1 className="font-semibold text-lg">
+            {t("pages.dashboard.graph.title")}
+          </h1>
           <Badge className="text-xs" variant="secondary">
-            {t("pages.dashboard.graph.counts", { nodes: nodes.length, edges: edges.length })}
+            {t("pages.dashboard.graph.counts", {
+              nodes: nodes.length,
+              edges: edges.length,
+            })}
           </Badge>
         </div>
 
@@ -317,11 +354,21 @@ function GraphPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("pages.dashboard.graph.filters.all")}</SelectItem>
-              <SelectItem value="contacts">{t("pages.dashboard.graph.filters.contacts")}</SelectItem>
-              <SelectItem value="commitments">{t("pages.dashboard.graph.filters.commitments")}</SelectItem>
-              <SelectItem value="decisions">{t("pages.dashboard.graph.filters.decisions")}</SelectItem>
-              <SelectItem value="tasks">{t("pages.dashboard.graph.filters.tasks")}</SelectItem>
+              <SelectItem value="all">
+                {t("pages.dashboard.graph.filters.all")}
+              </SelectItem>
+              <SelectItem value="contacts">
+                {t("pages.dashboard.graph.filters.contacts")}
+              </SelectItem>
+              <SelectItem value="commitments">
+                {t("pages.dashboard.graph.filters.commitments")}
+              </SelectItem>
+              <SelectItem value="decisions">
+                {t("pages.dashboard.graph.filters.decisions")}
+              </SelectItem>
+              <SelectItem value="tasks">
+                {t("pages.dashboard.graph.filters.tasks")}
+              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -332,14 +379,20 @@ function GraphPage() {
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t("pages.dashboard.graph.actions.refresh")}</TooltipContent>
+              <TooltipContent>
+                {t("pages.dashboard.graph.actions.refresh")}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={toggleFullscreen} size="icon" variant="outline">
+                <Button
+                  onClick={toggleFullscreen}
+                  size="icon"
+                  variant="outline"
+                >
                   {isFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
                   ) : (
@@ -377,7 +430,10 @@ function GraphPage() {
           )}
         </div>
         {selectedNode && (
-          <GraphSidebar node={selectedNode} onClose={() => setSelectedNode(null)} />
+          <GraphSidebar
+            node={selectedNode}
+            onClose={() => setSelectedNode(null)}
+          />
         )}
       </div>
     </div>

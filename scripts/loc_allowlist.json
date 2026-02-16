@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "exemptions": [
+    {
+      "path": "apps/web/src/components/console/detail-panel.tsx",
+      "max_lines": 1300,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while console detail panel is split into composable sections",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/components/evidence/evidence-detail-sheet.tsx",
+      "max_lines": 1000,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while evidence sheet is extracted into dedicated modules",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/components/intent-bar/intent-bar.tsx",
+      "max_lines": 1600,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while intent bar capabilities are split into providers and views",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/hooks/use-uio.ts",
+      "max_lines": 1000,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while UIO hook logic is moved into focused query hooks",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/modules/agents/pages/agents-runs-page.tsx",
+      "max_lines": 1000,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while runs page is split by panel",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/modules/drive/pages/drive-page.tsx",
+      "max_lines": 1400,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while drive page is split into file, preview and query modules",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/modules/sources/pages/sources-page.tsx",
+      "max_lines": 1800,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while connectors UI is split by source category",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/commitments/$commitmentId.tsx",
+      "max_lines": 1300,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while commitment detail route is modularized",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/commitments/index.tsx",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while commitments index route is split by widgets",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/decisions/$decisionId.tsx",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while decision detail route is modularized",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/decisions/index.tsx",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while decisions index route is split by sections",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/tasks/$taskId.tsx",
+      "max_lines": 1500,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while task detail route is split into focused components",
+      "allow_touched": true
+    },
+    {
+      "path": "apps/web/src/routes/dashboard/tasks/index.tsx",
+      "max_lines": 1700,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while tasks index route is modularized",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/admin.py",
+      "max_lines": 1300,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while admin endpoints are split by bounded context",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/agents_runs_quality.py",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while agents runtime and quality routes are separated",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/ask.py",
+      "max_lines": 1200,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while ask route orchestration is split into service modules",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/console.py",
+      "max_lines": 1800,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while console route is decomposed by operation type",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/documents.py",
+      "max_lines": 1400,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while documents route is split into upload/query handlers",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/evidence.py",
+      "max_lines": 1200,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while evidence route is split by access mode",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/support.py",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while support route is split into ticket/admin handlers",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/contexts/uio_truth/infrastructure/derived_indexer_uio.py",
+      "max_lines": 1200,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while derived indexer logic is broken down by index class",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/contexts/workflows/infrastructure/agent_run_activities.py",
+      "max_lines": 1300,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while Temporal activities are split by capability",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/graphrag/query.py",
+      "max_lines": 1900,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while GraphRAG query logic is modularized",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/ingestion/live_sessions.py",
+      "max_lines": 1000,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while live session ingestion is split by transport",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/monitoring/metrics.py",
+      "max_lines": 1300,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while metrics registry is split by domain",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/orchestrator/nodes/persist_raw.py",
+      "max_lines": 1200,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while persist_raw flow is split by pipeline stage",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/streaming/kafka_consumer.py",
+      "max_lines": 1200,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while Kafka consumer paths are extracted",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/uios.py",
+      "max_lines": 3000,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 7/Phase 2 adapters",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/api/routes/org.py",
+      "max_lines": 2500,
+      "expires": "2026-05-01",
+      "reason": "Legacy god-file; split in Phase 7 once auth/contracts stabilize",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/src/uio/manager.py",
+      "max_lines": 2800,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while UIO manager is split into modular services",
+      "allow_touched": true
+    },
+    {
+      "path": "drovi-intelligence/tests/api/test_agents_api.py",
+      "max_lines": 1800,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while API tests are split by feature area",
+      "allow_touched": true
+    },
+    {
+      "path": "packages/ai/src/detectors/fraud.ts",
+      "max_lines": 1100,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while fraud detector is split by strategy",
+      "allow_touched": true
+    },
+    {
+      "path": "packages/api-client/src/web/agents-api.ts",
+      "max_lines": 1400,
+      "expires": "2026-08-31",
+      "reason": "Temporary exemption while web agents client is split by API domain",
+      "allow_touched": true
+    }
+  ]
+}

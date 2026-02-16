@@ -8,9 +8,10 @@ This is the command plane (sync/backfill/reports/maintenance).
 from __future__ import annotations
 
 import asyncio
+import json
 import hashlib
 import signal
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 import structlog
@@ -28,6 +29,21 @@ from src.jobs.queue import (
 )
 
 logger = structlog.get_logger()
+
+
+def _to_json_compatible(value):
+    """Convert nested Python values to JSON-compatible primitives."""
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(k): _to_json_compatible(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_to_json_compatible(item) for item in value]
+    return str(value)
 
 def _parse_iso_datetime(value: str) -> datetime:
     """
@@ -139,8 +155,10 @@ class JobsWorker:
         lease_task = asyncio.create_task(self._lease_heartbeat(job.id))
         try:
             result = await self._dispatch(job)
+            safe_result = _to_json_compatible(result or {})
+            json.dumps(safe_result)  # Guardrail: fail fast if not JSON serializable.
             try:
-                await mark_job_succeeded(job_id=job.id, result=result or {})
+                await mark_job_succeeded(job_id=job.id, result=safe_result)
             except Exception as exc:
                 # Do not crash the worker if we fail to update status. The reaper will
                 # eventually make the job runnable again once the lease expires.
@@ -194,6 +212,9 @@ class JobsWorker:
             return await self._run_connector_sync(job)
         if job.job_type == "connector.backfill_plan":
             return await self._run_connector_backfill_plan(job)
+        if job.job_type == "system.noop":
+            # Internal diagnostic job used for integration smoke tests and ops verification.
+            return {"ok": True}
         if job.job_type == "webhook.outbox.flush":
             return await self._run_webhook_outbox_flush(job)
         if job.job_type == "candidates.process":
@@ -208,8 +229,70 @@ class JobsWorker:
             return await self._run_evidence_retention(job)
         if job.job_type == "documents.process":
             return await self._run_documents_process(job)
+        if job.job_type == "indexes.outbox.drain":
+            return await self._run_outbox_drain(job)
 
         raise ValueError(f"Unknown job_type: {job.job_type}")
+
+    async def _run_outbox_drain(self, job: ClaimedJob) -> dict:
+        """
+        Drain and process a batch of outbox events.
+
+        This is the bridge between canonical truth writes and derived indexes.
+        """
+        from src.graph.client import get_graph_client
+        from src.jobs.outbox import (
+            claim_outbox_events,
+            mark_outbox_failed,
+            mark_outbox_succeeded,
+        )
+        from src.db.rls import rls_context
+        from src.contexts.uio_truth.infrastructure.derived_indexer import process_outbox_event
+
+        payload = job.payload or {}
+        limit = int(payload.get("limit") or 200)
+        limit = max(1, min(limit, 2000))
+
+        lease_seconds = int(payload.get("lease_seconds") or self.settings.job_worker_lease_seconds)
+        lease_seconds = max(30, int(lease_seconds))
+
+        events = await claim_outbox_events(
+            worker_id=self.worker_id,
+            lease_seconds=lease_seconds,
+            limit=limit,
+        )
+
+        if not events:
+            return {"processed": 0, "succeeded": 0, "failed": 0}
+
+        graph = await get_graph_client()
+
+        processed = 0
+        succeeded = 0
+        failed = 0
+
+        for event in events:
+            processed += 1
+            try:
+                with rls_context(event.organization_id, is_internal=True):
+                    await process_outbox_event(
+                        graph=graph,
+                        event_type=event.event_type,
+                        payload=event.payload,
+                    )
+
+                await mark_outbox_succeeded(event_id=event.id, worker_id=self.worker_id)
+                succeeded += 1
+            except Exception as exc:
+                await mark_outbox_failed(
+                    event_id=event.id,
+                    error=str(exc),
+                    attempts=event.attempts,
+                    max_attempts=event.max_attempts,
+                )
+                failed += 1
+
+        return {"processed": processed, "succeeded": succeeded, "failed": failed}
 
     async def _lease_heartbeat(self, job_id: str) -> None:
         interval = max(5.0, self.settings.job_worker_lease_seconds / 3)

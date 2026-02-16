@@ -17,7 +17,9 @@ export function setStoredOnboardingState(state: OnboardingState) {
   window.localStorage.setItem("drovi:onboarding", state);
 }
 
-export function inferOnboardingComplete(orgInfo: OrgInfo | null | undefined): boolean {
+export function inferOnboardingComplete(
+  orgInfo: OrgInfo | null | undefined
+): boolean {
   if (!orgInfo) {
     return false;
   }

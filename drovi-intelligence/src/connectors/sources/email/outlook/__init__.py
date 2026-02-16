@@ -1,9 +1,4 @@
-"""
-Microsoft Outlook Connector
+"""Outlook connector source package (import-free)."""
 
-Extracts emails from Outlook via Microsoft Graph API.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.email.outlook.connector import OutlookConnector
-
-__all__ = ["OutlookConnector"]

@@ -6,6 +6,20 @@
 // Shows relationship summary, timeline, commitments, decisions, and health.
 //
 
+import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@memorystack/ui-core/collapsible";
+import {
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@memorystack/ui-core/sheet";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -23,20 +37,6 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   useCustomerContext,
   useCustomerTimeline,
@@ -149,11 +149,12 @@ interface TimelineEventProps {
 }
 
 function TimelineEvent({ event }: TimelineEventProps) {
-  const Icon = SOURCE_ICONS[event.sourceType ?? "default"] ?? SOURCE_ICONS.default;
+  const Icon =
+    SOURCE_ICONS[event.sourceType ?? "default"] ?? SOURCE_ICONS.default;
   const timeAgo = event.timestamp
     ? formatDistanceToNow(new Date(event.timestamp), {
-      addSuffix: true,
-    })
+        addSuffix: true,
+      })
     : "—";
 
   return (
@@ -252,9 +253,7 @@ export function CustomerContextPanel({
           </Avatar>
           <div>
             <h3 className="font-semibold text-lg">{contactName}</h3>
-            <p className="text-muted-foreground text-sm">
-              {contactEmail}
-            </p>
+            <p className="text-muted-foreground text-sm">{contactEmail}</p>
             {/* Source presence */}
             <div className="mt-1 flex gap-1">
               {sourcePresence.map((source) => {
@@ -341,13 +340,11 @@ export function CustomerContextPanel({
         <Collapsible onOpenChange={setShowCommitments} open={showCommitments}>
           <CollapsibleTrigger asChild>
             <Button className="w-full justify-between" variant="ghost">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-blue-500" />
-                  <span>Open Commitments</span>
-                  <Badge variant="secondary">
-                  {openCommitments.length}
-                  </Badge>
-                </div>
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-500" />
+                <span>Open Commitments</span>
+                <Badge variant="secondary">{openCommitments.length}</Badge>
+              </div>
               {showCommitments ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
@@ -400,9 +397,7 @@ export function CustomerContextPanel({
               <div className="flex items-center gap-2">
                 <GitBranch className="h-4 w-4 text-purple-500" />
                 <span>Related Decisions</span>
-                <Badge variant="secondary">
-                  {relatedDecisions.length}
-                </Badge>
+                <Badge variant="secondary">{relatedDecisions.length}</Badge>
               </div>
               {showDecisions ? (
                 <ChevronDown className="h-4 w-4" />
@@ -484,7 +479,9 @@ export function CustomerContextPanel({
                     <User className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm">{contact.name ?? contact.email ?? "Contact"}</p>
+                    <p className="text-sm">
+                      {contact.name ?? contact.email ?? "Contact"}
+                    </p>
                     <p className="text-muted-foreground text-xs">
                       {contact.company ?? contact.title ?? "Related contact"}
                     </p>

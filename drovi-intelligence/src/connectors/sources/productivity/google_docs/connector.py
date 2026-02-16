@@ -22,7 +22,8 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.productivity.google_docs.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -63,6 +64,10 @@ class GoogleDocsConnector(BaseConnector):
     Supports incremental sync based on modifiedTime.
     """
 
+    connector_type = "google_docs"
+    capabilities = CAPABILITIES
+    SCOPES = list(OAUTH_SCOPES)
+
     # MIME types for Google Workspace files
     GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
     GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet"
@@ -91,14 +96,15 @@ class GoogleDocsConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GOOGLE_DRIVE_BASE_URL}/about",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GOOGLE_DRIVE_BASE_URL}/about",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"fields": "user"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -121,13 +127,7 @@ class GoogleDocsConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Google Drive streams."""
-        return [
-            StreamConfig(
-                stream_name="documents",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="modifiedTime",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -202,14 +202,15 @@ class GoogleDocsConnector(BaseConnector):
                 if page_token:
                     params["pageToken"] = page_token
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GOOGLE_DRIVE_BASE_URL}/files",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GOOGLE_DRIVE_BASE_URL}/files",
+                    operation="list_files",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -257,14 +258,15 @@ class GoogleDocsConnector(BaseConnector):
         if mime_type in self.EXPORT_FORMATS:
             export_mime = self.EXPORT_FORMATS[mime_type]
             try:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GOOGLE_DRIVE_BASE_URL}/files/{file_id}/export",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GOOGLE_DRIVE_BASE_URL}/files/{file_id}/export",
+                    operation="export_file",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params={"mimeType": export_mime},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 if response.status_code == 200:
                     content = response.text
@@ -312,13 +314,14 @@ class GoogleDocsConnector(BaseConnector):
     ) -> str | None:
         """Fetch Google Docs content via Docs API."""
         try:
-            response = await request_with_retry(
-                client,
-                "GET",
-                f"{GOOGLE_DOCS_BASE_URL}/documents/{doc_id}",
+            response = await connector_request(
+                connector=self,
+                config=config,
+                client=client,
+                method="GET",
+                url=f"{GOOGLE_DOCS_BASE_URL}/documents/{doc_id}",
+                operation="fetch_doc",
                 headers={"Authorization": f"Bearer {self._access_token}"},
-                rate_limit_key=self.get_rate_limit_key(config),
-                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
 
             if response.status_code != 200:

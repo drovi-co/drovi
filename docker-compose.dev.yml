@@ -107,6 +107,25 @@ services:
     volumes:
       - minio_dev_data:/data
 
+  # ---------------------------------------------------------------------------
+  # NATS (Imperium internal event bus)
+  # ---------------------------------------------------------------------------
+  nats:
+    image: nats:2.10-alpine
+    container_name: imperium-dev-nats
+    restart: unless-stopped
+    command:
+      - "-js"
+      - "-m"
+      - "8222"
+      - "--store_dir"
+      - "/data"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_dev_data:/data
+
 # =============================================================================
 # Volumes
 # =============================================================================
@@ -116,4 +135,6 @@ volumes:
   falkordb_dev_data:
     driver: local
   minio_dev_data:
+    driver: local
+  nats_dev_data:
     driver: local

@@ -1,11 +1,4 @@
-"""
-Database Connectors
+"""Database connector sources (import-free)."""
 
-Connectors for extracting data from various database systems.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.databases.postgres import PostgresConnector
-from src.connectors.sources.databases.mysql import MySQLConnector
-from src.connectors.sources.databases.mongodb import MongoDBConnector
-
-__all__ = ["PostgresConnector", "MySQLConnector", "MongoDBConnector"]

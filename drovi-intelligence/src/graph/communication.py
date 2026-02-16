@@ -12,20 +12,16 @@ This is part of Phase 2 (Wider Graph) of the FalkorDB enhancement plan.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 import structlog
 
 from .client import get_graph_client
 from .types import CommunicationEventNode, SourceType
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class CommunicationTracker:
@@ -85,7 +81,7 @@ class CommunicationTracker:
         """
         graph = await self._get_graph()
         event_id = str(uuid4())
-        now = utc_now()
+        now = utc_now_naive()
         occurred_at = occurred_at or now
 
         # Create CommunicationEvent node

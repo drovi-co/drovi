@@ -411,7 +411,7 @@ export class FraudDetector {
     const n = str2.length;
 
     const dp: number[][] = Array.from({ length: m + 1 }, () =>
-      new Array(n + 1).fill(0)
+      new Array<number>(n + 1).fill(0)
     );
 
     for (let i = 0; i <= m; i++) {
@@ -422,17 +422,18 @@ export class FraudDetector {
     }
 
     for (let i = 1; i <= m; i++) {
+      const row = dp[i]!;
+      const prevRow = dp[i - 1]!;
       for (let j = 1; j <= n; j++) {
         if (str1[i - 1] === str2[j - 1]) {
-          dp[i]![j] = dp[i - 1]?.[j - 1]!;
+          row[j] = prevRow[j - 1]!;
         } else {
-          dp[i]![j] =
-            Math.min(dp[i - 1]?.[j]!, dp[i]?.[j - 1]!, dp[i - 1]?.[j - 1]!) + 1;
+          row[j] = Math.min(prevRow[j]!, row[j - 1]!, prevRow[j - 1]!) + 1;
         }
       }
     }
 
-    return dp[m]?.[n]!;
+    return dp[m]![n]!;
   }
 
   private detectExecutiveImpersonation(

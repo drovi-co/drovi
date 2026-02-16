@@ -7,6 +7,19 @@
 // relationship intelligence surface.
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
 import { format, isToday, isYesterday } from "date-fns";
 import {
   Calendar,
@@ -22,16 +35,6 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   getSourceColor,
   getSourceConfig,

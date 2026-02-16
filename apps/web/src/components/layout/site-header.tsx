@@ -1,4 +1,3 @@
-import { ModeToggle } from "@/components/mode-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -6,9 +5,10 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+} from "@memorystack/ui-core/breadcrumb";
+import { Separator } from "@memorystack/ui-core/separator";
+import { SidebarTrigger } from "@memorystack/ui-core/sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface BreadcrumbItemData {
   label: string;

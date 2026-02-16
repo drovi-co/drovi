@@ -6,10 +6,20 @@
 //
 
 export {
-  ConsoleSearchBar,
-  type ConsoleSearchBarProps,
-  type ConsoleSearchBarRef,
-} from "./search-bar";
+  ConsolePieChart,
+  GroupedBarChart,
+  type GroupedData,
+  type PieChartProps,
+  TimeHistogram,
+  type TimeHistogramDataPoint,
+  type TimeHistogramProps,
+  TimeseriesChart,
+  type TimeseriesChartProps,
+  type TimeseriesDataPoint,
+  TopListChart,
+  type TopListChartProps,
+  type TopListItem,
+} from "./charts";
 
 export {
   ConsoleDataTable,
@@ -20,19 +30,8 @@ export {
   ConsoleDetailPanel,
   type ConsoleDetailPanelProps,
 } from "./detail-panel";
-
 export {
-  ConsolePieChart,
-  GroupedBarChart,
-  TimeHistogram,
-  TimeseriesChart,
-  TopListChart,
-  type GroupedData,
-  type PieChartProps,
-  type TimeHistogramDataPoint,
-  type TimeHistogramProps,
-  type TimeseriesChartProps,
-  type TimeseriesDataPoint,
-  type TopListChartProps,
-  type TopListItem,
-} from "./charts";
+  ConsoleSearchBar,
+  type ConsoleSearchBarProps,
+  type ConsoleSearchBarRef,
+} from "./search-bar";

@@ -2,17 +2,21 @@
 // CONTACT NODE COMPONENT
 // =============================================================================
 
-import type { NodeProps } from "@xyflow/react";
-import { Handle, Position } from "@xyflow/react";
-import { AlertTriangle, Building2, Star } from "lucide-react";
-import { memo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@memorystack/ui-core/tooltip";
+import type { NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
+import { AlertTriangle, Building2, Star } from "lucide-react";
+import { memo } from "react";
 import { useT } from "@/i18n";
 import type { ContactNodeData } from "../../-types";
 
@@ -121,7 +125,9 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
             )}
             {nodeData.importanceScore !== undefined && (
               <div className="mt-1 flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.contact.importance")}</span>
+                <span className="text-muted-foreground">
+                  {t("pages.dashboard.graph.nodes.contact.importance")}
+                </span>
                 <div className="h-1.5 w-16 rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-blue-500"

@@ -1,6 +1,3 @@
-import * as React from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-
 import {
   Card,
   CardAction,
@@ -8,21 +5,26 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import type { ChartConfig } from "@/components/ui/chart";
+} from "@memorystack/ui-core/card";
+import type { ChartConfig } from "@memorystack/ui-core/chart";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
+} from "@memorystack/ui-core/chart";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+} from "@memorystack/ui-core/select";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@memorystack/ui-core/toggle-group";
+import * as React from "react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 
 // Sample data for leads tracking
 const chartData = [

@@ -17,7 +17,8 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.messaging.teams.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -84,6 +85,10 @@ class TeamsConnector(BaseConnector):
     Supports incremental sync using delta queries.
     """
 
+    connector_type = "teams"
+    capabilities = CAPABILITIES
+    SCOPES = list(OAUTH_SCOPES)
+
     def __init__(self):
         """Initialize Teams connector."""
         self._access_token: str | None = None
@@ -99,14 +104,15 @@ class TeamsConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GRAPH_BASE_URL}/me/joinedTeams",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GRAPH_BASE_URL}/me/joinedTeams",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"$top": 1},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -125,31 +131,7 @@ class TeamsConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Teams streams."""
-        return [
-            StreamConfig(
-                stream_name="teams",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-            StreamConfig(
-                stream_name="channels",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-            StreamConfig(
-                stream_name="channel_messages",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastModifiedDateTime",
-            ),
-            StreamConfig(
-                stream_name="chats",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastUpdatedDateTime",
-            ),
-            StreamConfig(
-                stream_name="chat_messages",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastModifiedDateTime",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -189,13 +171,14 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="read_teams",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -237,13 +220,14 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="read_channels:list_teams",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -256,13 +240,14 @@ class TeamsConnector(BaseConnector):
                 channel_url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels"
 
                 while channel_url:
-                    response = await request_with_retry(
-                        client,
-                        "GET",
-                        channel_url,
+                    response = await connector_request(
+                        connector=self,
+                        config=config,
+                        client=client,
+                        method="GET",
+                        url=channel_url,
+                        operation="read_channels:list_channels",
                         headers={"Authorization": f"Bearer {self._access_token}"},
-                        rate_limit_key=self.get_rate_limit_key(config),
-                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -309,12 +294,12 @@ class TeamsConnector(BaseConnector):
             team_ids = [sync_params.get("team_id")]
         if not team_ids:
             # Get all joined teams
-            team_ids = await self._get_joined_team_ids()
+            team_ids = await self._get_joined_team_ids(config)
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             for team_id in team_ids:
                 # Get channels for this team
-                channel_ids = await self._get_channel_ids(client, team_id)
+                channel_ids = await self._get_channel_ids(config, client, team_id)
                 if sync_params.get("channel_id"):
                     channel_ids = [sync_params.get("channel_id")]
 
@@ -328,13 +313,14 @@ class TeamsConnector(BaseConnector):
                         url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels/{channel_id}/messages/delta"
 
                     while url:
-                        response = await request_with_retry(
-                            client,
-                            "GET",
-                            url,
+                        response = await connector_request(
+                            connector=self,
+                            config=config,
+                            client=client,
+                            method="GET",
+                            url=url,
+                            operation="read_channel_messages",
                             headers={"Authorization": f"Bearer {self._access_token}"},
-                            rate_limit_key=self.get_rate_limit_key(config),
-                            rate_limit_per_minute=self.get_rate_limit_per_minute(),
                         )
                         response.raise_for_status()
                         data = response.json()
@@ -378,13 +364,14 @@ class TeamsConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="read_chats",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -437,7 +424,7 @@ class TeamsConnector(BaseConnector):
         if sync_params.get("chat_id"):
             chat_ids = [sync_params.get("chat_id")]
         if not chat_ids:
-            chat_ids = await self._get_chat_ids()
+            chat_ids = await self._get_chat_ids(config)
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             for chat_id in chat_ids:
@@ -447,13 +434,14 @@ class TeamsConnector(BaseConnector):
                     url = f"{GRAPH_BASE_URL}/me/chats/{chat_id}/messages/delta"
 
                 while url:
-                    response = await request_with_retry(
-                        client,
-                        "GET",
-                        url,
+                    response = await connector_request(
+                        connector=self,
+                        config=config,
+                        client=client,
+                        method="GET",
+                        url=url,
+                        operation="read_chat_messages",
                         headers={"Authorization": f"Bearer {self._access_token}"},
-                        rate_limit_key=self.get_rate_limit_key(config),
-                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -485,20 +473,21 @@ class TeamsConnector(BaseConnector):
 
                     url = data.get("@odata.nextLink")
 
-    async def _get_joined_team_ids(self) -> list[str]:
+    async def _get_joined_team_ids(self, config: ConnectorConfig) -> list[str]:
         """Get IDs of all joined teams."""
         team_ids = []
         url = f"{GRAPH_BASE_URL}/me/joinedTeams"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="get_joined_team_ids",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.connector_type,
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -509,6 +498,7 @@ class TeamsConnector(BaseConnector):
 
     async def _get_channel_ids(
         self,
+        config: ConnectorConfig,
         client: httpx.AsyncClient,
         team_id: str,
     ) -> list[str]:
@@ -517,13 +507,14 @@ class TeamsConnector(BaseConnector):
         url = f"{GRAPH_BASE_URL}/teams/{team_id}/channels"
 
         while url:
-            response = await request_with_retry(
-                client,
-                "GET",
-                url,
+            response = await connector_request(
+                connector=self,
+                config=config,
+                client=client,
+                method="GET",
+                url=url,
+                operation="get_channel_ids",
                 headers={"Authorization": f"Bearer {self._access_token}"},
-                rate_limit_key=self.connector_type,
-                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()
@@ -532,20 +523,21 @@ class TeamsConnector(BaseConnector):
 
         return channel_ids
 
-    async def _get_chat_ids(self) -> list[str]:
+    async def _get_chat_ids(self, config: ConnectorConfig) -> list[str]:
         """Get IDs of all chats."""
         chat_ids = []
         url = f"{GRAPH_BASE_URL}/me/chats"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="get_chat_ids",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.connector_type,
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()

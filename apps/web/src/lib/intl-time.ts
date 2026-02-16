@@ -70,4 +70,3 @@ export function formatRelativeTime(
     return `${abs} ${unit}${abs === 1 ? "" : "s"} ${suffix}`;
   }
 }
-

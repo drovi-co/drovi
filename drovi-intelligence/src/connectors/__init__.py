@@ -1,53 +1,81 @@
-"""
-Universal Connector System
+"""Universal Connector System.
 
-Provides a modular, extensible framework for connecting to any data source.
-Enables the intelligence backend to operate as a standalone system.
+This package contains connector implementations and shared connector utilities.
+
+Important:
+- Keep imports in this module *lightweight*. Importing `src.connectors.<submodule>`
+  (e.g. `src.connectors.http`) will execute this `__init__` first, so eager imports
+  here can create circular-import failures across the codebase.
+- Connector implementations are available via lazy attribute access to preserve
+  backwards-compatible import paths without import-time side effects.
 """
+
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING
 
 from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, ConnectorRegistry
-from src.connectors.base.config import ConnectorConfig, StreamConfig, AuthConfig
-from src.connectors.base.state import ConnectorState, SyncCheckpoint
+from src.connectors.base.config import AuthConfig, ConnectorConfig, StreamConfig
 from src.connectors.base.records import Record, RecordBatch
+from src.connectors.base.state import ConnectorState, SyncCheckpoint
 
-# =============================================================================
-# PRIMARY CONNECTORS (User-facing data sources)
-# =============================================================================
+if TYPE_CHECKING:  # pragma: no cover
+    from src.connectors.sources.calendar.google_calendar import GoogleCalendarConnector as GoogleCalendarConnector
+    from src.connectors.sources.crm.hubspot import HubSpotConnector as HubSpotConnector
+    from src.connectors.sources.databases.mongodb import MongoDBConnector as MongoDBConnector
+    from src.connectors.sources.databases.mysql import MySQLConnector as MySQLConnector
+    from src.connectors.sources.databases.postgres import PostgresConnector as PostgresConnector
+    from src.connectors.sources.email.gmail.connector import GmailConnector as GmailConnector
+    from src.connectors.sources.email.outlook.connector import OutlookConnector as OutlookConnector
+    from src.connectors.sources.files.documents import DocumentConnector as DocumentConnector
+    from src.connectors.sources.messaging.slack.connector import SlackConnector as SlackConnector
+    from src.connectors.sources.messaging.teams.connector import TeamsConnector as TeamsConnector
+    from src.connectors.sources.messaging.whatsapp.connector import WhatsAppConnector as WhatsAppConnector
+    from src.connectors.sources.productivity.google_docs.connector import GoogleDocsConnector as GoogleDocsConnector
+    from src.connectors.sources.productivity.notion.connector import NotionConnector as NotionConnector
+    from src.connectors.sources.storage.bigquery import BigQueryConnector as BigQueryConnector
+    from src.connectors.sources.storage.s3 import S3Connector as S3Connector
 
-# Email
-from src.connectors.sources.email.gmail.connector import GmailConnector
-from src.connectors.sources.email.outlook.connector import OutlookConnector
 
-# Messaging
-from src.connectors.sources.messaging.slack.connector import SlackConnector
-from src.connectors.sources.messaging.teams.connector import TeamsConnector
-from src.connectors.sources.messaging.whatsapp.connector import WhatsAppConnector
+_LAZY_CONNECTORS: dict[str, str] = {
+    # Email
+    "GmailConnector": "src.connectors.sources.email.gmail.connector",
+    "OutlookConnector": "src.connectors.sources.email.outlook.connector",
+    # Messaging
+    "SlackConnector": "src.connectors.sources.messaging.slack.connector",
+    "TeamsConnector": "src.connectors.sources.messaging.teams.connector",
+    "WhatsAppConnector": "src.connectors.sources.messaging.whatsapp.connector",
+    # Calendar
+    "GoogleCalendarConnector": "src.connectors.sources.calendar.google_calendar",
+    # Productivity
+    "NotionConnector": "src.connectors.sources.productivity.notion.connector",
+    "GoogleDocsConnector": "src.connectors.sources.productivity.google_docs.connector",
+    # CRM
+    "HubSpotConnector": "src.connectors.sources.crm.hubspot",
+    # Storage
+    "S3Connector": "src.connectors.sources.storage.s3",
+    "BigQueryConnector": "src.connectors.sources.storage.bigquery",
+    # Databases
+    "PostgresConnector": "src.connectors.sources.databases.postgres",
+    "MySQLConnector": "src.connectors.sources.databases.mysql",
+    "MongoDBConnector": "src.connectors.sources.databases.mongodb",
+    # Files
+    "DocumentConnector": "src.connectors.sources.files.documents",
+}
 
-# Calendar
-from src.connectors.sources.calendar.google_calendar import GoogleCalendarConnector
 
-# Productivity
-from src.connectors.sources.productivity.notion.connector import NotionConnector
-from src.connectors.sources.productivity.google_docs.connector import GoogleDocsConnector
+def __getattr__(name: str):  # pragma: no cover
+    module_path = _LAZY_CONNECTORS.get(name)
+    if not module_path:
+        raise AttributeError(name)
+    module = import_module(module_path)
+    return getattr(module, name)
 
-# CRM
-from src.connectors.sources.crm.hubspot import HubSpotConnector
 
-# Storage
-from src.connectors.sources.storage.s3 import S3Connector
-from src.connectors.sources.storage.bigquery import BigQueryConnector
+def __dir__():  # pragma: no cover
+    return sorted(list(globals().keys()) + list(_LAZY_CONNECTORS.keys()))
 
-# Databases
-from src.connectors.sources.databases.postgres import PostgresConnector
-from src.connectors.sources.databases.mysql import MySQLConnector
-from src.connectors.sources.databases.mongodb import MongoDBConnector
-
-# Files
-from src.connectors.sources.files.documents import DocumentConnector
-
-# =============================================================================
-# EXPORTS
-# =============================================================================
 
 __all__ = [
     # Base classes
@@ -61,27 +89,7 @@ __all__ = [
     "SyncCheckpoint",
     "Record",
     "RecordBatch",
-    # Email connectors
-    "GmailConnector",
-    "OutlookConnector",
-    # Messaging connectors
-    "SlackConnector",
-    "TeamsConnector",
-    "WhatsAppConnector",
-    # Calendar connectors
-    "GoogleCalendarConnector",
-    # Productivity connectors
-    "NotionConnector",
-    "GoogleDocsConnector",
-    # CRM connectors
-    "HubSpotConnector",
-    # Storage connectors
-    "S3Connector",
-    "BigQueryConnector",
-    # Database connectors
-    "PostgresConnector",
-    "MySQLConnector",
-    "MongoDBConnector",
-    # Files connectors
-    "DocumentConnector",
+    # Lazy connector exports
+    *_LAZY_CONNECTORS.keys(),
 ]
+

@@ -29,6 +29,49 @@ from src.orchestrator.utils.extraction import (
 logger = structlog.get_logger()
 
 
+def _derive_tasks_from_commitments(state: IntelligenceState) -> list[ExtractedTask]:
+    """Heuristic fallback when task extraction returns nothing."""
+    derived: list[ExtractedTask] = []
+    for commitment in state.extracted.commitments:
+        quoted_text = (commitment.quoted_text or commitment.title or "").strip()
+        if not quoted_text:
+            continue
+
+        assignee_email = commitment.debtor_email if commitment.direction == "owed_by_me" else commitment.creditor_email
+        assignee_name = commitment.debtor_name if commitment.direction == "owed_by_me" else commitment.creditor_name
+        assignee_is_user = bool(commitment.debtor_is_user) if commitment.direction == "owed_by_me" else bool(
+            commitment.creditor_is_user
+        )
+
+        derived.append(
+            ExtractedTask(
+                title=commitment.title,
+                description=commitment.description or commitment.title,
+                status="todo",
+                priority=commitment.priority,
+                assignee_name=assignee_name,
+                assignee_email=assignee_email,
+                assignee_is_user=assignee_is_user,
+                created_by_name=state.input.user_name,
+                created_by_email=state.input.user_email,
+                due_date=commitment.due_date,
+                due_date_text=commitment.due_date_text,
+                due_date_confidence=commitment.due_date_confidence,
+                commitment_id=commitment.id,
+                quoted_text=quoted_text,
+                quoted_text_start=commitment.quoted_text_start,
+                quoted_text_end=commitment.quoted_text_end,
+                confidence=min(0.82, max(0.45, commitment.confidence * 0.85)),
+                reasoning="Heuristic fallback derived from commitment",
+                source_message_id=commitment.source_message_id,
+                model_tier="heuristic",
+                model_used="commitment_fallback",
+            )
+        )
+
+    return derived
+
+
 async def extract_tasks_node(state: IntelligenceState) -> dict:
     """
     Extract tasks from content.
@@ -185,6 +228,19 @@ async def extract_tasks_node(state: IntelligenceState) -> dict:
             key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
             merge_fn=_merge_tasks,
         )
+        if not tasks and state.extracted.commitments:
+            fallback_tasks = _derive_tasks_from_commitments(state)
+            if fallback_tasks:
+                tasks = merge_by_key(
+                    fallback_tasks,
+                    key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
+                    merge_fn=_merge_tasks,
+                )
+                logger.info(
+                    "Task fallback generated tasks from commitments",
+                    analysis_id=state.analysis_id,
+                    fallback_count=len(tasks),
+                )
 
         # Update subtask_ids for parent tasks
         for task in tasks:

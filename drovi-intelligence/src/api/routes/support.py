@@ -8,6 +8,7 @@ This is operational support tooling:
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 from datetime import datetime, timezone
@@ -140,6 +141,9 @@ class TicketListItem(BaseModel):
 
 class ListTicketsResponse(BaseModel):
     tickets: list[TicketListItem]
+    cursor: str | None = None
+    has_more: bool = False
+    total: int | None = None
 
 
 class TicketMessageItem(BaseModel):
@@ -303,6 +307,8 @@ async def list_tickets(
     q: str | None = Query(None, description="Search subject/email/org"),
     status: str | None = Query(None, description="open|pending|closed"),
     limit: int = Query(100, ge=1, le=500),
+    cursor: str | None = Query(default=None),
+    include_total: bool = Query(default=False),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
 ) -> ListTicketsResponse:
     """List tickets (admin app)."""
@@ -310,7 +316,7 @@ async def list_tickets(
         raise HTTPException(status_code=403, detail="Admin access required")
 
     where = ["1=1"]
-    params: dict[str, Any] = {"limit": int(limit)}
+    params: dict[str, Any] = {"limit": int(limit) + 1}
     if status:
         where.append("t.status = :status")
         params["status"] = status
@@ -319,6 +325,24 @@ async def list_tickets(
             "(t.subject ILIKE :q OR t.created_by_email ILIKE :q OR t.organization_id ILIKE :q)"
         )
         params["q"] = f"%{q}%"
+
+    count_where = list(where)
+
+    if cursor:
+        try:
+            payload = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+            cursor_updated_at = payload.get("updated_at")
+            cursor_id = payload.get("id")
+            if isinstance(cursor_updated_at, str) and isinstance(cursor_id, str):
+                cursor_dt = datetime.fromisoformat(cursor_updated_at)
+                where.append(
+                    "(t.updated_at < :cursor_updated_at OR (t.updated_at = :cursor_updated_at AND t.id < :cursor_id))"
+                )
+                params["cursor_updated_at"] = cursor_dt
+                params["cursor_id"] = cursor_id
+        except Exception:
+            # Invalid cursor -> ignore and return first page.
+            pass
 
     query = f"""
         SELECT
@@ -343,13 +367,30 @@ async def list_tickets(
           ) AS last_message_preview
         FROM support_ticket t
         WHERE {" AND ".join(where)}
-        ORDER BY t.updated_at DESC
+        ORDER BY t.updated_at DESC, t.id DESC
         LIMIT :limit
     """
 
     async with get_db_session() as session:
         result = await session.execute(text(query), params)
         rows = result.fetchall()
+
+        total: int | None = None
+        if include_total:
+            count_query = f"""
+                SELECT COUNT(*) AS count
+                FROM support_ticket t
+                WHERE {" AND ".join(count_where)}
+            """
+            # Rebuild params without pagination-only values.
+            count_params = {
+                key: value
+                for key, value in params.items()
+                if key not in {"limit", "cursor_updated_at", "cursor_id"}
+            }
+            count_result = await session.execute(text(count_query), count_params)
+            count_row = count_result.fetchone()
+            total = int(getattr(count_row, "count", 0) or 0)
 
     tickets = [
         TicketListItem(
@@ -367,9 +408,25 @@ async def list_tickets(
             message_count=int(r.message_count or 0),
             last_message_preview=str(r.last_message_preview) if r.last_message_preview is not None else None,
         )
-        for r in rows
+        for r in rows[: int(limit)]
     ]
-    return ListTicketsResponse(tickets=tickets)
+    has_more = len(rows) > int(limit)
+    next_cursor: str | None = None
+    if has_more and tickets:
+        last = tickets[-1]
+        payload = {
+            "v": 1,
+            "kind": "keyset",
+            "updated_at": last.updated_at.isoformat(),
+            "id": last.id,
+        }
+        next_cursor = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+    return ListTicketsResponse(
+        tickets=tickets,
+        cursor=next_cursor,
+        has_more=has_more,
+        total=total,
+    )
 
 
 @router.get("/tickets/{ticket_id}", response_model=TicketDetailResponse)

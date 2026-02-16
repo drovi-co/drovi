@@ -1,5 +1,5 @@
+import { Button } from "@memorystack/ui-core/button";
 import { ArrowLeft, KeyRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 
 interface ForgotPasswordFormProps {
@@ -24,7 +24,9 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
       <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
         {t("auth.passwordReset.forgot.helpPrefix")}{" "}
-        <span className="font-medium text-foreground">{t("auth.passwordReset.supportEmail")}</span>{" "}
+        <span className="font-medium text-foreground">
+          {t("auth.passwordReset.supportEmail")}
+        </span>{" "}
         {t("auth.passwordReset.forgot.helpSuffix")}
       </div>
 

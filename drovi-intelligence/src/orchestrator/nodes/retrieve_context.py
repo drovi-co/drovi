@@ -17,7 +17,8 @@ from src.memory import get_memory_service
 from src.orchestrator.state import IntelligenceState
 from src.orchestrator.context_cache import get_context_cache
 from src.search import get_hybrid_search
-from src.memory.service import utc_now, MemoryService
+from src.kernel.time import utc_now_naive
+from src.memory.service import MemoryService
 
 logger = structlog.get_logger()
 
@@ -303,7 +304,7 @@ async def retrieve_context_node(state: IntelligenceState) -> dict:
 
     temporal_results = await memory.search_uios_as_of(
         query=search_query,
-        as_of_date=utc_now(),
+        as_of_date=utc_now_naive(),
         uio_types=["commitment", "decision", "task", "risk", "claim"],
         limit=budget.temporal_limit,
     )
@@ -332,7 +333,7 @@ async def retrieve_context_node(state: IntelligenceState) -> dict:
         items[uio_id] = item
 
     combined = list(items.values())
-    now = utc_now()
+    now = utc_now_naive()
     combined = MemoryService.apply_temporal_decay(combined, half_life_days=budget.half_life_days)
     for item in combined:
         item["relevance_score"] = _score_item(item, topic_terms, participants)

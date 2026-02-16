@@ -1,9 +1,4 @@
-"""
-Microsoft Teams Connector
+"""Teams connector source package (import-free)."""
 
-Extracts messages and channels from Microsoft Teams via Graph API.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.messaging.teams.connector import TeamsConnector
-
-__all__ = ["TeamsConnector"]

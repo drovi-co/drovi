@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { SidebarShell } from "@memorystack/core-shell";
+import { Button } from "@memorystack/ui-core/button";
+import { SidebarTrigger } from "@memorystack/ui-core/sidebar";
 import { useLocation } from "@tanstack/react-router";
 import { MonitorUp } from "lucide-react";
-import { AdminSidebar } from "./admin-sidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { AdminSidebar } from "./admin-sidebar";
 
 function getTitleKeyForPath(pathname: string): string {
   if (pathname === "/dashboard") return "admin.nav.items.overview";
@@ -17,6 +14,7 @@ function getTitleKeyForPath(pathname: string): string {
   if (pathname === "/dashboard/users") return "admin.nav.items.users";
   if (pathname === "/dashboard/connectors") return "admin.nav.items.connectors";
   if (pathname === "/dashboard/jobs") return "admin.nav.items.jobs";
+  if (pathname === "/dashboard/governance") return "admin.nav.items.governance";
   if (pathname === "/dashboard/exchange") return "admin.nav.items.exchange";
   if (pathname === "/dashboard/tickets") return "admin.nav.items.tickets";
   return "admin.shell.titleFallback";
@@ -50,56 +48,43 @@ export function AppShell(props: { children: React.ReactNode }) {
   };
 
   return (
-    <SidebarProvider
-      defaultOpen={false}
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 14)",
-        } as React.CSSProperties
+    <SidebarShell
+      contentClassName="flex-1 overflow-y-auto px-6 py-5"
+      defaultSidebarOpen={false}
+      sidebar={<AdminSidebar />}
+      topBar={
+        <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-shell-border border-b bg-shell px-4">
+          <SidebarTrigger className="text-muted-foreground" variant="ghost" />
+          <div className="flex flex-1 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="truncate font-medium text-sm leading-none tracking-tight">
+                {title}
+              </div>
+              <div className="truncate text-muted-foreground text-xs leading-none">
+                {t("admin.shell.subtitle")}
+              </div>
+            </div>
+
+            <Button
+              className={cn(
+                "h-8 gap-2",
+                isFullscreen ? "border border-border" : ""
+              )}
+              onClick={() => toggleFullscreen()}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <MonitorUp className="size-4" />
+              {isFullscreen
+                ? t("admin.shell.exitTvMode")
+                : t("admin.shell.tvMode")}
+            </Button>
+          </div>
+        </div>
       }
     >
-      <div className="flex h-screen w-full bg-shell">
-        <AdminSidebar />
-
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-shell-border bg-shell px-4">
-            <SidebarTrigger className="text-muted-foreground" variant="ghost" />
-            <div className="flex flex-1 items-center justify-between gap-3">
-              <div className="min-w-0 flex flex-col gap-0.5">
-                <div className="truncate font-medium text-sm leading-none tracking-tight">
-                  {title}
-                </div>
-                <div className="truncate text-muted-foreground text-xs leading-none">
-                  {t("admin.shell.subtitle")}
-                </div>
-              </div>
-
-              <Button
-                className={cn(
-                  "h-8 gap-2",
-                  isFullscreen ? "border border-border" : ""
-                )}
-                onClick={() => void toggleFullscreen()}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                <MonitorUp className="size-4" />
-                {isFullscreen
-                  ? t("admin.shell.exitTvMode")
-                  : t("admin.shell.tvMode")}
-              </Button>
-            </div>
-          </div>
-
-          <SidebarInset className="flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              {props.children}
-            </div>
-          </SidebarInset>
-        </div>
-      </div>
-    </SidebarProvider>
+      {props.children}
+    </SidebarShell>
   );
 }

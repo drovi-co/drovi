@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     database_url: PostgresDsn = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/drovi"
     )
+    # Connection pooling mode:
+    # - "pooled": async SQLAlchemy QueuePool (container/server deployments)
+    # - "null": NullPool (serverless / one-shot workers)
+    db_pool_mode: Literal["pooled", "null"] = Field(default="pooled")
+    db_pool_size: int = Field(default=20)
+    db_pool_max_overflow: int = Field(default=20)
+    db_pool_timeout_seconds: int = Field(default=30)
+    db_pool_recycle_seconds: int = Field(default=1800)
+    db_raw_pool_min_size: int = Field(default=5)
+    db_raw_pool_max_size: int = Field(default=20)
 
     # FalkorDB (Graph Database)
     falkordb_host: str = Field(default="localhost")
@@ -82,6 +92,13 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"])
     environment: Literal["development", "production", "test"] = Field(default="development")
 
+    # Vertical plugins (explicit, deterministic).
+    #
+    # This controls which type registries and vertical overlays are enabled.
+    # Environment variable parsing:
+    # - JSON array: '["core","legal"]'
+    enabled_plugins: list[str] = Field(default_factory=lambda: ["core"])
+
     # Admin App (admin.drovi.co)
     #
     # Admin auth is intentionally separate from pilot user sessions. Admin tokens
@@ -91,6 +108,14 @@ class Settings(BaseSettings):
     admin_password_hash: str | None = Field(default=None)  # PBKDF2 hash (preferred)
     admin_password: str | None = Field(default=None)  # plaintext (dev only)
     admin_jwt_secret: str | None = Field(default=None)
+
+    # Internal service auth (service-to-service)
+    #
+    # Production: set INTERNAL_JWT_SECRET.
+    # Development: may be derived from API_KEY_SALT if unset (see auth module).
+    internal_jwt_secret: str | None = Field(default=None)
+    internal_jwt_issuer: str = Field(default="drovi")
+    internal_jwt_expiry_minutes: int = Field(default=15)
 
     # Evidence Storage
     evidence_storage_backend: Literal["local", "s3"] = Field(default="local")
@@ -182,6 +207,15 @@ class Settings(BaseSettings):
     evidence_retention_cleanup_cron: str = Field(default="0 3 * * *")  # 03:00 UTC daily
     evidence_retention_cleanup_limit: int = Field(default=500)
 
+    # Derived index outbox drain (graph/vector projections)
+    #
+    # Canonical truth writes enqueue outbox events that must be drained to keep
+    # derived views fresh. Temporal runs a cron that enqueues an `indexes.outbox.drain`
+    # durable job. The jobs worker executes the drain.
+    derived_indexes_outbox_drain_enabled: bool = Field(default=True)
+    derived_indexes_outbox_drain_cron: str = Field(default="* * * * *")
+    derived_indexes_outbox_drain_limit: int = Field(default=200)
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
     log_format: Literal["json", "text"] = Field(default="json")
@@ -211,6 +245,12 @@ class Settings(BaseSettings):
     kafka_worker_concurrency: int = Field(default=4)
     kafka_queue_maxsize: int = Field(default=1000)
     kafka_lag_report_interval_seconds: int = Field(default=30)
+
+    # Temporal Workflows
+    temporal_enabled: bool = Field(default=False)
+    temporal_address: str = Field(default="temporal:7233")
+    temporal_namespace: str = Field(default="default")
+    temporal_task_queue: str = Field(default="drovi-workflows")
     kafka_topic_priorities: dict[str, int] = Field(
         default_factory=lambda: {
             "raw.connector.events": 0,
@@ -218,6 +258,7 @@ class Settings(BaseSettings):
             "intelligence.pipeline.input": 2,
             "drovi-intelligence": 3,
             "graph.changes": 4,
+            "agent.inbox.events": 1,
         }
     )
 
@@ -227,6 +268,7 @@ class Settings(BaseSettings):
     kafka_topic_pipeline_input: str = Field(default="intelligence.pipeline.input")
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
     kafka_topic_graph_changes: str = Field(default="graph.changes")
+    kafka_topic_agent_inbox_events: str = Field(default="agent.inbox.events")
     kafka_raw_event_mode: Literal["full", "webhook_only", "disabled"] = Field(default="full")
     kafka_retry_suffix: str = Field(default=".retry")
     kafka_dlq_suffix: str = Field(default=".dlq")
@@ -263,6 +305,7 @@ class Settings(BaseSettings):
 
     # Continuum scheduler settings
     continuum_scheduler_run_in_api: bool = Field(default=True)
+    continuum_runtime_enabled: bool = Field(default=False)
     continuum_scheduler_interval_seconds: int = Field(default=60)
     continuum_monitor_interval_seconds: int = Field(default=300)
     continuum_stuck_minutes: int = Field(default=30)
@@ -304,6 +347,34 @@ class Settings(BaseSettings):
     support_inbound_token: str | None = Field(default=None)
     support_inbox_email: str = Field(default="support@drovi.co")
     support_portal_url: str | None = Field(default=None)
+    agent_inbox_inbound_token: str | None = Field(default=None)
+    agent_identity_email_domain: str = Field(default="agents.drovi.co")
+    agent_identity_default_mode: Literal["virtual_persona", "dedicated_account"] = Field(default="virtual_persona")
+    agent_channel_allowed_domains: list[str] = Field(default_factory=list)
+    agent_channel_blocked_domains: list[str] = Field(default_factory=list)
+    browser_default_provider: Literal["local", "managed", "parallel"] = Field(default="local")
+    browser_provider_fallback_order: list[str] = Field(default_factory=lambda: ["managed", "parallel", "local"])
+    browser_action_timeout_ms: int = Field(default=15000)
+    browser_artifact_storage_path: str = Field(default="/tmp/drovi-browser-artifacts")
+    browser_local_playwright_enabled: bool = Field(default=False)
+    browser_local_headless: bool = Field(default=True)
+    browser_managed_base_url: str | None = Field(default=None)
+    browser_managed_api_key: str | None = Field(default=None)
+    browser_managed_timeout_seconds: float = Field(default=45.0)
+    browser_parallel_base_url: str | None = Field(default=None)
+    browser_parallel_api_key: str | None = Field(default=None)
+    browser_parallel_timeout_seconds: float = Field(default=45.0)
+    browser_allowed_domains: list[str] = Field(default_factory=list)
+    browser_blocked_domains: list[str] = Field(default_factory=list)
+    browser_block_private_network: bool = Field(default=True)
+    browser_uploads_enabled: bool = Field(default=True)
+    browser_downloads_enabled: bool = Field(default=True)
+    browser_secrets_encryption_key: str | None = Field(default=None)
+    agent_desktop_bridge_url: str = Field(default="http://127.0.0.1:43111")
+    agent_desktop_allowed_hosts: list[str] = Field(default_factory=lambda: ["127.0.0.1", "localhost"])
+    agent_desktop_bridge_bootstrap_secret: str | None = Field(default=None)
+    agent_desktop_bridge_remote_disable_token: str | None = Field(default=None)
+    agent_desktop_request_timeout_seconds: float = Field(default=15.0)
 
     # Orchestrator
     orchestrator_timeout_seconds: int = Field(default=60)

@@ -2,6 +2,13 @@
 // TASK NODE COMPONENT
 // =============================================================================
 
+import { Badge } from "@memorystack/ui-core/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import {
@@ -15,13 +22,6 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { memo } from "react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useI18n, useT } from "@/i18n";
 import type { TaskNodeData } from "../../-types";
 
@@ -34,7 +34,10 @@ function formatDate(dateStr: string | undefined, locale: string): string {
     return "";
   }
   const date = new Date(dateStr);
-  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 function getSourceIcon(sourceType?: string) {
@@ -194,21 +197,27 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
                 {nodeData.status.replace("_", " ")}
               </Badge>
               <Badge variant="outline">
-                {t("pages.dashboard.graph.nodes.task.priority", { priority: nodeData.priority })}
+                {t("pages.dashboard.graph.nodes.task.priority", {
+                  priority: nodeData.priority,
+                })}
               </Badge>
             </div>
             {nodeData.dueDate && (
               <p className="text-muted-foreground text-xs">
                 {t("pages.dashboard.graph.nodes.task.due", {
-                  date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
-                    new Date(nodeData.dueDate)
-                  ),
+                  date: new Intl.DateTimeFormat(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }).format(new Date(nodeData.dueDate)),
                 })}
               </p>
             )}
             {nodeData.sourceType && (
               <p className="text-muted-foreground text-xs">
-                {t("pages.dashboard.graph.nodes.task.source", { source: nodeData.sourceType })}
+                {t("pages.dashboard.graph.nodes.task.source", {
+                  source: nodeData.sourceType,
+                })}
               </p>
             )}
           </div>

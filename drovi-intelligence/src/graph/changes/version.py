@@ -67,8 +67,8 @@ class VersionManager:
     async def _get_pool(self):
         """Get database connection pool."""
         if self._pool is None:
-            from src.db.client import get_db_pool
-            self._pool = await get_db_pool()
+            from src.db import get_raw_query_pool
+            self._pool = await get_raw_query_pool()
         return self._pool
 
     async def save_version(

@@ -1,9 +1,4 @@
-"""
-File Connectors
+"""File connector sources (import-free)."""
 
-Connectors for extracting content from various file types.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.files.documents import DocumentConnector
-
-__all__ = ["DocumentConnector"]

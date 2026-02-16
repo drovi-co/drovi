@@ -202,6 +202,36 @@ class AuthContext:
         """Type of authentication used."""
         return self._metadata.auth_type
 
+    # ---------------------------------------------------------------------
+    # Backward-compatible accessors (legacy APIKeyContext compatibility)
+    #
+    # A lot of legacy route code still expects `ctx.key_id` / `ctx.key_name`
+    # for logging and for deriving a session user id. We keep these accessors
+    # on AuthContext so we can consolidate request handling onto a single
+    # context without touching huge route modules during the phased refactor.
+    # ---------------------------------------------------------------------
+
+    @property
+    def key_id(self) -> str | None:
+        """
+        Legacy identifier for the credential used.
+
+        - API key auth: the API key id
+        - Session auth: "session:<user_id>"
+        - Admin auth:   "admin:<email>"
+        - Internal svc: "internal:<service>" (best-effort)
+        """
+        if self._metadata.key_id:
+            return self._metadata.key_id
+        if self._metadata.auth_type == AuthType.SESSION and self._metadata.user_id:
+            return f"session:{self._metadata.user_id}"
+        return None
+
+    @property
+    def key_name(self) -> str | None:
+        """Legacy human-readable credential label (best-effort)."""
+        return self._metadata.key_name
+
     def has_scope(self, scope: str | Scope) -> bool:
         """
         Check if this context has the required scope.

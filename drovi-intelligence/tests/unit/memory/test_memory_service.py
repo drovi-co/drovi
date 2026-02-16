@@ -32,8 +32,10 @@ class TestMemoryServiceTimeSlice:
 
         assert memory._query_uios.called
         where_clause = memory._query_uios.call_args.kwargs["where_clause"]
-        assert "valid_from" in where_clause
-        assert "valid_to" in where_clause
+        assert (
+            "valid_range @> :as_of" in where_clause
+            or ("valid_from" in where_clause and "valid_to" in where_clause)
+        )
         assert "system_from" not in where_clause
 
     @pytest.mark.asyncio

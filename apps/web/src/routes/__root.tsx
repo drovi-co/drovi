@@ -1,3 +1,6 @@
+import { ThemeProvider } from "@memorystack/core-shell";
+import { Toaster } from "@memorystack/ui-core/sonner";
+import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
@@ -9,9 +12,6 @@ import { useEffect } from "react";
 import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
 import { IntentBar } from "@/components/intent-bar/intent-bar";
 import { SupportModal } from "@/components/support/support-modal";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
-import type { QueryClient } from "@tanstack/react-query";
 import { initializeAuth } from "@/lib/auth";
 
 import "../index.css";
@@ -47,7 +47,7 @@ function RootComponent() {
   // This prevents pages that rely on `useAuthStore()` from getting stuck in
   // "not authenticated" / "loading" states after a reload.
   useEffect(() => {
-    void initializeAuth();
+    initializeAuth().catch(() => undefined);
   }, []);
 
   return (

@@ -27,13 +27,13 @@ import structlog
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import (
     BaseConnector,
-    ConnectorCapabilities,
     RecordBatch,
     ConnectorRegistry,
 )
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.files.documents_definition import CAPABILITIES, default_streams
 
 logger = structlog.get_logger()
 
@@ -73,17 +73,7 @@ class DocumentConnector(BaseConnector):
 
     connector_type = "documents"
 
-    capabilities = ConnectorCapabilities(
-        supports_incremental=False,
-        supports_full_refresh=True,
-        supports_backfill=True,
-        supports_webhooks=False,
-        supports_real_time=False,
-        default_rate_limit_per_minute=60,
-        supports_concurrency=True,
-        max_concurrent_streams=1,
-        supports_schema_discovery=True,
-    )
+    capabilities = CAPABILITIES
 
     SUPPORTED_EXTENSIONS = {
         ".pdf": "pdf",
@@ -128,13 +118,14 @@ class DocumentConnector(BaseConnector):
             # Check URLs are reachable
             for url in source_urls[:1]:  # Just check first URL
                 async with httpx.AsyncClient() as client:
-                    response = await request_with_retry(
-                        client,
-                        "HEAD",
-                        url,
+                    response = await connector_request(
+                        connector=self,
+                        config=config,
+                        client=client,
+                        method="HEAD",
+                        url=url,
+                        operation="check_connection",
                         follow_redirects=True,
-                        rate_limit_key=self.get_rate_limit_key(config),
-                        rate_limit_per_minute=self.get_rate_limit_per_minute(),
                     )
                     if response.status_code >= 400:
                         return False, f"URL not accessible: {url}"
@@ -149,12 +140,7 @@ class DocumentConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available document streams."""
-        return [
-            StreamConfig(
-                stream_name="documents",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -215,7 +201,7 @@ class DocumentConnector(BaseConnector):
 
         # Process URLs
         for url in source_urls:
-            doc = await self._process_url(url)
+            doc = await self._process_url(config, url)
             if doc:
                 record = self.create_record(
                     record_id=doc.id,
@@ -284,17 +270,18 @@ class DocumentConnector(BaseConnector):
             logger.error(f"Failed to process file: {file_path}", error=str(e))
             return None
 
-    async def _process_url(self, url: str) -> Document | None:
+    async def _process_url(self, config: ConnectorConfig, url: str) -> Document | None:
         """Download and process a document from URL."""
         try:
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="process_url",
                     follow_redirects=True,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
 

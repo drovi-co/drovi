@@ -2,17 +2,17 @@
 // DECISION NODE COMPONENT
 // =============================================================================
 
-import type { NodeProps } from "@xyflow/react";
-import { Handle, Position } from "@xyflow/react";
-import { Calendar, Check, RotateCcw, Sparkles } from "lucide-react";
-import { memo } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@memorystack/ui-core/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@memorystack/ui-core/tooltip";
+import type { NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
+import { Calendar, Check, RotateCcw, Sparkles } from "lucide-react";
+import { memo } from "react";
 import { useI18n, useT } from "@/i18n";
 import type { DecisionNodeData } from "../../-types";
 
@@ -153,11 +153,15 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
               </p>
             )}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.decision.decided")}</span>
+              <span className="text-muted-foreground">
+                {t("pages.dashboard.graph.nodes.decision.decided")}
+              </span>
               <span>{formatDate(nodeData.decidedAt, locale)}</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">{t("pages.dashboard.graph.nodes.decision.confidence")}</span>
+              <span className="text-muted-foreground">
+                {t("pages.dashboard.graph.nodes.decision.confidence")}
+              </span>
               <div className="h-1.5 w-16 rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-purple-500"

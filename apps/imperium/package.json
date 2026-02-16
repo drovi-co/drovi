@@ -1,0 +1,27 @@
+{
+  "name": "imperium",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "serve": "vite preview",
+    "start": "vite",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorystack/imperium-api-types": "workspace:*",
+    "@memorystack/imperium-design-tokens": "workspace:*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "catalog:",
+    "vite": "^6.2.2"
+  }
+}

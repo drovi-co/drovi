@@ -40,6 +40,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv
 
+# Copy project metadata/config used by CI tooling (pytest config, import-linter).
+# These do not affect runtime behavior, but make container-based CI deterministic.
+COPY pyproject.toml ./pyproject.toml
+COPY README.md ./README.md
+COPY importlinter.ini ./importlinter.ini
+
 # Copy application code
 COPY src/ ./src/
 COPY alembic.ini ./alembic.ini

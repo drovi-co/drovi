@@ -1,10 +1,25 @@
-import { AlertCircle, CheckCircle2, Clock, Loader2, RotateCcw, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
+import { Progress } from "@memorystack/ui-core/progress";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { useT } from "@/i18n";
+import {
+  type DriveUploadEntry,
+  useDriveUploadsStore,
+} from "@/lib/drive-uploads";
 import { cn } from "@/lib/utils";
-import { useDriveUploadsStore, type DriveUploadEntry } from "@/lib/drive-uploads";
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -64,14 +79,14 @@ export function DriveUploadManager({
       <CardContent className="space-y-3">
         {uploads.map((u) => {
           const Icon = statusIcon(u.status);
-          const spinning = u.status !== "failed" && u.status !== "done" && u.status !== "queued";
+          const spinning =
+            u.status !== "failed" &&
+            u.status !== "done" &&
+            u.status !== "queued";
           const statusText = t(`drive.uploads.status.${u.status}`);
 
           return (
-            <div
-              className="rounded-lg border bg-card px-3 py-3"
-              key={u.id}
-            >
+            <div className="rounded-lg border bg-card px-3 py-3" key={u.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -83,13 +98,19 @@ export function DriveUploadManager({
                       )}
                     />
                     <div className="min-w-0">
-                      <div className="truncate font-medium text-sm">{u.fileName}</div>
+                      <div className="truncate font-medium text-sm">
+                        {u.fileName}
+                      </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
                         <span>{formatBytes(u.byteSize)}</span>
                         <span>{statusText}</span>
-                        {typeof u.partsDone === "number" && typeof u.partsTotal === "number" ? (
+                        {typeof u.partsDone === "number" &&
+                        typeof u.partsTotal === "number" ? (
                           <span>
-                            {t("drive.uploads.parts", { done: u.partsDone, total: u.partsTotal })}
+                            {t("drive.uploads.parts", {
+                              done: u.partsDone,
+                              total: u.partsTotal,
+                            })}
                           </span>
                         ) : null}
                       </div>

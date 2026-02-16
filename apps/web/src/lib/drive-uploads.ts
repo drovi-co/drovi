@@ -61,7 +61,10 @@ async function uploadPart(url: string, blob: Blob): Promise<string> {
   return etag;
 }
 
-async function presignAllParts(uploadSessionId: string, totalParts: number): Promise<Map<number, string>> {
+async function presignAllParts(
+  uploadSessionId: string,
+  totalParts: number
+): Promise<Map<number, string>> {
   const urls = new Map<number, string>();
   const batchSize = 100;
   for (let start = 1; start <= totalParts; start += batchSize) {
@@ -69,7 +72,10 @@ async function presignAllParts(uploadSessionId: string, totalParts: number): Pro
     for (let p = start; p < start + batchSize && p <= totalParts; p += 1) {
       partNumbers.push(p);
     }
-    const batch = await documentsAPI.presignParts({ uploadSessionId, partNumbers });
+    const batch = await documentsAPI.presignParts({
+      uploadSessionId,
+      partNumbers,
+    });
     for (const [key, url] of Object.entries(batch.urls ?? {})) {
       const n = Number(key);
       if (!Number.isFinite(n) || n < 1) continue;
@@ -111,7 +117,7 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
     set((state) => ({ uploads: [...entries, ...state.uploads] }));
 
     for (const entry of entries) {
-      void (async () => {
+      (async () => {
         try {
           set((state) => ({
             uploads: state.uploads.map((u) =>
@@ -159,7 +165,7 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
             return;
           }
 
-          if (!created.upload_session_id || !created.part_size_bytes) {
+          if (!(created.upload_session_id && created.part_size_bytes)) {
             throw new Error("Upload session was not created");
           }
 
@@ -185,7 +191,8 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
           }));
 
           const presigned = await presignAllParts(uploadSessionId, totalParts);
-          const completedParts: Array<{ partNumber: number; etag: string }> = [];
+          const completedParts: Array<{ partNumber: number; etag: string }> =
+            [];
 
           for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
             const url = presigned.get(partNumber);
@@ -257,7 +264,9 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
           setTimeout(() => {
             set((state) => ({
               uploads: state.uploads.map((u) =>
-                u.id === entry.id ? { ...u, status: "done", updatedAt: Date.now() } : u
+                u.id === entry.id
+                  ? { ...u, status: "done", updatedAt: Date.now() }
+                  : u
               ),
             }));
           }, 1500);
@@ -276,7 +285,7 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
             ),
           }));
         }
-      })();
+      })().catch(() => undefined);
     }
   },
 
@@ -286,7 +295,13 @@ export const useDriveUploadsStore = create<DriveUploadsState>((set, get) => ({
     set((state) => ({
       uploads: state.uploads.map((u) =>
         u.id === id
-          ? { ...u, status: "queued", error: undefined, progressPct: 0, updatedAt: Date.now() }
+          ? {
+              ...u,
+              status: "queued",
+              error: undefined,
+              progressPct: 0,
+              updatedAt: Date.now(),
+            }
           : u
       ),
     }));

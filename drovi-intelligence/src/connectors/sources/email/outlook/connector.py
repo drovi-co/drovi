@@ -14,10 +14,11 @@ import httpx
 import structlog
 
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
-from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, RecordBatch, ConnectorRegistry
+from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import Record, RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.email.outlook.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -77,24 +78,9 @@ class OutlookConnector(BaseConnector):
 
     connector_type = "outlook"
 
-    capabilities = ConnectorCapabilities(
-        supports_incremental=True,
-        supports_full_refresh=True,
-        supports_backfill=True,
-        supports_webhooks=True,  # Microsoft Graph webhooks
-        supports_real_time=True,
-        default_rate_limit_per_minute=60,
-        supports_concurrency=True,
-        max_concurrent_streams=2,
-        supports_schema_discovery=True,
-    )
+    capabilities = CAPABILITIES
 
-    SCOPES = [
-        "Mail.Read",
-        "Mail.ReadBasic",
-        "User.Read",
-        "offline_access",
-    ]
+    SCOPES = list(OAUTH_SCOPES)
 
     def __init__(self):
         """Initialize Outlook connector."""
@@ -111,13 +97,14 @@ class OutlookConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GRAPH_BASE_URL}/me",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GRAPH_BASE_URL}/me",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -140,17 +127,7 @@ class OutlookConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Outlook streams."""
-        return [
-            StreamConfig(
-                stream_name="folders",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-            StreamConfig(
-                stream_name="messages",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="deltaLink",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -183,18 +160,19 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             while has_more:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GRAPH_BASE_URL}/me/mailFolders",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GRAPH_BASE_URL}/me/mailFolders",
+                    operation="read_folders",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params={
                         "$top": page_size,
                         "$skip": skip,
                         "$select": "id,displayName,parentFolderId,childFolderCount,totalItemCount,unreadItemCount",
                     },
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -256,7 +234,7 @@ class OutlookConnector(BaseConnector):
                 # Sync specific folders
                 for folder_id in folder_ids:
                     async for batch in self._read_folder_messages(
-                        config.connection_id, folder_id, select_fields
+                        config, folder_id, select_fields
                     ):
                         yield batch
                 return
@@ -266,13 +244,14 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="read_messages",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -308,7 +287,7 @@ class OutlookConnector(BaseConnector):
 
     async def _read_folder_messages(
         self,
-        connection_id: str,
+        config: ConnectorConfig,
         folder_id: str,
         select_fields: str,
     ) -> AsyncIterator[RecordBatch]:
@@ -320,18 +299,19 @@ class OutlookConnector(BaseConnector):
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             while url:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    url,
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=url,
+                    operation="read_folder_messages",
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    rate_limit_key=f"{self.connector_type}:{connection_id}",
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                batch = self.create_batch("messages", connection_id)
+                batch = self.create_batch("messages", config.connection_id)
                 for item in data.get("value", []):
                     message = self._parse_message(item)
                     record = self.create_record(

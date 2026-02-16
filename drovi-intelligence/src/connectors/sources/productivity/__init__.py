@@ -1,10 +1,4 @@
-"""
-Productivity Connectors
+"""Productivity connector sources (import-free)."""
 
-Connectors for productivity tools like Notion, Google Docs, etc.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.productivity.notion.connector import NotionConnector
-from src.connectors.sources.productivity.google_docs.connector import GoogleDocsConnector
-
-__all__ = ["NotionConnector", "GoogleDocsConnector"]

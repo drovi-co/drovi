@@ -7,6 +7,29 @@
 // - Right: Properties sidebar (status, priority, direction, due date, people)
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Input } from "@memorystack/ui-core/input";
+import { Skeleton } from "@memorystack/ui-core/skeleton";
+import { Textarea } from "@memorystack/ui-core/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -30,25 +53,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   useDismissUIO,
   useMarkCompleteUIO,
@@ -193,7 +197,17 @@ function CommitmentDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const fallbackParty =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          displayName: session.user.name ?? null,
+          primaryEmail: session.user.email,
+          avatarUrl: session.user.image ?? null,
+        }
+      : null;
   const queryClient = useQueryClient();
 
   // Editing state
@@ -286,7 +300,9 @@ function CommitmentDetailPage() {
           confidence: commitmentData.overallConfidence ?? 0.8,
           isUserVerified: commitmentData.isUserVerified ?? false,
           debtor: commitmentData.debtor ?? null,
-          creditor: commitmentData.creditor ?? null,
+          creditor:
+            commitmentData.creditor ??
+            (commitmentData.debtor ? null : fallbackParty),
           owner: commitmentData.owner ?? null,
           evidence: primarySource
             ? {
@@ -493,10 +509,12 @@ function CommitmentDetailPage() {
   const StatusIcon = statusConfig.icon;
 
   // Determine the "other person" based on direction
-  const otherPerson =
+  const preferredPerson =
     commitment.direction === "owed_by_me"
       ? commitment.creditor
       : commitment.debtor;
+  const otherPerson =
+    preferredPerson ?? commitment.debtor ?? commitment.creditor ?? null;
 
   // Check if overdue
   const isOverdue =
@@ -786,22 +804,24 @@ function CommitmentDetailPage() {
                     {/* Timeline line */}
                     <div className="absolute top-0 bottom-0 left-2 w-0.5 bg-border" />
                     <div className="space-y-4">
-                      {commitment.timeline.map((event: CommitmentTimelineEvent) => (
-                        <div className="relative pl-8" key={event.id}>
-                          {/* Timeline dot */}
-                          <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
-                          <div>
-                            <p className="text-foreground text-sm">
-                              {event.eventDescription}
-                            </p>
-                            <p className="mt-0.5 text-muted-foreground text-xs">
-                              {formatDistanceToNow(new Date(event.eventAt), {
-                                addSuffix: true,
-                              })}
-                            </p>
+                      {commitment.timeline.map(
+                        (event: CommitmentTimelineEvent) => (
+                          <div className="relative pl-8" key={event.id}>
+                            {/* Timeline dot */}
+                            <div className="absolute top-1 left-0 h-4 w-4 rounded-full border-2 border-muted-foreground bg-background" />
+                            <div>
+                              <p className="text-foreground text-sm">
+                                {event.eventDescription}
+                              </p>
+                              <p className="mt-0.5 text-muted-foreground text-xs">
+                                {formatDistanceToNow(new Date(event.eventAt), {
+                                  addSuffix: true,
+                                })}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
@@ -830,8 +850,9 @@ function CommitmentDetailPage() {
                   </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates directly
-                  in the commitment notes or attach evidence from your sources.
+                  Collaborative threads are coming soon. Capture updates
+                  directly in the commitment notes or attach evidence from your
+                  sources.
                 </div>
               </div>
             </div>

@@ -1,5 +1,4 @@
-"""Slack connector."""
+"""Slack connector source package (import-free)."""
 
-from src.connectors.sources.messaging.slack.connector import SlackConnector
+from __future__ import annotations
 
-__all__ = ["SlackConnector"]

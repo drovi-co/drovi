@@ -1,9 +1,7 @@
+"""Calendar connector sources.
+
+Intentionally import-free to avoid circular imports during registry/definition loading.
 """
-Calendar Connectors
 
-Connectors for calendar services like Google Calendar.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.calendar.google_calendar import GoogleCalendarConnector
-
-__all__ = ["GoogleCalendarConnector"]

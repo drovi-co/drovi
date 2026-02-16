@@ -156,43 +156,68 @@ class TestEventStreamEndpoint:
 
     async def test_stream_returns_sse_content_type(self, async_client, factory):
         """Test stream returns correct content type."""
-        # Note: Full SSE testing requires different approach
-        # Here we just verify the endpoint exists and accepts params
-
-        # This will likely timeout or error since we're not mocking Redis
-        # but we can at least verify the endpoint exists
+        # SSE endpoints never "finish" by design. Patch the EventStream to be
+        # finite so the response completes and the test is deterministic.
         org_id = factory.organization_id()
 
-        # We can't easily test SSE with httpx, so we verify the route exists
-        # by checking it doesn't return 404
-        response = await async_client.get(
-            "/api/v1/events/stream",
-            params={
-                "organization_id": org_id,
-                "event_types": "uio.created",
-            },
-            # Note: In real tests, we'd need to handle SSE specially
-        )
+        class _FiniteEventStream:
+            def __init__(self, *args, **kwargs):
+                pass
 
-        # Should return 200 with text/event-stream or error (not 404)
-        assert response.status_code != 404
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        with patch("src.api.routes.events.EventStream", _FiniteEventStream):
+            response = await async_client.get(
+                "/api/v1/events/stream",
+                params={"organization_id": org_id, "event_types": "uio.created"},
+            )
+
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("text/event-stream")
+        assert "connected" in response.text
 
     async def test_stream_accepts_event_type_filters(self, async_client, factory):
         """Test stream accepts event type filters."""
         # Verify the endpoint accepts the filters parameter
         org_id = factory.organization_id()
 
-        response = await async_client.get(
-            "/api/v1/events/stream",
-            params={
-                "organization_id": org_id,
-                "event_types": "uio.created,commitment.due,risk.detected",
-                "include_broadcast": True,
-            },
-        )
+        class _FiniteEventStream:
+            def __init__(self, *args, **kwargs):
+                pass
 
-        # Endpoint should not return validation error
-        assert response.status_code != 422
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        with patch("src.api.routes.events.EventStream", _FiniteEventStream):
+            response = await async_client.get(
+                "/api/v1/events/stream",
+                params={
+                    "organization_id": org_id,
+                    "event_types": "uio.created,commitment.due,risk.detected",
+                    "include_broadcast": True,
+                },
+            )
+
+        assert response.status_code == 200
 
 
 class TestEventIntegration:

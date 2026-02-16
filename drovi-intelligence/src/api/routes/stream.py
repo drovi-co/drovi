@@ -15,21 +15,17 @@ Features:
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
 from typing import Any
 
 import structlog
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
+from src.kernel.time import utc_now_naive
+
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/stream", tags=["Real-Time Stream"])
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class GraphChangeStream:
@@ -157,7 +153,7 @@ class GraphChangeStream:
                     # Send heartbeat
                     yield {
                         "type": "heartbeat",
-                        "timestamp": utc_now().isoformat(),
+                        "timestamp": utc_now_naive().isoformat(),
                     }
 
         finally:
@@ -186,7 +182,7 @@ async def _graph_change_generator(
             "node_types": node_types or ["*"],
             "change_types": change_types or ["*"],
         },
-        "timestamp": utc_now().isoformat(),
+        "timestamp": utc_now_naive().isoformat(),
     }, event_type="connected")
 
     try:
@@ -209,7 +205,7 @@ async def _graph_change_generator(
                             "node_id": payload.get("node_id"),
                             "organization_id": payload.get("organization_id"),
                             "properties": payload.get("properties", {}),
-                            "timestamp": utc_now().isoformat(),
+                            "timestamp": utc_now_naive().isoformat(),
                         },
                         event_type=f"graph.{payload.get('change_type', 'change')}",
                     )
@@ -375,7 +371,7 @@ async def stream_intelligence(
             "filters": {
                 "intelligence_types": parsed_types or ["*"],
             },
-            "timestamp": utc_now().isoformat(),
+            "timestamp": utc_now_naive().isoformat(),
         }, event_type="connected")
 
         try:
@@ -418,7 +414,7 @@ async def stream_intelligence(
                         )
                     except asyncio.TimeoutError:
                         yield _format_sse_event(
-                            {"timestamp": utc_now().isoformat()},
+                            {"timestamp": utc_now_naive().isoformat()},
                             event_type="heartbeat",
                         )
             finally:
@@ -433,7 +429,7 @@ async def stream_intelligence(
             while True:
                 await asyncio.sleep(30.0)
                 yield _format_sse_event(
-                    {"timestamp": utc_now().isoformat()},
+                    {"timestamp": utc_now_naive().isoformat()},
                     event_type="heartbeat",
                 )
 
@@ -477,5 +473,5 @@ async def stream_health() -> dict[str, Any]:
         "status": "healthy" if kafka_status == "connected" else "degraded",
         "kafka": kafka_status,
         "falkordb": falkordb_status,
-        "timestamp": utc_now().isoformat(),
+        "timestamp": utc_now_naive().isoformat(),
     }

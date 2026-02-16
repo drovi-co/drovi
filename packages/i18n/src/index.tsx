@@ -3,9 +3,15 @@ import fr from "./locales/fr.json";
 
 export type SupportedLocale = "en" | "fr";
 
-export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ["en", "fr"] as const;
+export const SUPPORTED_LOCALES: readonly SupportedLocale[] = [
+  "en",
+  "fr",
+] as const;
 
-export type TranslationParams = Record<string, string | number | boolean | null | undefined>;
+export type TranslationParams = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
 
 type TranslationLeaf = string;
 type TranslationNode = { [key: string]: TranslationLeaf | TranslationNode };
@@ -32,16 +38,24 @@ function deepGet(root: TranslationNode, key: string): unknown {
   return current;
 }
 
-function interpolate(template: string, params: TranslationParams | undefined): string {
+function interpolate(
+  template: string,
+  params: TranslationParams | undefined
+): string {
   if (!params) return template;
-  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, name: string) => {
-    const value = params[name];
-    if (value === null || value === undefined) return "";
-    return String(value);
-  });
+  return template.replace(
+    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
+    (_match, name: string) => {
+      const value = params[name];
+      if (value === null || value === undefined) return "";
+      return String(value);
+    }
+  );
 }
 
-export function normalizeLocale(input: string | null | undefined): SupportedLocale {
+export function normalizeLocale(
+  input: string | null | undefined
+): SupportedLocale {
   const raw = (input || "").trim().toLowerCase();
   if (raw.startsWith("fr")) return "fr";
   return "en";

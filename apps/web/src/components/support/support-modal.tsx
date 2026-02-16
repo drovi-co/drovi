@@ -1,22 +1,28 @@
-import { useMutation } from "@tanstack/react-query";
-import { ChevronDown, Copy, LifeBuoy, Send } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-
+import { Button } from "@memorystack/ui-core/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { useAuthStore } from "@/lib/auth";
+} from "@memorystack/ui-core/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@memorystack/ui-core/dialog";
+import { Input } from "@memorystack/ui-core/input";
+import { Label } from "@memorystack/ui-core/label";
+import { Switch } from "@memorystack/ui-core/switch";
+import { Textarea } from "@memorystack/ui-core/textarea";
+import { useMutation } from "@tanstack/react-query";
+import { ChevronDown, Copy, LifeBuoy, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { connectionsAPI, getApiBase, supportAPI } from "@/lib/api";
 import { useApiTraceStore } from "@/lib/api-trace";
+import { useAuthStore } from "@/lib/auth";
 import { useSupportModalStore } from "@/lib/support-modal";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +83,10 @@ export function SupportModal() {
             orgName: user.org_name,
           }
         : null,
-      browser: typeof navigator !== "undefined" ? { userAgent: navigator.userAgent, language: navigator.language } : null,
+      browser:
+        typeof navigator !== "undefined"
+          ? { userAgent: navigator.userAgent, language: navigator.language }
+          : null,
       recentApiErrors: recentErrors,
       createdAt: new Date().toISOString(),
     };
@@ -117,7 +126,10 @@ export function SupportModal() {
           }));
         } catch (error) {
           connectorSnapshot = {
-            error: error instanceof Error ? error.message : "Failed to list connections",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to list connections",
           };
         }
       }
@@ -126,7 +138,9 @@ export function SupportModal() {
         subject: trimmedSubject,
         message: trimmedMessage,
         route: currentRoute ?? undefined,
-        locale: prefill?.locale ?? (typeof navigator !== "undefined" ? navigator.language : undefined),
+        locale:
+          prefill?.locale ??
+          (typeof navigator !== "undefined" ? navigator.language : undefined),
         diagnostics: includeDiagnostics
           ? {
               ...diagnostics,
@@ -142,7 +156,9 @@ export function SupportModal() {
       });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to create ticket");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create ticket"
+      );
     },
   });
 
@@ -155,14 +171,17 @@ export function SupportModal() {
     setMessage(prefill?.message ?? "");
   }, [open, prefill?.message, prefill?.subject]);
 
-  const diagnosticsPreview = useMemo(() => safeJsonPreview(diagnostics), [diagnostics]);
+  const diagnosticsPreview = useMemo(
+    () => safeJsonPreview(diagnostics),
+    [diagnostics]
+  );
 
   return (
     <Dialog
-      open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) close();
       }}
+      open={open}
     >
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
@@ -173,21 +192,20 @@ export function SupportModal() {
             Contact support
           </DialogTitle>
           <DialogDescription>
-            Create a ticket for the Drovi team. Replies arrive by email and appear in the admin console.
+            Create a ticket for the Drovi team. Replies arrive by email and
+            appear in the admin console.
           </DialogDescription>
         </DialogHeader>
 
         {createdTicketId ? (
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <div className="text-muted-foreground text-xs uppercase tracking-[0.22em]">
                 Ticket created
               </div>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div className="font-mono text-sm">{createdTicketId}</div>
                 <Button
-                  size="sm"
-                  variant="outline"
                   className="h-8 text-xs"
                   onClick={async () => {
                     try {
@@ -197,13 +215,16 @@ export function SupportModal() {
                       toast.error("Failed to copy");
                     }
                   }}
+                  size="sm"
+                  variant="outline"
                 >
                   <Copy className="mr-2 h-3.5 w-3.5" />
                   Copy
                 </Button>
               </div>
-              <div className="mt-3 text-xs text-muted-foreground">
-                You can close this window. If you don’t hear back, reply to the confirmation email to add more context.
+              <div className="mt-3 text-muted-foreground text-xs">
+                You can close this window. If you don’t hear back, reply to the
+                confirmation email to add more context.
               </div>
             </div>
 
@@ -217,48 +238,53 @@ export function SupportModal() {
               <Label htmlFor="support-subject">Subject</Label>
               <Input
                 id="support-subject"
+                onChange={(ev) => setSubject(ev.target.value)}
                 placeholder="Example: Gmail connector stuck on backfill"
                 value={subject}
-                onChange={(ev) => setSubject(ev.target.value)}
               />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="support-message">Message</Label>
               <Textarea
-                id="support-message"
-                placeholder="What happened? What did you expect? Include any steps to reproduce."
                 className="min-h-[120px] resize-y"
-                value={message}
+                id="support-message"
                 onChange={(ev) => setMessage(ev.target.value)}
+                placeholder="What happened? What did you expect? Include any steps to reproduce."
+                value={message}
               />
             </div>
 
             <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
-                  <div className="text-sm font-medium">Include diagnostics</div>
-                  <div className="text-xs text-muted-foreground">
-                    Route, API base, and recent request errors help us debug faster.
+                  <div className="font-medium text-sm">Include diagnostics</div>
+                  <div className="text-muted-foreground text-xs">
+                    Route, API base, and recent request errors help us debug
+                    faster.
                   </div>
                 </div>
-                <Switch checked={includeDiagnostics} onCheckedChange={setIncludeDiagnostics} />
+                <Switch
+                  checked={includeDiagnostics}
+                  onCheckedChange={setIncludeDiagnostics}
+                />
               </div>
 
               <Collapsible
-                open={showDiagnostics}
-                onOpenChange={setShowDiagnostics}
                 className={cn("mt-3", !includeDiagnostics && "opacity-50")}
+                onOpenChange={setShowDiagnostics}
+                open={showDiagnostics}
               >
                 <CollapsibleTrigger asChild>
                   <Button
-                    type="button"
-                    variant="ghost"
                     className="h-8 w-full justify-between px-2 text-xs"
                     disabled={!includeDiagnostics}
+                    type="button"
+                    variant="ghost"
                   >
                     <span className="text-muted-foreground">
-                      Preview diagnostics ({recentErrors.length} recent API errors)
+                      Preview diagnostics ({recentErrors.length} recent API
+                      errors)
                     </span>
                     <ChevronDown
                       className={cn(
@@ -270,7 +296,7 @@ export function SupportModal() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="mt-2 max-h-[220px] overflow-auto rounded-md border border-border/70 bg-background/30 p-3">
-                    <pre className="text-[11px] leading-relaxed text-muted-foreground">
+                    <pre className="text-[11px] text-muted-foreground leading-relaxed">
                       {diagnosticsPreview}
                     </pre>
                   </div>
@@ -280,20 +306,25 @@ export function SupportModal() {
 
             <DialogFooter className="justify-end gap-2">
               <Button
+                className="h-9"
+                onClick={() => close()}
                 type="button"
                 variant="ghost"
-                onClick={() => close()}
-                className="h-9"
               >
                 Cancel
               </Button>
               <Button
-                type="button"
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending}
                 className="h-9"
+                disabled={createMutation.isPending}
+                onClick={() => createMutation.mutate()}
+                type="button"
               >
-                <Send className={cn("mr-2 h-4 w-4", createMutation.isPending && "opacity-70")} />
+                <Send
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    createMutation.isPending && "opacity-70"
+                  )}
+                />
                 {createMutation.isPending ? "Sending…" : "Send"}
               </Button>
             </DialogFooter>

@@ -26,6 +26,9 @@ REQUIRED_TABLES = [
     "webhook_deliveries",
     "connector_webhook_inbox",
     "connector_webhook_outbox",
+    "background_job",
+    "outbox_event",
+    "entity_versions",
     # Contact table
     "contact",
     "contact_identity",

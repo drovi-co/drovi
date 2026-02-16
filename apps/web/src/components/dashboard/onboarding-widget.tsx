@@ -1,3 +1,5 @@
+import { Button } from "@memorystack/ui-core/button";
+import { Progress } from "@memorystack/ui-core/progress";
 import {
   ArrowRight,
   CheckCircle2,
@@ -7,8 +9,6 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface OnboardingStep {

@@ -5,13 +5,13 @@ High-level API for tracking and querying entity changes.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import structlog
 
 from src.graph.changes.diff import DiffResult, compute_diff
-from src.graph.changes.version import EntityVersion, VersionManager
+from src.graph.changes.version import VersionManager
 
 logger = structlog.get_logger()
 
@@ -158,86 +158,159 @@ class ChangeTracker:
         Returns:
             List of ChangeRecords
         """
-        from src.db.client import get_db_pool
+        from src.db import get_raw_query_pool
 
-        pool = await get_db_pool()
-
-        # Build query
-        query = """
+        pool = await get_raw_query_pool()
+        timeline_query = """
+            WITH ranked AS (
+                SELECT
+                    t.unified_object_id AS entity_id,
+                    u.type AS entity_type,
+                    t.event_type,
+                    t.event_description,
+                    t.triggered_by,
+                    t.event_at AS created_at,
+                    t.previous_value AS old_data,
+                    t.new_value AS new_data,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY t.unified_object_id
+                        ORDER BY t.event_at ASC, t.id ASC
+                    ) AS version
+                FROM unified_object_timeline t
+                JOIN unified_intelligence_object u
+                  ON u.id = t.unified_object_id
+                WHERE u.organization_id = $1
+                  AND t.event_at > $2
+            )
             SELECT
-                ev1.entity_id,
-                ev1.entity_type,
-                ev1.version,
-                ev1.data as new_data,
-                ev1.created_at,
-                ev1.created_by,
-                ev1.change_reason,
-                ev2.data as old_data,
-                ev2.version as old_version
-            FROM entity_versions ev1
-            LEFT JOIN entity_versions ev2
-                ON ev1.entity_id = ev2.entity_id
-                AND ev1.entity_type = ev2.entity_type
-                AND ev2.version = ev1.version - 1
-            WHERE ev1.created_at > $1
+                entity_id,
+                entity_type,
+                event_type,
+                event_description,
+                triggered_by,
+                created_at,
+                old_data,
+                new_data,
+                version
+            FROM ranked
+            WHERE ($3::text[] IS NULL OR entity_type = ANY($3))
+            ORDER BY created_at DESC
+            LIMIT $4
         """
-
-        params = [since]
-        param_count = 1
-
-        if entity_types:
-            param_count += 1
-            query += f" AND ev1.entity_type = ANY(${param_count})"
-            params.append(entity_types)
-
-        query += f"""
-            ORDER BY ev1.created_at DESC
-            LIMIT ${param_count + 1}
-        """
-        params.append(limit)
 
         async with pool.acquire() as conn:
-            rows = await conn.fetch(query, *params)
+            timeline_rows = await conn.fetch(
+                timeline_query,
+                organization_id,
+                since,
+                entity_types,
+                limit,
+            )
+
+            if timeline_rows:
+                records: list[ChangeRecord] = []
+                for row in timeline_rows:
+                    old_data = row["old_data"]
+                    new_data = row["new_data"]
+                    version = int(row["version"])
+                    old_version = version - 1 if version > 1 else None
+                    diff = (
+                        compute_diff(
+                            old_data=old_data,
+                            new_data=new_data,
+                            entity_id=row["entity_id"],
+                            entity_type=row["entity_type"],
+                            old_version=old_version,
+                            new_version=version,
+                        )
+                        if (old_data is not None or new_data is not None)
+                        else None
+                    )
+
+                    event_type = (row["event_type"] or "").lower()
+                    if event_type == "created":
+                        change_type = "created"
+                    elif event_type in {"archived", "deleted"}:
+                        change_type = "deleted"
+                    else:
+                        change_type = "updated"
+
+                    records.append(
+                        ChangeRecord(
+                            entity_id=row["entity_id"],
+                            entity_type=row["entity_type"],
+                            change_type=change_type,
+                            version=version,
+                            diff=diff,
+                            timestamp=row["created_at"],
+                            changed_by=row["triggered_by"],
+                            change_reason=row["event_description"],
+                        )
+                    )
+
+                return records
+
+            # Legacy fallback for older rows stored only in entity_versions.
+            legacy_query = """
+                SELECT
+                    ev1.entity_id,
+                    ev1.entity_type,
+                    ev1.version,
+                    ev1.data as new_data,
+                    ev1.created_at,
+                    ev1.created_by,
+                    ev1.change_reason,
+                    ev2.data as old_data,
+                    ev2.version as old_version
+                FROM entity_versions ev1
+                LEFT JOIN entity_versions ev2
+                    ON ev1.entity_id = ev2.entity_id
+                    AND ev1.entity_type = ev2.entity_type
+                    AND ev2.version = ev1.version - 1
+                JOIN unified_intelligence_object u
+                    ON u.id = ev1.entity_id
+                    AND u.organization_id = $1
+                WHERE ev1.created_at > $2
+                  AND ($3::text[] IS NULL OR ev1.entity_type = ANY($3))
+                ORDER BY ev1.created_at DESC
+                LIMIT $4
+            """
+            rows = await conn.fetch(
+                legacy_query,
+                organization_id,
+                since,
+                entity_types,
+                limit,
+            )
 
         records = []
         for row in rows:
-            new_data = row["new_data"]
-            old_data = row["old_data"]
-
-            if isinstance(new_data, str):
-                import json
-                new_data = json.loads(new_data)
-            if isinstance(old_data, str):
-                import json
-                old_data = json.loads(old_data)
-
             diff = compute_diff(
-                old_data=old_data,
-                new_data=new_data,
+                old_data=row["old_data"],
+                new_data=row["new_data"],
                 entity_id=row["entity_id"],
                 entity_type=row["entity_type"],
                 old_version=row["old_version"],
                 new_version=row["version"],
             )
-
             if diff.is_new:
                 change_type = "created"
             elif diff.is_deleted:
                 change_type = "deleted"
             else:
                 change_type = "updated"
-
-            records.append(ChangeRecord(
-                entity_id=row["entity_id"],
-                entity_type=row["entity_type"],
-                change_type=change_type,
-                version=row["version"],
-                diff=diff,
-                timestamp=row["created_at"],
-                changed_by=row["created_by"],
-                change_reason=row["change_reason"],
-            ))
-
+            records.append(
+                ChangeRecord(
+                    entity_id=row["entity_id"],
+                    entity_type=row["entity_type"],
+                    change_type=change_type,
+                    version=row["version"],
+                    diff=diff,
+                    timestamp=row["created_at"],
+                    changed_by=row["created_by"],
+                    change_reason=row["change_reason"],
+                )
+            )
         return records
 
     async def get_entity_history(
@@ -367,23 +440,24 @@ class ChangeTracker:
         Returns:
             Dict mapping entity_type -> list of entity_ids
         """
-        from src.db.client import get_db_pool
+        from src.db import get_raw_query_pool
 
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         query = """
-            SELECT DISTINCT entity_id, entity_type
-            FROM entity_versions
-            WHERE created_at > $1
+            SELECT DISTINCT
+                t.unified_object_id AS entity_id,
+                u.type AS entity_type
+            FROM unified_object_timeline t
+            JOIN unified_intelligence_object u
+              ON u.id = t.unified_object_id
+            WHERE u.organization_id = $1
+              AND t.event_at > $2
+              AND ($3::text[] IS NULL OR u.type = ANY($3))
         """
-        params = [since]
-
-        if entity_types:
-            query += " AND entity_type = ANY($2)"
-            params.append(entity_types)
 
         async with pool.acquire() as conn:
-            rows = await conn.fetch(query, *params)
+            rows = await conn.fetch(query, organization_id, since, entity_types)
 
         result: dict[str, list[str]] = {}
         for row in rows:

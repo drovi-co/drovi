@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "@memorystack/mod-auth";
 import {
   createFileRoute,
   Outlet,
@@ -14,8 +15,8 @@ import type {
   HeaderTab,
 } from "@/components/layout/interactive-header";
 import { useT } from "@/i18n";
-import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   getStoredOnboardingState,
   inferOnboardingComplete,
@@ -30,10 +31,14 @@ export const Route = createFileRoute("/dashboard")({
       await store.checkAuth();
     }
 
-    const user = useAuthStore.getState().user;
-    if (!user) {
+    const state = useAuthStore.getState();
+    const authDecision = requireAuthenticated({
+      isAuthenticated: Boolean(state.user),
+      isLoading: state.isLoading,
+    });
+    if (!(authDecision.allow || !authDecision.redirectTo)) {
       throw redirect({
-        to: "/login",
+        to: authDecision.redirectTo as "/login",
       });
     }
 
@@ -57,13 +62,16 @@ export const Route = createFileRoute("/dashboard")({
       }
     }
 
-    return { user };
+    return { user: state.user };
   },
 });
 
 function getBreadcrumbs(
   pathname: string,
-  t: (key: string, params?: Record<string, string | number | boolean | null | undefined>) => string
+  t: (
+    key: string,
+    params?: Record<string, string | number | boolean | null | undefined>
+  ) => string
 ) {
   const breadcrumbs: Array<{ label: string; href?: string }> = [];
 
@@ -127,6 +135,31 @@ function getBreadcrumbs(
     return breadcrumbs;
   }
 
+  if (pathname === "/dashboard/agents/workforces") {
+    breadcrumbs.push({ label: t("nav.items.agentWorkforces") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/studio") {
+    breadcrumbs.push({ label: t("nav.items.agentStudio") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/runs") {
+    breadcrumbs.push({ label: t("nav.items.agentRuns") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/catalog") {
+    breadcrumbs.push({ label: t("nav.items.agentCatalog") });
+    return breadcrumbs;
+  }
+
+  if (pathname === "/dashboard/agents/inbox") {
+    breadcrumbs.push({ label: t("nav.items.agentInbox") });
+    return breadcrumbs;
+  }
+
   // Simulations
   if (pathname === "/dashboard/simulations") {
     breadcrumbs.push({ label: t("nav.items.simulations") });
@@ -171,7 +204,10 @@ function getBreadcrumbs(
 
   // Contact detail page
   if (pathname.startsWith("/dashboard/contacts/")) {
-    breadcrumbs.push({ label: t("nav.items.people"), href: "/dashboard/contacts" });
+    breadcrumbs.push({
+      label: t("nav.items.people"),
+      href: "/dashboard/contacts",
+    });
     breadcrumbs.push({ label: t("pages.dashboard.contacts.profile") });
     return breadcrumbs;
   }
@@ -181,7 +217,6 @@ function getBreadcrumbs(
     breadcrumbs.push({ label: t("nav.items.connectedSources") });
     return breadcrumbs;
   }
-
 
   // Team section
   if (pathname.startsWith("/dashboard/team")) {
@@ -231,7 +266,7 @@ function getHeaderConfig(
   return {
     primaryAction: {
       id: "primary",
-      label: "pages.dashboard.home.primaryAction.newContinuum",
+      label: "nav.items.agentStudio",
       icon: Plus,
       onClick: handlers.onPrimaryAction,
     },
@@ -247,7 +282,7 @@ function DashboardLayout() {
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {
-    onPrimaryAction: () => navigate({ to: "/dashboard/builder" }),
+    onPrimaryAction: () => navigate({ to: "/dashboard/agents/studio" }),
   });
 
   return (

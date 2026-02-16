@@ -10,7 +10,13 @@
  * - PieChart: Distribution chart
  */
 
-import { format, formatDistanceToNow } from "date-fns";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@memorystack/ui-core/chart";
+import { format } from "date-fns";
 import {
   Bar,
   BarChart,
@@ -25,13 +31,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -88,8 +87,10 @@ export function TimeHistogram({
   return (
     <div className={cn("relative", className)}>
       {/* Y-axis labels */}
-      <div className="absolute left-0 top-0 flex h-full flex-col justify-between pt-2 pb-5 pr-2 text-right text-muted-foreground text-[10px]">
-        <span>{maxCount >= 1000 ? `${(maxCount / 1000).toFixed(0)}k` : maxCount}</span>
+      <div className="absolute top-0 left-0 flex h-full flex-col justify-between pt-2 pr-2 pb-5 text-right text-[10px] text-muted-foreground">
+        <span>
+          {maxCount >= 1000 ? `${(maxCount / 1000).toFixed(0)}k` : maxCount}
+        </span>
         <span>0</span>
       </div>
 
@@ -132,11 +133,7 @@ export function TimeHistogram({
               }}
               cursor={{ fill: "hsl(var(--muted)/0.3)" }}
             />
-            <Bar
-              dataKey="count"
-              fill={barColor}
-              radius={[1, 1, 0, 0]}
-            />
+            <Bar dataKey="count" fill={barColor} radius={[1, 1, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -180,7 +177,9 @@ export function TimeseriesChart({
         )}
         style={{ height }}
       >
-        <p className="text-muted-foreground text-sm">No timeseries data available</p>
+        <p className="text-muted-foreground text-sm">
+          No timeseries data available
+        </p>
       </div>
     );
   }
@@ -194,7 +193,11 @@ export function TimeseriesChart({
 
   return (
     <div className={cn("rounded-lg border bg-background p-4", className)}>
-      <ChartContainer className="aspect-auto" config={timeseriesConfig} style={{ height }}>
+      <ChartContainer
+        className="aspect-auto"
+        config={timeseriesConfig}
+        style={{ height }}
+      >
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
@@ -300,10 +303,16 @@ export function TopListChart({
   const total = sortedData.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className={cn("space-y-2 rounded-lg border bg-background p-4", className)}>
+    <div
+      className={cn("space-y-2 rounded-lg border bg-background p-4", className)}
+    >
       {sortedData.map((item, index) => {
-        const percentage = item.percentage ?? (total > 0 ? (item.value / total) * 100 : 0);
-        const color = colorScheme === "rainbow" ? COLORS[index % COLORS.length] : "hsl(var(--primary))";
+        const percentage =
+          item.percentage ?? (total > 0 ? (item.value / total) * 100 : 0);
+        const color =
+          colorScheme === "rainbow"
+            ? COLORS[index % COLORS.length]
+            : "hsl(var(--primary))";
 
         return (
           <div className="group flex items-center gap-3" key={item.name}>
@@ -464,7 +473,9 @@ export function GroupedBarChart({
         )}
         style={{ height }}
       >
-        <p className="text-muted-foreground text-sm">No grouped data available</p>
+        <p className="text-muted-foreground text-sm">
+          No grouped data available
+        </p>
       </div>
     );
   }
@@ -479,7 +490,9 @@ export function GroupedBarChart({
   });
 
   // Get all unique item names
-  const itemNames = [...new Set(data.flatMap((g) => g.items.map((i) => i.name)))];
+  const itemNames = [
+    ...new Set(data.flatMap((g) => g.items.map((i) => i.name))),
+  ];
 
   return (
     <div className={cn("rounded-lg border bg-background p-4", className)}>
@@ -513,7 +526,9 @@ export function GroupedBarChart({
                       >
                         <div
                           className="size-2 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          style={{
+                            backgroundColor: COLORS[index % COLORS.length],
+                          }}
                         />
                         <span className="text-muted-foreground">
                           {entry.dataKey}:

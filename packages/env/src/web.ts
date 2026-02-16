@@ -13,6 +13,14 @@ export const env = createEnv({
     VITE_POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
     VITE_ANALYTICS_ENABLED: z.coerce.boolean().default(true),
   },
-  runtimeEnv: (import.meta as unknown as { env: Record<string, string> }).env,
+  // `import.meta.env` is provided by Vite in the browser.
+  // In Node-based test runners (Vitest), `import.meta.env` may not include all
+  // stubbed variables, so we also merge `process.env` when available.
+  runtimeEnv: {
+    ...((import.meta as unknown as { env?: Record<string, string> }).env ?? {}),
+    ...(typeof process !== "undefined"
+      ? (process.env as Record<string, string>)
+      : {}),
+  },
   emptyStringAsUndefined: true,
 });

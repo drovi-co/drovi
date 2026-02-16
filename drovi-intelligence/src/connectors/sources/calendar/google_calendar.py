@@ -16,7 +16,8 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.calendar.google_calendar_definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -71,6 +72,10 @@ class GoogleCalendarConnector(BaseConnector):
     Supports incremental sync based on updated timestamp.
     """
 
+    connector_type = "google_calendar"
+    capabilities = CAPABILITIES
+    SCOPES = list(OAUTH_SCOPES)
+
     def __init__(self):
         """Initialize Google Calendar connector."""
         self._access_token: str | None = None
@@ -86,14 +91,15 @@ class GoogleCalendarConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"maxResults": 1},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -112,17 +118,7 @@ class GoogleCalendarConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Calendar streams."""
-        return [
-            StreamConfig(
-                stream_name="calendars",
-                sync_mode=SyncMode.FULL_REFRESH,
-            ),
-            StreamConfig(
-                stream_name="events",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="updated",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -158,14 +154,15 @@ class GoogleCalendarConnector(BaseConnector):
                 if page_token:
                     params["pageToken"] = page_token
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{GOOGLE_CALENDAR_BASE_URL}/users/me/calendarList",
+                    operation="read_calendars",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -245,8 +242,8 @@ class GoogleCalendarConnector(BaseConnector):
         async with httpx.AsyncClient(timeout=60.0) as client:
             for calendar_id in calendars_to_sync:
                 async for batch in self._read_calendar_events(
+                    config,
                     client,
-                    config.connection_id,
                     calendar_id,
                     time_min,
                     time_max,
@@ -268,8 +265,8 @@ class GoogleCalendarConnector(BaseConnector):
 
     async def _read_calendar_events(
         self,
+        config: ConnectorConfig,
         client: httpx.AsyncClient,
-        connection_id: str,
         calendar_id: str,
         time_min: str,
         time_max: str,
@@ -292,19 +289,20 @@ class GoogleCalendarConnector(BaseConnector):
             if updated_min:
                 params["updatedMin"] = updated_min
 
-            response = await request_with_retry(
-                client,
-                "GET",
-                f"{GOOGLE_CALENDAR_BASE_URL}/calendars/{calendar_id}/events",
+            response = await connector_request(
+                connector=self,
+                config=config,
+                client=client,
+                method="GET",
+                url=f"{GOOGLE_CALENDAR_BASE_URL}/calendars/{calendar_id}/events",
+                operation="read_events",
                 headers={"Authorization": f"Bearer {self._access_token}"},
                 params=params,
-                rate_limit_key=f"{self.connector_type}:{connection_id}",
-                rate_limit_per_minute=self.get_rate_limit_per_minute(),
             )
             response.raise_for_status()
             data = response.json()
 
-            batch = self.create_batch("events", connection_id)
+            batch = self.create_batch("events", config.connection_id)
             for item in data.get("items", []):
                 event = self._parse_event(item, calendar_id)
                 if event:

@@ -11,7 +11,7 @@ import structlog
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 
-from src.continuum.dsl import ContinuumDefinition, compute_definition_hash, utc_now
+from src.continuum.dsl import ContinuumDefinition, compute_definition_hash
 from src.continuum.models import (
     ContinuumAlertStatus,
     ContinuumAlertType,
@@ -22,6 +22,7 @@ from src.continuum.state_machine import require_transition
 from src.db.client import get_db_session
 from src.db.rls import rls_context
 from src.audit.log import record_audit_event
+from src.kernel.time import utc_now_naive as utc_now
 
 logger = structlog.get_logger()
 

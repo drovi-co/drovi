@@ -15,9 +15,10 @@ from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
 
 from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
-from src.connectors.base.connector import BaseConnector, ConnectorCapabilities, ConnectorRegistry
+from src.connectors.base.connector import BaseConnector, ConnectorRegistry
 from src.connectors.base.records import Record, RecordBatch, RecordType, UnifiedMessage
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.messaging.slack.definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -37,31 +38,10 @@ class SlackConnector(BaseConnector):
 
     connector_type = "slack"
 
-    capabilities = ConnectorCapabilities(
-        supports_incremental=True,
-        supports_full_refresh=True,
-        supports_backfill=True,
-        supports_webhooks=True,  # Slack Events API
-        supports_real_time=True,
-        default_rate_limit_per_minute=50,  # Slack tier limits
-        supports_concurrency=True,
-        max_concurrent_streams=3,
-        supports_schema_discovery=True,
-    )
+    capabilities = CAPABILITIES
 
     # Slack OAuth scopes
-    SCOPES = [
-        "channels:history",
-        "channels:read",
-        "groups:history",
-        "groups:read",
-        "im:history",
-        "im:read",
-        "mpim:history",
-        "mpim:read",
-        "users:read",
-        "users:read.email",
-    ]
+    SCOPES = list(OAUTH_SCOPES)
 
     def __init__(self):
         """Initialize Slack connector."""
@@ -144,30 +124,7 @@ class SlackConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available Slack streams."""
-        return [
-            StreamConfig(
-                stream_name="messages",
-                enabled=True,
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="ts",
-                primary_key=["channel", "ts"],
-                batch_size=100,
-            ),
-            StreamConfig(
-                stream_name="channels",
-                enabled=True,
-                sync_mode=SyncMode.FULL_REFRESH,
-                primary_key=["id"],
-                batch_size=100,
-            ),
-            StreamConfig(
-                stream_name="users",
-                enabled=True,
-                sync_mode=SyncMode.FULL_REFRESH,
-                primary_key=["id"],
-                batch_size=100,
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -568,4 +525,4 @@ class SlackConnector(BaseConnector):
 
 
 # Register connector
-ConnectorRegistry._connectors["slack"] = SlackConnector
+ConnectorRegistry.register("slack", SlackConnector)

@@ -47,11 +47,7 @@ export function useRelationshipHealth(params: {
   contactId: string;
 }) {
   return useQuery({
-    queryKey: [
-      "relationship-health",
-      params.organizationId,
-      params.contactId,
-    ],
+    queryKey: ["relationship-health", params.organizationId, params.contactId],
     queryFn: () =>
       customerAPI.getRelationshipHealth({
         organizationId: params.organizationId,

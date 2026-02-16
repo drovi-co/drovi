@@ -1,0 +1,25 @@
+{
+  "name": "@memorystack/ui-theme",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./index.css": "./src/index.css"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^4.0.15",
+    "tw-animate-css": "^1.2.5",
+    "typescript": ">=5.0.0"
+  }
+}

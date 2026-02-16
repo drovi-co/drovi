@@ -14,13 +14,14 @@ Topics:
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime
 from typing import Any
 from uuid import uuid4
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
@@ -28,9 +29,11 @@ logger = structlog.get_logger()
 _kafka_producer: "DroviKafkaProducer | None" = None
 
 
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+def _json_default(value: Any) -> Any:
+    """Best-effort JSON serializer for connector payloads."""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 class DroviKafkaProducer:
@@ -166,7 +169,7 @@ class DroviKafkaProducer:
             Message ID
         """
         msg_id = key or str(uuid4())
-        timestamp = utc_now().isoformat()
+        timestamp = utc_now_naive().isoformat()
 
         # Add metadata to payload
         enriched_value = {
@@ -175,7 +178,10 @@ class DroviKafkaProducer:
             "payload": value,
         }
 
-        serialized_value = json.dumps(enriched_value).encode("utf-8")
+        serialized_value = json.dumps(
+            enriched_value,
+            default=_json_default,
+        ).encode("utf-8")
         serialized_key = msg_id.encode("utf-8")
 
         # Convert headers to Kafka format
@@ -325,6 +331,35 @@ class DroviKafkaProducer:
         )
 
         return msg_id
+
+    async def produce_agent_inbox_event(
+        self,
+        *,
+        organization_id: str,
+        channel_type: str,
+        event_type: str,
+        payload: dict[str, Any],
+        source_id: str | None = None,
+    ) -> str:
+        """Produce AgentOS inbox presence events to the dedicated topic."""
+        settings = get_settings()
+        event = {
+            "organization_id": organization_id,
+            "channel_type": channel_type,
+            "event_type": event_type,
+            "source_id": source_id,
+            "payload": payload,
+        }
+        return await self.produce(
+            topic=settings.kafka_topic_agent_inbox_events,
+            value=event,
+            key=f"{organization_id}:{channel_type}:{source_id or event_type}",
+            headers={
+                "organization_id": organization_id,
+                "channel_type": channel_type,
+                "event_type": event_type,
+            },
+        )
 
     async def produce_normalized_record(
         self,

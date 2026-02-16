@@ -6,14 +6,14 @@
 // This is the one-click path to evidence for any AI extraction.
 //
 
-import { Eye, FileText, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@memorystack/ui-core/tooltip";
+import { Eye, FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

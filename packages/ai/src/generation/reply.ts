@@ -108,18 +108,6 @@ export function extractCitationSources(
     });
   }
 
-  // Add claims as potential sources
-  for (const claim of context.thread.claims) {
-    if (claim.messageId) {
-      // Claims link to their source message
-      const existingSource = sources.find(
-        (s) => s.id === `message:${claim.messageId}`
-      );
-      if (existingSource) {
-      }
-    }
-  }
-
   // Add decisions from history
   if (context.history?.decisions) {
     for (const decision of context.history.decisions) {

@@ -5,6 +5,7 @@ Extracts decisions (choices made, pending, or reversed) from content.
 """
 
 import time
+import re
 
 import structlog
 
@@ -40,6 +41,88 @@ def _dedupe_evidence(evidence: list[EvidenceSpan]) -> list[EvidenceSpan]:
         seen.add(key)
         deduped.append(span)
     return deduped
+
+
+_DECISION_MARKERS = (
+    "decision:",
+    "decided",
+    "approved",
+    "approve",
+    "agreed",
+    "greenlight",
+    "selected",
+    "chosen",
+    "we decided",
+    "we agreed",
+    "approved to",
+    "proceed with",
+    "move forward with",
+    "go with",
+    "let's do",
+)
+
+
+def _normalize_decision_title(statement: str) -> str:
+    cleaned = re.sub(r"\s+", " ", (statement or "").strip()).rstrip(".")
+    if len(cleaned) <= 96:
+        return cleaned or "Decision"
+    return f"{cleaned[:93].rstrip()}..."
+
+
+def _claim_looks_like_decision(claim) -> bool:
+    claim_type = (getattr(claim, "type", "") or "").strip().lower()
+    text = (getattr(claim, "content", "") or "").lower()
+    if claim_type in {"decision", "opinion"}:
+        return True
+    return any(marker in text for marker in _DECISION_MARKERS)
+
+
+def _derive_decisions_from_claims(state: IntelligenceState) -> list[ExtractedDecision]:
+    """Heuristic fallback when LLM decision extraction returns nothing."""
+    by_message_id = {m.id: m for m in state.messages}
+    derived: list[ExtractedDecision] = []
+
+    for claim in state.extracted.claims:
+        if not _claim_looks_like_decision(claim):
+            continue
+
+        source_message = by_message_id.get(getattr(claim, "source_message_id", "") or "")
+        statement = (getattr(claim, "content", "") or "").strip()
+        quoted_text = (getattr(claim, "quoted_text", "") or "").strip() or statement
+
+        derived.append(
+            ExtractedDecision(
+                title=_normalize_decision_title(statement),
+                statement=statement,
+                rationale=None,
+                decision_maker_name=getattr(source_message, "sender_name", None),
+                decision_maker_email=getattr(source_message, "sender_email", None),
+                decision_maker_is_user=bool(getattr(source_message, "is_from_user", False)),
+                status="made",
+                stakeholders=[],
+                dependencies=[],
+                implications=[],
+                quoted_text=quoted_text,
+                quoted_text_start=getattr(claim, "quoted_text_start", None),
+                quoted_text_end=getattr(claim, "quoted_text_end", None),
+                confidence=min(0.8, max(0.4, (getattr(claim, "confidence", 0.5) or 0.5) * 0.78)),
+                reasoning="Heuristic fallback derived from decision-like claim",
+                claim_id=getattr(claim, "id", None),
+                supporting_evidence=[
+                    EvidenceSpan(
+                        quoted_text=quoted_text,
+                        source_message_id=getattr(claim, "source_message_id", None),
+                        quoted_text_start=getattr(claim, "quoted_text_start", None),
+                        quoted_text_end=getattr(claim, "quoted_text_end", None),
+                    )
+                ],
+                source_message_id=getattr(claim, "source_message_id", None),
+                model_tier="heuristic",
+                model_used="claim_fallback",
+            )
+        )
+
+    return derived
 
 
 async def extract_decisions_node(state: IntelligenceState) -> dict:
@@ -85,20 +168,7 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
                 return False
             if text.startswith(("task:", "todo:", "action:", "action item:", "follow up:")):
                 return False
-            decision_markers = (
-                "decision:",
-                "decided",
-                "approved",
-                "approve",
-                "agreed",
-                "greenlight",
-                "selected",
-                "chosen",
-                "we decided",
-                "we agreed",
-                "approved to",
-            )
-            if any(marker in text for marker in decision_markers):
+            if any(marker in text for marker in _DECISION_MARKERS):
                 return True
             # Default: treat "will/should/need to" as commitments/tasks unless explicit decision marker
             if " will " in text or text.startswith("we will") or " need to " in text or " should " in text:
@@ -193,6 +263,19 @@ async def extract_decisions_node(state: IntelligenceState) -> dict:
             merge_fn=_merge_decisions,
         )
         filtered_decisions = [d for d in decisions if is_decision_candidate(d)]
+        if not filtered_decisions and state.extracted.claims:
+            fallback_decisions = _derive_decisions_from_claims(state)
+            if fallback_decisions:
+                filtered_decisions = merge_by_key(
+                    fallback_decisions,
+                    key_fn=lambda item: normalize_key(item.title) or normalize_key(item.statement),
+                    merge_fn=_merge_decisions,
+                )
+                logger.info(
+                    "Decision fallback generated decisions from claims",
+                    analysis_id=state.analysis_id,
+                    fallback_count=len(filtered_decisions),
+                )
 
         # Update extracted intelligence
         extracted = ExtractedIntelligence(

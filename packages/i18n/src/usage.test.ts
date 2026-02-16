@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { baseResources } from "@memorystack/i18n";
+import { describe, expect, test } from "vitest";
 
 function flattenKeys(node: unknown, prefix = ""): string[] {
   if (!node || typeof node !== "object" || Array.isArray(node)) {
@@ -75,7 +76,7 @@ function extractKeyPropertyValues(source: string): string[] {
 }
 
 describe("i18n usage", () => {
-  test("all literal t(\"...\") keys used in web/admin exist in baseResources", () => {
+  test('all literal t("...") keys used in web/admin exist in baseResources', () => {
     const available = new Set(flattenKeys(baseResources.en));
     const repoRoot = path.resolve(__dirname, "../../..");
 

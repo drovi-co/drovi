@@ -5,12 +5,12 @@
  * This wraps the new Python backend auth (from ./auth.ts).
  */
 
-import { useEffect, useState, useCallback } from "react";
-import { authAPI, orgAPI, type OrgInvite, type OrgMember, type User } from "./api";
-import { useAuthStore, initializeAuth } from "./auth";
+import { useEffect, useState } from "react";
+import { authAPI, type OrgInvite, type OrgMember, orgAPI } from "./api";
+import { useAuthStore } from "./auth";
 
 // Re-export the auth store for convenience
-export { useAuthStore, initializeAuth } from "./auth";
+export { initializeAuth, useAuthStore } from "./auth";
 
 // =============================================================================
 // SESSION HOOK (Compatible with old useSession)
@@ -44,7 +44,7 @@ export function useSession(): SessionResult {
     }
   }, [hasChecked, checkAuth]);
 
-  if (!isAuthenticated || !user) {
+  if (!(isAuthenticated && user)) {
     return {
       data: null,
       isPending: isLoading,
@@ -182,10 +182,17 @@ export const authClient = {
    */
   signIn: {
     async email(
-      params: { email: string; password: string; rememberMe?: boolean; inviteToken?: string },
+      params: {
+        email: string;
+        password: string;
+        rememberMe?: boolean;
+        inviteToken?: string;
+      },
       callbacks?: {
         onSuccess?: () => void;
-        onError?: (error: { error: { message: string; status?: number; statusText?: string } }) => void;
+        onError?: (error: {
+          error: { message: string; status?: number; statusText?: string };
+        }) => void;
       }
     ) {
       const store = useAuthStore.getState();
@@ -221,7 +228,9 @@ export const authClient = {
       },
       callbacks?: {
         onSuccess?: () => void;
-        onError?: (error: { error: { message: string; status?: number; statusText?: string } }) => void;
+        onError?: (error: {
+          error: { message: string; status?: number; statusText?: string };
+        }) => void;
       }
     ) {
       const store = useAuthStore.getState();
@@ -257,7 +266,9 @@ export const authClient = {
   /**
    * Reset password
    */
-  async resetPassword(_email: string): Promise<{ error?: { message: string } }> {
+  async resetPassword(
+    _email: string
+  ): Promise<{ error?: { message: string } }> {
     // TODO: Implement when Python backend supports password reset
     return { error: { message: "Password reset not yet implemented" } };
   },
@@ -266,7 +277,9 @@ export const authClient = {
    * Organization namespace (for compatibility)
    */
   organization: {
-    async getActiveMember(): Promise<{ data: { organizationId: string } | null }> {
+    async getActiveMember(): Promise<{
+      data: { organizationId: string } | null;
+    }> {
       const store = useAuthStore.getState();
       if (!store.user) {
         await store.checkAuth();
@@ -303,7 +316,11 @@ export const authClient = {
       return { data: { members } };
     },
 
-    async updateMemberRole(params: { memberId: string; role: "admin" | "member"; organizationId: string }) {
+    async updateMemberRole(params: {
+      memberId: string;
+      role: "admin" | "member";
+      organizationId: string;
+    }) {
       await orgAPI.updateMemberRole({
         userId: params.memberId,
         role: params.role === "admin" ? "pilot_admin" : "pilot_member",
@@ -311,7 +328,10 @@ export const authClient = {
       return { data: true };
     },
 
-    async removeMember(params: { memberIdOrEmail: string; organizationId: string }) {
+    async removeMember(params: {
+      memberIdOrEmail: string;
+      organizationId: string;
+    }) {
       await orgAPI.removeMember(params.memberIdOrEmail);
       return { data: true };
     },
@@ -321,7 +341,11 @@ export const authClient = {
       return { data: invites };
     },
 
-    async inviteMember(params: { email: string; role: "admin" | "member"; organizationId: string }) {
+    async inviteMember(params: {
+      email: string;
+      role: "admin" | "member";
+      organizationId: string;
+    }) {
       await orgAPI.createInvite({
         email: params.email,
         role: params.role === "admin" ? "pilot_admin" : "pilot_member",

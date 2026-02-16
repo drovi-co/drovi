@@ -1,0 +1,9 @@
+{
+  "extends": "@memorystack/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strictNullChecks": true
+  },
+  "include": ["src", "test"]
+}

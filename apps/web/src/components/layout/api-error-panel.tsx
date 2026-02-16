@@ -1,4 +1,11 @@
-import { useMemo, useState } from "react";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@memorystack/ui-core/card";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -8,16 +15,8 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { APIError, getApiBase } from "@/lib/api";
 import { useSupportModalStore } from "@/lib/support-modal";
 import { cn } from "@/lib/utils";
@@ -27,19 +26,19 @@ function getDefaultTitle(error: unknown): string {
     return "Something went wrong";
   }
   switch (error.code) {
-    case "API_UNREACHABLE":
+    case "api.unreachable":
       return "Drovi API unreachable";
-    case "UNAUTHENTICATED":
+    case "auth.unauthorized":
       return "Session expired";
-    case "FORBIDDEN":
+    case "auth.forbidden":
       return "Access denied";
-    case "VALIDATION_ERROR":
+    case "http.validation_error":
+    case "request.validation_error":
       return "Invalid request";
-    case "RATE_LIMITED":
+    case "rate.limited":
       return "Rate limited";
-    case "SERVER_ERROR":
+    case "internal.unhandled":
       return "Server error";
-    case "UNKNOWN_ERROR":
     default:
       return "Request failed";
   }
@@ -47,13 +46,13 @@ function getDefaultTitle(error: unknown): string {
 
 function getDefaultDescription(error: unknown): string {
   if (error instanceof APIError) {
-    if (error.code === "UNAUTHENTICATED") {
+    if (error.code === "auth.unauthorized") {
       return "Your session is no longer valid. Sign in again to keep going.";
     }
-    if (error.code === "API_UNREACHABLE") {
+    if (error.code === "api.unreachable") {
       return "We can’t reach the intelligence stack from this page.";
     }
-    return error.detail || error.message;
+    return error.message;
   }
   if (error instanceof Error) {
     return error.message;
@@ -153,7 +152,10 @@ export function ApiErrorPanel({
     openSupport({
       subject: `${computedTitle}${subjectSuffix}`.slice(0, 180),
       message: body,
-      route: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined,
+      route:
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : undefined,
       diagnostics: meta
         ? {
             errorPanel: {
@@ -175,7 +177,7 @@ export function ApiErrorPanel({
     });
   };
 
-  const showSignIn = meta?.code === "UNAUTHENTICATED";
+  const showSignIn = meta?.code === "auth.unauthorized";
   const Icon = showSignIn ? ShieldAlert : AlertTriangle;
 
   return (
@@ -187,12 +189,14 @@ export function ApiErrorPanel({
           </span>
           {computedTitle}
           {meta?.code ? (
-            <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-amber-600">
-              {meta.code.replace(/_/g, " ").toLowerCase()}
+            <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] text-amber-600 uppercase tracking-[0.2em]">
+              {meta.code.replace(/[._]/g, " ").toLowerCase()}
             </span>
           ) : null}
         </CardTitle>
-        <CardDescription className="text-sm">{computedDescription}</CardDescription>
+        <CardDescription className="text-sm">
+          {computedDescription}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {meta ? (

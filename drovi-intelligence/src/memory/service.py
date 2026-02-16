@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import structlog
@@ -21,16 +21,12 @@ from src.db.client import get_db_session
 from src.db.rls import set_rls_context
 from src.graph.client import get_graph_client
 from src.memory.drovi_memory import DroviMemory
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 
 TimeSliceMode = Literal["truth", "knowledge", "both"]
-
-
-def utc_now() -> datetime:
-    """Get current UTC time as naive datetime (for Postgres)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @dataclass
@@ -227,7 +223,7 @@ class MemoryService:
     # ---------------------------------------------------------------------
 
     async def get_recent_uios(self, limit: int = 10, days: int = 90) -> list[dict[str, Any]]:
-        cutoff = utc_now() - timedelta(days=days)
+        cutoff = utc_now_naive() - timedelta(days=days)
         return await self._query_uios(
             where_clause="AND last_updated_at >= :cutoff",
             params={"cutoff": cutoff},
@@ -354,11 +350,11 @@ class MemoryService:
             params["status"] = status
 
         if mode in ("truth", "both"):
-            conditions.append("valid_from <= :as_of")
-            conditions.append("(valid_to IS NULL OR valid_to > :as_of)")
+            conditions.append("valid_range @> :as_of")
         if mode in ("knowledge", "both"):
-            conditions.append("system_from <= :as_of")
-            conditions.append("(system_to IS NULL OR system_to > :as_of)")
+            conditions.append(
+                "tstzrange(system_from, COALESCE(system_to, 'infinity'::timestamptz), '[)') @> :as_of"
+            )
 
         where_clause = ""
         if conditions:
@@ -675,7 +671,7 @@ class MemoryService:
         """
         if not results:
             return results
-        now = now or utc_now()
+        now = now or utc_now_naive()
         half_life_seconds = float(half_life_days * 24 * 3600)
 
         def _pick_time(item: dict[str, Any]) -> datetime | None:

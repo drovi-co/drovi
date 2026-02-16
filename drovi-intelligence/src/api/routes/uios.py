@@ -28,6 +28,7 @@ from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit, ge
 from src.auth.scopes import Scope
 from src.orchestrator.state import UIOStatus
 from src.uio.manager import get_uio_manager
+from src.utils.due_dates import infer_due_date
 
 logger = structlog.get_logger()
 
@@ -386,7 +387,7 @@ class ExtendedCursorUIOListResponse(BaseModel):
     """Extended cursor-paginated UIO listing with full data."""
 
     items: list[UIOResponse]
-    total: int
+    total: int | None = None
     cursor: str | None = None
     has_more: bool = False
 
@@ -421,23 +422,62 @@ class CursorUIOListResponse(BaseModel):
     """Response for cursor-paginated UIO listing (legacy)."""
 
     items: list[UIOItem]
-    total: int
+    total: int | None = None
     cursor: str | None = None
     has_more: bool = False
 
 
-def encode_cursor(offset: int) -> str:
-    """Encode pagination offset as opaque cursor."""
-    return base64.urlsafe_b64encode(json.dumps({"offset": offset}).encode()).decode()
+def _encode_cursor_payload(payload: dict) -> str:
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
 
 
-def decode_cursor(cursor: str) -> int:
-    """Decode opaque cursor to pagination offset."""
+def _decode_cursor_payload(cursor: str) -> dict:
+    return json.loads(base64.urlsafe_b64decode(cursor.encode()))
+
+
+def encode_keyset_cursor(created_at: datetime, item_id: str) -> str:
+    """Encode keyset cursor based on (created_at, id)."""
+    return _encode_cursor_payload(
+        {
+            "v": 2,
+            "kind": "keyset",
+            "created_at": created_at.isoformat(),
+            "id": item_id,
+        }
+    )
+
+
+def decode_uios_cursor(cursor: str | None) -> tuple[datetime, str] | tuple[None, None]:
+    """
+    Decode cursor payload.
+
+    Supports:
+    - Keyset cursor (v2): {"kind":"keyset","created_at":"...","id":"..."}
+    - Legacy offset cursor: {"offset": N} (treated as no keyset)
+    """
+    if not cursor:
+        return None, None
+
     try:
-        data = json.loads(base64.urlsafe_b64decode(cursor.encode()))
-        return data.get("offset", 0)
+        data = _decode_cursor_payload(cursor)
     except Exception:
-        return 0
+        return None, None
+
+    # Legacy cursor compatibility: ignore and return first page.
+    if "offset" in data:
+        return None, None
+
+    created_at_raw = data.get("created_at")
+    item_id = data.get("id")
+    if not isinstance(created_at_raw, str) or not isinstance(item_id, str):
+        return None, None
+
+    try:
+        created_at = datetime.fromisoformat(created_at_raw)
+    except ValueError:
+        return None, None
+
+    return created_at, item_id
 
 
 def confidence_to_tier(confidence: float) -> Literal["high", "medium", "low"]:
@@ -482,7 +522,59 @@ def _parse_extraction_context(value) -> dict:
         return {}
 
 
-async def build_uio_response(row, session=None) -> UIOResponse:
+def _parse_recipients(raw_value) -> list[dict]:
+    if raw_value is None:
+        return []
+    value = raw_value
+    if isinstance(raw_value, str):
+        try:
+            value = json.loads(raw_value)
+        except Exception:
+            return []
+    if not isinstance(value, list):
+        return []
+    return [entry for entry in value if isinstance(entry, dict)]
+
+
+def _build_derived_contact(
+    *,
+    email: str | None,
+    name: str | None,
+    role: str,
+) -> Contact | None:
+    if not email:
+        return None
+    email_normalized = email.strip().lower()
+    if not email_normalized:
+        return None
+    contact_id = f"derived:{role}:{email_normalized}"
+    display_name = (name or "").strip() or email_normalized.split("@")[0]
+    return Contact(
+        id=contact_id,
+        display_name=display_name,
+        primary_email=email_normalized,
+    )
+
+
+def _first_recipient_contact(row_dict: dict) -> Contact | None:
+    recipients = _parse_recipients(row_dict.get("source_recipients"))
+    for recipient in recipients:
+        email = recipient.get("email")
+        if not isinstance(email, str) or not email.strip():
+            continue
+        name = recipient.get("name")
+        name_value = name if isinstance(name, str) else None
+        contact = _build_derived_contact(
+            email=email,
+            name=name_value,
+            role="recipient",
+        )
+        if contact:
+            return contact
+    return None
+
+
+async def build_uio_response(row, _session=None) -> UIOResponse:
     """Build a complete UIOResponse from a database row."""
     row_dict = _row_to_dict(row)
 
@@ -515,6 +607,13 @@ async def build_uio_response(row, session=None) -> UIOResponse:
     risk_details = None
     claim_details = None
     brief_details = None
+    source_sender = _build_derived_contact(
+        email=row_dict.get("source_sender_email"),
+        name=row_dict.get("source_sender_name"),
+        role="sender",
+    )
+    source_recipient = _first_recipient_contact(row_dict)
+    source_is_from_user = bool(row_dict.get("source_is_from_user"))
 
     if uio_type == "commitment":
         # Build debtor and creditor contacts
@@ -553,6 +652,27 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         )
         confidence_reasoning = commitment_context.get("confidenceReasoning")
 
+        # Fallback contact hydration when extraction produced only one side.
+        if commitment_details and commitment_details.direction == "owed_to_me":
+            if debtor is None:
+                debtor = source_sender if not source_is_from_user else source_recipient
+            if creditor is None:
+                creditor = owner or (
+                    source_sender if source_is_from_user else source_recipient
+                )
+        elif commitment_details and commitment_details.direction == "owed_by_me":
+            if creditor is None:
+                creditor = source_recipient if source_is_from_user else source_sender
+            if debtor is None:
+                debtor = owner or (
+                    source_sender if source_is_from_user else source_recipient
+                )
+
+        if debtor is None and creditor is not None:
+            debtor = creditor
+        if creditor is None and debtor is not None:
+            creditor = debtor
+
     elif uio_type == "decision":
         if row_dict.get("decision_maker_id"):
             decision_maker = Contact(
@@ -576,6 +696,10 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             row_dict.get("decision_extraction_context")
         )
         confidence_reasoning = decision_context.get("confidenceReasoning")
+        if decision_maker is None:
+            decision_maker = source_sender or source_recipient or owner
+        if owner is None and decision_maker is not None:
+            owner = decision_maker
 
     elif uio_type == "task":
         if row_dict.get("assignee_id"):
@@ -608,6 +732,14 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         )
         task_context = _parse_extraction_context(row_dict.get("task_extraction_context"))
         confidence_reasoning = task_context.get("confidenceReasoning")
+        if assignee is None:
+            assignee = (
+                source_recipient if source_is_from_user else source_sender
+            ) or owner
+        if created_by is None:
+            created_by = source_sender or owner
+        if owner is None and assignee is not None:
+            owner = assignee
 
     elif uio_type == "risk":
         risk_details = RiskDetails(
@@ -662,6 +794,19 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             )
         ]
 
+    due_date_value = row_dict.get("due_date")
+    if not due_date_value and uio_type in {"commitment", "task"}:
+        due_date_value = infer_due_date(
+            due_date=None,
+            due_date_text=row_dict.get("due_date_original_text"),
+            title=row_dict.get("canonical_title"),
+            reference_time=(
+                row_dict.get("source_timestamp")
+                or row_dict.get("first_seen_at")
+                or row_dict.get("created_at")
+            ),
+        )
+
     return UIOResponse(
         id=row_dict["id"],
         type=uio_type,
@@ -677,7 +822,7 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         confidence_reasoning=confidence_reasoning,
         is_user_verified=row_dict.get("is_user_verified") or False,
         is_user_dismissed=row_dict.get("is_user_dismissed") or False,
-        due_date=row_dict.get("due_date"),
+        due_date=due_date_value,
         created_at=row_dict.get("created_at") or datetime.now(timezone.utc),
         updated_at=row_dict.get("updated_at"),
         first_seen_at=row_dict.get("first_seen_at"),
@@ -716,6 +861,7 @@ SELECT
     -- Commitment details
     cd.direction, cd.priority as commitment_priority,
     cd.status as commitment_status, cd.due_date_source,
+    cd.due_date_original_text,
     cd.is_conditional, cd.condition, cd.snoozed_until,
     cd.completed_at as commitment_completed_at,
     cd.supersedes_uio_id as commitment_supersedes_uio_id,
@@ -782,7 +928,11 @@ SELECT
     uos.quoted_text as source_quoted_text, uos.quoted_text_start as source_quoted_text_start,
     uos.quoted_text_end as source_quoted_text_end, uos.segment_hash as source_segment_hash,
     uos.conversation_id, uos.message_id,
-    uos.role as source_role
+    uos.role as source_role,
+    m.sender_name as source_sender_name,
+    m.sender_email as source_sender_email,
+    m.recipients as source_recipients,
+    m.is_from_user as source_is_from_user
 
 FROM unified_intelligence_object u
 
@@ -819,6 +969,7 @@ LEFT JOIN LATERAL (
     ORDER BY source_timestamp DESC NULLS LAST
     LIMIT 1
 ) uos ON true
+LEFT JOIN message m ON m.id = uos.message_id
 """
 
 
@@ -836,6 +987,10 @@ async def list_uios_v2(
     as_of: str | None = Query(default=None, description="ISO timestamp for time-slice queries"),
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = None,
+    include_total: bool = Query(
+        default=False,
+        description="Include total count (expensive on large orgs).",
+    ),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
@@ -850,6 +1005,7 @@ async def list_uios_v2(
         range: Time range (7d, 30d, 90d, all)
         limit: Maximum results per page (default 20, max 100)
         cursor: Pagination cursor from previous response
+        include_total: Whether to include total count
 
     Returns:
         ExtendedCursorUIOListResponse with full UIO data
@@ -869,8 +1025,7 @@ async def list_uios_v2(
     type_label = type or "all"
     UIOS_REQUESTS.labels(org_id=org_id, type=type_label).inc()
 
-    # Decode cursor to offset
-    offset = decode_cursor(cursor) if cursor else 0
+    cursor_created_at, cursor_id = decode_uios_cursor(cursor)
 
     # Calculate date range
     now = datetime.now(timezone.utc)
@@ -905,33 +1060,47 @@ async def list_uios_v2(
     from src.finetuning.confidence_calibrator import record_calibration_event
 
     items: list[UIOResponse] = []
-    total = 0
+    total: int | None = None
 
     try:
         async with get_db_session() as session:
             # Build query conditions
             conditions = ["u.organization_id = :org_id"]
-            params: dict = {"org_id": org_id, "limit": limit + 1, "offset": offset}
+            params: dict = {"org_id": org_id, "limit": limit + 1}
 
             # Always filter to valid UIO types only
-            valid_types = ["commitment", "decision", "risk", "task", "claim", "brief"]
+            from src.contexts.uio_truth.application.uio_types import list_allowed_uio_types, validate_uio_type
+
+            valid_types = list_allowed_uio_types()
             if type:
+                type = validate_uio_type(type)
                 conditions.append("u.type = :type")
                 params["type"] = type
             else:
                 # Filter to valid types when no specific type is requested
-                conditions.append("u.type IN (:type_0, :type_1, :type_2, :type_3, :type_4, :type_5)")
+                if not valid_types:
+                    raise HTTPException(status_code=500, detail="No UIO types registered")
+                placeholders: list[str] = []
                 for i, t in enumerate(valid_types):
-                    params[f"type_{i}"] = t
+                    key = f"type_{i}"
+                    placeholders.append(f":{key}")
+                    params[key] = t
+                conditions.append(f"u.type IN ({', '.join(placeholders)})")
 
             if period_start:
                 conditions.append("u.created_at >= :period_start")
                 params["period_start"] = period_start
 
             if as_of_ts:
-                conditions.append("u.valid_from <= :as_of")
-                conditions.append("(u.valid_to IS NULL OR u.valid_to > :as_of)")
+                conditions.append("u.valid_range @> :as_of")
                 params["as_of"] = as_of_ts
+
+            if cursor_created_at and cursor_id:
+                conditions.append(
+                    "(u.created_at < :cursor_created_at OR (u.created_at = :cursor_created_at AND u.id < :cursor_id))"
+                )
+                params["cursor_created_at"] = cursor_created_at
+                params["cursor_id"] = cursor_id
 
             if status == "overdue":
                 conditions.append("u.status IN ('draft', 'active', 'in_progress')")
@@ -951,26 +1120,27 @@ async def list_uios_v2(
 
             where_clause = " AND ".join(conditions)
 
-            # Count total
-            count_result = await session.execute(
-                text(f"""
-                    SELECT COUNT(*) as count
-                    FROM unified_intelligence_object u
-                    WHERE {where_clause}
-                """),
-                {k: v for k, v in params.items() if k not in ("limit", "offset")},
-            )
-            count_row = count_result.fetchone()
-            total = count_row.count if count_row else 0
+            if include_total:
+                count_result = await session.execute(
+                    text(
+                        f"""
+                        SELECT COUNT(*) as count
+                        FROM unified_intelligence_object u
+                        WHERE {where_clause}
+                    """
+                    ),
+                    {k: v for k, v in params.items() if k not in ("limit",)},
+                )
+                count_row = count_result.fetchone()
+                total = int(count_row.count) if count_row else 0
 
             # Fetch items with full JOIN query
             result = await session.execute(
                 text(f"""
                     {FULL_UIO_QUERY}
                     WHERE {where_clause}
-                    ORDER BY u.created_at DESC
+                    ORDER BY u.created_at DESC, u.id DESC
                     LIMIT :limit
-                    OFFSET :offset
                 """),
                 params,
             )
@@ -993,7 +1163,10 @@ async def list_uios_v2(
         raise HTTPException(status_code=500, detail="Failed to list UIOs")
 
     # Generate next cursor if has_more
-    next_cursor = encode_cursor(offset + limit) if has_more else None
+    next_cursor = None
+    if has_more and items:
+        last = items[-1]
+        next_cursor = encode_keyset_cursor(last.created_at, last.id)
 
     # Record latency
     latency = time.time() - start_time
@@ -1007,6 +1180,7 @@ async def list_uios_v2(
         time_range=time_range,
         count=len(items),
         total=total,
+        include_total=include_total,
         latency_ms=latency * 1000,
     )
 

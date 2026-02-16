@@ -8,6 +8,8 @@ Validate extraction quality, correction rate trends, and evidence trustworthines
 2. Connect at least 3 sources (email, Slack, calendar/meeting).
 3. Enable Kafka ingestion and evidence storage (MinIO/S3).
 4. Confirm `/api/v1/monitoring/metrics` is scraped and dashboards are visible.
+5. Seed AgentOS demo baseline (optional but recommended):
+   - `python scripts/seed_agentos_demo.py --org-id <ORG_ID> --owner-user-id <USER_ID>`
 
 ## Pilot Execution
 1. Run the pilot for 2–4 weeks with real daily usage.
@@ -16,6 +18,11 @@ Validate extraction quality, correction rate trends, and evidence trustworthines
    - Corrections per extracted item
    - Corrections per user per week
    - Top error categories (commitment/decision/risk/task/claim)
+4. Track AgentOS reliability weekly:
+   - Agent run success rate
+   - Agent run p95 latency
+   - Approval backlog by org
+   - Quality drift score by role
 
 ## Data Collection
 1. Export corrections weekly:

@@ -1,5 +1,4 @@
-"""Gmail connector."""
+"""Gmail connector source package (import-free)."""
 
-from src.connectors.sources.email.gmail.connector import GmailConnector
+from __future__ import annotations
 
-__all__ = ["GmailConnector"]

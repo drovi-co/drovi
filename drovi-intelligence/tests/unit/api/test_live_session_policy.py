@@ -5,12 +5,18 @@ import pytest
 from fastapi import HTTPException
 
 from src.api.routes.live_sessions import start_live_session, LiveSessionStartRequest
+from src.auth.context import AuthMetadata, AuthType
 from src.auth.middleware import APIKeyContext
 
 
 @pytest.mark.asyncio
 async def test_live_session_requires_consent():
-    ctx = APIKeyContext(organization_id="org_1", scopes=["write"])
+    ctx = APIKeyContext(
+        organization_id="org_1",
+        auth_subject_id="key_test",
+        scopes=["write"],
+        metadata=AuthMetadata(auth_type=AuthType.API_KEY, key_id="key_test"),
+    )
     request = LiveSessionStartRequest(
         organization_id="org_1",
         session_type="meeting",
@@ -41,7 +47,12 @@ async def test_live_session_requires_consent():
 
 @pytest.mark.asyncio
 async def test_live_session_blocks_region():
-    ctx = APIKeyContext(organization_id="org_1", scopes=["write"])
+    ctx = APIKeyContext(
+        organization_id="org_1",
+        auth_subject_id="key_test",
+        scopes=["write"],
+        metadata=AuthMetadata(auth_type=AuthType.API_KEY, key_id="key_test"),
+    )
     request = LiveSessionStartRequest(
         organization_id="org_1",
         session_type="meeting",

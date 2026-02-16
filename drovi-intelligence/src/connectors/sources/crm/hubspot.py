@@ -16,7 +16,8 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
-from src.connectors.http import request_with_retry
+from src.connectors.http_client import connector_request
+from src.connectors.sources.crm.hubspot_definition import CAPABILITIES, OAUTH_SCOPES, default_streams
 
 logger = structlog.get_logger()
 
@@ -100,6 +101,10 @@ class HubSpotConnector(BaseConnector):
     Supports incremental sync based on lastmodifieddate.
     """
 
+    connector_type = "hubspot"
+    capabilities = CAPABILITIES
+    SCOPES = list(OAUTH_SCOPES)
+
     def __init__(self):
         """Initialize HubSpot connector."""
         self._access_token: str | None = None
@@ -115,14 +120,15 @@ class HubSpotConnector(BaseConnector):
                 return False, "Missing access_token in credentials"
 
             async with httpx.AsyncClient() as client:
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
+                    operation="check_connection",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"limit": 1},
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
 
                 if response.status_code == 200:
@@ -141,28 +147,7 @@ class HubSpotConnector(BaseConnector):
         config: ConnectorConfig,
     ) -> list[StreamConfig]:
         """Discover available HubSpot streams."""
-        return [
-            StreamConfig(
-                stream_name="contacts",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastmodifieddate",
-            ),
-            StreamConfig(
-                stream_name="companies",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastmodifieddate",
-            ),
-            StreamConfig(
-                stream_name="deals",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastmodifieddate",
-            ),
-            StreamConfig(
-                stream_name="engagements",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="lastUpdated",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,
@@ -213,14 +198,15 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{HUBSPOT_BASE_URL}/crm/v3/objects/contacts",
+                    operation="read_contacts",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -290,14 +276,15 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{HUBSPOT_BASE_URL}/crm/v3/objects/companies",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{HUBSPOT_BASE_URL}/crm/v3/objects/companies",
+                    operation="read_companies",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -365,14 +352,15 @@ class HubSpotConnector(BaseConnector):
                 if after:
                     params["after"] = after
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{HUBSPOT_BASE_URL}/crm/v3/objects/deals",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{HUBSPOT_BASE_URL}/crm/v3/objects/deals",
+                    operation="read_deals",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -432,14 +420,15 @@ class HubSpotConnector(BaseConnector):
                 if offset:
                     params["offset"] = offset
 
-                response = await request_with_retry(
-                    client,
-                    "GET",
-                    f"{HUBSPOT_BASE_URL}/engagements/v1/engagements/paged",
+                response = await connector_request(
+                    connector=self,
+                    config=config,
+                    client=client,
+                    method="GET",
+                    url=f"{HUBSPOT_BASE_URL}/engagements/v1/engagements/paged",
+                    operation="read_engagements",
                     headers={"Authorization": f"Bearer {self._access_token}"},
                     params=params,
-                    rate_limit_key=self.get_rate_limit_key(config),
-                    rate_limit_per_minute=self.get_rate_limit_per_minute(),
                 )
                 response.raise_for_status()
                 data = response.json()

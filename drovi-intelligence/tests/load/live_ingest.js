@@ -1,5 +1,6 @@
-import http from "k6/http";
+/* global __ENV */
 import { check, sleep } from "k6";
+import http from "k6/http";
 
 export const options = {
   vus: 5,
@@ -22,7 +23,7 @@ export default function () {
       consent_provided: true,
       region: "US",
     }),
-    { headers },
+    { headers }
   );
   check(startRes, { "start ok": (r) => r.status === 200 });
   const sessionId = startRes.json("session_id");
@@ -38,7 +39,7 @@ export default function () {
       confidence: 0.9,
       run_intelligence: false,
     }),
-    { headers },
+    { headers }
   );
   check(segRes, { "segment ok": (r) => r.status === 200 });
 
@@ -49,7 +50,7 @@ export default function () {
       run_intelligence: false,
       source_type: "meeting",
     }),
-    { headers },
+    { headers }
   );
   check(endRes, { "end ok": (r) => r.status === 200 });
 

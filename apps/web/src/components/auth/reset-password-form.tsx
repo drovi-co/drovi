@@ -1,6 +1,6 @@
-import { ArrowRight, ShieldAlert } from "lucide-react";
+import { Button } from "@memorystack/ui-core/button";
 import { useNavigate } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, ShieldAlert } from "lucide-react";
 import { useT } from "@/i18n";
 
 export function ResetPasswordForm() {
@@ -23,7 +23,9 @@ export function ResetPasswordForm() {
 
       <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
         {t("auth.passwordReset.reset.helpPrefix")}{" "}
-        <span className="font-medium text-foreground">{t("auth.passwordReset.supportEmail")}</span>{" "}
+        <span className="font-medium text-foreground">
+          {t("auth.passwordReset.supportEmail")}
+        </span>{" "}
         {t("auth.passwordReset.reset.helpSuffix")}
       </div>
 

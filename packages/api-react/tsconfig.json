@@ -1,0 +1,13 @@
+{
+  "extends": "@memorystack/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@memorystack/api-client": ["../api-client/src/index.ts"],
+      "@memorystack/api-client/*": ["../api-client/src/*"]
+    }
+  },
+  "include": ["src"]
+}

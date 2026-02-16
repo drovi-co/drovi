@@ -20,7 +20,12 @@ from prometheus_client import Counter, Histogram
 from src.auth.context import AuthContext
 from src.auth.middleware import get_auth_context
 from src.auth.scopes import Scope
-from src.db import get_db_pool
+from src.api.routes.console_query_planner import plan_console_joins, render_console_joins
+from src.contexts.uio_truth.infrastructure.console_preaggregates import (
+    fetch_console_metrics_preaggregate,
+    fetch_console_timeseries_preaggregate,
+)
+from src.db import get_raw_query_pool
 
 logger = structlog.get_logger()
 
@@ -248,7 +253,7 @@ async def console_query(
     CONSOLE_QUERY_REQUESTS.labels(org_id=org_id).inc()
 
     try:
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Build WHERE conditions
         conditions = ["u.organization_id = $1"]
@@ -439,6 +444,26 @@ async def console_query(
             param_idx += 1
 
         where_clause = " AND ".join(conditions)
+        main_joins = plan_console_joins(
+            filters=request.filters,
+            group_by=request.group_by,
+            include_projection=True,
+            include_source_sender=True,
+        )
+        main_join_sql = render_console_joins(main_joins)
+        main_from_sql = "FROM unified_intelligence_object u"
+        if main_join_sql:
+            main_from_sql = f"{main_from_sql}\n            {main_join_sql}"
+
+        aggregate_joins = plan_console_joins(
+            filters=request.filters,
+            group_by=request.group_by,
+            include_projection=False,
+        )
+        aggregate_join_sql = render_console_joins(aggregate_joins)
+        aggregate_from_sql = "FROM unified_intelligence_object u"
+        if aggregate_join_sql:
+            aggregate_from_sql = f"{aggregate_from_sql}\n            {aggregate_join_sql}"
 
         # Build query
         query = f"""
@@ -505,22 +530,7 @@ async def console_query(
                 m.sender_name as source_sender_name,
                 m.sender_email as source_sender_email
 
-            FROM unified_intelligence_object u
-
-            LEFT JOIN contact oc ON u.owner_contact_id = oc.id
-            LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
-            LEFT JOIN contact dc ON cd.debtor_contact_id = dc.id
-            LEFT JOIN contact cc ON cd.creditor_contact_id = cc.id
-            LEFT JOIN uio_decision_details dd ON u.id = dd.uio_id
-            LEFT JOIN contact dmc ON dd.decision_maker_contact_id = dmc.id
-            LEFT JOIN uio_task_details td ON u.id = td.uio_id
-            LEFT JOIN contact ac ON td.assignee_contact_id = ac.id
-            LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id
-            LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id
-            LEFT JOIN conversation conv ON conv.external_id = uos.conversation_id
-                AND conv.source_account_id = uos.source_account_id
-            LEFT JOIN message m ON m.external_id = uos.message_id
-                AND m.conversation_id = conv.id
+            {main_from_sql}
 
             WHERE {where_clause}
 
@@ -586,38 +596,51 @@ async def console_query(
             )
             items.append(item)
 
-        # Get metrics (aggregate query)
-        metrics_query = f"""
-            SELECT
-                COUNT(*) as total_count,
-                COUNT(*) FILTER (WHERE u.status = 'active') as active_count,
-                COUNT(*) FILTER (WHERE u.due_date IS NOT NULL AND u.due_date > NOW() AND u.due_date <= NOW() + INTERVAL '3 days' AND u.status NOT IN ('completed', 'cancelled', 'archived')) as at_risk_count,
-                COUNT(*) FILTER (WHERE u.due_date < NOW() AND u.status NOT IN ('completed', 'cancelled', 'archived')) as overdue_count,
-                AVG(u.overall_confidence) as avg_confidence
-            FROM unified_intelligence_object u
-            LEFT JOIN contact oc ON u.owner_contact_id = oc.id
-            LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
-            LEFT JOIN contact dc ON cd.debtor_contact_id = dc.id
-            LEFT JOIN contact cc ON cd.creditor_contact_id = cc.id
-            LEFT JOIN uio_decision_details dd ON u.id = dd.uio_id
-            LEFT JOIN contact dmc ON dd.decision_maker_contact_id = dmc.id
-            LEFT JOIN uio_task_details td ON u.id = td.uio_id
-            LEFT JOIN contact ac ON td.assignee_contact_id = ac.id
-            LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id
-            LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id
-            WHERE {where_clause}
-        """
-
-        async with pool.acquire() as conn:
-            metrics_row = await conn.fetchrow(metrics_query, *params[:-1])  # Exclude limit
-
-        metrics = ConsoleMetrics(
-            total_count=metrics_row["total_count"] if metrics_row else 0,
-            active_count=metrics_row["active_count"] if metrics_row else 0,
-            at_risk_count=metrics_row["at_risk_count"] if metrics_row else 0,
-            overdue_count=metrics_row["overdue_count"] if metrics_row else 0,
-            avg_confidence=float(metrics_row["avg_confidence"]) if metrics_row and metrics_row["avg_confidence"] else None,
+        # Get metrics (pre-aggregate first, then live fallback)
+        can_use_preaggregates = bool(
+            (auth.is_internal or auth.has_scope(Scope.ADMIN))
+            and not request.filters
+            and not request.free_text
         )
+        metrics: ConsoleMetrics | None = None
+        if can_use_preaggregates:
+            preagg_metrics = await fetch_console_metrics_preaggregate(
+                organization_id=org_id,
+                max_age_seconds=300,
+            )
+            if preagg_metrics is not None:
+                metrics = ConsoleMetrics(
+                    total_count=int(preagg_metrics.get("total_count") or 0),
+                    active_count=int(preagg_metrics.get("active_count") or 0),
+                    at_risk_count=int(preagg_metrics.get("at_risk_count") or 0),
+                    overdue_count=int(preagg_metrics.get("overdue_count") or 0),
+                    avg_confidence=float(preagg_metrics["avg_confidence"])
+                    if preagg_metrics.get("avg_confidence") is not None
+                    else None,
+                )
+
+        if metrics is None:
+            metrics_query = f"""
+                SELECT
+                    COUNT(*) as total_count,
+                    COUNT(*) FILTER (WHERE u.status = 'active') as active_count,
+                    COUNT(*) FILTER (WHERE u.due_date IS NOT NULL AND u.due_date > NOW() AND u.due_date <= NOW() + INTERVAL '3 days' AND u.status NOT IN ('completed', 'cancelled', 'archived')) as at_risk_count,
+                    COUNT(*) FILTER (WHERE u.due_date < NOW() AND u.status NOT IN ('completed', 'cancelled', 'archived')) as overdue_count,
+                    AVG(u.overall_confidence) as avg_confidence
+                    {aggregate_from_sql}
+                    WHERE {where_clause}
+            """
+
+            async with pool.acquire() as conn:
+                metrics_row = await conn.fetchrow(metrics_query, *params[:-1])  # Exclude limit
+
+            metrics = ConsoleMetrics(
+                total_count=metrics_row["total_count"] if metrics_row else 0,
+                active_count=metrics_row["active_count"] if metrics_row else 0,
+                at_risk_count=metrics_row["at_risk_count"] if metrics_row else 0,
+                overdue_count=metrics_row["overdue_count"] if metrics_row else 0,
+                avg_confidence=float(metrics_row["avg_confidence"]) if metrics_row and metrics_row["avg_confidence"] else None,
+            )
 
         # Get aggregations if grouping
         aggregations = None
@@ -633,18 +656,15 @@ async def console_query(
                 SELECT
                     {agg_field} as key,
                     COUNT(*) as count
-                FROM unified_intelligence_object u
-                LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
-                LEFT JOIN uio_task_details td ON u.id = td.uio_id
-                LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id
-                WHERE u.organization_id = $1
+                {aggregate_from_sql}
+                WHERE {where_clause}
                 GROUP BY {agg_field}
                 ORDER BY count DESC
                 LIMIT 20
             """
 
             async with pool.acquire() as conn:
-                agg_rows = await conn.fetch(agg_query, org_id)
+                agg_rows = await conn.fetch(agg_query, *params[:-1])
 
             total = sum(row["count"] for row in agg_rows)
             aggregations = {
@@ -664,14 +684,46 @@ async def console_query(
         if has_more and items:
             next_cursor = items[-1].id
 
-        # Generate timeseries data (always included for histogram)
-        timeseries = await _generate_timeseries(
-            pool=pool,
-            org_id=org_id,
-            time_range=request.time_range,
-            where_clause=where_clause,
-            params=params[:-1],  # Exclude limit param
-        )
+        # Generate timeseries data (pre-aggregate first, then live fallback)
+        timeseries: list[TimeseriesPoint] = []
+        if can_use_preaggregates:
+            now_ts = datetime.now(timezone.utc)
+            if request.time_range and request.time_range.type == "absolute":
+                ts_start = request.time_range.from_date or (now_ts - timedelta(days=30))
+                ts_end = request.time_range.to_date or now_ts
+            elif request.time_range and request.time_range.type == "relative" and request.time_range.value:
+                ts_start = now_ts - _parse_relative_time(request.time_range.value)
+                ts_end = now_ts
+            else:
+                ts_start = now_ts - timedelta(days=30)
+                ts_end = now_ts
+
+            preagg_ts = await fetch_console_timeseries_preaggregate(
+                organization_id=org_id,
+                start_time=ts_start,
+                end_time=ts_end,
+                max_points=100,
+                max_age_seconds=300,
+            )
+            if preagg_ts is not None:
+                timeseries = [
+                    TimeseriesPoint(
+                        timestamp=row["timestamp"],
+                        count=int(row["count"]),
+                        breakdown=None,
+                    )
+                    for row in preagg_ts
+                ]
+
+        if not timeseries:
+            timeseries = await _generate_timeseries(
+                pool=pool,
+                org_id=org_id,
+                time_range=request.time_range,
+                where_clause=where_clause,
+                params=params[:-1],  # Exclude limit param
+                join_sql=aggregate_join_sql,
+            )
 
         logger.info(
             "Console query timeseries result",
@@ -709,6 +761,7 @@ async def _generate_timeseries(
     time_range: TimeRange | None,
     where_clause: str,
     params: list,
+    join_sql: str,
 ) -> list[TimeseriesPoint]:
     """
     Generate timeseries data for the histogram.
@@ -730,22 +783,16 @@ async def _generate_timeseries(
 
         # First, get the actual data range from the filtered results
         # This query uses the same WHERE clause as the main query
+        from_sql = "FROM unified_intelligence_object u"
+        if join_sql:
+            from_sql = f"{from_sql}\n            {join_sql}"
+
         range_query = f"""
             SELECT
                 MIN(u.created_at) as min_date,
                 MAX(u.created_at) as max_date,
                 COUNT(*) as total_count
-            FROM unified_intelligence_object u
-            LEFT JOIN contact oc ON u.owner_contact_id = oc.id
-            LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
-            LEFT JOIN contact dc ON cd.debtor_contact_id = dc.id
-            LEFT JOIN contact cc ON cd.creditor_contact_id = cc.id
-            LEFT JOIN uio_decision_details dd ON u.id = dd.uio_id
-            LEFT JOIN contact dmc ON dd.decision_maker_contact_id = dmc.id
-            LEFT JOIN uio_task_details td ON u.id = td.uio_id
-            LEFT JOIN contact ac ON td.assignee_contact_id = ac.id
-            LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id
-            LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id
+            {from_sql}
             WHERE {where_clause}
         """
 
@@ -798,17 +845,7 @@ async def _generate_timeseries(
             SELECT
                 date_trunc('{trunc_unit}', u.created_at) as bucket,
                 COUNT(*) as count
-            FROM unified_intelligence_object u
-            LEFT JOIN contact oc ON u.owner_contact_id = oc.id
-            LEFT JOIN uio_commitment_details cd ON u.id = cd.uio_id
-            LEFT JOIN contact dc ON cd.debtor_contact_id = dc.id
-            LEFT JOIN contact cc ON cd.creditor_contact_id = cc.id
-            LEFT JOIN uio_decision_details dd ON u.id = dd.uio_id
-            LEFT JOIN contact dmc ON dd.decision_maker_contact_id = dmc.id
-            LEFT JOIN uio_task_details td ON u.id = td.uio_id
-            LEFT JOIN contact ac ON td.assignee_contact_id = ac.id
-            LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id
-            LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id
+            {from_sql}
             WHERE {where_clause}
             GROUP BY bucket
             ORDER BY bucket ASC
@@ -908,7 +945,7 @@ async def get_entity_suggestions(
     org_id = auth.organization_id
 
     try:
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Static entity suggestions
         static_entities = {
@@ -1154,7 +1191,7 @@ async def get_uio_sources(
     org_id = auth.organization_id
 
     try:
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Query sources with message/conversation data
         # Join using external_id since conversation_id/message_id in unified_object_source
@@ -1254,7 +1291,7 @@ async def get_source_detail(
     org_id = auth.organization_id
 
     try:
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Get source with full message/conversation details
         # Join using external_id since conversation_id/message_id in unified_object_source
@@ -1464,7 +1501,7 @@ async def get_related_uios(
     org_id = auth.organization_id
 
     try:
-        pool = await get_db_pool()
+        pool = await get_raw_query_pool()
 
         # Find related by same conversation
         query = """

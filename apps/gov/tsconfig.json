@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "rootDirs": ["."],
+    "baseUrl": ".",
+    "paths": {
+      "@memorystack/mod-ask": ["../../packages/mod-ask/src/index.ts"],
+      "@memorystack/mod-auth": ["../../packages/mod-auth/src/index.ts"],
+      "@memorystack/mod-console": ["../../packages/mod-console/src/index.ts"],
+      "@memorystack/mod-continuums": [
+        "../../packages/mod-continuums/src/index.ts"
+      ],
+      "@memorystack/mod-drive": ["../../packages/mod-drive/src/index.ts"],
+      "@memorystack/mod-evidence": ["../../packages/mod-evidence/src/index.ts"],
+      "@memorystack/mod-kit": ["../../packages/mod-kit/src/index.ts"],
+      "@memorystack/mod-onboarding": [
+        "../../packages/mod-onboarding/src/index.ts"
+      ],
+      "@memorystack/mod-sources": ["../../packages/mod-sources/src/index.ts"],
+      "@memorystack/mod-teams": ["../../packages/mod-teams/src/index.ts"],
+      "@memorystack/vertical-runtime": [
+        "../../packages/vertical-runtime/src/index.ts"
+      ],
+      "@memorystack/ui-theme": ["../../packages/ui-theme/src/index.ts"],
+      "@memorystack/ui-theme/*": ["../../packages/ui-theme/src/*"]
+    }
+  }
+}

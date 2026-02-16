@@ -1,6 +1,7 @@
 """FalkorDB graph database module."""
 
-from .client import DroviGraph, get_graph_client, close_graph_client, GraphAnalyticsEngine, get_analytics_engine
+from .client import DroviGraph, get_graph_client, close_graph_client
+from .analytics import GraphAnalyticsEngine, get_analytics_engine
 from .types import (
     GraphNodeType,
     GraphRelationshipType,

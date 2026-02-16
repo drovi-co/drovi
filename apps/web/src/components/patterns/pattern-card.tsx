@@ -6,6 +6,22 @@
 // Displays pattern name, domain, match count, accuracy, and active toggle.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
+import { Switch } from "@memorystack/ui-core/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@memorystack/ui-core/tooltip";
 import { motion } from "framer-motion";
 import {
   Brain,
@@ -16,22 +32,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

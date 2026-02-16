@@ -12,14 +12,17 @@
 // - Date | Assignee(28) | Dots(28)
 //
 
+import { AssigneeIcon } from "@memorystack/ui-core/assignee-icon";
+import { IssueCheckbox } from "@memorystack/ui-core/issue-checkbox";
+import {
+  type Priority,
+  PriorityIcon,
+} from "@memorystack/ui-core/priority-icon";
+import { type Status, StatusIcon } from "@memorystack/ui-core/status-icon";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Archive, Plus, Star } from "lucide-react";
 import { useRef } from "react";
 import { SourceIcon } from "@/components/inbox/source-icon";
-import { AssigneeIcon } from "@/components/ui/assignee-icon";
-import { IssueCheckbox } from "@/components/ui/issue-checkbox";
-import { type Priority, PriorityIcon } from "@/components/ui/priority-icon";
-import { type Status, StatusIcon } from "@/components/ui/status-icon";
 import { useI18n, useT } from "@/i18n";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";

@@ -9,11 +9,6 @@
 // - Minimal filter/action buttons
 //
 
-import type { LucideIcon } from "lucide-react";
-import { ChevronDown, Filter } from "lucide-react";
-import type { ReactNode } from "react";
-
-import { ModeToggle } from "@/components/mode-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,15 +16,19 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@memorystack/ui-core/breadcrumb";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+} from "@memorystack/ui-core/dropdown-menu";
+import { Separator } from "@memorystack/ui-core/separator";
+import { SidebarTrigger } from "@memorystack/ui-core/sidebar";
+import type { LucideIcon } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
+import type { ReactNode } from "react";
+import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/lib/utils";
 
 // =============================================================================

@@ -1,7 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-
-import { useAuthStore } from "@/lib/auth";
 import { orgAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import {
   getStoredOnboardingState,
   inferOnboardingComplete,

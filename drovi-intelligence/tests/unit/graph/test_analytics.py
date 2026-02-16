@@ -7,7 +7,8 @@ Tests PageRank, betweenness centrality, community detection, and path finding.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.graph.client import GraphAnalyticsEngine, DroviGraph
+from src.graph.analytics import GraphAnalyticsEngine
+from src.graph.client import DroviGraph
 
 pytestmark = pytest.mark.unit
 
@@ -508,9 +509,9 @@ class TestAnalyticsFactory:
     @pytest.mark.asyncio
     async def test_get_analytics_engine(self):
         """Test get_analytics_engine creates instance."""
-        from src.graph.client import get_analytics_engine
+        from src.graph.analytics import get_analytics_engine
 
-        with patch("src.graph.client.get_graph_client", new_callable=AsyncMock) as mock_get:
+        with patch("src.graph.analytics.get_graph_client", new_callable=AsyncMock) as mock_get:
             mock_graph = MagicMock()
             mock_get.return_value = mock_graph
 

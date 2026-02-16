@@ -5,13 +5,17 @@
 // Shows details about the selected node.
 //
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import { Progress } from "@memorystack/ui-core/progress";
+import { ScrollArea } from "@memorystack/ui-core/scroll-area";
+import { Separator } from "@memorystack/ui-core/separator";
 import { AlertTriangle, Calendar, Check, Clock, Star, X } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useI18n, useT } from "@/i18n";
 import type { GraphNodeData } from "../-types";
 
@@ -34,7 +38,9 @@ export function GraphSidebar({ node, onClose }: GraphSidebarProps) {
     <div className="w-80 border-l bg-background">
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
-        <h2 className="font-semibold text-sm">{t("pages.dashboard.graph.sidebar.title")}</h2>
+        <h2 className="font-semibold text-sm">
+          {t("pages.dashboard.graph.sidebar.title")}
+        </h2>
         <Button onClick={onClose} size="icon" variant="ghost">
           <X className="h-4 w-4" />
         </Button>
@@ -105,7 +111,9 @@ function ContactDetails({
       {node.healthScore !== undefined && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.contact.relationshipHealth")}</span>
+            <span className="text-muted-foreground">
+              {t("pages.dashboard.graph.sidebar.contact.relationshipHealth")}
+            </span>
             <span className="font-medium">
               {Math.round(node.healthScore * 100)}%
             </span>
@@ -118,7 +126,9 @@ function ContactDetails({
       {node.importanceScore !== undefined && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.contact.importance")}</span>
+            <span className="text-muted-foreground">
+              {t("pages.dashboard.graph.sidebar.contact.importance")}
+            </span>
             <span className="font-medium">
               {Math.round(node.importanceScore * 100)}%
             </span>
@@ -207,9 +217,11 @@ function CommitmentDetails({
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span>
             {t("pages.dashboard.graph.sidebar.commitment.due", {
-              date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
-                new Date(node.dueDate)
-              ),
+              date: new Intl.DateTimeFormat(locale, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              }).format(new Date(node.dueDate)),
             })}
           </span>
           {node.isOverdue && (
@@ -223,7 +235,9 @@ function CommitmentDetails({
       {/* Confidence */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.aiConfidence")}</span>
+          <span className="text-muted-foreground">
+            {t("pages.dashboard.graph.sidebar.aiConfidence")}
+          </span>
           <span className="font-medium">
             {Math.round(node.confidence * 100)}%
           </span>
@@ -262,9 +276,11 @@ function DecisionDetails({
         <Clock className="h-4 w-4 text-muted-foreground" />
         <span>
           {t("pages.dashboard.graph.sidebar.decision.decided", {
-            date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
-              new Date(node.decidedAt)
-            ),
+            date: new Intl.DateTimeFormat(locale, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            }).format(new Date(node.decidedAt)),
           })}
         </span>
       </div>
@@ -287,7 +303,9 @@ function DecisionDetails({
       {/* Rationale */}
       {node.rationale && (
         <div className="text-sm">
-          <p className="font-medium text-muted-foreground">{t("pages.dashboard.graph.sidebar.decision.rationale")}</p>
+          <p className="font-medium text-muted-foreground">
+            {t("pages.dashboard.graph.sidebar.decision.rationale")}
+          </p>
           <p className="mt-1">{node.rationale}</p>
         </div>
       )}
@@ -295,7 +313,9 @@ function DecisionDetails({
       {/* Confidence */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{t("pages.dashboard.graph.sidebar.aiConfidence")}</span>
+          <span className="text-muted-foreground">
+            {t("pages.dashboard.graph.sidebar.aiConfidence")}
+          </span>
           <span className="font-medium">
             {Math.round(node.confidence * 100)}%
           </span>
@@ -353,9 +373,11 @@ function TaskDetails({ node }: { node: GraphNodeData & { nodeType: "task" } }) {
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span>
             {t("pages.dashboard.graph.sidebar.task.due", {
-              date: new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(
-                new Date(node.dueDate)
-              ),
+              date: new Intl.DateTimeFormat(locale, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              }).format(new Date(node.dueDate)),
             })}
           </span>
         </div>

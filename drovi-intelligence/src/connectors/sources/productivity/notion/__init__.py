@@ -1,9 +1,4 @@
-"""
-Notion Connector
+"""Notion connector source package (import-free)."""
 
-Extracts pages, databases, and content from Notion workspaces.
-"""
+from __future__ import annotations
 
-from src.connectors.sources.productivity.notion.connector import NotionConnector
-
-__all__ = ["NotionConnector"]

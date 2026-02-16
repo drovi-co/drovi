@@ -1,3 +1,6 @@
+import { ThemeProvider } from "@memorystack/core-shell";
+import { Toaster } from "@memorystack/ui-core/sonner";
+import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
@@ -5,10 +8,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import type { QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
 import { initializeAdminAuth } from "@/lib/auth";
 
 import "../index.css";
@@ -33,7 +33,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootComponent() {
   useEffect(() => {
-    void initializeAdminAuth();
+    initializeAdminAuth().catch(() => {
+      // Best-effort. Admin routes will show auth errors via the store.
+    });
   }, []);
 
   return (
@@ -55,4 +57,3 @@ function RootComponent() {
     </>
   );
 }
-

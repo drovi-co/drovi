@@ -19,7 +19,6 @@ import asyncio
 import json
 import time
 import re
-from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Literal
 
 import structlog
@@ -33,6 +32,7 @@ from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.private_sources import get_session_user_id, is_admin_or_internal
 from src.auth.scopes import Scope
 from src.agents import get_session_manager
+from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
@@ -102,11 +102,6 @@ async def _augment_question_with_session(
     context_hint = "Context: " + " ".join(context_lines) + " Resolve pronouns accordingly."
     augmented = f"{context_hint}\n\nQuestion: {question}"
     return augmented, True
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AskRequest(BaseModel):
@@ -537,7 +532,7 @@ async def check_graphrag_health() -> dict[str, Any]:
         "status": "healthy" if graph_status == "connected" else "degraded",
         "graph": graph_status,
         "llm": llm_status,
-        "timestamp": utc_now().isoformat(),
+        "timestamp": utc_now_naive().isoformat(),
     }
 
 
@@ -643,7 +638,7 @@ async def _retrieve_truth(
                         evidence_id=source["evidence_id"],
                         snippet=source.get("snippet", source.get("title", ""))[:200],
                         source=source.get("source_type", "unknown"),
-                        date=source.get("date", utc_now().strftime("%Y-%m-%d")),
+                        date=source.get("date", utc_now_naive().strftime("%Y-%m-%d")),
                     )
                 )
 

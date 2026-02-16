@@ -1,7 +1,6 @@
 import { useEffect } from "react";
-
-import { useAuthStore } from "@/lib/auth";
 import { normalizeLocale, useI18n } from "@/i18n";
+import { useAuthStore } from "@/lib/auth";
 
 /**
  * Keep the UI locale aligned with backend preferences.
@@ -25,4 +24,3 @@ export function BackendLocaleSync() {
 
   return null;
 }
-

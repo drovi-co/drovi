@@ -1,0 +1,40 @@
+{
+  "name": "@memorystack/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./web": {
+      "import": "./src/web/index.ts",
+      "types": "./src/web/index.ts"
+    },
+    "./admin": {
+      "import": "./src/admin/index.ts",
+      "types": "./src/admin/index.ts"
+    },
+    "./support": {
+      "import": "./src/support/index.ts",
+      "types": "./src/support/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.node.config.ts"
+  },
+  "dependencies": {
+    "@memorystack/api-types": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@memorystack/config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}

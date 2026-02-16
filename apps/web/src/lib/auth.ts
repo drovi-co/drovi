@@ -106,7 +106,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         password,
         inviteToken: options?.inviteToken,
       });
-      setSessionToken(response.session_token, { persist: options?.persist ?? true });
+      setSessionToken(response.session_token, {
+        persist: options?.persist ?? true,
+      });
       const user = await authAPI.getMe();
       if (!user) {
         throw new Error("Unable to verify session after login");
@@ -228,8 +230,8 @@ export function useRequireAuth() {
   // Check auth on mount if not already checked.
   // Avoid triggering async effects during render.
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && user === null) {
-      void checkAuth();
+    if (!(isLoading || isAuthenticated) && user === null) {
+      checkAuth().catch(() => undefined);
     }
   }, [checkAuth, isAuthenticated, isLoading, user]);
 

@@ -113,6 +113,12 @@ class Metrics:
                 ["connector_type"],
             )
 
+            self.connector_records_per_second = Gauge(
+                "drovi_connector_records_per_second",
+                "Records per second during the most recent connector sync job",
+                ["connector_type"],
+            )
+
             # Time-to-first-data SLO: connection created -> first successful sync
             self.connector_time_to_first_data_seconds = Histogram(
                 "drovi_connector_time_to_first_data_seconds",
@@ -294,6 +300,121 @@ class Metrics:
                 buckets=[0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600],
             )
 
+            # Agent channel presence metrics
+            self.agent_inbox_events_total = Counter(
+                "drovi_agent_inbox_events_total",
+                "Total inbound/outbound agent inbox events",
+                ["channel_type", "direction", "status"],
+            )
+
+            self.agent_inbox_lag_seconds = Histogram(
+                "drovi_agent_inbox_lag_seconds",
+                "Lag between channel event occurrence and ingestion",
+                ["channel_type"],
+                buckets=[0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300],
+            )
+
+            self.agent_channel_action_failures_total = Counter(
+                "drovi_agent_channel_action_failures_total",
+                "Total channel action failures",
+                ["channel_type", "reason"],
+            )
+
+            self.agent_channel_response_sla_seconds = Histogram(
+                "drovi_agent_channel_response_sla_seconds",
+                "Time to first agent response on channel threads",
+                ["channel_type"],
+                buckets=[1, 2, 5, 10, 30, 60, 120, 300, 600, 1800],
+            )
+
+            self.agent_approval_latency_seconds = Histogram(
+                "drovi_agent_approval_latency_seconds",
+                "Time from approval request creation to decision",
+                ["channel_type"],
+                buckets=[1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
+            )
+
+            self.agent_runs_status_total = Counter(
+                "drovi_agent_runs_status_total",
+                "Total agent run status transitions",
+                ["status"],
+            )
+
+            self.agent_run_duration_seconds = Histogram(
+                "drovi_agent_run_duration_seconds",
+                "Agent run duration in seconds for terminal states",
+                ["status"],
+                buckets=[0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
+            )
+
+            self.agent_approval_backlog = Gauge(
+                "drovi_agent_approval_backlog",
+                "Current pending approval queue size per organization",
+                ["organization_id"],
+            )
+
+            self.agent_quality_drift_score = Gauge(
+                "drovi_agent_quality_drift_score",
+                "Derived quality drift score (0-1) by organization and role scope",
+                ["organization_id", "role_scope"],
+            )
+
+            self.agent_browser_sessions_total = Counter(
+                "drovi_agent_browser_sessions_total",
+                "Total browser session lifecycle events",
+                ["provider", "event"],
+            )
+
+            self.agent_browser_actions_total = Counter(
+                "drovi_agent_browser_actions_total",
+                "Total browser actions executed",
+                ["provider", "action", "status", "fallback"],
+            )
+
+            self.agent_browser_fallback_total = Counter(
+                "drovi_agent_browser_fallback_total",
+                "Total browser provider fallback invocations",
+                ["from_provider", "to_provider", "reason"],
+            )
+
+            self.agent_desktop_actions_total = Counter(
+                "drovi_agent_desktop_actions_total",
+                "Total desktop bridge actions",
+                ["capability", "status"],
+            )
+
+            self.agent_desktop_controls_total = Counter(
+                "drovi_agent_desktop_controls_total",
+                "Total desktop bridge control commands",
+                ["action", "status"],
+            )
+
+            self.agent_work_products_generated_total = Counter(
+                "drovi_agent_work_products_generated_total",
+                "Total generated agent work products",
+                ["product_type", "status"],
+            )
+
+            self.agent_work_product_generation_duration_seconds = Histogram(
+                "drovi_agent_work_product_generation_duration_seconds",
+                "Work product generation duration in seconds",
+                ["product_type"],
+                buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30],
+            )
+
+            self.agent_work_products_delivered_total = Counter(
+                "drovi_agent_work_products_delivered_total",
+                "Total work product delivery attempts",
+                ["channel", "status"],
+            )
+
+            self.agent_work_product_delivery_duration_seconds = Histogram(
+                "drovi_agent_work_product_delivery_duration_seconds",
+                "Work product delivery duration in seconds",
+                ["channel"],
+                buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30],
+            )
+
             # Memory/decay metrics
             self.memory_decay_runs_total = Counter(
                 "drovi_memory_decay_runs_total",
@@ -446,12 +567,17 @@ class Metrics:
                 connector_type=connector_type,
             ).inc(records_synced)
 
+        if records_synced > 0 and duration > 0:
+            self.connector_records_per_second.labels(
+                connector_type=connector_type,
+            ).set(float(records_synced) / float(duration))
+
         now = time.time()
-        if status == "completed":
+        if status in ("completed", "success"):
             self.connector_last_success_timestamp_seconds.labels(
                 connector_type=connector_type,
             ).set(now)
-        elif status == "failed":
+        elif status in ("failed", "error"):
             self.connector_last_error_timestamp_seconds.labels(
                 connector_type=connector_type,
             ).set(now)
@@ -663,6 +789,152 @@ class Metrics:
         except Exception:
             # Never allow metrics to affect pipeline processing.
             pass
+
+    def track_agent_inbox_event(
+        self,
+        *,
+        channel_type: str,
+        direction: str,
+        status: str,
+        lag_seconds: float | None,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_inbox_events_total.labels(
+            channel_type=channel_type,
+            direction=direction,
+            status=status,
+        ).inc()
+        if lag_seconds is not None:
+            self.agent_inbox_lag_seconds.labels(channel_type=channel_type).observe(max(float(lag_seconds), 0.0))
+
+    def track_agent_channel_action_failure(self, *, channel_type: str, reason: str) -> None:
+        if not self._enabled:
+            return
+        self.agent_channel_action_failures_total.labels(
+            channel_type=channel_type,
+            reason=reason or "unknown",
+        ).inc()
+
+    def observe_agent_channel_response_sla(self, *, channel_type: str, seconds: float) -> None:
+        if not self._enabled:
+            return
+        self.agent_channel_response_sla_seconds.labels(channel_type=channel_type).observe(max(float(seconds), 0.0))
+
+    def observe_agent_approval_latency(self, *, channel_type: str, seconds: float) -> None:
+        if not self._enabled:
+            return
+        self.agent_approval_latency_seconds.labels(channel_type=channel_type).observe(max(float(seconds), 0.0))
+
+    def track_agent_run_status(self, *, status: str, duration_seconds: float | None = None) -> None:
+        if not self._enabled:
+            return
+        normalized_status = status or "unknown"
+        self.agent_runs_status_total.labels(status=normalized_status).inc()
+        if duration_seconds is not None:
+            self.agent_run_duration_seconds.labels(status=normalized_status).observe(
+                max(float(duration_seconds), 0.0)
+            )
+
+    def set_agent_approval_backlog(self, *, organization_id: str, pending_count: int) -> None:
+        if not self._enabled:
+            return
+        self.agent_approval_backlog.labels(organization_id=organization_id).set(max(int(pending_count), 0))
+
+    def set_agent_quality_drift_score(
+        self,
+        *,
+        organization_id: str,
+        role_scope: str,
+        score: float,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_quality_drift_score.labels(
+            organization_id=organization_id,
+            role_scope=role_scope or "all",
+        ).set(max(min(float(score), 1.0), 0.0))
+
+    def track_browser_session(self, *, provider: str, event: str) -> None:
+        if not self._enabled:
+            return
+        self.agent_browser_sessions_total.labels(provider=provider, event=event).inc()
+
+    def track_browser_action(
+        self,
+        *,
+        provider: str,
+        action: str,
+        status: str,
+        fallback: bool,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_browser_actions_total.labels(
+            provider=provider,
+            action=action,
+            status=status,
+            fallback="true" if fallback else "false",
+        ).inc()
+
+    def track_browser_fallback(self, *, from_provider: str, to_provider: str, reason: str) -> None:
+        if not self._enabled:
+            return
+        self.agent_browser_fallback_total.labels(
+            from_provider=from_provider,
+            to_provider=to_provider,
+            reason=reason or "unknown",
+        ).inc()
+
+    def track_desktop_action(self, *, capability: str, status: str) -> None:
+        if not self._enabled:
+            return
+        self.agent_desktop_actions_total.labels(
+            capability=capability or "unknown",
+            status=status or "unknown",
+        ).inc()
+
+    def track_desktop_control(self, *, action: str, status: str) -> None:
+        if not self._enabled:
+            return
+        self.agent_desktop_controls_total.labels(
+            action=action or "unknown",
+            status=status or "unknown",
+        ).inc()
+
+    def track_agent_work_product_generation(
+        self,
+        *,
+        product_type: str,
+        status: str,
+        duration_seconds: float,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_work_products_generated_total.labels(
+            product_type=product_type or "unknown",
+            status=status or "unknown",
+        ).inc()
+        self.agent_work_product_generation_duration_seconds.labels(
+            product_type=product_type or "unknown",
+        ).observe(max(float(duration_seconds), 0.0))
+
+    def track_agent_work_product_delivery(
+        self,
+        *,
+        channel: str,
+        status: str,
+        duration_seconds: float,
+    ) -> None:
+        if not self._enabled:
+            return
+        self.agent_work_products_delivered_total.labels(
+            channel=channel or "unknown",
+            status=status or "unknown",
+        ).inc()
+        self.agent_work_product_delivery_duration_seconds.labels(
+            channel=channel or "unknown",
+        ).observe(max(float(duration_seconds), 0.0))
 
     def set_graph_stats(
         self,

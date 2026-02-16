@@ -6,6 +6,7 @@ Persists per-stream sync cursors to PostgreSQL (sync_states table).
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -65,6 +66,10 @@ class ConnectorStateRepository:
         last_sync_completed_at: datetime | None = None,
     ) -> None:
         """Insert or update a single stream state."""
+        serialized_cursor_state: str | None = None
+        if cursor_state is not None:
+            serialized_cursor_state = json.dumps(cursor_state)
+
         async with get_db_session() as session:
             await session.execute(
                 text(
@@ -75,7 +80,7 @@ class ConnectorStateRepository:
                         error_message, last_sync_started_at, last_sync_completed_at,
                         created_at, updated_at
                     ) VALUES (
-                        gen_random_uuid(), :connection_id, :stream_name, :cursor_state,
+                        gen_random_uuid(), :connection_id, :stream_name, CAST(:cursor_state AS jsonb),
                         :records_synced, :bytes_synced, :status,
                         :error_message, :last_sync_started_at, :last_sync_completed_at,
                         NOW(), NOW()
@@ -95,7 +100,7 @@ class ConnectorStateRepository:
                 {
                     "connection_id": connection_id,
                     "stream_name": stream_name,
-                    "cursor_state": cursor_state,
+                    "cursor_state": serialized_cursor_state,
                     "records_synced": records_synced,
                     "bytes_synced": bytes_synced,
                     "status": status,

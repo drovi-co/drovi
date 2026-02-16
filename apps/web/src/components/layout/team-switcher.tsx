@@ -1,7 +1,3 @@
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronsUpDown, Plus } from "lucide-react";
-import { toast } from "sonner";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,13 +5,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@memorystack/ui-core/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@memorystack/ui-core/sidebar";
+import { useNavigate } from "@tanstack/react-router";
+import { ChevronsUpDown, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
 export function TeamSwitcher() {

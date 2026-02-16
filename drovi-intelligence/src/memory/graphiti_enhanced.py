@@ -12,20 +12,16 @@ Extends the base DroviGraphitiMemory with:
 This is part of Phase 5 (Agentic Memory) of the FalkorDB enhancement plan.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import structlog
 
 from src.config import get_settings
+from src.kernel.time import utc_now_naive
 from .graphiti_memory import DroviGraphitiMemory, get_graphiti_memory
 
 logger = structlog.get_logger()
-
-
-def utc_now() -> datetime:
-    """Get current UTC time."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class EnhancedGraphiti:
@@ -426,7 +422,7 @@ class EnhancedGraphiti:
         from src.graph.client import get_graph_client
 
         graph = await get_graph_client()
-        cutoff = utc_now() - time_window
+        cutoff = utc_now_naive() - time_window
 
         # Find frequently mentioned entities
         result = await graph.query(

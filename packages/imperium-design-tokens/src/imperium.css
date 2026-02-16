@@ -1,0 +1,37 @@
+:root {
+  --imperium-black-matte: #0b0b0b;
+  --imperium-charcoal: #1b1b1b;
+  --imperium-forest: #1f3a2f;
+  --imperium-burgundy: #5a1f2b;
+  --imperium-antique-gold: #b89a62;
+  --imperium-parchment: #f2ead8;
+
+  --imperium-text-primary: #efe8d8;
+  --imperium-text-muted: #b6aa92;
+  --imperium-border-strong: #2a2a2a;
+  --imperium-border-accent: #3a3324;
+
+  --imperium-space-1: 4px;
+  --imperium-space-2: 8px;
+  --imperium-space-3: 12px;
+  --imperium-space-4: 16px;
+  --imperium-space-5: 24px;
+  --imperium-space-6: 32px;
+
+  --imperium-radius-card: 6px;
+  --imperium-motion-fast: 140ms;
+  --imperium-motion-medium: 180ms;
+
+  --imperium-font-display: "Iowan Old Style", "Times New Roman", Georgia, serif;
+  --imperium-font-body: "Iowan Old Style", "Times New Roman", Georgia, serif;
+  --imperium-font-data: "SF Mono", "Menlo", "JetBrains Mono", "Courier New", monospace;
+
+  --imperium-type-display-xl: clamp(2.4rem, 3.2vw, 3.6rem);
+  --imperium-type-display-lg: clamp(1.9rem, 2.4vw, 2.6rem);
+  --imperium-type-headline: 1.12rem;
+  --imperium-type-body: 0.95rem;
+  --imperium-type-caption: 0.8rem;
+  --imperium-type-data: 0.88rem;
+
+  --imperium-number-features: "tnum" 1, "lnum" 1;
+}

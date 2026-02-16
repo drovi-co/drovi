@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from src.auth.context import AuthMetadata, AuthType
 from src.auth.middleware import APIKeyContext
 from src.auth.scopes import Scope
 
@@ -22,11 +23,34 @@ pytestmark = pytest.mark.unit
 # =============================================================================
 
 
+def _ctx(
+    *,
+    org_id: str = "org_123",
+    scopes: list[str],
+    key_id: str | None,
+    key_name: str | None,
+    is_internal: bool,
+    rate_limit_per_minute: int = 100,
+) -> APIKeyContext:
+    return APIKeyContext(
+        organization_id=org_id,
+        auth_subject_id=(f"service_{key_id or 'internal'}" if is_internal else f"key_{key_id or 'anonymous'}"),
+        scopes=scopes,
+        metadata=AuthMetadata(
+            auth_type=AuthType.INTERNAL_SERVICE if is_internal else AuthType.API_KEY,
+            key_id=key_id,
+            key_name=key_name,
+            service_name="tests" if is_internal else None,
+        ),
+        is_internal=is_internal,
+        rate_limit_per_minute=rate_limit_per_minute,
+    )
+
+
 @pytest.fixture
 def admin_context():
     """Create an admin API key context."""
-    return APIKeyContext(
-        organization_id="org_123",
+    return _ctx(
         scopes=["admin", "read", "write", "mcp", "manage:keys"],
         key_id="key_admin",
         key_name="Admin Key",
@@ -38,8 +62,7 @@ def admin_context():
 @pytest.fixture
 def regular_context():
     """Create a regular user API key context."""
-    return APIKeyContext(
-        organization_id="org_123",
+    return _ctx(
         scopes=["read", "write", "mcp", "manage:keys"],
         key_id="key_user",
         key_name="User Key",
@@ -51,21 +74,19 @@ def regular_context():
 @pytest.fixture
 def internal_context():
     """Create an internal service context."""
-    return APIKeyContext(
-        organization_id="org_123",
+    return _ctx(
         scopes=["*"],
         key_id="internal",
         key_name=None,
         is_internal=True,
-        rate_limit_per_minute=None,
+        rate_limit_per_minute=10000,
     )
 
 
 @pytest.fixture
 def no_manage_keys_context():
     """Create a context without manage:keys scope."""
-    return APIKeyContext(
-        organization_id="org_123",
+    return _ctx(
         scopes=["read", "write"],
         key_id="key_limited",
         key_name="Limited Key",

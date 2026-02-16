@@ -15,6 +15,7 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.databases.mongodb_definition import CAPABILITIES
 
 logger = structlog.get_logger()
 
@@ -31,6 +32,9 @@ class MongoDBConnector(BaseConnector):
     - Full refresh mode
     - Change streams for real-time sync (requires replica set)
     """
+
+    connector_type = "mongodb"
+    capabilities = CAPABILITIES
 
     def __init__(self):
         """Initialize MongoDB connector."""

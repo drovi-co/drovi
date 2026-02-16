@@ -19,10 +19,19 @@ from src.continuum_exchange.bundles import (
 
 router = APIRouter(prefix="/continuum-exchange", tags=["Continuum Exchange"])
 
+LEGACY_EXCHANGE_WRITE_BLOCK_MESSAGE = (
+    "Continuum Exchange write operations are decommissioned. "
+    "Use Agent Catalog and Starter Packs under /api/v1/agents/catalog."
+)
+
 
 def _validate_org(ctx: APIKeyContext, organization_id: str) -> None:
     if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _raise_legacy_exchange_write_block() -> None:
+    raise HTTPException(status_code=410, detail=LEGACY_EXCHANGE_WRITE_BLOCK_MESSAGE)
 
 
 class BundlePublishRequest(BaseModel):
@@ -59,6 +68,7 @@ async def publish_bundle_endpoint(
     request: BundlePublishRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_exchange_write_block()
     _validate_org(ctx, request.organization_id)
     if request.governance_status == "approved" and not ctx.has_scope(Scope.ADMIN):
         raise HTTPException(status_code=403, detail="Admin scope required to approve bundles")
@@ -99,6 +109,7 @@ async def install_bundle_endpoint(
     request: BundleInstallRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
 ):
+    _raise_legacy_exchange_write_block()
     _validate_org(ctx, request.organization_id)
     return await install_bundle(
         organization_id=request.organization_id,
@@ -114,6 +125,7 @@ async def update_bundle_governance_endpoint(
     request: BundleGovernanceRequest,
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
 ):
+    _raise_legacy_exchange_write_block()
     _validate_org(ctx, request.organization_id)
     await update_bundle_governance(
         organization_id=request.organization_id,

@@ -6,6 +6,20 @@
 // Shows salient features, expectations, action, goals, and match history.
 //
 
+import { Badge } from "@memorystack/ui-core/badge";
+import { Button } from "@memorystack/ui-core/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@memorystack/ui-core/collapsible";
+import { ScrollArea } from "@memorystack/ui-core/scroll-area";
+import { Separator } from "@memorystack/ui-core/separator";
+import {
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@memorystack/ui-core/sheet";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -25,20 +39,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { Pattern } from "./pattern-card";
 

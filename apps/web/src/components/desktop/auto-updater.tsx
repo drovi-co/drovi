@@ -9,9 +9,7 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState } from "react";
-
-import { Button } from "@/components/ui/button";
+import { Button } from "@memorystack/ui-core/button";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +17,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
+} from "@memorystack/ui-core/dialog";
+import { Progress } from "@memorystack/ui-core/progress";
+import { useEffect, useState } from "react";
 import { useUpdater } from "@/hooks/use-tauri";
 import { cn } from "@/lib/utils";
 

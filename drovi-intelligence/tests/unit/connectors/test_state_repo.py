@@ -2,6 +2,7 @@
 Unit tests for ConnectorStateRepository.
 """
 
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -68,3 +69,5 @@ async def test_upsert_stream_state_executes():
 
     session.execute.assert_called()
     session.commit.assert_called()
+    _query, params = session.execute.call_args.args
+    assert params["cursor_state"] == json.dumps({"historyId": "456"})

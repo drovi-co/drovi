@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "@memorystack/mod-auth";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { useAdminAuthStore } from "@/lib/auth";
@@ -9,8 +10,13 @@ export const Route = createFileRoute("/dashboard")({
     // (for example, when a pilot session cookie previously tricked /admin/me)
     // from keeping the operator UI mounted.
     await store.checkAuth();
-    if (!useAdminAuthStore.getState().me) {
-      throw redirect({ to: "/login" });
+    const state = useAdminAuthStore.getState();
+    const decision = requireAuthenticated({
+      isAuthenticated: Boolean(state.me),
+      isLoading: state.isLoading,
+    });
+    if (!(decision.allow || !decision.redirectTo)) {
+      throw redirect({ to: decision.redirectTo as "/login" });
     }
   },
   component: DashboardLayout,

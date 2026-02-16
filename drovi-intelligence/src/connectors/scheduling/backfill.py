@@ -9,27 +9,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 import asyncio
 from datetime import datetime, timedelta
+import math
 from typing import Any
 
 import structlog
 
 from src.connectors.connection_service import get_connection_config
+from src.connectors.definitions.models import BackfillDefaults
+from src.connectors.definitions.registry import get_connector_definition
 from src.connectors.scheduling.scheduler import ConnectorScheduler, SyncJob, SyncJobType
 from src.db.rls import rls_context
 
 logger = structlog.get_logger()
 
-
-BACKFILL_DEFAULTS: dict[str, dict[str, float]] = {
-    "gmail": {"window_days": 7, "throttle_seconds": 1.0},
-    "outlook": {"window_days": 7, "throttle_seconds": 1.0},
-    "slack": {"window_days": 3, "throttle_seconds": 1.0},
-    "teams": {"window_days": 3, "throttle_seconds": 1.0},
-    "notion": {"window_days": 7, "throttle_seconds": 1.5},
-    "google_docs": {"window_days": 7, "throttle_seconds": 1.5},
-    "hubspot": {"window_days": 14, "throttle_seconds": 2.0},
-    "google_calendar": {"window_days": 30, "throttle_seconds": 1.0},
-}
+MAX_BACKFILL_WINDOWS = 10_000
 
 
 @dataclass
@@ -46,6 +39,24 @@ def generate_backfill_windows(
     window_days: int = 7,
 ) -> list[BackfillWindow]:
     """Generate contiguous backfill windows."""
+    if window_days <= 0:
+        raise ValueError("window_days must be >= 1")
+
+    if start_date >= end_date:
+        return []
+
+    # Guardrail: avoid generating huge in-memory window lists that can
+    # overwhelm the scheduler and blow up memory/latency in worst-case inputs.
+    span_seconds = (end_date - start_date).total_seconds()
+    window_seconds = window_days * 24 * 60 * 60
+    estimated_windows = int(math.ceil(span_seconds / window_seconds))
+    if estimated_windows > MAX_BACKFILL_WINDOWS:
+        raise ValueError(
+            f"Backfill range too large for window_days={window_days}: "
+            f"estimated_windows={estimated_windows} exceeds MAX_BACKFILL_WINDOWS={MAX_BACKFILL_WINDOWS}. "
+            "Increase window_days or reduce the backfill range."
+        )
+
     windows: list[BackfillWindow] = []
     cursor = start_date
 
@@ -63,18 +74,19 @@ def resolve_backfill_settings(
     throttle_seconds: float | None,
     provider_config: dict[str, Any] | None = None,
 ) -> tuple[int, float]:
-    defaults = BACKFILL_DEFAULTS.get(connector_type, {})
+    definition = get_connector_definition(connector_type)
+    backfill_defaults = definition.backfill_defaults if definition else BackfillDefaults()
     provider_config = provider_config or {}
 
     resolved_window = (
         window_days
         if window_days is not None
-        else int(provider_config.get("backfill_window_days", defaults.get("window_days", 7)))
+        else int(provider_config.get("backfill_window_days", backfill_defaults.window_days))
     )
     resolved_throttle = (
         throttle_seconds
         if throttle_seconds is not None
-        else float(provider_config.get("backfill_throttle_seconds", defaults.get("throttle_seconds", 1.0)))
+        else float(provider_config.get("backfill_throttle_seconds", backfill_defaults.throttle_seconds))
     )
 
     return resolved_window, resolved_throttle

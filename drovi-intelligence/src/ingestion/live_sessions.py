@@ -5,7 +5,7 @@ Live session ingestion utilities (meetings/calls).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 import json
@@ -31,6 +31,7 @@ from src.transcription.whisper import transcribe_audio_bytes, TranscriptSegment
 from src.transcription.diarization import diarize_audio_bytes, DiarizationSegment
 from src.graph.client import get_graph_client
 from src.graph.types import GraphNodeType, GraphRelationshipType
+from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
 
@@ -43,10 +44,6 @@ class LiveSession:
     status: str
     started_at: datetime | None
     ended_at: datetime | None
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 async def create_live_session(

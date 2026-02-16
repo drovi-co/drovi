@@ -1,0 +1,5 @@
+@import "@memorystack/ui-theme/index.css";
+
+body {
+  min-height: 100vh;
+}

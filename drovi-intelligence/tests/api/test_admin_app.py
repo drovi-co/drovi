@@ -134,6 +134,52 @@ async def test_admin_kpis_smoke(monkeypatch, async_client_no_auth):
     assert "connections" in keys
 
 
+async def test_admin_kpis_uses_cache_by_default(monkeypatch, async_client_no_auth):
+    _set_admin_env(monkeypatch)
+    from src.api.routes import admin as admin_routes
+
+    admin_routes._kpi_cache.clear()
+
+    login = await async_client_no_auth.post(
+        "/api/v1/admin/login",
+        json={"email": "founder@drovi.co", "password": "test-admin-pass"},
+    )
+    token = login.json()["session_token"]
+
+    fake_session = AsyncMock()
+    call_count = 0
+
+    async def _execute(stmt, params=None):
+        nonlocal call_count
+        call_count += 1
+        sql = str(stmt)
+        if "GROUP BY" in sql:
+            return _FakeResult(rows=[])
+        return _FakeResult(scalar=0)
+
+    fake_session.execute.side_effect = _execute
+
+    @asynccontextmanager
+    async def fake_get_db_session():
+        yield fake_session
+
+    with patch("src.api.routes.admin.get_db_session", fake_get_db_session):
+        first = await async_client_no_auth.get(
+            "/api/v1/admin/kpis",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        first_count = call_count
+        second = await async_client_no_auth.get(
+            "/api/v1/admin/kpis",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first_count > 0
+    assert call_count == first_count
+
+
 async def test_admin_org_detail_smoke(monkeypatch, async_client_no_auth):
     _set_admin_env(monkeypatch)
     login = await async_client_no_auth.post(
@@ -266,3 +312,59 @@ async def test_admin_user_detail_smoke(monkeypatch, async_client_no_auth):
     data = res.json()
     assert data["id"] == "user_1"
     assert len(data["memberships"]) == 1
+
+
+async def test_admin_governance_overview_smoke(monkeypatch, async_client_no_auth):
+    _set_admin_env(monkeypatch)
+    login = await async_client_no_auth.post(
+        "/api/v1/admin/login",
+        json={"email": "founder@drovi.co", "password": "test-admin-pass"},
+    )
+    token = login.json()["session_token"]
+
+    fake_session = AsyncMock()
+
+    async def _execute(stmt, params=None):
+        del params
+        sql = str(stmt)
+        if "FROM agent_service_principal" in sql:
+            return _FakeResult(scalar=3)
+        if "FROM agent_delegated_authority" in sql and "COUNT(*)" in sql:
+            return _FakeResult(scalar=5)
+        if "FROM agent_org_governance_policy" in sql:
+            return _FakeResult(scalar=1)
+        if "FROM agent_action_approval" in sql and "status = 'pending'" in sql:
+            return _FakeResult(scalar=4)
+        if "FROM agent_action_approval" in sql and "status = 'escalated'" in sql:
+            return _FakeResult(scalar=2)
+        if "FROM audit_log" in sql and "agentos.policy.decision" in sql:
+            return _FakeResult(scalar=7)
+        if "FROM audit_log" in sql and "agentos.policy.red_team_ran" in sql:
+            return _FakeResult(scalar=1)
+        if "FROM agent_action_approval" in sql and "GROUP BY status" in sql:
+            return _FakeResult(
+                rows=[
+                    SimpleNamespace(status="pending", count=4),
+                    SimpleNamespace(status="escalated", count=2),
+                ]
+            )
+        if "FROM agent_action_approval_decision" in sql:
+            return _FakeResult(scalar=2)
+        raise AssertionError(f"Unexpected governance query: {sql}")
+
+    fake_session.execute.side_effect = _execute
+
+    @asynccontextmanager
+    async def fake_get_db_session():
+        yield fake_session
+
+    with patch("src.api.routes.admin.get_db_session", fake_get_db_session):
+        res = await async_client_no_auth.get(
+            "/api/v1/admin/governance/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert res.status_code == 200
+    payload = res.json()
+    assert len(payload["blocks"]) >= 6
+    assert len(payload["approvals_by_status"]) == 2

@@ -10,16 +10,14 @@
  * - Keyboard navigation (j/k for up/down)
  */
 
-import { format, formatDistanceToNow } from "date-fns";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  FileText,
-} from "lucide-react";
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@memorystack/ui-core/avatar";
+import { format } from "date-fns";
+import { AlertTriangle, CheckCircle2, Clock, FileText } from "lucide-react";
 import { useCallback } from "react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { ConsoleItem } from "@/hooks/use-console-query";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +70,7 @@ function TableRow({
   return (
     <div
       className={cn(
-        "group flex cursor-pointer items-center border-b border-border/50 transition-colors",
+        "group flex cursor-pointer items-center border-border/50 border-b transition-colors",
         "hover:bg-accent/50",
         isSelected && "bg-primary/10",
         isFocused && !isSelected && "bg-accent/30"
@@ -106,9 +104,15 @@ function TableRow({
       <div className="w-36 shrink-0 px-2 py-2">
         {(() => {
           // Find the first available contact from owner, debtor, creditor, assignee, or decision_maker
-          const contact = item.owner ?? item.debtor ?? item.creditor ?? item.assignee ?? item.decision_maker;
+          const contact =
+            item.owner ??
+            item.debtor ??
+            item.creditor ??
+            item.assignee ??
+            item.decision_maker;
           if (contact) {
-            const displayName = contact.display_name ?? contact.email?.split("@")[0] ?? "Unknown";
+            const displayName =
+              contact.display_name ?? contact.email?.split("@")[0] ?? "Unknown";
             return (
               <div className="flex items-center gap-1.5">
                 <Avatar className="size-5">
@@ -123,7 +127,10 @@ function TableRow({
           }
           // Fallback to source message sender
           if (item.source_sender_name || item.source_sender_email) {
-            const displayName = item.source_sender_name ?? item.source_sender_email?.split("@")[0] ?? "Unknown";
+            const displayName =
+              item.source_sender_name ??
+              item.source_sender_email?.split("@")[0] ??
+              "Unknown";
             return (
               <div className="flex items-center gap-1.5">
                 <Avatar className="size-5">
@@ -131,7 +138,9 @@ function TableRow({
                     {displayName[0]?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="truncate text-muted-foreground text-xs">{displayName}</span>
+                <span className="truncate text-muted-foreground text-xs">
+                  {displayName}
+                </span>
               </div>
             );
           }
@@ -156,12 +165,15 @@ function TableRow({
           {/* Title with description (only if different from title) */}
           <span className="truncate text-sm">
             <span className="font-medium">{item.title}</span>
-            {item.description && item.description !== item.title && !item.title.includes(item.description) && !item.description.includes(item.title) && (
-              <span className="ml-2 text-muted-foreground">
-                {item.description.slice(0, 100)}
-                {item.description.length > 100 && "..."}
-              </span>
-            )}
+            {item.description &&
+              item.description !== item.title &&
+              !item.title.includes(item.description) &&
+              !item.description.includes(item.title) && (
+                <span className="ml-2 text-muted-foreground">
+                  {item.description.slice(0, 100)}
+                  {item.description.length > 100 && "..."}
+                </span>
+              )}
           </span>
         </div>
       </div>
@@ -235,7 +247,7 @@ function StatusBadge({
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 font-medium text-muted-foreground text-[10px] capitalize">
+    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 font-medium text-[10px] text-muted-foreground capitalize">
       {status.replace(/_/g, " ")}
     </span>
   );
@@ -274,9 +286,14 @@ export function ConsoleDataTable({
   }
 
   return (
-    <div className={cn("rounded-lg border bg-background overflow-hidden", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border bg-background",
+        className
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center border-b bg-muted/50 text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+      <div className="flex items-center border-b bg-muted/50 font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
         <div className="w-1 shrink-0" /> {/* Stripe space */}
         <div className="w-44 shrink-0 px-3 py-2">↓ Date</div>
         <div className="w-28 shrink-0 px-2 py-2">Type</div>

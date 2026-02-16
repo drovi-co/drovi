@@ -18,6 +18,7 @@ from src.connectors.base.config import ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.base.connector import BaseConnector, RecordBatch, ConnectorRegistry
 from src.connectors.base.records import RecordType
 from src.connectors.base.state import ConnectorState
+from src.connectors.sources.storage.s3_definition import CAPABILITIES, default_streams
 
 logger = structlog.get_logger()
 
@@ -49,6 +50,9 @@ class S3Connector(BaseConnector):
     - Parquet
     - Plain text
     """
+
+    connector_type = "s3"
+    capabilities = CAPABILITIES
 
     SUPPORTED_FORMATS = {
         ".json": "json",
@@ -100,13 +104,7 @@ class S3Connector(BaseConnector):
         """Discover available prefixes/paths as streams."""
         # S3 doesn't have schemas, so we create a single "objects" stream
         # Users can configure prefixes in settings
-        return [
-            StreamConfig(
-                stream_name="objects",
-                sync_mode=SyncMode.INCREMENTAL,
-                cursor_field="last_modified",
-            ),
-        ]
+        return default_streams()
 
     async def read_stream(
         self,

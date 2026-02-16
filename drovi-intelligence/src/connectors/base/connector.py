@@ -337,6 +337,14 @@ class ConnectorRegistry:
     """
 
     _connectors: dict[str, type[BaseConnector]] = {}
+    _aliases: dict[str, str] = {
+        # Legacy naming compatibility.
+        "google_drive": "google_docs",
+    }
+
+    @classmethod
+    def _canonical_type(cls, connector_type: str) -> str:
+        return cls._aliases.get(connector_type, connector_type)
 
     @classmethod
     def register(
@@ -379,7 +387,7 @@ class ConnectorRegistry:
     @classmethod
     def get(cls, connector_type: str) -> type[BaseConnector] | None:
         """Get a connector class by type."""
-        return cls._connectors.get(connector_type)
+        return cls._connectors.get(cls._canonical_type(connector_type))
 
     @classmethod
     def create(cls, connector_type: str) -> BaseConnector | None:
