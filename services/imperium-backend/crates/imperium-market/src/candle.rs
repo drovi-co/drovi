@@ -66,7 +66,10 @@ mod tests {
     #[test]
     fn updates_candle_ohlc_and_volume() {
         let mut aggregator = CandleAggregator::default();
-        let now = Utc::now();
+        let now = Utc
+            .with_ymd_and_hms(2026, 1, 2, 14, 30, 5)
+            .single()
+            .expect("fixed timestamp must be valid");
 
         let first = MarketTick {
             symbol: "NVDA".to_string(),

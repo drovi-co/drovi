@@ -34,6 +34,7 @@
     "imperium:rust:lint": "cargo clippy --manifest-path services/imperium-backend/Cargo.toml --all-targets -- -D warnings",
     "imperium:rust:test": "cargo test --manifest-path services/imperium-backend/Cargo.toml",
     "imperium:openapi:generate": "cargo run --manifest-path services/imperium-backend/crates/imperium-api/Cargo.toml -- --print-openapi > openapi/imperium-openapi.json",
+    "imperium:api-types:generate": "bun run imperium:openapi:generate && bun run --filter @memorystack/imperium-api-types generate",
     "imperium:ops:dlq": "curl -s http://localhost:8010/api/v1/imperium/ops/dlq",
     "imperium:ops:audit": "curl -s http://localhost:8010/api/v1/imperium/ops/audit",
     "imperium:ops:dlq:replay": "sh -c 'if [ -z \"$EVENT_ID\" ]; then echo \"Set EVENT_ID before replay\"; exit 1; fi; curl -s -X POST http://localhost:8010/api/v1/imperium/ops/dlq/$EVENT_ID/replay'",

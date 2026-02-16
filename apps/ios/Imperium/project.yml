@@ -11,14 +11,33 @@ targets:
   ImperiumiOS:
     type: application
     platform: iOS
+    dependencies:
+      - target: ImperiumWidgets
+        embed: true
     sources:
       - path: .
         excludes:
+          - ImperiumWidgets
           - project.yml
           - README.md
     info:
       path: Info.plist
       properties:
         CFBundleDisplayName: Imperium
+        CFBundleURLTypes:
+          - CFBundleURLName: app.imperium.command.ios
+            CFBundleURLSchemes:
+              - imperium
         NSFaceIDUsageDescription: "Imperium uses Face ID to protect your command center."
         NSUserTrackingUsageDescription: "Imperium does not track users across other apps."
+  ImperiumWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ImperiumWidgets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.imperium.command.ios.widgets
+        INFOPLIST_FILE: ImperiumWidgets/Info.plist
+    info:
+      path: ImperiumWidgets/Info.plist

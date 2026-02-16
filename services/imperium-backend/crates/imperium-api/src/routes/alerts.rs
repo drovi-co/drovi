@@ -66,7 +66,7 @@ pub async fn rules(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<AlertRuleView>>, AppError> {
-    let service = imperium_alerts::AlertEngineService::default();
+    let service = imperium_alerts::AlertEngineService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -102,7 +102,7 @@ pub async fn feed(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<AlertEventView>>, AppError> {
-    let service = imperium_alerts::AlertEngineService::default();
+    let service = imperium_alerts::AlertEngineService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 

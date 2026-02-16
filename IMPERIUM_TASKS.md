@@ -17,7 +17,7 @@ Objective:
 - [x] G.03 All backend changes must expose metrics and structured logs.
 - [x] G.04 No user-facing AI claim without citation mapping in storage.
 - [x] G.05 No side-effecting connector action without audit trail.
-- [ ] G.06 OpenAPI contract regenerated on every API shape change.
+- [x] G.06 OpenAPI contract regenerated on every API shape change.
 - [ ] G.07 Alerting features must include anti-spam controls and tests.
 - [x] G.08 Data model migrations must have rollback path and backup procedure.
 - [ ] G.09 Security review required at every connector onboarding milestone.
@@ -61,12 +61,12 @@ Acceptance:
 - [ ] P1.09 Add Turbo pipeline entries for `imperium` app tasks.
 - [x] P1.10 Add Rust lint/test scripts wrapper (workspace-level).
 - [x] P1.11 Add OpenAPI generation command for Imperium backend.
-- [ ] P1.12 Add API type generation command into `packages/imperium-api-types`.
+- [x] P1.12 Add API type generation command into `packages/imperium-api-types`.
 
 Acceptance:
 
-- [ ] P1.A1 `apps/imperium` and `services/imperium-backend` build independently.
-- [ ] P1.A2 Root scripts can run Imperium workflows without touching Drovi services.
+- [x] P1.A1 `apps/imperium` and `services/imperium-backend` build independently.
+- [x] P1.A2 Root scripts can run Imperium workflows without touching Drovi services.
 
 ---
 
@@ -265,7 +265,7 @@ Acceptance:
 
 ### APIs
 - [x] P9.10 Implement portfolio overview endpoints.
-- [ ] P9.11 Implement account drilldown endpoints.
+- [x] P9.11 Implement account drilldown endpoints.
 - [ ] P9.12 Implement holdings timeline endpoints.
 
 Acceptance:
@@ -376,23 +376,23 @@ Acceptance:
 ## Phase 14 - iOS App (SwiftUI + UIKit)
 
 ### Foundation
-- [ ] P14.01 Create iOS app shell with auth, session, and secure storage.
-- [ ] P14.02 Implement design token application and typography setup.
-- [ ] P14.03 Implement networking layer with streaming support.
-- [ ] P14.04 Implement offline cache for latest brief + watchlists.
+- [x] P14.01 Create iOS app shell with auth, session, and secure storage.
+- [x] P14.02 Implement design token application and typography setup.
+- [x] P14.03 Implement networking layer with streaming support.
+- [x] P14.04 Implement offline cache for latest brief + watchlists.
 
 ### Screen Delivery
-- [ ] P14.05 Implement Brief tab with citation drawers and review actions.
-- [ ] P14.06 Implement Markets tab with full-screen candles and alerts.
-- [ ] P14.07 Implement Portfolio tab with holdings and risk cards.
-- [ ] P14.08 Implement Business tab with runway and anomaly panels.
-- [ ] P14.09 Implement Intelligence tab with cluster feed and reading mode.
-- [ ] P14.10 Implement right-edge contextual AI panel.
+- [x] P14.05 Implement Brief tab with citation drawers and review actions.
+- [x] P14.06 Implement Markets tab with full-screen candles and alerts.
+- [x] P14.07 Implement Portfolio tab with holdings and risk cards.
+- [x] P14.08 Implement Business tab with runway and anomaly panels.
+- [x] P14.09 Implement Intelligence tab with cluster feed and reading mode.
+- [x] P14.10 Implement right-edge contextual AI panel.
 
 ### Platform Features
-- [ ] P14.11 Implement lock-screen brief widget.
-- [ ] P14.12 Implement haptic patterns for critical alerts.
-- [ ] P14.13 Implement notification deep links into exact module state.
+- [x] P14.11 Implement lock-screen brief widget.
+- [x] P14.12 Implement haptic patterns for critical alerts.
+- [x] P14.13 Implement notification deep links into exact module state.
 
 Acceptance:
 
@@ -404,23 +404,23 @@ Acceptance:
 ## Phase 15 - macOS App (SwiftUI + UIKit/AppKit)
 
 ### Foundation
-- [ ] P15.01 Create macOS app shell with multi-window support.
-- [ ] P15.02 Implement 3-pane layout and keyboard-first navigation.
-- [ ] P15.03 Implement command bar (`Cmd+K`) and global shortcuts.
+- [x] P15.01 Create macOS app shell with multi-window support.
+- [x] P15.02 Implement 3-pane layout and keyboard-first navigation.
+- [x] P15.03 Implement command bar (`Cmd+K`) and global shortcuts.
 
 ### Screen Delivery
-- [ ] P15.04 Implement Daily Brief command station layout.
-- [ ] P15.05 Implement Markets command with research split-screen mode.
-- [ ] P15.06 Implement Portfolio operator view with simulation modal.
-- [ ] P15.07 Implement Business operator mode with board snapshot export flow.
-- [ ] P15.08 Implement Intelligence reading room with annotation controls.
-- [ ] P15.09 Implement Risk/Regime screen with portfolio overlay toggles.
-- [ ] P15.10 Implement Decision Journal timeline and outcome tracking.
+- [x] P15.04 Implement Daily Brief command station layout.
+- [x] P15.05 Implement Markets command with research split-screen mode.
+- [x] P15.06 Implement Portfolio operator view with simulation modal.
+- [x] P15.07 Implement Business operator mode with board snapshot export flow.
+- [x] P15.08 Implement Intelligence reading room with annotation controls.
+- [x] P15.09 Implement Risk/Regime screen with portfolio overlay toggles.
+- [x] P15.10 Implement Decision Journal timeline and outcome tracking.
 
 ### Desktop UX
-- [ ] P15.11 Implement trader-density table virtualization.
+- [x] P15.11 Implement trader-density table virtualization.
 - [ ] P15.12 Implement zero-fluff animation profile (authority motion rules).
-- [ ] P15.13 Implement context panel and notification drawer.
+- [x] P15.13 Implement context panel and notification drawer.
 
 Acceptance:
 
@@ -432,11 +432,11 @@ Acceptance:
 ## Phase 16 - Imperium Web App (Monorepo App)
 
 - [x] P16.01 Scaffold `apps/imperium` using current monorepo frontend conventions.
-- [ ] P16.02 Implement auth/session flow against Imperium backend.
-- [ ] P16.03 Implement module shells for Brief, Markets, Portfolio, Business, Intelligence.
-- [ ] P16.04 Implement realtime market and alert stream views.
-- [ ] P16.05 Implement operations pages for connector status and sync health.
-- [ ] P16.06 Implement admin-only debugging view for citations and alert decisions.
+- [x] P16.02 Implement auth/session flow against Imperium backend.
+- [x] P16.03 Implement module shells for Brief, Markets, Portfolio, Business, Intelligence.
+- [x] P16.04 Implement realtime market and alert stream views.
+- [x] P16.05 Implement operations pages for connector status and sync health.
+- [x] P16.06 Implement admin-only debugging view for citations and alert decisions.
 - [x] P16.07 Add `apps/imperium/Dockerfile` mirroring existing `web/admin` runtime pattern.
 
 Acceptance:
@@ -449,12 +449,12 @@ Acceptance:
 ## Phase 17 - Design System and Visual Fidelity
 
 - [x] P17.01 Define full color tokens for dark command and parchment reading modes.
-- [ ] P17.02 Define typography scales (display/body/data) with tabular numeric rules.
+- [x] P17.02 Define typography scales (display/body/data) with tabular numeric rules.
 - [x] P17.03 Define spacing, grid, and separator tokens for dense data layouts.
 - [x] P17.04 Define motion presets (hard fades, no playful spring).
-- [ ] P17.05 Implement component primitives: command cards, metric rails, alert strips.
-- [ ] P17.06 Implement chart style presets aligned to old-money brief.
-- [ ] P17.07 Publish cross-platform token documentation.
+- [x] P17.05 Implement component primitives: command cards, metric rails, alert strips.
+- [x] P17.06 Implement chart style presets aligned to old-money brief.
+- [x] P17.07 Publish cross-platform token documentation.
 
 Acceptance:
 

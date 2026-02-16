@@ -32,7 +32,7 @@ impl Database {
     }
 
     pub async fn run_migrations(&self) -> Result<(), AppError> {
-        sqlx::migrate!("../../../migrations")
+        sqlx::migrate!("../../migrations")
             .run(&self.pool)
             .await
             .map_err(|error| AppError::internal(format!("database migration failed: {error}")))

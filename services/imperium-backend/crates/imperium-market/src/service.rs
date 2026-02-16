@@ -9,16 +9,9 @@ pub struct MarketUpdate {
     pub candle_1m: Option<Candle>,
 }
 
+#[derive(Default)]
 pub struct MarketService {
     candle_aggregator: CandleAggregator,
-}
-
-impl Default for MarketService {
-    fn default() -> Self {
-        Self {
-            candle_aggregator: CandleAggregator::default(),
-        }
-    }
 }
 
 impl MarketService {

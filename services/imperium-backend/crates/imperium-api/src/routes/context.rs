@@ -12,7 +12,6 @@ pub struct AuthContext {
     pub user_id: Uuid,
 }
 
-#[axum::async_trait]
 impl<S> FromRequestParts<S> for AuthContext
 where
     S: Send + Sync,

@@ -54,7 +54,7 @@ pub async fn regime(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<RegimeStateView>, AppError> {
-    let service = imperium_risk::RiskRegimeService::default();
+    let service = imperium_risk::RiskRegimeService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -102,7 +102,7 @@ pub async fn indicators(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<MacroIndicatorView>>, AppError> {
-    let service = imperium_risk::RiskRegimeService::default();
+    let service = imperium_risk::RiskRegimeService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -136,7 +136,7 @@ pub async fn signals(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<RiskSignalView>>, AppError> {
-    let service = imperium_risk::RiskRegimeService::default();
+    let service = imperium_risk::RiskRegimeService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -170,7 +170,7 @@ pub async fn signals(
 pub async fn scenario_preview(
     Json(payload): Json<ScenarioPreviewRequest>,
 ) -> Json<ScenarioPreviewResponse> {
-    let service = imperium_risk::RiskRegimeService::default();
+    let service = imperium_risk::RiskRegimeService;
     let impact = service.scenario_preview(&payload.label);
 
     Json(ScenarioPreviewResponse {

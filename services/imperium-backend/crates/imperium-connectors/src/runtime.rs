@@ -157,7 +157,7 @@ impl ConnectorRuntime {
     }
 
     async fn fetch_market_tick_real(&self, sequence: u64) -> Result<ProviderTick, ConnectorError> {
-        if sequence % 2 == 0 {
+        if sequence.is_multiple_of(2) {
             self.fetch_equity_tick(sequence).await
         } else {
             self.fetch_crypto_tick(sequence).await

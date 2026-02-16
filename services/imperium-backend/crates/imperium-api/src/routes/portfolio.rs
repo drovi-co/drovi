@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use imperium_domain::portfolio::{simulate_scenario, ScenarioInput};
+use imperium_domain::portfolio::{simulate_scenario as simulate_portfolio_scenario, ScenarioInput};
 use imperium_infra::{error::AppError, SharedAppState};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -68,7 +68,7 @@ pub async fn overview(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<PortfolioOverviewView>, AppError> {
-    let service = imperium_portfolio::PortfolioService::default();
+    let service = imperium_portfolio::PortfolioService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -99,7 +99,7 @@ pub async fn accounts(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<PortfolioAccountView>>, AppError> {
-    let service = imperium_portfolio::PortfolioService::default();
+    let service = imperium_portfolio::PortfolioService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -140,7 +140,7 @@ pub async fn simulate_scenario(
     auth: AuthContext,
     Json(payload): Json<ScenarioRequest>,
 ) -> Result<Json<ScenarioResponse>, AppError> {
-    let service = imperium_portfolio::PortfolioService::default();
+    let service = imperium_portfolio::PortfolioService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -156,7 +156,7 @@ pub async fn simulate_scenario(
         None => service.sample_overview(),
     };
 
-    let result = simulate_scenario(&baseline, &scenario);
+    let result = simulate_portfolio_scenario(&baseline, &scenario);
 
     Ok(Json(ScenarioResponse {
         scenario_name: result.scenario_name,

@@ -4,8 +4,6 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>CFBundleDisplayName</key>
-	<string>Imperium</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,25 +13,10 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>app.imperium.command.ios</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>imperium</string>
-			</array>
-		</dict>
-	</array>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Imperium uses Face ID to protect your command center.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Imperium does not track users across other apps.</string>
 </dict>
 </plist>

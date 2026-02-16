@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "generate": "python3 ../../scripts/imperium/generate_api_types.py"
   },
   "devDependencies": {
     "typescript": "catalog:"

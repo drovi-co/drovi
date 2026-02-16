@@ -65,7 +65,7 @@ pub async fn today(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<DailyBriefView>, AppError> {
-    let service = imperium_brief::BriefService::default();
+    let service = imperium_brief::BriefService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -103,7 +103,7 @@ pub async fn preview(
     auth: AuthContext,
     Json(payload): Json<BriefPreviewRequest>,
 ) -> Json<DailyBriefView> {
-    let service = imperium_brief::BriefService::default();
+    let service = imperium_brief::BriefService;
     let context = imperium_brief::BriefContext {
         user_id: payload
             .user_id
@@ -136,7 +136,7 @@ pub async fn since_last(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<SinceLastView>, AppError> {
-    let service = imperium_brief::BriefService::default();
+    let service = imperium_brief::BriefService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 

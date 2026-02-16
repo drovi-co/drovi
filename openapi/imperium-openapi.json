@@ -1,0 +1,2947 @@
+{
+  "components": {
+    "schemas": {
+      "AddWatchlistEntryRequest": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "label"
+        ],
+        "type": "object"
+      },
+      "AlertEventView": {
+        "properties": {
+          "alert_id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "dedupe_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "what_happened": {
+            "type": "string"
+          },
+          "what_to_watch_next": {
+            "type": "string"
+          },
+          "why_it_matters": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "alert_id",
+          "category",
+          "title",
+          "what_happened",
+          "why_it_matters",
+          "what_to_watch_next",
+          "dedupe_key",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "AlertRuleView": {
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "cooldown_seconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "threshold": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rule_id",
+          "category",
+          "name",
+          "threshold",
+          "cooldown_seconds",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "AlertSimulationRequest": {
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "threshold": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "category",
+          "target",
+          "threshold"
+        ],
+        "type": "object"
+      },
+      "AlertSimulationResponse": {
+        "properties": {
+          "dedupe_key": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "should_trigger": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "should_trigger",
+          "dedupe_key",
+          "explanation"
+        ],
+        "type": "object"
+      },
+      "ApiAuditEventsResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEventView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "type": "object"
+      },
+      "ApiDeadLetterResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/DeadLetterEventView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "type": "object"
+      },
+      "ApiHealthResponse": {
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service"
+        ],
+        "type": "object"
+      },
+      "ApiMetaResponse": {
+        "properties": {
+          "data_mode": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderConfigView"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "environment",
+          "data_mode",
+          "providers"
+        ],
+        "type": "object"
+      },
+      "ApiProvidersHealthResponse": {
+        "properties": {
+          "checked_at": {
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderHealthView"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "checked_at",
+          "checks"
+        ],
+        "type": "object"
+      },
+      "ApiProvidersResponse": {
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderConfigView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "providers"
+        ],
+        "type": "object"
+      },
+      "ApiReadinessResponse": {
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "type": "object"
+      },
+      "AppleVerifyRequest": {
+        "properties": {
+          "identity_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_token"
+        ],
+        "type": "object"
+      },
+      "AppleVerifyResponse": {
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "issued_at": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "issued_at",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "AuditEventView": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "string"
+          },
+          "payload_hash": {
+            "type": "string"
+          },
+          "stream_key": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "stream_key",
+          "action",
+          "target",
+          "metadata",
+          "payload_hash",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "BriefCitationView": {
+        "properties": {
+          "source_snippet": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_url",
+          "source_snippet"
+        ],
+        "type": "object"
+      },
+      "BriefClaimView": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/BriefCitationView"
+            },
+            "type": "array"
+          },
+          "confidence_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "impact_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "recommended_action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "impact_score",
+          "confidence_score",
+          "citations"
+        ],
+        "type": "object"
+      },
+      "BriefPreviewRequest": {
+        "properties": {
+          "key_events": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "watchlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "BriefSectionView": {
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/BriefClaimView"
+            },
+            "type": "array"
+          },
+          "section_key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "title",
+          "summary",
+          "claims"
+        ],
+        "type": "object"
+      },
+      "BusinessAnomalyView": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "metric_key": {
+            "type": "string"
+          },
+          "recommended_action": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric_key",
+          "severity",
+          "message",
+          "recommended_action"
+        ],
+        "type": "object"
+      },
+      "BusinessMetricView": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "format": "double",
+            "type": "number"
+          },
+          "window": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "window"
+        ],
+        "type": "object"
+      },
+      "BusinessOverviewView": {
+        "properties": {
+          "as_of": {
+            "type": "string"
+          },
+          "burn": {
+            "format": "double",
+            "type": "number"
+          },
+          "cash_balance": {
+            "format": "double",
+            "type": "number"
+          },
+          "entity_name": {
+            "type": "string"
+          },
+          "mrr": {
+            "format": "double",
+            "type": "number"
+          },
+          "overdue_invoices": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "runway_months": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "as_of",
+          "entity_name",
+          "mrr",
+          "burn",
+          "runway_months",
+          "cash_balance",
+          "overdue_invoices"
+        ],
+        "type": "object"
+      },
+      "CandleView": {
+        "properties": {
+          "close": {
+            "format": "double",
+            "type": "number"
+          },
+          "end_time": {
+            "type": "string"
+          },
+          "high": {
+            "format": "double",
+            "type": "number"
+          },
+          "interval": {
+            "type": "string"
+          },
+          "low": {
+            "format": "double",
+            "type": "number"
+          },
+          "open": {
+            "format": "double",
+            "type": "number"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "volume": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "symbol",
+          "interval",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume",
+          "start_time",
+          "end_time"
+        ],
+        "type": "object"
+      },
+      "CreatePlaybookRequest": {
+        "properties": {
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "response_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "trigger",
+          "response_steps"
+        ],
+        "type": "object"
+      },
+      "CreateThesisRequest": {
+        "properties": {
+          "conviction_percent": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "invalidation_criteria": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "DailyBriefView": {
+        "properties": {
+          "brief_date": {
+            "type": "string"
+          },
+          "brief_id": {
+            "type": "string"
+          },
+          "generated_at": {
+            "type": "string"
+          },
+          "required_reads": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/BriefSectionView"
+            },
+            "type": "array"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "brief_id",
+          "user_id",
+          "brief_date",
+          "generated_at",
+          "required_reads",
+          "sections"
+        ],
+        "type": "object"
+      },
+      "DeadLetterEventView": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "first_failed_at": {
+            "type": "string"
+          },
+          "last_failed_at": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "string"
+          },
+          "replayed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replayed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retry_count": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "worker_role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "worker_role",
+          "subject",
+          "payload",
+          "error_message",
+          "retry_count",
+          "status",
+          "first_failed_at",
+          "last_failed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ExposureView": {
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "weight_percent": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "bucket",
+          "weight_percent"
+        ],
+        "type": "object"
+      },
+      "InboxItemView": {
+        "properties": {
+          "canonical_url": {
+            "type": "string"
+          },
+          "cluster_key": {
+            "type": "string"
+          },
+          "impact_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "source_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster_key",
+          "title",
+          "summary",
+          "impact_score",
+          "source_count",
+          "canonical_url"
+        ],
+        "type": "object"
+      },
+      "IngestPreviewArticleInput": {
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_at": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "url",
+          "title",
+          "published_at"
+        ],
+        "type": "object"
+      },
+      "IngestPreviewRequest": {
+        "properties": {
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/IngestPreviewArticleInput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "articles"
+        ],
+        "type": "object"
+      },
+      "IngestPreviewResponse": {
+        "properties": {
+          "accepted_articles": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/StoryClusterView"
+            },
+            "type": "array"
+          },
+          "rejected_articles": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted_articles",
+          "rejected_articles",
+          "clusters"
+        ],
+        "type": "object"
+      },
+      "IssueSessionRequest": {
+        "properties": {
+          "device_id": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device_id"
+        ],
+        "type": "object"
+      },
+      "IssueSessionResponse": {
+        "properties": {
+          "device_id": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "session_id",
+          "user_id",
+          "device_id",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "MacroIndicatorView": {
+        "properties": {
+          "change": {
+            "format": "double",
+            "type": "number"
+          },
+          "key": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "value": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "change",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "MarketQuoteView": {
+        "properties": {
+          "change_percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "price": {
+            "format": "double",
+            "type": "number"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "volume": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "symbol",
+          "price",
+          "change_percent",
+          "volume",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "MarketWatchlistItemView": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "label"
+        ],
+        "type": "object"
+      },
+      "PasskeyChallengeRequest": {
+        "properties": {
+          "rp_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "PasskeyChallengeResponse": {
+        "properties": {
+          "challenge": {
+            "type": "string"
+          },
+          "challenge_id": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "rp_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "challenge",
+          "rp_id",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "PlaybookView": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "playbook_id": {
+            "type": "string"
+          },
+          "response_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "playbook_id",
+          "title",
+          "trigger",
+          "response_steps",
+          "enabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "PortfolioAccountView": {
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "account_type": {
+            "type": "string"
+          },
+          "balance": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "name",
+          "account_type",
+          "balance"
+        ],
+        "type": "object"
+      },
+      "PortfolioOverviewView": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioAccountView"
+            },
+            "type": "array"
+          },
+          "as_of": {
+            "type": "string"
+          },
+          "daily_change": {
+            "format": "double",
+            "type": "number"
+          },
+          "exposures": {
+            "items": {
+              "$ref": "#/components/schemas/ExposureView"
+            },
+            "type": "array"
+          },
+          "net_worth": {
+            "format": "double",
+            "type": "number"
+          },
+          "risk_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "top_positions": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioPositionView"
+            },
+            "type": "array"
+          },
+          "ytd_change": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "as_of",
+          "net_worth",
+          "daily_change",
+          "ytd_change",
+          "risk_score",
+          "accounts",
+          "top_positions",
+          "exposures"
+        ],
+        "type": "object"
+      },
+      "PortfolioPositionView": {
+        "properties": {
+          "asset_class": {
+            "type": "string"
+          },
+          "market_value": {
+            "format": "double",
+            "type": "number"
+          },
+          "quantity": {
+            "format": "double",
+            "type": "number"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "quantity",
+          "market_value",
+          "asset_class"
+        ],
+        "type": "object"
+      },
+      "ProviderConfigView": {
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "fallbacks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "primary": {
+            "type": "string"
+          },
+          "required_credentials": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "primary",
+          "fallbacks",
+          "configured",
+          "required_credentials"
+        ],
+        "type": "object"
+      },
+      "ProviderHealthView": {
+        "properties": {
+          "details": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "provider",
+          "healthy",
+          "details"
+        ],
+        "type": "object"
+      },
+      "RefreshSessionRequest": {
+        "properties": {
+          "session_token": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "session_token"
+        ],
+        "type": "object"
+      },
+      "RefreshSessionResponse": {
+        "properties": {
+          "expires_at": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "session_id",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "RegimeStateView": {
+        "properties": {
+          "confidence": {
+            "format": "double",
+            "type": "number"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "regime": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "regime",
+          "confidence",
+          "explanation",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ReminderView": {
+        "properties": {
+          "review_date": {
+            "type": "string"
+          },
+          "thesis_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "title",
+          "review_date"
+        ],
+        "type": "object"
+      },
+      "ReplayDeadLetterResponse": {
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "retry_count": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "replayed",
+          "event_id",
+          "subject",
+          "status",
+          "retry_count"
+        ],
+        "type": "object"
+      },
+      "RevokeSessionRequest": {
+        "properties": {
+          "session_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_token"
+        ],
+        "type": "object"
+      },
+      "RiskSignalView": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "severity",
+          "description",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ScenarioPreviewRequest": {
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
+      "ScenarioPreviewResponse": {
+        "properties": {
+          "estimated_pnl_impact": {
+            "format": "double",
+            "type": "number"
+          },
+          "hedge_size": {
+            "format": "double",
+            "type": "number"
+          },
+          "label": {
+            "type": "string"
+          },
+          "liquidity_impact": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "estimated_pnl_impact",
+          "liquidity_impact",
+          "hedge_size"
+        ],
+        "type": "object"
+      },
+      "ScenarioRequest": {
+        "properties": {
+          "fx_shock_percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "market_drop_percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "rate_spike_bps": {
+            "format": "double",
+            "type": "number"
+          },
+          "scenario_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_name",
+          "market_drop_percent",
+          "fx_shock_percent",
+          "rate_spike_bps"
+        ],
+        "type": "object"
+      },
+      "ScenarioResponse": {
+        "properties": {
+          "estimated_loss": {
+            "format": "double",
+            "type": "number"
+          },
+          "hedge_notional": {
+            "format": "double",
+            "type": "number"
+          },
+          "liquidity_impact": {
+            "format": "double",
+            "type": "number"
+          },
+          "scenario_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_name",
+          "estimated_loss",
+          "liquidity_impact",
+          "hedge_notional"
+        ],
+        "type": "object"
+      },
+      "SinceLastView": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "StoryClusterView": {
+        "properties": {
+          "article_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "canonical_url": {
+            "type": "string"
+          },
+          "cluster_key": {
+            "type": "string"
+          },
+          "impact_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster_key",
+          "title",
+          "article_count",
+          "canonical_url",
+          "impact_score"
+        ],
+        "type": "object"
+      },
+      "StreamContractView": {
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "payload_schema": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "subject",
+          "payload_schema"
+        ],
+        "type": "object"
+      },
+      "ThesisMutationResponse": {
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "thesis_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "archived"
+        ],
+        "type": "object"
+      },
+      "ThesisView": {
+        "properties": {
+          "conviction_percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "invalidation_criteria": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "review_date": {
+            "type": "string"
+          },
+          "thesis_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "title",
+          "position",
+          "conviction_percent",
+          "rationale",
+          "invalidation_criteria",
+          "review_date",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "TogglePlaybookRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "WatchlistMutationResponse": {
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mutated": {
+            "type": "boolean"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "mutated"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "",
+    "license": {
+      "identifier": "UNLICENSED",
+      "name": "UNLICENSED"
+    },
+    "title": "imperium-api",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/imperium/alerts/feed": {
+      "get": {
+        "operationId": "feed",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlertEventView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Alert feed"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/alerts/rules": {
+      "get": {
+        "operationId": "rules",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlertRuleView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Alert rules"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/alerts/simulate": {
+      "post": {
+        "operationId": "simulate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertSimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSimulationResponse"
+                }
+              }
+            },
+            "description": "Alert simulation result"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/alerts/stream/sse": {
+      "get": {
+        "operationId": "stream_sse",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "heartbeat_seconds",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent alert stream"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/auth/apple/verify": {
+      "post": {
+        "operationId": "verify_apple_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppleVerifyResponse"
+                }
+              }
+            },
+            "description": "Apple identity token accepted"
+          },
+          "400": {
+            "description": "Invalid identity token"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/auth/passkeys/challenge": {
+      "post": {
+        "operationId": "passkey_challenge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallengeResponse"
+                }
+              }
+            },
+            "description": "Passkey challenge generated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/auth/session/refresh": {
+      "post": {
+        "operationId": "refresh_session_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshSessionResponse"
+                }
+              }
+            },
+            "description": "Session refreshed"
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Session not found"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/auth/session/revoke": {
+      "post": {
+        "operationId": "revoke_session_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Session revoked"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/auth/session/token": {
+      "post": {
+        "operationId": "issue_session_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueSessionResponse"
+                }
+              }
+            },
+            "description": "Session issued"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/brief/preview": {
+      "post": {
+        "operationId": "preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBriefView"
+                }
+              }
+            },
+            "description": "Daily brief preview"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/brief/since-last": {
+      "get": {
+        "operationId": "since_last",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinceLastView"
+                }
+              }
+            },
+            "description": "Delta updates since last check"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/brief/today": {
+      "get": {
+        "operationId": "today",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBriefView"
+                }
+              }
+            },
+            "description": "Daily brief"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/business/anomalies": {
+      "get": {
+        "operationId": "anomalies",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessAnomalyView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Business anomalies"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/business/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessMetricView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Business metric snapshot"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/business/overview": {
+      "get": {
+        "operationId": "overview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessOverviewView"
+                }
+              }
+            },
+            "description": "Business command overview"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiHealthResponse"
+                }
+              }
+            },
+            "description": "Service health"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/intelligence/clusters": {
+      "get": {
+        "operationId": "clusters",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StoryClusterView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Clustered intelligence stories"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/intelligence/inbox": {
+      "get": {
+        "operationId": "inbox",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InboxItemView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Intelligence inbox"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/intelligence/ingest/preview": {
+      "post": {
+        "operationId": "ingest_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPreviewResponse"
+                }
+              }
+            },
+            "description": "Preview dedupe/clustering output"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/journal/playbooks": {
+      "get": {
+        "operationId": "playbooks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlaybookView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Playbooks"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      },
+      "post": {
+        "operationId": "create_playbook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlaybookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybookView"
+                }
+              }
+            },
+            "description": "Created playbook"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/journal/playbooks/{playbook_id}/toggle": {
+      "post": {
+        "operationId": "toggle_playbook",
+        "parameters": [
+          {
+            "description": "Playbook id",
+            "in": "path",
+            "name": "playbook_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TogglePlaybookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybookView"
+                }
+              }
+            },
+            "description": "Playbook updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/journal/reminders": {
+      "get": {
+        "operationId": "reminders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReminderView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Review reminders"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/journal/theses": {
+      "get": {
+        "operationId": "theses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThesisView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Decision journal theses"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      },
+      "post": {
+        "operationId": "create_thesis",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateThesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisView"
+                }
+              }
+            },
+            "description": "Created thesis"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/journal/theses/{thesis_id}/archive": {
+      "post": {
+        "operationId": "archive_thesis",
+        "parameters": [
+          {
+            "description": "Thesis id",
+            "in": "path",
+            "name": "thesis_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisMutationResponse"
+                }
+              }
+            },
+            "description": "Archived thesis"
+          },
+          "400": {
+            "description": "Invalid thesis id"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/stream/contracts": {
+      "get": {
+        "operationId": "stream_contracts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StreamContractView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Market stream contract catalog"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/stream/sse": {
+      "get": {
+        "operationId": "stream_sse",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "heartbeat_seconds",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent market stream"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/watchlist": {
+      "get": {
+        "operationId": "watchlist",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MarketWatchlistItemView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Watchlist entries"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      },
+      "post": {
+        "operationId": "add_watchlist_entry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWatchlistEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistMutationResponse"
+                }
+              }
+            },
+            "description": "Watchlist entry added"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/watchlist/{symbol}": {
+      "delete": {
+        "operationId": "remove_watchlist_entry",
+        "parameters": [
+          {
+            "description": "Ticker or symbol",
+            "in": "path",
+            "name": "symbol",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "label",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistMutationResponse"
+                }
+              }
+            },
+            "description": "Watchlist entry removed"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/{symbol}/candles": {
+      "get": {
+        "operationId": "candles",
+        "parameters": [
+          {
+            "description": "Ticker or symbol",
+            "in": "path",
+            "name": "symbol",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "interval",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CandleView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Candle series"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/markets/{symbol}/quote": {
+      "get": {
+        "operationId": "quote",
+        "parameters": [
+          {
+            "description": "Ticker or symbol",
+            "in": "path",
+            "name": "symbol",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketQuoteView"
+                }
+              }
+            },
+            "description": "Current quote"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/meta": {
+      "get": {
+        "operationId": "meta",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiMetaResponse"
+                }
+              }
+            },
+            "description": "Service metadata"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics payload"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/openapi.json": {
+      "get": {
+        "operationId": "openapi_document",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document as JSON"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/ops/audit": {
+      "get": {
+        "operationId": "audit_events",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuditEventsResponse"
+                }
+              }
+            },
+            "description": "Audit feed"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/ops/dlq": {
+      "get": {
+        "operationId": "dead_letter_queue",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiDeadLetterResponse"
+                }
+              }
+            },
+            "description": "Dead-letter queue events"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/ops/dlq/{event_id}/replay": {
+      "post": {
+        "operationId": "replay_dead_letter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayDeadLetterResponse"
+                }
+              }
+            },
+            "description": "Dead-letter event replayed"
+          },
+          "400": {
+            "description": "Invalid event id or replay failure"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/portfolio/accounts": {
+      "get": {
+        "operationId": "accounts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PortfolioAccountView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Portfolio accounts"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/portfolio/overview": {
+      "get": {
+        "operationId": "overview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioOverviewView"
+                }
+              }
+            },
+            "description": "Portfolio overview"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/portfolio/scenario/simulate": {
+      "post": {
+        "operationId": "simulate_scenario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioResponse"
+                }
+              }
+            },
+            "description": "Scenario simulation"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/providers": {
+      "get": {
+        "operationId": "providers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProvidersResponse"
+                }
+              }
+            },
+            "description": "Provider configuration"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/providers/health": {
+      "get": {
+        "operationId": "providers_health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProvidersHealthResponse"
+                }
+              }
+            },
+            "description": "Active provider health checks"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/ready": {
+      "get": {
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiReadinessResponse"
+                }
+              }
+            },
+            "description": "Dependencies ready"
+          },
+          "503": {
+            "description": "Dependencies unavailable"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/risk/indicators": {
+      "get": {
+        "operationId": "indicators",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MacroIndicatorView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Macro indicators"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/risk/regime": {
+      "get": {
+        "operationId": "regime",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegimeStateView"
+                }
+              }
+            },
+            "description": "Current regime state"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/risk/scenario/preview": {
+      "post": {
+        "operationId": "scenario_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioPreviewResponse"
+                }
+              }
+            },
+            "description": "Scenario preview"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    },
+    "/api/v1/imperium/risk/signals": {
+      "get": {
+        "operationId": "signals",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RiskSignalView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Risk signals"
+          }
+        },
+        "tags": [
+          "imperium"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Imperium API foundational routes",
+      "name": "imperium"
+    }
+  ]
+}

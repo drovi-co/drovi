@@ -310,7 +310,7 @@ fn csv_or_default(key: &str, default_value: &str) -> Vec<String> {
 
 fn validate_provider(domain: ProviderDomain, provider: &str, key: &str) -> Result<(), AppError> {
     let allowed = allowed_providers(domain);
-    if allowed.iter().any(|candidate| *candidate == provider) {
+    if allowed.contains(&provider) {
         Ok(())
     } else {
         Err(AppError::configuration(format!(
@@ -398,9 +398,9 @@ mod tests {
             required_credentials_for(ProviderDomain::Banking, "plaid"),
             ["PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ACCESS_TOKEN"]
         );
-        assert_eq!(
-            required_credentials_for(ProviderDomain::News, "sec-rss"),
-            []
+        assert!(
+            required_credentials_for(ProviderDomain::News, "sec-rss").is_empty(),
+            "sec-rss should not require credentials"
         );
     }
 }

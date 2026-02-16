@@ -79,7 +79,7 @@ pub async fn theses(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<ThesisView>>, AppError> {
-    let service = imperium_journal::JournalService::default();
+    let service = imperium_journal::JournalService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -199,7 +199,7 @@ pub async fn playbooks(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<PlaybookView>>, AppError> {
-    let service = imperium_journal::JournalService::default();
+    let service = imperium_journal::JournalService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -339,7 +339,7 @@ pub async fn reminders(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<ReminderView>>, AppError> {
-    let service = imperium_journal::JournalService::default();
+    let service = imperium_journal::JournalService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 

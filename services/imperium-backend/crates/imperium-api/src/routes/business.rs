@@ -44,7 +44,7 @@ pub async fn overview(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<BusinessOverviewView>, AppError> {
-    let service = imperium_business::BusinessCommandService::default();
+    let service = imperium_business::BusinessCommandService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -83,7 +83,7 @@ pub async fn metrics(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<BusinessMetricView>>, AppError> {
-    let service = imperium_business::BusinessCommandService::default();
+    let service = imperium_business::BusinessCommandService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 
@@ -125,7 +125,7 @@ pub async fn anomalies(
     State(state): State<SharedAppState>,
     auth: AuthContext,
 ) -> Result<Json<Vec<BusinessAnomalyView>>, AppError> {
-    let service = imperium_business::BusinessCommandService::default();
+    let service = imperium_business::BusinessCommandService;
     let user_id = auth.user_id;
     state.repository.ensure_user(user_id).await?;
 

@@ -30,6 +30,16 @@ const RISK_REGIME_SUBJECT: &str = "imperium.risk.regime";
 const BRIEF_READY_SUBJECT: &str = "imperium.brief.ready";
 const PORTFOLIO_SNAPSHOT_SUBJECT: &str = "imperium.portfolio.snapshot";
 
+#[derive(Default)]
+struct WorkerServices {
+    market: MarketService,
+    news: IntelligenceInboxService,
+    business: BusinessCommandService,
+    risk: RiskRegimeService,
+    brief: BriefService,
+    portfolio: PortfolioService,
+}
+
 #[tokio::main]
 async fn main() {
     init_tracing("info,imperium_worker=debug");
@@ -53,12 +63,7 @@ async fn main() {
     let mut ticker = tokio::time::interval(Duration::from_secs(cadence_seconds));
     let mut shutdown = Box::pin(shutdown_signal());
     let mut sequence = 0_u64;
-    let mut market_service = MarketService::default();
-    let news_service = IntelligenceInboxService::default();
-    let business_service = BusinessCommandService::default();
-    let risk_service = RiskRegimeService::default();
-    let brief_service = BriefService::default();
-    let portfolio_service = PortfolioService::default();
+    let mut services = WorkerServices::default();
     let connectors = match build_connector_runtime(&state) {
         Ok(connectors) => connectors,
         Err(error) => {
@@ -82,12 +87,7 @@ async fn main() {
                     &role,
                     sequence,
                     &connectors,
-                    &mut market_service,
-                    &news_service,
-                    &business_service,
-                    &risk_service,
-                    &brief_service,
-                    &portfolio_service,
+                    &mut services,
                 )
                 .await;
 
@@ -133,21 +133,16 @@ async fn run_role_cycle(
     role: &str,
     sequence: u64,
     connectors: &ConnectorRuntime,
-    market_service: &mut MarketService,
-    news_service: &IntelligenceInboxService,
-    business_service: &BusinessCommandService,
-    risk_service: &RiskRegimeService,
-    brief_service: &BriefService,
-    portfolio_service: &PortfolioService,
+    services: &mut WorkerServices,
 ) -> Result<(), AppError> {
     match role {
-        "market" => run_market_cycle(state, sequence, connectors, market_service).await,
-        "news" => run_news_cycle(state, sequence, connectors, news_service).await,
+        "market" => run_market_cycle(state, sequence, connectors, &mut services.market).await,
+        "news" => run_news_cycle(state, sequence, connectors, &services.news).await,
         "alerts" => run_alert_cycle(state, sequence, connectors).await,
-        "business" => run_business_cycle(state, business_service).await,
-        "portfolio" => run_portfolio_cycle(state, connectors, portfolio_service).await,
-        "risk" => run_risk_cycle(state, risk_service).await,
-        "brief" => run_brief_cycle(state, brief_service).await,
+        "business" => run_business_cycle(state, &services.business).await,
+        "portfolio" => run_portfolio_cycle(state, connectors, &services.portfolio).await,
+        "risk" => run_risk_cycle(state, &services.risk).await,
+        "brief" => run_brief_cycle(state, &services.brief).await,
         _ => {
             tracing::debug!(role = %role, sequence, "no-op role cycle");
             Ok(())
