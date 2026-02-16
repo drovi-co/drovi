@@ -10,6 +10,8 @@ The docker compose wiring lives at:
 
 ## Prometheus
 - Scrape the API metrics endpoint: `/metrics`
+- Scrape Imperium API metrics endpoint:
+  - `imperium-api:8010/metrics`
 - Scrape worker metrics (started when `PROMETHEUS_METRICS_PORT` is set):
   - `drovi-worker:9101/metrics`
   - `drovi-jobs-worker:9102/metrics`
@@ -19,6 +21,7 @@ The docker compose wiring lives at:
 ## Grafana
 - Provisioning is configured in `deploy/observability/grafana/provisioning/`.
 - The baseline dashboard is at `deploy/observability/grafana/dashboards/drovi-intelligence-overview.json`.
+- Imperium dashboard template: `deploy/observability/grafana-imperium-dashboard.json`.
 - Default dev credentials (set in docker compose):
   - user: `admin`
   - pass: `admin`
@@ -42,6 +45,9 @@ The docker compose wiring lives at:
 - Identity resolution: `drovi_identity_resolution_attempts_total`, `drovi_identity_resolution_success_total`
 - Memory decay: `drovi_memory_decay_runs_total`, `drovi_nodes_decayed_total`, `drovi_nodes_archived_total`
 - Build info: `drovi_build_info`
+- Imperium HTTP/API: `imperium_http_requests_total`, `imperium_http_request_duration_seconds`, `imperium_http_inflight_requests`
+- Imperium connector telemetry: `imperium_connector_requests_total`, `imperium_connector_request_duration_seconds`, `imperium_connector_estimated_cost_usd_total`
+- Imperium worker/runtime: `imperium_worker_cycles_total`, `imperium_worker_cycle_duration_seconds`, `imperium_nats_publish_total`, `imperium_dead_letter_events_total`
 
 ## Alerting (Slack/Email)
 Alertmanager is configured to POST to:

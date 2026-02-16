@@ -237,10 +237,12 @@ function CommitmentRow({
   const { locale, t } = useI18n();
   const priority = getPriority(commitment.dueDate, commitment.status);
   const status = getStatus(commitment.status);
-  const otherPerson =
+  const preferredPerson =
     commitment.direction === "owed_by_me"
       ? commitment.creditor
       : commitment.debtor;
+  const otherPerson =
+    preferredPerson ?? commitment.debtor ?? commitment.creditor ?? null;
   const personName = getPersonName(otherPerson, t);
   const dueDateDisplay = formatDueDate(commitment.dueDate, {
     daysOverdue: commitment.daysOverdue,

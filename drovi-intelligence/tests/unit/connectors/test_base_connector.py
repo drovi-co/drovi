@@ -403,6 +403,14 @@ class TestConnectorRegistry:
 
         assert connector_class == MockConnector
 
+    def test_get_registered_connector_via_alias(self):
+        """Test getting connector class via legacy alias."""
+        ConnectorRegistry._connectors["google_docs"] = MockConnector
+
+        connector_class = ConnectorRegistry.get("google_drive")
+
+        assert connector_class == MockConnector
+
     def test_get_unregistered_connector(self):
         """Test getting an unregistered connector returns None."""
         connector_class = ConnectorRegistry.get("nonexistent")
@@ -417,6 +425,14 @@ class TestConnectorRegistry:
 
         assert isinstance(connector, MockConnector)
         assert connector.connector_type == "mock"
+
+    def test_create_connector_instance_via_alias(self):
+        """Test creating connector instance via legacy alias."""
+        ConnectorRegistry._connectors["google_docs"] = MockConnector
+
+        connector = ConnectorRegistry.create("google_drive")
+
+        assert isinstance(connector, MockConnector)
 
     def test_create_unregistered_returns_none(self):
         """Test creating unregistered connector returns None."""

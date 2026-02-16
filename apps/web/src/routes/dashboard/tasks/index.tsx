@@ -158,6 +158,15 @@ function TasksPage() {
   const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
   const currentUserId = session?.user?.id ?? "";
+  const fallbackAssignee =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          name: session.user.name ?? null,
+          email: session.user.email,
+          image: session.user.image ?? null,
+        }
+      : null;
   const { t: tr } = useI18n();
 
   // State
@@ -417,7 +426,7 @@ function TasksPage() {
             email: t.assignee.primaryEmail ?? "",
             image: t.assignee.avatarUrl ?? null,
           }
-        : null,
+        : fallbackAssignee,
       labels: [], // Labels would need separate query
       metadata: null, // UIO task details don't have metadata field
       createdAt: new Date(t.createdAt),

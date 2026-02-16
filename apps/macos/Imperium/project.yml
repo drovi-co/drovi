@@ -1,0 +1,22 @@
+name: ImperiumMac
+options:
+  bundleIdPrefix: app.imperium
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: app.imperium.command.macos
+    CODE_SIGN_STYLE: Automatic
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    SWIFT_VERSION: "5.9"
+targets:
+  ImperiumMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - README.md
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Imperium

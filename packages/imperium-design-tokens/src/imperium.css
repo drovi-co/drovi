@@ -1,0 +1,24 @@
+:root {
+  --imperium-black-matte: #0b0b0b;
+  --imperium-charcoal: #1b1b1b;
+  --imperium-forest: #1f3a2f;
+  --imperium-burgundy: #5a1f2b;
+  --imperium-antique-gold: #b89a62;
+  --imperium-parchment: #f2ead8;
+
+  --imperium-text-primary: #efe8d8;
+  --imperium-text-muted: #b6aa92;
+  --imperium-border-strong: #2a2a2a;
+  --imperium-border-accent: #3a3324;
+
+  --imperium-space-1: 4px;
+  --imperium-space-2: 8px;
+  --imperium-space-3: 12px;
+  --imperium-space-4: 16px;
+  --imperium-space-5: 24px;
+  --imperium-space-6: 32px;
+
+  --imperium-radius-card: 6px;
+  --imperium-motion-fast: 140ms;
+  --imperium-motion-medium: 180ms;
+}

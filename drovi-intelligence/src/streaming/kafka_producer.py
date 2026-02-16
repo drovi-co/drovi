@@ -14,6 +14,7 @@ Topics:
 
 import asyncio
 import json
+from datetime import date, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -26,6 +27,13 @@ logger = structlog.get_logger()
 
 # Global producer instance
 _kafka_producer: "DroviKafkaProducer | None" = None
+
+
+def _json_default(value: Any) -> Any:
+    """Best-effort JSON serializer for connector payloads."""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 class DroviKafkaProducer:
@@ -170,7 +178,10 @@ class DroviKafkaProducer:
             "payload": value,
         }
 
-        serialized_value = json.dumps(enriched_value).encode("utf-8")
+        serialized_value = json.dumps(
+            enriched_value,
+            default=_json_default,
+        ).encode("utf-8")
         serialized_key = msg_id.encode("utf-8")
 
         # Convert headers to Kafka format

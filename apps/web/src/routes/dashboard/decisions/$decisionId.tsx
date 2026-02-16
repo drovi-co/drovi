@@ -123,7 +123,17 @@ function DecisionDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const fallbackDecisionMaker =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          displayName: session.user.name ?? null,
+          primaryEmail: session.user.email,
+          avatarUrl: session.user.image ?? null,
+        }
+      : null;
   const queryClient = useQueryClient();
 
   // Editing state
@@ -211,7 +221,9 @@ function DecisionDetailPage() {
           confidence: decisionData.overallConfidence ?? 0.8,
           isUserVerified: decisionData.isUserVerified ?? false,
           decisionMaker:
-            decisionData.decisionMaker ?? decisionData.owner ?? null,
+            decisionData.decisionMaker ??
+            decisionData.owner ??
+            fallbackDecisionMaker,
           impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
           evidence: primarySource
             ? {

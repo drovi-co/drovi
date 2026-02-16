@@ -162,3 +162,55 @@ groups:
         annotations:
           summary: "Agent quality drift high"
           description: "Quality drift score exceeded 0.8. Freeze promotions and run remediation."
+
+  - name: imperium
+    rules:
+      - alert: ImperiumAPIErrorBudgetBurn1h
+        expr: |
+          (
+            sum(rate(imperium_http_requests_total{status=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(imperium_http_requests_total[1h])), 0.001)
+          ) / 0.001 > 14.4
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Imperium API error budget burn fast (1h)"
+          description: "Imperium API is burning 99.9% availability budget too quickly."
+
+      - alert: ImperiumAPIHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(imperium_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Imperium API latency p95 high"
+          description: "Imperium API p95 request latency exceeded 1 second for 10m."
+
+      - alert: ImperiumConnectorErrorRateHigh
+        expr: |
+          sum(rate(imperium_connector_requests_total{status!="ok"}[10m]))
+          /
+          clamp_min(sum(rate(imperium_connector_requests_total[10m])), 0.001)
+          > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Imperium connector error rate high"
+          description: "Connector request error ratio exceeded 10% for 10m."
+
+      - alert: ImperiumDeadLetterEventsSpiking
+        expr: |
+          sum(rate(imperium_dead_letter_events_total{action="store"}[5m])) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Imperium DLQ growth detected"
+          description: "Dead-letter queue is receiving sustained failed events."

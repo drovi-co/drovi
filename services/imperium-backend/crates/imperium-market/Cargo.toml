@@ -1,0 +1,12 @@
+[package]
+name = "imperium-market"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+imperium-domain = { path = "../imperium-domain" }
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

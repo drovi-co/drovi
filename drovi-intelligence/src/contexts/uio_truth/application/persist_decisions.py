@@ -16,12 +16,13 @@ from sqlalchemy import text
 
 from src.contexts.evidence.application.quotes import has_evidence, resolve_message_id
 from src.contexts.evidence.application.uio_source_audit import audit_uio_source
-from src.contexts.uio_truth.application.contacts import resolve_contact_id_by_email
+from src.contexts.uio_truth.application.contacts import resolve_contact_id
 from src.contexts.uio_truth.application.persist_envelope import PersistEnvelope
 from src.contexts.uio_truth.application.persist_results import PersistResults
 from src.contexts.uio_truth.application.persist_utils import (
     temporal_fields,
 )
+from src.contexts.uio_truth.application.source_messages import resolve_source_message_context
 from src.contexts.uio_truth.application.supersession import (
     apply_supersession,
     find_existing_uio,
@@ -65,6 +66,28 @@ async def persist_decisions(
 
             message_id = getattr(decision, "source_message_id", None) or resolve_message_id(
                 envelope.messages, getattr(decision, "quoted_text", None)
+            )
+            message_context = resolve_source_message_context(
+                envelope.messages, message_id
+            )
+
+            decision_maker_email = getattr(decision, "decision_maker_email", None)
+            decision_maker_name = getattr(decision, "decision_maker_name", None)
+            if (
+                not decision_maker_email
+                and message_context
+                and message_context.sender_email
+            ):
+                decision_maker_email = message_context.sender_email
+                decision_maker_name = (
+                    decision_maker_name or message_context.sender_name
+                )
+
+            decision_maker_contact_id = await resolve_contact_id(
+                session,
+                envelope.organization_id,
+                email=decision_maker_email,
+                name=decision_maker_name,
             )
 
             # Vector search deduplication candidate: use it as an "existing id hint"
@@ -163,12 +186,14 @@ async def persist_decisions(
                     INSERT INTO unified_intelligence_object (
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
+                        owner_contact_id,
                         overall_confidence, first_seen_at, last_updated_at,
                         valid_from, valid_to, system_from, system_to,
                         created_at, updated_at
                     ) VALUES (
                         :id, :org_id, 'decision', 'active',
                         :title, :description,
+                        :owner_contact_id,
                         :confidence, :now, :now,
                         :valid_from, :valid_to, :system_from, :system_to,
                         :now, :now
@@ -180,6 +205,7 @@ async def persist_decisions(
                     "org_id": envelope.organization_id,
                     "title": decision.title,
                     "description": f"{getattr(decision, 'statement', '')}\n\nRationale: {getattr(decision, 'rationale', None) or 'N/A'}",
+                    "owner_contact_id": decision_maker_contact_id,
                     "confidence": decision.confidence,
                     "now": now,
                     **temporal_fields(now),
@@ -197,10 +223,6 @@ async def persist_decisions(
                 "confidenceReasoning": getattr(decision, "confidence_reasoning", None),
                 "confidenceTier": confidence_tier,
             }
-
-            decision_maker_contact_id = await resolve_contact_id_by_email(
-                session, envelope.organization_id, getattr(decision, "decision_maker_email", None)
-            )
 
             await session.execute(
                 text(

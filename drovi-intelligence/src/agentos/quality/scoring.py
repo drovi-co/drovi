@@ -252,30 +252,30 @@ class RunQualityScoringService:
         limit: int = 200,
         offset: int = 0,
     ) -> list[RunQualityScoreRecord]:
+        query = """
+            SELECT id, organization_id, run_id, deployment_id, role_id, quality_score, confidence_score,
+                   outcome_score, status, score_breakdown, evaluated_at, created_at, updated_at
+            FROM agent_run_quality_score
+            WHERE organization_id = :organization_id
+        """
+        params: dict[str, Any] = {
+            "organization_id": organization_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        if run_id is not None:
+            query += " AND run_id = :run_id"
+            params["run_id"] = run_id
+        if role_id is not None:
+            query += " AND role_id = :role_id"
+            params["role_id"] = role_id
+        if deployment_id is not None:
+            query += " AND deployment_id = :deployment_id"
+            params["deployment_id"] = deployment_id
+        query += " ORDER BY evaluated_at DESC LIMIT :limit OFFSET :offset"
+
         async with get_db_session() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT id, organization_id, run_id, deployment_id, role_id, quality_score, confidence_score,
-                           outcome_score, status, score_breakdown, evaluated_at, created_at, updated_at
-                    FROM agent_run_quality_score
-                    WHERE organization_id = :organization_id
-                      AND (:run_id IS NULL OR run_id = :run_id)
-                      AND (:role_id IS NULL OR role_id = :role_id)
-                      AND (:deployment_id IS NULL OR deployment_id = :deployment_id)
-                    ORDER BY evaluated_at DESC
-                    LIMIT :limit OFFSET :offset
-                    """
-                ),
-                {
-                    "organization_id": organization_id,
-                    "run_id": run_id,
-                    "role_id": role_id,
-                    "deployment_id": deployment_id,
-                    "limit": limit,
-                    "offset": offset,
-                },
-            )
+            result = await session.execute(text(query), params)
             rows = result.fetchall()
         return [
             RunQualityScoreRecord.model_validate(_row_dict(row, json_fields={"score_breakdown"}))
@@ -361,31 +361,30 @@ class RunQualityScoringService:
         deployment_id: str | None,
         start_time: Any,
     ) -> list[dict[str, Any]]:
+        query = """
+            SELECT date_trunc('day', evaluated_at) AS bucket_start,
+                   COUNT(*) AS run_count,
+                   AVG(quality_score) AS avg_quality_score,
+                   AVG(confidence_score) AS avg_confidence_score,
+                   AVG(outcome_score) AS avg_outcome_score
+            FROM agent_run_quality_score
+            WHERE organization_id = :organization_id
+              AND evaluated_at >= :start_time
+        """
+        params: dict[str, Any] = {
+            "organization_id": organization_id,
+            "start_time": start_time,
+        }
+        if role_id is not None:
+            query += " AND role_id = :role_id"
+            params["role_id"] = role_id
+        if deployment_id is not None:
+            query += " AND deployment_id = :deployment_id"
+            params["deployment_id"] = deployment_id
+        query += " GROUP BY date_trunc('day', evaluated_at) ORDER BY bucket_start ASC"
+
         async with get_db_session() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT date_trunc('day', evaluated_at) AS bucket_start,
-                           COUNT(*) AS run_count,
-                           AVG(quality_score) AS avg_quality_score,
-                           AVG(confidence_score) AS avg_confidence_score,
-                           AVG(outcome_score) AS avg_outcome_score
-                    FROM agent_run_quality_score
-                    WHERE organization_id = :organization_id
-                      AND evaluated_at >= :start_time
-                      AND (:role_id IS NULL OR role_id = :role_id)
-                      AND (:deployment_id IS NULL OR deployment_id = :deployment_id)
-                    GROUP BY date_trunc('day', evaluated_at)
-                    ORDER BY bucket_start ASC
-                    """
-                ),
-                {
-                    "organization_id": organization_id,
-                    "start_time": start_time,
-                    "role_id": role_id,
-                    "deployment_id": deployment_id,
-                },
-            )
+            result = await session.execute(text(query), params)
             rows = result.fetchall()
         return [dict(row._mapping) for row in rows]
 
@@ -396,27 +395,25 @@ class RunQualityScoringService:
         deployment_id: str | None,
         start_time: Any,
     ) -> list[dict[str, Any]]:
+        query = """
+            SELECT date_trunc('day', evaluated_at) AS bucket_start,
+                   COUNT(*) AS total_count,
+                   COUNT(*) FILTER (WHERE passed = true) AS passed_count
+            FROM agent_eval_result
+            WHERE organization_id = :organization_id
+              AND evaluated_at >= :start_time
+        """
+        params: dict[str, Any] = {
+            "organization_id": organization_id,
+            "start_time": start_time,
+        }
+        if deployment_id is not None:
+            query += " AND deployment_id = :deployment_id"
+            params["deployment_id"] = deployment_id
+        query += " GROUP BY date_trunc('day', evaluated_at) ORDER BY bucket_start ASC"
+
         async with get_db_session() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT date_trunc('day', evaluated_at) AS bucket_start,
-                           COUNT(*) AS total_count,
-                           COUNT(*) FILTER (WHERE passed = true) AS passed_count
-                    FROM agent_eval_result
-                    WHERE organization_id = :organization_id
-                      AND evaluated_at >= :start_time
-                      AND (:deployment_id IS NULL OR deployment_id = :deployment_id)
-                    GROUP BY date_trunc('day', evaluated_at)
-                    ORDER BY bucket_start ASC
-                    """
-                ),
-                {
-                    "organization_id": organization_id,
-                    "deployment_id": deployment_id,
-                    "start_time": start_time,
-                },
-            )
+            result = await session.execute(text(query), params)
             rows = result.fetchall()
         return [dict(row._mapping) for row in rows]
 

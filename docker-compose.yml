@@ -4,6 +4,54 @@
 
 name: drovi-stack
 
+x-imperium-provider-env: &imperium-provider-env
+  IMPERIUM_DATA_MODE: ${IMPERIUM_DATA_MODE:-synthetic}
+  IMPERIUM_MARKETS_PROVIDER: ${IMPERIUM_MARKETS_PROVIDER:-polygon}
+  IMPERIUM_MARKETS_FALLBACKS: ${IMPERIUM_MARKETS_FALLBACKS:-finnhub,twelvedata}
+  IMPERIUM_CRYPTO_PROVIDER: ${IMPERIUM_CRYPTO_PROVIDER:-coinbase}
+  IMPERIUM_CRYPTO_FALLBACKS: ${IMPERIUM_CRYPTO_FALLBACKS:-coingecko}
+  IMPERIUM_NEWS_PROVIDER: ${IMPERIUM_NEWS_PROVIDER:-benzinga}
+  IMPERIUM_NEWS_FALLBACKS: ${IMPERIUM_NEWS_FALLBACKS:-newsapi,sec-rss}
+  IMPERIUM_BANKING_PROVIDER: ${IMPERIUM_BANKING_PROVIDER:-plaid}
+  IMPERIUM_BANKING_FALLBACKS: ${IMPERIUM_BANKING_FALLBACKS:-truelayer}
+  IMPERIUM_BROKERAGE_PROVIDER: ${IMPERIUM_BROKERAGE_PROVIDER:-snaptrade}
+  IMPERIUM_BROKERAGE_FALLBACKS: ${IMPERIUM_BROKERAGE_FALLBACKS:-alpaca}
+  IMPERIUM_BUSINESS_PROVIDER: ${IMPERIUM_BUSINESS_PROVIDER:-stripe}
+  IMPERIUM_BUSINESS_FALLBACKS: ${IMPERIUM_BUSINESS_FALLBACKS:-quickbooks,polar}
+  IMPERIUM_PROVIDER_MAX_RETRIES: ${IMPERIUM_PROVIDER_MAX_RETRIES:-2}
+  IMPERIUM_PROVIDER_BACKOFF_MS: ${IMPERIUM_PROVIDER_BACKOFF_MS:-300}
+  IMPERIUM_SEC_USER_AGENT: ${IMPERIUM_SEC_USER_AGENT:-imperium-connectors/0.1 (ops@imperium.local)}
+  POLYGON_API_KEY: ${POLYGON_API_KEY:-}
+  FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+  TWELVEDATA_API_KEY: ${TWELVEDATA_API_KEY:-}
+  COINBASE_API_KEY: ${COINBASE_API_KEY:-}
+  COINBASE_API_SECRET: ${COINBASE_API_SECRET:-}
+  COINGECKO_API_KEY: ${COINGECKO_API_KEY:-}
+  KRAKEN_API_KEY: ${KRAKEN_API_KEY:-}
+  KRAKEN_API_SECRET: ${KRAKEN_API_SECRET:-}
+  BENZINGA_API_KEY: ${BENZINGA_API_KEY:-}
+  NEWSAPI_API_KEY: ${NEWSAPI_API_KEY:-}
+  FMP_API_KEY: ${FMP_API_KEY:-}
+  PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
+  PLAID_SECRET: ${PLAID_SECRET:-}
+  PLAID_ACCESS_TOKEN: ${PLAID_ACCESS_TOKEN:-}
+  PLAID_ENV: ${PLAID_ENV:-sandbox}
+  TRUELAYER_CLIENT_ID: ${TRUELAYER_CLIENT_ID:-}
+  TRUELAYER_CLIENT_SECRET: ${TRUELAYER_CLIENT_SECRET:-}
+  TINK_CLIENT_ID: ${TINK_CLIENT_ID:-}
+  TINK_CLIENT_SECRET: ${TINK_CLIENT_SECRET:-}
+  SNAPTRADE_CLIENT_ID: ${SNAPTRADE_CLIENT_ID:-}
+  SNAPTRADE_CONSUMER_KEY: ${SNAPTRADE_CONSUMER_KEY:-}
+  ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+  ALPACA_API_SECRET: ${ALPACA_API_SECRET:-}
+  IBKR_FLEX_TOKEN: ${IBKR_FLEX_TOKEN:-}
+  IBKR_FLEX_QUERY_ID: ${IBKR_FLEX_QUERY_ID:-}
+  QUICKBOOKS_CLIENT_ID: ${QUICKBOOKS_CLIENT_ID:-}
+  QUICKBOOKS_CLIENT_SECRET: ${QUICKBOOKS_CLIENT_SECRET:-}
+  QUICKBOOKS_REALM_ID: ${QUICKBOOKS_REALM_ID:-}
+  XERO_CLIENT_ID: ${XERO_CLIENT_ID:-}
+  XERO_CLIENT_SECRET: ${XERO_CLIENT_SECRET:-}
+
 services:
   # ---------------------------------------------------------------------------
   # PostgreSQL (pgvector)
@@ -140,6 +188,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ---------------------------------------------------------------------------
+  # NATS (Imperium Internal Event Bus)
+  # ---------------------------------------------------------------------------
+  nats:
+    image: nats:2.10-alpine
+    container_name: imperium-nats
+    restart: unless-stopped
+    profiles: ["imperium"]
+    command:
+      - "-js"
+      - "-m"
+      - "8222"
+      - "--store_dir"
+      - "/data"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - imperium_nats_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # ---------------------------------------------------------------------------
   # Temporal (Workflow Engine) + Postgres (Temporal persistence)
@@ -510,6 +583,252 @@ services:
       - "3003:80"
 
   # ---------------------------------------------------------------------------
+  # Imperium API + Workers + Web App
+  # ---------------------------------------------------------------------------
+  imperium-api:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-api
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8010:8010"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command: ["imperium-api"]
+
+  imperium-market-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-market-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: market
+      IMPERIUM_WORKER_CADENCE_SECONDS: "5"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-news-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-news-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: news
+      IMPERIUM_WORKER_CADENCE_SECONDS: "10"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-brief-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-brief-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: brief
+      IMPERIUM_WORKER_CADENCE_SECONDS: "30"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-alert-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-alert-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: alerts
+      IMPERIUM_WORKER_CADENCE_SECONDS: "5"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-risk-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-risk-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: risk
+      IMPERIUM_WORKER_CADENCE_SECONDS: "15"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-business-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-business-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: business
+      IMPERIUM_WORKER_CADENCE_SECONDS: "20"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-portfolio-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-portfolio-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: portfolio
+      IMPERIUM_WORKER_CADENCE_SECONDS: "60"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-notify-worker:
+    build:
+      context: .
+      dockerfile: services/imperium-backend/Dockerfile
+    container_name: imperium-notify-worker
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      RUST_LOG: info
+      <<: *imperium-provider-env
+      IMPERIUM_WORKER_ROLE: notify
+      IMPERIUM_WORKER_CADENCE_SECONDS: "5"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/drovi
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    command: ["imperium-worker"]
+
+  imperium-web:
+    build:
+      context: .
+      dockerfile: apps/imperium/Dockerfile
+    container_name: imperium-web
+    restart: unless-stopped
+    profiles: ["imperium"]
+    depends_on:
+      imperium-api:
+        condition: service_healthy
+    ports:
+      - "3010:80"
+
+  # ---------------------------------------------------------------------------
   # Observability: Prometheus + Grafana + Alertmanager (dev/prod parity)
   # ---------------------------------------------------------------------------
   prometheus:
@@ -596,6 +915,8 @@ volumes:
   drovi_minio_data:
     driver: local
   drovi_temporal_postgres_data:
+    driver: local
+  imperium_nats_data:
     driver: local
   prometheus_data:
     driver: local

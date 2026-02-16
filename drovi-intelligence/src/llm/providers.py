@@ -69,6 +69,7 @@ PROVIDER_CONFIGS: dict[Provider, ProviderConfig] = {
         supports_json_mode=True,
         supports_embeddings=True,
         priority=1,
+        default_timeout=90.0,
     ),
     Provider.FIREWORKS: ProviderConfig(
         name=Provider.FIREWORKS,

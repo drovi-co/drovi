@@ -68,8 +68,18 @@ function CommitmentsPage() {
   const navigate = useNavigate();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const t = useT();
   const organizationId = activeOrg?.id ?? "";
+  const fallbackParty =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          displayName: session.user.name ?? null,
+          primaryEmail: session.user.email,
+          avatarUrl: session.user.image ?? null,
+        }
+      : null;
 
   // State
   const [direction, setDirection] = useState<Direction>("all");
@@ -412,7 +422,7 @@ function CommitmentsPage() {
       const details = c.commitmentDetails;
       // Get debtor and creditor from UIO root level (where transformer places them)
       const debtor = c.debtor ?? c.owner;
-      const creditor = c.creditor;
+      const creditor = c.creditor ?? (debtor ? null : fallbackParty);
       const evidenceQuotes = (c.sources ?? [])
         .map((source) => source.quotedText)
         .filter((value): value is string => Boolean(value));
@@ -497,7 +507,7 @@ function CommitmentsPage() {
     ? (() => {
         const details = detailData.commitmentDetails;
         const debtor = detailData.debtor ?? detailData.owner;
-        const creditor = detailData.creditor;
+        const creditor = detailData.creditor ?? (debtor ? null : fallbackParty);
         const evidenceQuotes = (detailData.sources ?? [])
           .map((source) => source.quotedText)
           .filter((value): value is string => Boolean(value));

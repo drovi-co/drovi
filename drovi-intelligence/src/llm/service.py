@@ -459,6 +459,7 @@ class ProviderRouter:
                 logger.warning(
                     "Provider failed, trying next",
                     provider=provider.value,
+                    error_type=type(e).__name__,
                     error=str(e),
                 )
                 continue

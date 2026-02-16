@@ -27,6 +27,9 @@ from src.ingestion.unified_event import (
 )
 from src.ingestion.event_types import normalize_event_type, UnifiedEventType
 from src.kernel.time import utc_now_naive as utc_now
+from src.orchestrator.nodes.persist_raw_source_account import (
+    ensure_source_account_for_persistence,
+)
 
 logger = structlog.get_logger()
 
@@ -179,8 +182,14 @@ async def persist_to_postgresql(
             conversation_db_id = None
             message_db_ids = []
 
-            # Get the source_account_id if available
-            source_account_id = state.input.source_account_id
+            source_account_id = await ensure_source_account_for_persistence(
+                conn=conn,
+                organization_id=state.input.organization_id,
+                source_account_id=state.input.source_account_id,
+                source_type=state.input.source_type,
+                user_email=state.input.user_email,
+                now=now,
+            )
 
             # Map source type to conversation_type
             source_to_conv_type = {

@@ -197,7 +197,17 @@ function CommitmentDetailPage() {
   const search = Route.useSearch();
   const returnUrl = search.from;
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const organizationId = activeOrg?.id ?? "";
+  const fallbackParty =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          displayName: session.user.name ?? null,
+          primaryEmail: session.user.email,
+          avatarUrl: session.user.image ?? null,
+        }
+      : null;
   const queryClient = useQueryClient();
 
   // Editing state
@@ -290,7 +300,9 @@ function CommitmentDetailPage() {
           confidence: commitmentData.overallConfidence ?? 0.8,
           isUserVerified: commitmentData.isUserVerified ?? false,
           debtor: commitmentData.debtor ?? null,
-          creditor: commitmentData.creditor ?? null,
+          creditor:
+            commitmentData.creditor ??
+            (commitmentData.debtor ? null : fallbackParty),
           owner: commitmentData.owner ?? null,
           evidence: primarySource
             ? {
@@ -497,10 +509,12 @@ function CommitmentDetailPage() {
   const StatusIcon = statusConfig.icon;
 
   // Determine the "other person" based on direction
-  const otherPerson =
+  const preferredPerson =
     commitment.direction === "owed_by_me"
       ? commitment.creditor
       : commitment.debtor;
+  const otherPerson =
+    preferredPerson ?? commitment.debtor ?? commitment.creditor ?? null;
 
   // Check if overdue
   const isOverdue =

@@ -16,13 +16,14 @@ from sqlalchemy import text
 
 from src.contexts.evidence.application.quotes import has_evidence, resolve_message_id
 from src.contexts.evidence.application.uio_source_audit import audit_uio_source
-from src.contexts.uio_truth.application.contacts import resolve_contact_id_by_email
+from src.contexts.uio_truth.application.contacts import resolve_contact_id
 from src.contexts.uio_truth.application.persist_envelope import PersistEnvelope
 from src.contexts.uio_truth.application.persist_results import PersistResults
 from src.contexts.uio_truth.application.persist_utils import (
     temporal_fields,
     to_naive_utc,
 )
+from src.contexts.uio_truth.application.source_messages import resolve_source_message_context
 from src.contexts.uio_truth.application.supersession import (
     apply_supersession,
     find_existing_uio,
@@ -34,6 +35,7 @@ from src.contexts.uio_truth.application.uio_sources import (
     insert_uio_sources_batch,
 )
 from src.kernel.time import utc_now_naive as utc_now
+from src.utils.due_dates import infer_due_date
 
 logger = structlog.get_logger()
 
@@ -67,6 +69,46 @@ async def persist_commitments(
 
             message_id = getattr(commitment, "source_message_id", None) or resolve_message_id(
                 envelope.messages, getattr(commitment, "quoted_text", None)
+            )
+            message_context = resolve_source_message_context(
+                envelope.messages, message_id
+            )
+            due_date_value = infer_due_date(
+                due_date=getattr(commitment, "due_date", None),
+                due_date_text=getattr(commitment, "due_date_text", None),
+                title=getattr(commitment, "title", None),
+                reference_time=getattr(message_context, "sent_at", None),
+            )
+
+            direction = getattr(commitment, "direction", None) or "owed_to_me"
+            debtor_email = getattr(commitment, "debtor_email", None)
+            debtor_name = getattr(commitment, "debtor_name", None)
+            creditor_email = getattr(commitment, "creditor_email", None)
+            creditor_name = getattr(commitment, "creditor_name", None)
+
+            # Fallback: infer missing counterpart from source sender.
+            if message_context and message_context.sender_email:
+                if direction == "owed_to_me" and not debtor_email:
+                    debtor_email = message_context.sender_email
+                    debtor_name = debtor_name or message_context.sender_name
+                if direction == "owed_by_me" and not creditor_email:
+                    creditor_email = message_context.sender_email
+                    creditor_name = creditor_name or message_context.sender_name
+
+            debtor_contact_id = await resolve_contact_id(
+                session,
+                envelope.organization_id,
+                email=debtor_email,
+                name=debtor_name,
+            )
+            creditor_contact_id = await resolve_contact_id(
+                session,
+                envelope.organization_id,
+                email=creditor_email,
+                name=creditor_name,
+            )
+            owner_contact_id = (
+                debtor_contact_id if direction == "owed_by_me" else creditor_contact_id
             )
 
             # Vector search deduplication candidate: use it as an "existing id hint"
@@ -106,7 +148,7 @@ async def persist_commitments(
                         quoted_text_start=getattr(commitment, "quoted_text_start", None),
                         quoted_text_end=getattr(commitment, "quoted_text_end", None),
                         extracted_title=commitment.title,
-                        extracted_due_date=to_naive_utc(getattr(commitment, "due_date", None)),
+                        extracted_due_date=to_naive_utc(due_date_value),
                         extracted_status=None,
                         confidence=commitment.confidence,
                         now=now,
@@ -122,7 +164,7 @@ async def persist_commitments(
                                 "quoted_text_start": getattr(span, "quoted_text_start", None),
                                 "quoted_text_end": getattr(span, "quoted_text_end", None),
                                 "extracted_title": commitment.title,
-                                "extracted_due_date": to_naive_utc(getattr(commitment, "due_date", None)),
+                                "extracted_due_date": to_naive_utc(due_date_value),
                                 "extracted_status": None,
                                 "confidence": commitment.confidence,
                             }
@@ -181,6 +223,7 @@ async def persist_commitments(
                     INSERT INTO unified_intelligence_object (
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
+                        owner_contact_id,
                         due_date, due_date_confidence,
                         overall_confidence, first_seen_at, last_updated_at,
                         valid_from, valid_to, system_from, system_to,
@@ -188,6 +231,7 @@ async def persist_commitments(
                     ) VALUES (
                         :id, :org_id, 'commitment', 'active',
                         :title, :description,
+                        :owner_contact_id,
                         :due_date, :due_date_confidence,
                         :confidence, :now, :now,
                         :valid_from, :valid_to, :system_from, :system_to,
@@ -200,8 +244,14 @@ async def persist_commitments(
                     "org_id": envelope.organization_id,
                     "title": commitment.title,
                     "description": getattr(commitment, "description", None) or "",
-                    "due_date": to_naive_utc(getattr(commitment, "due_date", None)),
-                    "due_date_confidence": commitment.confidence if getattr(commitment, "due_date", None) else None,
+                    "owner_contact_id": owner_contact_id,
+                    "due_date": to_naive_utc(due_date_value),
+                    "due_date_confidence": (
+                        getattr(commitment, "due_date_confidence", None)
+                        or commitment.confidence
+                    )
+                    if due_date_value
+                    else None,
                     "confidence": commitment.confidence,
                     "now": now,
                     **temporal_fields(now),
@@ -220,13 +270,6 @@ async def persist_commitments(
                 "confidenceReasoning": getattr(commitment, "confidence_reasoning", None),
                 "confidenceTier": confidence_tier,
             }
-
-            debtor_contact_id = await resolve_contact_id_by_email(
-                session, envelope.organization_id, getattr(commitment, "debtor_email", None)
-            )
-            creditor_contact_id = await resolve_contact_id_by_email(
-                session, envelope.organization_id, getattr(commitment, "creditor_email", None)
-            )
 
             await session.execute(
                 text(
@@ -255,11 +298,22 @@ async def persist_commitments(
                 {
                     "id": commitment_details_id,
                     "uio_id": uio_id,
-                    "direction": getattr(commitment, "direction", None) or "owed_to_me",
+                    "direction": direction,
                     "debtor_contact_id": debtor_contact_id,
                     "creditor_contact_id": creditor_contact_id,
-                    "due_date_source": "explicit" if getattr(commitment, "due_date", None) else "inferred",
-                    "due_date_text": getattr(commitment, "due_date_text", None),
+                    "due_date_source": (
+                        "explicit"
+                        if getattr(commitment, "due_date_is_explicit", False)
+                        else ("inferred" if due_date_value else None)
+                    ),
+                    "due_date_text": (
+                        getattr(commitment, "due_date_text", None)
+                        or (
+                            getattr(commitment, "title", None)
+                            if due_date_value is not None
+                            else None
+                        )
+                    ),
                     "priority": getattr(commitment, "priority", None) or "medium",
                     "is_conditional": getattr(commitment, "is_conditional", False),
                     "condition": getattr(commitment, "condition", None),
@@ -280,7 +334,7 @@ async def persist_commitments(
                 quoted_text_start=getattr(commitment, "quoted_text_start", None),
                 quoted_text_end=getattr(commitment, "quoted_text_end", None),
                 extracted_title=commitment.title,
-                extracted_due_date=to_naive_utc(getattr(commitment, "due_date", None)),
+                extracted_due_date=to_naive_utc(due_date_value),
                 extracted_status=None,
                 confidence=commitment.confidence,
                 now=now,
@@ -296,7 +350,7 @@ async def persist_commitments(
                         "quoted_text_start": getattr(span, "quoted_text_start", None),
                         "quoted_text_end": getattr(span, "quoted_text_end", None),
                         "extracted_title": commitment.title,
-                        "extracted_due_date": to_naive_utc(getattr(commitment, "due_date", None)),
+                        "extracted_due_date": to_naive_utc(due_date_value),
                         "extracted_status": None,
                         "confidence": commitment.confidence,
                     }
@@ -337,9 +391,9 @@ async def persist_commitments(
                 new_value={
                     "title": commitment.title,
                     "description": getattr(commitment, "description", None),
-                    "direction": getattr(commitment, "direction", None),
+                    "direction": direction,
                     "priority": getattr(commitment, "priority", None),
-                    "dueDate": commitment.due_date.isoformat() if getattr(commitment, "due_date", None) else None,
+                    "dueDate": due_date_value.isoformat() if due_date_value else None,
                     "confidence": commitment.confidence,
                 },
                 confidence=commitment.confidence,

@@ -20,13 +20,14 @@ from sqlalchemy import text
 
 from src.contexts.evidence.application.quotes import has_evidence, resolve_message_id
 from src.contexts.evidence.application.uio_source_audit import audit_uio_source
-from src.contexts.uio_truth.application.contacts import resolve_contact_id_by_email
+from src.contexts.uio_truth.application.contacts import resolve_contact_id
 from src.contexts.uio_truth.application.persist_envelope import PersistEnvelope
 from src.contexts.uio_truth.application.persist_results import PersistResults
 from src.contexts.uio_truth.application.persist_utils import (
     temporal_fields,
     to_naive_utc,
 )
+from src.contexts.uio_truth.application.source_messages import resolve_source_message_context
 from src.contexts.uio_truth.application.supersession import (
     apply_supersession,
     find_existing_uio,
@@ -35,6 +36,7 @@ from src.contexts.uio_truth.application.supersession import (
 from src.contexts.uio_truth.application.timeline import create_timeline_event
 from src.contexts.uio_truth.application.uio_sources import insert_uio_source
 from src.kernel.time import utc_now_naive as utc_now
+from src.utils.due_dates import infer_due_date
 
 logger = structlog.get_logger()
 
@@ -177,6 +179,42 @@ async def persist_tasks(
             message_id = getattr(task, "source_message_id", None) or resolve_message_id(
                 envelope.messages, getattr(task, "quoted_text", None)
             )
+            message_context = resolve_source_message_context(
+                envelope.messages, message_id
+            )
+            due_date_value = infer_due_date(
+                due_date=getattr(task, "due_date", None),
+                due_date_text=getattr(task, "due_date_text", None),
+                title=getattr(task, "title", None),
+                reference_time=getattr(message_context, "sent_at", None),
+            )
+
+            assignee_email = getattr(task, "assignee_email", None)
+            assignee_name = getattr(task, "assignee_name", None)
+            created_by_email = getattr(task, "created_by_email", None)
+            created_by_name = getattr(task, "created_by_name", None)
+
+            if message_context and message_context.sender_email:
+                if not created_by_email:
+                    created_by_email = message_context.sender_email
+                    created_by_name = created_by_name or message_context.sender_name
+                if not assignee_email and message_context.is_from_user:
+                    assignee_email = message_context.sender_email
+                    assignee_name = assignee_name or message_context.sender_name
+
+            assignee_contact_id = await resolve_contact_id(
+                session,
+                envelope.organization_id,
+                email=assignee_email,
+                name=assignee_name,
+            )
+            created_by_contact_id = await resolve_contact_id(
+                session,
+                envelope.organization_id,
+                email=created_by_email,
+                name=created_by_name,
+            )
+            owner_contact_id = assignee_contact_id or created_by_contact_id
 
             # Vector search deduplication candidate: use it as an "existing id hint"
             # but still run supersession checks so updates are not lost.
@@ -216,7 +254,7 @@ async def persist_tasks(
                         quoted_text_start=getattr(task, "quoted_text_start", None),
                         quoted_text_end=getattr(task, "quoted_text_end", None),
                         extracted_title=getattr(task, "title", None),
-                        extracted_due_date=to_naive_utc(getattr(task, "due_date", None)),
+                        extracted_due_date=to_naive_utc(due_date_value),
                         extracted_status=getattr(task, "status", None),
                         confidence=getattr(task, "confidence", 0.9),
                         now=now,
@@ -265,6 +303,7 @@ async def persist_tasks(
                     INSERT INTO unified_intelligence_object (
                         id, organization_id, type, status,
                         canonical_title, canonical_description,
+                        owner_contact_id,
                         due_date, overall_confidence,
                         first_seen_at, last_updated_at,
                         valid_from, valid_to, system_from, system_to,
@@ -272,6 +311,7 @@ async def persist_tasks(
                     ) VALUES (
                         :id, :org_id, 'task', 'active',
                         :title, :description,
+                        :owner_contact_id,
                         :due_date, :overall_confidence,
                         :now, :now,
                         :valid_from, :valid_to, :system_from, :system_to,
@@ -284,7 +324,8 @@ async def persist_tasks(
                     "org_id": envelope.organization_id,
                     "title": getattr(task, "title", None) or "",
                     "description": getattr(task, "description", None) or "",
-                    "due_date": to_naive_utc(getattr(task, "due_date", None)),
+                    "owner_contact_id": owner_contact_id,
+                    "due_date": to_naive_utc(due_date_value),
                     "overall_confidence": 0.9,
                     "now": now,
                     **temporal_fields(now),
@@ -332,13 +373,6 @@ async def persist_tasks(
                 "evidenceCount": 1 if getattr(task, "quoted_text", None) else 0,
                 "confidenceReasoning": getattr(task, "confidence_reasoning", None),
             }
-
-            assignee_contact_id = await resolve_contact_id_by_email(
-                session, envelope.organization_id, getattr(task, "assignee_email", None)
-            )
-            created_by_contact_id = await resolve_contact_id_by_email(
-                session, envelope.organization_id, getattr(task, "created_by_email", None)
-            )
 
             task_details_id = str(uuid4())
             await session.execute(
@@ -391,7 +425,7 @@ async def persist_tasks(
                 quoted_text_start=getattr(task, "quoted_text_start", None),
                 quoted_text_end=getattr(task, "quoted_text_end", None),
                 extracted_title=getattr(task, "title", None),
-                extracted_due_date=to_naive_utc(getattr(task, "due_date", None)),
+                extracted_due_date=to_naive_utc(due_date_value),
                 extracted_status=task_status,
                 confidence=getattr(task, "confidence", None),
                 now=now,
@@ -428,7 +462,7 @@ async def persist_tasks(
                     "title": getattr(task, "title", None),
                     "status": task_status,
                     "priority": task_priority,
-                    "dueDate": getattr(task, "due_date", None).isoformat() if getattr(task, "due_date", None) else None,
+                    "dueDate": due_date_value.isoformat() if due_date_value else None,
                 },
                 confidence=getattr(task, "confidence", None),
                 triggered_by="system",

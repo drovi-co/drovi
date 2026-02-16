@@ -1,6 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Include shared package class sources so Tailwind compiles utilities used in workspace packages. */
+@source "../../ui-core/src";
+@source "../../core-shell/src";
+@source "../../mod-auth/src";
+@source "../../mod-onboarding/src";
+@source "../../mod-drive/src";
+@source "../../mod-ask/src";
+@source "../../mod-console/src";
+@source "../../mod-evidence/src";
+@source "../../mod-sources/src";
+@source "../../mod-teams/src";
+@source "../../mod-continuums/src";
+
 @custom-variant dark (&:is(.dark *));
 
 /* =============================================================================

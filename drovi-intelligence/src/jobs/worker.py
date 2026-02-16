@@ -8,9 +8,10 @@ This is the command plane (sync/backfill/reports/maintenance).
 from __future__ import annotations
 
 import asyncio
+import json
 import hashlib
 import signal
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 import structlog
@@ -28,6 +29,21 @@ from src.jobs.queue import (
 )
 
 logger = structlog.get_logger()
+
+
+def _to_json_compatible(value):
+    """Convert nested Python values to JSON-compatible primitives."""
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(k): _to_json_compatible(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_to_json_compatible(item) for item in value]
+    return str(value)
 
 def _parse_iso_datetime(value: str) -> datetime:
     """
@@ -139,8 +155,10 @@ class JobsWorker:
         lease_task = asyncio.create_task(self._lease_heartbeat(job.id))
         try:
             result = await self._dispatch(job)
+            safe_result = _to_json_compatible(result or {})
+            json.dumps(safe_result)  # Guardrail: fail fast if not JSON serializable.
             try:
-                await mark_job_succeeded(job_id=job.id, result=result or {})
+                await mark_job_succeeded(job_id=job.id, result=safe_result)
             except Exception as exc:
                 # Do not crash the worker if we fail to update status. The reaper will
                 # eventually make the job runnable again once the lease expires.
@@ -228,6 +246,7 @@ class JobsWorker:
             mark_outbox_failed,
             mark_outbox_succeeded,
         )
+        from src.db.rls import rls_context
         from src.contexts.uio_truth.infrastructure.derived_indexer import process_outbox_event
 
         payload = job.payload or {}
@@ -255,11 +274,12 @@ class JobsWorker:
         for event in events:
             processed += 1
             try:
-                await process_outbox_event(
-                    graph=graph,
-                    event_type=event.event_type,
-                    payload=event.payload,
-                )
+                with rls_context(event.organization_id, is_internal=True):
+                    await process_outbox_event(
+                        graph=graph,
+                        event_type=event.event_type,
+                        payload=event.payload,
+                    )
 
                 await mark_outbox_succeeded(event_id=event.id, worker_id=self.worker_id)
                 succeeded += 1

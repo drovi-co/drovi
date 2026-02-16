@@ -245,24 +245,23 @@ async def stream_runs(
         heartbeat_seconds = max(poll_seconds * 5.0, 10.0)
         elapsed_since_heartbeat = 0.0
 
+        snapshot_query = """
+            SELECT id, organization_id, deployment_id, trigger_id, status, initiated_by, started_at,
+                   completed_at, failure_reason, metadata, created_at, updated_at
+            FROM agent_run
+            WHERE organization_id = :organization_id
+        """
+        snapshot_params: dict[str, Any] = {"organization_id": org_id}
+        if deployment_id:
+            snapshot_query += " AND deployment_id = :deployment_id"
+            snapshot_params["deployment_id"] = deployment_id
+        snapshot_query += " ORDER BY updated_at DESC LIMIT 50"
+
         # Initial snapshot
         async with get_db_session() as session:
             snapshot_result = await session.execute(
-                text(
-                    """
-                    SELECT id, organization_id, deployment_id, trigger_id, status, initiated_by, started_at,
-                           completed_at, failure_reason, metadata, created_at, updated_at
-                    FROM agent_run
-                    WHERE organization_id = :organization_id
-                      AND (:deployment_id IS NULL OR deployment_id = :deployment_id)
-                    ORDER BY updated_at DESC
-                    LIMIT 50
-                    """
-                ),
-                {
-                    "organization_id": org_id,
-                    "deployment_id": deployment_id,
-                },
+                text(snapshot_query),
+                snapshot_params,
             )
             snapshot_rows = [
                 row_dict(row, json_fields={"metadata"})
@@ -287,30 +286,29 @@ async def stream_runs(
             await asyncio.sleep(poll_seconds)
             elapsed_since_heartbeat += poll_seconds
 
+            changes_query = """
+                SELECT id, organization_id, deployment_id, trigger_id, status, initiated_by, started_at,
+                       completed_at, failure_reason, metadata, created_at, updated_at
+                FROM agent_run
+                WHERE organization_id = :organization_id
+            """
+            changes_params: dict[str, Any] = {"organization_id": org_id}
+            if deployment_id:
+                changes_query += " AND deployment_id = :deployment_id"
+                changes_params["deployment_id"] = deployment_id
+            if cursor_updated_at is not None:
+                changes_query += (
+                    " AND (updated_at > :cursor_updated_at"
+                    " OR (updated_at = :cursor_updated_at AND id > :cursor_run_id))"
+                )
+                changes_params["cursor_updated_at"] = cursor_updated_at
+                changes_params["cursor_run_id"] = cursor_run_id
+            changes_query += " ORDER BY updated_at ASC, id ASC LIMIT 200"
+
             async with get_db_session() as session:
                 changes_result = await session.execute(
-                    text(
-                        """
-                        SELECT id, organization_id, deployment_id, trigger_id, status, initiated_by, started_at,
-                               completed_at, failure_reason, metadata, created_at, updated_at
-                        FROM agent_run
-                        WHERE organization_id = :organization_id
-                          AND (:deployment_id IS NULL OR deployment_id = :deployment_id)
-                          AND (
-                            :cursor_updated_at IS NULL
-                            OR updated_at > :cursor_updated_at
-                            OR (updated_at = :cursor_updated_at AND id > :cursor_run_id)
-                          )
-                        ORDER BY updated_at ASC, id ASC
-                        LIMIT 200
-                        """
-                    ),
-                    {
-                        "organization_id": org_id,
-                        "deployment_id": deployment_id,
-                        "cursor_updated_at": cursor_updated_at,
-                        "cursor_run_id": cursor_run_id,
-                    },
+                    text(changes_query),
+                    changes_params,
                 )
                 change_rows = [
                     row_dict(row, json_fields={"metadata"})

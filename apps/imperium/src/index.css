@@ -1,0 +1,101 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--imperium-black-matte);
+  color: var(--imperium-text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.imperium-shell {
+  margin: 0 auto;
+  max-width: 1120px;
+  min-height: 100vh;
+  padding: var(--imperium-space-6);
+}
+
+.imperium-header {
+  border: 1px solid var(--imperium-border-strong);
+  background: linear-gradient(180deg, #111111 0%, #0b0b0b 100%);
+  padding: var(--imperium-space-6);
+}
+
+.imperium-header h1 {
+  margin: var(--imperium-space-3) 0;
+  color: var(--imperium-antique-gold);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  letter-spacing: 0.02em;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--imperium-text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.subhead {
+  margin: 0;
+  color: var(--imperium-text-muted);
+}
+
+.imperium-grid {
+  display: grid;
+  gap: var(--imperium-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: var(--imperium-space-5);
+}
+
+.imperium-card {
+  border: 1px solid var(--imperium-border-strong);
+  background: var(--imperium-charcoal);
+  min-height: 160px;
+  padding: var(--imperium-space-4);
+  transition: border-color var(--imperium-motion-fast) ease;
+}
+
+.imperium-card:hover {
+  border-color: var(--imperium-antique-gold);
+}
+
+.imperium-card h2 {
+  color: var(--imperium-antique-gold);
+  font-size: 1.1rem;
+  margin: 0 0 var(--imperium-space-3);
+}
+
+.imperium-card p {
+  margin: 0;
+  color: var(--imperium-text-muted);
+  line-height: 1.45;
+}
+
+.imperium-footer {
+  margin-top: var(--imperium-space-5);
+  border: 1px solid var(--imperium-border-strong);
+  display: grid;
+  gap: var(--imperium-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: var(--imperium-space-4);
+}
+
+.imperium-footer span {
+  color: var(--imperium-text-muted);
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  margin-bottom: var(--imperium-space-2);
+  text-transform: uppercase;
+}
+
+.imperium-footer strong {
+  color: var(--imperium-antique-gold);
+}

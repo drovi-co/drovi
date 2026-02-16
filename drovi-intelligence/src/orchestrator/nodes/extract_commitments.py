@@ -5,6 +5,7 @@ Extracts commitments (promises, obligations, agreements) from content.
 """
 
 import time
+import re
 
 import structlog
 
@@ -40,6 +41,109 @@ def _dedupe_evidence(evidence: list[EvidenceSpan]) -> list[EvidenceSpan]:
         seen.add(key)
         deduped.append(span)
     return deduped
+
+
+_COMMITMENT_VERB_HINTS = (
+    "will ",
+    "need to",
+    "must ",
+    "please ",
+    "follow up",
+    "send ",
+    "deliver ",
+    "review ",
+    "complete ",
+    "renew ",
+    "share ",
+    "prepare ",
+)
+
+
+def _normalize_title_from_claim(content: str) -> str:
+    base = re.sub(r"\s+", " ", (content or "").strip())
+    base = base.rstrip(".")
+    if len(base) <= 96:
+        return base or "Follow up"
+    return f"{base[:93].rstrip()}..."
+
+
+def _is_commitment_like_claim(claim) -> bool:
+    claim_type = (getattr(claim, "type", "") or "").strip().lower()
+    if claim_type in {"promise", "request", "action_item", "deadline"}:
+        return True
+    text = (getattr(claim, "content", "") or "").lower()
+    return any(hint in text for hint in _COMMITMENT_VERB_HINTS)
+
+
+def _derive_commitments_from_claims(state: IntelligenceState) -> list[ExtractedCommitment]:
+    """Heuristic fallback when LLM commitment extraction returns nothing."""
+    by_message_id = {m.id: m for m in state.messages}
+    derived: list[ExtractedCommitment] = []
+
+    for claim in state.extracted.claims:
+        if not _is_commitment_like_claim(claim):
+            continue
+
+        source_message = by_message_id.get(getattr(claim, "source_message_id", "") or "")
+        is_from_user = bool(getattr(source_message, "is_from_user", False))
+        direction = "owed_by_me" if is_from_user else "owed_to_me"
+
+        user_email = state.input.user_email
+        user_name = state.input.user_name
+        sender_email = getattr(source_message, "sender_email", None)
+        sender_name = getattr(source_message, "sender_name", None)
+
+        debtor_email = user_email if direction == "owed_by_me" else sender_email
+        debtor_name = user_name if direction == "owed_by_me" else sender_name
+        debtor_is_user = direction == "owed_by_me"
+
+        creditor_email = sender_email if direction == "owed_by_me" else user_email
+        creditor_name = sender_name if direction == "owed_by_me" else user_name
+        creditor_is_user = direction == "owed_to_me"
+
+        content = (getattr(claim, "content", "") or "").strip()
+        quoted_text = (getattr(claim, "quoted_text", "") or "").strip() or content
+        due_text = content if (getattr(claim, "type", "") or "").lower() == "deadline" else None
+
+        derived.append(
+            ExtractedCommitment(
+                title=_normalize_title_from_claim(content),
+                description=content,
+                direction=direction,
+                priority="high" if due_text else "medium",
+                debtor_name=debtor_name,
+                debtor_email=debtor_email,
+                debtor_is_user=debtor_is_user,
+                creditor_name=creditor_name,
+                creditor_email=creditor_email,
+                creditor_is_user=creditor_is_user,
+                due_date=None,
+                due_date_text=due_text,
+                due_date_confidence=0.55 if due_text else 0.0,
+                due_date_is_explicit=bool(due_text),
+                is_conditional=False,
+                condition=None,
+                quoted_text=quoted_text,
+                quoted_text_start=getattr(claim, "quoted_text_start", None),
+                quoted_text_end=getattr(claim, "quoted_text_end", None),
+                confidence=min(0.85, max(0.45, (getattr(claim, "confidence", 0.5) or 0.5) * 0.82)),
+                reasoning="Heuristic fallback derived from commitment-like claim",
+                supporting_evidence=[
+                    EvidenceSpan(
+                        quoted_text=quoted_text,
+                        source_message_id=getattr(claim, "source_message_id", None),
+                        quoted_text_start=getattr(claim, "quoted_text_start", None),
+                        quoted_text_end=getattr(claim, "quoted_text_end", None),
+                    )
+                ],
+                source_message_id=getattr(claim, "source_message_id", None),
+                model_tier="heuristic",
+                model_used="claim_fallback",
+                claim_id=getattr(claim, "id", None),
+            )
+        )
+
+    return derived
 
 
 async def extract_commitments_node(state: IntelligenceState) -> dict:
@@ -173,6 +277,20 @@ async def extract_commitments_node(state: IntelligenceState) -> dict:
             key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
             merge_fn=_merge_commitments,
         )
+
+        if not commitments and state.extracted.claims:
+            fallback_commitments = _derive_commitments_from_claims(state)
+            if fallback_commitments:
+                commitments = merge_by_key(
+                    fallback_commitments,
+                    key_fn=lambda item: normalize_key(item.title) or normalize_key(item.description),
+                    merge_fn=_merge_commitments,
+                )
+                logger.info(
+                    "Commitment fallback generated commitments from claims",
+                    analysis_id=state.analysis_id,
+                    fallback_count=len(commitments),
+                )
 
         # Update extracted intelligence
         extracted = ExtractedIntelligence(

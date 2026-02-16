@@ -28,6 +28,7 @@ from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit, ge
 from src.auth.scopes import Scope
 from src.orchestrator.state import UIOStatus
 from src.uio.manager import get_uio_manager
+from src.utils.due_dates import infer_due_date
 
 logger = structlog.get_logger()
 
@@ -521,7 +522,59 @@ def _parse_extraction_context(value) -> dict:
         return {}
 
 
-async def build_uio_response(row, session=None) -> UIOResponse:
+def _parse_recipients(raw_value) -> list[dict]:
+    if raw_value is None:
+        return []
+    value = raw_value
+    if isinstance(raw_value, str):
+        try:
+            value = json.loads(raw_value)
+        except Exception:
+            return []
+    if not isinstance(value, list):
+        return []
+    return [entry for entry in value if isinstance(entry, dict)]
+
+
+def _build_derived_contact(
+    *,
+    email: str | None,
+    name: str | None,
+    role: str,
+) -> Contact | None:
+    if not email:
+        return None
+    email_normalized = email.strip().lower()
+    if not email_normalized:
+        return None
+    contact_id = f"derived:{role}:{email_normalized}"
+    display_name = (name or "").strip() or email_normalized.split("@")[0]
+    return Contact(
+        id=contact_id,
+        display_name=display_name,
+        primary_email=email_normalized,
+    )
+
+
+def _first_recipient_contact(row_dict: dict) -> Contact | None:
+    recipients = _parse_recipients(row_dict.get("source_recipients"))
+    for recipient in recipients:
+        email = recipient.get("email")
+        if not isinstance(email, str) or not email.strip():
+            continue
+        name = recipient.get("name")
+        name_value = name if isinstance(name, str) else None
+        contact = _build_derived_contact(
+            email=email,
+            name=name_value,
+            role="recipient",
+        )
+        if contact:
+            return contact
+    return None
+
+
+async def build_uio_response(row, _session=None) -> UIOResponse:
     """Build a complete UIOResponse from a database row."""
     row_dict = _row_to_dict(row)
 
@@ -554,6 +607,13 @@ async def build_uio_response(row, session=None) -> UIOResponse:
     risk_details = None
     claim_details = None
     brief_details = None
+    source_sender = _build_derived_contact(
+        email=row_dict.get("source_sender_email"),
+        name=row_dict.get("source_sender_name"),
+        role="sender",
+    )
+    source_recipient = _first_recipient_contact(row_dict)
+    source_is_from_user = bool(row_dict.get("source_is_from_user"))
 
     if uio_type == "commitment":
         # Build debtor and creditor contacts
@@ -592,6 +652,27 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         )
         confidence_reasoning = commitment_context.get("confidenceReasoning")
 
+        # Fallback contact hydration when extraction produced only one side.
+        if commitment_details and commitment_details.direction == "owed_to_me":
+            if debtor is None:
+                debtor = source_sender if not source_is_from_user else source_recipient
+            if creditor is None:
+                creditor = owner or (
+                    source_sender if source_is_from_user else source_recipient
+                )
+        elif commitment_details and commitment_details.direction == "owed_by_me":
+            if creditor is None:
+                creditor = source_recipient if source_is_from_user else source_sender
+            if debtor is None:
+                debtor = owner or (
+                    source_sender if source_is_from_user else source_recipient
+                )
+
+        if debtor is None and creditor is not None:
+            debtor = creditor
+        if creditor is None and debtor is not None:
+            creditor = debtor
+
     elif uio_type == "decision":
         if row_dict.get("decision_maker_id"):
             decision_maker = Contact(
@@ -615,6 +696,10 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             row_dict.get("decision_extraction_context")
         )
         confidence_reasoning = decision_context.get("confidenceReasoning")
+        if decision_maker is None:
+            decision_maker = source_sender or source_recipient or owner
+        if owner is None and decision_maker is not None:
+            owner = decision_maker
 
     elif uio_type == "task":
         if row_dict.get("assignee_id"):
@@ -647,6 +732,14 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         )
         task_context = _parse_extraction_context(row_dict.get("task_extraction_context"))
         confidence_reasoning = task_context.get("confidenceReasoning")
+        if assignee is None:
+            assignee = (
+                source_recipient if source_is_from_user else source_sender
+            ) or owner
+        if created_by is None:
+            created_by = source_sender or owner
+        if owner is None and assignee is not None:
+            owner = assignee
 
     elif uio_type == "risk":
         risk_details = RiskDetails(
@@ -701,6 +794,19 @@ async def build_uio_response(row, session=None) -> UIOResponse:
             )
         ]
 
+    due_date_value = row_dict.get("due_date")
+    if not due_date_value and uio_type in {"commitment", "task"}:
+        due_date_value = infer_due_date(
+            due_date=None,
+            due_date_text=row_dict.get("due_date_original_text"),
+            title=row_dict.get("canonical_title"),
+            reference_time=(
+                row_dict.get("source_timestamp")
+                or row_dict.get("first_seen_at")
+                or row_dict.get("created_at")
+            ),
+        )
+
     return UIOResponse(
         id=row_dict["id"],
         type=uio_type,
@@ -716,7 +822,7 @@ async def build_uio_response(row, session=None) -> UIOResponse:
         confidence_reasoning=confidence_reasoning,
         is_user_verified=row_dict.get("is_user_verified") or False,
         is_user_dismissed=row_dict.get("is_user_dismissed") or False,
-        due_date=row_dict.get("due_date"),
+        due_date=due_date_value,
         created_at=row_dict.get("created_at") or datetime.now(timezone.utc),
         updated_at=row_dict.get("updated_at"),
         first_seen_at=row_dict.get("first_seen_at"),
@@ -755,6 +861,7 @@ SELECT
     -- Commitment details
     cd.direction, cd.priority as commitment_priority,
     cd.status as commitment_status, cd.due_date_source,
+    cd.due_date_original_text,
     cd.is_conditional, cd.condition, cd.snoozed_until,
     cd.completed_at as commitment_completed_at,
     cd.supersedes_uio_id as commitment_supersedes_uio_id,
@@ -821,7 +928,11 @@ SELECT
     uos.quoted_text as source_quoted_text, uos.quoted_text_start as source_quoted_text_start,
     uos.quoted_text_end as source_quoted_text_end, uos.segment_hash as source_segment_hash,
     uos.conversation_id, uos.message_id,
-    uos.role as source_role
+    uos.role as source_role,
+    m.sender_name as source_sender_name,
+    m.sender_email as source_sender_email,
+    m.recipients as source_recipients,
+    m.is_from_user as source_is_from_user
 
 FROM unified_intelligence_object u
 
@@ -858,6 +969,7 @@ LEFT JOIN LATERAL (
     ORDER BY source_timestamp DESC NULLS LAST
     LIMIT 1
 ) uos ON true
+LEFT JOIN message m ON m.id = uos.message_id
 """
 
 

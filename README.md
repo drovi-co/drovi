@@ -86,6 +86,22 @@ The app will be available at:
 │   └── env/          # Environment variable validation
 ```
 
+## Imperium Workspace (New)
+
+Imperium is scaffolded as a native-first command center program:
+
+```
+apps/
+  imperium/           # Web command surface + ops mirror
+  ios/Imperium/       # iOS SwiftUI/UIKit scaffold
+  macos/Imperium/     # macOS SwiftUI/AppKit scaffold
+services/
+  imperium-backend/   # Rust workspace (api + domain crates)
+packages/
+  imperium-api-types/       # Shared API contracts
+  imperium-design-tokens/   # Shared visual tokens
+```
+
 ## Available Scripts
 
 ```bash

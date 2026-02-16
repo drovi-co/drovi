@@ -306,15 +306,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   return (
     <main
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background",
-        // Rounded upper-left corner for content card effect (Octolane/Linear style)
-        "rounded-tl-2xl",
-        // Subtle shadow for depth separation from shell
-        "shadow-[0_0_15px_rgba(0,0,0,0.04)]",
-        // Dark mode shadow adjustment
-        "dark:shadow-[0_0_20px_rgba(0,0,0,0.3)]",
-        // Overflow handling
-        "overflow-hidden",
+        "relative flex w-full min-w-0 flex-1 flex-col overflow-hidden bg-background",
         className
       )}
       data-slot="sidebar-inset"

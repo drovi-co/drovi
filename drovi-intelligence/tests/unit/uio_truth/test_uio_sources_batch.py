@@ -86,6 +86,8 @@ async def test_insert_uio_sources_batch_executes_executemany() -> None:
     session.execute.assert_awaited_once()
     args = session.execute.call_args.args
     assert len(args) == 2
+    sql_text = str(args[0])
+    assert "ON CONFLICT ON CONSTRAINT uos_unique_source DO NOTHING" in sql_text
     params_list = args[1]
     assert isinstance(params_list, list)
     assert len(params_list) == 2
@@ -99,9 +101,12 @@ async def test_insert_uio_sources_batch_executes_executemany() -> None:
     assert first["role"] == "supporting"
     assert first["message_id"] == "m1"
     assert first["quoted_text"] == "alpha"
+    assert first["quoted_text_start"] == "1"
+    assert first["quoted_text_end"] == "6"
 
     assert second["uio_id"] == "uio_1"
     assert second["role"] == "supporting"
     assert second["message_id"] == "m2"
     assert second["quoted_text"] == "beta"
-
+    assert second["quoted_text_start"] == "10"
+    assert second["quoted_text_end"] == "14"

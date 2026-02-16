@@ -578,7 +578,7 @@ async def get_pilot_connections(
     **Requires**: Any pilot member
     """
     from src.db.models.background_jobs import BackgroundJob
-    from src.db.models.connections import Connection, SyncJobHistory, SyncState
+    from src.db.models.connections import Connection, OAuthToken, SyncJobHistory, SyncState
     from src.db.models.pilot import User
 
     async with get_db_session() as session:
@@ -625,6 +625,15 @@ async def get_pilot_connections(
             )
             for connection_id, records_synced in sync_result.all():
                 messages_by_connection[str(connection_id)] = int(records_synced or 0)
+
+        oauth_token_connection_ids: set[str] = set()
+        if connections:
+            oauth_result = await session.execute(
+                select(OAuthToken.connection_id).where(
+                    OAuthToken.connection_id.in_([c.id for c in connections])
+                )
+            )
+            oauth_token_connection_ids = {str(connection_id) for (connection_id,) in oauth_result.all()}
 
         # Latest backfill execution per connection (if any).
         backfill_last_status: dict[str, str] = {}
@@ -680,12 +689,22 @@ async def get_pilot_connections(
 
             messages_synced = messages_by_connection.get(str(conn.id), 0)
 
+            requires_oauth = _connector_requires_oauth(conn.connector_type)
+            has_oauth_token = str(conn.id) in oauth_token_connection_ids
+            effective_status = conn.status
+            effective_last_error = conn.last_sync_error
+
+            if requires_oauth and not has_oauth_token:
+                effective_status = "pending_auth"
+                if not effective_last_error:
+                    effective_last_error = "Connection requires re-authentication."
+
             # Map status
-            status = "connected" if conn.status == "active" else conn.status
+            status = "connected" if effective_status == "active" else effective_status
             live_status = (
                 "paused"
                 if not conn.sync_enabled
-                else ("error" if conn.status == "error" else "running")
+                else ("error" if effective_status == "error" else "running")
             )
 
             backfill_status = "not_started"
@@ -715,7 +734,7 @@ async def get_pilot_connections(
                     backfill_status=backfill_status,
                     scopes=config.get("scopes", []),
                     last_sync=conn.last_sync_at,
-                    last_error=conn.last_sync_error,
+                    last_error=effective_last_error,
                     messages_synced=messages_synced,
                     restricted_labels=restricted_labels,
                     restricted_channels=restricted_channels,
@@ -1299,6 +1318,37 @@ class BackfillResponse(BaseModel):
     backfill_jobs: list[str]
 
 
+_CONNECTOR_TYPE_ALIASES: dict[str, str] = {
+    "google_drive": "google_docs",
+}
+
+
+def _canonical_connector_type(connector_type: str | None) -> str:
+    normalized = str(connector_type or "").strip()
+    if not normalized:
+        return ""
+    return _CONNECTOR_TYPE_ALIASES.get(normalized, normalized)
+
+
+def _connector_requires_oauth(connector_type: str | None) -> bool:
+    from src.connectors.definitions import get_connector_definition
+
+    canonical = _canonical_connector_type(connector_type)
+    if not canonical:
+        return False
+    definition = get_connector_definition(canonical)
+    return bool(definition and definition.oauth_provider)
+
+
+async def _connection_has_oauth_token(session, connection_id: str) -> bool:
+    from src.db.models.connections import OAuthToken
+
+    result = await session.execute(
+        select(OAuthToken.id).where(OAuthToken.connection_id == connection_id).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 @router.post("/connections/{connection_id}/sync", response_model=SyncTriggerResponse)
 async def trigger_connection_sync(
     connection_id: str,
@@ -1326,11 +1376,24 @@ async def trigger_connection_sync(
             action="sync",
         )
 
-        if connection.status not in ("active", "connected"):
+        if connection.status not in ("active", "connected", "error"):
+            if connection.status == "pending_auth":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection requires authentication. Reconnect the source first.",
+                )
             raise HTTPException(
                 status_code=400,
                 detail=f"Connection is not ready for sync (status: {connection.status})",
             )
+
+        if _connector_requires_oauth(getattr(connection, "connector_type", None)):
+            has_oauth_token = await _connection_has_oauth_token(session, str(connection.id))
+            if not has_oauth_token:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection is missing authentication credentials. Reconnect the source first.",
+                )
 
     # Enqueue durable sync job (executed by jobs worker)
     try:
@@ -1398,11 +1461,24 @@ async def trigger_connection_backfill(
             action="backfill",
         )
 
-        if connection.status not in ("active", "connected"):
+        if connection.status not in ("active", "connected", "error"):
+            if connection.status == "pending_auth":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection requires authentication. Reconnect the source first.",
+                )
             raise HTTPException(
                 status_code=400,
                 detail=f"Connection is not ready for backfill (status: {connection.status})",
             )
+
+        if _connector_requires_oauth(getattr(connection, "connector_type", None)):
+            has_oauth_token = await _connection_has_oauth_token(session, str(connection.id))
+            if not has_oauth_token:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection is missing authentication credentials. Reconnect the source first.",
+                )
 
     end_date = request.end_date
     if end_date and request.start_date >= end_date:

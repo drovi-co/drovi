@@ -559,10 +559,15 @@ async def trigger_sync(
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
 
-        if connection.status != "active":
+        if connection.status not in {"active", "connected", "error"}:
+            if connection.status == "pending_auth":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection requires authentication. Reconnect the source first.",
+                )
             raise HTTPException(
                 status_code=400,
-                detail=f"Connection is not active (status: {connection.status})",
+                detail=f"Connection is not ready for sync (status: {connection.status})",
             )
 
         # Save organization_id before exiting session context
@@ -618,10 +623,15 @@ async def trigger_backfill(
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
 
-        if connection.status != "active":
+        if connection.status not in {"active", "connected", "error"}:
+            if connection.status == "pending_auth":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Connection requires authentication. Reconnect the source first.",
+                )
             raise HTTPException(
                 status_code=400,
-                detail=f"Connection is not active (status: {connection.status})",
+                detail=f"Connection is not ready for backfill (status: {connection.status})",
             )
 
         organization_id = connection.organization_id

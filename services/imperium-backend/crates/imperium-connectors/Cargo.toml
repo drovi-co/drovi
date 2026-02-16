@@ -1,0 +1,18 @@
+[package]
+name = "imperium-connectors"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+imperium-domain = { path = "../imperium-domain" }
+imperium-infra = { path = "../imperium-infra" }
+imperium-market = { path = "../imperium-market" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true

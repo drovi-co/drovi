@@ -1,0 +1,24 @@
+name: ImperiumiOS
+options:
+  bundleIdPrefix: app.imperium
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: app.imperium.command.ios
+    CODE_SIGN_STYLE: Automatic
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    SWIFT_VERSION: "5.9"
+targets:
+  ImperiumiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - README.md
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Imperium
+        NSFaceIDUsageDescription: "Imperium uses Face ID to protect your command center."
+        NSUserTrackingUsageDescription: "Imperium does not track users across other apps."

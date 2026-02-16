@@ -218,6 +218,24 @@
         "vite": "^6.2.2",
       },
     },
+    "apps/imperium": {
+      "name": "imperium",
+      "version": "0.0.0",
+      "dependencies": {
+        "@memorystack/imperium-api-types": "workspace:*",
+        "@memorystack/imperium-design-tokens": "workspace:*",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+      },
+      "devDependencies": {
+        "@memorystack/config": "workspace:*",
+        "@types/react": "19.2.7",
+        "@types/react-dom": "19.2.3",
+        "@vitejs/plugin-react": "^4.3.4",
+        "typescript": "catalog:",
+        "vite": "^6.2.2",
+      },
+    },
     "apps/landing": {
       "name": "landing",
       "version": "0.0.0",
@@ -547,6 +565,20 @@
       },
       "peerDependencies": {
         "react": "^19",
+      },
+    },
+    "packages/imperium-api-types": {
+      "name": "@memorystack/imperium-api-types",
+      "version": "0.0.0",
+      "devDependencies": {
+        "typescript": "catalog:",
+      },
+    },
+    "packages/imperium-design-tokens": {
+      "name": "@memorystack/imperium-design-tokens",
+      "version": "0.0.0",
+      "devDependencies": {
+        "typescript": "catalog:",
       },
     },
     "packages/intelligence-sdk": {
@@ -1216,6 +1248,10 @@
     "@memorystack/env": ["@memorystack/env@workspace:packages/env"],
 
     "@memorystack/i18n": ["@memorystack/i18n@workspace:packages/i18n"],
+
+    "@memorystack/imperium-api-types": ["@memorystack/imperium-api-types@workspace:packages/imperium-api-types"],
+
+    "@memorystack/imperium-design-tokens": ["@memorystack/imperium-design-tokens@workspace:packages/imperium-design-tokens"],
 
     "@memorystack/intelligence-sdk": ["@memorystack/intelligence-sdk@workspace:packages/intelligence-sdk"],
 
@@ -2904,6 +2940,8 @@
     "image-size": ["image-size@2.0.2", "", { "bin": { "image-size": "bin/image-size.js" } }, "sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w=="],
 
     "immer": ["immer@10.2.0", "", {}, "sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw=="],
+
+    "imperium": ["imperium@workspace:apps/imperium"],
 
     "import-fresh": ["import-fresh@3.3.1", "", { "dependencies": { "parent-module": "^1.0.0", "resolve-from": "^4.0.0" } }, "sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ=="],
 

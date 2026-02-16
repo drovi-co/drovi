@@ -63,8 +63,18 @@ function DecisionsPage() {
   const navigate = useNavigate();
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
   const { locale, t } = useI18n();
   const organizationId = activeOrg?.id ?? "";
+  const fallbackOwner =
+    session?.user?.email && session.user.id
+      ? {
+          id: session.user.id,
+          displayName: session.user.name ?? null,
+          primaryEmail: session.user.email,
+          avatarUrl: session.user.image ?? null,
+        }
+      : null;
 
   // State
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
@@ -287,7 +297,7 @@ function DecisionsPage() {
   const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map((d) => {
     const details = d.decisionDetails;
     // Get decision maker from UIO root level (where transformer places it)
-    const decisionMaker = d.decisionMaker ?? d.owner;
+    const decisionMaker = d.decisionMaker ?? d.owner ?? fallbackOwner;
     const evidenceQuotes = (d.sources ?? [])
       .map((source) => source.quotedText)
       .filter((value): value is string => Boolean(value));
@@ -324,7 +334,7 @@ function DecisionsPage() {
   const decisionsLegacy: DecisionCardData[] = (decisionsData?.items ?? []).map(
     (d) => {
       const details = d.decisionDetails;
-      const decisionMaker = d.decisionMaker ?? d.owner;
+      const decisionMaker = d.decisionMaker ?? d.owner ?? fallbackOwner;
       const evidenceQuotes = (d.sources ?? [])
         .map((source) => source.quotedText)
         .filter((value): value is string => Boolean(value));
@@ -458,7 +468,8 @@ function DecisionsPage() {
   const detailDecision: DecisionDetailData | null = detailData
     ? (() => {
         const details = detailData.decisionDetails;
-        const decisionMaker = detailData.decisionMaker ?? detailData.owner;
+        const decisionMaker =
+          detailData.decisionMaker ?? detailData.owner ?? fallbackOwner;
         const evidenceQuotes = (detailData.sources ?? [])
           .map((source) => source.quotedText)
           .filter((value): value is string => Boolean(value));

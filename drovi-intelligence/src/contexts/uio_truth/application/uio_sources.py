@@ -16,6 +16,13 @@ from src.contexts.evidence.application.quotes import segment_hash_from_quote
 from src.contexts.uio_truth.application.persist_envelope import PersistEnvelope
 
 
+def _offset_to_text(value: object | None) -> str | None:
+    """Normalize quote offsets for `unified_object_source` text columns."""
+    if value is None:
+        return None
+    return str(value)
+
+
 async def insert_uio_source(
     *,
     session,
@@ -44,7 +51,7 @@ async def insert_uio_source(
     """
 
     source_id = str(uuid4())
-    await session.execute(
+    insert_result = await session.execute(
         text(
             """
             INSERT INTO unified_object_source (
@@ -68,6 +75,8 @@ async def insert_uio_source(
                 :detection_method,
                 :now
             )
+            ON CONFLICT ON CONSTRAINT uos_unique_source DO NOTHING
+            RETURNING id
             """
         ),
         {
@@ -79,8 +88,8 @@ async def insert_uio_source(
             "conversation_id": envelope.conversation_id,
             "message_id": message_id,
             "quoted_text": quoted_text,
-            "quoted_text_start": quoted_text_start,
-            "quoted_text_end": quoted_text_end,
+            "quoted_text_start": _offset_to_text(quoted_text_start),
+            "quoted_text_end": _offset_to_text(quoted_text_end),
             "segment_hash": segment_hash_from_quote(quoted_text),
             "extracted_title": extracted_title,
             "extracted_due_date": extracted_due_date,
@@ -91,6 +100,32 @@ async def insert_uio_source(
             "detection_method": detection_method,
         },
     )
+
+    inserted_id = insert_result.scalar_one_or_none()
+    if inserted_id:
+        return str(inserted_id)
+
+    existing_result = await session.execute(
+        text(
+            """
+            SELECT id
+            FROM unified_object_source
+            WHERE unified_object_id = :uio_id
+              AND conversation_id IS NOT DISTINCT FROM :conversation_id
+              AND message_id IS NOT DISTINCT FROM :message_id
+            LIMIT 1
+            """
+        ),
+        {
+            "uio_id": uio_id,
+            "conversation_id": envelope.conversation_id,
+            "message_id": message_id,
+        },
+    )
+    existing_id = existing_result.scalar_one_or_none()
+    if existing_id:
+        return str(existing_id)
+
     return source_id
 
 
@@ -129,8 +164,8 @@ async def insert_uio_sources_batch(
                 "conversation_id": envelope.conversation_id,
                 "message_id": ins.get("message_id"),
                 "quoted_text": quoted_text,
-                "quoted_text_start": ins.get("quoted_text_start"),
-                "quoted_text_end": ins.get("quoted_text_end"),
+                "quoted_text_start": _offset_to_text(ins.get("quoted_text_start")),
+                "quoted_text_end": _offset_to_text(ins.get("quoted_text_end")),
                 "segment_hash": segment_hash_from_quote(quoted_text if isinstance(quoted_text, str) else None),
                 "extracted_title": ins.get("extracted_title"),
                 "extracted_due_date": ins.get("extracted_due_date"),
@@ -166,6 +201,7 @@ async def insert_uio_sources_batch(
                 :detection_method,
                 :now
             )
+            ON CONFLICT ON CONSTRAINT uos_unique_source DO NOTHING
             """
         ),
         params_list,

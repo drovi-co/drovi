@@ -1,0 +1,75 @@
+{
+  "title": "Imperium Operations Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Imperium API Latency p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(imperium_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Imperium API Error Rate",
+      "targets": [
+        {
+          "expr": "sum(rate(imperium_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(imperium_http_requests_total[5m])), 0.001)",
+          "legendFormat": "5xx rate"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Connector Requests by Status",
+      "targets": [
+        {
+          "expr": "sum by (provider, status) (rate(imperium_connector_requests_total[5m]))",
+          "legendFormat": "{{provider}} {{status}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Connector Estimated Cost (USD/min)",
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(imperium_connector_estimated_cost_usd_total[5m])) * 60",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Worker Cycle Errors",
+      "targets": [
+        {
+          "expr": "sum by (role) (rate(imperium_worker_cycles_total{status=\"error\"}[5m]))",
+          "legendFormat": "{{role}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dead-Letter Event Rate",
+      "targets": [
+        {
+          "expr": "sum by (role, action) (rate(imperium_dead_letter_events_total[5m]))",
+          "legendFormat": "{{role}} {{action}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 }
+    }
+  ]
+}
