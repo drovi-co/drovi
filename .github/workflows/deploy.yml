@@ -62,7 +62,6 @@ jobs:
           echo "Deploying to: $ENV"
 
   # Note: Railway API deploys automatically via GitHub integration
-  # Note: Trigger.dev deploys automatically via GitHub integration
 
   # Deploy Web to Cloudflare Pages
   deploy-web:
@@ -140,4 +139,3 @@ jobs:
           echo "- Web: ${{ needs.deploy-web.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Migrations: ${{ needs.migrate.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- API (Railway): auto-deployed via GitHub" >> $GITHUB_STEP_SUMMARY
-          echo "- Trigger.dev: auto-deployed via GitHub" >> $GITHUB_STEP_SUMMARY
