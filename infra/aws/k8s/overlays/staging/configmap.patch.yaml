@@ -6,3 +6,4 @@ metadata:
 data:
   ENVIRONMENT: "development"
   WEB_APP_URL: "https://staging.drovi.co"
+  TEMPORAL_ENABLED: "false"
