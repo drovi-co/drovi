@@ -76,6 +76,8 @@ REQUIRED_TABLES = [
     "support_ticket",
     "support_ticket_message",
     "support_ticket_attachment",
+    # Admin operations
+    "admin_onboarding_runbook",
 ]
 
 # Required PostgreSQL extensions

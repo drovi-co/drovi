@@ -44,16 +44,16 @@ export function ApiStatusBanner() {
   };
 
   return (
-    <div className="sticky top-0 z-40 border-amber-500/20 border-b bg-gradient-to-r from-amber-500/10 via-background to-rose-500/10 px-4 py-3 backdrop-blur">
+    <div className="sticky top-0 z-40 border-b border-warning/30 bg-background px-4 py-3">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-warning/40 bg-warning/10 text-warning">
             <AlertTriangle className="h-4 w-4" />
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
               Drovi API unreachable
-              <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] text-amber-600 uppercase tracking-[0.2em]">
+              <span className="rounded-full border border-warning/35 px-2 py-0.5 text-[10px] text-warning uppercase tracking-[0.2em]">
                 offline
               </span>
             </div>

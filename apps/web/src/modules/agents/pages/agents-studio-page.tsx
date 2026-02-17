@@ -3,6 +3,7 @@ import type {
   AgentProfileCreateRequest,
   AgentRoleCreateRequest,
 } from "@memorystack/api-types";
+import { formatDateTime, statusBadgeClass } from "@memorystack/mod-agents";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
@@ -31,10 +32,6 @@ import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { agentsAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import {
-  formatDateTime,
-  statusBadgeClass,
-} from "@/modules/agents/lib/agent-ui";
 
 const AUTONOMY_TIERS = ["L0", "L1", "L2", "L3", "L4"] as const;
 
@@ -257,7 +254,7 @@ export function AgentsStudioPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to use Agent Studio.
+        Select an organization to use Mandate Studio.
       </div>
     );
   }
@@ -274,13 +271,13 @@ export function AgentsStudioPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
             <Wrench className="h-3.5 w-3.5" />
-            Agent Studio
+            Mandate Studio
           </div>
           <h1 className="font-semibold text-2xl">
             Design role, profile, playbook, deployment
           </h1>
           <p className="max-w-3xl text-muted-foreground">
-            Build reusable AI coworkers from composable AgentOS primitives.
+            Build reusable institutional mandates from composable AgentOS primitives.
           </p>
         </div>
       </div>

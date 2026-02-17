@@ -87,7 +87,15 @@ export type {
   SimulationSensitivity,
   SimulationSnapshot,
 } from "./simulations";
-export type { TrustIndicator } from "./trust";
+export type {
+  ContinuityFactor,
+  ContinuityScore,
+  EvidenceBundleExport,
+  MonthlyIntegrityReport,
+  RecordCertificate,
+  TrustIndicator,
+  TrustRetentionProfile,
+} from "./trust";
 export type {
   BriefDetails,
   ClaimDetails,

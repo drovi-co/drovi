@@ -13,6 +13,8 @@ import { AutoUpdaterDialog } from "@/components/desktop/auto-updater";
 import { IntentBar } from "@/components/intent-bar/intent-bar";
 import { SupportModal } from "@/components/support/support-modal";
 import { initializeAuth } from "@/lib/auth";
+import { useRoutePerformanceInstrumentation } from "@/lib/route-performance";
+import { WebRuntimeProvider } from "@/modules/runtime-provider";
 
 import "../index.css";
 
@@ -25,12 +27,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "Drovi - AI Email Intelligence Platform",
+        title: "Drovi - Institutional Memory Infrastructure",
       },
       {
         name: "description",
         content:
-          "Drovi transforms your inbox into an intelligent memory system. Never forget commitments, track decisions, and get AI-powered insights from your email history.",
+          "Drovi preserves institutional memory with evidence-backed records. Track commitments, decisions, and continuity with auditable precision.",
       },
     ],
     links: [
@@ -49,6 +51,7 @@ function RootComponent() {
   useEffect(() => {
     initializeAuth().catch(() => undefined);
   }, []);
+  useRoutePerformanceInstrumentation();
 
   return (
     <>
@@ -56,14 +59,17 @@ function RootComponent() {
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
+        forcedTheme="dark"
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <Outlet />
-        <IntentBar />
-        <SupportModal />
-        <Toaster richColors />
-        <AutoUpdaterDialog />
+        <WebRuntimeProvider>
+          <Outlet />
+          <IntentBar />
+          <SupportModal />
+          <Toaster richColors />
+          <AutoUpdaterDialog />
+        </WebRuntimeProvider>
       </ThemeProvider>
       {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
       {import.meta.env.DEV && (

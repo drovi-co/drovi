@@ -41,6 +41,13 @@ import {
 import { useApiTraceStore } from "@/lib/api-trace";
 import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import {
+  buildPrivateBriefingExport,
+  getMandateActionCards,
+  getPriorityMandateActionCards,
+  type MandateActionCard,
+  resolveMandateActionCard,
+} from "./mandate-action-cards";
 
 type IntentBarMode = "ask" | "find" | "build" | "act" | "inspect";
 
@@ -273,6 +280,7 @@ export function IntentBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
+  const userRole = user?.role ?? null;
   const traces = useApiTraceStore((state) => state.traces);
   const t = useT();
 
@@ -280,6 +288,8 @@ export function IntentBar() {
   const [mode, setMode] = useState<IntentBarMode>("ask");
   const [query, setQuery] = useState("");
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
+  const [activeActionCard, setActiveActionCard] =
+    useState<MandateActionCard | null>(null);
   const [asking, setAsking] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [findFilters, setFindFilters] = useState({
@@ -333,6 +343,7 @@ export function IntentBar() {
     if (open) return;
     setQuery("");
     setAskResult(null);
+    setActiveActionCard(null);
     setAsking(false);
     setMode("ask");
     setShowDebug(false);
@@ -348,6 +359,7 @@ export function IntentBar() {
   useEffect(() => {
     if (mode === "ask") return;
     setAskResult(null);
+    setActiveActionCard(null);
     setAsking(false);
   }, [mode]);
 
@@ -490,7 +502,10 @@ export function IntentBar() {
       .slice(0, 8);
   }, [debouncedQuery, deployments, findFilters.agents]);
 
-  const handleAsk = async (overrideQuestion?: string) => {
+  const handleAsk = async (
+    overrideQuestion?: string,
+    overrideCard?: MandateActionCard | null
+  ) => {
     if (!user?.org_id) {
       toast.error(t("intentBar.errors.signInToAsk"));
       return;
@@ -500,6 +515,8 @@ export function IntentBar() {
     if (q.length < 3) {
       return;
     }
+    const resolvedCard = overrideCard ?? resolveMandateActionCard(q, userRole);
+    setActiveActionCard(resolvedCard);
 
     setAsking(true);
     try {
@@ -523,6 +540,35 @@ export function IntentBar() {
     navigate({ to });
   };
 
+  const handleRunActionCard = (card: MandateActionCard) => {
+    if (card.route) {
+      handleNavigate(card.route);
+      return;
+    }
+    setMode("ask");
+    setQuery(card.query);
+    void handleAsk(card.query, card);
+  };
+
+  const handleCopyPrivateBriefing = () => {
+    if (!askResult) {
+      return;
+    }
+    const payload = buildPrivateBriefingExport({
+      question: query.trim(),
+      answer: askResult.answer,
+      generatedAt: askResult.timestamp,
+      templateTitle: activeActionCard?.title ?? null,
+      auditCode: activeActionCard?.auditCode ?? null,
+      requestId: askTrace?.requestId ?? null,
+      sources: askResult.sources,
+    });
+    navigator.clipboard
+      .writeText(payload)
+      .then(() => toast.success(t("intentBar.toasts.privateBriefingCopied")))
+      .catch(() => toast.error(t("intentBar.toasts.copyFailed")));
+  };
+
   type IntentCommand = {
     id: string;
     title: string;
@@ -534,7 +580,6 @@ export function IntentBar() {
     action?: () => void;
   };
 
-  const userRole = user?.role ?? null;
   const pathname = location.pathname;
   const isAdmin = userRole === "pilot_owner" || userRole === "pilot_admin";
   const currentUioId = useMemo(() => {
@@ -691,6 +736,15 @@ export function IntentBar() {
     };
   }, [currentUioId, isAdmin, pathname, t, userRole]);
 
+  const priorityActionCards = useMemo(
+    () => getPriorityMandateActionCards(userRole),
+    [userRole]
+  );
+  const executionActionCards = useMemo(
+    () => getMandateActionCards("act", userRole),
+    [userRole]
+  );
+
   const renderBody = () => {
     if (!user) {
       return (
@@ -722,6 +776,11 @@ export function IntentBar() {
               <div className="px-2 py-2 text-[13px] text-foreground leading-relaxed">
                 <div className="whitespace-pre-wrap">{askResult.answer}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  {activeActionCard ? (
+                    <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
+                      {activeActionCard.title}
+                    </span>
+                  ) : null}
                   <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
                     {askResult.intent}
                   </span>
@@ -740,8 +799,25 @@ export function IntentBar() {
                       req {askTrace.requestId}
                     </span>
                   ) : null}
+                  {activeActionCard?.auditCode ? (
+                    <span className="rounded border border-border/70 bg-muted/30 px-2 py-0.5 font-mono">
+                      {activeActionCard.auditCode}
+                    </span>
+                  ) : null}
                 </div>
               </div>
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading={t("intentBar.ask.outputsHeading")}>
+              <CommandItem onSelect={handleCopyPrivateBriefing}>
+                <FileText className="h-4 w-4" />
+                <div className="flex w-full flex-col">
+                  <span>{t("intentBar.ask.privateBriefing.title")}</span>
+                  <span className="text-[12px] text-muted-foreground">
+                    {t("intentBar.ask.privateBriefing.description")}
+                  </span>
+                </div>
+              </CommandItem>
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading={t("intentBar.evidence.heading")}>
@@ -829,13 +905,30 @@ export function IntentBar() {
               ? t("intentBar.ask.hintAsking")
               : t("intentBar.ask.hintIdle")}
           </IntentBarHint>
+          <CommandGroup heading={t("intentBar.ask.actionCardsHeading")}>
+            {priorityActionCards.map((card) => (
+              <CommandItem
+                key={card.id}
+                onSelect={() => handleRunActionCard(card)}
+              >
+                <Sparkles className="h-4 w-4" />
+                <div className="flex w-full flex-col">
+                  <span>{card.title}</span>
+                  <span className="text-[12px] text-muted-foreground">
+                    {card.description} · {card.auditCode}
+                  </span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
           <CommandGroup heading={t("intentBar.ask.examplesHeading")}>
             {askExamples.map((example) => (
               <CommandItem
                 key={example}
                 onSelect={() => {
                   setQuery(example);
-                  handleAsk(example);
+                  void handleAsk(example);
                 }}
               >
                 <Sparkles className="h-4 w-4" />
@@ -1108,6 +1201,27 @@ export function IntentBar() {
 
     return (
       <>
+        {mode === "act" && executionActionCards.length > 0 ? (
+          <>
+            <CommandGroup heading={t("intentBar.groups.deterministicActions")}>
+              {executionActionCards.map((card) => (
+                <CommandItem
+                  key={card.id}
+                  onSelect={() => handleRunActionCard(card)}
+                >
+                  <Zap className="h-4 w-4" />
+                  <div className="flex w-full flex-col">
+                    <span>{card.title}</span>
+                    <span className="text-[12px] text-muted-foreground">
+                      {card.description} · {card.auditCode}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        ) : null}
         {commandGroups.map((group) => (
           <CommandGroup heading={group.heading} key={group.heading}>
             {group.items.map((action) => (
@@ -1290,7 +1404,7 @@ export function IntentBar() {
             if (e.key !== "Enter") return;
             if (mode === "ask") {
               e.preventDefault();
-              handleAsk();
+              void handleAsk();
             }
           }}
           onValueChange={(value) => {

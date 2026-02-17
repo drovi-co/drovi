@@ -33,6 +33,7 @@ from src.auth.scopes import Scope
 from src.auth.rate_limit import check_rate_limit, RateLimitResult
 from src.db.rls import set_rls_context
 from src.config import get_settings
+from src.security.org_policy import enforce_org_ip_allowlist, get_org_security_policy
 
 logger = structlog.get_logger()
 
@@ -93,6 +94,19 @@ async def _resolve_membership_role(user_id: str, org_id: str) -> str | None:
     except Exception as exc:
         logger.warning("Failed to resolve membership role", error=str(exc))
         return None
+
+
+async def _enforce_org_ip_policy(
+    *,
+    request: Request,
+    organization_id: str,
+    is_internal: bool,
+    preloaded_policy=None,
+) -> None:
+    if is_internal or organization_id == "internal":
+        return
+    policy = preloaded_policy or await get_org_security_policy(organization_id)
+    await enforce_org_ip_allowlist(request, policy)
 
 
 async def get_api_key_context(
@@ -205,6 +219,15 @@ async def get_auth_context(
     if token_str:
         token = verify_jwt(token_str)
         if token:
+            org_policy = await get_org_security_policy(token.org_id)
+            session_auth_method = str(getattr(token, "auth_method", "unknown") or "unknown").lower()
+            if session_auth_method == "password" and not org_policy.allows_password_auth(get_settings().environment):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Password sessions are disabled for this organization. Use SSO sign-in.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
             # Get role-based scopes (not wildcard ["*"]), using DB role so changes
             # take effect immediately.
             current_role = await _resolve_membership_role(token.sub, token.org_id)
@@ -226,7 +249,7 @@ async def get_auth_context(
             )
 
             set_rls_context(token.org_id, is_internal=False)
-            return AuthContext(
+            context = AuthContext(
                 organization_id=token.org_id,
                 auth_subject_id=f"user_{token.sub}",
                 scopes=scopes,
@@ -240,6 +263,13 @@ async def get_auth_context(
                 rate_limit_per_minute=1000,
                 is_internal=False,  # Session users are not internal
             )
+            await _enforce_org_ip_policy(
+                request=request,
+                organization_id=context.organization_id,
+                is_internal=context.is_internal,
+                preloaded_policy=org_policy,
+            )
+            return context
 
     # Also allow admin tokens via Authorization header.
     if auth_header and auth_header.startswith("Bearer "):
@@ -382,8 +412,9 @@ async def get_auth_context(
         scopes=key_info.scopes,
     )
 
+    org_policy = await get_org_security_policy(key_info.organization_id)
     set_rls_context(key_info.organization_id, is_internal=False)
-    return AuthContext(
+    context = AuthContext(
         organization_id=key_info.organization_id,
         auth_subject_id=f"key_{key_info.id}",
         scopes=key_info.scopes,
@@ -395,6 +426,13 @@ async def get_auth_context(
         rate_limit_per_minute=key_info.rate_limit_per_minute,
         is_internal=False,
     )
+    await _enforce_org_ip_policy(
+        request=request,
+        organization_id=context.organization_id,
+        is_internal=context.is_internal,
+        preloaded_policy=org_policy,
+    )
+    return context
 
 
 def require_scope(scope: str | Scope) -> Callable:

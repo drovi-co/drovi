@@ -243,7 +243,7 @@ export function CommitmentHistoryTimeline({
       {/* Timeline */}
       <div className="relative">
         {/* Vertical Line */}
-        <div className="absolute top-0 bottom-0 left-[18px] w-0.5 bg-gradient-to-b from-purple-500 via-blue-500 to-green-500" />
+        <div className="absolute top-0 bottom-0 left-[18px] w-0.5 bg-border/70" />
 
         {/* Events */}
         <div className="space-y-0">
@@ -446,7 +446,7 @@ export function CommitmentHistoryTimeline({
                 {/* Connector Lines for visual flow */}
                 {!isLast && (
                   <div className="absolute top-[52px] bottom-[-16px] left-[18px] w-0.5">
-                    <div className="h-full bg-gradient-to-b from-transparent via-border to-transparent" />
+                    <div className="h-full bg-border/50" />
                   </div>
                 )}
               </motion.div>

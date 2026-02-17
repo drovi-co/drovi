@@ -19,7 +19,7 @@ const badgeVariants = cva(
     "overflow-hidden whitespace-nowrap",
     "rounded-md border px-2 py-0.5",
     "font-medium text-[11px]",
-    "transition-colors duration-150",
+    "transition-colors [transition-duration:var(--motion-duration-fast)] [transition-timing-function:var(--motion-ease-standard)]",
     "[&>svg]:pointer-events-none [&>svg]:size-3",
   ].join(" "),
   {
@@ -56,6 +56,13 @@ const badgeVariants = cva(
         // Info - Vercel blue
         info: [
           "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] dark:border-[#1e3a8a] dark:bg-[#172554] dark:text-[#93c5fd]",
+        ].join(" "),
+
+        // Seal - institutional confidence mark
+        seal: [
+          "border-[color:var(--ring)]/55 bg-[color:var(--accent)]/35 text-foreground",
+          "font-semibold uppercase tracking-[0.08em]",
+          "rounded-sm px-2.5 py-1",
         ].join(" "),
       },
     },

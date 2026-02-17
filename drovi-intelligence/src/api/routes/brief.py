@@ -189,87 +189,64 @@ async def compute_brief(
                 )
             """.strip()
 
+    risk_private_clause = private_clause.replace("u.", "ur.") if private_clause else ""
+
     # Query PostgreSQL for UIO counts
     try:
         async with get_db_session() as session:
-            # Open commitments
-            result = await session.execute(
+            # Summary metrics in a single round-trip for lower p95 latency.
+            summary_result = await session.execute(
                 text("""
-                    SELECT COUNT(*) as count
+                    SELECT
+                        COUNT(*) FILTER (
+                            WHERE u.type = 'commitment'
+                              AND u.status IN ('draft', 'active', 'in_progress')
+                              AND u.created_at >= :period_start
+                        ) AS open_commitments,
+                        COUNT(*) FILTER (
+                            WHERE u.type = 'commitment'
+                              AND u.status IN ('draft', 'active', 'in_progress')
+                              AND u.due_date < :now
+                        ) AS overdue_commitments,
+                        COUNT(*) FILTER (
+                            WHERE u.type = 'decision'
+                              AND u.created_at >= :period_start
+                        ) AS decisions_made,
+                        COUNT(DISTINCT u.owner_contact_id) FILTER (
+                            WHERE u.owner_contact_id IS NOT NULL
+                              AND u.created_at >= :period_start
+                        ) AS people_involved,
+                        (
+                            SELECT COUNT(*)
+                            FROM unified_intelligence_object ur
+                            JOIN uio_risk_details r ON r.uio_id = ur.id
+                            WHERE ur.organization_id = :org_id
+                              AND ur.type = 'risk'
+                              AND r.severity IN ('high', 'critical')
+                              AND ur.status NOT IN ('completed', 'cancelled', 'archived')
+                              {risk_private_clause}
+                        ) AS high_risks
                     FROM unified_intelligence_object u
                     WHERE u.organization_id = :org_id
-                    AND u.type = 'commitment'
-                    AND u.status IN ('draft', 'active', 'in_progress')
-                    AND u.created_at >= :period_start
                     {private_clause}
-                """.format(private_clause=private_clause)),
-                {"org_id": organization_id, "period_start": period_start, **private_params},
+                """.format(
+                    private_clause=private_clause,
+                    risk_private_clause=risk_private_clause,
+                )),
+                {
+                    "org_id": organization_id,
+                    "period_start": period_start,
+                    "now": now,
+                    **private_params,
+                },
             )
-            row = result.fetchone()
-            summary.open_commitments = row.count if row else 0
-
-            # Overdue commitments
-            result = await session.execute(
-                text("""
-                    SELECT COUNT(*) as count
-                    FROM unified_intelligence_object u
-                    WHERE u.organization_id = :org_id
-                    AND u.type = 'commitment'
-                    AND u.status IN ('draft', 'active', 'in_progress')
-                    AND u.due_date < :now
-                    {private_clause}
-                """.format(private_clause=private_clause)),
-                {"org_id": organization_id, "now": now, **private_params},
-            )
-            row = result.fetchone()
-            summary.overdue_commitments = row.count if row else 0
-
-            # Decisions made
-            result = await session.execute(
-                text("""
-                    SELECT COUNT(*) as count
-                    FROM unified_intelligence_object u
-                    WHERE u.organization_id = :org_id
-                    AND u.type = 'decision'
-                    AND u.created_at >= :period_start
-                    {private_clause}
-                """.format(private_clause=private_clause)),
-                {"org_id": organization_id, "period_start": period_start, **private_params},
-            )
-            row = result.fetchone()
-            summary.decisions_made = row.count if row else 0
-
-            # High risks
-            result = await session.execute(
-                text("""
-                    SELECT COUNT(*) as count
-                    FROM unified_intelligence_object u
-                    JOIN uio_risk_details r ON r.uio_id = u.id
-                    WHERE u.organization_id = :org_id
-                    AND u.type = 'risk'
-                    AND r.severity IN ('high', 'critical')
-                    AND u.status NOT IN ('completed', 'cancelled', 'archived')
-                    {private_clause}
-                """.format(private_clause=private_clause)),
-                {"org_id": organization_id, **private_params},
-            )
-            row = result.fetchone()
-            summary.high_risks = row.count if row else 0
-
-            # People involved (unique contacts)
-            result = await session.execute(
-                text("""
-                    SELECT COUNT(DISTINCT owner_contact_id) as count
-                    FROM unified_intelligence_object u
-                    WHERE u.organization_id = :org_id
-                    AND owner_contact_id IS NOT NULL
-                    AND created_at >= :period_start
-                    {private_clause}
-                """.format(private_clause=private_clause)),
-                {"org_id": organization_id, "period_start": period_start, **private_params},
-            )
-            row = result.fetchone()
-            summary.people_involved = row.count if row else 0
+            summary_row = summary_result.fetchone()
+            if summary_row:
+                summary.open_commitments = int(summary_row.open_commitments or 0)
+                summary.overdue_commitments = int(summary_row.overdue_commitments or 0)
+                summary.decisions_made = int(summary_row.decisions_made or 0)
+                summary.people_involved = int(summary_row.people_involved or 0)
+                summary.high_risks = int(summary_row.high_risks or 0)
 
             # Get overdue commitments for attention items
             result = await session.execute(
@@ -282,7 +259,7 @@ async def compute_brief(
                         cd.direction,
                         cd.debtor_contact_id,
                         cd.creditor_contact_id,
-                        s.id as source_id
+                        MIN(s.id) as source_id
                     FROM unified_intelligence_object u
                     LEFT JOIN uio_commitment_details cd ON cd.uio_id = u.id
                     LEFT JOIN unified_object_source s ON s.unified_object_id = u.id
@@ -291,6 +268,14 @@ async def compute_brief(
                     AND u.status IN ('draft', 'active', 'in_progress')
                     AND u.due_date < :now
                     {private_clause}
+                    GROUP BY
+                        u.id,
+                        u.canonical_title,
+                        u.due_date,
+                        u.overall_confidence,
+                        cd.direction,
+                        cd.debtor_contact_id,
+                        cd.creditor_contact_id
                     ORDER BY u.due_date ASC
                     LIMIT 10
                 """.format(private_clause=private_clause)),
@@ -321,7 +306,7 @@ async def compute_brief(
                         u.overall_confidence,
                         r.severity,
                         r.suggested_action,
-                        s.id as source_id
+                        MIN(s.id) as source_id
                     FROM unified_intelligence_object u
                     JOIN uio_risk_details r ON r.uio_id = u.id
                     LEFT JOIN unified_object_source s ON s.unified_object_id = u.id
@@ -330,6 +315,12 @@ async def compute_brief(
                     AND r.severity IN ('high', 'critical')
                     AND u.status NOT IN ('completed', 'cancelled', 'archived')
                     {private_clause}
+                    GROUP BY
+                        u.id,
+                        u.canonical_title,
+                        u.overall_confidence,
+                        r.severity,
+                        r.suggested_action
                     ORDER BY CASE r.severity WHEN 'critical' THEN 0 ELSE 1 END
                     LIMIT 5
                 """.format(private_clause=private_clause)),

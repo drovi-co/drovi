@@ -77,7 +77,11 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-14 justify-center">
         <div className="flex items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <div className="h-8 w-8 rounded-lg bg-foreground" />
+          <img
+            alt="Drovi crest"
+            className="h-8 w-8 rounded-sm object-cover"
+            src="/drovi-old-money.svg"
+          />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <div className="truncate font-semibold text-sm leading-tight">
               {t("admin.appName")}

@@ -3,7 +3,7 @@ import type { ModuleI18nNamespace } from "@memorystack/mod-kit";
 export const MOD_CONSOLE_NAMESPACE = "mod_console";
 
 export const modConsoleMessages: Record<string, string> = {
-  "console.title": "Console",
+  "console.title": "Ledger",
   "console.ops": "Operations",
   "console.internal": "Internal only",
 };

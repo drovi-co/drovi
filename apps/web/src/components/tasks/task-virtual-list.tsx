@@ -24,6 +24,7 @@ import { Archive, Plus, Star } from "lucide-react";
 import { useRef } from "react";
 import { SourceIcon } from "@/components/inbox/source-icon";
 import { useI18n, useT } from "@/i18n";
+import { buildProofSummary } from "@/lib/proof-summary";
 import type { SourceType } from "@/lib/source-config";
 import { cn } from "@/lib/utils";
 
@@ -304,6 +305,15 @@ function VirtualTaskRow({
   const iconStatus = mapStatus(task.status);
   const iconPriority = mapPriority(task.priority);
   const sourceType = mapSourceTypeToSourceType(task.sourceType);
+  const proofSummary = buildProofSummary({
+    evidenceCount: task.evidenceCount ?? 0,
+    lastVerifiedAt:
+      task.lastVerifiedAt ??
+      (task.isUserVerified ? task.updatedAt : null),
+    confidence: task.confidence ?? null,
+    supersessionState: task.supersessionState ?? "active",
+    locale,
+  });
 
   return (
     <div
@@ -376,9 +386,35 @@ function VirtualTaskRow({
 
       {/* Title - flexible width, takes remaining space (matches brief in inbox) */}
       <div className="min-w-0 flex-1 px-2">
-        <span className="block truncate font-normal text-[13px] text-muted-foreground">
-          {task.title}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="block min-w-0 flex-1 truncate font-normal text-[13px] text-muted-foreground">
+            {task.title}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.evidenceLabel}
+          >
+            {proofSummary.evidenceCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.verifiedLabel}
+          >
+            {proofSummary.verifiedCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.confidenceLabel}
+          >
+            {proofSummary.confidenceCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.supersessionLabel}
+          >
+            {proofSummary.supersessionCode}
+          </span>
+        </div>
       </div>
 
       {/* Right section - fixed width, perfectly aligned (matches inbox exactly) */}

@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 150 30% 8%;
+    --foreground: 40 30% 93%;
+
+    --card: 150 25% 12%;
+    --card-foreground: 40 30% 93%;
+
+    --popover: 150 25% 12%;
+    --popover-foreground: 40 30% 93%;
+
+    --primary: 38 40% 60%;
+    --primary-foreground: 150 30% 8%;
+
+    --secondary: 150 20% 16%;
+    --secondary-foreground: 40 30% 93%;
+
+    --muted: 150 15% 18%;
+    --muted-foreground: 40 15% 65%;
+
+    --accent: 38 40% 60%;
+    --accent-foreground: 150 30% 8%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 38 30% 30%;
+    --input: 150 20% 20%;
+    --ring: 38 40% 60%;
+
+    --radius: 0.5rem;
+
+    --gold: 38 40% 60%;
+    --gold-light: 38 45% 75%;
+    --gold-dark: 38 35% 45%;
+    --ivory: 40 30% 93%;
+    --cream: 40 40% 96%;
+    --forest: 150 30% 8%;
+    --forest-light: 150 25% 15%;
+    --charcoal: 0 0% 18%;
+
+    --sidebar-background: 150 25% 10%;
+    --sidebar-foreground: 40 30% 93%;
+    --sidebar-primary: 38 40% 60%;
+    --sidebar-primary-foreground: 150 30% 8%;
+    --sidebar-accent: 150 20% 16%;
+    --sidebar-accent-foreground: 40 30% 93%;
+    --sidebar-border: 38 30% 25%;
+    --sidebar-ring: 38 40% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 0px;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow: hidden;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+.safe-area-y {
+  padding-top: calc(env(safe-area-inset-top) + 3.25rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+
+.safe-area-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
+}
+
+@media (min-width: 768px) {
+  .safe-area-y {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: 0;
+  }
+}

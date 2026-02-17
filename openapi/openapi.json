@@ -5018,6 +5018,89 @@
         "title": "Body_ingest_audio_chunk_api_v1_ingest_live_session__session_id__audio_post",
         "type": "object"
       },
+      "BreakGlassGrantRequest": {
+        "properties": {
+          "justification": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Justification",
+            "type": "string"
+          },
+          "scope": {
+            "default": "evidence.full",
+            "title": "Scope",
+            "type": "string"
+          },
+          "ttl_minutes": {
+            "default": 30,
+            "maximum": 240.0,
+            "minimum": 5.0,
+            "title": "Ttl Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "justification"
+        ],
+        "title": "BreakGlassGrantRequest",
+        "type": "object"
+      },
+      "BreakGlassGrantResponse": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "justification": {
+            "title": "Justification",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "scope",
+          "token",
+          "justification",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "BreakGlassGrantResponse",
+        "type": "object"
+      },
+      "BreakGlassRevokeResponse": {
+        "properties": {
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "BreakGlassRevokeResponse",
+        "type": "object"
+      },
       "BriefDetails": {
         "description": "Brief-specific details.",
         "properties": {
@@ -7073,6 +7156,110 @@
           "code_verifier"
         ],
         "title": "ConnectResponse",
+        "type": "object"
+      },
+      "ConnectionHealthResponse": {
+        "description": "Deterministic source health response.",
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "connector_type": {
+            "title": "Connector Type",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "minutes_since_last_sync": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes Since Last Sync"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "recent_failures": {
+            "title": "Recent Failures",
+            "type": "integer"
+          },
+          "recovery_action": {
+            "title": "Recovery Action",
+            "type": "string"
+          },
+          "stale_after_minutes": {
+            "title": "Stale After Minutes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "sync_slo_breached": {
+            "title": "Sync Slo Breached",
+            "type": "boolean"
+          },
+          "sync_slo_minutes": {
+            "title": "Sync Slo Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection_id",
+          "organization_id",
+          "connector_type",
+          "status",
+          "reason_code",
+          "reason",
+          "stale_after_minutes",
+          "sync_slo_breached",
+          "sync_slo_minutes",
+          "recent_failures",
+          "recovery_action",
+          "checked_at"
+        ],
+        "title": "ConnectionHealthResponse",
         "type": "object"
       },
       "ConnectionResponse": {
@@ -12834,6 +13021,86 @@
         "title": "EvidenceArtifactResponse",
         "type": "object"
       },
+      "EvidenceBundleRequest": {
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "include_presigned_urls": {
+            "default": false,
+            "title": "Include Presigned Urls",
+            "type": "boolean"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "uio_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uio Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "EvidenceBundleRequest",
+        "type": "object"
+      },
+      "EvidenceLegalHoldRequest": {
+        "properties": {
+          "evidence_artifact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Artifact Ids",
+            "type": "array"
+          },
+          "legal_hold": {
+            "title": "Legal Hold",
+            "type": "boolean"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "retention_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Until"
+          }
+        },
+        "required": [
+          "organization_id",
+          "legal_hold"
+        ],
+        "title": "EvidenceLegalHoldRequest",
+        "type": "object"
+      },
       "EvidenceSnippet": {
         "properties": {
           "evidence_id": {
@@ -16229,6 +16496,225 @@
         "title": "OfflineEvalRunResult",
         "type": "object"
       },
+      "OnboardingAutomationItem": {
+        "properties": {
+          "cadence": {
+            "title": "Cadence",
+            "type": "string"
+          },
+          "cron": {
+            "title": "Cron",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "job_type": {
+            "title": "Job Type",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Job Id"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "pilot_only": {
+            "title": "Pilot Only",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "job_type",
+          "enabled",
+          "cron",
+          "pilot_only",
+          "cadence"
+        ],
+        "title": "OnboardingAutomationItem",
+        "type": "object"
+      },
+      "OnboardingAutomationListResponse": {
+        "properties": {
+          "automations": {
+            "items": {
+              "$ref": "#/components/schemas/OnboardingAutomationItem"
+            },
+            "title": "Automations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "automations"
+        ],
+        "title": "OnboardingAutomationListResponse",
+        "type": "object"
+      },
+      "OnboardingChecklist": {
+        "properties": {
+          "data_custody_mapped": {
+            "default": false,
+            "title": "Data Custody Mapped",
+            "type": "boolean"
+          },
+          "go_live_ready": {
+            "default": false,
+            "title": "Go Live Ready",
+            "type": "boolean"
+          },
+          "pilot_mandate_set": {
+            "default": false,
+            "title": "Pilot Mandate Set",
+            "type": "boolean"
+          },
+          "security_review_complete": {
+            "default": false,
+            "title": "Security Review Complete",
+            "type": "boolean"
+          }
+        },
+        "title": "OnboardingChecklist",
+        "type": "object"
+      },
+      "OnboardingRunbookItem": {
+        "properties": {
+          "checklist": {
+            "$ref": "#/components/schemas/OnboardingChecklist"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "open_ticket_count": {
+            "default": 0,
+            "title": "Open Ticket Count",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "organization_name": {
+            "title": "Organization Name",
+            "type": "string"
+          },
+          "owner_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Email"
+          },
+          "target_go_live_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Go Live At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "organization_id",
+          "organization_name",
+          "checklist"
+        ],
+        "title": "OnboardingRunbookItem",
+        "type": "object"
+      },
+      "OnboardingRunbookListResponse": {
+        "properties": {
+          "runbooks": {
+            "items": {
+              "$ref": "#/components/schemas/OnboardingRunbookItem"
+            },
+            "title": "Runbooks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runbooks"
+        ],
+        "title": "OnboardingRunbookListResponse",
+        "type": "object"
+      },
       "OrgInfoResponse": {
         "description": "Organization information response.",
         "properties": {
@@ -16484,6 +16970,155 @@
           }
         },
         "title": "OrgProfileUpdate",
+        "type": "object"
+      },
+      "OrgSecurityPolicyResponse": {
+        "properties": {
+          "break_glass_enabled": {
+            "title": "Break Glass Enabled",
+            "type": "boolean"
+          },
+          "break_glass_required_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Break Glass Required Actions",
+            "type": "array"
+          },
+          "evidence_masking_enabled": {
+            "title": "Evidence Masking Enabled",
+            "type": "boolean"
+          },
+          "ip_allowlist": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Allowlist",
+            "type": "array"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "password_fallback_enabled": {
+            "title": "Password Fallback Enabled",
+            "type": "boolean"
+          },
+          "password_fallback_environments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Password Fallback Environments",
+            "type": "array"
+          },
+          "sso_enforced": {
+            "title": "Sso Enforced",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "organization_id",
+          "sso_enforced",
+          "password_fallback_enabled",
+          "password_fallback_environments",
+          "ip_allowlist",
+          "evidence_masking_enabled",
+          "break_glass_enabled",
+          "break_glass_required_actions"
+        ],
+        "title": "OrgSecurityPolicyResponse",
+        "type": "object"
+      },
+      "OrgSecurityPolicyUpdateRequest": {
+        "properties": {
+          "break_glass_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Break Glass Enabled"
+          },
+          "break_glass_required_actions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Break Glass Required Actions"
+          },
+          "evidence_masking_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Masking Enabled"
+          },
+          "ip_allowlist": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Allowlist"
+          },
+          "password_fallback_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Fallback Enabled"
+          },
+          "password_fallback_environments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Fallback Environments"
+          },
+          "sso_enforced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Enforced"
+          }
+        },
+        "title": "OrgSecurityPolicyUpdateRequest",
         "type": "object"
       },
       "OrgUpdateRequest": {
@@ -16972,6 +17607,39 @@
             ],
             "title": "Email"
           },
+          "health_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Reason"
+          },
+          "health_reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Reason Code"
+          },
+          "health_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Status"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -17015,6 +17683,17 @@
             "title": "Messages Synced",
             "type": "integer"
           },
+          "minutes_since_last_sync": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes Since Last Sync"
+          },
           "progress": {
             "anyOf": [
               {
@@ -17057,6 +17736,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "sync_slo_breached": {
+            "default": false,
+            "title": "Sync Slo Breached",
+            "type": "boolean"
           },
           "visibility": {
             "default": "org_shared",
@@ -19427,6 +20111,43 @@
           }
         },
         "title": "ReplayJobRequest",
+        "type": "object"
+      },
+      "RetentionProfileUpdateRequest": {
+        "properties": {
+          "data_retention_days": {
+            "default": 365,
+            "maximum": 36500.0,
+            "minimum": 1.0,
+            "title": "Data Retention Days",
+            "type": "integer"
+          },
+          "default_legal_hold": {
+            "default": false,
+            "title": "Default Legal Hold",
+            "type": "boolean"
+          },
+          "evidence_retention_days": {
+            "default": 3650,
+            "maximum": 36500.0,
+            "minimum": 1.0,
+            "title": "Evidence Retention Days",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "require_legal_hold_reason": {
+            "default": true,
+            "title": "Require Legal Hold Reason",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "RetentionProfileUpdateRequest",
         "type": "object"
       },
       "RetryJobResponse": {
@@ -23245,6 +23966,58 @@
         "title": "TranscriptSegmentRequest",
         "type": "object"
       },
+      "TriggerAutomationRequest": {
+        "properties": {
+          "month": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          }
+        },
+        "title": "TriggerAutomationRequest",
+        "type": "object"
+      },
+      "TriggerAutomationResponse": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_type": {
+            "title": "Job Type",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "queued_at": {
+            "format": "date-time",
+            "title": "Queued At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "job_id",
+          "status",
+          "job_type",
+          "queued_at"
+        ],
+        "title": "TriggerAutomationResponse",
+        "type": "object"
+      },
       "TriggerRouteCandidate": {
         "properties": {
           "deployment_id": {
@@ -24314,6 +25087,92 @@
           "schema_version"
         ],
         "title": "UpsertExtensionResponse",
+        "type": "object"
+      },
+      "UpsertOnboardingRunbookRequest": {
+        "properties": {
+          "data_custody_mapped": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Custody Mapped"
+          },
+          "go_live_ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Go Live Ready"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "owner_email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Email"
+          },
+          "pilot_mandate_set": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pilot Mandate Set"
+          },
+          "security_review_complete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Review Complete"
+          },
+          "target_go_live_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Go Live At"
+          }
+        },
+        "title": "UpsertOnboardingRunbookRequest",
         "type": "object"
       },
       "UserResponse": {
@@ -25697,6 +26556,375 @@
         "tags": [
           "Admin",
           "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/onboarding/automations": {
+      "get": {
+        "operationId": "list_onboarding_automations_api_v1_admin_onboarding_automations_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingAutomationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Onboarding Automations",
+        "tags": [
+          "Admin Onboarding",
+          "Admin Onboarding"
+        ]
+      }
+    },
+    "/api/v1/admin/onboarding/automations/{automation_key}/run": {
+      "post": {
+        "operationId": "trigger_onboarding_automation_api_v1_admin_onboarding_automations__automation_key__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "automation_key",
+            "required": true,
+            "schema": {
+              "enum": [
+                "weekly_operations_brief",
+                "monthly_integrity_report"
+              ],
+              "title": "Automation Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerAutomationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerAutomationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Trigger Onboarding Automation",
+        "tags": [
+          "Admin Onboarding",
+          "Admin Onboarding"
+        ]
+      }
+    },
+    "/api/v1/admin/onboarding/runbooks": {
+      "get": {
+        "operationId": "list_onboarding_runbooks_api_v1_admin_onboarding_runbooks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "ready",
+                "in_progress"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingRunbookListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Onboarding Runbooks",
+        "tags": [
+          "Admin Onboarding",
+          "Admin Onboarding"
+        ]
+      }
+    },
+    "/api/v1/admin/onboarding/runbooks/{organization_id}": {
+      "put": {
+        "operationId": "upsert_onboarding_runbook_api_v1_admin_onboarding_runbooks__organization_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertOnboardingRunbookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingRunbookItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Upsert Onboarding Runbook",
+        "tags": [
+          "Admin Onboarding",
+          "Admin Onboarding"
         ]
       }
     },
@@ -39862,7 +41090,7 @@
         "summary": "Ask Get",
         "tags": [
           "Natural Language Query",
-          "Natural Language Query"
+          "Record Inquiry"
         ]
       },
       "post": {
@@ -39942,7 +41170,7 @@
         "summary": "Ask Knowledge Graph",
         "tags": [
           "Natural Language Query",
-          "Natural Language Query"
+          "Record Inquiry"
         ]
       }
     },
@@ -39967,7 +41195,7 @@
         "summary": "Check Graphrag Health",
         "tags": [
           "Natural Language Query",
-          "Natural Language Query"
+          "Record Inquiry"
         ]
       }
     },
@@ -39992,7 +41220,7 @@
         "summary": "List Supported Intents",
         "tags": [
           "Natural Language Query",
-          "Natural Language Query"
+          "Record Inquiry"
         ]
       }
     },
@@ -40072,7 +41300,219 @@
         "summary": "Ask Stream",
         "tags": [
           "Natural Language Query",
-          "Natural Language Query"
+          "Record Inquiry"
+        ]
+      }
+    },
+    "/api/v1/audit/integrity-snapshot": {
+      "get": {
+        "operationId": "get_integrity_snapshot_api_v1_audit_integrity_snapshot_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UTC day in YYYY-MM-DD format. Defaults to previous UTC day.",
+            "in": "query",
+            "name": "root_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "UTC day in YYYY-MM-DD format. Defaults to previous UTC day.",
+              "title": "Root Date"
+            }
+          },
+          {
+            "description": "Compute and persist the daily root if absent.",
+            "in": "query",
+            "name": "compute_if_missing",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Compute and persist the daily root if absent.",
+              "title": "Compute If Missing",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Integrity Snapshot",
+        "tags": [
+          "Audit",
+          "Audit"
+        ]
+      }
+    },
+    "/api/v1/audit/integrity-snapshot/refresh": {
+      "post": {
+        "operationId": "refresh_integrity_snapshot_api_v1_audit_integrity_snapshot_refresh_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "root_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "async_mode",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Async Mode",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Refresh Integrity Snapshot",
+        "tags": [
+          "Audit",
+          "Audit"
         ]
       }
     },
@@ -42005,6 +43445,87 @@
           }
         ],
         "summary": "Trigger Backfill",
+        "tags": [
+          "Connections",
+          "Connections"
+        ]
+      }
+    },
+    "/api/v1/connections/{connection_id}/health": {
+      "get": {
+        "description": "Return deterministic source health status and reasons.",
+        "operationId": "get_connection_health_api_v1_connections__connection_id__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Connection Health",
         "tags": [
           "Connections",
           "Connections"
@@ -48175,7 +49696,7 @@
     },
     "/api/v1/evidence/artifacts/ingest": {
       "post": {
-        "description": "Upload an evidence artifact and create a linked Unified Event.\n\nThis is the end‑to‑end ingestion path for audio, slides, and images.",
+        "description": "Upload an evidence artifact and create a linked Unified Event.\n\nThis is the end\u2011to\u2011end ingestion path for audio, slides, and images.",
         "operationId": "ingest_evidence_artifact_api_v1_evidence_artifacts_ingest_post",
         "parameters": [
           {
@@ -48288,6 +49809,22 @@
           },
           {
             "in": "header",
+            "name": "X-Break-Glass-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Break-Glass-Token"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -48374,6 +49911,41 @@
             "schema": {
               "title": "Organization Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Reason code for evidence access logging",
+            "in": "query",
+            "name": "reason_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "interactive_access",
+              "description": "Reason code for evidence access logging",
+              "title": "Reason Code"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Break-Glass-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Break-Glass-Token"
             }
           },
           {
@@ -48478,6 +50050,22 @@
               ],
               "title": "Mode",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Break-Glass-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Break-Glass-Token"
             }
           },
           {
@@ -54053,6 +55641,297 @@
         ]
       }
     },
+    "/api/v1/org/security/break-glass/grants": {
+      "post": {
+        "operationId": "create_break_glass_api_v1_org_security_break_glass_grants_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BreakGlassGrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakGlassGrantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Break Glass",
+        "tags": [
+          "Organization Security",
+          "Organization Security"
+        ]
+      }
+    },
+    "/api/v1/org/security/break-glass/grants/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_break_glass_api_v1_org_security_break_glass_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakGlassRevokeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Break Glass",
+        "tags": [
+          "Organization Security",
+          "Organization Security"
+        ]
+      }
+    },
+    "/api/v1/org/security/policy": {
+      "get": {
+        "operationId": "get_security_policy_api_v1_org_security_policy_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgSecurityPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Security Policy",
+        "tags": [
+          "Organization Security",
+          "Organization Security"
+        ]
+      },
+      "patch": {
+        "operationId": "update_security_policy_api_v1_org_security_policy_patch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrgSecurityPolicyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgSecurityPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Security Policy",
+        "tags": [
+          "Organization Security",
+          "Organization Security"
+        ]
+      }
+    },
     "/api/v1/patterns/candidates": {
       "get": {
         "operationId": "list_candidates_api_v1_patterns_candidates_get",
@@ -57021,6 +58900,604 @@
         ]
       }
     },
+    "/api/v1/trust/continuity-score": {
+      "get": {
+        "operationId": "continuity_score_api_v1_trust_continuity_score_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Continuity Score",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
+    "/api/v1/trust/evidence-bundles/export": {
+      "post": {
+        "operationId": "evidence_bundle_export_api_v1_trust_evidence_bundles_export_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceBundleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Evidence Bundle Export",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
+    "/api/v1/trust/evidence/legal-hold": {
+      "post": {
+        "operationId": "evidence_legal_hold_update_api_v1_trust_evidence_legal_hold_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceLegalHoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Evidence Legal Hold Update",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
+    "/api/v1/trust/integrity-report/monthly": {
+      "get": {
+        "operationId": "integrity_report_monthly_api_v1_trust_integrity_report_monthly_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "YYYY-MM, defaults to previous month",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM, defaults to previous month",
+              "title": "Month"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Integrity Report Monthly",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
+    "/api/v1/trust/record-certificate/{uio_id}": {
+      "get": {
+        "operationId": "record_certificate_api_v1_trust_record_certificate__uio_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uio_id",
+            "required": true,
+            "schema": {
+              "title": "Uio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "evidence_limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Evidence Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Record Certificate",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
+    "/api/v1/trust/retention-profile": {
+      "get": {
+        "operationId": "retention_profile_api_v1_trust_retention_profile_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Retention Profile",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      },
+      "put": {
+        "operationId": "retention_profile_update_api_v1_trust_retention_profile_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Retention Profile Update",
+        "tags": [
+          "Trust",
+          "Trust"
+        ]
+      }
+    },
     "/api/v1/trust/uios": {
       "post": {
         "operationId": "trust_for_uios_api_v1_trust_uios_post",
@@ -58665,7 +61142,7 @@
     },
     "/api/v1/uios/{uio_id}/status": {
       "patch": {
-        "description": "Change UIO status.\n\nValid transitions:\n- draft → active, cancelled\n- active → in_progress, completed, cancelled\n- in_progress → completed, cancelled, active\n- completed → archived\n- cancelled → archived\n\nRequires `write` scope.",
+        "description": "Change UIO status.\n\nValid transitions:\n- draft \u2192 active, cancelled\n- active \u2192 in_progress, completed, cancelled\n- in_progress \u2192 completed, cancelled, active\n- completed \u2192 archived\n- cancelled \u2192 archived\n\nRequires `write` scope.",
         "operationId": "update_status_api_v1_uios__uio_id__status_patch",
         "parameters": [
           {

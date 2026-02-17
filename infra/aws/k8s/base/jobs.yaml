@@ -1,0 +1,80 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drovi-db-migrate
+  namespace: drovi
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      serviceAccountName: drovi-intelligence-sa
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec", "alembic upgrade head"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drovi-kafka-topic-bootstrap
+  namespace: drovi
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-topics
+          image: confluentinc/cp-kafka:7.6.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              cat > /tmp/client.properties <<PROPS
+              security.protocol=SASL_SSL
+              sasl.mechanism=SCRAM-SHA-512
+              sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
+              PROPS
+
+              for topic in \
+                raw.connector.events \
+                normalized.records \
+                intelligence.pipeline.input \
+                drovi-intelligence \
+                graph.changes \
+                agent.inbox.events \
+                raw.connector.events.retry \
+                normalized.records.retry \
+                intelligence.pipeline.input.retry \
+                raw.connector.events.dlq \
+                normalized.records.dlq \
+                intelligence.pipeline.input.dlq
+              do
+                kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP_SERVERS}" \
+                  --command-config /tmp/client.properties \
+                  --create --if-not-exists \
+                  --topic "${topic}" \
+                  --partitions 3 \
+                  --replication-factor 3
+              done

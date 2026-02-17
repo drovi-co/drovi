@@ -53,6 +53,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { EvidenceRail } from "@/components/evidence";
 import {
   useDismissUIO,
   useMarkCompleteUIO,
@@ -61,6 +62,7 @@ import {
   useVerifyUIO,
 } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
+import { resolveDueDate } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -238,6 +240,25 @@ function CommitmentDetailPage() {
   // Transform UIO data
   const commitment = commitmentData
     ? (() => {
+        const evidenceQuotes = (commitmentData.sources ?? [])
+          .map((source) => source.quotedText)
+          .filter((value): value is string => Boolean(value));
+        const resolvedDueDate = resolveDueDate({
+          explicitDueDate: commitmentData.dueDate,
+          title:
+            commitmentData.userCorrectedTitle ??
+            commitmentData.canonicalTitle,
+          description: commitmentData.canonicalDescription,
+          evidenceQuotes,
+        });
+        const resolvedDebtor =
+          commitmentData.debtor ?? commitmentData.owner ?? commitmentData.createdBy;
+        const supersessionState: "active" | "final" =
+          commitmentData.commitmentDetails?.status === "completed" ||
+          commitmentData.commitmentDetails?.status === "cancelled"
+            ? "final"
+            : "active";
+
         const timeline: CommitmentTimelineEvent[] = [];
         if (commitmentData.createdAt) {
           timeline.push({
@@ -253,11 +274,11 @@ function CommitmentDetailPage() {
             eventAt: commitmentData.updatedAt,
           });
         }
-        if (commitmentData.dueDate) {
+        if (resolvedDueDate) {
           timeline.push({
             id: "due-date",
             eventDescription: "Due date set",
-            eventAt: commitmentData.dueDate,
+            eventAt: resolvedDueDate.toISOString(),
           });
         }
         if (commitmentData.commitmentDetails?.snoozedUntil) {
@@ -280,6 +301,27 @@ function CommitmentDetailPage() {
         );
 
         const primarySource = commitmentData.sources?.[0] ?? null;
+        const supersessionTimeline: CommitmentTimelineEvent[] = [
+          {
+            id: "state-active",
+            eventDescription: "Commitment entered active register",
+            eventAt: commitmentData.createdAt,
+          },
+        ];
+        if (supersessionState === "final") {
+          supersessionTimeline.push({
+            id: "state-final",
+            eventDescription: "Commitment finalized",
+            eventAt:
+              commitmentData.commitmentDetails?.completedAt ??
+              commitmentData.updatedAt ??
+              commitmentData.createdAt,
+          });
+        }
+        supersessionTimeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
 
         return {
           id: commitmentData.id,
@@ -294,16 +336,14 @@ function CommitmentDetailPage() {
             "medium") as CommitmentPriority,
           direction: (commitmentData.commitmentDetails?.direction ??
             "owed_by_me") as CommitmentDirection,
-          dueDate: commitmentData.dueDate
-            ? new Date(commitmentData.dueDate)
-            : null,
+          dueDate: resolvedDueDate,
           confidence: commitmentData.overallConfidence ?? 0.8,
           isUserVerified: commitmentData.isUserVerified ?? false,
-          debtor: commitmentData.debtor ?? null,
+          debtor: resolvedDebtor ?? null,
           creditor:
             commitmentData.creditor ??
-            (commitmentData.debtor ? null : fallbackParty),
-          owner: commitmentData.owner ?? null,
+            (resolvedDebtor ? null : fallbackParty),
+          owner: commitmentData.owner ?? commitmentData.createdBy ?? null,
           evidence: primarySource
             ? {
                 quotedText: primarySource.quotedText,
@@ -314,6 +354,12 @@ function CommitmentDetailPage() {
             : null,
           sources: commitmentData.sources ?? [],
           timeline,
+          supersessionState,
+          supersessionTimeline,
+          evidenceCount: commitmentData.sources?.length ?? 0,
+          lastVerifiedAt: commitmentData.updatedAt
+            ? new Date(commitmentData.updatedAt)
+            : new Date(commitmentData.createdAt),
           createdAt: new Date(commitmentData.createdAt),
           updatedAt: commitmentData.updatedAt
             ? new Date(commitmentData.updatedAt)
@@ -827,6 +873,33 @@ function CommitmentDetailPage() {
                 </div>
               )}
 
+              {/* Supersession Timeline */}
+              <div className="border-border border-t pt-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Supersession
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {commitment.supersessionTimeline.map((event) => (
+                    <div
+                      className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2"
+                      key={event.id}
+                    >
+                      <span className="text-foreground text-sm">
+                        {event.eventDescription}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {formatDistanceToNow(new Date(event.eventAt), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Timestamps */}
               <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
                 <div>
@@ -861,6 +934,15 @@ function CommitmentDetailPage() {
           {/* Right Column - Properties Sidebar */}
           <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
+              <EvidenceRail
+                confidence={commitment.confidence}
+                evidenceCount={commitment.evidenceCount}
+                isUserVerified={commitment.isUserVerified}
+                lastVerifiedAt={commitment.lastVerifiedAt}
+                primaryQuote={commitment.evidence?.quotedText ?? null}
+                supersessionState={commitment.supersessionState}
+              />
+
               {/* Status */}
               <PropertyRow label="Status">
                 <div className="px-2 py-1.5">
@@ -988,8 +1070,8 @@ function CommitmentDetailPage() {
                 </div>
               </PropertyRow>
 
-              {/* AI Confidence */}
-              <PropertyRow label="AI Confidence">
+              {/* Evidence Confidence */}
+              <PropertyRow label="Evidence Confidence">
                 <div className="px-2 py-1.5">
                   <div className="flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">

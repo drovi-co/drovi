@@ -92,7 +92,7 @@ export function ShowMeButton({
             <div className="flex items-center gap-2">
               <Sparkles className="h-3 w-3 text-purple-500" />
               <span>
-                AI Confidence: {Math.round(confidence * 100)}% - Click to see
+                Evidence Confidence: {Math.round(confidence * 100)}% - Click to see
                 evidence
               </span>
             </div>

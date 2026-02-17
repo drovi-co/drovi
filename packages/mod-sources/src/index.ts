@@ -9,3 +9,13 @@ export {
   modSourcesMessages,
 } from "./messages";
 export { createSourcesModule } from "./module";
+export {
+  countActiveSourceSyncs,
+  groupSourceConnections,
+  mergeSourceSyncEvent,
+  useSourceLiveSyncState,
+  type GroupedSourceConnections,
+  type SourceConnectionState,
+  type SourceSyncEvent,
+  type SourceSyncMap,
+} from "./live-sync";

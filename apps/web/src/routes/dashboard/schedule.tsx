@@ -27,6 +27,7 @@ import { useI18n, useT } from "@/i18n";
 import { agentsAPI, type UIO } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { formatRelativeTime } from "@/lib/intl-time";
+import { resolveDueDate } from "@/lib/uio-derived-fields";
 
 export const Route = createFileRoute("/dashboard/schedule")({
   component: SchedulePage,
@@ -51,6 +52,12 @@ function mapCommitmentPriority(
 }
 
 function mapCommitment(uio: UIO): CommitmentCardData {
+  const evidenceQuotes = (uio.sources ?? [])
+    .map((source) => source.quotedText)
+    .filter((value): value is string => Boolean(value));
+  const debtor = uio.debtor ?? uio.owner ?? uio.createdBy;
+  const creditor = uio.creditor;
+
   return {
     id: uio.id,
     title: uio.canonicalTitle ?? uio.title,
@@ -60,22 +67,27 @@ function mapCommitment(uio: UIO): CommitmentCardData {
     direction:
       (uio.commitmentDetails?.direction as "owed_by_me" | "owed_to_me") ??
       "owed_by_me",
-    dueDate: uio.dueDate ? new Date(uio.dueDate) : null,
+    dueDate: resolveDueDate({
+      explicitDueDate: uio.dueDate,
+      title: uio.userCorrectedTitle ?? uio.canonicalTitle,
+      description: uio.canonicalDescription,
+      evidenceQuotes,
+    }),
     confidence: uio.confidence,
     isUserVerified: uio.isUserVerified,
     extractedAt: uio.extractedAt ? new Date(uio.extractedAt) : null,
-    debtor: uio.debtor
+    debtor: debtor
       ? {
-          id: uio.debtor.id,
-          displayName: uio.debtor.displayName,
-          primaryEmail: uio.debtor.primaryEmail,
+          id: debtor.id,
+          displayName: debtor.displayName,
+          primaryEmail: debtor.primaryEmail,
         }
       : null,
-    creditor: uio.creditor
+    creditor: creditor
       ? {
-          id: uio.creditor.id,
-          displayName: uio.creditor.displayName,
-          primaryEmail: uio.creditor.primaryEmail,
+          id: creditor.id,
+          displayName: creditor.displayName,
+          primaryEmail: creditor.primaryEmail,
         }
       : null,
   };

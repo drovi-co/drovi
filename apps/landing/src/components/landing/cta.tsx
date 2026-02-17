@@ -71,7 +71,7 @@ export function CTA({ onRequestAccess }: CTAProps) {
               onClick={onRequestAccess}
               type="button"
             >
-              <span>Request Access</span>
+              <span>Request private briefing</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 md:h-5 md:w-5" />
               {/* Inset shadow overlay */}
               <div className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0px_4px_8px_0px_rgba(255,255,255,0.6),inset_4px_-14px_8px_0px_rgba(255,255,255,0.2)]" />
@@ -80,7 +80,7 @@ export function CTA({ onRequestAccess }: CTAProps) {
 
           {/* Trust text */}
           <p className="mt-6 text-[12px] text-foreground/40 md:mt-8 md:text-[14px]">
-            7-day trial • No credit card required • Private beta
+            Private briefing • Security review • Structured onboarding
           </p>
         </motion.div>
       </div>

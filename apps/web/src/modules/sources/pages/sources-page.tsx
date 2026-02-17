@@ -2,7 +2,14 @@
 // SOURCES PAGE - Multi-Source Connection Management
 // =============================================================================
 
-import { filterAllowedConnectors } from "@memorystack/mod-sources";
+import {
+  countActiveSourceSyncs,
+  filterAllowedConnectors,
+  groupSourceConnections,
+  mergeSourceSyncEvent,
+  type SourceSyncEvent,
+  useSourceLiveSyncState,
+} from "@memorystack/mod-sources";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,13 +77,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
-import {
-  connectionsAPI,
-  type OrgConnection,
-  orgAPI,
-  orgSSE,
-  type SyncEvent,
-} from "@/lib/api";
+import { connectionsAPI, type OrgConnection, orgAPI, orgSSE } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import {
   CONNECTOR_CATALOG,
@@ -84,7 +85,7 @@ import {
   type ConnectorMeta,
 } from "@/lib/connectors";
 import { cn } from "@/lib/utils";
-import { getWebAllowedConnectorIds } from "@/modules/runtime";
+import { useWebRuntime } from "@/modules/runtime-provider";
 
 // =============================================================================
 // CONNECTOR DEFINITIONS
@@ -102,6 +103,7 @@ type ConnectorCard = ConnectorMeta & {
 
 export function SourcesPage() {
   const { user, isLoading: authLoading } = useAuthStore();
+  const { allowedConnectorIds } = useWebRuntime();
   const t = useT();
   const queryClient = useQueryClient();
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
@@ -115,7 +117,7 @@ export function SourcesPage() {
   const [backfillEnd, setBackfillEnd] = useState("");
   const [backfillWindowDays, setBackfillWindowDays] = useState(7);
   const [backfillThrottleSeconds, setBackfillThrottleSeconds] = useState(1);
-  const [liveSync, setLiveSync] = useState<Record<string, SyncEvent>>({});
+  const { liveSync, applyEvent: applyLiveSyncEvent } = useSourceLiveSyncState();
   const orgConnectionsQueryKey = useMemo(
     () => ["org-connections", user?.org_id ?? "anonymous"],
     [user?.org_id]
@@ -205,7 +207,6 @@ export function SourcesPage() {
       }));
 
     const merged = [...catalog, ...extras];
-    const allowedConnectorIds = getWebAllowedConnectorIds();
     if (!allowedConnectorIds || allowedConnectorIds.length === 0) {
       return merged;
     }
@@ -222,7 +223,7 @@ export function SourcesPage() {
     );
 
     return merged.filter((item) => allowed.has(item.id));
-  }, [availableById]);
+  }, [allowedConnectorIds, availableById]);
 
   const connectorMap = useMemo(
     () => new Map(connectors.map((connector) => [connector.id, connector])),
@@ -269,30 +270,10 @@ export function SourcesPage() {
     if (!user) return;
 
     const unsubscribe = orgSSE.subscribeSyncEvents(
-      (event: SyncEvent) => {
-        setLiveSync((prev) => ({
-          ...prev,
-          [event.connection_id]: {
-            ...prev[event.connection_id],
-            ...event,
-          },
-        }));
+      (event) => {
+        applyLiveSyncEvent(event);
         patchConnectionInCache(event.connection_id, (current) => ({
-          status: event.status ?? current.status,
-          progress:
-            typeof event.progress === "number"
-              ? event.progress
-              : (current.progress ?? null),
-          messages_synced:
-            typeof event.records_synced === "number"
-              ? event.records_synced
-              : current.messages_synced,
-          last_error: event.error ?? current.last_error ?? null,
-          live_status: event.event_type,
-          last_sync:
-            event.event_type === "completed"
-              ? (event.timestamp ?? current.last_sync)
-              : current.last_sync,
+          ...mergeSourceSyncEvent(current, event),
         }));
 
         if (event.event_type === "completed") {
@@ -310,7 +291,7 @@ export function SourcesPage() {
     );
 
     return unsubscribe;
-  }, [patchConnectionInCache, t, user]);
+  }, [applyLiveSyncEvent, patchConnectionInCache, t, user]);
 
   // Fetch connected sources
   const {
@@ -518,26 +499,13 @@ export function SourcesPage() {
   }
 
   const connectionsList = connections || [];
-  const activeSyncCount = connectionsList.filter((connection) => {
-    const live = liveSync[connection.id];
-    return (
-      live?.event_type === "started" ||
-      live?.event_type === "progress" ||
-      connection.status === "syncing" ||
-      connection.progress !== null
-    );
-  }).length;
-
-  // Group connections by category
-  const emailConnections = connectionsList.filter((c) =>
-    ["gmail", "outlook"].includes(c.provider)
-  );
-  const messagingConnections = connectionsList.filter((c) =>
-    ["slack", "teams", "whatsapp"].includes(c.provider)
-  );
-  const calendarConnections = connectionsList.filter((c) =>
-    ["google_calendar"].includes(c.provider)
-  );
+  const activeSyncCount = countActiveSourceSyncs(connectionsList, liveSync);
+  const groupedConnections = groupSourceConnections(connectionsList);
+  const {
+    email: emailConnections,
+    messaging: messagingConnections,
+    calendar: calendarConnections,
+  } = groupedConnections;
 
   return (
     <div className="space-y-6">
@@ -1073,7 +1041,7 @@ function SourceCard({
 }: {
   connection: OrgConnection;
   connector?: ConnectorCard;
-  liveState?: SyncEvent;
+  liveState?: SourceSyncEvent;
   onSync: () => void;
   onBackfill: () => void;
   onDisconnect: () => void;
@@ -1101,27 +1069,27 @@ function SourceCard({
   > = {
     connected: {
       icon: <CheckCircle className="h-4 w-4" />,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success",
       label: t("pages.dashboard.sources.status.connected"),
     },
     active: {
       icon: <CheckCircle className="h-4 w-4" />,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success",
       label: t("pages.dashboard.sources.status.active"),
     },
     syncing: {
       icon: <RefreshCw className="h-4 w-4 animate-spin" />,
-      color: "text-blue-600 dark:text-blue-400",
+      color: "text-ring",
       label: t("pages.dashboard.sources.status.syncing"),
     },
     pending_auth: {
       icon: <AlertCircle className="h-4 w-4" />,
-      color: "text-amber-600 dark:text-amber-400",
+      color: "text-warning",
       label: t("pages.dashboard.sources.status.pendingAuth"),
     },
     error: {
       icon: <AlertCircle className="h-4 w-4" />,
-      color: "text-red-600 dark:text-red-400",
+      color: "text-destructive",
       label: t("pages.dashboard.sources.status.error"),
     },
   };
@@ -1237,8 +1205,8 @@ function SourceCard({
                 className={cn(
                   "h-5 px-2 text-[10px]",
                   isPrivate
-                    ? "border-slate-500/30 bg-slate-500/10 text-slate-600"
-                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                    ? "border-muted-foreground/30 bg-muted/30 text-muted-foreground"
+                    : "border-success/35 bg-success/10 text-success"
                 )}
                 variant="outline"
               >
@@ -1339,11 +1307,11 @@ function SourceCard({
                   className={cn(
                     "text-xs",
                     liveIngestionStatus === "running" &&
-                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+                      "border-success/35 bg-success/10 text-success",
                     liveIngestionStatus === "paused" &&
-                      "border-slate-500/30 bg-slate-500/10 text-slate-600",
+                      "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
                     liveIngestionStatus === "error" &&
-                      "border-red-500/30 bg-red-500/10 text-red-600"
+                      "border-destructive/35 bg-destructive/10 text-destructive"
                   )}
                 >
                   {t("pages.dashboard.sources.badges.live", {
@@ -1356,14 +1324,14 @@ function SourceCard({
                   className={cn(
                     "text-xs",
                     backfillStatus === "running" &&
-                      "border-blue-500/30 bg-blue-500/10 text-blue-600",
+                      "border-ring/40 bg-ring/10 text-ring",
                     backfillStatus === "done" &&
-                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+                      "border-success/35 bg-success/10 text-success",
                     (backfillStatus === "not_started" ||
                       backfillStatus === "paused") &&
-                      "border-slate-500/30 bg-slate-500/10 text-slate-600",
+                      "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
                     backfillStatus === "error" &&
-                      "border-red-500/30 bg-red-500/10 text-red-600"
+                      "border-destructive/35 bg-destructive/10 text-destructive"
                   )}
                 >
                   {t("pages.dashboard.sources.badges.backfill", {

@@ -17,11 +17,13 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
+  id?: string;
   title: string;
   url: string;
   icon?: LucideIcon;
   isActive?: boolean;
   items?: {
+    id?: string;
     title: string;
     url: string;
   }[];
@@ -52,7 +54,9 @@ export function NavMain({ items, label = "Platform" }: NavMainProps) {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupLabel className="old-money-kicker px-2 py-1 text-[10px]">
+        {label}
+      </SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           const hasChildren = Boolean(item.items?.length);
@@ -64,11 +68,15 @@ export function NavMain({ items, label = "Platform" }: NavMainProps) {
                 asChild
                 className="group/collapsible"
                 defaultOpen={isActive}
-                key={item.title}
+                key={item.id ?? item.title}
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={isActive} tooltip={item.title}>
+                    <SidebarMenuButton
+                      className="rounded-md border border-transparent data-[active=true]:border-sidebar-ring/40 data-[active=true]:bg-sidebar-primary/20 data-[active=true]:text-foreground hover:border-sidebar-border/60"
+                      isActive={isActive}
+                      tooltip={item.title}
+                    >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -79,7 +87,7 @@ export function NavMain({ items, label = "Platform" }: NavMainProps) {
                       {item.items.map((subItem) => {
                         const isSubActive = location.pathname === subItem.url;
                         return (
-                          <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubItem key={subItem.id ?? subItem.title}>
                             <SidebarMenuSubButton
                               asChild
                               isActive={isSubActive}
@@ -99,11 +107,12 @@ export function NavMain({ items, label = "Platform" }: NavMainProps) {
           }
 
           return (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.id ?? item.title}>
               <SidebarMenuButton
                 asChild
                 isActive={isActive}
                 tooltip={item.title}
+                className="rounded-md border border-transparent data-[active=true]:border-sidebar-ring/40 data-[active=true]:bg-sidebar-primary/20 data-[active=true]:text-foreground hover:border-sidebar-border/60"
               >
                 <Link to={item.url}>
                   {item.icon && <item.icon />}

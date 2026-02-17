@@ -70,7 +70,9 @@ export type AnalyticsEvent =
   | "inbox_bulk_action"
   // Dashboards
   | "dashboard_viewed"
-  | "widget_interacted";
+  | "widget_interacted"
+  // UX observability
+  | "route_performance_sampled";
 
 /**
  * Properties for analytics events.
@@ -108,6 +110,10 @@ export interface AnalyticsEventProperties {
   // Dashboard properties
   dashboardName?: string;
   widgetName?: string;
+  routeFrom?: string;
+  routeTo?: string;
+  routeTransitionMs?: number;
+  navigationKind?: "initial_load" | "route_change";
 
   // Settings properties
   settingName?: string;

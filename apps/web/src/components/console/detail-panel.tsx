@@ -174,20 +174,20 @@ function AttributeRow({
 // =============================================================================
 
 function TypeIndicator({ type }: { type: string }) {
-  // Vercel-style muted colors
+  // Institutional register colors
   const colors: Record<string, string> = {
-    commitment: "bg-[#666666]",
-    decision: "bg-[#0070f3]",
-    task: "bg-[#171717] dark:bg-[#ededed]",
-    risk: "bg-[#dc2626]",
-    claim: "bg-[#059669]",
-    brief: "bg-[#a3a3a3]",
+    commitment: "bg-ring",
+    decision: "bg-primary",
+    task: "bg-foreground",
+    risk: "bg-destructive",
+    claim: "bg-success",
+    brief: "bg-muted-foreground",
   };
 
   return (
     <div className="flex items-center gap-2">
       <div
-        className={cn("size-2 rounded-full", colors[type] ?? "bg-[#a3a3a3]")}
+        className={cn("size-2 rounded-full", colors[type] ?? "bg-muted-foreground")}
       />
       <span className="font-medium text-xs uppercase tracking-wider">
         {type}
@@ -1003,10 +1003,10 @@ export function ConsoleDetailPanel({
                   )}
                 </CollapsibleSection>
 
-                {/* AI Confidence Breakdown */}
+                {/* Evidence Confidence Breakdown */}
                 <CollapsibleSection
                   defaultOpen={false}
-                  title="AI Confidence Breakdown"
+                  title="Evidence Confidence Breakdown"
                 >
                   <div className="space-y-3">
                     {item.confidence !== null ? (

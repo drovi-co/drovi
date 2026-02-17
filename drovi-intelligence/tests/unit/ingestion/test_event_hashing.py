@@ -1,3 +1,5 @@
+import pytest
+
 from src.ingestion.event_types import normalize_event_type, UnifiedEventType
 from src.ingestion.unified_event import build_event_hash, build_source_fingerprint
 
@@ -17,3 +19,8 @@ def test_build_event_hash_stable():
     hash_c = build_event_hash(None, {"a": 1, "b": 2}, fingerprint)
     hash_d = build_event_hash(None, {"b": 2, "a": 1}, fingerprint)
     assert hash_c == hash_d
+
+
+def test_build_event_hash_requires_source_fingerprint():
+    with pytest.raises(ValueError, match="source_fingerprint is required"):
+        build_event_hash("hello", None, "")

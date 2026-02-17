@@ -116,8 +116,8 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
           >
             {/* Main card */}
             <div
-              className={`relative flex min-w-[160px] max-w-[200px] flex-col gap-2 rounded-lg border-2 bg-card p-2.5 shadow-md transition-all ${isDone ? "border-emerald-400/30" : "border-emerald-500/30"}
-                ${selected ? "border-emerald-500 ring-4 ring-emerald-500/20" : ""}group-hover:shadow-lg group-hover:border-emerald-400`}
+              className={`relative flex min-w-[160px] max-w-[200px] flex-col gap-2 rounded-lg border-2 bg-card p-2.5 shadow-card transition-all ${isDone ? "border-emerald-400/30" : "border-emerald-500/30"}
+                ${selected ? "border-emerald-500 ring-2 ring-emerald-500/20" : ""}group-hover:border-emerald-400`}
             >
               {/* Priority stripe */}
               <div

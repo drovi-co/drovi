@@ -2,7 +2,7 @@
 // CONFIDENCE BADGE
 // =============================================================================
 //
-// A visual indicator of AI confidence that can be added to any intelligence card.
+// A visual indicator of evidence confidence that can be added to any intelligence card.
 // Shows at-a-glance confidence with optional expandable explanation.
 //
 
@@ -175,7 +175,7 @@ export function ConfidenceBadge({
           {/* Header */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-sm">AI Confidence</span>
+              <span className="font-medium text-sm">Evidence Confidence</span>
               <span
                 className={cn(
                   "font-semibold text-sm",

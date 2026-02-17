@@ -63,13 +63,13 @@ export function Hero({ onRequestAccess, onWatchDemo }: HeroProps) {
               See It in Action
             </button>
 
-            {/* Request Access Button */}
+            {/* Request private briefing button */}
             <button
               className="group relative flex w-full items-center justify-center gap-[10px] rounded-[80px] bg-white px-6 py-4 font-medium text-[16px] text-black leading-[1.3] tracking-[-0.72px] transition-colors hover:bg-gray-50 sm:w-auto sm:px-[30px] sm:py-[20px] sm:text-[18px]"
               onClick={onRequestAccess}
               type="button"
             >
-              <span>Request Access</span>
+              <span>Request private briefing</span>
               <div className="flex h-[20px] w-[20px] items-center justify-center">
                 <div className="rotate-[-45deg]">
                   <Image

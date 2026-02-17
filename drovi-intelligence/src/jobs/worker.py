@@ -212,6 +212,8 @@ class JobsWorker:
             return await self._run_connector_sync(job)
         if job.job_type == "connector.backfill_plan":
             return await self._run_connector_backfill_plan(job)
+        if job.job_type == "connectors.health_monitor":
+            return await self._run_connectors_health_monitor(job)
         if job.job_type == "system.noop":
             # Internal diagnostic job used for integration smoke tests and ops verification.
             return {"ok": True}
@@ -221,12 +223,18 @@ class JobsWorker:
             return await self._run_candidates_process(job)
         if job.job_type == "reports.weekly":
             return await self._run_reports_weekly(job)
+        if job.job_type == "reports.weekly_operations":
+            return await self._run_reports_weekly_operations(job)
         if job.job_type == "reports.daily":
             return await self._run_reports_daily(job)
+        if job.job_type == "trust.integrity_monthly":
+            return await self._run_monthly_integrity_reports(job)
         if job.job_type == "memory.decay":
             return await self._run_memory_decay(job)
         if job.job_type == "evidence.retention":
             return await self._run_evidence_retention(job)
+        if job.job_type == "custody.daily_root":
+            return await self._run_custody_daily_root(job)
         if job.job_type == "documents.process":
             return await self._run_documents_process(job)
         if job.job_type == "indexes.outbox.drain":
@@ -470,6 +478,12 @@ class JobsWorker:
         )
         return {"window_job_ids": window_job_ids}
 
+    async def _run_connectors_health_monitor(self, job: ClaimedJob) -> dict:
+        from src.connectors.health_monitor import run_connectors_health_monitor
+
+        payload = job.payload or {}
+        return await run_connectors_health_monitor(payload)
+
     async def _run_webhook_outbox_flush(self, job: ClaimedJob) -> dict:
         from src.connectors.webhooks.outbox import flush_webhook_outbox
 
@@ -515,6 +529,41 @@ class JobsWorker:
         )
         return {"pilot_only": pilot_only, "brief_days": brief_days, **(result or {})}
 
+    async def _run_reports_weekly_operations(self, job: ClaimedJob) -> dict:
+        from src.jobs.operational_reports import run_weekly_operations_briefs
+
+        payload = job.payload or {}
+        pilot_only = bool(payload.get("pilot_only", True))
+        brief_days = int(payload.get("brief_days") or 7)
+        blindspot_days = int(payload.get("blindspot_days") or 30)
+        result = await run_weekly_operations_briefs(
+            pilot_only=pilot_only,
+            brief_days=brief_days,
+            blindspot_days=blindspot_days,
+        )
+        return {
+            "pilot_only": pilot_only,
+            "brief_days": brief_days,
+            "blindspot_days": blindspot_days,
+            **(result or {}),
+        }
+
+    async def _run_monthly_integrity_reports(self, job: ClaimedJob) -> dict:
+        from src.jobs.operational_reports import run_monthly_integrity_reports
+
+        payload = job.payload or {}
+        pilot_only = bool(payload.get("pilot_only", True))
+        month = str(payload.get("month")).strip() if payload.get("month") else None
+        result = await run_monthly_integrity_reports(
+            pilot_only=pilot_only,
+            month=month,
+        )
+        return {
+            "pilot_only": pilot_only,
+            "month": month,
+            **(result or {}),
+        }
+
     async def _run_memory_decay(self, job: ClaimedJob) -> dict:
         from src.jobs.decay import get_decay_job
 
@@ -537,6 +586,41 @@ class JobsWorker:
             dry_run=dry_run,
             limit=limit,
         )
+        return result or {}
+
+    async def _run_custody_daily_root(self, job: ClaimedJob) -> dict:
+        from datetime import date
+
+        from sqlalchemy import text
+
+        from src.db.client import get_db_session
+        from src.jobs.custody_integrity import get_custody_integrity_job
+
+        payload = job.payload or {}
+        organization_id = str(payload.get("organization_id") or job.organization_id or "")
+        if not organization_id:
+            raise ValueError("custody.daily_root missing organization_id")
+
+        root_date_raw = payload.get("root_date")
+        root_date = date.fromisoformat(str(root_date_raw)) if root_date_raw else None
+
+        custody_job = get_custody_integrity_job()
+        if organization_id == "internal":
+            async with get_db_session() as session:
+                rows = await session.execute(
+                    text("SELECT id FROM organization WHERE status = 'active'")
+                )
+                org_ids = [str(row.id) for row in rows.fetchall() if row.id]
+            results: list[dict] = []
+            for org_id in org_ids:
+                result = await custody_job.run(
+                    organization_id=org_id,
+                    root_date=root_date,
+                )
+                results.append(result or {})
+            return {"organization_count": len(results), "results": results}
+
+        result = await custody_job.run(organization_id=organization_id, root_date=root_date)
         return result or {}
 
     async def _run_documents_process(self, job: ClaimedJob) -> dict:

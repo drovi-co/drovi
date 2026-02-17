@@ -1,0 +1,45 @@
+project     = "drovi"
+environment = "staging"
+aws_region  = "us-east-1"
+
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+vpc_cidr           = "10.42.0.0/16"
+
+# Lock down before production.
+eks_public_access_cidrs = ["0.0.0.0/0"]
+
+kubernetes_version     = "1.30"
+eks_node_instance_types = ["m7i.large"]
+eks_node_min_size       = 3
+eks_node_desired_size   = 4
+eks_node_max_size       = 10
+
+db_instance_class         = "db.t4g.large"
+db_allocated_storage      = 100
+db_max_allocated_storage  = 500
+db_backup_retention_days  = 7
+db_multi_az               = true
+db_skip_final_snapshot    = false
+# db_master_password      = "set-your-own-or-let-terraform-generate"
+
+redis_node_type                 = "cache.m7g.large"
+redis_engine_version            = "7.1"
+redis_replicas_per_node_group   = 1
+# redis_auth_token              = "set-your-own-or-let-terraform-generate"
+
+msk_kafka_version         = "3.6.0"
+msk_broker_count          = 3
+msk_broker_instance_type  = "kafka.m7g.large"
+msk_volume_size_gb        = 200
+msk_scram_username        = "drovi"
+# msk_scram_password      = "set-your-own-or-let-terraform-generate"
+
+evidence_bucket_name            = ""
+s3_object_lock_enabled          = true
+evidence_default_retention_days = 365
+web_cors_origins = [
+  "https://app.drovi.co",
+  "https://admin.drovi.co",
+]
+
+ecr_lifecycle_max_images = 50

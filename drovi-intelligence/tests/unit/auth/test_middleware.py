@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from src.auth.context import AuthContext, AuthMetadata, AuthType
 from src.auth.internal_service_jwt import create_internal_jwt
+from src.auth.pilot_accounts import create_jwt
 from src.auth.middleware import (
     get_api_key_context,
     get_optional_api_key_context,
@@ -21,6 +22,7 @@ from src.auth.middleware import (
     API_KEY_HEADER,
 )
 from src.auth.scopes import Scope
+from src.security.org_policy import OrgSecurityPolicy
 
 pytestmark = pytest.mark.unit
 
@@ -260,6 +262,77 @@ class TestGetAPIKeyContext:
             assert ctx.organization_id == "org_456"
             assert ctx.scopes == ["read", "write"]
             assert ctx.is_internal is False
+
+    @pytest.mark.asyncio
+    async def test_session_password_auth_blocked_by_sso_policy(self, mock_request):
+        """Password sessions should be denied when org enforces SSO without fallback."""
+        session_token = create_jwt(
+            user_id="user_1",
+            org_id="org_123",
+            role="pilot_member",
+            email="member@example.com",
+            auth_method="password",
+        )
+        policy = OrgSecurityPolicy(
+            organization_id="org_123",
+            sso_enforced=True,
+            password_fallback_enabled=False,
+        )
+
+        with patch("src.auth.middleware._resolve_membership_role", new_callable=AsyncMock, return_value="pilot_member"), patch(
+            "src.auth.middleware.get_org_security_policy",
+            new_callable=AsyncMock,
+            return_value=policy,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_api_key_context(
+                    mock_request,
+                    api_key=None,
+                    session=session_token,
+                    authorization=None,
+                )
+
+        assert exc_info.value.status_code == 401
+        assert "SSO" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_api_key_denied_by_ip_allowlist(self, mock_request):
+        """Requests outside org allowlist must be blocked."""
+        from src.auth.api_key import APIKeyInfo
+
+        mock_request.headers = {"X-Forwarded-For": "198.51.100.10"}
+        policy = OrgSecurityPolicy(
+            organization_id="org_456",
+            ip_allowlist=("10.0.0.0/8",),
+        )
+
+        with patch(
+            "src.auth.middleware.validate_api_key",
+            new_callable=AsyncMock,
+            return_value=APIKeyInfo(
+                id="key_123",
+                organization_id="org_456",
+                scopes=["read"],
+                rate_limit_per_minute=100,
+                expires_at=None,
+                revoked_at=None,
+                name="Test Key",
+            ),
+        ), patch(
+            "src.auth.middleware.get_org_security_policy",
+            new_callable=AsyncMock,
+            return_value=policy,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_api_key_context(
+                    mock_request,
+                    api_key="sk_live_valid",
+                    session=None,
+                    authorization=None,
+                )
+
+        assert exc_info.value.status_code == 403
+        assert "allowlist" in str(exc_info.value.detail).lower()
 
 
 # =============================================================================

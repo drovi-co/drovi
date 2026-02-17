@@ -45,7 +45,7 @@ function statusClass(status: DriveUploadEntry["status"]): string {
     case "failed":
       return "text-destructive";
     case "done":
-      return "text-emerald-600";
+      return "text-success";
     case "processing":
     case "uploading":
     case "finalizing":
@@ -72,9 +72,12 @@ export function DriveUploadManager({
   }
 
   return (
-    <Card className="border-dashed bg-muted/30">
+    <Card className="border-dashed border-border/70 bg-card/70" variant="dossier">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">{t("drive.uploads.title")}</CardTitle>
+        <p className="old-money-kicker text-[9px]">Transfer desk</p>
+        <CardTitle className="font-serif text-base">
+          {t("drive.uploads.title")}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {uploads.map((u) => {
@@ -86,7 +89,7 @@ export function DriveUploadManager({
           const statusText = t(`drive.uploads.status.${u.status}`);
 
           return (
-            <div className="rounded-lg border bg-card px-3 py-3" key={u.id}>
+            <div className="rounded-lg border border-border/70 bg-card/75 px-3 py-3" key={u.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">

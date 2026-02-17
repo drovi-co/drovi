@@ -24,6 +24,9 @@ def build_event_hash(
     source_fingerprint: str,
 ) -> str:
     """Hash event payload with a source fingerprint for dedupe."""
+    if not source_fingerprint or not source_fingerprint.strip():
+        raise ValueError("source_fingerprint is required for deterministic hashing")
+
     if content_text:
         content = content_text
     elif content_json is not None:
@@ -41,6 +44,11 @@ def build_uem_metadata(
     received_at: datetime | None,
 ) -> dict[str, Any]:
     """Attach standard metadata fields to UEM records."""
+    if not content_hash or not content_hash.strip():
+        raise ValueError("content_hash is required in UEM metadata")
+    if not source_fingerprint or not source_fingerprint.strip():
+        raise ValueError("source_fingerprint is required in UEM metadata")
+
     metadata = dict(base_metadata or {})
     metadata.setdefault("source_fingerprint", source_fingerprint)
     metadata.setdefault("content_hash", content_hash)

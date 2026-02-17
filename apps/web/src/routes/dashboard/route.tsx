@@ -1,12 +1,14 @@
 import { requireAuthenticated } from "@memorystack/mod-auth";
 import {
   createFileRoute,
+  Navigate,
   Outlet,
   redirect,
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
+import { useMemo } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import type {
@@ -22,6 +24,8 @@ import {
   inferOnboardingComplete,
   setStoredOnboardingState,
 } from "@/lib/onboarding-state";
+import { resolveWebModules } from "@/modules/runtime";
+import { useWebRuntime } from "@/modules/runtime-provider";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -278,7 +282,29 @@ function DashboardLayout() {
   const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
+  const { modules } = useWebRuntime();
   const breadcrumbs = getBreadcrumbs(location.pathname, t);
+
+  const moduleRoutePolicy = useMemo(() => {
+    const known = new Set(
+      resolveWebModules()
+        .flatMap((module) => module.routes.map((route) => route.path))
+        .filter((path) => path.startsWith("/dashboard/") && !path.includes("$"))
+    );
+    const allowed = new Set(
+      modules
+        .flatMap((module) => module.routes.map((route) => route.path))
+        .filter((path) => path.startsWith("/dashboard/") && !path.includes("$"))
+    );
+    return { known, allowed };
+  }, [modules]);
+
+  if (
+    moduleRoutePolicy.known.has(location.pathname) &&
+    !moduleRoutePolicy.allowed.has(location.pathname)
+  ) {
+    return <Navigate replace to="/dashboard" />;
+  }
 
   // Get header configuration based on current route
   const headerConfig = getHeaderConfig(location.pathname, {

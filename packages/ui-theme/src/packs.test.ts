@@ -17,11 +17,20 @@ describe("theme packs", () => {
     expect(Object.keys(themePacks)).toEqual(
       expect.arrayContaining([
         "default",
+        "institutional",
         "legal",
         "accounting",
         "gov",
         "construction",
       ])
     );
+  });
+
+  it("defines institutional typography tokens", () => {
+    const pack = getThemePack("institutional");
+    expect(pack.light["--font-sans-token"]).toBeTypeOf("string");
+    expect(pack.light["--font-serif-token"]).toBeTypeOf("string");
+    expect(pack.light["--type-scale-h1"]).toBe("2.125rem");
+    expect(pack.dark["--type-scale-body"]).toBe("0.9375rem");
   });
 });

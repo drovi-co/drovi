@@ -41,7 +41,7 @@ const buttonVariants = cva(
         default: [
           "bg-primary text-primary-foreground",
           "border border-primary",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "shadow-button-2",
           "hover:bg-primary-hover",
         ].join(" "),
 
@@ -49,7 +49,7 @@ const buttonVariants = cva(
         secondary: [
           "bg-secondary text-secondary-foreground",
           "border border-border",
-          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
+          "shadow-button",
           "hover:border-border-hover hover:bg-secondary-hover",
         ].join(" "),
 
@@ -57,7 +57,7 @@ const buttonVariants = cva(
         tertiary: [
           "bg-transparent text-muted-foreground",
           "border border-border",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "shadow-button",
           "hover:border-border-hover hover:text-foreground",
         ].join(" "),
 
@@ -65,7 +65,7 @@ const buttonVariants = cva(
         destructive: [
           "bg-destructive text-destructive-foreground",
           "border border-destructive",
-          "shadow-[0px_1px_2px_rgba(0,0,0,0.09)]",
+          "shadow-button",
           "hover:bg-destructive-hover",
           "focus-visible:ring-destructive/50",
         ].join(" "),
@@ -93,7 +93,7 @@ const buttonVariants = cva(
         // Banner - Special style for promotional buttons
         banner: [
           "bg-transparent text-primary",
-          "shadow-[0px_1px_1px_rgba(0,0,0,0.15)]",
+          "shadow-button",
           "hover:text-primary-hover",
         ].join(" "),
       },

@@ -118,6 +118,37 @@ class WeeklyReportsCronWorkflow:
         return {"job_id": str(job_id), "idempotency_key": idempotency_key}
 
 
+@workflow.defn(name="cron.operations_weekly_brief")
+class WeeklyOperationsBriefCronWorkflow:
+    @workflow.run
+    async def run(self, req: dict[str, Any]) -> dict[str, Any]:
+        pilot_only = bool(req.get("pilot_only", True))
+        brief_days = int(req.get("brief_days") or 7)
+        blindspot_days = int(req.get("blindspot_days") or 30)
+
+        year, week, _ = workflow.now().isocalendar()
+        idempotency_key = f"operations_weekly_brief:{year}-W{week}"
+
+        job_id = await workflow.execute_activity(
+            "jobs.enqueue",
+            {
+                "organization_id": "internal",
+                "job_type": "reports.weekly_operations",
+                "payload": {
+                    "pilot_only": pilot_only,
+                    "brief_days": brief_days,
+                    "blindspot_days": blindspot_days,
+                },
+                "priority": 0,
+                "max_attempts": 1,
+                "idempotency_key": idempotency_key,
+                "resource_key": "system:operations_weekly_brief",
+            },
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"job_id": str(job_id), "idempotency_key": idempotency_key}
+
+
 @workflow.defn(name="cron.reports_daily")
 class DailyReportsCronWorkflow:
     @workflow.run
@@ -141,6 +172,34 @@ class DailyReportsCronWorkflow:
                 "max_attempts": 1,
                 "idempotency_key": idempotency_key,
                 "resource_key": "system:reports_daily",
+            },
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"job_id": str(job_id), "idempotency_key": idempotency_key}
+
+
+@workflow.defn(name="cron.integrity_monthly_report")
+class MonthlyIntegrityReportCronWorkflow:
+    @workflow.run
+    async def run(self, req: dict[str, Any]) -> dict[str, Any]:
+        pilot_only = bool(req.get("pilot_only", True))
+
+        now = workflow.now()
+        idempotency_key = f"integrity_monthly_report:{now.year}-{now.month:02d}"
+
+        job_id = await workflow.execute_activity(
+            "jobs.enqueue",
+            {
+                "organization_id": "internal",
+                "job_type": "trust.integrity_monthly",
+                "payload": {
+                    "pilot_only": pilot_only,
+                    "month": f"{now.year:04d}-{now.month:02d}",
+                },
+                "priority": 0,
+                "max_attempts": 1,
+                "idempotency_key": idempotency_key,
+                "resource_key": "system:integrity_monthly_report",
             },
             start_to_close_timeout=timedelta(seconds=10),
         )
@@ -190,6 +249,55 @@ class EvidenceRetentionCronWorkflow:
                 "max_attempts": 1,
                 "idempotency_key": idempotency_key,
                 "resource_key": "system:evidence_retention",
+            },
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"job_id": str(job_id), "idempotency_key": idempotency_key}
+
+
+@workflow.defn(name="cron.custody_daily_root")
+class CustodyDailyRootCronWorkflow:
+    @workflow.run
+    async def run(self, _req: dict[str, Any]) -> dict[str, Any]:
+        day = workflow.now().strftime("%Y-%m-%d")
+        idempotency_key = f"custody_daily_root:{day}"
+
+        job_id = await workflow.execute_activity(
+            "jobs.enqueue",
+            {
+                "organization_id": "internal",
+                "job_type": "custody.daily_root",
+                "payload": {"organization_id": "internal"},
+                "priority": 0,
+                "max_attempts": 1,
+                "idempotency_key": idempotency_key,
+                "resource_key": "system:custody_daily_root",
+            },
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"job_id": str(job_id), "idempotency_key": idempotency_key}
+
+
+@workflow.defn(name="cron.connectors_health_monitor")
+class ConnectorsHealthMonitorCronWorkflow:
+    @workflow.run
+    async def run(self, req: dict[str, Any]) -> dict[str, Any]:
+        interval_minutes = int(req.get("interval_minutes") or 5)
+        interval_minutes = max(1, min(interval_minutes, 60))
+
+        bucket = _minute_bucket() // interval_minutes
+        idempotency_key = f"connectors_health_monitor:{bucket}"
+
+        job_id = await workflow.execute_activity(
+            "jobs.enqueue",
+            {
+                "organization_id": "internal",
+                "job_type": "connectors.health_monitor",
+                "payload": {"organization_id": "internal"},
+                "priority": 0,
+                "max_attempts": 1,
+                "idempotency_key": idempotency_key,
+                "resource_key": "system:connectors_health_monitor",
             },
             start_to_close_timeout=timedelta(seconds=10),
         )

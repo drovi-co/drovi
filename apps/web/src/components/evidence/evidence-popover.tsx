@@ -159,6 +159,7 @@ export function EvidencePopover({
         className="w-96 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
         side={side}
+        variant="evidence"
       >
         {/* Header */}
         <div className="border-border/50 border-b p-4">
@@ -195,7 +196,7 @@ export function EvidencePopover({
           <div className="mb-1.5 flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
               <Sparkles className="h-3 w-3 text-purple-500" />
-              AI Confidence
+              Evidence Confidence
             </span>
             <span className={cn("font-medium text-xs", confidenceColor)}>
               {Math.round(evidence.confidence * 100)}% - {confidenceLabel}

@@ -1,46 +1,23 @@
-// =============================================================================
-// SMART DRIVE
-// =============================================================================
-//
-// Pilot-grade document ingestion + evidence-first viewing.
-//
-// Phase 9/10 surface:
-// - Upload manager (multipart)
-// - Drive browser
-// - Semantic search + "Ask this folder"
-
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@memorystack/ui-core/card";
 import { Input } from "@memorystack/ui-core/input";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@memorystack/ui-core/tabs";
+import { useDriveSelectionState } from "@memorystack/mod-drive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
-  ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  Clock3,
+  FileText,
   FileUp,
   Folder,
+  FolderOpen,
   Loader2,
   Search,
   Sparkles,
-  Tag,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DriveDocumentViewer } from "@/components/drive/document-viewer";
 import { DriveUploadManager } from "@/components/drive/upload-manager";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
@@ -53,160 +30,20 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useDriveUploadsStore } from "@/lib/drive-uploads";
 import { cn } from "@/lib/utils";
-
-function statusBadge(
-  status: string,
-  t: (
-    key: string,
-    params?: Record<string, string | number | boolean | null | undefined>
-  ) => string
-) {
-  const normalized = (status || "").toLowerCase();
-  if (normalized === "processed") {
-    return (
-      <Badge
-        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-        variant="outline"
-      >
-        {t("drive.status.processed")}
-      </Badge>
-    );
-  }
-  if (normalized === "processing") {
-    return (
-      <Badge
-        className="border-amber-500/30 bg-amber-500/10 text-amber-700"
-        variant="outline"
-      >
-        {t("drive.status.processing")}
-      </Badge>
-    );
-  }
-  if (normalized === "uploaded" || normalized === "uploading") {
-    return (
-      <Badge
-        className="border-sky-500/30 bg-sky-500/10 text-sky-700"
-        variant="outline"
-      >
-        {t("drive.status.uploading")}
-      </Badge>
-    );
-  }
-  if (normalized === "failed") {
-    return (
-      <Badge
-        className="border-red-500/30 bg-red-500/10 text-red-600"
-        variant="outline"
-      >
-        {t("drive.status.failed")}
-      </Badge>
-    );
-  }
-  return (
-    <Badge
-      className="border-muted bg-muted/30 text-muted-foreground"
-      variant="outline"
-    >
-      {status || t("drive.status.unknown")}
-    </Badge>
-  );
-}
-
-type FolderNode = {
-  name: string;
-  path: string;
-  count: number;
-  children: FolderNode[];
-};
-
-function normalizeFolderPath(input: string | null | undefined): string {
-  const raw = (input || "/").trim();
-  if (!raw) return "/";
-  const withLeadingSlash = raw.startsWith("/") ? raw : `/${raw}`;
-  if (withLeadingSlash === "/") return "/";
-  const trimmed = withLeadingSlash.replace(/\/+$/g, "");
-  return trimmed || "/";
-}
-
-function matchesFolderPrefix(folderPath: string, prefix: string): boolean {
-  const f = normalizeFolderPath(folderPath);
-  const p = normalizeFolderPath(prefix);
-  if (p === "/") return true;
-  if (f === p) return true;
-  return f.startsWith(`${p}/`);
-}
-
-function parseTagsParam(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, 12);
-}
-
-function encodeTagsParam(tags: string[]): string | undefined {
-  const cleaned = (tags ?? [])
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, 12);
-  if (cleaned.length === 0) return undefined;
-  return cleaned.join(",");
-}
-
-function buildFolderTree(docFolders: string[]): FolderNode {
-  const normalizedDocFolders = docFolders.map((p) => normalizeFolderPath(p));
-  const uniqueFolders = Array.from(new Set(normalizedDocFolders)).sort();
-
-  const counts = new Map<string, number>();
-  for (const folder of normalizedDocFolders) {
-    // Count per folder and ancestors so the tree reflects total docs under each prefix.
-    const parts = folder.split("/").filter(Boolean);
-    let current = "/";
-    counts.set("/", (counts.get("/") ?? 0) + 1);
-    for (const part of parts) {
-      current = current === "/" ? `/${part}` : `${current}/${part}`;
-      counts.set(current, (counts.get(current) ?? 0) + 1);
-    }
-  }
-
-  const root: FolderNode = {
-    name: "/",
-    path: "/",
-    count: counts.get("/") ?? 0,
-    children: [],
-  };
-  const nodes = new Map<string, FolderNode>([["/", root]]);
-
-  for (const folder of uniqueFolders) {
-    const parts = folder.split("/").filter(Boolean);
-    let parent = root;
-    let current = "/";
-    for (const part of parts) {
-      current = current === "/" ? `/${part}` : `${current}/${part}`;
-      let node = nodes.get(current);
-      if (!node) {
-        node = {
-          name: part,
-          path: current,
-          count: counts.get(current) ?? 0,
-          children: [],
-        };
-        nodes.set(current, node);
-        parent.children.push(node);
-      }
-      parent = node;
-    }
-  }
-
-  const sortTree = (node: FolderNode) => {
-    node.children.sort((a, b) => a.name.localeCompare(b.name));
-    for (const child of node.children) sortTree(child);
-  };
-  sortTree(root);
-
-  return root;
-}
+import { DriveReadingSheet } from "../components/drive-reading-sheet";
+import {
+  buildFolderTree,
+  fileDisplayTitle,
+  fileTypeLabel,
+  findFolderNode,
+  folderParent,
+  formatBytes,
+  formatDate,
+  matchesFolderPrefix,
+  normalizeFolderPath,
+  sameFolder,
+  statusBadge,
+} from "./drive-page-helpers";
 
 export function DrivePage() {
   const navigate = useNavigate();
@@ -218,36 +55,32 @@ export function DrivePage() {
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
 
-  const tab = search.tab ?? "browse";
-  const [activeTab, setActiveTab] = useState<typeof tab>(tab);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(
-    search.doc ?? null
-  );
-  const [selectedChunkId, setSelectedChunkId] = useState<string | null>(
-    search.chunk ?? null
-  );
-  const [highlightQuote, setHighlightQuote] = useState<string | null>(
-    search.quote ?? null
-  );
-  const [folderPrefix, setFolderPrefix] = useState<string>(
-    search.folder ?? "/"
-  );
-  const [selectedTags, setSelectedTags] = useState<string[]>(() =>
-    parseTagsParam(search.tags)
-  );
-
-  useEffect(() => {
-    setActiveTab(tab);
-  }, [tab]);
-  useEffect(() => setSelectedDocId(search.doc ?? null), [search.doc]);
-  useEffect(() => setSelectedChunkId(search.chunk ?? null), [search.chunk]);
-  useEffect(() => setHighlightQuote(search.quote ?? null), [search.quote]);
-  useEffect(() => setFolderPrefix(search.folder ?? "/"), [search.folder]);
-  useEffect(() => setSelectedTags(parseTagsParam(search.tags)), [search.tags]);
+  const {
+    folderPrefix,
+    selectedDocId,
+    selectedChunkId,
+    highlightQuote,
+    searchMode,
+    searchText,
+    readerOpen,
+    setSelectedChunkId,
+    setReaderOpen,
+    setSearchMode,
+    setSearchText,
+    selectChunk,
+    selectFolder: applyFolderSelection,
+    openDocument: applyDocumentSelection,
+    closeReader: closeDocumentSelection,
+  } = useDriveSelectionState({
+    folder: search.folder,
+    doc: search.doc,
+    chunk: search.chunk,
+    quote: search.quote,
+  });
+  const [docStreamConnected, setDocStreamConnected] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const enqueueFiles = useDriveUploadsStore((s) => s.enqueueFiles);
-  const [docStreamConnected, setDocStreamConnected] = useState(false);
+  const enqueueFiles = useDriveUploadsStore((state) => state.enqueueFiles);
 
   const applyDocumentEvent = useCallback(
     (payload: unknown) => {
@@ -260,14 +93,13 @@ export function DrivePage() {
       const statusRaw = event.status;
       const status = typeof statusRaw === "string" ? statusRaw : null;
       const pageCountRaw = event.page_count;
-      const pageCount =
-        typeof pageCountRaw === "number" ? pageCountRaw : undefined;
+      const pageCount = typeof pageCountRaw === "number" ? pageCountRaw : undefined;
 
       queryClient.setQueryData<DriveDocument[]>(
         ["drive-documents", organizationId],
         (current) => {
           const rows = current ?? [];
-          const idx = rows.findIndex((d) => d.id === documentId);
+          const idx = rows.findIndex((doc) => doc.id === documentId);
           if (idx < 0) {
             queryClient.invalidateQueries({
               queryKey: ["drive-documents", organizationId],
@@ -301,12 +133,12 @@ export function DrivePage() {
 
     const onOpen = () => setDocStreamConnected(true);
     const onError = () => setDocStreamConnected(false);
-    const onEvent = (evt: MessageEvent<string>) => {
+    const onEvent = (event: MessageEvent<string>) => {
       try {
-        const data = JSON.parse(evt.data) as unknown;
+        const data = JSON.parse(event.data) as unknown;
         applyDocumentEvent(data);
       } catch {
-        // Ignore malformed events and keep stream alive.
+        // Keep stream alive if one event payload is malformed.
       }
     };
 
@@ -334,91 +166,36 @@ export function DrivePage() {
   });
 
   const documents = (docsQuery.data ?? []) as DriveDocument[];
-
   const normalizedFolderPrefix = useMemo(
     () => normalizeFolderPath(folderPrefix),
     [folderPrefix]
   );
 
-  const scopedDocuments = useMemo(() => {
-    const tags = selectedTags.map((t) => t.toLowerCase());
-    const hasTagFilter = tags.length > 0;
-    return documents.filter((d) => {
-      if (!matchesFolderPrefix(d.folderPath, normalizedFolderPrefix))
-        return false;
-      if (!hasTagFilter) return true;
-      const docTags = (d.tags ?? []).map((t) => String(t).toLowerCase());
-      return docTags.some((t) => tags.includes(t));
-    });
-  }, [documents, normalizedFolderPrefix, selectedTags]);
-
-  const folderTree = useMemo(
-    () => buildFolderTree(documents.map((d) => d.folderPath)),
-    [documents]
+  const folderTree = useMemo(() => buildFolderTree(documents), [documents]);
+  const activeFolderNode = useMemo(
+    () => findFolderNode(folderTree, normalizedFolderPrefix),
+    [folderTree, normalizedFolderPrefix]
   );
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const d of documents) {
-      for (const tag of d.tags ?? []) {
-        const cleaned = String(tag || "").trim();
-        if (cleaned) set.add(cleaned);
-      }
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [documents]);
+  const childFolders = activeFolderNode?.children ?? [];
 
-  const [expandedFolders, setExpandedFolders] = useState<
-    Record<string, boolean>
-  >(() => ({ "/": true }));
-
-  const setScopeFolder = (next: string) => {
-    const normalized = normalizeFolderPath(next);
-    setFolderPrefix(normalized);
-    navigate({
-      to: "/dashboard/drive",
-      search: (prev) => ({
-        ...prev,
-        folder: normalized === "/" ? undefined : normalized,
-      }),
-    });
-  };
-
-  const resetScope = () => {
-    setFolderPrefix("/");
-    setSelectedTags([]);
-    navigate({
-      to: "/dashboard/drive",
-      search: (prev) => ({
-        ...prev,
-        folder: undefined,
-        tags: undefined,
-      }),
-    });
-  };
-
-  const toggleScopeTag = (tag: string) => {
-    const cleaned = String(tag || "").trim();
-    if (!cleaned) return;
-    setSelectedTags((prev) => {
-      const exists = prev.some(
-        (t) => t.toLowerCase() === cleaned.toLowerCase()
-      );
-      const next = exists
-        ? prev.filter((t) => t.toLowerCase() !== cleaned.toLowerCase())
-        : [...prev, cleaned];
-      navigate({
-        to: "/dashboard/drive",
-        search: (prevSearch) => ({
-          ...prevSearch,
-          tags: encodeTagsParam(next),
-        }),
+  const filesInFolder = useMemo(() => {
+    return documents
+      .filter((doc) => sameFolder(doc.folderPath, normalizedFolderPrefix))
+      .sort((a, b) => {
+        const aTs = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bTs = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bTs - aTs;
       });
-      return next;
-    });
-  };
+  }, [documents, normalizedFolderPrefix]);
+
+  const documentsInScope = useMemo(() => {
+    return documents.filter((doc) =>
+      matchesFolderPrefix(doc.folderPath, normalizedFolderPrefix)
+    ).length;
+  }, [documents, normalizedFolderPrefix]);
 
   const selectedDoc = useMemo(
-    () => documents.find((d) => d.id === selectedDocId) ?? null,
+    () => documents.find((doc) => doc.id === selectedDocId) ?? null,
     [documents, selectedDocId]
   );
 
@@ -427,9 +204,9 @@ export function DrivePage() {
     queryFn: async () => {
       if (!selectedDocId) return [];
       const raw = await documentsAPI.listChunks({
-        organizationId,
         documentId: selectedDocId,
-        limit: 10_000,
+        organizationId,
+        limit: 200,
       });
       return raw.items;
     },
@@ -438,153 +215,121 @@ export function DrivePage() {
 
   const chunks = (chunksQuery.data ?? []) as DriveDocumentChunk[];
 
-  const docArtifactUrlQuery = useQuery({
-    queryKey: [
-      "drive-doc-artifact-url",
-      organizationId,
-      selectedDoc?.evidenceArtifactId,
-    ],
-    queryFn: () =>
-      documentsAPI.requestEvidenceArtifactUrl({
-        organizationId,
-        artifactId: selectedDoc?.evidenceArtifactId as string,
-      }),
-    enabled: false,
-    retry: 1,
-  });
-
-  const openOriginalDocument = async () => {
-    if (!selectedDoc?.evidenceArtifactId) {
-      return;
-    }
-    try {
-      const result = await docArtifactUrlQuery.refetch();
-      const url = result.data?.presigned_url;
-      if (!url) {
-        toast.error(t("common.messages.unknownError"));
-        return;
-      }
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error(t("common.messages.unknownError"));
-    }
-  };
+  useEffect(() => {
+    if (!selectedDocId) return;
+    if (selectedChunkId) return;
+    if (!chunks.length) return;
+    setSelectedChunkId(chunks[0].id);
+  }, [selectedDocId, selectedChunkId, chunks]);
 
   const searchMutation = useMutation({
     mutationFn: (query: string) =>
-      documentsAPI.search({ query, organizationId, folderPrefix, limit: 25 }),
+      documentsAPI.search({
+        query,
+        organizationId,
+        folderPrefix: normalizedFolderPrefix,
+        limit: 25,
+      }),
   });
 
   const askMutation = useMutation({
     mutationFn: (question: string) =>
-      documentsAPI.ask({ question, organizationId, folderPrefix, limit: 8 }),
+      documentsAPI.ask({
+        question,
+        organizationId,
+        folderPrefix: normalizedFolderPrefix,
+        limit: 8,
+      }),
   });
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [askQuestion, setAskQuestion] = useState("");
+  const searchResults: DriveSearchHit[] =
+    searchMode === "index"
+      ? searchMutation.data?.results ?? []
+      : askMutation.data?.sources ?? [];
 
-  const searchResults = searchMutation.data?.results ?? [];
-  const askResult = askMutation.data ?? null;
+  const aiAnswer = askMutation.data?.answer ?? "";
 
-  const onSelectDocument = (docId: string) => {
-    setSelectedDocId(docId);
-    setSelectedChunkId(null);
-    setHighlightQuote(null);
-    navigate({
-      to: "/dashboard/drive",
-      search: (prev) => ({
-        ...prev,
-        doc: docId,
+  const updateDriveSearch = useCallback(
+    (next: {
+      folder?: string | undefined;
+      doc?: string | undefined;
+      chunk?: string | undefined;
+      quote?: string | undefined;
+    }) => {
+      navigate({
+        to: "/dashboard/drive",
+        search: (prev) => ({
+          ...prev,
+          folder: next.folder ?? prev.folder,
+          doc: next.doc,
+          chunk: next.chunk,
+          quote: next.quote,
+        }),
+      });
+    },
+    [navigate]
+  );
+
+  const selectFolder = useCallback(
+    (path: string) => {
+      const normalized = normalizeFolderPath(path);
+      applyFolderSelection(normalized);
+      updateDriveSearch({
+        folder: normalized,
+        doc: undefined,
         chunk: undefined,
         quote: undefined,
-        tab: "browse",
-      }),
+      });
+    },
+    [applyFolderSelection, updateDriveSearch]
+  );
+
+  const openDocument = useCallback(
+    (docId: string, options?: { chunkId?: string; quote?: string }) => {
+      applyDocumentSelection(docId, options);
+      updateDriveSearch({
+        folder: normalizedFolderPrefix,
+        doc: docId,
+        chunk: options?.chunkId,
+        quote: options?.quote,
+      });
+    },
+    [applyDocumentSelection, normalizedFolderPrefix, updateDriveSearch]
+  );
+
+  const closeReader = useCallback(() => {
+    closeDocumentSelection();
+    updateDriveSearch({
+      folder: normalizedFolderPrefix,
+      doc: undefined,
+      chunk: undefined,
+      quote: undefined,
     });
-  };
+  }, [closeDocumentSelection, normalizedFolderPrefix, updateDriveSearch]);
 
-  const onSelectChunk = (chunkId: string, quote?: string | null) => {
-    setSelectedChunkId(chunkId);
-    setHighlightQuote(quote ?? null);
-    navigate({
-      to: "/dashboard/drive",
-      search: (prev) => ({
-        ...prev,
-        doc: selectedDocId ?? prev.doc,
-        chunk: chunkId,
-        quote: quote ?? undefined,
-      }),
-    });
-  };
+  const submitSearch = useCallback(() => {
+    const query = searchText.trim();
+    if (query.length < 2) {
+      toast.error("Enter at least 2 characters");
+      return;
+    }
+    if (searchMode === "index") {
+      askMutation.reset();
+      searchMutation.mutate(query);
+      return;
+    }
+    searchMutation.reset();
+    askMutation.mutate(query);
+  }, [askMutation, searchMode, searchMutation, searchText]);
 
-  const renderFolderNode = (node: FolderNode, depth: number) => {
-    const isSelected = normalizeFolderPath(folderPrefix) === node.path;
-    const hasChildren = node.children.length > 0;
-    const isExpanded = expandedFolders[node.path] ?? depth < 1;
-
-    return (
-      <div key={node.path}>
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm transition-colors",
-            "hover:bg-muted/30",
-            isSelected ? "border-primary/40 bg-primary/5" : "bg-card"
-          )}
-          style={{ paddingLeft: 8 + depth * 12 }}
-        >
-          {hasChildren ? (
-            <button
-              aria-label={
-                isExpanded
-                  ? t("drive.scope.collapseFolder")
-                  : t("drive.scope.expandFolder")
-              }
-              className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-              onClick={() =>
-                setExpandedFolders((prev) => ({
-                  ...prev,
-                  [node.path]: !isExpanded,
-                }))
-              }
-              type="button"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </button>
-          ) : (
-            <div className="h-7 w-7" />
-          )}
-
-          <button
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left"
-            onClick={() => setScopeFolder(node.path)}
-            type="button"
-          >
-            <Folder className="h-4 w-4 text-muted-foreground" />
-            <span className="truncate">
-              {node.path === "/" ? t("drive.scope.allDocuments") : node.name}
-            </span>
-          </button>
-
-          <div className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-            {node.count}
-          </div>
-        </div>
-
-        {hasChildren && isExpanded ? (
-          <div className="mt-1 space-y-1">
-            {node.children.map((child) => renderFolderNode(child, depth + 1))}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
+  const parentFolderPath = useMemo(
+    () => folderParent(normalizedFolderPrefix),
+    [normalizedFolderPrefix]
+  );
 
   if (orgLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex min-h-[360px] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -592,18 +337,17 @@ export function DrivePage() {
 
   if (!organizationId) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        {t("drive.header.selectOrg")}
+      <div className="flex min-h-[360px] items-center justify-center p-8 text-center">
+        <div className="space-y-2">
+          <p className="font-medium">{t("drive.header.selectOrg")}</p>
+        </div>
       </div>
     );
   }
 
   if (docsQuery.isError) {
     return (
-      <div
-        className="flex h-full flex-col justify-center p-6"
-        data-no-shell-padding
-      >
+      <div className="p-6">
         <ApiErrorPanel
           error={docsQuery.error}
           onRetry={() => docsQuery.refetch()}
@@ -613,590 +357,310 @@ export function DrivePage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6" data-no-shell-padding>
-      <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
-              <Folder className="h-3 w-3" />
-              {t("drive.header.kicker")}
+    <div
+      className="relative flex h-full flex-col gap-4 overflow-hidden p-4 md:p-6"
+      data-no-shell-padding
+    >
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(70%_65%_at_0%_0%,rgba(176,138,75,0.2)_0%,transparent_72%),radial-gradient(70%_60%_at_100%_0%,rgba(23,52,38,0.45)_0%,transparent_75%)]" />
+
+      <section className="rounded-xl border border-[#3a5a47] bg-[#112419]/95 px-4 py-4 md:px-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="old-money-kicker text-[10px]">Archive</span>
+              <Badge
+                className="border-[#b08a4b70] bg-[#b08a4b1f] text-[#e6cfaa]"
+                variant="outline"
+              >
+                {docStreamConnected ? "live" : "polling"}
+              </Badge>
             </div>
-            <h1 className="font-semibold text-2xl">
-              {t("drive.header.title")}
+            <h1 className="mt-1 font-serif text-lg text-[#f3e8d2] md:text-xl">
+              Drive
             </h1>
-            <p className="max-w-2xl text-muted-foreground">
-              {t("drive.header.description")}
-            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <input
+            className="hidden"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              if (files.length === 0) return;
+              enqueueFiles(files, organizationId, {
+                folderPath: normalizedFolderPrefix,
+                tags: [],
+              });
+              toast.success(
+                files.length === 1
+                  ? t("drive.header.queuedUploadsOne", { count: files.length })
+                  : t("drive.header.queuedUploadsMany", {
+                      count: files.length,
+                    })
+              );
+              event.currentTarget.value = "";
+            }}
+            ref={fileInputRef}
+            type="file"
+          />
+          <Button
+            className="h-10 border border-[#b08a4b85] bg-[#b08a4b] px-4 text-[#102217] hover:bg-[#c7a868]"
+            onClick={() => fileInputRef.current?.click()}
+            size="sm"
+          >
+            <FileUp className="mr-2 h-4 w-4" />
+            {t("drive.header.uploadFiles")}
+          </Button>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="flex items-center gap-2">
+            <Button
+              className={cn(
+                "h-8 rounded-md border px-3 text-xs",
+                searchMode === "index"
+                  ? "border-[#b08a4b8a] bg-[#b08a4b29] text-[#f1dfbf]"
+                  : "border-[#2f4a3a] bg-[#13281e] text-[#b9ad95]"
+              )}
+              onClick={() => setSearchMode("index")}
+              size="sm"
+              variant="ghost"
+            >
+              <Search className="mr-1.5 h-3.5 w-3.5" />
+              Search
+            </Button>
+            <Button
+              className={cn(
+                "h-8 rounded-md border px-3 text-xs",
+                searchMode === "ai"
+                  ? "border-[#b08a4b8a] bg-[#b08a4b29] text-[#f1dfbf]"
+                  : "border-[#2f4a3a] bg-[#13281e] text-[#b9ad95]"
+              )}
+              onClick={() => setSearchMode("ai")}
+              size="sm"
+              variant="ghost"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              AI
+            </Button>
+          </div>
+
+          <div className="flex flex-1 gap-2">
             <Input
-              className="h-9 w-[240px]"
-              onBlur={() => setScopeFolder(folderPrefix)}
-              onChange={(e) => setFolderPrefix(e.target.value || "/")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setScopeFolder(folderPrefix);
-                }
+              className="h-10 border-[#345240] bg-[#0f1f17] text-[#f3e8d2] placeholder:text-[#8f846f]"
+              onChange={(event) => setSearchText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") submitSearch();
               }}
-              placeholder={t("drive.header.folderPlaceholder")}
-              value={folderPrefix}
+              placeholder={
+                searchMode === "index"
+                  ? "Search files in this folder"
+                  : "Ask with evidence"
+              }
+              value={searchText}
             />
-            <input
-              className="hidden"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                if (files.length === 0) return;
-                enqueueFiles(files, organizationId, {
-                  folderPath: normalizedFolderPrefix,
-                  tags: selectedTags,
-                });
-                toast.success(
-                  files.length === 1
-                    ? t("drive.header.queuedUploadsOne", {
-                        count: files.length,
-                      })
-                    : t("drive.header.queuedUploadsMany", {
-                        count: files.length,
-                      })
-                );
-                e.currentTarget.value = "";
-              }}
-              ref={fileInputRef}
-              type="file"
-            />
-            <Button onClick={() => fileInputRef.current?.click()} size="sm">
-              <FileUp className="mr-2 h-4 w-4" />
-              {t("drive.header.uploadFiles")}
+            <Button
+              className="h-10 border border-[#b08a4b90] bg-[#b08a4b] px-4 text-[#102217] hover:bg-[#c6a160]"
+              disabled={
+                searchMode === "index"
+                  ? searchMutation.isPending
+                  : askMutation.isPending
+              }
+              onClick={submitSearch}
+              size="sm"
+            >
+              {searchMode === "index" ? (
+                searchMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )
+              ) : askMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
-      </div>
 
-      <Tabs
-        onValueChange={(value) => {
-          const next = value as "browse" | "search" | "ask";
-          setActiveTab(next);
-          navigate({
-            to: "/dashboard/drive",
-            search: (prev) => ({ ...prev, tab: next }),
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {parentFolderPath ? (
+            <Button
+              className="h-8 rounded-md border-[#365644] bg-[#12271d] text-[#e7d6b5] hover:bg-[#173224]"
+              onClick={() => selectFolder(parentFolderPath)}
+              size="sm"
+              variant="outline"
+            >
+              <ChevronLeft className="mr-1.5 h-3.5 w-3.5" />
+              Up
+            </Button>
+          ) : null}
+          <span className="rounded-md border border-[#345341] bg-[#102116] px-2.5 py-1 font-mono text-[11px] text-[#ccb58e]">
+            {normalizedFolderPrefix}
+          </span>
+          <span className="text-[#b8aa8d]">
+            {documentsInScope} items in scope
+          </span>
+        </div>
+      </section>
+
+      {(searchMutation.isError || askMutation.isError) && (
+        <ApiErrorPanel
+          error={searchMode === "index" ? searchMutation.error : askMutation.error}
+          onRetry={submitSearch}
+        />
+      )}
+
+      {((searchMode === "ai" && aiAnswer) || searchResults.length > 0) && (
+        <section className="rounded-xl border border-[#3f604b] bg-[#102318] px-4 py-4 md:px-5">
+          {searchMode === "ai" && aiAnswer ? (
+            <div className="rounded-lg border border-[#3d5d4a] bg-[#0f2018] px-3 py-3 text-[#e6d8be] text-sm leading-6">
+              {aiAnswer}
+            </div>
+          ) : null}
+
+          {searchResults.length > 0 ? (
+            <div className="mt-3 grid gap-2">
+              {searchResults.map((result, index) => (
+                <button
+                  className="group rounded-lg border border-[#3f604b] bg-[#102318] px-3 py-3 text-left transition hover:border-[#b08a4b78] hover:bg-[#142d21]"
+                  key={`${result.chunk_id}-${index}`}
+                  onClick={() =>
+                    openDocument(result.document_id, {
+                      chunkId: result.chunk_id,
+                      quote: result.snippet,
+                    })
+                  }
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-[#f1e4ce] text-sm">
+                        {result.title || result.file_name}
+                      </p>
+                      <p className="mt-1 text-[#b8ab90] text-xs">
+                        {normalizeFolderPath(result.folder_path)}
+                        {typeof result.page_index === "number"
+                          ? ` · Page ${result.page_index + 1}`
+                          : ""}
+                      </p>
+                    </div>
+                    <ChevronRight className="mt-0.5 h-4 w-4 text-[#b8aa8b] transition group-hover:text-[#ead8b3]" />
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-[#beb096] text-sm">
+                    {result.snippet}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )}
+
+      <section className="rounded-xl border border-[#3f604b] bg-[#102318] px-4 py-4 md:px-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-serif text-base text-[#f3e7d1]">Folders</h2>
+          <span className="text-[#b8ab90] text-xs">{childFolders.length}</span>
+        </div>
+
+        {childFolders.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#3e5d4b] bg-[#0f2118] px-4 py-8 text-center text-[#baa98b] text-sm">
+            No subfolders in this folder.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {childFolders.map((folder) => (
+              <button
+                className="group rounded-lg border border-[#456650] bg-[#13291f] px-3 py-3 text-left transition hover:border-[#b08a4b80] hover:bg-[#183324]"
+                key={folder.path}
+                onClick={() => selectFolder(folder.path)}
+                type="button"
+              >
+                <div className="flex items-center justify-between">
+                  <FolderOpen className="h-4 w-4 text-[#d5b274]" />
+                  <ChevronRight className="h-4 w-4 text-[#b9aa8c] transition group-hover:text-[#e7d5b3]" />
+                </div>
+                <p className="mt-2 truncate font-medium text-[#f3e7d1] text-sm">
+                  {folder.name}
+                </p>
+                <p className="mt-1 text-[#b7a88b] text-xs">
+                  {folder.count} file{folder.count === 1 ? "" : "s"}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-[#3f604b] bg-[#102318] px-4 py-4 md:px-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-serif text-base text-[#f3e7d1]">Files</h2>
+          <Badge className="border-[#b08a4b75] bg-[#b08a4b1f] text-[#e7d2aa]" variant="outline">
+            {filesInFolder.length} items
+          </Badge>
+        </div>
+
+        {filesInFolder.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#3e5d4b] bg-[#0f2118] px-4 py-10 text-center text-[#baa98b] text-sm">
+            No files in this folder.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {filesInFolder.map((doc) => (
+              <button
+                className="group rounded-lg border border-[#456650] bg-[#13291f] px-3 py-3 text-left transition hover:border-[#b08a4b80] hover:bg-[#183324]"
+                key={doc.id}
+                onClick={() => openDocument(doc.id)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <FileText className="h-4 w-4 text-[#d5b274]" />
+                  {statusBadge(doc.status, t)}
+                </div>
+                <p className="mt-2 line-clamp-2 font-medium text-[#f2e5cf] text-sm">
+                  {fileDisplayTitle(doc)}
+                </p>
+                <div className="mt-2 flex items-center gap-1.5 text-[#b8aa8c] text-xs">
+                  <Folder className="h-3.5 w-3.5" />
+                  <span className="truncate">{normalizeFolderPath(doc.folderPath)}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-[#b8aa8c] text-xs">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  <span>{formatDate(doc.updatedAt ?? doc.createdAt)}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-[#345341] border-t pt-2 text-xs">
+                  <span className="text-[#b7a789]">{fileTypeLabel(doc)}</span>
+                  <span className="font-medium text-[#e6d3ad]">{formatBytes(doc.byteSize)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <DriveUploadManager organizationId={organizationId} />
+
+      <DriveReadingSheet
+        chunks={chunks}
+        chunksLoading={chunksQuery.isLoading}
+        highlightQuote={highlightQuote}
+        onChunkSelect={(chunkId) => {
+          selectChunk(chunkId);
+          updateDriveSearch({
+            folder: normalizedFolderPrefix,
+            doc: selectedDocId ?? undefined,
+            chunk: chunkId,
+            quote: undefined,
           });
         }}
-        value={activeTab}
-      >
-        <TabsList>
-          <TabsTrigger value="browse">{t("drive.tabs.browse")}</TabsTrigger>
-          <TabsTrigger value="search">{t("drive.tabs.search")}</TabsTrigger>
-          <TabsTrigger value="ask">{t("drive.tabs.ask")}</TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="mt-6" value="browse">
-          <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">
-                    {t("drive.scope.title")}
-                  </CardTitle>
-                  <CardDescription>
-                    {t("drive.scope.description")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                      <Folder className="h-3.5 w-3.5" />
-                      <span className="font-medium text-foreground">
-                        {normalizedFolderPrefix}
-                      </span>
-                      {selectedTags.length ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border bg-muted/20 px-2 py-0.5">
-                          <Tag className="h-3.5 w-3.5" />
-                          {selectedTags.length === 1
-                            ? t("drive.scope.tagsCountOne", {
-                                count: selectedTags.length,
-                              })
-                            : t("drive.scope.tagsCountMany", {
-                                count: selectedTags.length,
-                              })}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {normalizedFolderPrefix !== "/" || selectedTags.length ? (
-                      <Button onClick={resetScope} size="sm" variant="outline">
-                        <X className="mr-2 h-4 w-4" />
-                        {t("drive.scope.clear")}
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <Folder className="h-3.5 w-3.5" />
-                        {t("drive.scope.folders")}
-                      </div>
-                      {documents.length === 0 ? (
-                        <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-center text-muted-foreground text-sm">
-                          {t("drive.scope.noDocuments")}
-                        </div>
-                      ) : (
-                        <div className="max-h-[240px] space-y-1 overflow-auto pr-1">
-                          {renderFolderNode(folderTree, 0)}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <Tag className="h-3.5 w-3.5" />
-                        {t("drive.scope.tags")}
-                      </div>
-                      {allTags.length === 0 ? (
-                        <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-center text-muted-foreground text-sm">
-                          {t("drive.scope.noTags")}
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {allTags.map((t) => {
-                            const selected = selectedTags.some(
-                              (s) => s.toLowerCase() === t.toLowerCase()
-                            );
-                            return (
-                              <button
-                                key={t}
-                                onClick={() => toggleScopeTag(t)}
-                                type="button"
-                              >
-                                <Badge
-                                  className={cn(
-                                    "cursor-pointer select-none px-2 py-0.5 text-xs",
-                                    selected
-                                      ? "bg-primary text-primary-foreground"
-                                      : ""
-                                  )}
-                                  variant={selected ? "default" : "outline"}
-                                >
-                                  {t}
-                                </Badge>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base">
-                      {t("drive.library.title")}
-                    </CardTitle>
-                    <Badge
-                      className={cn(
-                        "text-[10px]",
-                        docStreamConnected
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-700"
-                      )}
-                      variant="outline"
-                    >
-                      {docStreamConnected ? "live" : "polling"}
-                    </Badge>
-                  </div>
-                  <CardDescription>
-                    {t("drive.library.description")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {docsQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-10">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : scopedDocuments.length === 0 ? (
-                    <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-muted-foreground text-sm">
-                      {t("drive.library.emptyScoped")}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {scopedDocuments.map((doc) => (
-                        <button
-                          className={cn(
-                            "w-full rounded-xl border px-3 py-3 text-left transition-colors",
-                            "hover:bg-muted/30",
-                            selectedDocId === doc.id
-                              ? "border-primary/40 bg-primary/5"
-                              : "bg-card"
-                          )}
-                          key={doc.id}
-                          onClick={() => onSelectDocument(doc.id)}
-                          type="button"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-medium text-sm">
-                                {doc.title || doc.fileName}
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
-                                <span className="truncate">{doc.fileName}</span>
-                                {doc.pageCount != null ? (
-                                  <span>
-                                    ·{" "}
-                                    {doc.pageCount === 1
-                                      ? t("drive.pages.pagesCountOne", {
-                                          count: doc.pageCount,
-                                        })
-                                      : t("drive.pages.pagesCountMany", {
-                                          count: doc.pageCount,
-                                        })}
-                                  </span>
-                                ) : null}
-                                <span>· {doc.folderPath}</span>
-                              </div>
-                            </div>
-                            <div className="shrink-0">
-                              {statusBadge(doc.status, t)}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <DriveUploadManager organizationId={organizationId} />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-              <Card className="h-fit">
-                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base">
-                      {t("drive.pages.title")}
-                    </CardTitle>
-                    <CardDescription>
-                      {t("drive.pages.description")}
-                    </CardDescription>
-                  </div>
-                  {selectedDoc?.evidenceArtifactId ? (
-                    <Button
-                      disabled={docArtifactUrlQuery.isFetching}
-                      onClick={() => {
-                        openOriginalDocument().catch(() => undefined);
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {docArtifactUrlQuery.isFetching ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : null}
-                      {t("drive.pages.openPdf")}
-                    </Button>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {selectedDocId ? (
-                    chunksQuery.isLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : chunks.length === 0 ? (
-                      <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-muted-foreground text-sm">
-                        {t("drive.pages.noParsedPages")}
-                      </div>
-                    ) : (
-                      <div className="max-h-[70vh] space-y-2 overflow-auto pr-1">
-                        {chunks.map((c) => (
-                          <button
-                            className={cn(
-                              "w-full rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/30",
-                              selectedChunkId === c.id
-                                ? "border-primary/40 bg-primary/5"
-                                : "bg-card"
-                            )}
-                            key={c.id}
-                            onClick={() => onSelectChunk(c.id)}
-                            type="button"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="font-medium text-xs">
-                                  {c.pageIndex != null
-                                    ? `${t("drive.pages.page")} ${c.pageIndex + 1}`
-                                    : `${t("drive.pages.chunk")} ${c.chunkIndex}`}
-                                </div>
-                                <div className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-                                  {c.snippet}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  ) : (
-                    <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-muted-foreground text-sm">
-                      {t("drive.pages.selectDocument")}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <DriveDocumentViewer
-                chunkId={selectedChunkId}
-                className="min-h-[420px]"
-                organizationId={organizationId}
-                quote={highlightQuote}
-              />
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent className="mt-6" value="search">
-          <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Search className="h-4 w-4 text-primary" />
-                  {t("drive.search.title")}
-                </CardTitle>
-                <CardDescription>
-                  {t("drive.search.description")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t("drive.search.placeholder")}
-                    value={searchQuery}
-                  />
-                  <Button
-                    disabled={
-                      searchMutation.isPending || searchQuery.trim().length < 2
-                    }
-                    onClick={() => searchMutation.mutate(searchQuery.trim())}
-                  >
-                    {searchMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      t("drive.search.button")
-                    )}
-                  </Button>
-                </div>
-
-                {searchMutation.isError ? (
-                  <ApiErrorPanel
-                    error={searchMutation.error}
-                    onRetry={() => searchMutation.mutate(searchQuery.trim())}
-                  />
-                ) : null}
-
-                {searchResults.length === 0 ? (
-                  <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-muted-foreground text-sm">
-                    {t("drive.search.noResults")}
-                  </div>
-                ) : (
-                  <div className="max-h-[70vh] space-y-2 overflow-auto pr-1">
-                    {searchResults.map((hit) => (
-                      <button
-                        className="w-full rounded-xl border bg-card px-3 py-3 text-left transition-colors hover:bg-muted/30"
-                        key={hit.chunk_id}
-                        onClick={() => {
-                          setSelectedDocId(hit.document_id);
-                          onSelectChunk(hit.chunk_id, searchQuery.trim());
-                        }}
-                        type="button"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate font-medium text-sm">
-                              {hit.title || hit.file_name}
-                            </div>
-                            <div className="mt-1 text-muted-foreground text-xs">
-                              {hit.page_index != null
-                                ? `${t("drive.pages.page")} ${hit.page_index + 1}`
-                                : t("drive.search.chunk")}{" "}
-                              · {hit.folder_path}
-                            </div>
-                            <div className="mt-2 line-clamp-3 text-muted-foreground text-xs">
-                              {hit.snippet}
-                            </div>
-                          </div>
-                          <div className="shrink-0">
-                            {/* Score placeholder */}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <DriveDocumentViewer
-              chunkId={selectedChunkId}
-              className="min-h-[420px]"
-              organizationId={organizationId}
-              quote={highlightQuote}
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent className="mt-6" value="ask">
-          <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  {t("drive.ask.title")}
-                </CardTitle>
-                <CardDescription>{t("drive.ask.description")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    onChange={(e) => setAskQuestion(e.target.value)}
-                    placeholder={t("drive.ask.placeholder")}
-                    value={askQuestion}
-                  />
-                  <Button
-                    disabled={
-                      askMutation.isPending || askQuestion.trim().length < 3
-                    }
-                    onClick={() => askMutation.mutate(askQuestion.trim())}
-                  >
-                    {askMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      t("drive.ask.button")
-                    )}
-                  </Button>
-                </div>
-
-                {askMutation.isError ? (
-                  <ApiErrorPanel
-                    error={askMutation.error}
-                    onRetry={() => askMutation.mutate(askQuestion.trim())}
-                  />
-                ) : null}
-
-                <div className="rounded-xl border bg-muted/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-muted-foreground text-xs">
-                      {t("drive.ask.answer")}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        disabled={!askResult?.answer}
-                        onClick={async () => {
-                          const text = askResult?.answer || "";
-                          if (!text) return;
-                          await navigator.clipboard.writeText(text);
-                          toast.success(t("drive.ask.copiedAnswer"));
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        {t("drive.ask.copy")}
-                      </Button>
-                      <Button
-                        disabled={!askResult?.answer}
-                        onClick={async () => {
-                          const sources = askResult?.sources ?? [];
-                          const md = [
-                            "# Drive Brief",
-                            "",
-                            `**Folder:** ${normalizedFolderPrefix}`,
-                            selectedTags.length
-                              ? `**Tags:** ${selectedTags.join(", ")}`
-                              : null,
-                            "",
-                            "## Question",
-                            askQuestion.trim() || "(not provided)",
-                            "",
-                            "## Answer",
-                            askResult?.answer || "",
-                            "",
-                            "## Sources",
-                            sources.length
-                              ? sources
-                                  .map((s, i) => {
-                                    const page =
-                                      s.page_index != null
-                                        ? `page ${s.page_index + 1}`
-                                        : "chunk";
-                                    const title = s.title || s.file_name;
-                                    return `- [${i + 1}] ${title} (${page}) · ${s.folder_path} · chunk ${s.chunk_id}`;
-                                  })
-                                  .join("\n")
-                              : "- (none)",
-                          ]
-                            .filter(
-                              (line): line is string => typeof line === "string"
-                            )
-                            .join("\n");
-                          await navigator.clipboard.writeText(md);
-                          toast.success(t("drive.ask.copiedBrief"));
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        {t("drive.ask.copyBrief")}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                    {askResult ? askResult.answer : t("drive.ask.emptyAnswer")}
-                  </div>
-                </div>
-
-                {askResult?.sources?.length ? (
-                  <div className="space-y-2">
-                    <div className="text-muted-foreground text-xs">
-                      {t("drive.ask.sources")}
-                    </div>
-                    {askResult.sources.map((s: DriveSearchHit, idx: number) => (
-                      <button
-                        className="w-full rounded-xl border bg-card px-3 py-2 text-left transition-colors hover:bg-muted/30"
-                        key={`${s.chunk_id}-${idx}`}
-                        onClick={() => {
-                          setSelectedDocId(s.document_id);
-                          onSelectChunk(s.chunk_id, s.snippet);
-                        }}
-                        type="button"
-                      >
-                        <div className="truncate font-medium text-xs">
-                          [{idx + 1}] {s.title || s.file_name}
-                        </div>
-                        <div className="mt-1 text-muted-foreground text-xs">
-                          {s.page_index != null
-                            ? `${t("drive.pages.page")} ${s.page_index + 1}`
-                            : t("drive.pages.chunk")}{" "}
-                          · {s.folder_path}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            <DriveDocumentViewer
-              chunkId={selectedChunkId}
-              className="min-h-[420px]"
-              organizationId={organizationId}
-              quote={highlightQuote}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+        onOpenChange={(open) => (open ? setReaderOpen(true) : closeReader())}
+        open={readerOpen}
+        organizationId={organizationId}
+        selectedChunkId={selectedChunkId}
+        selectedDoc={selectedDoc}
+        selectedDocId={selectedDocId}
+        t={t}
+      />
     </div>
   );
 }

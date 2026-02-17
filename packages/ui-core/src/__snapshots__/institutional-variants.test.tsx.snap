@@ -1,0 +1,7 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`institutional component variants > keeps institutional class snapshots stable > badge-seal-classes 1`] = `"inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap border text-[11px] transition-colors [transition-duration:var(--motion-duration-fast)] [transition-timing-function:var(--motion-ease-standard)] [&>svg]:pointer-events-none [&>svg]:size-3 border-[color:var(--ring)]/55 bg-[color:var(--accent)]/35 text-foreground font-semibold uppercase tracking-[0.08em] rounded-sm px-2.5 py-1"`;
+
+exports[`institutional component variants > keeps institutional class snapshots stable > card-dossier-classes 1`] = `"old-money-panel flex flex-col border text-card-foreground backdrop-blur-[1px] rounded-[6px] border-border bg-card/95 shadow-none ring-1 ring-border/40"`;
+
+exports[`institutional component variants > keeps institutional class snapshots stable > table-institutional-classes 1`] = `"relative w-full overflow-x-auto rounded-[4px] border border-border/70"`;

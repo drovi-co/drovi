@@ -77,7 +77,10 @@ function parseStatusFilter(
 
 export function AdminTicketsPage() {
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("q") ?? "";
+  });
   const [status, setStatus] = useState<"all" | "open" | "pending" | "closed">(
     "all"
   );

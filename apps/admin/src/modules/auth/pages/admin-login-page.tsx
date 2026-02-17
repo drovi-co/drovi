@@ -48,26 +48,21 @@ export function AdminLoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-6 py-12">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(0,0,0,0.10),transparent_55%),radial-gradient(circle_at_80%_20%,rgba(0,112,243,0.12),transparent_50%),radial-gradient(circle_at_50%_90%,rgba(0,0,0,0.06),transparent_55%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-x-24 top-[-12rem] h-[28rem] rotate-6 bg-[linear-gradient(to_right,transparent,rgba(0,0,0,0.04),transparent)] blur-2xl"
-      />
-
-      <div className="relative w-full max-w-[440px]">
+    <div className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-[440px]">
         <div className="mb-6 flex items-center justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-foreground" />
+              <img
+                alt="Drovi crest"
+                className="h-8 w-8 rounded-sm object-cover"
+                src="/drovi-old-money.svg"
+              />
               <div className="font-medium text-sm tracking-tight">
                 {t("admin.appName")}
               </div>
             </div>
-            <div className="text-muted-foreground text-xs">
+            <div className="old-money-kicker text-[10px]">
               {t("admin.login.operatorOnly")}
             </div>
           </div>
@@ -77,9 +72,9 @@ export function AdminLoginPage() {
           </div>
         </div>
 
-        <Card className="border-border/70 bg-card/70 backdrop-blur">
+        <Card className="border-border/70 bg-card/90" variant="dossier">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-[15px]">
+            <CardTitle className="font-serif text-[16px]">
               {t("admin.login.title")}
             </CardTitle>
             <div className="text-muted-foreground text-xs">

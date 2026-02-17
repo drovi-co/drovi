@@ -226,16 +226,14 @@ export function CommitmentDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="flex w-[480px] flex-col p-0 sm:w-[540px]">
-        {/* Header with gradient based on urgency */}
+        {/* Header with urgency emphasis */}
         <div
           className={cn(
-            "px-6 pt-6 pb-4",
-            urgency === "overdue" &&
-              "bg-gradient-to-b from-red-500/10 to-transparent",
-            urgency === "urgent" &&
-              "bg-gradient-to-b from-orange-500/10 to-transparent",
-            urgency === "soon" &&
-              "bg-gradient-to-b from-amber-500/10 to-transparent"
+            "border-b border-border/40 px-6 pt-6 pb-4",
+            urgency === "overdue" && "bg-destructive/5",
+            urgency === "urgent" && "bg-warning/[0.08]",
+            urgency === "soon" && "bg-warning/5",
+            urgency === "normal" && "bg-muted/30"
           )}
         >
           <SheetHeader className="space-y-4">
@@ -277,7 +275,7 @@ export function CommitmentDetailSheet({
               {commitment.title}
             </SheetTitle>
 
-            {/* AI Confidence */}
+            {/* Evidence Confidence */}
             <div className="flex items-center gap-3">
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">

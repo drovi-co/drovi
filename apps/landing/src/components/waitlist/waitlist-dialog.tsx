@@ -17,7 +17,7 @@ import {
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type WaitlistPayload = {
+type PrivateBriefingPayload = {
   email: string;
   name: string;
   company?: string;
@@ -55,8 +55,8 @@ export function WaitlistDialog({
       : setInternalOpen;
 
   const submitMutation = useMutation({
-    mutationFn: async (payload: WaitlistPayload) => {
-      const response = await fetch("/api/waitlist", {
+    mutationFn: async (payload: PrivateBriefingPayload) => {
+      const response = await fetch("/api/private-briefing", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -66,7 +66,7 @@ export function WaitlistDialog({
 
       if (!response.ok) {
         const message =
-          (await response.text()) || "Failed to submit waitlist request";
+          (await response.text()) || "Failed to submit private briefing request";
         throw new Error(message);
       }
 
@@ -157,11 +157,11 @@ export function WaitlistDialog({
             </div>
             <DialogHeader className="items-center">
               <DialogTitle className="text-lg sm:text-xl">
-                You're on the list!
+                Request received
               </DialogTitle>
               <DialogDescription className="max-w-[360px] text-center text-[13px] sm:text-sm">
-                We've received your application. We'll review it and send you an
-                invite code when you're approved.
+                We will review your context and send a private briefing window
+                with security and onboarding steps.
               </DialogDescription>
             </DialogHeader>
             <Button
@@ -176,11 +176,11 @@ export function WaitlistDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-lg sm:text-xl">
-                Request Access
+                Request a private briefing
               </DialogTitle>
               <DialogDescription className="text-[13px] sm:text-sm">
-                Join the waitlist for early access to Drovi. We'll review your
-                application and send you an invite code.
+                Share your operating context. Our team will reply with a private
+                briefing and deployment plan.
               </DialogDescription>
             </DialogHeader>
 
@@ -252,7 +252,7 @@ export function WaitlistDialog({
 
               <div className="space-y-1.5">
                 <Label className="text-[13px] sm:text-sm" htmlFor="useCase">
-                  How will you use Drovi?
+                  Operational context
                 </Label>
                 <Textarea
                   aria-invalid={!!errors.useCase}
@@ -260,7 +260,7 @@ export function WaitlistDialog({
                   id="useCase"
                   name="useCase"
                   onChange={handleChange}
-                  placeholder="Tell us about your workflow..."
+                  placeholder="Current systems, constraints, and objectives."
                   value={formData.useCase}
                 />
                 {errors.useCase && (
@@ -294,7 +294,7 @@ export function WaitlistDialog({
                       Submitting...
                     </>
                   ) : (
-                    "Request Access"
+                    "Request private briefing"
                   )}
                 </Button>
               </div>

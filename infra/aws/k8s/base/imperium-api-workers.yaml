@@ -1,0 +1,317 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-api
+  namespace: drovi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: imperium-api
+  template:
+    metadata:
+      labels:
+        app: imperium-api
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: api
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-api"]
+          ports:
+            - containerPort: 8010
+              name: http
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imperium-api
+  namespace: drovi
+spec:
+  selector:
+    app: imperium-api
+  ports:
+    - name: http
+      port: 8010
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-market-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-market-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-market-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "market"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "5"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-news-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-news-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-news-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "news"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "10"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-brief-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-brief-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-brief-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "brief"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "30"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-alert-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-alert-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-alert-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "alerts"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "5"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-risk-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-risk-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-risk-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "risk"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "15"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-business-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-business-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-business-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "business"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "20"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-portfolio-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-portfolio-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-portfolio-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "portfolio"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "60"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imperium-notify-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imperium-notify-worker
+  template:
+    metadata:
+      labels:
+        app: imperium-notify-worker
+    spec:
+      serviceAccountName: imperium-sa
+      containers:
+        - name: worker
+          image: REPLACE_ECR_IMPERIUM_BACKEND:latest
+          imagePullPolicy: IfNotPresent
+          command: ["imperium-worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: IMPERIUM_WORKER_ROLE
+              value: "notify"
+            - name: IMPERIUM_WORKER_CADENCE_SECONDS
+              value: "5"

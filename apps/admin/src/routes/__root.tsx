@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@memorystack/core-shell";
+import { applyThemePack, UI_THEME_PACK } from "@memorystack/ui-theme";
 import { Toaster } from "@memorystack/ui-core/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -25,7 +26,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       {
         name: "description",
         content:
-          "Drovi Admin dashboard for operators. Live KPIs, connector health, jobs, and moderation.",
+          "Drovi Admin operations center for custody, continuity, and integrity oversight.",
       },
     ],
   }),
@@ -38,12 +39,33 @@ function RootComponent() {
     });
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const apply = () => {
+      const mode = root.classList.contains("dark") ? "dark" : "light";
+      applyThemePack({ themeId: UI_THEME_PACK, mode, root });
+    };
+
+    apply();
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "attributes" && record.attributeName === "class") {
+          apply();
+          break;
+        }
+      }
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       <HeadContent />
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
+        forcedTheme="dark"
         disableTransitionOnChange
         storageKey="vite-ui-theme-admin"
       >

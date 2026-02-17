@@ -40,11 +40,15 @@ from src.contexts.workflows.application.scheduled_sync_sweep_workflow import (
 )
 from src.contexts.workflows.application.system_cron_workflows import (
     CandidatesProcessCronWorkflow,
+    ConnectorsHealthMonitorCronWorkflow,
+    CustodyDailyRootCronWorkflow,
     DailyReportsCronWorkflow,
     EvidenceRetentionCronWorkflow,
     IndexesOutboxDrainCronWorkflow,
     MemoryDecayCronWorkflow,
+    MonthlyIntegrityReportCronWorkflow,
     WebhookOutboxFlushCronWorkflow,
+    WeeklyOperationsBriefCronWorkflow,
     WeeklyReportsCronWorkflow,
 )
 from src.contexts.workflows.infrastructure.activities import (
@@ -158,6 +162,18 @@ async def _ensure_system_cron_workflows(*, client: Client, task_queue: str) -> N
             },
         )
 
+    if settings.weekly_operations_brief_enabled:
+        await _start_once(
+            workflow_run=WeeklyOperationsBriefCronWorkflow.run,
+            workflow_id="cron:operations_weekly_brief",
+            cron_schedule=str(settings.weekly_operations_brief_cron),
+            input_payload={
+                "pilot_only": bool(settings.weekly_operations_brief_pilot_only),
+                "brief_days": int(settings.weekly_operations_brief_days),
+                "blindspot_days": int(settings.weekly_operations_blindspot_days),
+            },
+        )
+
     if settings.daily_reports_enabled:
         await _start_once(
             workflow_run=DailyReportsCronWorkflow.run,
@@ -166,6 +182,16 @@ async def _ensure_system_cron_workflows(*, client: Client, task_queue: str) -> N
             input_payload={
                 "pilot_only": bool(settings.daily_reports_pilot_only),
                 "brief_days": int(settings.daily_brief_days),
+            },
+        )
+
+    if settings.monthly_integrity_report_enabled:
+        await _start_once(
+            workflow_run=MonthlyIntegrityReportCronWorkflow.run,
+            workflow_id="cron:integrity_monthly_report",
+            cron_schedule=str(settings.monthly_integrity_report_cron),
+            input_payload={
+                "pilot_only": bool(settings.monthly_integrity_report_pilot_only),
             },
         )
 
@@ -183,6 +209,22 @@ async def _ensure_system_cron_workflows(*, client: Client, task_queue: str) -> N
             workflow_id="cron:evidence_retention",
             cron_schedule=str(settings.evidence_retention_cleanup_cron),
             input_payload={"limit": int(settings.evidence_retention_cleanup_limit)},
+        )
+
+    if settings.custody_daily_root_enabled:
+        await _start_once(
+            workflow_run=CustodyDailyRootCronWorkflow.run,
+            workflow_id="cron:custody_daily_root",
+            cron_schedule=str(settings.custody_daily_root_cron),
+            input_payload={},
+        )
+
+    if settings.connector_health_monitor_enabled:
+        await _start_once(
+            workflow_run=ConnectorsHealthMonitorCronWorkflow.run,
+            workflow_id="cron:connectors_health_monitor",
+            cron_schedule=str(settings.connector_health_monitor_cron),
+            input_payload={"interval_minutes": 5},
         )
 
 
@@ -234,9 +276,13 @@ async def _run() -> None:
         WebhookOutboxFlushCronWorkflow,
         CandidatesProcessCronWorkflow,
         WeeklyReportsCronWorkflow,
+        WeeklyOperationsBriefCronWorkflow,
         DailyReportsCronWorkflow,
+        MonthlyIntegrityReportCronWorkflow,
         MemoryDecayCronWorkflow,
         EvidenceRetentionCronWorkflow,
+        CustodyDailyRootCronWorkflow,
+        ConnectorsHealthMonitorCronWorkflow,
         IndexesOutboxDrainCronWorkflow,
     ]
     activities = [

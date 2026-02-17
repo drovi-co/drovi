@@ -18,6 +18,8 @@ import {
   type GovernanceOverviewResponse,
   type GovernanceSignal,
   type KPIBlock,
+  type OnboardingAutomationItem,
+  type OnboardingRunbookItem,
 } from "@memorystack/api-client/admin";
 import type {
   SupportTicketListItem,
@@ -33,6 +35,8 @@ export type {
   GovernanceOverviewResponse,
   GovernanceSignal,
   KPIBlock,
+  OnboardingAutomationItem,
+  OnboardingRunbookItem,
   SupportTicketListItem,
   SupportTicketMessageItem,
 };

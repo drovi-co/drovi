@@ -51,15 +51,10 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
             className={`group relative cursor-pointer transition-all duration-200 ${selected ? "scale-110" : "hover:scale-105"}
             `}
           >
-            {/* Outer glow ring for importance */}
-            {nodeData.importanceScore && nodeData.importanceScore > 0.7 && (
-              <div className="absolute -inset-1 rounded-full bg-blue-400/20 blur-sm" />
-            )}
-
             {/* Main container */}
             <div
-              className={`relative rounded-full border-2 bg-card p-1.5 shadow-lg transition-all ${selected ? "border-blue-500 ring-4 ring-blue-500/20" : "border-border"}
-                ${nodeData.isAtRisk ? "border-red-400 ring-2 ring-red-400/30" : ""}group-hover:border-blue-400 group-hover:shadow-xl`}
+              className={`relative rounded-full border-2 bg-card p-1.5 shadow-button transition-all ${selected ? "border-blue-500 ring-2 ring-blue-500/20" : "border-border"}
+                ${nodeData.isAtRisk ? "border-red-400 ring-2 ring-red-400/30" : ""}group-hover:border-blue-400`}
             >
               {/* Input handle */}
               <Handle
@@ -74,7 +69,7 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
               >
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={nodeData.avatarUrl} />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 font-semibold text-sm text-white">
+                  <AvatarFallback className="bg-primary font-semibold text-primary-foreground text-sm">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -82,14 +77,14 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
 
               {/* VIP badge */}
               {nodeData.isVip && (
-                <div className="absolute -top-0.5 -right-0.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 p-1 shadow-md">
+                <div className="absolute -top-0.5 -right-0.5 rounded-full bg-amber-500 p-1">
                   <Star className="h-3 w-3 fill-white text-white" />
                 </div>
               )}
 
               {/* At risk indicator */}
               {nodeData.isAtRisk && (
-                <div className="absolute -right-0.5 -bottom-0.5 animate-pulse rounded-full bg-gradient-to-br from-red-500 to-red-600 p-1 shadow-md">
+                <div className="absolute -right-0.5 -bottom-0.5 animate-pulse rounded-full bg-red-500 p-1">
                   <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
               )}
@@ -104,7 +99,7 @@ function ContactNodeComponent({ data, selected }: NodeProps) {
 
             {/* Label card below */}
             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2">
-              <div className="rounded-md bg-card/95 px-2 py-0.5 shadow-sm backdrop-blur-sm">
+              <div className="rounded-md border border-border/60 bg-card px-2 py-0.5">
                 <p className="whitespace-nowrap font-medium text-foreground text-xs">
                   {nodeData.label}
                 </p>

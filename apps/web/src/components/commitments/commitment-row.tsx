@@ -20,7 +20,9 @@ import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { SourceIcon } from "@/components/inbox/source-icon";
 import { type TFunction, useI18n } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
+import { buildProofSummary, type ProofSupersessionState } from "@/lib/proof-summary";
 import type { SourceType } from "@/lib/source-config";
+import { resolveContactDisplayName } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -66,6 +68,9 @@ export interface CommitmentRowData {
   sourceThreadId?: string | null;
   sourceType?: SourceType;
   daysOverdue?: number;
+  evidenceCount?: number;
+  lastVerifiedAt?: Date | null;
+  supersessionState?: ProofSupersessionState;
 }
 
 interface CommitmentRowProps
@@ -126,19 +131,12 @@ function getStatus(status: string): Status {
 
 function getPersonName(
   person:
-    | { displayName?: string | null; primaryEmail: string }
+    | { id?: string | null; displayName?: string | null; primaryEmail: string }
     | null
     | undefined,
   t: TFunction
 ): string {
-  if (!person) {
-    return t("common.messages.unknown");
-  }
-  return (
-    person.displayName ||
-    person.primaryEmail.split("@")[0] ||
-    t("common.messages.unknown")
-  );
+  return resolveContactDisplayName(person, t("common.messages.unknown"));
 }
 
 function formatDueDate(
@@ -249,6 +247,14 @@ function CommitmentRow({
     locale,
     t,
   });
+  const proofSummary = buildProofSummary({
+    evidenceCount: commitment.evidenceCount ?? commitment.evidence?.length ?? 0,
+    lastVerifiedAt:
+      commitment.lastVerifiedAt ??
+      (commitment.isUserVerified ? commitment.extractedAt : null),
+    supersessionState: commitment.supersessionState ?? "active",
+    locale,
+  });
   const isOverdue =
     commitment.status === "overdue" ||
     (commitment.dueDate && getLocalDayDiff(commitment.dueDate) < 0);
@@ -351,14 +357,34 @@ function CommitmentRow({
 
       {/* Title - flexible width */}
       <div className="min-w-0 flex-1 px-2">
-        <span
-          className={cn(
-            "block truncate font-normal text-[13px] text-muted-foreground",
-            isCompleted && "line-through opacity-60"
-          )}
-        >
-          {commitment.title}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "block min-w-0 flex-1 truncate font-normal text-[13px] text-muted-foreground",
+              isCompleted && "line-through opacity-60"
+            )}
+          >
+            {commitment.title}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.evidenceLabel}
+          >
+            {proofSummary.evidenceCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.verifiedLabel}
+          >
+            {proofSummary.verifiedCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.supersessionLabel}
+          >
+            {proofSummary.supersessionCode}
+          </span>
+        </div>
       </div>
 
       {/* Right section - fixed width, perfectly aligned */}

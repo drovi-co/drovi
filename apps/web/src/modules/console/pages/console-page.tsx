@@ -31,8 +31,8 @@ import {
   LineChart,
   List,
   PieChart,
+  ScrollText,
   Sparkles,
-  Terminal,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -141,12 +141,12 @@ function MetricCard({
   variant = "default",
   loading = false,
 }: MetricCardProps) {
-  // Vercel-style muted semantic colors
+  // Institutional semantic colors
   const variantClasses = {
     default: "text-foreground",
-    success: "text-[#059669] dark:text-[#6ee7b7]",
-    warning: "text-[#d97706] dark:text-[#fbbf24]",
-    danger: "text-[#dc2626] dark:text-[#f87171]",
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-destructive",
   };
 
   if (loading) {
@@ -177,9 +177,7 @@ function MetricCard({
             <span
               className={cn(
                 "flex items-center gap-0.5 text-xs",
-                trend >= 0
-                  ? "text-[#059669] dark:text-[#6ee7b7]"
-                  : "text-[#dc2626] dark:text-[#f87171]"
+                trend >= 0 ? "text-success" : "text-destructive"
               )}
             >
               <TrendingUp className={cn("size-3", trend < 0 && "rotate-180")} />
@@ -252,18 +250,6 @@ export function ConsolePage() {
       enabled: Boolean(organizationId),
     }
   );
-
-  // Debug logging
-  useEffect(() => {
-    if (data) {
-      console.log("[Console Debug] API Response:", {
-        itemCount: data.items?.length,
-        timeseriesCount: data.timeseries?.length,
-        timeseries: data.timeseries?.slice(0, 3),
-        firstItem: data.items?.[0],
-      });
-    }
-  }, [data]);
 
   // Handle search submission
   const handleSearch = useCallback((parsed: ParsedQuery) => {
@@ -400,7 +386,7 @@ export function ConsolePage() {
       <div className="flex h-full items-center justify-center">
         <div className="space-y-4 text-center">
           <div className="inline-flex rounded-full bg-muted p-4">
-            <Terminal className="h-12 w-12 text-muted-foreground" />
+            <ScrollText className="h-12 w-12 text-muted-foreground" />
           </div>
           <h2 className="font-semibold text-xl">
             {t("pages.dashboard.console.noOrg.title")}
@@ -421,8 +407,22 @@ export function ConsolePage() {
   return (
     <div className="h-full" data-no-shell-padding>
       <div className="flex h-[calc(100vh-var(--header-height))] flex-col">
+        <div className="border-b border-border/70 bg-shell/50 px-6 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1.5">
+              <p className="old-money-kicker">{t("pages.dashboard.console.kicker")}</p>
+              <h1 className="font-serif text-xl">
+                {t("pages.dashboard.console.title")}
+              </h1>
+              <p className="max-w-2xl text-muted-foreground text-sm">
+                {t("pages.dashboard.console.description")}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Search Bar */}
-        <div className="relative z-20 border-b bg-background/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="relative z-20 border-b border-border/70 bg-background/85 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <ConsoleSearchBar
             filters={parsedQuery.filters}
             onChange={handleSearchChange}
@@ -439,7 +439,7 @@ export function ConsolePage() {
         </div>
 
         {/* Metrics Cards */}
-        <div className="border-b bg-muted/30 px-6 py-3">
+        <div className="border-b border-border/70 bg-card/45 px-6 py-3">
           <div className="flex gap-3">
             <MetricCard
               icon={LayoutList}
@@ -482,12 +482,12 @@ export function ConsolePage() {
         </div>
 
         {/* Time Histogram - Always visible */}
-        <div className="border-b bg-background px-6 py-4">
+        <div className="border-b border-border/70 bg-card/35 px-6 py-4">
           {isLoading ? (
             <Skeleton className="h-20 w-full" />
           ) : (
             <TimeHistogram
-              barColor="#dc2626"
+              barColor="var(--ring)"
               data={data?.timeseries ?? []}
               height={80}
             />
@@ -495,7 +495,7 @@ export function ConsolePage() {
         </div>
 
         {/* Controls Bar */}
-        <div className="flex items-center justify-between border-b px-6 py-2">
+        <div className="flex items-center justify-between border-b border-border/70 bg-background/85 px-6 py-2">
           <div className="flex items-center gap-2">
             {/* Group By */}
             <span className="text-muted-foreground text-sm">
@@ -608,7 +608,7 @@ export function ConsolePage() {
                 {visualization === "top_list" &&
                   (groupBy && data.aggregations?.[groupBy] ? (
                     <TopListChart
-                      colorScheme="rainbow"
+                      colorScheme="default"
                       data={data.aggregations[groupBy].map((item) => ({
                         name: item.key,
                         value: item.count,
@@ -654,7 +654,7 @@ export function ConsolePage() {
             <div className="flex h-full items-center justify-center">
               <div className="space-y-4 text-center">
                 <div className="inline-flex rounded-full bg-muted p-4">
-                  <Terminal className="size-8 text-muted-foreground" />
+                  <ScrollText className="size-8 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
                   <p className="font-medium">

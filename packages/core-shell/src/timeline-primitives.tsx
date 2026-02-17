@@ -21,19 +21,23 @@ export interface TimelinePrimitivesProps {
   className?: string;
   emptyState?: ReactNode;
   onOpenSource?: (event: TimelinePrimitiveEvent) => void;
+  variant?: "default" | "institutional";
 }
 
-function markerToneClass(tone: TimelinePrimitiveEvent["tone"]): string {
+function markerToneClass(
+  tone: TimelinePrimitiveEvent["tone"],
+  variant: "default" | "institutional"
+): string {
   if (tone === "success") {
-    return "bg-emerald-500";
+    return variant === "institutional" ? "bg-emerald-700" : "bg-emerald-500";
   }
   if (tone === "warning") {
-    return "bg-amber-500";
+    return variant === "institutional" ? "bg-amber-700" : "bg-amber-500";
   }
   if (tone === "danger") {
-    return "bg-red-500";
+    return variant === "institutional" ? "bg-red-700" : "bg-red-500";
   }
-  return "bg-primary";
+  return variant === "institutional" ? "bg-[color:var(--ring)]" : "bg-primary";
 }
 
 export function TimelinePrimitives({
@@ -41,6 +45,7 @@ export function TimelinePrimitives({
   className,
   emptyState,
   onOpenSource,
+  variant = "default",
 }: TimelinePrimitivesProps) {
   if (events.length === 0) {
     return (
@@ -56,7 +61,7 @@ export function TimelinePrimitives({
   }
 
   return (
-    <div className={cn("space-y-0", className)}>
+    <div className={cn("space-y-0", className)} data-variant={variant}>
       {events.map((event, index) => {
         const isLast = index === events.length - 1;
         return (
@@ -64,8 +69,9 @@ export function TimelinePrimitives({
             <div className="flex flex-col items-center">
               <div
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full text-primary-foreground",
-                  markerToneClass(event.tone)
+                  "flex h-8 w-8 items-center justify-center text-primary-foreground",
+                  variant === "institutional" ? "rounded-sm" : "rounded-full",
+                  markerToneClass(event.tone, variant)
                 )}
               >
                 {event.icon ?? (
@@ -73,7 +79,12 @@ export function TimelinePrimitives({
                 )}
               </div>
               {!isLast && (
-                <div className="mt-2 min-h-[24px] w-0.5 flex-1 bg-border" />
+                <div
+                  className={cn(
+                    "mt-2 min-h-[24px] w-0.5 flex-1",
+                    variant === "institutional" ? "bg-border/80" : "bg-border"
+                  )}
+                />
               )}
             </div>
             <div className="flex-1 space-y-2 pb-6">
@@ -87,7 +98,10 @@ export function TimelinePrimitives({
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
                     {event.sourceLabel ? (
-                      <Badge className="h-5 px-1.5 py-0" variant="secondary">
+                      <Badge
+                        className="h-5 px-1.5 py-0"
+                        variant={variant === "institutional" ? "seal" : "secondary"}
+                      >
                         {event.sourceLabel}
                       </Badge>
                     ) : null}
@@ -99,7 +113,14 @@ export function TimelinePrimitives({
                 </span>
               </div>
               {event.quote ? (
-                <blockquote className="rounded-md border-border border-l-2 bg-muted/40 px-3 py-2 text-xs italic">
+                <blockquote
+                  className={cn(
+                    "px-3 py-2 text-xs italic",
+                    variant === "institutional"
+                      ? "rounded-sm border border-border/70 bg-muted/30"
+                      : "rounded-md border-border border-l-2 bg-muted/40"
+                  )}
+                >
                   "{event.quote}"
                 </blockquote>
               ) : null}

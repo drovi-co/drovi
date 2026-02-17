@@ -43,6 +43,7 @@ import {
 } from "@/hooks/use-uio";
 import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
+import { resolveDueDate } from "@/lib/uio-derived-fields";
 
 // =============================================================================
 // ROUTE DEFINITION
@@ -414,18 +415,23 @@ function CommitmentsPage() {
   // Transform UIO data for components
   const commitments: CommitmentCardData[] = (commitmentsData?.items ?? []).map(
     (c) => {
-      const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+      const evidenceQuotes = (c.sources ?? [])
+        .map((source) => source.quotedText)
+        .filter((value): value is string => Boolean(value));
+      const dueDate = resolveDueDate({
+        explicitDueDate: c.dueDate,
+        title: c.userCorrectedTitle ?? c.canonicalTitle,
+        description: c.canonicalDescription,
+        evidenceQuotes,
+      });
       const daysOverdue =
         dueDate && dueDate < new Date()
           ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
           : undefined;
       const details = c.commitmentDetails;
       // Get debtor and creditor from UIO root level (where transformer places them)
-      const debtor = c.debtor ?? c.owner;
+      const debtor = c.debtor ?? c.owner ?? c.createdBy;
       const creditor = c.creditor ?? (debtor ? null : fallbackParty);
-      const evidenceQuotes = (c.sources ?? [])
-        .map((source) => source.quotedText)
-        .filter((value): value is string => Boolean(value));
       const sourceType = c.sources?.[0]?.sourceType ?? undefined;
       return {
         id: c.id,
@@ -506,7 +512,7 @@ function CommitmentsPage() {
   const detailCommitment: CommitmentDetailData | null = detailData
     ? (() => {
         const details = detailData.commitmentDetails;
-        const debtor = detailData.debtor ?? detailData.owner;
+        const debtor = detailData.debtor ?? detailData.owner ?? detailData.createdBy;
         const creditor = detailData.creditor ?? (debtor ? null : fallbackParty);
         const evidenceQuotes = (detailData.sources ?? [])
           .map((source) => source.quotedText)
@@ -522,7 +528,12 @@ function CommitmentsPage() {
             "medium") as CommitmentDetailData["priority"],
           direction: (details?.direction ??
             "owed_by_me") as CommitmentDetailData["direction"],
-          dueDate: detailData.dueDate ? new Date(detailData.dueDate) : null,
+          dueDate: resolveDueDate({
+            explicitDueDate: detailData.dueDate,
+            title: detailData.userCorrectedTitle ?? detailData.canonicalTitle,
+            description: detailData.canonicalDescription,
+            evidenceQuotes,
+          }),
           createdAt: new Date(detailData.createdAt),
           completedAt: details?.completedAt
             ? new Date(details.completedAt)
@@ -788,6 +799,16 @@ function CommitmentsPage() {
                       sourceThreadId: commitment.sourceThread?.id ?? null,
                       sourceType: commitment.sourceType,
                       daysOverdue: commitment.daysOverdue,
+                      evidenceCount: commitment.evidence?.length ?? 0,
+                      lastVerifiedAt:
+                        commitment.isUserVerified && commitment.extractedAt
+                          ? commitment.extractedAt
+                          : null,
+                      supersessionState:
+                        commitment.status === "completed" ||
+                        commitment.status === "cancelled"
+                          ? "final"
+                          : "active",
                     }}
                     isActive={selectedCommitment === commitment.id}
                     isSelected={selectedIds.has(commitment.id)}

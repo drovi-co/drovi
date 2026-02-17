@@ -1,6 +1,14 @@
 import type { ApiClient } from "../http/client";
 
-import type { GovernanceOverviewResponse, KPIsResponse } from "./models";
+import type {
+  GovernanceOverviewResponse,
+  KPIsResponse,
+  OnboardingAutomationListResponse,
+  OnboardingRunbookItem,
+  OnboardingRunbookListResponse,
+  OnboardingRunbookUpdateRequest,
+  TriggerOnboardingAutomationResponse,
+} from "./models";
 
 export function createAdminApi(client: ApiClient) {
   return {
@@ -136,6 +144,61 @@ export function createAdminApi(client: ApiClient) {
             organization_id: params.organization_id,
             governance_status: params.governance_status,
           },
+          allowRetry: false,
+        }
+      );
+    },
+
+    listOnboardingRunbooks: async (params?: {
+      organization_id?: string;
+      status?: "all" | "ready" | "in_progress";
+      limit?: number;
+    }): Promise<OnboardingRunbookListResponse> => {
+      return client.requestJson<OnboardingRunbookListResponse>(
+        "/admin/onboarding/runbooks",
+        {
+          headers: { "X-Drovi-Client": "admin" },
+          query: {
+            organization_id: params?.organization_id,
+            status: params?.status,
+            limit: params?.limit,
+          },
+        }
+      );
+    },
+
+    updateOnboardingRunbook: async (
+      organizationId: string,
+      body: OnboardingRunbookUpdateRequest
+    ): Promise<OnboardingRunbookItem> => {
+      return client.requestJson<OnboardingRunbookItem>(
+        `/admin/onboarding/runbooks/${encodeURIComponent(organizationId)}`,
+        {
+          method: "PUT",
+          headers: { "X-Drovi-Client": "admin" },
+          body,
+          allowRetry: false,
+        }
+      );
+    },
+
+    listOnboardingAutomations: async (): Promise<OnboardingAutomationListResponse> => {
+      return client.requestJson<OnboardingAutomationListResponse>(
+        "/admin/onboarding/automations",
+        { headers: { "X-Drovi-Client": "admin" } }
+      );
+    },
+
+    triggerOnboardingAutomation: async (params: {
+      key: "weekly_operations_brief" | "monthly_integrity_report";
+      month?: string;
+    }): Promise<TriggerOnboardingAutomationResponse> => {
+      return client.requestJson<TriggerOnboardingAutomationResponse>(
+        `/admin/onboarding/automations/${encodeURIComponent(params.key)}/run`,
+        {
+          method: "POST",
+          headers: { "X-Drovi-Client": "admin" },
+          body: { month: params.month },
           allowRetry: false,
         }
       );

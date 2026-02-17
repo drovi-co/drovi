@@ -18,7 +18,7 @@ export function createDriveModule(
 
   return {
     id: "mod-drive",
-    title: "Drive",
+    title: "Archive",
     capabilities: ["drive.read", "drive.upload", "drive.search"],
     routes: [
       { id: "drive.index", path: "/dashboard/drive", slot: "dashboard" },
@@ -26,15 +26,18 @@ export function createDriveModule(
     navItems: [
       {
         id: "drive.nav",
-        label: "Drive",
+        label: "Archive",
         to: "/dashboard/drive",
+        icon: "file-text",
+        group: "memory",
+        order: 60,
         requiresCapability: "drive.read",
       },
     ],
     commands: [
       {
         id: "drive.upload",
-        title: "Upload document",
+        title: "Deposit document",
         action: "drive.upload",
         requiresCapability: "drive.upload",
       },

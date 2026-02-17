@@ -1,0 +1,25 @@
+name: Deploy AWS Production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/aws/**'
+      - 'docker-compose.yml'
+      - 'drovi-intelligence/**'
+      - 'services/imperium-backend/**'
+      - 'apps/web/**'
+      - 'apps/admin/**'
+      - 'apps/imperium/**'
+      - '.github/workflows/deploy-aws-production.yml'
+      - '.github/workflows/deploy-aws-shared.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-aws-shared.yml
+    with:
+      environment_name: production
+      k8s_overlay: production
+    secrets: inherit

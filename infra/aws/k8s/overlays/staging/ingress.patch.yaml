@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: drovi-public
+  namespace: drovi
+spec:
+  rules:
+    - host: api-staging.drovi.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: drovi-intelligence-api
+                port:
+                  number: 8000
+    - host: staging.drovi.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+    - host: admin-staging.drovi.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin
+                port:
+                  number: 80
+    - host: imperium-api-staging.drovi.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: imperium-api
+                port:
+                  number: 8010
+    - host: imperium-staging.drovi.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: imperium-web
+                port:
+                  number: 80

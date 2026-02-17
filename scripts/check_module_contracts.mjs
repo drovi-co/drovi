@@ -14,6 +14,8 @@ const MODULE_DEPENDENCY_ALLOWLIST = {
   "mod-ask": new Set(["@memorystack/mod-kit"]),
   "mod-console": new Set(["@memorystack/mod-kit"]),
   "mod-continuums": new Set(["@memorystack/mod-kit"]),
+  "mod-agents": new Set(["@memorystack/mod-kit"]),
+  "mod-trust": new Set(["@memorystack/mod-kit"]),
 };
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs"]);

@@ -16,5 +16,15 @@ jobs:
       LOAD_MAX_UEM_P95_SECONDS: "0.5"
     steps:
       - uses: actions/checkout@v4
-      - name: Run load test
+      - name: Run API load test harness
         run: python3 drovi-intelligence/scripts/load_test.py
+      - name: Run top read APIs + ask stream budgets (k6)
+        run: |
+          docker run --rm \
+            -e BASE_URL="$LOAD_API_BASE_URL" \
+            -e API_KEY="$LOAD_API_KEY" \
+            -e ORG_ID="$LOAD_ORG_ID" \
+            -e VUS="$LOAD_CONCURRENCY" \
+            -e DURATION=2m \
+            -v "$PWD/drovi-intelligence/tests/load:/scripts" \
+            grafana/k6:latest run /scripts/read_api_and_ask_stream.js

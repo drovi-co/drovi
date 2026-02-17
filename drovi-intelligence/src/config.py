@@ -207,6 +207,12 @@ class Settings(BaseSettings):
     evidence_retention_cleanup_cron: str = Field(default="0 3 * * *")  # 03:00 UTC daily
     evidence_retention_cleanup_limit: int = Field(default=500)
 
+    # Chain-of-custody daily Merkle roots
+    custody_daily_root_enabled: bool = Field(default=True)
+    custody_daily_root_cron: str = Field(default="15 4 * * *")  # 04:15 UTC daily
+    custody_signing_secret: str | None = Field(default=None)
+    custody_signing_key_id: str | None = Field(default="default")
+
     # Derived index outbox drain (graph/vector projections)
     #
     # Canonical truth writes enqueue outbox events that must be drained to keep
@@ -296,6 +302,15 @@ class Settings(BaseSettings):
     scheduler_advisory_lock_id: int = Field(default=4242001)
     scheduler_scheduled_syncs_enabled: bool = Field(default=True)
     scheduler_reconcile_interval_seconds: int = Field(default=300)
+    connector_health_monitor_enabled: bool = Field(default=True)
+    connector_health_monitor_cron: str = Field(default="*/5 * * * *")
+    connector_health_stale_multiplier: int = Field(default=3)
+    connector_health_stale_floor_minutes: int = Field(default=15)
+    connector_health_sync_slo_minutes: int = Field(default=60)
+    connector_health_failure_window_minutes: int = Field(default=120)
+    connector_health_error_failure_threshold: int = Field(default=2)
+    connector_health_auto_recovery_enabled: bool = Field(default=True)
+    connector_health_recovery_cooldown_minutes: int = Field(default=30)
 
     # Durable jobs worker
     job_worker_poll_interval_seconds: float = Field(default=1.0)
@@ -325,10 +340,18 @@ class Settings(BaseSettings):
     weekly_reports_pilot_only: bool = Field(default=True)
     weekly_brief_days: int = Field(default=7)
     weekly_blindspot_days: int = Field(default=30)
+    weekly_operations_brief_enabled: bool = Field(default=True)
+    weekly_operations_brief_cron: str = Field(default="0 8 * * MON")
+    weekly_operations_brief_pilot_only: bool = Field(default=True)
+    weekly_operations_brief_days: int = Field(default=7)
+    weekly_operations_blindspot_days: int = Field(default=30)
     daily_reports_enabled: bool = Field(default=True)
     daily_reports_cron: str = Field(default="0 9 * * *")
     daily_reports_pilot_only: bool = Field(default=True)
     daily_brief_days: int = Field(default=1)
+    monthly_integrity_report_enabled: bool = Field(default=True)
+    monthly_integrity_report_cron: str = Field(default="0 8 1 * *")
+    monthly_integrity_report_pilot_only: bool = Field(default=True)
     reports_email_enabled: bool = Field(default=False)
     reports_email_fallback_to_members: bool = Field(default=True)
     reports_email_subject_prefix: str = Field(default="")

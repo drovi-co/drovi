@@ -57,15 +57,15 @@ const plans: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    description: "Everything you need to master your inbox",
+    description: "Everything you need to maintain institutional continuity",
     price: 29,
     interval: "month",
     popular: true,
     slug: "pro",
-    cta: "Upgrade to Pro",
+    cta: "Upgrade plan",
     ctaVariant: "default",
     features: [
-      { text: "All 8 AI Agents", included: true },
+      { text: "All 8 mandate templates", included: true },
       { text: "Smart Inbox with priorities", included: true },
       { text: "Commitment & Decision tracking", included: true },
       { text: "Up to 10 team members", included: true },
@@ -81,7 +81,7 @@ const plans: Plan[] = [
     price: 49,
     interval: "month",
     slug: "business",
-    cta: "Upgrade to Business",
+    cta: "Upgrade business plan",
     ctaVariant: "default",
     features: [
       { text: "Everything in Pro", included: true },
@@ -99,14 +99,14 @@ const plans: Plan[] = [
     description: "Custom solutions for large organizations",
     price: "custom",
     interval: "month",
-    cta: "Book a Call",
+    cta: "Request private briefing",
     ctaVariant: "outline",
     features: [
       { text: "Everything in Business", included: true },
       { text: "Unlimited team members", included: true },
       { text: "Unlimited organizations", included: true },
       { text: "Dedicated account manager", included: true },
-      { text: "Custom AI training", included: true },
+      { text: "Custom mandate training", included: true },
       { text: "On-premise deployment option", included: true },
       { text: "SLA & compliance", included: true },
     ],
@@ -134,7 +134,7 @@ function PlanCard({
     >
       {plan.popular && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
-          Most Popular
+          Most adopted
         </Badge>
       )}
 
@@ -255,17 +255,16 @@ export function UpgradeModal({ trialDaysUsed = 7 }: UpgradeModalProps) {
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-amber-500">
             <Calendar className="size-4" />
             <span className="font-medium text-sm">
-              Your {trialDaysUsed}-day trial has ended
+              Your {trialDaysUsed}-day pilot window has closed
             </span>
           </div>
 
           <h1 className="mb-2 font-bold text-3xl tracking-tight">
-            Upgrade to Continue Using Drovi
+            Request continuation terms
           </h1>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            Your free trial has expired. Choose a plan to continue accessing
-            your AI-powered email intelligence, commitments, decisions, and
-            more.
+            Contact Drovi operations for institutional continuation terms and
+            deployment scope.
           </p>
         </div>
 
@@ -273,7 +272,7 @@ export function UpgradeModal({ trialDaysUsed = 7 }: UpgradeModalProps) {
         <div className="mb-8 flex flex-wrap items-center justify-center gap-4 text-muted-foreground text-sm">
           <div className="flex items-center gap-1.5">
             <Sparkles className="size-4 text-primary" />
-            <span>8 AI Agents</span>
+            <span>8 mandate templates</span>
           </div>
           <Separator className="h-4" orientation="vertical" />
           <div className="flex items-center gap-1.5">
@@ -307,7 +306,7 @@ export function UpgradeModal({ trialDaysUsed = 7 }: UpgradeModalProps) {
         {/* Footer */}
         <div className="flex flex-col items-center gap-4 text-center">
           <p className="text-muted-foreground text-sm">
-            All plans include a 14-day money-back guarantee. Cancel anytime.
+            Pricing and scope are finalized during private briefing.
           </p>
 
           <Button

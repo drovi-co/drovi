@@ -98,15 +98,15 @@ function CommitmentNodeComponent({ data, selected }: NodeProps) {
             className={`group relative cursor-pointer transition-all duration-200 ${selected ? "scale-105" : "hover:scale-[1.02]"}
             `}
           >
-            {/* Overdue pulse effect */}
+            {/* Overdue indicator */}
             {nodeData.isOverdue && (
-              <div className="absolute -inset-1 animate-pulse rounded-xl bg-red-500/20 blur-sm" />
+              <div className="absolute -inset-1 rounded-xl border border-red-500/30" />
             )}
 
             {/* Main card */}
             <div
-              className={`relative flex min-w-[180px] max-w-[220px] flex-col gap-2 rounded-xl border-2 bg-card p-3 shadow-lg transition-all ${config.border}
-                ${selected ? "border-violet-500 ring-4 ring-violet-500/20" : ""}group-hover:shadow-xl group-hover:border-violet-400`}
+              className={`relative flex min-w-[180px] max-w-[220px] flex-col gap-2 rounded-xl border-2 bg-card p-3 shadow-card transition-all ${config.border}
+                ${selected ? "border-violet-500 ring-2 ring-violet-500/20" : ""}group-hover:border-violet-400`}
             >
               {/* Priority stripe */}
               <div
@@ -124,7 +124,7 @@ function CommitmentNodeComponent({ data, selected }: NodeProps) {
               <div className="flex items-start gap-2 pl-2">
                 {/* Direction badge */}
                 <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg shadow-sm ${isOwedByMe ? "bg-gradient-to-br from-blue-500 to-blue-600" : "bg-gradient-to-br from-emerald-500 to-emerald-600"}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isOwedByMe ? "bg-blue-500" : "bg-emerald-500"}
                   `}
                 >
                   {isOwedByMe ? (

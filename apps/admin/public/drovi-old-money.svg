@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f2017" />
+      <stop offset="100%" stop-color="#1a3124" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#d9bf82" />
+      <stop offset="45%" stop-color="#c9a863" />
+      <stop offset="100%" stop-color="#9f7d3f" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="212" fill="none" stroke="url(#gold)" stroke-width="10" />
+  <circle cx="256" cy="256" r="194" fill="none" stroke="#c6a35e" stroke-opacity=".35" stroke-width="2" />
+  <path fill="none" stroke="url(#gold)" stroke-width="8" d="M128 196c14-42 46-72 88-88m168 88c-14-42-46-72-88-88m0 296c42-14 72-46 88-88m-256 0c14 42 46 72 88 88" />
+  <path fill="#16281f" stroke="url(#gold)" stroke-width="8" d="M256 116l110 44v82c0 91-58 143-110 164-52-21-110-73-110-164v-82z" />
+  <path fill="none" stroke="#d6b673" stroke-width="2" d="M256 132l95 38v72c0 78-47 124-95 145-48-21-95-67-95-145v-72z" />
+  <text x="256" y="255" fill="#e8d8b2" font-family="Georgia, 'Times New Roman', serif" font-size="74" font-weight="600" letter-spacing="2" text-anchor="middle">DROVI</text>
+  <path fill="none" stroke="url(#gold)" stroke-width="5" d="M206 286c18 11 82 11 100 0m-96 30c14 8 74 8 88 0" />
+</svg>

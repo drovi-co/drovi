@@ -1,0 +1,205 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`theme variant visual tokens > keeps institutional token snapshots stable > institutional-dark-tokens 1`] = `
+{
+  "--accent": "#254230",
+  "--accent-foreground": "#f3e8d3",
+  "--background": "#13291d",
+  "--border": "#31523f",
+  "--border-hover": "#3f654f",
+  "--card": "#173021",
+  "--card-foreground": "#f3e8d3",
+  "--chart-1": "#f3e8d3",
+  "--chart-2": "#cfab67",
+  "--chart-3": "#82927d",
+  "--chart-4": "#7ba286",
+  "--chart-5": "#b46f67",
+  "--destructive": "#b46f67",
+  "--destructive-foreground": "#f3e8d3",
+  "--destructive-hover": "#c47d75",
+  "--font-mono-token": ""JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace",
+  "--font-sans-token": ""Avenir Next", "Neue Haas Grotesk Text Pro", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif",
+  "--font-serif-token": ""Iowan Old Style", "Baskerville", "Palatino Linotype", "Times New Roman", serif",
+  "--foreground": "#f3e8d3",
+  "--input": "#173324",
+  "--input-border": "#31523f",
+  "--motion-duration-fast": "120ms",
+  "--motion-duration-medium": "180ms",
+  "--motion-ease-standard": "cubic-bezier(0.2, 0.0, 0, 1)",
+  "--muted": "#1b3425",
+  "--muted-foreground": "#c4b392",
+  "--popover": "#193526",
+  "--popover-foreground": "#f3e8d3",
+  "--primary": "#cfab67",
+  "--primary-foreground": "#13291d",
+  "--primary-hover": "#dfc184",
+  "--radius": "0.25rem",
+  "--ring": "#cfab67",
+  "--secondary": "#1e3a2a",
+  "--secondary-foreground": "#efe4cf",
+  "--secondary-hover": "#274936",
+  "--shadow-button": "0 1px 1px rgba(12, 29, 20, 0.42)",
+  "--shadow-button-2": "0 2px 4px rgba(12, 29, 20, 0.46)",
+  "--shadow-card": "0 10px 24px rgba(12, 29, 20, 0.34)",
+  "--shadow-dropdown": "0 24px 52px rgba(12, 29, 20, 0.52)",
+  "--shell": "#142f22",
+  "--shell-border": "#31523f",
+  "--shell-foreground": "#f3e8d3",
+  "--sidebar": "#12281c",
+  "--sidebar-accent": "#1c3526",
+  "--sidebar-accent-foreground": "#f3e8d3",
+  "--sidebar-border": "#31523f",
+  "--sidebar-foreground": "#efe4cf",
+  "--sidebar-primary": "#cfab67",
+  "--sidebar-primary-foreground": "#13291d",
+  "--sidebar-ring": "#cfab67",
+  "--success": "#7ba286",
+  "--success-foreground": "#13291d",
+  "--type-scale-body": "0.9375rem",
+  "--type-scale-h1": "2.125rem",
+  "--type-scale-h2": "1.75rem",
+  "--type-scale-h3": "1.375rem",
+  "--type-scale-h4": "1.125rem",
+  "--type-scale-label": "0.8125rem",
+  "--warning": "#cfab67",
+  "--warning-foreground": "#13291d",
+}
+`;
+
+exports[`theme variant visual tokens > keeps institutional token snapshots stable > institutional-light-tokens 1`] = `
+{
+  "--accent": "#d7c7a9",
+  "--accent-foreground": "#1a2d21",
+  "--background": "#efe2c8",
+  "--border": "#c7b38e",
+  "--border-hover": "#b59e74",
+  "--card": "#f2e6cf",
+  "--card-foreground": "#1a2d21",
+  "--chart-1": "#214532",
+  "--chart-2": "#3a624c",
+  "--chart-3": "#6f7a66",
+  "--chart-4": "#946b2d",
+  "--chart-5": "#7c3b34",
+  "--destructive": "#7c3b34",
+  "--destructive-foreground": "#f4ead7",
+  "--destructive-hover": "#68312c",
+  "--font-mono-token": ""JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace",
+  "--font-sans-token": ""Avenir Next", "Neue Haas Grotesk Text Pro", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif",
+  "--font-serif-token": ""Iowan Old Style", "Baskerville", "Palatino Linotype", "Times New Roman", serif",
+  "--foreground": "#1a2d21",
+  "--input": "#f4e8d0",
+  "--input-border": "#c7b38e",
+  "--motion-duration-fast": "120ms",
+  "--motion-duration-medium": "180ms",
+  "--motion-ease-standard": "cubic-bezier(0.2, 0.0, 0, 1)",
+  "--muted": "#e5d7bb",
+  "--muted-foreground": "#665f4c",
+  "--popover": "#f6ecda",
+  "--popover-foreground": "#1a2d21",
+  "--primary": "#214532",
+  "--primary-foreground": "#f4ead7",
+  "--primary-hover": "#2b563f",
+  "--radius": "0.25rem",
+  "--ring": "#946b2d",
+  "--secondary": "#ddceb0",
+  "--secondary-foreground": "#1a2d21",
+  "--secondary-hover": "#d4c2a2",
+  "--shadow-button": "0 1px 1px rgba(26, 45, 33, 0.14)",
+  "--shadow-button-2": "0 1px 2px rgba(26, 45, 33, 0.18)",
+  "--shadow-card": "0 2px 6px rgba(26, 45, 33, 0.12)",
+  "--shadow-dropdown": "0 14px 32px rgba(26, 45, 33, 0.16)",
+  "--shell": "#eadbc0",
+  "--shell-border": "#c7b38e",
+  "--shell-foreground": "#1a2d21",
+  "--sidebar": "#e3d2b3",
+  "--sidebar-accent": "#d4c19d",
+  "--sidebar-accent-foreground": "#1a2d21",
+  "--sidebar-border": "#c7b38e",
+  "--sidebar-foreground": "#1a2d21",
+  "--sidebar-primary": "#214532",
+  "--sidebar-primary-foreground": "#f4ead7",
+  "--sidebar-ring": "#946b2d",
+  "--success": "#355f47",
+  "--success-foreground": "#f4ead7",
+  "--type-scale-body": "0.9375rem",
+  "--type-scale-h1": "2.125rem",
+  "--type-scale-h2": "1.75rem",
+  "--type-scale-h3": "1.375rem",
+  "--type-scale-h4": "1.125rem",
+  "--type-scale-label": "0.8125rem",
+  "--warning": "#95753a",
+  "--warning-foreground": "#f4ead7",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > accounting-dark-tokens 1`] = `
+{
+  "--accent": "#1d3526",
+  "--chart-4": "#d0ab67",
+  "--primary": "#be9b59",
+  "--radius": "0.375rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > accounting-light-tokens 1`] = `
+{
+  "--accent": "#d8c5a3",
+  "--chart-4": "#9d7f49",
+  "--primary": "#224633",
+  "--radius": "0.375rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > construction-dark-tokens 1`] = `
+{
+  "--accent": "#223728",
+  "--chart-4": "#d2ad6a",
+  "--primary": "#bc9857",
+  "--radius": "0.2rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > construction-light-tokens 1`] = `
+{
+  "--accent": "#d4c09f",
+  "--chart-4": "#9e7c45",
+  "--primary": "#2f4d3a",
+  "--radius": "0.2rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > gov-dark-tokens 1`] = `
+{
+  "--accent": "#1a2f22",
+  "--chart-4": "#c8a364",
+  "--primary": "#b69252",
+  "--radius": "0.125rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > gov-light-tokens 1`] = `
+{
+  "--accent": "#d5c19f",
+  "--chart-4": "#8f7544",
+  "--primary": "#1f3a2a",
+  "--radius": "0.125rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > legal-dark-tokens 1`] = `
+{
+  "--accent": "#223728",
+  "--chart-4": "#d3b16f",
+  "--primary": "#c4a15f",
+  "--radius": "0.25rem",
+}
+`;
+
+exports[`theme variant visual tokens > keeps vertical accent packs stable > legal-light-tokens 1`] = `
+{
+  "--accent": "#dcc9a8",
+  "--chart-4": "#b18e4e",
+  "--primary": "#1d3b2d",
+  "--radius": "0.25rem",
+}
+`;

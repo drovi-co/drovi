@@ -2,6 +2,11 @@ import type {
   AgentDeploymentModel,
   AgentRunModel,
 } from "@memorystack/api-types";
+import {
+  formatDateTime,
+  statusBadgeClass,
+  useAgentRunStream,
+} from "@memorystack/mod-agents";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
@@ -29,14 +34,9 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { agentsAPI } from "@/lib/api";
+import { agentsAPI, getApiBase } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useAgentRunStream } from "@/modules/agents/hooks/use-agent-run-stream";
-import {
-  formatDateTime,
-  statusBadgeClass,
-} from "@/modules/agents/lib/agent-ui";
 
 function nextRunAction(status: string) {
   const normalized = status.toLowerCase();
@@ -203,6 +203,7 @@ export function AgentsWorkforcesPage() {
   );
 
   useAgentRunStream({
+    apiBaseUrl: getApiBase(),
     organizationId,
     deploymentId: effectiveDeploymentId || null,
     enabled: Boolean(organizationId && effectiveDeploymentId),
@@ -290,7 +291,7 @@ export function AgentsWorkforcesPage() {
               />
             ) : (deployments ?? []).length === 0 ? (
               <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-                No deployments yet. Create one in Agent Studio.
+                No deployments yet. Create one in Mandate Studio.
               </div>
             ) : (
               deployments?.map((deployment) => {

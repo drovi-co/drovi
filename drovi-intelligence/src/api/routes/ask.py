@@ -1,12 +1,12 @@
 """
-Ask API - Natural Language Query Interface
+Record Inquiry API - Truth-First Question Interface
 
-Enables natural language questions over the Drovi knowledge graph.
-Uses GraphRAG for intelligent query generation and response synthesis.
+Enables natural language questions over the Drovi record graph.
+Uses GraphRAG for query generation and evidence-grounded response synthesis.
 
-Includes 2-phase truth-first protocol for pilot surface:
+Includes 2-phase truth-first protocol:
 - Phase A: Truth (< 200ms) - structured retrieval from graph
-- Phase B: Reasoning (streaming) - LLM narrative synthesis
+- Phase B: Reasoning (streaming) - narrative synthesis
 
 Examples:
 - "Who are the most influential people in our network?"
@@ -36,7 +36,7 @@ from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/ask", tags=["Natural Language Query"])
+router = APIRouter(prefix="/ask", tags=["Record Inquiry"])
 
 # Prometheus metrics
 ask_truth_latency = Histogram(
