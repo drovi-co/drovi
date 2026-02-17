@@ -30,6 +30,7 @@ from src.auth.pilot_accounts import (
     verify_jwt,
 )
 from src.config import get_settings
+from src.security.org_policy import get_org_security_policy
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -101,6 +102,11 @@ async def require_pilot_auth(
     current_role = str(membership_row.role)
     if current_role != token.role:
         token = token.model_copy(update={"role": current_role})
+
+    if token.auth_method == "password":
+        org_policy = await get_org_security_policy(token.org_id)
+        if not org_policy.allows_password_auth(get_settings().environment):
+            raise HTTPException(401, "Password sessions are disabled. Please sign in with SSO.")
 
     # Ensure all DB reads/writes in this request are scoped by org-level RLS.
     from src.db.rls import rls_context

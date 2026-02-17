@@ -29,7 +29,7 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
               alt="Drovi"
               className="h-8 w-8 rounded-lg"
               height={32}
-              src="/logo-dark.jpg"
+              src="/drovi-old-money.svg"
               width={32}
             />
             <span>Drovi</span>
@@ -108,13 +108,13 @@ export function OnboardingLayout({ children, step }: OnboardingLayoutProps) {
         {/* Mobile header */}
         <div className="flex items-center justify-between border-b p-4 lg:hidden">
           <Link className="flex items-center gap-2 font-semibold" to="/">
-            <img
-              alt="Drovi"
-              className="h-7 w-7 rounded-lg"
-              height={28}
-              src="/logo-dark.jpg"
-              width={28}
-            />
+          <img
+            alt="Drovi"
+            className="h-7 w-7 rounded-lg"
+            height={28}
+            src="/drovi-old-money.svg"
+            width={28}
+          />
             <span>Drovi</span>
           </Link>
           <span className="text-muted-foreground text-sm">

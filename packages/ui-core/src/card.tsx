@@ -11,16 +11,23 @@ import { cn } from "./utils";
  * - 4px border radius
  * - Subtle shadow
  */
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<"div"> & { variant?: "default" | "dossier" }) {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-[6px] border border-border",
-        "bg-card text-card-foreground",
-        "shadow-card",
+        "old-money-panel flex flex-col rounded-[8px] border border-border/85",
+        "bg-card text-card-foreground backdrop-blur-[1px]",
+        variant === "dossier"
+          ? "rounded-[6px] border-border bg-card/95 shadow-none ring-1 ring-border/40"
+          : "shadow-card",
         className
       )}
       data-slot="card"
+      data-variant={variant}
       {...props}
     />
   );
@@ -43,7 +50,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
     <h3
-      className={cn("font-medium text-[15px] leading-none", className)}
+      className={cn("font-medium text-[15px] leading-none tracking-[0.01em]", className)}
       data-slot="card-title"
       {...props}
     />

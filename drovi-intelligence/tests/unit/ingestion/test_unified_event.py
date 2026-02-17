@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+import pytest
+
 from src.ingestion.unified_event import (
     build_content_hash,
     build_source_fingerprint,
@@ -37,3 +39,25 @@ def test_build_uem_metadata_attaches_defaults():
     assert metadata["content_hash"] == "abc123"
     assert metadata["captured_at"].startswith("2025-01-01")
     assert metadata["received_at"].startswith("2025-01-02")
+
+
+def test_build_uem_metadata_requires_content_hash():
+    with pytest.raises(ValueError, match="content_hash is required"):
+        build_uem_metadata(
+            {"subject": "Test"},
+            source_fingerprint="email|src|conv|msg",
+            content_hash="",
+            captured_at=None,
+            received_at=None,
+        )
+
+
+def test_build_uem_metadata_requires_source_fingerprint():
+    with pytest.raises(ValueError, match="source_fingerprint is required"):
+        build_uem_metadata(
+            {"subject": "Test"},
+            source_fingerprint="",
+            content_hash="abc123",
+            captured_at=None,
+            received_at=None,
+        )

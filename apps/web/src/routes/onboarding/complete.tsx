@@ -168,7 +168,7 @@ function CompletePage() {
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             {/* Welcome message */}
-            <div className="rounded-xl border border-primary/10 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 p-5 text-center">
+            <div className="rounded-xl border border-primary/15 bg-primary/5 p-5 text-center">
               <Sparkles className="mx-auto mb-2 h-6 w-6 text-primary" />
               <p className="text-sm">
                 {t("onboarding.complete.welcomeCard.line1", {

@@ -8,4 +8,11 @@ export type {
   GovernanceSignal,
   KPIBlock,
   KPIsResponse,
+  OnboardingAutomationItem,
+  OnboardingAutomationListResponse,
+  OnboardingChecklist,
+  OnboardingRunbookItem,
+  OnboardingRunbookListResponse,
+  OnboardingRunbookUpdateRequest,
+  TriggerOnboardingAutomationResponse,
 } from "./models";

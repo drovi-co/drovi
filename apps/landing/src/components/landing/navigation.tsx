@@ -71,7 +71,7 @@ export function Navigation({ onRequestAccess }: NavigationProps) {
             onClick={onRequestAccess}
             type="button"
           >
-            Request Access
+            Request private briefing
           </button>
         </div>
       </div>
@@ -142,7 +142,7 @@ export function Navigation({ onRequestAccess }: NavigationProps) {
               }}
               type="button"
             >
-              Request Access
+              Request private briefing
             </button>
           </div>
         </div>

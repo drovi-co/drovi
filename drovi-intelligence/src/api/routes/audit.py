@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
@@ -12,6 +14,7 @@ from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
 from src.db.client import get_db_session
 from src.db.rls import set_rls_context
+from src.jobs.queue import EnqueueJobRequest, enqueue_job
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
@@ -113,3 +116,117 @@ async def verify_audit_ledger(
         "head_ok": head_ok,
         "invalid_entries": invalid_entries,
     }
+
+
+@router.get("/integrity-snapshot")
+async def get_integrity_snapshot(
+    organization_id: str = Query(...),
+    root_date: str | None = Query(
+        default=None,
+        description="UTC day in YYYY-MM-DD format. Defaults to previous UTC day.",
+    ),
+    compute_if_missing: bool = Query(
+        default=True,
+        description="Compute and persist the daily root if absent.",
+    ),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
+):
+    _validate_org_id(ctx, organization_id)
+
+    try:
+        target_date = date.fromisoformat(root_date) if root_date else (datetime.utcnow().date() - timedelta(days=1))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid root_date format; expected YYYY-MM-DD") from exc
+
+    async def _fetch_snapshot() -> Any | None:
+        set_rls_context(organization_id, is_internal=True)
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT organization_id, root_date, artifact_count, event_count, leaf_count,
+                               merkle_root, signed_root, signature_alg, signature_key_id, metadata, created_at
+                        FROM custody_daily_root
+                        WHERE organization_id = :org_id
+                          AND root_date = :root_date
+                        """
+                    ),
+                    {"org_id": organization_id, "root_date": target_date},
+                )
+                return result.fetchone()
+        finally:
+            set_rls_context(None, is_internal=False)
+
+    row = await _fetch_snapshot()
+    if not row and compute_if_missing:
+        from src.jobs.custody_integrity import get_custody_integrity_job
+
+        job = get_custody_integrity_job()
+        await job.run(organization_id=organization_id, root_date=target_date)
+        row = await _fetch_snapshot()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Integrity snapshot not found")
+
+    metadata = row.metadata if isinstance(row.metadata, dict) else {}
+    export_payload = {
+        "organization_id": row.organization_id,
+        "root_date": row.root_date.isoformat() if row.root_date else None,
+        "artifact_count": int(row.artifact_count or 0),
+        "event_count": int(row.event_count or 0),
+        "leaf_count": int(row.leaf_count or 0),
+        "merkle_root": row.merkle_root,
+        "signed_root": row.signed_root,
+        "signature_alg": row.signature_alg,
+        "signature_key_id": row.signature_key_id,
+        "metadata": metadata,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+    return {
+        **export_payload,
+        "export_json": json.dumps(export_payload, sort_keys=True),
+    }
+
+
+@router.post("/integrity-snapshot/refresh")
+async def refresh_integrity_snapshot(
+    organization_id: str = Query(...),
+    root_date: str | None = Query(default=None),
+    async_mode: bool = Query(default=True),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
+):
+    _validate_org_id(ctx, organization_id)
+
+    target_date = None
+    if root_date:
+        try:
+            target_date = date.fromisoformat(root_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid root_date format; expected YYYY-MM-DD") from exc
+
+    if async_mode:
+        bucket = int(datetime.utcnow().timestamp()) // 60
+        idempotency_key = f"custody_daily_root:{organization_id}:{(target_date.isoformat() if target_date else 'auto')}:{bucket}"
+        job_id = await enqueue_job(
+            EnqueueJobRequest(
+                organization_id=organization_id,
+                job_type="custody.daily_root",
+                payload={
+                    "organization_id": organization_id,
+                    "root_date": target_date.isoformat() if target_date else None,
+                },
+                priority=0,
+                max_attempts=2,
+                idempotency_key=idempotency_key,
+                resource_key=f"org:{organization_id}:custody_daily_root",
+            )
+        )
+        return {"status": "queued", "job_id": job_id, "idempotency_key": idempotency_key}
+
+    from src.jobs.custody_integrity import get_custody_integrity_job
+
+    job = get_custody_integrity_job()
+    result = await job.run(organization_id=organization_id, root_date=target_date)
+    return {"status": "completed", "result": result}

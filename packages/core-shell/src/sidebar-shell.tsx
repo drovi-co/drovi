@@ -35,7 +35,12 @@ export function SidebarShell({
       defaultOpen={defaultSidebarOpen}
       style={{ ...DEFAULT_SHELL_STYLE, ...style }}
     >
-      <div className={cn("flex h-screen w-full bg-shell", className)}>
+      <div
+        className={cn(
+          "flex h-screen w-full bg-shell text-shell-foreground",
+          className
+        )}
+      >
         {sidebar}
         <div className="flex flex-1 flex-col overflow-hidden">
           {banner}

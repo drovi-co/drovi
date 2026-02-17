@@ -160,7 +160,7 @@ export const ConsoleSearchBar = forwardRef<
     onFilterRemove,
     onTimeRemove,
     className,
-    placeholder = "Search... type:commitment status:active @7d",
+    placeholder = "Search the ledger... type:commitment status:active @7d",
   },
   ref
 ) {

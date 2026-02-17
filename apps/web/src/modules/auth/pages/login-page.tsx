@@ -1,17 +1,10 @@
-import { useState } from "react";
+import { useAuthView } from "@memorystack/mod-auth";
 import { AuthLayout, SignInForm, SignUpForm } from "@/components/auth";
 import { useT } from "@/i18n";
 
-type AuthView = "sign-in" | "sign-up";
-
 export function LoginPage() {
-  const [view, setView] = useState<AuthView>(() => {
-    if (typeof window === "undefined") return "sign-in";
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode");
-    const invite = params.get("invite");
-    if (mode === "sign-up" || invite) return "sign-up";
-    return "sign-in";
+  const { view, showSignIn, showSignUp } = useAuthView({
+    search: typeof window === "undefined" ? "" : window.location.search,
   });
   const t = useT();
 
@@ -36,10 +29,10 @@ export function LoginPage() {
   return (
     <AuthLayout description={getDescription()} title={getTitle()}>
       {view === "sign-in" && (
-        <SignInForm onSwitchToSignUp={() => setView("sign-up")} />
+        <SignInForm onSwitchToSignUp={showSignUp} />
       )}
       {view === "sign-up" && (
-        <SignUpForm onSwitchToSignIn={() => setView("sign-in")} />
+        <SignUpForm onSwitchToSignIn={showSignIn} />
       )}
     </AuthLayout>
   );

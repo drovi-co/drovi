@@ -305,10 +305,10 @@ function ConnectSourcesPage() {
                   <div
                     className={cn(
                       "flex flex-col gap-3 rounded-xl border bg-card p-4",
-                      isConnected && "border-emerald-500/40 bg-emerald-500/5",
+                      isConnected && "border-success/40 bg-success/10",
                       connector.available &&
                         !connector.configured &&
-                        "border-amber-500/30 bg-amber-500/5",
+                        "border-warning/35 bg-warning/10",
                       !connector.available && "opacity-60"
                     )}
                     key={connector.id}
@@ -335,7 +335,7 @@ function ConnectSourcesPage() {
                       </div>
                       {isConnected ? (
                         <div className="flex flex-col items-end gap-1">
-                          <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600">
+                          <Badge className="border-success/40 bg-success/10 text-success">
                             {t("pages.dashboard.sources.status.connected")}
                           </Badge>
                           <Badge
@@ -343,10 +343,10 @@ function ConnectSourcesPage() {
                               "text-[10px]",
                               (connection?.visibility ?? "org_shared") ===
                                 "private" &&
-                                "border-slate-500/30 bg-slate-500/10 text-slate-600",
+                                "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
                               (connection?.visibility ?? "org_shared") ===
                                 "org_shared" &&
-                                "border-emerald-500/20 bg-emerald-500/5 text-emerald-700/80"
+                                "border-success/35 bg-success/10 text-success"
                             )}
                             variant="outline"
                           >
@@ -364,7 +364,7 @@ function ConnectSourcesPage() {
                             {t("pages.dashboard.sources.badges.ready")}
                           </Badge>
                         ) : (
-                          <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-600">
+                          <Badge className="border-warning/35 bg-warning/10 text-warning">
                             {t("pages.dashboard.sources.badges.notConfigured")}
                           </Badge>
                         )
@@ -378,11 +378,11 @@ function ConnectSourcesPage() {
                     {connector.available &&
                     !connector.configured &&
                     connector.missingEnv.length ? (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-amber-700/80 text-xs">
-                        <p className="font-medium text-amber-600">
+                      <div className="rounded-lg border border-warning/35 bg-warning/10 p-3 text-warning/90 text-xs">
+                        <p className="font-medium text-warning">
                           {t("onboarding.connectSources.missingConfig.title")}
                         </p>
-                        <p className="mt-1 font-mono text-[11px] text-amber-700/70">
+                        <p className="mt-1 font-mono text-[11px] text-warning/80">
                           {connector.missingEnv.join(", ")}
                         </p>
                       </div>

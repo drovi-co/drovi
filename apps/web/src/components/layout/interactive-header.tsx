@@ -28,7 +28,6 @@ import { SidebarTrigger } from "@memorystack/ui-core/sidebar";
 import type { LucideIcon } from "lucide-react";
 import { ChevronDown, Filter } from "lucide-react";
 import type { ReactNode } from "react";
-import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -100,8 +99,8 @@ function HeaderTabButton({ tab, active, onClick }: HeaderTabButtonProps) {
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-normal text-[13px] transition-all",
         active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-shell-foreground hover:bg-background/40"
+          ? "bg-background text-foreground shadow-button"
+          : "text-shell-foreground/90 hover:bg-background/40 hover:text-foreground"
       )}
       onClick={onClick}
       type="button"
@@ -114,7 +113,7 @@ function HeaderTabButton({ tab, active, onClick }: HeaderTabButtonProps) {
             "ml-0.5 min-w-[18px] rounded px-1 text-[11px] tabular-nums",
             active
               ? "bg-muted/80 text-muted-foreground"
-              : "bg-background/50 text-muted-foreground"
+              : "bg-background/40 text-muted-foreground"
           )}
         >
           {tab.count}
@@ -142,7 +141,7 @@ function FilterButton({ filter }: FilterButtonProps) {
           <button
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
-              "text-shell-foreground hover:bg-background/40",
+              "text-shell-foreground hover:bg-background/40 hover:text-foreground",
               "outline-none transition-colors"
             )}
             type="button"
@@ -177,7 +176,7 @@ function FilterButton({ filter }: FilterButtonProps) {
     <button
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
-        "text-shell-foreground hover:bg-background/40",
+        "text-shell-foreground hover:bg-background/40 hover:text-foreground",
         "transition-colors"
       )}
       type="button"
@@ -206,16 +205,16 @@ export function InteractiveHeader({
   return (
     <header
       className={cn(
-        "flex h-14 shrink-0 items-center gap-3 px-4",
-        "bg-shell text-shell-foreground",
+        "flex h-14 shrink-0 items-center gap-3 border-shell-border/70 border-b px-4",
+        "bg-shell/92 text-shell-foreground backdrop-blur-[1px]",
         className
       )}
     >
       {/* Left section: Sidebar trigger + Breadcrumbs */}
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1 h-7 w-7 text-shell-foreground hover:bg-background/40" />
+        <SidebarTrigger className="-ml-1 h-7 w-7 text-shell-foreground hover:bg-background/40 hover:text-foreground" />
         <Separator
-          className="mr-1 h-4 bg-shell-border/60"
+          className="mr-1 h-4 bg-shell-border/70"
           orientation="vertical"
         />
         {breadcrumbs.length > 0 && (
@@ -228,7 +227,7 @@ export function InteractiveHeader({
                     <BreadcrumbItem>
                       {index < breadcrumbs.length - 1 ? (
                         <BreadcrumbLink
-                          className="flex items-center gap-1.5 font-normal text-[13px] text-shell-foreground hover:opacity-70"
+                          className="flex items-center gap-1.5 font-normal text-[13px] text-shell-foreground hover:text-foreground"
                           href={item.href ?? "#"}
                         >
                           {Icon && (
@@ -258,7 +257,7 @@ export function InteractiveHeader({
 
       {/* Center section: Tabs */}
       {tabs && tabs.length > 0 && (
-        <div className="ml-3 flex items-center gap-0.5 rounded-lg bg-shell-border/20 p-0.5">
+        <div className="ml-3 flex items-center gap-0.5 rounded-lg border border-shell-border/50 bg-shell-border/20 p-0.5">
           {tabs.map((tab) => (
             <HeaderTabButton
               active={tab.id === activeTab}
@@ -287,14 +286,13 @@ export function InteractiveHeader({
 
       {/* Actions section */}
       <div className="flex items-center gap-1">
-        <ModeToggle />
         {actions?.map((action) => {
           const Icon = action.icon;
           return (
             <button
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 font-normal text-[13px]",
-                "text-shell-foreground hover:bg-background/40",
+                "text-shell-foreground hover:bg-background/40 hover:text-foreground",
                 "transition-colors"
               )}
               key={action.id}
@@ -309,9 +307,8 @@ export function InteractiveHeader({
         {primaryAction && (
           <button
             className={cn(
-              "ml-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 font-normal text-[13px]",
-              "bg-foreground text-background",
-              "transition-colors hover:bg-foreground/90"
+              "ml-1 flex items-center gap-1.5 rounded-md border border-ring/40 bg-primary px-3 py-1.5 font-normal text-[13px] text-primary-foreground",
+              "shadow-button transition-colors hover:bg-primary-hover"
             )}
             onClick={primaryAction.onClick}
             type="button"

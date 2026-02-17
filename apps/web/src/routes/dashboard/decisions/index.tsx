@@ -297,7 +297,8 @@ function DecisionsPage() {
   const decisions: DecisionRowData[] = (decisionsData?.items ?? []).map((d) => {
     const details = d.decisionDetails;
     // Get decision maker from UIO root level (where transformer places it)
-    const decisionMaker = d.decisionMaker ?? d.owner ?? fallbackOwner;
+    const decisionMaker =
+      d.decisionMaker ?? d.owner ?? d.createdBy ?? fallbackOwner;
     const evidenceQuotes = (d.sources ?? [])
       .map((source) => source.quotedText)
       .filter((value): value is string => Boolean(value));
@@ -327,6 +328,13 @@ function DecisionsPage() {
         : [],
       topics: undefined,
       sourceType: sourceType as DecisionRowData["sourceType"],
+      evidenceCount: d.sources?.length ?? 0,
+      lastVerifiedAt: d.updatedAt ? new Date(d.updatedAt) : new Date(d.createdAt),
+      supersessionState: details?.supersededByUioId
+        ? "superseded"
+        : details?.supersedesUioId
+          ? "superseding"
+          : "active",
     };
   });
 
@@ -334,7 +342,8 @@ function DecisionsPage() {
   const decisionsLegacy: DecisionCardData[] = (decisionsData?.items ?? []).map(
     (d) => {
       const details = d.decisionDetails;
-      const decisionMaker = d.decisionMaker ?? d.owner ?? fallbackOwner;
+      const decisionMaker =
+        d.decisionMaker ?? d.owner ?? d.createdBy ?? fallbackOwner;
       const evidenceQuotes = (d.sources ?? [])
         .map((source) => source.quotedText)
         .filter((value): value is string => Boolean(value));
@@ -408,6 +417,7 @@ function DecisionsPage() {
     isSearching && searchResults?.relevantDecisions
       ? searchResults.relevantDecisions.map((d) => {
           const full = decisions.find((fd) => fd.id === d.id);
+          const fallbackDecisionMaker = d.decisionMaker ?? d.owner ?? d.createdBy;
           return (
             full ??
             ({
@@ -422,15 +432,22 @@ function DecisionsPage() {
               confidence: d.overallConfidence ?? 0.8,
               isSuperseded: !!d.decisionDetails?.supersededByUioId,
               isUserVerified: d.isUserVerified ?? undefined,
-              owners: d.decisionMaker
+              owners: fallbackDecisionMaker
                 ? [
                     {
-                      id: d.decisionMaker.id,
-                      displayName: d.decisionMaker.displayName,
-                      primaryEmail: d.decisionMaker.primaryEmail,
+                      id: fallbackDecisionMaker.id,
+                      displayName: fallbackDecisionMaker.displayName,
+                      primaryEmail: fallbackDecisionMaker.primaryEmail,
                     },
                   ]
                 : [],
+              evidenceCount: d.sources?.length ?? 0,
+              lastVerifiedAt: d.updatedAt ? new Date(d.updatedAt) : new Date(d.createdAt),
+              supersessionState: d.decisionDetails?.supersededByUioId
+                ? "superseded"
+                : d.decisionDetails?.supersedesUioId
+                  ? "superseding"
+                  : "active",
             } as DecisionRowData)
           );
         })
@@ -469,7 +486,10 @@ function DecisionsPage() {
     ? (() => {
         const details = detailData.decisionDetails;
         const decisionMaker =
-          detailData.decisionMaker ?? detailData.owner ?? fallbackOwner;
+          detailData.decisionMaker ??
+          detailData.owner ??
+          detailData.createdBy ??
+          fallbackOwner;
         const evidenceQuotes = (detailData.sources ?? [])
           .map((source) => source.quotedText)
           .filter((value): value is string => Boolean(value));

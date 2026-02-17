@@ -26,7 +26,7 @@ import { Skeleton } from "@memorystack/ui-core/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { format, subDays } from "date-fns";
-import { Activity, Filter, Loader2, RefreshCw } from "lucide-react";
+import { Filter, Loader2, RefreshCw, ScrollText } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
@@ -120,17 +120,19 @@ function RealityStreamPage() {
 
   return (
     <div className="flex h-full flex-col gap-6 p-6" data-no-shell-padding>
-      <div className="rounded-2xl border bg-card px-6 py-5 shadow-sm">
+      <div className="old-money-panel rounded-xl px-6 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
-              <Activity className="h-3 w-3" />
-              {t("pages.dashboard.realityStream.kicker")}
+            <div className="flex items-center gap-2">
+              <ScrollText className="h-3.5 w-3.5 text-ring" />
+              <span className="old-money-kicker">
+                {t("pages.dashboard.realityStream.kicker")}
+              </span>
             </div>
-            <h1 className="font-semibold text-2xl">
+            <h1 className="font-serif text-2xl">
               {t("pages.dashboard.realityStream.title")}
             </h1>
-            <p className="max-w-2xl text-muted-foreground">
+            <p className="max-w-2xl text-muted-foreground text-sm">
               {t("pages.dashboard.realityStream.description")}
             </p>
           </div>
@@ -141,10 +143,10 @@ function RealityStreamPage() {
         </div>
       </div>
 
-      <Card>
+      <Card variant="dossier">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Filter className="h-4 w-4 text-primary" />
+            <Filter className="h-4 w-4 text-ring" />
             {t("pages.dashboard.realityStream.filters.title")}
           </CardTitle>
           <CardDescription>
@@ -193,7 +195,7 @@ function RealityStreamPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card variant="dossier">
         <CardHeader>
           <CardTitle className="text-base">
             {t("pages.dashboard.realityStream.timeline.title")}
@@ -210,7 +212,7 @@ function RealityStreamPage() {
           ) : isError ? (
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
           ) : grouped.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+            <div className="rounded-lg border border-dashed border-border/70 p-6 text-center text-muted-foreground">
               {t("pages.dashboard.realityStream.timeline.empty")}
             </div>
           ) : (
@@ -241,7 +243,7 @@ function RealityStreamPage() {
 
 function ChangeRow({ change }: { change: ChangeRecord }) {
   return (
-    <div className="rounded-lg border bg-muted/20 p-3">
+    <div className="rounded-lg border border-border/80 bg-card/55 p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-medium text-sm">

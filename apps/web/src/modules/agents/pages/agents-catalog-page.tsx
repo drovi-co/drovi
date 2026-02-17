@@ -1,4 +1,5 @@
 import type { AgentCatalogItem } from "@memorystack/api-types";
+import { formatDateTime, statusBadgeClass } from "@memorystack/mod-agents";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
@@ -28,10 +29,6 @@ import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { agentsAPI } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import {
-  formatDateTime,
-  statusBadgeClass,
-} from "@/modules/agents/lib/agent-ui";
 
 interface StarterPack {
   id: string;
@@ -231,7 +228,7 @@ export function AgentsCatalogPage() {
       };
     },
     onSuccess: async (_result, pack) => {
-      toast.success(`${pack.title} installed in Agent Studio`);
+      toast.success(`${pack.title} installed in Mandate Studio`);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["agent-catalog", organizationId],
@@ -278,7 +275,7 @@ export function AgentsCatalogPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to open Agent Catalog.
+        Select an organization to open Mandate Exchange.
       </div>
     );
   }
@@ -291,13 +288,13 @@ export function AgentsCatalogPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
             <Store className="h-3.5 w-3.5" />
-            Agent Catalog
+            Mandate Exchange
           </div>
           <h1 className="font-semibold text-2xl">
             Install workforce starter packs
           </h1>
           <p className="max-w-3xl text-muted-foreground">
-            Deploy pre-wired AI employee templates, then customize in Studio for
+            Deploy pre-wired mandate templates, then customize in Studio for
             your org language, policy, and tools.
           </p>
         </div>
@@ -333,7 +330,7 @@ export function AgentsCatalogPage() {
         <CardHeader>
           <CardTitle className="text-base">Starter packs</CardTitle>
           <CardDescription>
-            One-click installs for common AI employee roles.
+            One-click installs for common mandate roles.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -367,7 +364,7 @@ export function AgentsCatalogPage() {
                   ) : (
                     <Sparkles className="mr-2 h-4 w-4" />
                   )}
-                  Install to Agent Studio
+                  Install to Mandate Studio
                 </Button>
               </article>
             ))}
@@ -409,7 +406,7 @@ export function AgentsCatalogPage() {
               API and webhook access
             </CardTitle>
             <CardDescription>
-              External systems can trigger and monitor AgentOS workflows
+              External systems can trigger and monitor MandateOS workflows
               directly.
             </CardDescription>
           </CardHeader>
@@ -452,8 +449,8 @@ export function AgentsCatalogPage() {
               <div className="flex items-start gap-2">
                 <Mail className="mt-0.5 h-4 w-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Use Agent Inbox to bind Slack/Teams/email channels and route
-                  live tasks into deployed agents.
+                  Use Mandate Inbox to bind Slack/Teams/email channels and route
+                  live tasks into deployed mandates.
                 </p>
               </div>
             </div>

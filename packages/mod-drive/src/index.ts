@@ -9,3 +9,11 @@ export {
   modDriveMessages,
 } from "./messages";
 export { createDriveModule } from "./module";
+export {
+  normalizeDriveRouteState,
+  useDriveSelectionState,
+  type DriveRouteState,
+  type DriveSelectionOptions,
+  type NormalizedDriveRouteState,
+  type SearchMode,
+} from "./state";

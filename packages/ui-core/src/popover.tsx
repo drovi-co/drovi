@@ -28,8 +28,11 @@ function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  variant?: "default" | "evidence";
+}) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -39,7 +42,9 @@ function PopoverContent({
           // Linear popover styling
           "rounded-[6px] border border-border",
           "bg-popover text-popover-foreground",
-          "p-4 shadow-dropdown",
+          variant === "evidence"
+            ? "p-4 shadow-none ring-1 ring-border/35"
+            : "p-4 shadow-dropdown",
           // Animations
           "data-[state=closed]:animate-out data-[state=open]:animate-in",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
@@ -48,6 +53,7 @@ function PopoverContent({
           "data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
           className
         )}
+        data-variant={variant}
         data-slot="popover-content"
         sideOffset={sideOffset}
         {...props}

@@ -70,6 +70,11 @@ export interface TaskData {
   metadata: TaskMetadata | null;
   createdAt: Date;
   updatedAt: Date;
+  evidenceCount?: number;
+  lastVerifiedAt?: Date | null;
+  confidence?: number;
+  isUserVerified?: boolean;
+  supersessionState?: "active" | "final" | "superseding" | "superseded";
 }
 
 export interface TaskActivity {
@@ -109,37 +114,37 @@ export const STATUS_CONFIG: Record<
   todo: {
     label: "components.tasks.status.todo",
     icon: Circle,
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/30",
+    color: "text-ring",
+    bgColor: "bg-ring/10",
+    borderColor: "border-ring/35",
   },
   in_progress: {
     label: "components.tasks.status.inProgress",
     icon: CircleDot,
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-    borderColor: "border-amber-500/30",
+    color: "text-warning",
+    bgColor: "bg-warning/10",
+    borderColor: "border-warning/35",
   },
   in_review: {
     label: "components.tasks.status.inReview",
     icon: CirclePause,
-    color: "text-violet-500",
-    bgColor: "bg-violet-500/10",
-    borderColor: "border-violet-500/30",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/35",
   },
   done: {
     label: "components.tasks.status.done",
     icon: CheckCircle2,
-    color: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
-    borderColor: "border-emerald-500/30",
+    color: "text-success",
+    bgColor: "bg-success/10",
+    borderColor: "border-success/35",
   },
   cancelled: {
     label: "components.tasks.status.cancelled",
     icon: XCircle,
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/30",
+    color: "text-destructive",
+    bgColor: "bg-destructive/10",
+    borderColor: "border-destructive/35",
   },
 };
 
@@ -167,21 +172,21 @@ export const PRIORITY_CONFIG: Record<
 > = {
   urgent: {
     label: "components.tasks.priority.urgent",
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
-    dotColor: "bg-red-500",
+    color: "text-destructive",
+    bgColor: "bg-destructive/10",
+    dotColor: "bg-destructive",
   },
   high: {
     label: "components.tasks.priority.high",
-    color: "text-orange-500",
-    bgColor: "bg-orange-500/10",
-    dotColor: "bg-orange-500",
+    color: "text-warning",
+    bgColor: "bg-warning/10",
+    dotColor: "bg-warning",
   },
   medium: {
     label: "components.tasks.priority.medium",
-    color: "text-yellow-500",
-    bgColor: "bg-yellow-500/10",
-    dotColor: "bg-yellow-400",
+    color: "text-ring",
+    bgColor: "bg-ring/10",
+    dotColor: "bg-ring",
   },
   low: {
     label: "components.tasks.priority.low",
@@ -219,18 +224,18 @@ export const SOURCE_TYPE_CONFIG: Record<
 > = {
   conversation: {
     label: "components.tasks.sourceType.conversation",
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
+    color: "text-ring",
+    bgColor: "bg-ring/10",
   },
   commitment: {
     label: "components.tasks.sourceType.commitment",
-    color: "text-purple-500",
-    bgColor: "bg-purple-500/10",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
   },
   decision: {
     label: "components.tasks.sourceType.decision",
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
+    color: "text-success",
+    bgColor: "bg-success/10",
   },
   manual: {
     label: "components.tasks.sourceType.manual",
@@ -268,21 +273,21 @@ export function formatDueDate(
       text: options.t("components.tasks.due.overdueShort", {
         days: Math.abs(diffDays),
       }),
-      className: "text-red-500 font-medium",
+      className: "text-destructive font-medium",
       isOverdue: true,
     };
   }
   if (diffDays === 0) {
     return {
       text: options.t("components.tasks.due.today"),
-      className: "text-amber-500 font-medium",
+      className: "text-warning font-medium",
       isOverdue: false,
     };
   }
   if (diffDays === 1) {
     return {
       text: options.t("components.tasks.due.tomorrow"),
-      className: "text-amber-500",
+      className: "text-warning",
       isOverdue: false,
     };
   }

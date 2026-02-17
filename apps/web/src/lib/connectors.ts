@@ -77,7 +77,7 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     id: "notion",
     name: "Notion",
     icon: FileText,
-    color: "#000000",
+    color: "#8F7A55",
     descriptionKey: "connectors.notion.description",
     category: "knowledge",
   },

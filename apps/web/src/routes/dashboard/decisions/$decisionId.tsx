@@ -52,8 +52,10 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { EvidenceRail } from "@/components/evidence";
 import { useDismissUIO, useUIO, useVerifyUIO } from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
+import { resolveContactDisplayName } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -204,6 +206,38 @@ function DecisionDetailPage() {
         );
 
         const primarySource = decisionData.sources?.[0] ?? null;
+        const supersessionTimeline: DecisionTimelineEvent[] = [];
+        if (decisionData.decisionDetails?.supersedesUioId) {
+          supersessionTimeline.push({
+            id: "supersession-parent",
+            eventDescription: "Supersedes previous decision",
+            eventAt: decisionData.createdAt,
+          });
+        }
+        if (decisionData.decisionDetails?.supersededByUioId) {
+          supersessionTimeline.push({
+            id: "supersession-child",
+            eventDescription: "Superseded by a newer decision",
+            eventAt: decisionData.updatedAt ?? decisionData.createdAt,
+          });
+        }
+        if (supersessionTimeline.length === 0) {
+          supersessionTimeline.push({
+            id: "supersession-active",
+            eventDescription: "Decision remains active",
+            eventAt: decisionData.updatedAt ?? decisionData.createdAt,
+          });
+        }
+        supersessionTimeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
+        const supersessionState: "active" | "superseding" | "superseded" =
+          decisionData.decisionDetails?.supersededByUioId
+            ? "superseded"
+            : decisionData.decisionDetails?.supersedesUioId
+              ? "superseding"
+              : "active";
 
         return {
           id: decisionData.id,
@@ -223,6 +257,7 @@ function DecisionDetailPage() {
           decisionMaker:
             decisionData.decisionMaker ??
             decisionData.owner ??
+            decisionData.createdBy ??
             fallbackDecisionMaker,
           impactAreas: decisionData.decisionDetails?.impactAreas ?? [],
           evidence: primarySource
@@ -240,6 +275,12 @@ function DecisionDetailPage() {
             decisionData.decisionDetails?.supersedesUioId ?? null,
           supersededByUioId:
             decisionData.decisionDetails?.supersededByUioId ?? null,
+          supersessionState,
+          supersessionTimeline,
+          evidenceCount: decisionData.sources?.length ?? 0,
+          lastVerifiedAt: decisionData.updatedAt
+            ? new Date(decisionData.updatedAt)
+            : new Date(decisionData.createdAt),
           sources: decisionData.sources ?? [],
           timeline,
           createdAt: new Date(decisionData.createdAt),
@@ -652,6 +693,33 @@ function DecisionDetailPage() {
                 </div>
               )}
 
+              {/* Supersession Timeline */}
+              <div className="border-border border-t pt-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground text-sm">
+                    Supersession
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {decision.supersessionTimeline.map((event) => (
+                    <div
+                      className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2"
+                      key={event.id}
+                    >
+                      <span className="text-foreground text-sm">
+                        {event.eventDescription}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {formatDistanceToNow(new Date(event.eventAt), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Timestamps */}
               <div className="space-y-1 border-border border-t pt-4 text-muted-foreground text-xs">
                 {decision.decidedAt && (
@@ -691,6 +759,15 @@ function DecisionDetailPage() {
           {/* Right Column - Properties Sidebar */}
           <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
+              <EvidenceRail
+                confidence={decision.confidence}
+                evidenceCount={decision.evidenceCount}
+                isUserVerified={decision.isUserVerified}
+                lastVerifiedAt={decision.lastVerifiedAt}
+                primaryQuote={decision.evidence?.quotedText ?? null}
+                supersessionState={decision.supersessionState}
+              />
+
               {/* Status */}
               <PropertyRow label="Status">
                 <div className="px-2 py-1.5">
@@ -729,8 +806,10 @@ function DecisionDetailPage() {
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-foreground text-sm">
-                          {decision.decisionMaker.displayName ??
-                            decision.decisionMaker.primaryEmail}
+                          {resolveContactDisplayName(
+                            decision.decisionMaker,
+                            "Unknown"
+                          )}
                         </p>
                         {decision.decisionMaker.displayName &&
                           decision.decisionMaker.primaryEmail && (
@@ -802,8 +881,8 @@ function DecisionDetailPage() {
                 </PropertyRow>
               )}
 
-              {/* AI Confidence */}
-              <PropertyRow label="AI Confidence">
+              {/* Evidence Confidence */}
+              <PropertyRow label="Evidence Confidence">
                 <div className="px-2 py-1.5">
                   <div className="flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">

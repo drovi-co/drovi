@@ -2,7 +2,7 @@
   "title": "Drovi Intelligence Overview",
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "panels": [
     {
@@ -209,6 +209,54 @@
       "gridPos": {
         "x": 0,
         "y": 28,
+        "w": 24,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Critical Endpoint Latency p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_http_request_duration_seconds_bucket{endpoint=~\"/api/v1/brief|/api/v1/uios|/api/v1/search|/api/v1/documents|/api/v1/connections.*\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ask Truth Latency p95",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_ask_truth_latency_seconds_bucket[5m])) by (le, organization_id))",
+          "legendFormat": "{{organization_id}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ask Total Latency p95 by Mode",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(drovi_ask_total_latency_seconds_bucket[5m])) by (le, mode))",
+          "legendFormat": "{{mode}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 44,
         "w": 24,
         "h": 8
       }

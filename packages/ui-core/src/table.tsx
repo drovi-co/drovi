@@ -11,15 +11,29 @@ import { cn } from "./utils";
  * - Hover state on rows
  * - 44px row height matching Linear list items
  */
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<"table"> & { variant?: "default" | "institutional" }) {
   return (
     <div
-      className="relative w-full overflow-x-auto"
+      className={cn(
+        "relative w-full overflow-x-auto",
+        variant === "institutional" && "rounded-[4px] border border-border/70"
+      )}
       data-slot="table-container"
     >
       <table
-        className={cn("w-full caption-bottom", "text-[13px]", className)}
+        className={cn(
+          "w-full caption-bottom",
+          "text-[13px]",
+          variant === "institutional" &&
+            "bg-card [--table-head-height:38px] [--table-row-height:42px]",
+          className
+        )}
         data-slot="table"
+        data-variant={variant}
         {...props}
       />
     </div>
@@ -66,7 +80,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       className={cn(
         "h-[44px] border-border border-b",
-        "transition-colors duration-150",
+        "h-[var(--table-row-height,44px)]",
+        "transition-colors [transition-duration:var(--motion-duration-fast)] [transition-timing-function:var(--motion-ease-standard)]",
         "hover:bg-muted/50",
         "data-[state=selected]:bg-muted",
         className
@@ -82,6 +97,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       className={cn(
         "h-[36px] px-3",
+        "h-[var(--table-head-height,36px)]",
         "text-left align-middle",
         "font-medium text-muted-foreground",
         "text-[12px] uppercase tracking-wider",

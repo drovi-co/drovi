@@ -96,7 +96,7 @@ export const sourceConfigs: Record<SourceType, SourceConfig> = {
   },
   notion: {
     icon: FileText,
-    color: "#000000",
+    color: "#8F7A55",
     label: "Notion",
     description: "Pages, databases, and comments",
     hasOAuth: true,
@@ -159,7 +159,7 @@ export const sourceConfigs: Record<SourceType, SourceConfig> = {
   },
   github: {
     icon: Github,
-    color: "#181717",
+    color: "#8B7752",
     label: "GitHub",
     description: "Issues, PRs, and discussions",
     hasOAuth: true,
@@ -197,7 +197,7 @@ export function getSourceIcon(sourceType: SourceType): LucideIcon {
  * Get brand color for a source type.
  */
 export function getSourceColor(sourceType: SourceType): string {
-  return sourceConfigs[sourceType]?.color ?? "#6B7280";
+  return sourceConfigs[sourceType]?.color ?? "#8C8B7A";
 }
 
 /**

@@ -11,7 +11,7 @@ Provides org-level data management for enterprise pilots:
 import asyncio
 import json
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 import structlog
@@ -534,6 +534,11 @@ class PilotConnection(BaseModel):
     restricted_labels: list[str] = []
     restricted_channels: list[str] = []
     progress: float | None = None
+    health_status: str | None = None
+    health_reason_code: str | None = None
+    health_reason: str | None = None
+    sync_slo_breached: bool = False
+    minutes_since_last_sync: float | None = None
 
 
 class PilotConnectionsResponse(BaseModel):
@@ -580,8 +585,14 @@ async def get_pilot_connections(
     from src.db.models.background_jobs import BackgroundJob
     from src.db.models.connections import Connection, OAuthToken, SyncJobHistory, SyncState
     from src.db.models.pilot import User
+    from src.connectors.source_health import evaluate_source_health
 
     async with get_db_session() as session:
+        settings = get_settings()
+        now = datetime.now(timezone.utc)
+        failure_window_start = now - timedelta(
+            minutes=max(1, int(settings.connector_health_failure_window_minutes))
+        )
         is_admin = token.role in ("pilot_owner", "pilot_admin")
         query = (
             select(
@@ -637,6 +648,7 @@ async def get_pilot_connections(
 
         # Latest backfill execution per connection (if any).
         backfill_last_status: dict[str, str] = {}
+        recent_failures_by_connection: dict[str, int] = {}
         if connections:
             history_result = await session.execute(
                 select(
@@ -654,8 +666,22 @@ async def get_pilot_connections(
                     continue
                 backfill_last_status[key] = status
 
+            failure_result = await session.execute(
+                select(
+                    SyncJobHistory.connection_id,
+                    func.count(SyncJobHistory.id),
+                )
+                .where(SyncJobHistory.connection_id.in_([c.id for c in connections]))
+                .where(SyncJobHistory.status == "failed")
+                .where(SyncJobHistory.started_at >= failure_window_start)
+                .group_by(SyncJobHistory.connection_id)
+            )
+            for connection_id, failed_count in failure_result.all():
+                recent_failures_by_connection[str(connection_id)] = int(failed_count or 0)
+
         # Running/queued backfill plans in the durable job queue.
         backfill_running: set[str] = set()
+        auto_recovery_running: set[str] = set()
         jobs_result = await session.execute(
             select(BackgroundJob.resource_key)
             .where(BackgroundJob.organization_id == token.org_id)
@@ -668,6 +694,20 @@ async def get_pilot_connections(
             if not str(resource_key).startswith("connection:"):
                 continue
             backfill_running.add(str(resource_key).split("connection:", 1)[1])
+
+        auto_recovery_result = await session.execute(
+            select(BackgroundJob.resource_key)
+            .where(BackgroundJob.organization_id == token.org_id)
+            .where(BackgroundJob.job_type == "connector.sync")
+            .where(BackgroundJob.status.in_(["queued", "running"]))
+            .where(BackgroundJob.idempotency_key.like("connector_auto_recovery:%"))
+        )
+        for (resource_key,) in auto_recovery_result.all():
+            if not resource_key:
+                continue
+            if not str(resource_key).startswith("connection:"):
+                continue
+            auto_recovery_running.add(str(resource_key).split("connection:", 1)[1])
 
         pilot_connections: list[PilotConnection] = []
         for conn in connections:
@@ -719,6 +759,25 @@ async def get_pilot_connections(
                 elif last_backfill == "completed":
                     backfill_status = "done"
 
+            health_snapshot = evaluate_source_health(
+                connection_id=str(conn.id),
+                organization_id=str(conn.organization_id),
+                connector_type=str(conn.connector_type),
+                connection_status=str(effective_status),
+                sync_enabled=bool(conn.sync_enabled),
+                sync_frequency_minutes=int(conn.sync_frequency_minutes or 5),
+                last_sync_at=conn.last_sync_at,
+                last_sync_status=conn.last_sync_status,
+                last_error=effective_last_error,
+                recent_failures=recent_failures_by_connection.get(str(conn.id), 0),
+                recovery_in_flight=str(conn.id) in auto_recovery_running,
+                now=now,
+                stale_multiplier=int(settings.connector_health_stale_multiplier),
+                stale_floor_minutes=int(settings.connector_health_stale_floor_minutes),
+                sync_slo_minutes=int(settings.connector_health_sync_slo_minutes),
+                failure_threshold=int(settings.connector_health_error_failure_threshold),
+            )
+
             pilot_connections.append(
                 PilotConnection(
                     id=str(conn.id),
@@ -739,6 +798,11 @@ async def get_pilot_connections(
                     restricted_labels=restricted_labels,
                     restricted_channels=restricted_channels,
                     progress=config.get("sync_progress"),
+                    health_status=health_snapshot.status.value,
+                    health_reason_code=health_snapshot.reason_code.value,
+                    health_reason=health_snapshot.reason,
+                    sync_slo_breached=health_snapshot.sync_slo_breached,
+                    minutes_since_last_sync=health_snapshot.minutes_since_last_sync,
                 )
             )
 

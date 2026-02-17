@@ -11,8 +11,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.private_sources import get_session_user_id, is_admin_or_internal
 from src.auth.scopes import Scope
-from src.search.hybrid import HybridSearch, get_hybrid_search
+from src.search.hybrid import get_hybrid_search
+from src.search.query_cache import (
+    build_search_cache_key,
+    get_cached_search_response,
+    cache_search_response,
+)
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -96,6 +102,26 @@ async def hybrid_search(
     )
 
     try:
+        session_user_id = get_session_user_id(ctx)
+        visibility_scope = (
+            "admin"
+            if is_admin_or_internal(ctx)
+            else (session_user_id or "api_key")
+        )
+        cache_key = build_search_cache_key(
+            organization_id=org_id,
+            query=request.query,
+            types=request.types,
+            source_types=request.source_types,
+            time_range=request.time_range,
+            include_graph_context=request.include_graph_context,
+            limit=request.limit,
+            visibility_scope=visibility_scope,
+        )
+        cached_response = await get_cached_search_response(cache_key)
+        if cached_response:
+            return SearchResponse(**cached_response)
+
         search = await get_hybrid_search()
 
         results = await search.search(
@@ -129,12 +155,14 @@ async def hybrid_search(
 
         query_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
-        return SearchResponse(
+        response = SearchResponse(
             success=True,
             results=[SearchResult(**r) for r in results],
             count=len(results),
             query_time_ms=query_time,
         )
+        await cache_search_response(cache_key, response.model_dump(mode="json"))
+        return response
 
     except Exception as e:
         logger.error("Hybrid search failed", error=str(e))

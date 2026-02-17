@@ -35,4 +35,23 @@ describe("TimelinePrimitives", () => {
     render(<TimelinePrimitives emptyState="No history yet" events={[]} />);
     expect(screen.getByText("No history yet")).toBeTruthy();
   });
+
+  it("supports institutional variant", () => {
+    const { container } = render(
+      <TimelinePrimitives
+        events={[
+          {
+            id: "tl_2",
+            title: "Commitment superseded",
+            timestampLabel: "Feb 16, 2026",
+            sourceLabel: "Record",
+          },
+        ]}
+        variant="institutional"
+      />
+    );
+
+    const root = container.querySelector("[data-variant='institutional']");
+    expect(root).toBeTruthy();
+  });
 });

@@ -4,6 +4,11 @@ import type {
   AgentRunModel,
   ApprovalRequestRecord,
 } from "@memorystack/api-types";
+import {
+  formatDateTime,
+  statusBadgeClass,
+  useAgentRunStream,
+} from "@memorystack/mod-agents";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
@@ -38,14 +43,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { agentsAPI } from "@/lib/api";
+import { agentsAPI, getApiBase } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useAgentRunStream } from "@/modules/agents/hooks/use-agent-run-stream";
-import {
-  formatDateTime,
-  statusBadgeClass,
-} from "@/modules/agents/lib/agent-ui";
 
 const THREAD_STATUS = [
   "all",
@@ -272,6 +272,7 @@ export function AgentsInboxPage() {
   );
 
   useAgentRunStream({
+    apiBaseUrl: getApiBase(),
     organizationId,
     deploymentId: effectiveDeploymentId || null,
     enabled: Boolean(organizationId && effectiveDeploymentId),
@@ -297,7 +298,7 @@ export function AgentsInboxPage() {
   if (!organizationId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select an organization to open Agent Inbox.
+        Select an organization to open Mandate Inbox.
       </div>
     );
   }
@@ -308,7 +309,7 @@ export function AgentsInboxPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-[0.2em]">
             <MessageSquare className="h-3.5 w-3.5" />
-            Agent Inbox
+            Mandate Inbox
           </div>
           <h1 className="font-semibold text-2xl">
             Channel queue and approvals

@@ -146,9 +146,11 @@ export function DriveDocumentViewer({
 
   if (!chunkId) {
     return (
-      <Card className={cn("h-full", className)}>
+      <Card className={cn("h-full bg-card/85", className)} variant="dossier">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("drive.viewer.title")}</CardTitle>
+          <CardTitle className="font-serif text-base">
+            {t("drive.viewer.title")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
           {t("drive.viewer.selectPrompt")}
@@ -159,9 +161,11 @@ export function DriveDocumentViewer({
 
   if (chunkQuery.isError) {
     return (
-      <Card className={cn("h-full", className)}>
+      <Card className={cn("h-full bg-card/85", className)} variant="dossier">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("drive.viewer.title")}</CardTitle>
+          <CardTitle className="font-serif text-base">
+            {t("drive.viewer.title")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ApiErrorPanel
@@ -175,9 +179,11 @@ export function DriveDocumentViewer({
 
   if (chunkQuery.isLoading || !chunk) {
     return (
-      <Card className={cn("h-full", className)}>
+      <Card className={cn("h-full bg-card/85", className)} variant="dossier">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("drive.viewer.title")}</CardTitle>
+          <CardTitle className="font-serif text-base">
+            {t("drive.viewer.title")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -187,10 +193,11 @@ export function DriveDocumentViewer({
   }
 
   return (
-    <Card className={cn("h-full", className)}>
+    <Card className={cn("h-full bg-card/85", className)} variant="dossier">
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
         <div className="min-w-0">
-          <CardTitle className="truncate text-base">
+          <p className="old-money-kicker mb-1 text-[9px]">Reading room</p>
+          <CardTitle className="truncate font-serif text-base">
             {t("drive.viewer.pagePreview")}
           </CardTitle>
           <div className="mt-1 text-muted-foreground text-xs">
@@ -227,7 +234,7 @@ export function DriveDocumentViewer({
 
         {imageUrl ? (
           <div
-            className="relative overflow-hidden rounded-xl border bg-background"
+            className="old-money-panel relative overflow-hidden rounded-xl bg-background"
             style={{ maxHeight: "70vh" }}
           >
             <img
@@ -250,7 +257,7 @@ export function DriveDocumentViewer({
               <div className="pointer-events-none absolute inset-0">
                 {boxes.map((b, idx) => (
                   <div
-                    className="absolute rounded-md bg-amber-400/20 ring-1 ring-amber-500/40"
+                    className="absolute rounded-md bg-ring/20 ring-1 ring-ring/50"
                     key={`${idx}-${b.left}-${b.top}`}
                     style={{
                       left: Math.max(b.left * scale, 0),
@@ -264,7 +271,7 @@ export function DriveDocumentViewer({
             ) : null}
           </div>
         ) : (
-          <div className="rounded-xl border bg-muted/20 p-4">
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
             <div className="text-muted-foreground text-xs">
               {t("drive.viewer.textPreview")}
             </div>
@@ -275,7 +282,7 @@ export function DriveDocumentViewer({
         )}
 
         {quote ? (
-          <div className="rounded-xl border bg-amber-50/60 px-3 py-2 text-amber-900 text-xs dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="rounded-xl border border-ring/45 bg-ring/10 px-3 py-2 text-foreground text-xs">
             <span className="font-medium">
               {t("drive.viewer.evidenceQuote")}
             </span>{" "}

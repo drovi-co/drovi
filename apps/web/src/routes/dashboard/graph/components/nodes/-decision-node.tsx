@@ -47,19 +47,14 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
               ${nodeData.isSuperseded ? "opacity-60" : ""}
             `}
           >
-            {/* Active decision glow */}
-            {!nodeData.isSuperseded && (
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 opacity-0 blur-sm transition-opacity group-hover:opacity-100" />
-            )}
-
             {/* Main card - hexagonal feel with rounded corners */}
             <div
-              className={`relative flex min-w-[180px] max-w-[220px] flex-col gap-2 rounded-2xl border-2 bg-card p-3 shadow-lg transition-all ${
+              className={`relative flex min-w-[180px] max-w-[220px] flex-col gap-2 rounded-2xl border-2 bg-card p-3 shadow-card transition-all ${
                 nodeData.isSuperseded
                   ? "border-muted-foreground/20 bg-muted/50"
-                  : "border-purple-400/50 bg-gradient-to-br from-purple-500/5 to-fuchsia-500/5"
+                  : "border-purple-400/50 bg-muted/25"
               }
-                ${selected ? "border-purple-500 ring-4 ring-purple-500/20" : ""}group-hover:shadow-xl group-hover:border-purple-400`}
+                ${selected ? "border-purple-500 ring-2 ring-purple-500/20" : ""}group-hover:border-purple-400`}
             >
               {/* Decorative corner accents */}
               <div className="absolute -top-px -left-px h-4 w-4 rounded-tl-2xl border-purple-500/50 border-t-2 border-l-2" />
@@ -76,10 +71,10 @@ function DecisionNodeComponent({ data, selected }: NodeProps) {
               <div className="flex items-start gap-2">
                 {/* Decision icon */}
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
                     nodeData.isSuperseded
                       ? "bg-muted"
-                      : "bg-gradient-to-br from-purple-500 to-fuchsia-500"
+                      : "bg-purple-500"
                   }
                   `}
                 >

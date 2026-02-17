@@ -15,6 +15,7 @@ async def record_evidence_audit(
     artifact_id: str,
     organization_id: str,
     action: str,
+    reason_code: str | None = None,
     actor_type: str = "system",
     actor_id: str | None = None,
     metadata: dict[str, Any] | None = None,
@@ -26,10 +27,10 @@ async def record_evidence_audit(
                 """
                 INSERT INTO evidence_audit_log (
                     id, evidence_artifact_id, organization_id,
-                    action, actor_type, actor_id, metadata, created_at
+                    action, reason_code, actor_type, actor_id, metadata, created_at
                 ) VALUES (
                     gen_random_uuid(), :artifact_id, :org_id,
-                    :action, :actor_type, :actor_id, CAST(:metadata AS jsonb), :created_at
+                    :action, :reason_code, :actor_type, :actor_id, CAST(:metadata AS jsonb), :created_at
                 )
                 """
             ),
@@ -37,6 +38,7 @@ async def record_evidence_audit(
                 "artifact_id": artifact_id,
                 "org_id": organization_id,
                 "action": action,
+                "reason_code": reason_code,
                 "actor_type": actor_type,
                 "actor_id": actor_id,
                 # evidence_audit_log.metadata is JSONB. Serialize explicitly for raw SQL.

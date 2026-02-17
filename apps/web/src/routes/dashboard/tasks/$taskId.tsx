@@ -63,6 +63,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { EvidenceRail } from "@/components/evidence";
 import {
   formatDueDate,
   PRIORITY_CONFIG,
@@ -82,6 +83,7 @@ import {
 import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import { formatRelativeTime } from "@/lib/intl-time";
+import { resolveDueDate } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -173,6 +175,17 @@ function TaskDetailPage() {
   // Transform UIO data to legacy task format
   const taskData = uioData
     ? (() => {
+        const evidenceQuotes = (uioData.sources ?? [])
+          .map((source) => source.quotedText)
+          .filter((value): value is string => Boolean(value));
+        const normalizedStatus = normalizeTaskStatus(uioData.taskDetails?.status);
+        const resolvedDueDate = resolveDueDate({
+          explicitDueDate: uioData.dueDate,
+          title: uioData.userCorrectedTitle ?? uioData.canonicalTitle,
+          description: uioData.canonicalDescription,
+          evidenceQuotes,
+        });
+
         const timeline: TaskTimelineEvent[] = [];
         if (uioData.createdAt) {
           timeline.push({
@@ -192,13 +205,13 @@ function TaskDetailPage() {
             eventAt: uioData.updatedAt,
           });
         }
-        if (uioData.dueDate) {
+        if (resolvedDueDate) {
           timeline.push({
             id: "due-date",
             eventDescription: tr(
               "pages.dashboard.tasks.detail.timeline.dueDateSet"
             ),
-            eventAt: uioData.dueDate,
+            eventAt: resolvedDueDate.toISOString(),
           });
         }
         if (uioData.taskDetails?.completedAt) {
@@ -211,6 +224,27 @@ function TaskDetailPage() {
           });
         }
         timeline.sort(
+          (a, b) =>
+            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
+        );
+        const supersessionTimeline: TaskTimelineEvent[] = [
+          {
+            id: "task-active",
+            eventDescription: "Task entered active register",
+            eventAt: uioData.createdAt,
+          },
+        ];
+        if (normalizedStatus === "done" || normalizedStatus === "cancelled") {
+          supersessionTimeline.push({
+            id: "task-final",
+            eventDescription: "Task finalized",
+            eventAt:
+              uioData.taskDetails?.completedAt ??
+              uioData.updatedAt ??
+              uioData.createdAt,
+          });
+        }
+        supersessionTimeline.sort(
           (a, b) =>
             new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
         );
@@ -228,10 +262,10 @@ function TaskDetailPage() {
           id: uioData.id,
           title: uioData.userCorrectedTitle ?? uioData.canonicalTitle ?? "",
           description: uioData.canonicalDescription ?? null,
-          status: normalizeTaskStatus(uioData.taskDetails?.status),
+          status: normalizedStatus,
           priority: normalizeTaskPriority(uioData.taskDetails?.priority),
           sourceType: uioData.sources?.length ? "conversation" : "manual",
-          dueDate: uioData.dueDate ? new Date(uioData.dueDate) : null,
+          dueDate: resolvedDueDate,
           completedAt: uioData.taskDetails?.completedAt
             ? new Date(uioData.taskDetails.completedAt)
             : null,
@@ -245,9 +279,21 @@ function TaskDetailPage() {
           // UIO-specific fields
           sources: uioData.sources ?? [],
           timeline,
+          supersessionTimeline,
+          evidenceCount: uioData.sources?.length ?? 0,
+          lastVerifiedAt: uioData.updatedAt
+            ? new Date(uioData.updatedAt)
+            : new Date(uioData.createdAt),
+          confidence: uioData.overallConfidence ?? 0.8,
+          isUserVerified: uioData.isUserVerified ?? false,
+          supersessionState:
+            normalizedStatus === "done" || normalizedStatus === "cancelled"
+              ? "final"
+              : "active",
         } satisfies TaskData & {
           sources: typeof uioData.sources;
           timeline: TaskTimelineEvent[];
+          supersessionTimeline: TaskTimelineEvent[];
         };
       })()
     : null;
@@ -871,6 +917,34 @@ function TaskDetailPage() {
                 </div>
               )}
 
+              {/* Supersession Timeline */}
+              {taskData?.supersessionTimeline &&
+                taskData.supersessionTimeline.length > 0 && (
+                  <div className="border-border border-t pt-6">
+                    <div className="mb-4 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-foreground text-sm">
+                        Supersession
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {taskData.supersessionTimeline.map((event) => (
+                        <div
+                          className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2"
+                          key={event.id}
+                        >
+                          <span className="text-foreground text-sm">
+                            {event.eventDescription}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {formatRelativeTime(new Date(event.eventAt), locale)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               {/* Team Discussion */}
               <div className="border-border border-t pt-6">
                 <div className="flex items-center gap-2">
@@ -915,6 +989,15 @@ function TaskDetailPage() {
           {/* Right Column - Properties Sidebar */}
           <div className="w-[280px] shrink-0 overflow-y-auto border-border border-l bg-card p-4">
             <div className="space-y-4">
+              <EvidenceRail
+                confidence={taskData?.confidence ?? 0.8}
+                evidenceCount={taskData?.evidenceCount ?? 0}
+                isUserVerified={taskData?.isUserVerified ?? false}
+                lastVerifiedAt={taskData?.lastVerifiedAt ?? null}
+                primaryQuote={taskData?.sources?.[0]?.quotedText ?? null}
+                supersessionState={taskData?.supersessionState ?? "active"}
+              />
+
               {/* Status */}
               <PropertyRow
                 label={tr("pages.dashboard.tasks.detail.properties.status")}

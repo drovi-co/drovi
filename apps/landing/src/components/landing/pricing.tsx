@@ -17,36 +17,33 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    name: "Pro",
-    description: "Full memory infrastructure for growing teams",
-    price: "$29",
+    name: "Institutional",
+    description: "Memory, custody, and continuity for regulated teams",
+    price: "Annual license",
     popular: true,
-    cta: "Request Access",
+    cta: "Request private briefing",
     features: [
-      "Unlimited source connections",
-      "Full intelligence extraction",
-      "Commitment and decision tracking",
-      "Entity resolution across sources",
-      "Natural language queries",
-      "API access for agents",
-      "Historical backfill",
-      "Priority support",
+      "Evidence-anchored record system",
+      "Bi-temporal commitments and decisions",
+      "Operational continuity briefs",
+      "Integrity and custody exports",
+      "Support queue with SLA routing",
+      "Structured onboarding runbook",
     ],
   },
   {
     name: "Enterprise",
-    description: "Security, compliance, and custom deployments",
-    price: "Custom",
-    cta: "Book a Call",
+    description: "Dedicated deployment and fiduciary-grade controls",
+    price: "Request commercial terms",
+    cta: "Request private briefing",
     features: [
-      "Everything in Pro",
-      "Unlimited team members",
+      "Everything in Institutional",
+      "Tenant security policy controls",
       "SSO/SAML integration",
-      "Dedicated account manager",
-      "Audit logs & security reviews",
-      "Data residency options",
-      "Custom integrations",
-      "SLA & compliance",
+      "IP allowlists and break-glass workflow",
+      "Data residency and dedicated infrastructure",
+      "Security review and go-live gate",
+      "White-glove operations support",
     ],
   },
 ];
@@ -90,8 +87,8 @@ export function Pricing({ onRequestAccess }: PricingProps) {
             <span className="text-foreground/40">that scales with you</span>
           </h2>
           <p className="mx-auto max-w-xl text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-            Per-seat pricing for teams of any size. Enterprise options for
-            security, compliance, and custom deployments.
+            Annual institutional licensing with private onboarding and
+            deployment controls.
           </p>
         </motion.div>
 
@@ -149,9 +146,9 @@ export function Pricing({ onRequestAccess }: PricingProps) {
                     <span className="font-normal text-[36px] text-foreground leading-none tracking-[-1.5px] md:text-[48px] md:tracking-[-2px]">
                       {plan.price}
                     </span>
-                    {plan.price !== "Custom" && (
+                    {!plan.price.toLowerCase().includes("request") && (
                       <span className="ml-1 text-[14px] text-foreground/40 md:text-[16px]">
-                        /user/month
+                        &nbsp;
                       </span>
                     )}
                   </div>

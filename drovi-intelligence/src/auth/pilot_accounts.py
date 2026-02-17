@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from src.config import get_settings
 from src.db.client import get_db_session
+from src.security.org_policy import get_org_security_policy
 
 logger = structlog.get_logger()
 
@@ -78,6 +79,7 @@ class PilotToken(BaseModel):
     org_id: str
     role: Literal["pilot_owner", "pilot_admin", "pilot_member", "pilot_viewer"]
     email: str
+    auth_method: Literal["sso", "password", "unknown"] = "unknown"
     exp: datetime
     iat: datetime
 
@@ -117,6 +119,7 @@ def create_jwt(
     org_id: str,
     role: str,
     email: str,
+    auth_method: Literal["sso", "password"] = "sso",
 ) -> str:
     """Create a JWT token for authenticated user."""
     now = datetime.now(timezone.utc)
@@ -127,6 +130,7 @@ def create_jwt(
         "org_id": org_id,
         "role": role,
         "email": email,
+        "amr": auth_method,
         "iat": int(now.timestamp()),
         "exp": int(expiry.timestamp()),
     }
@@ -138,11 +142,15 @@ def verify_jwt(token: str) -> PilotToken | None:
     """Verify and decode a JWT token."""
     try:
         payload = jwt.decode(token, _get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        auth_method = str(payload.get("amr") or "unknown").strip().lower()
+        if auth_method not in {"sso", "password"}:
+            auth_method = "unknown"
         return PilotToken(
             sub=payload["sub"],
             org_id=payload["org_id"],
             role=payload["role"],
             email=payload["email"],
+            auth_method=auth_method,
             exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
             iat=datetime.fromtimestamp(payload["iat"], tz=timezone.utc),
         )
@@ -484,6 +492,7 @@ async def handle_email_signup(
 
         org_id = invite["org_id"]
         role = invite["role"]
+        await _assert_password_auth_allowed(org_id)
 
         await get_or_create_membership(
             user_id=user["id"],
@@ -535,6 +544,7 @@ async def handle_email_signup(
         org_id=org_id,
         role="pilot_owner" if not invite_token else role,
         email=email,
+        auth_method="password",
     )
 
     logger.info(
@@ -591,6 +601,7 @@ async def handle_email_login(
 
         org_id = invite["org_id"]
         role = invite["role"]
+        await _assert_password_auth_allowed(org_id)
 
         await get_or_create_membership(
             user_id=user["id"],
@@ -604,6 +615,7 @@ async def handle_email_login(
             org_id=org_id,
             role=role,
             email=email,
+            auth_method="password",
         )
 
         logger.info(
@@ -643,12 +655,15 @@ async def handle_email_login(
     if not membership:
         raise AuthError("No active organization found for this user.", status_code=403)
 
+    await _assert_password_auth_allowed(membership.org_id)
+
     # Issue JWT
     token = create_jwt(
         user_id=user["id"],
         org_id=membership.org_id,
         role=membership.role,
         email=email,
+        auth_method="password",
     )
 
     logger.info(
@@ -833,6 +848,18 @@ class AuthError(Exception):
         self.message = message
         self.status_code = status_code
         super().__init__(message)
+
+
+async def _assert_password_auth_allowed(org_id: str) -> None:
+    """Enforce org SSO/password fallback policy for email-password auth."""
+    policy = await get_org_security_policy(org_id)
+    environment = get_settings().environment
+    if policy.allows_password_auth(environment):
+        return
+    raise AuthError(
+        "This organization requires SSO sign-in. Email/password access is disabled.",
+        status_code=403,
+    )
 
 
 async def handle_oauth_callback(oauth_user: OAuthUserInfo) -> AuthResult:

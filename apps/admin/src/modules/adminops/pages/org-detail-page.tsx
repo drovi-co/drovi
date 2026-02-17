@@ -19,6 +19,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { adminAPI } from "@/lib/api";
+import { OnboardingRunbookCard } from "../components/onboarding-runbook-card";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -122,6 +123,11 @@ export function AdminOrgDetailPage() {
           </div>
         </CardHeader>
       </Card>
+
+      <OnboardingRunbookCard
+        orgId={String(org.id)}
+        orgName={String(org.name ?? org.id)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border/70">

@@ -17,184 +17,220 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =============================================================================
-   DROVI DESIGN SYSTEM - VERCEL STYLE
+   DROVI DESIGN SYSTEM - INSTITUTIONAL EDITION
    =============================================================================
-   Clean, minimal black and white design language inspired by Vercel.
-   Font: Geist (falling back to Inter)
-   Colors: Pure black, white, and subtle grays
+   Editorial typography and restrained palettes for "Swiss private bank"
+   interaction surfaces.
 */
 
-/* Light mode - Pure black and white */
+/* Light mode - institutional parchment */
 :root {
-  /* Background colors - Pure white */
-  --background: #ffffff;
-  --foreground: #000000;
+  /* Background colors */
+  --background: #efe2c8;
+  --foreground: #1a2d21;
 
   /* Card/Surface colors */
-  --card: #ffffff;
-  --card-foreground: #000000;
+  --card: #f2e6cf;
+  --card-foreground: #1a2d21;
 
   /* Popover/Dropdown colors */
-  --popover: #ffffff;
-  --popover-foreground: #000000;
+  --popover: #f6ecda;
+  --popover-foreground: #1a2d21;
 
-  /* Primary - Pure black (Vercel style) */
-  --primary: #000000;
-  --primary-hover: #171717;
-  --primary-foreground: #ffffff;
+  /* Primary */
+  --primary: #214532;
+  --primary-hover: #2b563f;
+  --primary-foreground: #f4ead7;
 
-  /* Secondary - Very light gray */
-  --secondary: #fafafa;
-  --secondary-hover: #f5f5f5;
-  --secondary-foreground: #000000;
+  /* Secondary */
+  --secondary: #ddceb0;
+  --secondary-hover: #d4c2a2;
+  --secondary-foreground: #1a2d21;
 
-  /* Muted - Subtle gray backgrounds */
-  --muted: #fafafa;
-  --muted-foreground: #666666;
+  /* Muted */
+  --muted: #e5d7bb;
+  --muted-foreground: #665f4c;
 
-  /* Accent - Light gray */
-  --accent: #f5f5f5;
-  --accent-foreground: #000000;
+  /* Accent */
+  --accent: #d7c7a9;
+  --accent-foreground: #1a2d21;
 
-  /* Destructive - Vercel red */
-  --destructive: #ee0000;
-  --destructive-hover: #cc0000;
-  --destructive-foreground: #ffffff;
+  /* Semantic colors */
+  --destructive: #7c3b34;
+  --destructive-hover: #68312c;
+  --destructive-foreground: #f4ead7;
 
-  /* Success - Vercel green */
-  --success: #0070f3;
-  --success-foreground: #ffffff;
+  --success: #355f47;
+  --success-foreground: #f4ead7;
 
-  /* Warning - Vercel amber */
-  --warning: #f5a623;
-  --warning-foreground: #000000;
+  --warning: #95753a;
+  --warning-foreground: #f4ead7;
 
-  /* Border & Input - Subtle gray */
-  --border: #eaeaea;
-  --border-hover: #d4d4d4;
-  --input: #ffffff;
-  --input-border: #eaeaea;
+  /* Border & input */
+  --border: #c7b38e;
+  --border-hover: #b59e74;
+  --input: #f4e8d0;
+  --input-border: #c7b38e;
 
-  /* Ring (focus) - Black */
-  --ring: #000000;
+  /* Ring (focus) */
+  --ring: #946b2d;
 
-  /* Shell - Light gray unified sidebar + header */
-  --shell: #fafafa;
-  --shell-foreground: #000000;
-  --shell-border: #eaeaea;
+  /* Shell */
+  --shell: #eadbc0;
+  --shell-foreground: #1a2d21;
+  --shell-border: #c7b38e;
   --content-radius: 0px;
 
-  /* Sidebar - Clean white/gray */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #000000;
-  --sidebar-primary: #000000;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f5f5f5;
-  --sidebar-accent-foreground: #000000;
-  --sidebar-border: #eaeaea;
-  --sidebar-ring: #000000;
+  /* Sidebar */
+  --sidebar: #e3d2b3;
+  --sidebar-foreground: #1a2d21;
+  --sidebar-primary: #214532;
+  --sidebar-primary-foreground: #f4ead7;
+  --sidebar-accent: #d4c19d;
+  --sidebar-accent-foreground: #1a2d21;
+  --sidebar-border: #c7b38e;
+  --sidebar-ring: #946b2d;
 
-  /* Chart colors - Grayscale + accent blue */
-  --chart-1: #000000;
-  --chart-2: #666666;
-  --chart-3: #999999;
-  --chart-4: #0070f3;
-  --chart-5: #00a8ff;
+  /* Chart colors */
+  --chart-1: #214532;
+  --chart-2: #3a624c;
+  --chart-3: #6f7a66;
+  --chart-4: #946b2d;
+  --chart-5: #7c3b34;
 
-  /* Border radius - Sharp corners (Vercel style) */
-  --radius: 0.375rem;
+  /* Shape language */
+  --radius: 0.25rem;
 
-  /* Shadows - Subtle and clean */
-  --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  --shadow-card:
-    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-dropdown:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* Motion presets - institutional restraint */
+  --motion-duration-fast: 120ms;
+  --motion-duration-medium: 180ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Type tokens */
+  --font-sans-token:
+    "Avenir Next", "Neue Haas Grotesk Text Pro", "SF Pro Text",
+    "Helvetica Neue", "Arial", sans-serif;
+  --font-serif-token:
+    "Iowan Old Style", "Baskerville", "Palatino Linotype", "Times New Roman",
+    serif;
+  --font-mono-token:
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
+    monospace;
+  --type-scale-body: 0.9375rem;
+  --type-scale-label: 0.8125rem;
+  --type-scale-h4: 1.125rem;
+  --type-scale-h3: 1.375rem;
+  --type-scale-h2: 1.75rem;
+  --type-scale-h1: 2.125rem;
+
+  /* Shadows */
+  --shadow-button: 0 1px 1px rgba(26, 45, 33, 0.14);
+  --shadow-button-2: 0 1px 2px rgba(26, 45, 33, 0.18);
+  --shadow-card: 0 2px 6px rgba(26, 45, 33, 0.12);
+  --shadow-dropdown: 0 14px 32px rgba(26, 45, 33, 0.16);
 }
 
-/* Dark mode - Pure black and white inverted */
+/* Dark mode - institutional forest */
 .dark {
-  /* Background colors - Pure black */
-  --background: #000000;
-  --foreground: #ededed;
+  /* Background colors */
+  --background: #13291d;
+  --foreground: #f3e8d3;
 
-  /* Card/Surface colors - Near black */
-  --card: #0a0a0a;
-  --card-foreground: #ededed;
+  /* Card/Surface colors */
+  --card: #173021;
+  --card-foreground: #f3e8d3;
 
   /* Popover/Dropdown colors */
-  --popover: #0a0a0a;
-  --popover-foreground: #ededed;
+  --popover: #193526;
+  --popover-foreground: #f3e8d3;
 
-  /* Primary - Pure white (inverted) */
-  --primary: #ffffff;
-  --primary-hover: #e5e5e5;
-  --primary-foreground: #000000;
+  /* Primary */
+  --primary: #cfab67;
+  --primary-hover: #dfc184;
+  --primary-foreground: #13291d;
 
-  /* Secondary - Dark gray */
-  --secondary: #1a1a1a;
-  --secondary-hover: #262626;
-  --secondary-foreground: #ededed;
+  /* Secondary */
+  --secondary: #1e3a2a;
+  --secondary-hover: #274936;
+  --secondary-foreground: #efe4cf;
 
-  /* Muted - Dark gray surfaces */
-  --muted: #171717;
-  --muted-foreground: #888888;
+  /* Muted */
+  --muted: #1b3425;
+  --muted-foreground: #c4b392;
 
-  /* Accent - Dark gray */
-  --accent: #1a1a1a;
-  --accent-foreground: #ededed;
+  /* Accent */
+  --accent: #254230;
+  --accent-foreground: #f3e8d3;
 
-  /* Destructive - Vercel red (brighter for dark) */
-  --destructive: #ff4444;
-  --destructive-hover: #ff6666;
-  --destructive-foreground: #ffffff;
+  /* Semantic colors */
+  --destructive: #b46f67;
+  --destructive-hover: #c47d75;
+  --destructive-foreground: #f3e8d3;
 
-  /* Success - Vercel blue */
-  --success: #0070f3;
-  --success-foreground: #ffffff;
+  --success: #7ba286;
+  --success-foreground: #13291d;
 
-  /* Warning - Vercel amber */
-  --warning: #f5a623;
-  --warning-foreground: #000000;
+  --warning: #cfab67;
+  --warning-foreground: #13291d;
 
-  /* Border & Input - Dark gray */
-  --border: #262626;
-  --border-hover: #404040;
-  --input: #0a0a0a;
-  --input-border: #262626;
+  /* Border & input */
+  --border: #31523f;
+  --border-hover: #3f654f;
+  --input: #173324;
+  --input-border: #31523f;
 
-  /* Ring (focus) - White */
-  --ring: #ffffff;
+  /* Ring (focus) */
+  --ring: #cfab67;
 
-  /* Shell - Pure black */
-  --shell: #000000;
-  --shell-foreground: #ededed;
-  --shell-border: #262626;
+  /* Shell */
+  --shell: #142f22;
+  --shell-foreground: #f3e8d3;
+  --shell-border: #31523f;
 
-  /* Sidebar - Pure black */
-  --sidebar: #000000;
-  --sidebar-foreground: #ededed;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #1a1a1a;
-  --sidebar-accent-foreground: #ededed;
-  --sidebar-border: #262626;
-  --sidebar-ring: #ffffff;
+  /* Sidebar */
+  --sidebar: #12281c;
+  --sidebar-foreground: #efe4cf;
+  --sidebar-primary: #cfab67;
+  --sidebar-primary-foreground: #13291d;
+  --sidebar-accent: #1c3526;
+  --sidebar-accent-foreground: #f3e8d3;
+  --sidebar-border: #31523f;
+  --sidebar-ring: #cfab67;
 
-  /* Chart colors - Inverted grayscale + accent blue */
-  --chart-1: #ffffff;
-  --chart-2: #a3a3a3;
-  --chart-3: #737373;
-  --chart-4: #0070f3;
-  --chart-5: #00a8ff;
+  /* Chart colors */
+  --chart-1: #f3e8d3;
+  --chart-2: #cfab67;
+  --chart-3: #82927d;
+  --chart-4: #7ba286;
+  --chart-5: #b46f67;
 
-  /* Shadows - Darker for dark mode */
-  --shadow-button: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-button-2: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-dropdown:
-    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  /* Type tokens */
+  --font-sans-token:
+    "Avenir Next", "Neue Haas Grotesk Text Pro", "SF Pro Text",
+    "Helvetica Neue", "Arial", sans-serif;
+  --font-serif-token:
+    "Iowan Old Style", "Baskerville", "Palatino Linotype", "Times New Roman",
+    serif;
+  --font-mono-token:
+    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
+    monospace;
+  --type-scale-body: 0.9375rem;
+  --type-scale-label: 0.8125rem;
+  --type-scale-h4: 1.125rem;
+  --type-scale-h3: 1.375rem;
+  --type-scale-h2: 1.75rem;
+  --type-scale-h1: 2.125rem;
+
+  /* Shadows */
+  --shadow-button: 0 1px 1px rgba(12, 29, 20, 0.42);
+  --shadow-button-2: 0 2px 4px rgba(12, 29, 20, 0.46);
+  --shadow-card: 0 10px 24px rgba(12, 29, 20, 0.34);
+  --shadow-dropdown: 0 24px 52px rgba(12, 29, 20, 0.52);
+
+  /* Motion presets - institutional restraint */
+  --motion-duration-fast: 120ms;
+  --motion-duration-medium: 180ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* =============================================================================
@@ -252,20 +288,16 @@
   --color-shell-foreground: var(--shell-foreground);
   --color-shell-border: var(--shell-border);
 
-  /* Border radius - Vercel uses tighter corners */
+  /* Border radius */
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Typography - JetBrains Mono as primary font */
-  --font-sans:
-    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
-    monospace;
-
-  --font-mono:
-    "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
-    monospace;
+  /* Typography */
+  --font-sans: var(--font-sans-token);
+  --font-serif: var(--font-serif-token);
+  --font-mono: var(--font-mono-token);
 
   /* Vercel-style spacing scale */
   --spacing-px: 1px;
@@ -302,46 +334,74 @@
   }
 
   html {
-    font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+    font-family: var(--font-sans-token);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: var(--type-scale-body);
+    line-height: 1.6;
+    background-image:
+      radial-gradient(
+        120% 110% at 0% 0%,
+        color-mix(in oklab, var(--primary) 22%, transparent) 0%,
+        transparent 54%
+      ),
+      radial-gradient(
+        120% 110% at 100% 0%,
+        color-mix(in oklab, var(--ring) 14%, transparent) 0%,
+        transparent 58%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--background) 94%, var(--primary)) 0%,
+        var(--background) 58%,
+        color-mix(in oklab, var(--background) 92%, var(--accent)) 100%
+      );
+    background-attachment: fixed;
   }
 
-  /* Typography scale - Clean and minimal */
+  /* Typography scale */
   h1 {
-    @apply text-3xl font-semibold tracking-tight;
+    font-family: var(--font-serif-token);
+    font-size: var(--type-scale-h1);
+    font-weight: 500;
+    letter-spacing: -0.0125em;
     line-height: 1.2;
   }
 
   h2 {
-    @apply text-2xl font-semibold tracking-tight;
+    font-family: var(--font-serif-token);
+    font-size: var(--type-scale-h2);
+    font-weight: 500;
+    letter-spacing: -0.01em;
     line-height: 1.25;
   }
 
   h3 {
-    @apply text-xl font-medium;
+    font-family: var(--font-serif-token);
+    font-size: var(--type-scale-h3);
+    font-weight: 500;
     line-height: 1.3;
   }
 
   h4 {
-    @apply text-lg font-medium;
+    font-family: var(--font-serif-token);
+    font-size: var(--type-scale-h4);
+    font-weight: 500;
   }
 
-  /* Selection color - Vercel blue */
+  /* Selection color */
   ::selection {
-    background-color: #0070f3;
-    color: #ffffff;
+    background-color: color-mix(in oklab, var(--ring) 26%, transparent);
+    color: var(--foreground);
   }
 
   .dark ::selection {
-    background-color: #0070f3;
-    color: #ffffff;
+    background-color: color-mix(in oklab, var(--ring) 28%, transparent);
+    color: var(--foreground);
   }
 
   /* Scrollbar styling - Minimal */
@@ -364,11 +424,11 @@
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: #404040;
+    background: color-mix(in oklab, var(--border) 80%, var(--background));
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: #525252;
+    background: color-mix(in oklab, var(--border-hover) 80%, var(--background));
   }
 }
 
@@ -450,6 +510,13 @@
   box-shadow: var(--shadow-dropdown);
 }
 
+@utility old-money-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.65rem;
+  color: color-mix(in oklab, var(--ring) 72%, var(--foreground));
+}
+
 /* Keyboard shortcut styling - Vercel style */
 @utility kbd {
   display: inline-flex;
@@ -471,6 +538,179 @@
    ============================================================================= */
 
 @layer utilities {
+  .old-money-panel {
+    background-color: color-mix(in oklab, var(--card) 92%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 88%, var(--ring) 12%);
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+
+  .old-money-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    border: 1px solid color-mix(in oklab, var(--ring) 22%, transparent);
+    opacity: 0.35;
+  }
+
+  /*
+   * Legacy accent compatibility
+   * Many dashboard surfaces still reference blue/purple utility classes.
+   * Remap them to the institutional ring/primary palette so every page
+   * stays visually coherent during migration.
+   */
+  .text-blue-400,
+  .text-blue-500,
+  .text-blue-600,
+  .text-blue-700,
+  .text-blue-800,
+  .dark .dark\:text-blue-300,
+  .dark .dark\:text-blue-400 {
+    color: var(--ring) !important;
+  }
+
+  .text-sky-500,
+  .text-sky-600,
+  .dark .dark\:text-sky-400 {
+    color: var(--ring) !important;
+  }
+
+  .text-purple-400,
+  .text-purple-500,
+  .text-purple-600,
+  .text-purple-700,
+  .text-purple-800,
+  .text-violet-400,
+  .text-violet-500,
+  .text-violet-600,
+  .text-violet-700,
+  .dark .dark\:text-purple-300,
+  .dark .dark\:text-purple-400,
+  .dark .dark\:text-violet-400 {
+    color: var(--primary) !important;
+  }
+
+  .text-emerald-500,
+  .text-emerald-600,
+  .dark .dark\:text-emerald-400 {
+    color: var(--success) !important;
+  }
+
+  .text-amber-500,
+  .text-amber-600,
+  .text-amber-700,
+  .dark .dark\:text-amber-400 {
+    color: var(--warning) !important;
+  }
+
+  .text-red-500,
+  .text-red-600,
+  .dark .dark\:text-red-400 {
+    color: var(--destructive) !important;
+  }
+
+  .bg-blue-50,
+  .bg-blue-100,
+  .bg-blue-500\/5,
+  .bg-blue-500\/10,
+  .bg-blue-500\/20,
+  .bg-blue-500\/30,
+  .bg-blue-500\/50,
+  .dark .dark\:bg-blue-900\/10,
+  .dark .dark\:bg-blue-900\/20,
+  .dark .dark\:bg-blue-950\/30 {
+    background-color: color-mix(in oklab, var(--ring) 15%, transparent) !important;
+  }
+
+  .bg-sky-500\/10,
+  .bg-sky-500\/20 {
+    background-color: color-mix(in oklab, var(--ring) 15%, transparent) !important;
+  }
+
+  .bg-purple-50,
+  .bg-purple-100,
+  .bg-purple-500\/5,
+  .bg-purple-500\/10,
+  .bg-purple-500\/20,
+  .bg-purple-500\/30,
+  .bg-purple-500\/50,
+  .bg-violet-500\/10,
+  .bg-violet-500\/20,
+  .dark .dark\:bg-purple-900\/10,
+  .dark .dark\:bg-purple-900\/20,
+  .dark .dark\:bg-purple-900\/30 {
+    background-color: color-mix(in oklab, var(--primary) 15%, transparent) !important;
+  }
+
+  .bg-emerald-500\/5,
+  .bg-emerald-500\/10,
+  .bg-emerald-500\/20 {
+    background-color: color-mix(in oklab, var(--success) 15%, transparent) !important;
+  }
+
+  .bg-amber-500\/5,
+  .bg-amber-500\/10,
+  .bg-amber-500\/20,
+  .bg-amber-500\/30 {
+    background-color: color-mix(in oklab, var(--warning) 15%, transparent) !important;
+  }
+
+  .bg-red-500\/10,
+  .bg-red-500\/20 {
+    background-color: color-mix(in oklab, var(--destructive) 15%, transparent) !important;
+  }
+
+  .border-blue-200,
+  .border-blue-300,
+  .border-blue-400,
+  .border-blue-500,
+  .border-blue-500\/20,
+  .border-blue-500\/30,
+  .border-blue-500\/40,
+  .dark .dark\:border-blue-800 {
+    border-color: color-mix(in oklab, var(--ring) 52%, var(--border)) !important;
+  }
+
+  .border-sky-500\/30 {
+    border-color: color-mix(in oklab, var(--ring) 52%, var(--border)) !important;
+  }
+
+  .border-purple-200,
+  .border-purple-300,
+  .border-purple-400,
+  .border-purple-500,
+  .border-purple-500\/20,
+  .border-purple-500\/30,
+  .border-purple-500\/40,
+  .border-purple-500\/50,
+  .border-violet-500,
+  .border-violet-500\/20,
+  .border-violet-500\/30,
+  .border-violet-500\/50,
+  .dark .dark\:border-purple-900,
+  .dark .dark\:border-purple-900\/50 {
+    border-color: color-mix(in oklab, var(--primary) 52%, var(--border)) !important;
+  }
+
+  .border-emerald-500\/20,
+  .border-emerald-500\/30,
+  .border-emerald-500\/40 {
+    border-color: color-mix(in oklab, var(--success) 52%, var(--border)) !important;
+  }
+
+  .border-amber-500\/20,
+  .border-amber-500\/30,
+  .border-amber-500\/40 {
+    border-color: color-mix(in oklab, var(--warning) 52%, var(--border)) !important;
+  }
+
+  .border-red-500\/30,
+  .border-red-500\/40 {
+    border-color: color-mix(in oklab, var(--destructive) 52%, var(--border)) !important;
+  }
+
   /* Fade in animation */
   .animate-in {
     animation: fadeIn 150ms ease-out;

@@ -19,7 +19,9 @@ import { ConfidenceBadge, EvidencePopover } from "@/components/evidence";
 import { SourceIcon } from "@/components/inbox/source-icon";
 import { type TFunction, useI18n } from "@/i18n";
 import { extractQuotedText, extractSourceMessage } from "@/lib/evidence-utils";
+import { buildProofSummary, type ProofSupersessionState } from "@/lib/proof-summary";
 import type { SourceType } from "@/lib/source-config";
+import { resolveContactDisplayName } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -59,6 +61,9 @@ export interface DecisionRowData {
     name: string;
   }>;
   sourceType?: SourceType;
+  evidenceCount?: number;
+  lastVerifiedAt?: Date | null;
+  supersessionState?: ProofSupersessionState;
 }
 
 interface DecisionRowProps
@@ -93,19 +98,12 @@ function getStatus(decision: DecisionRowData): Status {
 
 function getOwnerName(
   owner:
-    | { displayName?: string | null; primaryEmail: string }
+    | { id?: string | null; displayName?: string | null; primaryEmail: string }
     | null
     | undefined,
   t: TFunction
 ): string {
-  if (!owner) {
-    return t("common.messages.unknown");
-  }
-  return (
-    owner.displayName ||
-    owner.primaryEmail.split("@")[0] ||
-    t("common.messages.unknown")
-  );
+  return resolveContactDisplayName(owner, t("common.messages.unknown"));
 }
 
 function formatDecisionDate(
@@ -157,6 +155,16 @@ function DecisionRow({
   const ownerName = getOwnerName(firstOwner, t);
   const dateDisplay = formatDecisionDate(decision.decidedAt, { locale, t });
   const firstTopic = decision.topics?.[0];
+  const proofSummary = buildProofSummary({
+    evidenceCount: decision.evidenceCount ?? decision.evidence?.length ?? 0,
+    lastVerifiedAt:
+      decision.lastVerifiedAt ??
+      (decision.isUserVerified ? decision.extractedAt : null),
+    supersessionState:
+      decision.supersessionState ??
+      (decision.isSuperseded ? "superseded" : "active"),
+    locale,
+  });
 
   const isSuperseded = decision.isSuperseded || !!decision.supersededBy;
 
@@ -262,14 +270,34 @@ function DecisionRow({
 
       {/* Title - flexible width */}
       <div className="min-w-0 flex-1 px-2">
-        <span
-          className={cn(
-            "block truncate font-normal text-[13px] text-muted-foreground",
-            isSuperseded && "line-through"
-          )}
-        >
-          {decision.title}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "block min-w-0 flex-1 truncate font-normal text-[13px] text-muted-foreground",
+              isSuperseded && "line-through"
+            )}
+          >
+            {decision.title}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.evidenceLabel}
+          >
+            {proofSummary.evidenceCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.verifiedLabel}
+          >
+            {proofSummary.verifiedCode}
+          </span>
+          <span
+            className="shrink-0 text-[10px] text-muted-foreground/90"
+            title={proofSummary.supersessionLabel}
+          >
+            {proofSummary.supersessionCode}
+          </span>
+        </div>
       </div>
 
       {/* Right section - fixed width, perfectly aligned */}

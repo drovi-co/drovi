@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useT } from "@/i18n";
 import { adminAPI, type KPIBlock } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { AutomationScheduleCard } from "../components/automation-schedule-card";
 
 type ConnectionsByTypeRow = {
   connector_type: string;
@@ -201,6 +202,8 @@ export function AdminOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AutomationScheduleCard />
     </div>
   );
 }

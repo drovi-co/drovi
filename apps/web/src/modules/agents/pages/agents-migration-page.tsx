@@ -28,18 +28,18 @@ const LEGACY_META: Record<
       "Use Workforces to dispatch missions and monitor run state in real time.",
   },
   builder: {
-    title: "Continuum Builder moved to Agent Studio",
+    title: "Continuum Builder moved to Mandate Studio",
     description:
-      "Authoring now happens in Agent Studio with role/profile/playbook/deployment primitives.",
+      "Authoring now happens in Mandate Studio with role/profile/playbook/deployment primitives.",
     migrationReason:
-      "Build production-safe agents with policy overlays, approvals, and audited runtime snapshots.",
+      "Build production-safe mandates with policy overlays, approvals, and audited runtime snapshots.",
   },
   exchange: {
-    title: "Continuum Exchange moved to Agent Catalog",
+    title: "Continuum Exchange moved to Mandate Exchange",
     description:
-      "Template install and deployment inventory are now centralized in Agent Catalog.",
+      "Template install and deployment inventory are now centralized in Mandate Exchange.",
     migrationReason:
-      "Install starter packs and integrate external systems through AgentOS APIs and inbox channels.",
+      "Install starter packs and integrate external systems through mandate APIs and inbox channels.",
   },
 };
 
@@ -56,7 +56,7 @@ export function AgentsMigrationPage({
       <Card className="border-primary/20 bg-gradient-to-b from-primary/5 via-background to-background">
         <CardHeader>
           <Badge className="mb-2 w-fit border border-primary/30 bg-primary/10 text-primary">
-            AgentOS Migration
+            Mandate Migration
           </Badge>
           <CardTitle className="text-2xl">{meta.title}</CardTitle>
           <CardDescription className="max-w-3xl text-base">

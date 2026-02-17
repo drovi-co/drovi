@@ -145,7 +145,7 @@ export const ENTITY_DEFINITIONS: EntityDefinition[] = [
     values: ["high", "medium", "low"],
     multiValue: true,
     negatable: true,
-    description: "Filter by AI confidence level",
+    description: "Filter by evidence confidence level",
   },
   {
     name: "verified",

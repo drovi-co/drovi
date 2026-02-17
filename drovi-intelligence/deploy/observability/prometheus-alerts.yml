@@ -78,6 +78,16 @@ groups:
           summary: "Connector stale"
           description: "No successful connector sync for > 1h"
 
+      - alert: DroviConnectorSyncSLOBreach
+        expr: |
+          time() - drovi_connector_last_success_timestamp_seconds > 1800
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connector sync SLO breached"
+          description: "No successful connector sync for > 30m (SLO breach)."
+
       - alert: DroviUemPersistSlow
         expr: |
           histogram_quantile(

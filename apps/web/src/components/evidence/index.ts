@@ -16,6 +16,7 @@ export type {
   UserCorrection,
 } from "./evidence-detail-sheet";
 export { EvidenceDetailSheet } from "./evidence-detail-sheet";
+export { EvidenceRail } from "./evidence-rail";
 export type { EvidencePopoverData } from "./evidence-popover";
 export { EvidencePopover } from "./evidence-popover";
 export type { ShowMeButtonProps } from "./show-me-button";

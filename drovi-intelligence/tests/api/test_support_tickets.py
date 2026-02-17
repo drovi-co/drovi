@@ -270,3 +270,133 @@ class TestSupportTicketInboundEmail:
                 },
             )
         assert response.status_code == 401
+
+
+class TestSupportTicketLifecycle:
+    async def test_create_then_close_ticket_lifecycle(self, async_client, app):
+        from src.auth.context import AuthMetadata, AuthType
+        from src.auth.middleware import APIKeyContext, get_api_key_context, get_auth_context
+
+        session_ctx = APIKeyContext(
+            organization_id="org_test",
+            auth_subject_id="user_user_123",
+            scopes=["read", "write"],
+            metadata=AuthMetadata(
+                auth_type=AuthType.SESSION,
+                user_email="alice@example.com",
+                user_id="user_123",
+                key_id="session:user_123",
+                key_name="Session: alice@example.com",
+            ),
+            is_internal=False,
+            rate_limit_per_minute=1000,
+        )
+
+        async def _override_ctx():
+            return session_ctx
+
+        app.dependency_overrides[get_api_key_context] = _override_ctx
+        app.dependency_overrides[get_auth_context] = _override_ctx
+
+        # 1) Create ticket
+        create_session = AsyncMock()
+        create_session.execute = AsyncMock(return_value=MagicMock())
+        with patch(
+            "src.api.routes.support.get_db_session",
+            lambda: _fake_session(create_session),
+        ), patch(
+            "src.api.routes.support._get_user_email",
+            AsyncMock(return_value="alice@example.com"),
+        ), patch(
+            "src.api.routes.support.record_audit_event",
+            AsyncMock(return_value=None),
+        ), patch(
+            "src.api.routes.support.send_resend_email",
+            AsyncMock(return_value=True),
+        ):
+            created = await async_client.post(
+                "/api/v1/support/tickets",
+                json={
+                    "subject": "Pilot onboarding blocker",
+                    "message": "Need help connecting source and completing onboarding.",
+                    "route": "/onboarding/connect-sources",
+                    "locale": "en",
+                    "diagnostics": {"phase": "onboarding"},
+                },
+            )
+        assert created.status_code == 201
+        ticket_id = created.json()["ticket_id"]
+
+        # Switch to an internal admin context for queue triage actions.
+        admin_ctx = APIKeyContext(
+            organization_id="internal",
+            auth_subject_id="admin",
+            scopes=["admin", "read", "write"],
+            metadata=AuthMetadata(
+                auth_type=AuthType.API_KEY,
+                user_email="founder@drovi.co",
+                user_id=None,
+                key_id="admin:founder@drovi.co",
+                key_name="Admin token",
+            ),
+            is_internal=True,
+            rate_limit_per_minute=1000,
+        )
+
+        async def _override_admin_ctx():
+            return admin_ctx
+
+        app.dependency_overrides[get_api_key_context] = _override_admin_ctx
+        app.dependency_overrides[get_auth_context] = _override_admin_ctx
+
+        # 2) Ticket appears in admin list
+        list_session = AsyncMock()
+        list_result = MagicMock()
+        list_result.fetchall.return_value = [
+            SimpleNamespace(
+                id=ticket_id,
+                organization_id="org_test",
+                subject="Pilot onboarding blocker",
+                status="open",
+                priority="normal",
+                created_by_email="alice@example.com",
+                assignee_email=None,
+                created_via="web",
+                created_at="2026-02-10T00:00:00Z",
+                updated_at="2026-02-10T00:00:00Z",
+                last_message_at="2026-02-10T00:00:00Z",
+                message_count=1,
+                last_message_preview="Need help connecting source",
+            )
+        ]
+        list_session.execute = AsyncMock(return_value=list_result)
+
+        with patch(
+            "src.api.routes.support.get_db_session",
+            lambda: _fake_session(list_session),
+        ):
+            listed = await async_client.get("/api/v1/support/tickets")
+        assert listed.status_code == 200
+        assert listed.json()["tickets"][0]["id"] == ticket_id
+
+        # 3) Admin closes ticket
+        close_session = AsyncMock()
+        close_result = MagicMock()
+        close_result.rowcount = 1
+        close_session.execute = AsyncMock(return_value=close_result)
+        with patch(
+            "src.api.routes.support.get_db_session",
+            lambda: _fake_session(close_session),
+        ), patch(
+            "src.api.routes.support.record_audit_event",
+            AsyncMock(return_value=None),
+        ):
+            closed = await async_client.patch(
+                f"/api/v1/support/tickets/{ticket_id}",
+                json={"status": "closed"},
+            )
+        assert closed.status_code == 200
+        assert closed.json()["status"] == "ok"
+
+        app.dependency_overrides.pop(get_api_key_context, None)
+        app.dependency_overrides.pop(get_auth_context, None)

@@ -64,9 +64,15 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 
-vi.mock("@/modules/agents/hooks/use-agent-run-stream", () => ({
-  useAgentRunStream: vi.fn(),
-}));
+vi.mock("@memorystack/mod-agents", async () => {
+  const actual = await vi.importActual<
+    typeof import("@memorystack/mod-agents")
+  >("@memorystack/mod-agents");
+  return {
+    ...actual,
+    useAgentRunStream: vi.fn(),
+  };
+});
 
 function renderWithProviders(node: ReactNode) {
   const queryClient = new QueryClient({
@@ -585,7 +591,7 @@ describe("AgentOS pages", () => {
     ).toBeTruthy();
 
     const installButtons = await screen.findAllByRole("button", {
-      name: "Install to Agent Studio",
+      name: "Install to Mandate Studio",
     });
     await user.click(installButtons[0]);
 

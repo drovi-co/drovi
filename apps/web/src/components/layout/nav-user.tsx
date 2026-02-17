@@ -126,7 +126,7 @@ export function NavUser() {
                 onClick={() => navigate({ to: "/dashboard/actuations" })}
               >
                 <Sparkles className="mr-2 size-4" />
-                Upgrade to Pro
+                Upgrade plan
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -141,13 +141,13 @@ export function NavUser() {
                 onClick={() => navigate({ to: "/dashboard/actuations" })}
               >
                 <CreditCard className="mr-2 size-4" />
-                Actuations
+                Action Office
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => navigate({ to: "/dashboard/trust" })}
               >
                 <Bell className="mr-2 size-4" />
-                Trust & Audit
+                Integrity Office
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => navigate({ to: "/dashboard/settings" })}

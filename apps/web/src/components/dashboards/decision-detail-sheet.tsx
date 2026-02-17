@@ -140,13 +140,11 @@ export function DecisionDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="flex w-[480px] flex-col p-0 sm:w-[540px]">
-        {/* Header with purple gradient for decisions */}
+        {/* Header with status emphasis */}
         <div
           className={cn(
-            "px-6 pt-6 pb-4",
-            isActive
-              ? "bg-gradient-to-b from-purple-500/10 to-transparent"
-              : "bg-gradient-to-b from-gray-500/5 to-transparent"
+            "border-b border-border/40 px-6 pt-6 pb-4",
+            isActive ? "bg-muted/30" : "bg-muted/15"
           )}
         >
           <SheetHeader className="space-y-4">
@@ -201,7 +199,7 @@ export function DecisionDetailSheet({
               </div>
             )}
 
-            {/* AI Confidence */}
+            {/* Evidence Confidence */}
             <div className="flex items-center gap-3">
               <Sparkles className="h-4 w-4 text-purple-500" />
               <div className="flex-1">

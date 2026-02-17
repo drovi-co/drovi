@@ -15,17 +15,21 @@ from uuid import uuid4
 from typing import Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram
 
 from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
 from src.auth.scopes import Scope
+from src.compliance.dlp import sanitize_text
 from src.evidence.chain import compute_chain_entry
 from src.evidence.storage import get_evidence_storage
 from src.evidence.audit import record_evidence_audit
 from src.ingestion.reality_events import persist_reality_event
 from src.config import get_settings
+from src.security.break_glass import validate_break_glass_token
+from src.security.org_policy import get_org_security_policy
+from src.security.policy_engine import evaluate_evidence_access
 
 logger = structlog.get_logger()
 
@@ -182,6 +186,26 @@ def _truncate_snippet(text: str | None, max_length: int = 200) -> str:
     return text[:max_length - 3] + "..."
 
 
+def _mask_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    masked, _ = sanitize_text(value)
+    return masked
+
+
+def _mask_contact(contact: ContactInfo | None) -> ContactInfo | None:
+    if contact is None:
+        return None
+    return ContactInfo(
+        name=_mask_text(contact.name),
+        email=_mask_text(contact.email),
+    )
+
+
+def _mask_contacts(contacts: list[ContactInfo]) -> list[ContactInfo]:
+    return [_mask_contact(item) or ContactInfo() for item in contacts]
+
+
 async def _fetch_unified_event(
     session,
     organization_id: str,
@@ -220,6 +244,7 @@ async def get_evidence(
     evidence_id: str,
     organization_id: str,
     mode: Literal["snippet", "full"] = Query(default="snippet"),
+    break_glass_token: str | None = Header(default=None, alias="X-Break-Glass-Token"),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """
@@ -240,6 +265,30 @@ async def get_evidence(
     start_time = time.time()
 
     _validate_org_id(ctx, organization_id)
+    org_policy = await get_org_security_policy(organization_id)
+    break_glass_value = break_glass_token if isinstance(break_glass_token, str) else None
+
+    access_action = "evidence.full" if mode == "full" else "evidence.snippet"
+    grant = await validate_break_glass_token(
+        organization_id=organization_id,
+        token=break_glass_value,
+        scope=access_action,
+    )
+    access_decision = evaluate_evidence_access(
+        ctx=ctx,
+        policy=org_policy,
+        action=access_action,
+        resource_org_id=organization_id,
+        resource_sensitivity="sensitive",
+        has_break_glass=grant is not None,
+    )
+    if not access_decision.allowed:
+        detail = (
+            "Break-glass token required for full evidence access"
+            if access_decision.requires_break_glass
+            else "Access denied"
+        )
+        raise HTTPException(status_code=403, detail=detail)
 
     # Track metrics
     EVIDENCE_REQUESTS.labels(org_id=organization_id, mode=mode).inc()
@@ -487,6 +536,20 @@ async def get_evidence(
 
             # Return appropriate response
             if mode == "full":
+                if access_decision.masked:
+                    snippet = _mask_text(snippet) or ""
+                    subject = _mask_text(subject)
+                    full_content = _mask_text(full_content)
+                    sender = _mask_contact(sender)
+                    recipients = _mask_contacts(recipients)
+                    thread_context = [
+                        ThreadMessage(
+                            sender=_mask_text(item.sender) or "masked",
+                            snippet=_mask_text(item.snippet) or "",
+                            sent_at=item.sent_at,
+                        )
+                        for item in thread_context
+                    ]
                 return EvidenceFullResponse(
                     id=row.id,
                     source_type=row.source_type,
@@ -503,6 +566,12 @@ async def get_evidence(
                     thread_context=thread_context,
                     related_uios=related_uios,
                 )
+
+            if access_decision.masked:
+                snippet = _mask_text(snippet) or ""
+                subject = _mask_text(subject)
+                sender = _mask_contact(sender)
+                recipients = _mask_contacts(recipients)
 
             return EvidenceSnippetResponse(
                 id=row.id,
@@ -534,10 +603,35 @@ async def get_evidence_artifact(
     artifact_id: str,
     organization_id: str,
     include_url: bool = Query(default=False),
+    break_glass_token: str | None = Header(default=None, alias="X-Break-Glass-Token"),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """Fetch evidence artifact metadata and optional presigned URL."""
     _validate_org_id(ctx, organization_id)
+    org_policy = await get_org_security_policy(organization_id)
+    break_glass_value = break_glass_token if isinstance(break_glass_token, str) else None
+    access_action = "evidence.presign" if include_url else "evidence.metadata"
+    access_sensitivity: Literal["normal", "sensitive"] = "sensitive" if include_url else "normal"
+    grant = await validate_break_glass_token(
+        organization_id=organization_id,
+        token=break_glass_value,
+        scope=access_action,
+    )
+    access_decision = evaluate_evidence_access(
+        ctx=ctx,
+        policy=org_policy,
+        action=access_action,
+        resource_org_id=organization_id,
+        resource_sensitivity=access_sensitivity,
+        has_break_glass=grant is not None,
+    )
+    if not access_decision.allowed:
+        detail = (
+            "Break-glass token required for artifact access URL"
+            if access_decision.requires_break_glass
+            else "Access denied"
+        )
+        raise HTTPException(status_code=403, detail=detail)
 
     from src.db.client import get_db_session
     from sqlalchemy import text
@@ -606,10 +700,37 @@ async def get_evidence_artifact(
 async def presign_evidence_artifact_url(
     artifact_id: str,
     organization_id: str,
+    reason_code: str | None = Query(
+        default="interactive_access",
+        description="Reason code for evidence access logging",
+    ),
+    break_glass_token: str | None = Header(default=None, alias="X-Break-Glass-Token"),
     ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ):
     """Generate an explicit short-lived URL for artifact access."""
     _validate_org_id(ctx, organization_id)
+    org_policy = await get_org_security_policy(organization_id)
+    break_glass_value = break_glass_token if isinstance(break_glass_token, str) else None
+    grant = await validate_break_glass_token(
+        organization_id=organization_id,
+        token=break_glass_value,
+        scope="evidence.presign",
+    )
+    access_decision = evaluate_evidence_access(
+        ctx=ctx,
+        policy=org_policy,
+        action="evidence.presign",
+        resource_org_id=organization_id,
+        resource_sensitivity="sensitive",
+        has_break_glass=grant is not None,
+    )
+    if not access_decision.allowed:
+        detail = (
+            "Break-glass token required for artifact access URL"
+            if access_decision.requires_break_glass
+            else "Access denied"
+        )
+        raise HTTPException(status_code=403, detail=detail)
 
     from src.db.client import get_db_session
     from sqlalchemy import text
@@ -643,6 +764,7 @@ async def presign_evidence_artifact_url(
             artifact_id=artifact_id,
             organization_id=organization_id,
             action="access_requested",
+            reason_code=reason_code,
             actor_type=actor_type,
             actor_id=ctx.key_id,
         )
@@ -756,6 +878,7 @@ async def create_evidence_artifact(
         artifact_id=artifact_id,
         organization_id=payload.organization_id,
         action="created",
+        reason_code="artifact_created",
         actor_type="api",
         actor_id=ctx.key_id,
         metadata={"artifact_type": payload.artifact_type},

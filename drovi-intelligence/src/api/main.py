@@ -35,6 +35,7 @@ from src.api.routes import (
     analytics,
     actuations,
     admin,
+    admin_onboarding,
     audit,
     api_keys,
     ask,
@@ -61,6 +62,7 @@ from src.api.routes import (
     memory,
     monitoring,
     org,
+    org_security,
     patterns,
     personalization,
     search,
@@ -312,7 +314,9 @@ app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"]
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(org.router, prefix="/api/v1", tags=["Organization Management"])
+app.include_router(org_security.router, prefix="/api/v1", tags=["Organization Security"])
 app.include_router(admin.router, prefix="/api/v1", tags=["Admin"])
+app.include_router(admin_onboarding.router, prefix="/api/v1", tags=["Admin Onboarding"])
 app.include_router(patterns.router, prefix="/api/v1", tags=["Patterns"])
 app.include_router(personalization.router, prefix="/api/v1", tags=["Personalization"])
 app.include_router(guardrails.router, prefix="/api/v1", tags=["Guardrails"])

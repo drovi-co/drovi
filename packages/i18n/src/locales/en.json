@@ -40,13 +40,20 @@
     "missingApiKey": "Missing API key. Include X-API-Key header.",
     "internalServerError": "Internal Server Error"
   },
+  "institutional": {
+    "proofBeforeProse": "Proof before prose.",
+    "noAdmissibleEvidence": "No admissible evidence found.",
+    "recordPendingVerification": "Record pending verification.",
+    "sourceUnderReview": "Source under review.",
+    "requestPrivateBriefing": "Request a private briefing."
+  },
   "auth": {
     "welcomeBack": "Welcome back",
     "signInTitle": "Welcome back",
     "signInDescription": "Enter your credentials to access your workspace.",
     "createAccount": "Create your account",
     "signUpTitle": "Create an account",
-    "signUpDescription": "Get started with Drovi in minutes.",
+    "signUpDescription": "Request institutional access with your organization details.",
     "email": "Email",
     "password": "Password",
     "nameOptional": "Name (optional)",
@@ -55,7 +62,7 @@
     "noAccount": "No account yet?",
     "haveAccount": "Already have an account?",
     "testimonial": {
-      "quote": "\"Drovi transformed how I manage my inbox. I never miss commitments, and the AI summaries save me hours every week. It feels like having a perfect memory for all my email conversations.\"",
+      "quote": "\"Drovi transformed how I manage my inbox. I never miss commitments, and the evidence summaries save me hours every week. It feels like having a reliable institutional memory across my email conversations.\"",
       "name": "Michael Kim",
       "role": "Product Lead at Stripe"
     },
@@ -214,8 +221,8 @@
           "description": "Invite team members and work together seamlessly"
         },
         "aiInsights": {
-          "title": "AI-Powered Insights",
-          "description": "Let AI help you discover valuable leads faster"
+          "title": "Evidence-backed Insights",
+          "description": "Use verified records to surface what matters faster"
         }
       },
       "goToDashboard": "Go to dashboard",
@@ -332,25 +339,25 @@
     }
   },
   "drive": {
-    "label": "Drive",
+    "label": "Archive",
     "header": {
-      "kicker": "Smart Drive",
-      "title": "Proof-first documents",
-      "description": "Upload anything. Drovi turns it into searchable, evidence-anchored memory. Click from a commitment to the exact page region.",
+      "kicker": "Archive Vault",
+      "title": "Institutional archive and evidence library",
+      "description": "Deposit documents into a private, evidence-anchored library. Every page remains traceable, searchable, and ready for fiduciary review.",
       "folderPlaceholder": "Folder prefix (e.g. /clients/acme)",
-      "uploadFiles": "Upload files",
-      "selectOrg": "Select an organization to use Smart Drive",
+      "uploadFiles": "Deposit files",
+      "selectOrg": "Select an organization to access the Archive",
       "queuedUploadsOne": "Queued {{count}} upload",
       "queuedUploadsMany": "Queued {{count}} uploads"
     },
     "tabs": {
-      "browse": "Browse",
-      "search": "Search",
-      "ask": "Ask"
+      "browse": "Stacks",
+      "search": "Retrieval",
+      "ask": "Inquiry Desk"
     },
     "scope": {
-      "title": "Scope",
-      "description": "Browse, search, and ask within a folder prefix. Uploads inherit the current scope.",
+      "title": "Reading scope",
+      "description": "Browse, retrieve, and ask within a folder scope. Deposits inherit the active scope.",
       "clear": "Clear",
       "folders": "Folders",
       "tags": "Tags",
@@ -359,17 +366,17 @@
       "collapseFolder": "Collapse folder",
       "tagsCountOne": "{{count}} tag",
       "tagsCountMany": "{{count}} tags",
-      "noDocuments": "Upload a document to start organizing your Drive.",
+      "noDocuments": "Upload a document to start organizing your archive.",
       "noTags": "No tags yet. Add tags while uploading or via metadata later."
     },
     "library": {
-      "title": "Library",
-      "description": "Documents in your org. Processing runs automatically in the background.",
+      "title": "Archive stacks",
+      "description": "Records in organizational custody. Processing runs continuously in the background.",
       "emptyScoped": "No documents in this scope yet. Upload a PDF or widen your folder prefix."
     },
     "pages": {
-      "title": "Pages",
-      "description": "Select a page to view. Evidence quotes highlight automatically.",
+      "title": "Reading room",
+      "description": "Select a page to review with automatic evidence highlighting.",
       "openPdf": "Open PDF",
       "selectDocument": "Select a document to browse its pages.",
       "noParsedPages": "No parsed pages yet. If the document is processing, this will fill in automatically.",
@@ -379,18 +386,18 @@
       "pagesCountMany": "{{count}} pages"
     },
     "search": {
-      "title": "Search this folder",
-      "description": "Keyword search now, semantic search when embeddings are available. Results are evidence chunks.",
+      "title": "Retrieve within scope",
+      "description": "Keyword and semantic retrieval across the selected archive scope. Results are evidence segments.",
       "placeholder": "e.g. engagement letter, client approval, indemnification",
-      "button": "Search",
+      "button": "Retrieve",
       "noResults": "No results yet. Try a different query or upload more docs.",
       "chunk": "Chunk"
     },
     "ask": {
-      "title": "Ask this folder",
-      "description": "Evidence-first answers only. If there is no proof in the selected folder, Drovi will refuse.",
+      "title": "Inquiry desk",
+      "description": "Evidence-first answers only. If no proof exists in scope, Drovi declines the request.",
       "placeholder": "e.g. Where did the client approve scope changes?",
-      "button": "Ask",
+      "button": "Request answer",
       "answer": "Answer",
       "sources": "Sources",
       "emptyAnswer": "Ask a question to generate an evidence-first answer.",
@@ -610,10 +617,10 @@
         }
       },
       "exchange": {
-        "kicker": "Agent Agent Catalog",
+        "kicker": "Mandate Exchange",
         "title": "Install proven intelligence playbooks",
-        "description": "Discover curated Agents, publish your own playbooks, and keep governance tight.",
-        "selectOrg": "Select an organization to browse the Agent Catalog",
+        "description": "Discover curated mandates, publish your own playbooks, and keep governance disciplined.",
+        "selectOrg": "Select an organization to browse the Mandate Exchange",
         "actions": {
           "publish": "Publish bundle",
           "install": "Install",
@@ -639,7 +646,7 @@
         },
         "empty": {
           "title": "No bundles yet",
-          "description": "Publish your first bundle to bootstrap the Agent Catalog."
+          "description": "Publish your first bundle to seed the Mandate Exchange."
         },
         "noDescription": "No description",
         "price": {
@@ -666,7 +673,7 @@
           }
         },
         "publishDialog": {
-          "title": "Publish Agent Bundle",
+          "title": "Publish Mandate Bundle",
           "description": "Upload a manifest. Governance review is required before public listing.",
           "fields": {
             "name": "Name",
@@ -821,8 +828,8 @@
         }
       },
       "realityStream": {
-        "selectOrg": "Select an organization to view the Reality Stream",
-        "kicker": "Reality Stream",
+        "selectOrg": "Select an organization to view the Record Feed",
+        "kicker": "Record Feed",
         "title": "Every signal, every shift, in one timeline",
         "description": "Track what changed across commitments, decisions, tasks, and signals without losing the context that matters.",
         "actions": {
@@ -856,8 +863,11 @@
       "console": {
         "noOrg": {
           "title": "No organization selected",
-          "description": "Select an organization from the sidebar to view the Console."
+          "description": "Select an organization from the sidebar to view the Ledger."
         },
+        "kicker": "Institutional Ledger",
+        "title": "Truth register for every commitment and decision",
+        "description": "Monitor the operational register with evidence-backed lines, confidence marks, and supersession history.",
         "metrics": {
           "total": "Total",
           "active": "Active",
@@ -1200,7 +1210,7 @@
       },
       "schedule": {
         "kicker": "Schedule",
-        "title": "Timeline of commitments and agent runs",
+        "title": "Timeline of commitments and mandate runs",
         "description": "Align obligations with automated missions so nothing slips past the horizon.",
         "selectOrg": "Select an organization to view schedules",
         "commitments": {
@@ -1210,13 +1220,13 @@
         "continuums": {
           "title": "Agent cadence",
           "description": "Upcoming runs and status signals.",
-          "empty": "No Agents scheduled yet.",
+          "empty": "No mandates scheduled yet.",
           "nextRun": "Next run:",
           "note": "Align scheduled runs with mission-critical work for tighter accountability."
         }
       },
       "trust": {
-        "kicker": "Trust & Audit",
+        "kicker": "Integrity Office",
         "title": "Evidence first. Confidence always.",
         "description": "Every decision is grounded in verified evidence, with audit trails you can prove in seconds.",
         "selectOrg": "Select an organization to view trust signals",
@@ -1284,7 +1294,7 @@
         },
         "sidebar": {
           "title": "Node Details",
-          "aiConfidence": "AI Confidence",
+          "aiConfidence": "Evidence Confidence",
           "contact": {
             "relationshipHealth": "Relationship Health",
             "importance": "Importance",
@@ -1336,12 +1346,12 @@
         }
       },
       "continuums": {
-        "selectOrg": "Select an organization to view Agents",
-        "kicker": "Agent Runtime",
+        "selectOrg": "Select an organization to view mandates",
+        "kicker": "Mandate Runtime",
         "title": "Orchestrate long-horizon intelligence",
-        "description": "Agents are self-sustaining missions. Keep them active, preview next actions, and audit every run with confidence.",
+        "description": "Mandates are long-horizon operating routines. Keep them active, preview next actions, and audit every run with confidence.",
         "actions": {
-          "create": "Create Agent",
+          "create": "Create Mandate",
           "runNow": "Run now",
           "preview": "Preview",
           "pause": "Pause",
@@ -1355,11 +1365,11 @@
           "escalated": "Escalated"
         },
         "empty": {
-          "title": "No Agents yet",
-          "description": "Define your first mission in Agent Studio.",
-          "openBuilder": "Open Agent Studio"
+          "title": "No mandates yet",
+          "description": "Define your first mandate in Mandate Studio.",
+          "openBuilder": "Open Mandate Studio"
         },
-        "noDescription": "No description yet — refine in Agent Studio.",
+        "noDescription": "No description yet — refine in Mandate Studio.",
         "fields": {
           "version": "Version",
           "nextRun": "Next run",
@@ -1367,13 +1377,13 @@
         },
         "ledger": {
           "kicker": "Run Ledger",
-          "selectPrompt": "Select a agent",
+          "selectPrompt": "Select a mandate",
           "runsCount": "{{count}} runs",
-          "pickPrompt": "Pick a agent to inspect its run history and alerts.",
+          "pickPrompt": "Pick a mandate to inspect its run history and alerts.",
           "empty": "No runs yet. Trigger the first run from the list."
         },
         "preview": {
-          "title": "Agent Preview",
+          "title": "Mandate Preview",
           "description": "{{name}} · Horizon {{days}} days",
           "unknownContinuum": "Agent",
           "expectedActions": {
@@ -1383,7 +1393,7 @@
           },
           "riskSnapshot": {
             "title": "Risk Snapshot",
-            "description": "Agent impact on commitments.",
+            "description": "Mandate impact on commitments.",
             "open": "Open",
             "overdue": "Overdue",
             "atRisk": "At risk",
@@ -1398,14 +1408,14 @@
           "proofFallbackCriteria": "No criteria defined"
         },
         "toasts": {
-          "runQueued": "Agent run queued",
-          "runFailed": "Failed to run agent",
-          "paused": "Agent paused",
-          "pauseFailed": "Failed to pause agent",
-          "activated": "Agent activated",
-          "activateFailed": "Failed to activate agent",
+          "runQueued": "Mandate run queued",
+          "runFailed": "Failed to run mandate",
+          "paused": "Mandate paused",
+          "pauseFailed": "Failed to pause mandate",
+          "activated": "Mandate activated",
+          "activateFailed": "Failed to activate mandate",
           "rollbackQueued": "Rollback queued",
-          "rollbackFailed": "Failed to rollback agent",
+          "rollbackFailed": "Failed to rollback mandate",
           "previewFailed": "Failed to generate preview"
         },
         "runRow": {
@@ -1416,23 +1426,23 @@
         }
       },
       "actuations": {
-        "kicker": "Actuation plane",
-        "title": "Actuations",
-        "description": "Execute actions triggered by Continuums and audit outcomes, approvals, and rollbacks.",
-        "noOrg": "Select an organization to execute actuations",
+        "kicker": "Action plane",
+        "title": "Action Office",
+        "description": "Execute approved actions triggered by mandates and audit outcomes, approvals, and rollbacks.",
+        "noOrg": "Select an organization to execute actions",
         "actions": {
           "execute": "Execute"
         },
         "newActuation": {
-          "title": "New actuation",
-          "description": "Queue a driver action with tiering, approvals, and an auditable payload."
+          "title": "New action",
+          "description": "Queue an operator action with tiering, approvals, and an auditable payload."
         },
         "drivers": {
-          "reload": "Reload drivers"
+          "reload": "Reload operators"
         },
         "fields": {
-          "driver": "Driver",
-          "driverPlaceholder": "Select a driver",
+          "driver": "Operator",
+          "driverPlaceholder": "Select an operator",
           "action": "Action",
           "tier": "Tier",
           "payload": "Payload (JSON)"
@@ -1445,51 +1455,51 @@
         "ledger": {
           "title": "Ledger",
           "description": "Recent executions and review actions.",
-          "empty": "No actuations yet."
+          "empty": "No actions yet."
         },
         "row": {
           "approve": "Approve",
           "rollback": "Rollback"
         },
         "toasts": {
-          "queued": "Actuation queued",
-          "runFailed": "Failed to queue actuation",
-          "approved": "Actuation approved",
-          "approveFailed": "Failed to approve actuation",
-          "rolledBack": "Actuation rolled back",
-          "rollbackFailed": "Failed to rollback actuation",
-          "selectDriver": "Select a driver first",
+          "queued": "Action queued",
+          "runFailed": "Failed to queue action",
+          "approved": "Action approved",
+          "approveFailed": "Failed to approve action",
+          "rolledBack": "Action rolled back",
+          "rollbackFailed": "Failed to rollback action",
+          "selectDriver": "Select an operator first",
           "invalidPayloadJson": "Payload must be valid JSON"
         }
       },
       "builder": {
-        "kicker": "Agent Studio",
-        "title": "Agent Studio",
-        "description": "Draft Agents with intent, validate the definition, then publish to runtime.",
-        "noOrg": "Select an organization to build Agents",
+        "kicker": "Mandate Studio",
+        "title": "Mandate Studio",
+        "description": "Draft mandates with intent, validate the definition, then publish to runtime.",
+        "noOrg": "Select an organization to build mandates",
         "badges": {
           "dsl": "DSL"
         },
         "actions": {
           "validateJson": "Validate JSON",
-          "publishContinuum": "Publish agent",
+          "publishContinuum": "Publish mandate",
           "publishVersion": "Publish version"
         },
         "publishMode": {
           "label": "Publish mode",
           "placeholder": "Select mode",
           "options": {
-            "create": "Create new agent",
+            "create": "Create new mandate",
             "update": "Update existing"
           }
         },
         "target": {
           "label": "Target",
-          "selectPlaceholder": "Select a agent",
+          "selectPlaceholder": "Select a mandate",
           "reload": "Reload",
           "badge": "Optional",
           "notRequired": "Not required",
-          "hint": "Only needed when updating an existing agent."
+          "hint": "Only needed when updating an existing mandate."
         },
         "intent": {
           "title": "Intent",
@@ -1523,16 +1533,16 @@
           "missingFields": "Missing required fields"
         },
         "toasts": {
-          "created": "Agent published",
-          "createFailed": "Failed to publish agent",
+          "created": "Mandate published",
+          "createFailed": "Failed to publish mandate",
           "versionAdded": "Version published",
           "versionAddFailed": "Failed to publish version",
-          "selectToUpdate": "Select a agent to update"
+          "selectToUpdate": "Select a mandate to update"
         }
       },
       "patterns": {
         "kicker": "Pattern intelligence",
-        "title": "Patterns",
+        "title": "Precedent Patterns",
         "description": "Discover recurring clusters of commitments and decisions, then promote them into high-precision patterns.",
         "noOrg": "Select an organization to view patterns",
         "actions": {
@@ -1632,17 +1642,17 @@
       },
       "find": {
         "label": "Find",
-        "hint": "Search UIOs, messages, documents, and agents",
+        "hint": "Search UIOs, messages, documents, and mandates",
         "placeholder": "Search memory, messages, documents…"
       },
       "build": {
         "label": "Build",
-        "hint": "Create or edit agents and automation logic",
+        "hint": "Create or edit mandates and automation logic",
         "placeholder": "Search build surfaces or type a command…"
       },
       "act": {
         "label": "Act",
-        "hint": "Run simulations and actuations",
+        "hint": "Run simulations and actions",
         "placeholder": "Search execution surfaces or type a command…"
       },
       "inspect": {
@@ -1667,13 +1677,19 @@
     "evidence": {
       "heading": "Evidence",
       "noEvidence": "No evidence found. Drovi will not guess.",
-      "checkSources": "Check ingestion status in Connected Sources",
+      "checkSources": "Check ingestion status in Custody Connectors",
       "sourceFallback": "Source {{index}}"
     },
     "ask": {
       "hintAsking": "Asking…",
       "hintIdle": "Type a question and press Enter.",
+      "actionCardsHeading": "Mandate action cards",
       "examplesHeading": "Examples",
+      "outputsHeading": "Outputs",
+      "privateBriefing": {
+        "title": "Copy private briefing export",
+        "description": "Copy a formal briefing with evidence and audit trace."
+      },
       "examples": {
         "risks": "What commitments are at risk right now?",
         "changes": "What changed in the last 24 hours?",
@@ -1690,7 +1706,7 @@
         "memory": "Memory (UIOs)",
         "messages": "Messages (UEM)",
         "documents": "Documents (UEM)",
-        "continuums": "Agents",
+        "continuums": "Mandates",
         "commands": "Commands"
       }
     },
@@ -1698,13 +1714,14 @@
       "uios": "UIOs",
       "messages": "Messages",
       "docs": "Docs",
-      "continuums": "Agents",
+      "continuums": "Mandates",
       "debug": "Debug"
     },
     "groups": {
       "session": "Session",
       "debug": "Debug",
-      "continuums": "Agents",
+      "continuums": "Mandates",
+      "deterministicActions": "Deterministic actions",
       "execution": "Execution",
       "surfaces": "Surfaces",
       "global": "Global"
@@ -1718,11 +1735,11 @@
     },
     "commands": {
       "goConsole": {
-        "title": "Console",
-        "description": "Open the pilot health and KPIs console."
+        "title": "Ledger",
+        "description": "Open the operational ledger for pilot health and KPIs."
       },
       "goSources": {
-        "title": "Connected Sources",
+        "title": "Custody Connectors",
         "description": "View ingestion, backfills, and live sync status."
       },
       "goTeam": {
@@ -1730,27 +1747,27 @@
         "description": "Manage members, invites, and organization settings."
       },
       "goBuilder": {
-        "title": "Agent Studio",
-        "description": "Build and iterate on agent logic."
+        "title": "Mandate Studio",
+        "description": "Build and iterate on mandate logic."
       },
       "goContinuums": {
-        "title": "Agents",
-        "description": "Browse and run agent bundles."
+        "title": "Mandates",
+        "description": "Browse and run mandate bundles."
       },
       "goExchange": {
-        "title": "Agent Catalog",
-        "description": "Install or publish agent bundles."
+        "title": "Mandate Exchange",
+        "description": "Install or publish mandate bundles."
       },
       "goSimulations": {
         "title": "Simulations",
         "description": "Model what-if scenarios with evidence-backed inputs."
       },
       "goActuations": {
-        "title": "Actuations",
+        "title": "Action Office",
         "description": "Execute actions and track results."
       },
       "goReality": {
-        "title": "Reality Stream",
+        "title": "Record Feed",
         "description": "See every change captured across your org."
       },
       "goGraph": {
@@ -1758,7 +1775,7 @@
         "description": "Inspect entities, relationships, and evidence."
       },
       "goTrust": {
-        "title": "Trust & Audit",
+        "title": "Integrity Office",
         "description": "Review confidence, drift, and contradiction signals."
       },
       "copyLink": {
@@ -1770,11 +1787,11 @@
         "description": "Copy the current Unified Intelligence Object ID."
       },
       "goAgentRuns": {
-        "title": "Agent Runs",
+        "title": "Mandate Runs",
         "description": "Inspect run traces, receipts, and runtime diagnostics."
       },
       "goAgentInbox": {
-        "title": "Agent Inbox",
+        "title": "Mandate Inbox",
         "description": "Manage channel threads, approvals, and direct commands."
       }
     },
@@ -1783,6 +1800,7 @@
       "uioIdCopied": "UIO ID copied.",
       "copiedSnippet": "Copied snippet.",
       "requestIdCopied": "Request ID copied.",
+      "privateBriefingCopied": "Private briefing copied.",
       "copyFailed": "Failed to copy."
     },
     "footer": {
@@ -1827,7 +1845,7 @@
     "timeline": {
       "empty": "No events yet.",
       "confidentPct": "{{pct}}% confident",
-      "confidenceTooltip": "AI confidence score for this detection.",
+      "confidenceTooltip": "Evidence confidence score for this detection.",
       "actions": {
         "viewSource": "View source"
       },
@@ -1940,7 +1958,7 @@
         "owedToMe": "Owed to me"
       },
       "verified": "Verified",
-      "aiConfidence": "AI Confidence",
+      "aiConfidence": "Evidence Confidence",
       "sections": {
         "peopleInvolved": "People involved",
         "timeline": "Timeline",
@@ -1990,7 +2008,7 @@
         "activeDecision": "Active Decision",
         "verified": "Verified"
       },
-      "aiConfidence": "AI Confidence",
+      "aiConfidence": "Evidence Confidence",
       "sections": {
         "statement": "Decision statement",
         "rationale": "Rationale",
@@ -2182,41 +2200,41 @@
   },
   "nav": {
     "groups": {
-      "console": "Console",
-      "memory": "Memory",
+      "console": "Ledger",
+      "memory": "Registers",
       "discovery": "Discovery",
-      "continuums": "Agents",
+      "continuums": "Mandates",
       "execution": "Execution",
-      "sources": "Sources",
+      "sources": "Custody Connectors",
       "management": "Management"
     },
     "items": {
-      "console": "Console",
-      "realityStream": "Reality Stream",
+      "console": "Ledger",
+      "realityStream": "Record Feed",
       "graph": "Graph",
-      "commitments": "Commitments",
-      "decisions": "Decisions",
-      "tasks": "Tasks",
-      "schedule": "Schedule",
-      "drive": "Drive",
-      "people": "People",
-      "patterns": "Patterns",
-      "continuums": "Agents",
-      "builder": "Agent Studio",
-      "exchange": "Agent Catalog",
+      "commitments": "Commitment Register",
+      "decisions": "Decision Ledger",
+      "tasks": "Task Register",
+      "schedule": "Obligation Calendar",
+      "drive": "Archive",
+      "people": "Counterparties",
+      "patterns": "Precedent Patterns",
+      "continuums": "Mandates",
+      "builder": "Mandate Studio",
+      "exchange": "Mandate Exchange",
       "simulations": "Simulations",
-      "actuations": "Actuations",
-      "trustAudit": "Trust & Audit",
-      "connectedSources": "Connected Sources",
+      "actuations": "Action Office",
+      "trustAudit": "Integrity Office",
+      "connectedSources": "Custody Connectors",
       "team": "Team",
       "members": "Members",
       "invitations": "Invitations",
       "settings": "Settings",
-      "agentWorkforces": "Agent Workforces",
-      "agentStudio": "Agent Studio",
-      "agentRuns": "Agent Runs",
-      "agentCatalog": "Agent Catalog",
-      "agentInbox": "Agent Inbox"
+      "agentWorkforces": "Mandate Workforces",
+      "agentStudio": "Mandate Studio",
+      "agentRuns": "Mandate Runs",
+      "agentCatalog": "Mandate Exchange",
+      "agentInbox": "Mandate Inbox"
     }
   }
 }

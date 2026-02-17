@@ -149,28 +149,24 @@ function getTypeConfig(type: EvidenceType) {
         label: "Commitment",
         icon: CheckCircle2,
         color: "text-blue-600 bg-blue-500/10",
-        gradient: "from-blue-500/10",
       };
     case "decision":
       return {
         label: "Decision",
         icon: Lightbulb,
         color: "text-purple-600 bg-purple-500/10",
-        gradient: "from-purple-500/10",
       };
     case "claim":
       return {
         label: "Claim",
         icon: FileText,
         color: "text-amber-600 bg-amber-500/10",
-        gradient: "from-amber-500/10",
       };
     case "relationship":
       return {
         label: "Relationship",
         icon: User,
         color: "text-green-600 bg-green-500/10",
-        gradient: "from-green-500/10",
       };
   }
 }
@@ -385,12 +381,7 @@ export function EvidenceDetailSheet({
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="flex w-[520px] flex-col p-0 sm:w-[600px]">
         {/* Header */}
-        <div
-          className={cn(
-            "bg-gradient-to-b to-transparent px-6 pt-6 pb-4",
-            typeConfig.gradient
-          )}
-        >
+        <div className="border-border/40 border-b bg-muted/35 px-6 pt-6 pb-4">
           <SheetHeader className="space-y-4">
             {/* Type & Status */}
             <div className="flex items-center justify-between">
@@ -466,7 +457,7 @@ export function EvidenceDetailSheet({
               <div className="flex items-center justify-between">
                 <h4 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                   <Sparkles className="h-3.5 w-3.5 text-purple-500" />
-                  AI Confidence
+                  Evidence Confidence
                 </h4>
                 <span
                   className={cn("font-semibold text-sm", confidenceLevel.color)}

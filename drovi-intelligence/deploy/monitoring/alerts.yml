@@ -59,6 +59,14 @@ groups:
         annotations:
           summary: "Connector sync stale for {{ $labels.connector_type }}"
           description: "No successful sync in > 1h. Check connector health and rate limits."
+      - alert: DroviConnectorSyncSLOBreach
+        expr: max by (connector_type) (time() - drovi_connector_last_success_timestamp_seconds) > 1800
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Connector sync SLO breach for {{ $labels.connector_type }}"
+          description: "No successful sync in > 30 minutes."
       - alert: DroviKafkaConsumerLagHigh
         expr: max_over_time(drovi_kafka_consumer_lag[10m]) > 1000
         for: 10m

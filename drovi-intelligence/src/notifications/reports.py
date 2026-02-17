@@ -27,6 +27,7 @@ def _localized_report_title(report_type: str, report_title: str, locale: str | N
         "weekly_brief": "Brief executif hebdomadaire",
         "blindspot_report": "Rapport des angles morts",
         "daily_brief": "Brief executif quotidien",
+        "monthly_integrity_report": "Rapport mensuel d'integrite",
     }
     return fr_titles.get(report_type, report_title)
 

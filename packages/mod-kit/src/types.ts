@@ -21,6 +21,9 @@ export interface ModuleNavItem {
   label: string;
   to: string;
   icon?: string;
+  group?: string;
+  order?: number;
+  parentId?: string;
   requiresCapability?: ModuleCapability;
 }
 

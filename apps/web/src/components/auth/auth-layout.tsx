@@ -12,26 +12,22 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
       {/* Left side - Branding */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/20 via-background to-background p-10 text-foreground lg:flex">
-        {/* Background gradient effects */}
-        <div className="absolute top-0 left-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 bg-primary/20 blur-[120px]" />
-        <div className="absolute right-0 bottom-0 h-[400px] w-[400px] translate-x-1/2 translate-y-1/2 bg-primary/10 blur-[100px]" />
-
+      <div className="hidden flex-col justify-between border-r border-border bg-shell p-10 text-shell-foreground lg:flex">
         <Link
-          className="relative z-10 flex items-center gap-2 font-semibold text-lg"
+          className="flex items-center gap-2 font-semibold text-lg"
           to="/"
         >
           <img
             alt="Drovi"
             className="h-8 w-8 rounded-lg"
             height={32}
-            src="/logo-dark.jpg"
+            src="/drovi-old-money.svg"
             width={32}
           />
           <span>{t("common.app")}</span>
         </Link>
 
-        <div className="relative z-10 space-y-6">
+        <div className="space-y-6">
           <blockquote className="space-y-4">
             <p className="text-muted-foreground text-xl leading-relaxed">
               {t("auth.testimonial.quote")}
@@ -50,7 +46,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
           </blockquote>
         </div>
 
-        <div className="relative z-10 flex items-center gap-4 text-muted-foreground text-sm">
+        <div className="flex items-center gap-4 text-muted-foreground text-sm">
           <span>
             &copy; {new Date().getFullYear()} {t("common.app")}
           </span>
@@ -78,7 +74,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
                 alt="Drovi"
                 className="h-8 w-8 rounded-lg"
                 height={32}
-                src="/logo-dark.jpg"
+                src="/drovi-old-money.svg"
                 width={32}
               />
               <span>{t("common.app")}</span>

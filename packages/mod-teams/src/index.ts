@@ -9,3 +9,11 @@ export {
   resolveRoleLabel,
   type TeamRoleLabels,
 } from "./roles";
+export {
+  isTeamAdminRole,
+  resolveTeamMemberDisplay,
+  useTeamMemberDisplays,
+  type TeamMemberDisplay,
+  type TeamMemberLike,
+  type TeamRole,
+} from "./members";

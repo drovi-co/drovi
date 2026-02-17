@@ -51,7 +51,7 @@ export function AppShell({
   return (
     <SidebarShell
       banner={<ApiStatusBanner />}
-      contentClassName="flex-1 overflow-hidden overflow-y-auto px-6 py-4 [&:has(>[data-no-shell-padding])]:p-0"
+      contentClassName="flex-1 overflow-hidden overflow-y-auto px-6 py-5 [&:has(>[data-no-shell-padding])]:p-0"
       sidebar={<AppSidebar />}
       topBar={
         <InteractiveHeader

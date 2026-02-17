@@ -72,6 +72,7 @@ import {
 import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import type { SourceType } from "@/lib/source-config";
+import { resolveDueDate } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
 
 // =============================================================================
@@ -407,17 +408,26 @@ function TasksPage() {
   const tasks: TaskData[] = filteredItems.map((t) => {
     const details = t.taskDetails;
     const hasSources = Boolean(t.sources && t.sources.length > 0);
+    const normalizedStatus = normalizeTaskStatus(details?.status);
+    const evidenceQuotes = (t.sources ?? [])
+      .map((source) => source.quotedText)
+      .filter((value): value is string => Boolean(value));
     return {
       id: t.id,
       title: t.userCorrectedTitle ?? t.canonicalTitle ?? "",
       description: t.canonicalDescription ?? null,
-      status: normalizeTaskStatus(details?.status),
+      status: normalizedStatus,
       priority: normalizeTaskPriority(details?.priority),
       sourceType: normalizeTaskSourceType(
         t.sources?.[0]?.sourceType ?? null,
         hasSources
       ),
-      dueDate: t.dueDate ? new Date(t.dueDate) : null,
+      dueDate: resolveDueDate({
+        explicitDueDate: t.dueDate,
+        title: t.userCorrectedTitle ?? t.canonicalTitle,
+        description: t.canonicalDescription,
+        evidenceQuotes,
+      }),
       completedAt: details?.completedAt ? new Date(details.completedAt) : null,
       assignee: t.assignee
         ? {
@@ -431,6 +441,14 @@ function TasksPage() {
       metadata: null, // UIO task details don't have metadata field
       createdAt: new Date(t.createdAt),
       updatedAt: t.updatedAt ? new Date(t.updatedAt) : new Date(t.createdAt),
+      evidenceCount: t.sources?.length ?? 0,
+      lastVerifiedAt: t.updatedAt ? new Date(t.updatedAt) : new Date(t.createdAt),
+      confidence: t.overallConfidence ?? 0.8,
+      isUserVerified: t.isUserVerified ?? false,
+      supersessionState:
+        normalizedStatus === "done" || normalizedStatus === "cancelled"
+          ? "final"
+          : "active",
     };
   });
 

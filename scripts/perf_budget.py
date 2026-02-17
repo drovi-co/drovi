@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-Lightweight performance budget probe (informational).
+Lightweight performance budget probe with optional enforcement.
 
-This is intentionally dependency-free and CI-friendly:
+This remains intentionally dependency-free and CI-friendly:
 - Uses urllib from stdlib
 - Measures end-to-end wall time
 - Emits JSON suitable for artifact upload and trend tracking
-
-NOTE: This does not enforce thresholds yet; it records p50/p95 so we can set
-realistic budgets once we have baseline data from pilot-scale stacks.
+- Optionally enforces p95/error budgets as a CI gate
 """
 
 from __future__ import annotations
@@ -37,6 +35,16 @@ DEFAULT_ENDPOINTS: list[Endpoint] = [
     Endpoint("GET", "/api/v1/auth/me"),
     Endpoint("GET", "/api/v1/connections/connectors"),
 ]
+
+DEFAULT_BUDGETS = {
+    "default_p95_ms": 1200,
+    "max_error_count": 0,
+    "endpoint_p95_ms": {
+        "GET /health": 250,
+        "GET /api/v1/auth/me": 500,
+        "GET /api/v1/connections/connectors": 800,
+    },
+}
 
 
 def _utc_iso() -> str:
@@ -95,19 +103,59 @@ def _probe(base_url: str, endpoint: Endpoint, samples: int, timeout_s: float) ->
     }
 
 
+def _load_budgets(path: str | None) -> dict[str, Any]:
+    if not path:
+        return dict(DEFAULT_BUDGETS)
+    loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+    budgets = dict(DEFAULT_BUDGETS)
+    budgets.update({k: v for k, v in loaded.items() if k in {"default_p95_ms", "max_error_count", "endpoint_p95_ms"}})
+    endpoint_p95 = dict(DEFAULT_BUDGETS["endpoint_p95_ms"])
+    endpoint_p95.update(dict(loaded.get("endpoint_p95_ms") or {}))
+    budgets["endpoint_p95_ms"] = endpoint_p95
+    return budgets
+
+
+def _evaluate_budgets(results: dict[str, Any], budgets: dict[str, Any]) -> list[str]:
+    violations: list[str] = []
+    endpoints = results.get("endpoints", {})
+    endpoint_budget = dict(budgets.get("endpoint_p95_ms") or {})
+    default_p95_ms = int(budgets.get("default_p95_ms", 1200))
+    max_error_count = int(budgets.get("max_error_count", 0))
+
+    for endpoint_key, payload in endpoints.items():
+        p95 = int(payload.get("p95_ms") or 0)
+        errors = int(payload.get("error_count") or 0)
+        allowed_p95 = int(endpoint_budget.get(endpoint_key, default_p95_ms))
+
+        if p95 > allowed_p95:
+            violations.append(f"{endpoint_key}: p95 {p95}ms > budget {allowed_p95}ms")
+        if errors > max_error_count:
+            violations.append(f"{endpoint_key}: errors {errors} > budget {max_error_count}")
+
+    return violations
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:3001", help="Base URL (default: http://localhost:3001)")
     parser.add_argument("--samples", type=int, default=25, help="Samples per endpoint (default: 25)")
     parser.add_argument("--timeout-s", type=float, default=5.0, help="Per-request timeout seconds (default: 5)")
     parser.add_argument("--output", default="perf/perf-budget.json", help="Output JSON path")
+    parser.add_argument("--enforce", action="store_true", help="Fail when p95/error budgets are exceeded")
+    parser.add_argument(
+        "--budget-file",
+        default=None,
+        help="Optional JSON file overriding performance budgets",
+    )
     args = parser.parse_args(argv)
 
+    budgets = _load_budgets(args.budget_file)
     results = {
         "generated_at": _utc_iso(),
         "base_url": args.base_url,
         "samples": args.samples,
         "endpoints": {},
+        "budgets": budgets,
     }
 
     for ep in DEFAULT_ENDPOINTS:
@@ -125,7 +173,18 @@ def main(argv: list[str]) -> int:
     for key, payload in results["endpoints"].items():
         print(f"{key}: p50={payload['p50_ms']}ms p95={payload['p95_ms']}ms errors={payload['error_count']}")
 
-    return 0
+    if not args.enforce:
+        return 0
+
+    violations = _evaluate_budgets(results, budgets)
+    if not violations:
+        print("Performance budgets: PASS")
+        return 0
+
+    print("Performance budgets: FAIL")
+    for violation in violations:
+        print(f"- {violation}")
+    return 2
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.auth.pilot_accounts import create_jwt
 from src.config import get_settings
 
 pytestmark = [pytest.mark.api, pytest.mark.asyncio]
@@ -59,6 +60,26 @@ async def test_admin_login_and_me(monkeypatch, async_client_no_auth):
     assert me.status_code == 200
     data = me.json()
     assert data["email"] == "founder@drovi.co"
+
+
+async def test_admin_me_rejects_pilot_session_token(monkeypatch, async_client_no_auth):
+    _set_admin_env(monkeypatch)
+    pilot_token = create_jwt(
+        user_id="user_1",
+        org_id="org_1",
+        role="pilot_owner",
+        email="owner@example.com",
+    )
+    with patch(
+        "src.auth.middleware._resolve_membership_role",
+        new_callable=AsyncMock,
+        return_value="pilot_owner",
+    ):
+        res = await async_client_no_auth.get(
+            "/api/v1/admin/me",
+            headers={"Authorization": f"Bearer {pilot_token}"},
+        )
+    assert res.status_code == 403
 
 
 async def test_admin_kpis_smoke(monkeypatch, async_client_no_auth):

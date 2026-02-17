@@ -4,7 +4,7 @@ import { MOD_CONSOLE_NAMESPACE, modConsoleI18n } from "./messages";
 export function createConsoleModule(): DroviModule {
   return {
     id: "mod-console",
-    title: "Console",
+    title: "Ledger",
     capabilities: ["ops.internal", "console.read"],
     routes: [
       { id: "console.index", path: "/dashboard/console", slot: "dashboard" },
@@ -12,8 +12,11 @@ export function createConsoleModule(): DroviModule {
     navItems: [
       {
         id: "console.nav",
-        label: "Console",
+        label: "Ledger",
         to: "/dashboard/console",
+        icon: "terminal",
+        group: "console",
+        order: 10,
         requiresCapability: "console.read",
       },
     ],

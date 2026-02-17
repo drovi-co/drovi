@@ -10,3 +10,11 @@ export {
   type OnboardingStep,
   resolveAvailableOnboardingSteps,
 } from "./steps";
+export {
+  resolveOnboardingRoute,
+  resolveOnboardingState,
+  useOnboardingRoute,
+  type OnboardingCompletionState,
+  type OnboardingRouteStep,
+  type ResolveOnboardingStateResult,
+} from "./runtime";

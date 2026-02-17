@@ -2,6 +2,10 @@ import { Avatar, AvatarFallback } from "@memorystack/ui-core/avatar";
 import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
+  isTeamAdminRole,
+  useTeamMemberDisplays,
+} from "@memorystack/mod-teams";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -17,7 +21,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MoreHorizontal, Shield, UserMinus } from "lucide-react";
-import { useMemo } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useT } from "@/i18n";
@@ -29,7 +32,7 @@ export function MembersPage() {
   const user = useAuthStore((state) => state.user);
   const t = useT();
   const organizationId = user?.org_id ?? "";
-  const isAdmin = user?.role === "pilot_owner" || user?.role === "pilot_admin";
+  const isAdmin = isTeamAdminRole(user?.role);
 
   const {
     data: members,
@@ -88,7 +91,10 @@ export function MembersPage() {
   const isMutating =
     updateRoleMutation.isPending || removeMemberMutation.isPending;
 
-  const memberList = useMemo(() => members ?? [], [members]);
+  const memberRows = useTeamMemberDisplays(
+    members,
+    t("pages.dashboard.team.membersPage.fallbackUser")
+  );
 
   if (!user) {
     return (
@@ -135,10 +141,10 @@ export function MembersPage() {
             {t("pages.dashboard.team.membersPage.card.title")}
           </CardTitle>
           <CardDescription>
-            {memberList.length === 1
+            {memberRows.length === 1
               ? t("pages.dashboard.team.membersPage.card.countOne")
               : t("pages.dashboard.team.membersPage.card.countMany", {
-                  count: memberList.length,
+                  count: memberRows.length,
                 })}
           </CardDescription>
         </CardHeader>
@@ -157,26 +163,16 @@ export function MembersPage() {
             </div>
           ) : isError ? (
             <ApiErrorPanel error={error} onRetry={() => refetch()} />
-          ) : memberList.length === 0 ? (
+          ) : memberRows.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
               {t("pages.dashboard.team.membersPage.empty")}
             </p>
           ) : (
             <div className="space-y-4">
-              {memberList.map((member) => {
-                const displayName =
-                  member.name ??
-                  member.email?.split("@")[0] ??
-                  t("pages.dashboard.team.membersPage.fallbackUser");
-                const displayInitials = displayName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
-
-                const isOwner =
-                  member.role === "pilot_owner" || member.role === "owner";
+              {memberRows.map(({ member, display }) => {
+                const displayName = display.displayName;
+                const displayInitials = display.initials;
+                const isOwner = display.isOwner;
                 const roleLabel = isOwner
                   ? t("pages.dashboard.team.roles.owner")
                   : member.role === "pilot_admin"

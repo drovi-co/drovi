@@ -38,14 +38,14 @@ export interface ConsoleDataTableProps {
 // TYPE COLORS (left stripe)
 // =============================================================================
 
-// Vercel-style muted colors
+// Institutional register palette
 const TYPE_COLORS: Record<string, string> = {
-  commitment: "#666666", // Dark gray
-  decision: "#0070f3", // Vercel blue
-  task: "#171717", // Near black
-  risk: "#dc2626", // Muted red
-  claim: "#059669", // Muted teal
-  brief: "#a3a3a3", // Light gray
+  commitment: "#cfab67",
+  decision: "#8fb69d",
+  task: "#f3e8d3",
+  risk: "#b46f67",
+  claim: "#7ba286",
+  brief: "#c4b392",
 };
 
 // =============================================================================
@@ -65,7 +65,7 @@ function TableRow({
   isFocused = false,
   onClick,
 }: TableRowProps) {
-  const typeColor = TYPE_COLORS[item.type] ?? "#6b7280";
+  const typeColor = TYPE_COLORS[item.type] ?? "#c4b392";
 
   return (
     <div
@@ -93,7 +93,7 @@ function TableRow({
       {/* Type column */}
       <div className="w-28 shrink-0 px-2 py-2">
         <span
-          className="inline-block rounded px-1.5 py-0.5 font-medium text-white text-xs uppercase"
+          className="inline-block rounded px-1.5 py-0.5 font-medium text-primary-foreground text-xs uppercase"
           style={{ backgroundColor: typeColor }}
         >
           {item.type}
@@ -152,14 +152,12 @@ function TableRow({
       <div className="min-w-0 flex-1 px-2 py-2">
         <div className="flex items-center gap-2">
           {/* Status indicators - Vercel style */}
-          {item.is_overdue && (
-            <Clock className="size-3.5 shrink-0 text-[#dc2626]" />
-          )}
+          {item.is_overdue && <Clock className="size-3.5 shrink-0 text-destructive" />}
           {item.is_at_risk && !item.is_overdue && (
-            <AlertTriangle className="size-3.5 shrink-0 text-[#d97706]" />
+            <AlertTriangle className="size-3.5 shrink-0 text-warning" />
           )}
           {item.status === "completed" && (
-            <CheckCircle2 className="size-3.5 shrink-0 text-[#059669]" />
+            <CheckCircle2 className="size-3.5 shrink-0 text-success" />
           )}
 
           {/* Title with description (only if different from title) */}
@@ -221,10 +219,9 @@ function StatusBadge({
   isOverdue: boolean;
   isAtRisk: boolean;
 }) {
-  // Vercel-style status badges
   if (isOverdue) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-[#fecaca] bg-[#fef2f2] px-2 py-0.5 font-medium text-[#b91c1c] text-[10px] dark:border-[#7f1d1d] dark:bg-[#450a0a] dark:text-[#fca5a5]">
+      <span className="inline-flex items-center gap-1 rounded-md border border-destructive/35 bg-destructive/12 px-2 py-0.5 font-medium text-[10px] text-destructive">
         OVERDUE
       </span>
     );
@@ -232,7 +229,7 @@ function StatusBadge({
 
   if (isAtRisk) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-[#fde68a] bg-[#fffbeb] px-2 py-0.5 font-medium text-[#b45309] text-[10px] dark:border-[#78350f] dark:bg-[#451a03] dark:text-[#fcd34d]">
+      <span className="inline-flex items-center gap-1 rounded-md border border-warning/35 bg-warning/12 px-2 py-0.5 font-medium text-[10px] text-warning">
         AT RISK
       </span>
     );
@@ -240,7 +237,7 @@ function StatusBadge({
 
   if (status === "completed") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-[#a7f3d0] bg-[#ecfdf5] px-2 py-0.5 font-medium text-[#047857] text-[10px] dark:border-[#064e3b] dark:bg-[#022c22] dark:text-[#6ee7b7]">
+      <span className="inline-flex items-center gap-1 rounded-md border border-success/35 bg-success/12 px-2 py-0.5 font-medium text-[10px] text-success">
         DONE
       </span>
     );

@@ -53,7 +53,7 @@ export function TimeHistogram({
   data,
   className,
   height = 80,
-  barColor = "#f87171", // Coral/red like Datadog
+  barColor = "hsl(var(--ring))",
 }: TimeHistogramProps) {
   if (data.length === 0) {
     return (
@@ -260,18 +260,18 @@ export interface TopListChartProps {
   colorScheme?: "default" | "rainbow";
 }
 
-// Vercel-style monochrome + blue accent colors
+// Institutional forest + gold palette
 const COLORS = [
-  "#000000",
-  "#404040",
-  "#737373",
-  "#a3a3a3",
-  "#d4d4d4",
-  "#0070f3",
-  "#171717",
-  "#525252",
-  "#262626",
-  "#0070f3",
+  "#cfab67",
+  "#b69050",
+  "#9f8350",
+  "#7ba286",
+  "#5f816b",
+  "#c4b392",
+  "#f3e8d3",
+  "#8fb69d",
+  "#6f7a66",
+  "#b46f67",
 ];
 
 export function TopListChart({

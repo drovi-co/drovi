@@ -8,7 +8,7 @@ Provides endpoints for managing data source connections:
 - Stream configuration
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import inspect
 from typing import Any
 
@@ -149,6 +149,26 @@ class SyncHistoryItem(BaseModel):
     completed_at: datetime | None = None
     records_synced: int = 0
     error_message: str | None = None
+
+
+class ConnectionHealthResponse(BaseModel):
+    """Deterministic source health response."""
+
+    connection_id: str
+    organization_id: str
+    connector_type: str
+    status: str
+    reason_code: str
+    reason: str
+    last_sync_at: datetime | None = None
+    minutes_since_last_sync: float | None = None
+    stale_after_minutes: int
+    sync_slo_breached: bool
+    sync_slo_minutes: int
+    recent_failures: int
+    recovery_action: str
+    last_error: str | None = None
+    checked_at: datetime
 
 
 class StreamConfigRequest(BaseModel):
@@ -764,6 +784,71 @@ async def get_sync_history(
         )
         for job in jobs
     ]
+
+
+@router.get("/{connection_id}/health", response_model=ConnectionHealthResponse)
+async def get_connection_health(
+    connection_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """Return deterministic source health status and reasons."""
+    from sqlalchemy import func, select
+
+    from src.connectors.source_health import evaluate_source_health
+    from src.db.client import get_db_session
+    from src.db.models.background_jobs import BackgroundJob
+    from src.db.models.connections import Connection, SyncJobHistory
+
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    failure_window_start = now - timedelta(
+        minutes=max(1, int(settings.connector_health_failure_window_minutes))
+    )
+
+    async with get_db_session() as session:
+        connection_result = await session.execute(
+            select(Connection).where(Connection.id == connection_id)
+        )
+        connection = connection_result.scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+
+        _validate_org_id(ctx, str(connection.organization_id))
+
+        failure_count = await session.scalar(
+            select(func.count(SyncJobHistory.id))
+            .where(SyncJobHistory.connection_id == connection.id)
+            .where(SyncJobHistory.status == "failed")
+            .where(SyncJobHistory.started_at >= failure_window_start)
+        )
+
+        recovering = await session.scalar(
+            select(func.count(BackgroundJob.id))
+            .where(BackgroundJob.job_type == "connector.sync")
+            .where(BackgroundJob.status.in_(("queued", "running")))
+            .where(BackgroundJob.idempotency_key.like("connector_auto_recovery:%"))
+            .where(BackgroundJob.resource_key == f"connection:{connection_id}")
+        )
+
+    snapshot = evaluate_source_health(
+        connection_id=str(connection.id),
+        organization_id=str(connection.organization_id),
+        connector_type=str(connection.connector_type),
+        connection_status=str(connection.status),
+        sync_enabled=bool(connection.sync_enabled),
+        sync_frequency_minutes=int(connection.sync_frequency_minutes or 5),
+        last_sync_at=connection.last_sync_at,
+        last_sync_status=connection.last_sync_status,
+        last_error=connection.last_sync_error,
+        recent_failures=int(failure_count or 0),
+        recovery_in_flight=bool(recovering),
+        now=now,
+        stale_multiplier=int(settings.connector_health_stale_multiplier),
+        stale_floor_minutes=int(settings.connector_health_stale_floor_minutes),
+        sync_slo_minutes=int(settings.connector_health_sync_slo_minutes),
+        failure_threshold=int(settings.connector_health_error_failure_threshold),
+    )
+    return ConnectionHealthResponse(**snapshot.model_dump())
 
 
 # =============================================================================

@@ -55,7 +55,7 @@ export function OnboardingWidget({ steps, onDismiss }: OnboardingWidgetProps) {
       {/* Collapsed state - just the button */}
       {!isOpen && (
         <Button
-          className="group relative h-12 gap-2 rounded-full bg-primary px-4 shadow-lg transition-all duration-200 hover:shadow-xl"
+          className="group relative h-12 gap-2 rounded-full bg-primary px-4 shadow-button transition-colors"
           onClick={() => setIsOpen(true)}
         >
           <div className="relative">
@@ -73,7 +73,7 @@ export function OnboardingWidget({ steps, onDismiss }: OnboardingWidgetProps) {
 
       {/* Expanded state */}
       {isOpen && (
-        <div className="slide-in-from-bottom-4 w-80 animate-in overflow-hidden rounded-xl border bg-card shadow-2xl duration-200">
+        <div className="slide-in-from-bottom-4 w-80 animate-in overflow-hidden rounded-xl border bg-card shadow-dropdown duration-200">
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
             <div className="flex items-center gap-2">

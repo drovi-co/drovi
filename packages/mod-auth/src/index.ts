@@ -9,3 +9,4 @@ export {
   mergeAuthModulePolicy,
   resolvePostLoginRedirect,
 } from "./policy";
+export { resolveAuthView, useAuthView, type AuthView } from "./view";
