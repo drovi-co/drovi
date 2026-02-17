@@ -11,20 +11,16 @@ dependencies = [
     # Web Framework
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-    "websockets>=13.0",
     "httpx>=0.28.0",
     "sse-starlette>=2.1.0",
 
-    # LangGraph & LangChain
+    # Orchestration
     "langgraph>=0.2.0",
-    "langchain>=0.3.0",
-    "langchain-core>=0.3.0",
 
     # LLM Providers
     "litellm>=1.50.0",
     "together>=2.0.0a17",
     "openai>=1.50.0",
-    "anthropic>=0.39.0",
     "google-generativeai>=0.8.0",
 
     # CLI
@@ -42,9 +38,6 @@ dependencies = [
     "asyncpg>=0.30.0",
     "alembic>=1.14.0",
 
-    # Embeddings
-    "sentence-transformers>=3.0.0",
-
     # Data Validation
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
@@ -52,7 +45,6 @@ dependencies = [
     # Utilities
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
-    "tenacity>=9.0.0",
     "prometheus-client>=0.21.0",
 
     # Async utilities
@@ -68,9 +60,7 @@ dependencies = [
 
     # API Clients (for connectors)
     "google-api-python-client>=2.100.0",
-    "google-auth-oauthlib>=1.2.0",
     "slack-sdk>=3.27.0",
-    "notion-client>=2.2.0",
     "aioboto3>=11.0.0",
     "aiomysql>=0.2.0",
     "motor>=3.6.0",
@@ -89,8 +79,7 @@ dependencies = [
     # Multi-Agent (AG2/AutoGen)
     "ag2>=0.4.0",
 
-    # Graph Algorithms
-    "networkx>=3.2.0",
+    # Media processing
     "faster-whisper>=1.0.0",
     "boto3>=1.34.0",
     "anyio>=4.4.0",

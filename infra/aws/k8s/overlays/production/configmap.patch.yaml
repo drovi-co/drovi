@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drovi-config
+  namespace: drovi
+data:
+  ENVIRONMENT: "production"
+  WEB_APP_URL: "https://app.drovi.co"

@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drovi-config
+  namespace: drovi
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+  WEB_APP_URL: "https://app.drovi.co"
+
+  FALKORDB_HOST: "falkordb"
+  FALKORDB_PORT: "6379"
+  FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
+
+  KAFKA_ENABLED: "true"
+  KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+  KAFKA_SASL_MECHANISM: "SCRAM-SHA-512"
+  KAFKA_TOPIC_RAW_EVENTS: "raw.connector.events"
+  KAFKA_TOPIC_NORMALIZED_RECORDS: "normalized.records"
+  KAFKA_TOPIC_PIPELINE_INPUT: "intelligence.pipeline.input"
+  KAFKA_TOPIC_INTELLIGENCE: "drovi-intelligence"
+  KAFKA_TOPIC_GRAPH_CHANGES: "graph.changes"
+  KAFKA_TOPIC_AGENT_INBOX_EVENTS: "agent.inbox.events"
+
+  KAFKA_RUN_PROCESSOR_IN_API: "false"
+  SCHEDULER_RUN_IN_API: "false"
+
+  EVIDENCE_STORAGE_BACKEND: "s3"
+  EVIDENCE_S3_PREFIX: "drovi-evidence"
+  DOCUMENTS_S3_PREFIX: "drovi-documents"
+  EVIDENCE_S3_PRESIGN_EXPIRY_SECONDS: "3600"
+  EVIDENCE_REQUIRE_KMS: "true"
+  S3_FORCE_PATH_STYLE: "false"
+
+  TEMPORAL_ENABLED: "true"
+  TEMPORAL_NAMESPACE: "default"
+  TEMPORAL_TASK_QUEUE: "drovi-workflows"
+
+  NATS_URL: "nats://nats:4222"
+  IMPERIUM_HOST: "0.0.0.0"
+  IMPERIUM_PORT: "8010"
+  IMPERIUM_REDIS_NAMESPACE: "imperium"
+  IMPERIUM_SHUTDOWN_GRACE_SECONDS: "20"
+  IMPERIUM_DATA_MODE: "synthetic"
+  IMPERIUM_MARKETS_PROVIDER: "polygon"
+  IMPERIUM_MARKETS_FALLBACKS: "finnhub,twelvedata"
+  IMPERIUM_CRYPTO_PROVIDER: "coinbase"
+  IMPERIUM_CRYPTO_FALLBACKS: "coingecko"
+  IMPERIUM_NEWS_PROVIDER: "benzinga"
+  IMPERIUM_NEWS_FALLBACKS: "newsapi,sec-rss"
+  IMPERIUM_BANKING_PROVIDER: "plaid"
+  IMPERIUM_BANKING_FALLBACKS: "truelayer"
+  IMPERIUM_BROKERAGE_PROVIDER: "snaptrade"
+  IMPERIUM_BROKERAGE_FALLBACKS: "alpaca"
+  IMPERIUM_BUSINESS_PROVIDER: "stripe"
+  IMPERIUM_BUSINESS_FALLBACKS: "quickbooks,polar"
+  IMPERIUM_PROVIDER_MAX_RETRIES: "2"
+  IMPERIUM_PROVIDER_BACKOFF_MS: "300"
+  IMPERIUM_SEC_USER_AGENT: "imperium-connectors/0.1 (ops@imperium.local)"

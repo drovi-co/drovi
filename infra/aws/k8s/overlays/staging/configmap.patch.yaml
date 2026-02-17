@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drovi-config
+  namespace: drovi
+data:
+  ENVIRONMENT: "development"
+  WEB_APP_URL: "https://staging.drovi.co"

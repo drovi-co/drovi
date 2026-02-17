@@ -1,0 +1,110 @@
+name: Deploy AWS Shared
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: Environment name (staging or production)
+        required: true
+        type: string
+      k8s_overlay:
+        description: Kustomize overlay to deploy
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy drovi-stack to AWS (${{ inputs.environment_name }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+
+      - name: Deploy stack
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          K8S_OVERLAY: ${{ inputs.k8s_overlay }}
+
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
+
+          VITE_SERVER_URL_WEB: ${{ vars.VITE_SERVER_URL_WEB }}
+          VITE_SERVER_URL_ADMIN: ${{ vars.VITE_SERVER_URL_ADMIN }}
+
+          DROVI_APP_IAM_ROLE_ARN: ${{ vars.DROVI_APP_IAM_ROLE_ARN }}
+          IMPERIUM_IAM_ROLE_ARN: ${{ vars.IMPERIUM_IAM_ROLE_ARN }}
+          ACM_CERT_ARN: ${{ vars.ACM_CERT_ARN }}
+
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DROVI_DATABASE_URL: ${{ secrets.DROVI_DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+          EVIDENCE_S3_BUCKET: ${{ secrets.EVIDENCE_S3_BUCKET }}
+          EVIDENCE_S3_REGION: ${{ secrets.EVIDENCE_S3_REGION }}
+          EVIDENCE_S3_KMS_KEY_ID: ${{ secrets.EVIDENCE_S3_KMS_KEY_ID }}
+          TEMPORAL_ADDRESS: ${{ secrets.TEMPORAL_ADDRESS }}
+
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          DROVI_INTERNAL_SERVICE_TOKEN: ${{ secrets.DROVI_INTERNAL_SERVICE_TOKEN }}
+          AGENT_INBOX_INBOUND_TOKEN: ${{ secrets.AGENT_INBOX_INBOUND_TOKEN }}
+          INTERNAL_JWT_SECRET: ${{ secrets.INTERNAL_JWT_SECRET }}
+          API_KEY_SALT: ${{ secrets.API_KEY_SALT }}
+
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          COINBASE_API_KEY: ${{ secrets.COINBASE_API_KEY }}
+          COINBASE_API_SECRET: ${{ secrets.COINBASE_API_SECRET }}
+          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+          KRAKEN_API_KEY: ${{ secrets.KRAKEN_API_KEY }}
+          KRAKEN_API_SECRET: ${{ secrets.KRAKEN_API_SECRET }}
+          BENZINGA_API_KEY: ${{ secrets.BENZINGA_API_KEY }}
+          NEWSAPI_API_KEY: ${{ secrets.NEWSAPI_API_KEY }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
+          PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
+          PLAID_ACCESS_TOKEN: ${{ secrets.PLAID_ACCESS_TOKEN }}
+          PLAID_ENV: ${{ secrets.PLAID_ENV }}
+          TRUELAYER_CLIENT_ID: ${{ secrets.TRUELAYER_CLIENT_ID }}
+          TRUELAYER_CLIENT_SECRET: ${{ secrets.TRUELAYER_CLIENT_SECRET }}
+          TINK_CLIENT_ID: ${{ secrets.TINK_CLIENT_ID }}
+          TINK_CLIENT_SECRET: ${{ secrets.TINK_CLIENT_SECRET }}
+          SNAPTRADE_CLIENT_ID: ${{ secrets.SNAPTRADE_CLIENT_ID }}
+          SNAPTRADE_CONSUMER_KEY: ${{ secrets.SNAPTRADE_CONSUMER_KEY }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          IBKR_FLEX_TOKEN: ${{ secrets.IBKR_FLEX_TOKEN }}
+          IBKR_FLEX_QUERY_ID: ${{ secrets.IBKR_FLEX_QUERY_ID }}
+          QUICKBOOKS_CLIENT_ID: ${{ secrets.QUICKBOOKS_CLIENT_ID }}
+          QUICKBOOKS_CLIENT_SECRET: ${{ secrets.QUICKBOOKS_CLIENT_SECRET }}
+          QUICKBOOKS_REALM_ID: ${{ secrets.QUICKBOOKS_REALM_ID }}
+          XERO_CLIENT_ID: ${{ secrets.XERO_CLIENT_ID }}
+          XERO_CLIENT_SECRET: ${{ secrets.XERO_CLIENT_SECRET }}
+        run: bash infra/aws/scripts/deploy_stack.sh
