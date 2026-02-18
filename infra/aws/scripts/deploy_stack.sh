@@ -57,6 +57,31 @@ dump_job_diagnostics() {
   done
 }
 
+dump_deployment_diagnostics() {
+  local deployment_name="$1"
+
+  kubectl -n drovi get deployment "${deployment_name}" -o wide || true
+  kubectl -n drovi describe deployment "${deployment_name}" || true
+  kubectl -n drovi get rs -l "app=${deployment_name}" -o wide || true
+  kubectl -n drovi get pods -l "app=${deployment_name}" -o wide || true
+
+  mapfile -t deployment_pods < <(kubectl -n drovi get pods -l "app=${deployment_name}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' || true)
+
+  if [[ "${#deployment_pods[@]}" -eq 0 ]]; then
+    echo "No pods found for deployment ${deployment_name}. Recent namespace events:" >&2
+    kubectl -n drovi get events --sort-by=.lastTimestamp | tail -n 120 || true
+    return 0
+  fi
+
+  for pod_name in "${deployment_pods[@]}"; do
+    if [[ -z "${pod_name}" ]]; then
+      continue
+    fi
+    kubectl -n drovi logs "${pod_name}" --all-containers --tail=300 || true
+    kubectl -n drovi describe pod "${pod_name}" || true
+  done
+}
+
 wait_for_job_complete() {
   local job_name="$1"
   local timeout="$2"
@@ -67,6 +92,19 @@ wait_for_job_complete() {
 
   echo "Job ${job_name} did not reach Complete within ${timeout}. Dumping diagnostics..." >&2
   dump_job_diagnostics "${job_name}"
+  return 1
+}
+
+wait_for_deployment_rollout() {
+  local deployment_name="$1"
+  local timeout="$2"
+
+  if kubectl -n drovi rollout status "deployment/${deployment_name}" --timeout="${timeout}"; then
+    return 0
+  fi
+
+  echo "Deployment ${deployment_name} failed rollout within ${timeout}. Dumping diagnostics..." >&2
+  dump_deployment_diagnostics "${deployment_name}"
   return 1
 }
 
@@ -245,7 +283,7 @@ for deployment in \
   imperium-web
 
 do
-  kubectl -n drovi rollout status "deployment/${deployment}" --timeout=15m
+  wait_for_deployment_rollout "${deployment}" 15m
 done
 
 kubectl -n drovi get pods

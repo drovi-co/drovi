@@ -35,8 +35,6 @@ spec:
           imagePullPolicy: IfNotPresent
           command:
             - redis-server
-            - --loadmodule
-            - /FalkorDB/bin/linux-x64-release/src/falkordb.so
             - --appendonly
             - "yes"
             - --port
