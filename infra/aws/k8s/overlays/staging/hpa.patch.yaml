@@ -5,7 +5,7 @@ metadata:
   namespace: drovi
 spec:
   minReplicas: 1
-  maxReplicas: 4
+  maxReplicas: 2
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -14,7 +14,7 @@ metadata:
   namespace: drovi
 spec:
   minReplicas: 1
-  maxReplicas: 4
+  maxReplicas: 2
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -23,4 +23,4 @@ metadata:
   namespace: drovi
 spec:
   minReplicas: 1
-  maxReplicas: 4
+  maxReplicas: 2
