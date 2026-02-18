@@ -55,6 +55,14 @@ spec:
               partitions="${KAFKA_TOPIC_PARTITIONS:-3}"
               security_protocol="${KAFKA_SECURITY_PROTOCOL:-SASL_SSL}"
               sasl_mechanism="${KAFKA_SASL_MECHANISM:-SCRAM-SHA-512}"
+              raw_topic="${KAFKA_TOPIC_RAW_EVENTS:-raw.connector.events}"
+              normalized_topic="${KAFKA_TOPIC_NORMALIZED_RECORDS:-normalized.records}"
+              pipeline_topic="${KAFKA_TOPIC_PIPELINE_INPUT:-intelligence.pipeline.input}"
+              intelligence_topic="${KAFKA_TOPIC_INTELLIGENCE:-drovi-intelligence}"
+              graph_topic="${KAFKA_TOPIC_GRAPH_CHANGES:-graph.changes}"
+              agent_inbox_topic="${KAFKA_TOPIC_AGENT_INBOX_EVENTS:-agent.inbox.events}"
+              retry_suffix="${KAFKA_RETRY_SUFFIX:-.retry}"
+              dlq_suffix="${KAFKA_DLQ_SUFFIX:-.dlq}"
 
               command_config_args=()
               if [[ "${security_protocol}" != "PLAINTEXT" ]]; then
@@ -66,20 +74,22 @@ spec:
                 command_config_args=(--command-config /tmp/client.properties)
               fi
 
-              for topic in \
-                raw.connector.events \
-                normalized.records \
-                intelligence.pipeline.input \
-                drovi-intelligence \
-                graph.changes \
-                agent.inbox.events \
-                raw.connector.events.retry \
-                normalized.records.retry \
-                intelligence.pipeline.input.retry \
-                raw.connector.events.dlq \
-                normalized.records.dlq \
-                intelligence.pipeline.input.dlq
-              do
+              topics=(
+                "${raw_topic}"
+                "${normalized_topic}"
+                "${pipeline_topic}"
+                "${intelligence_topic}"
+                "${graph_topic}"
+                "${agent_inbox_topic}"
+                "${raw_topic}${retry_suffix}"
+                "${normalized_topic}${retry_suffix}"
+                "${pipeline_topic}${retry_suffix}"
+                "${raw_topic}${dlq_suffix}"
+                "${normalized_topic}${dlq_suffix}"
+                "${pipeline_topic}${dlq_suffix}"
+              )
+
+              for topic in "${topics[@]}"; do
                 kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP_SERVERS}" \
                   "${command_config_args[@]}" \
                   --create --if-not-exists \
