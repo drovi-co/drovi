@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: drovi
 
 resources:
+  - storageclass.gp3.yaml
   - namespace.yaml
   - configmap.yaml
   - serviceaccounts.yaml
