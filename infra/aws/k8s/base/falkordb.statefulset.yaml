@@ -50,7 +50,7 @@ spec:
           command:
             - redis-server
             - --loadmodule
-            - /usr/lib/redis/modules/falkordb.so
+            - /var/lib/falkordb/bin/falkordb.so
             - --appendonly
             - "yes"
             - --port
