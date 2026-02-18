@@ -249,7 +249,22 @@ kubectl -n drovi create secret generic drovi-secrets \
   --from-literal=TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS}" \
   --from-literal=OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
   --from-literal=TOGETHER_API_KEY="${TOGETHER_API_KEY:-}" \
+  --from-literal=FIREWORKS_API_KEY="${FIREWORKS_API_KEY:-}" \
+  --from-literal=HUGGINGFACE_API_KEY="${HUGGINGFACE_API_KEY:-}" \
+  --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
+  --from-literal=GOOGLE_AI_API_KEY="${GOOGLE_AI_API_KEY:-}" \
+  --from-literal=RESEND_API_KEY="${RESEND_API_KEY:-}" \
+  --from-literal=TS_INTERNAL_SECRET="${TS_INTERNAL_SECRET:-}" \
   --from-literal=DROVI_INTERNAL_SERVICE_TOKEN="${DROVI_INTERNAL_SERVICE_TOKEN}" \
+  --from-literal=ADMIN_PASSWORD="${ADMIN_PASSWORD:-}" \
+  --from-literal=ADMIN_PASSWORD_HASH="${ADMIN_PASSWORD_HASH:-}" \
+  --from-literal=ADMIN_JWT_SECRET="${ADMIN_JWT_SECRET:-}" \
+  --from-literal=GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
+  --from-literal=GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
+  --from-literal=SLACK_CLIENT_ID="${SLACK_CLIENT_ID:-}" \
+  --from-literal=SLACK_CLIENT_SECRET="${SLACK_CLIENT_SECRET:-}" \
+  --from-literal=NOTION_CLIENT_ID="${NOTION_CLIENT_ID:-}" \
+  --from-literal=NOTION_CLIENT_SECRET="${NOTION_CLIENT_SECRET:-}" \
   --from-literal=AGENT_INBOX_INBOUND_TOKEN="${AGENT_INBOX_INBOUND_TOKEN:-}" \
   --from-literal=INTERNAL_JWT_SECRET="${INTERNAL_JWT_SECRET}" \
   --from-literal=API_KEY_SALT="${API_KEY_SALT}" \
