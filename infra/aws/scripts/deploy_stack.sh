@@ -286,6 +286,8 @@ kubectl -n drovi create secret generic drovi-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -k "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
+# StatefulSet rolling updates can stall if the existing pod is crashlooping on an old template.
+kubectl -n drovi delete pod -l app=falkordb --ignore-not-found --wait=false || true
 wait_for_statefulset_rollout falkordb 15m
 wait_for_statefulset_rollout nats 10m
 
