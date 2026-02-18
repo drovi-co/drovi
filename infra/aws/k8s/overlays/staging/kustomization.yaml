@@ -8,4 +8,5 @@ patches:
   - path: configmap.patch.yaml
   - path: ingress.patch.yaml
   - path: replicas.patch.yaml
+  - path: hpa.patch.yaml
   - path: falkordb.resources.patch.yaml

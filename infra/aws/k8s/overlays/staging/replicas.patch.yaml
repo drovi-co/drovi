@@ -4,7 +4,7 @@ metadata:
   name: drovi-intelligence-api
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -12,7 +12,7 @@ metadata:
   name: drovi-worker
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -20,7 +20,7 @@ metadata:
   name: drovi-jobs-worker
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +28,7 @@ metadata:
   name: drovi-ingestion-worker
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,7 +36,7 @@ metadata:
   name: drovi-temporal-worker
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -44,7 +44,7 @@ metadata:
   name: imperium-api
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,7 +52,7 @@ metadata:
   name: web
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -60,7 +60,7 @@ metadata:
   name: admin
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,4 +68,4 @@ metadata:
   name: imperium-web
   namespace: drovi
 spec:
-  replicas: 2
+  replicas: 1
