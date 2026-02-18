@@ -321,9 +321,7 @@ wait_for_job_complete drovi-db-migrate 20m
 if [[ "${kafka_bootstrap_required}" == "true" ]]; then
   wait_for_job_complete drovi-kafka-topic-bootstrap "${kafka_bootstrap_timeout}"
 else
-  if ! wait_for_job_complete drovi-kafka-topic-bootstrap "${kafka_bootstrap_timeout}"; then
-    echo "Continuing deployment because KAFKA_BOOTSTRAP_REQUIRED=${kafka_bootstrap_required}" >&2
-  fi
+  echo "Skipping wait for drovi-kafka-topic-bootstrap because KAFKA_BOOTSTRAP_REQUIRED=${kafka_bootstrap_required}" >&2
 fi
 
 for deployment in \
