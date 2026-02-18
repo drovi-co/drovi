@@ -33,6 +33,30 @@ replace_in_tree() {
   find "$K8S_TMP_DIR" -type f -name '*.yaml' -exec sed -i.bak "s|${search}|${safe_replacement}|g" {} +
 }
 
+dump_job_diagnostics() {
+  local job_name="$1"
+
+  kubectl -n drovi get job "${job_name}" -o wide || true
+  kubectl -n drovi describe job "${job_name}" || true
+  kubectl -n drovi get pods -l "job-name=${job_name}" -o wide || true
+
+  mapfile -t job_pods < <(kubectl -n drovi get pods -l "job-name=${job_name}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' || true)
+
+  if [[ "${#job_pods[@]}" -eq 0 ]]; then
+    echo "No pods found for job ${job_name}. Recent namespace events:" >&2
+    kubectl -n drovi get events --sort-by=.lastTimestamp | tail -n 120 || true
+    return 0
+  fi
+
+  for pod_name in "${job_pods[@]}"; do
+    if [[ -z "${pod_name}" ]]; then
+      continue
+    fi
+    kubectl -n drovi logs "${pod_name}" --all-containers --tail=300 || true
+    kubectl -n drovi describe pod "${pod_name}" || true
+  done
+}
+
 wait_for_job_complete() {
   local job_name="$1"
   local timeout="$2"
@@ -42,17 +66,8 @@ wait_for_job_complete() {
   fi
 
   echo "Job ${job_name} did not reach Complete within ${timeout}. Dumping diagnostics..." >&2
-  kubectl -n drovi get job "${job_name}" -o wide || true
-
-  local pod_name
-  pod_name="$(kubectl -n drovi get pods -l "job-name=${job_name}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
-
-  if [[ -n "${pod_name}" ]]; then
-    kubectl -n drovi logs "${pod_name}" --tail=300 || true
-    kubectl -n drovi describe pod "${pod_name}" || true
-  fi
-
-  exit 1
+  dump_job_diagnostics "${job_name}"
+  return 1
 }
 
 require_cmd docker
@@ -88,6 +103,17 @@ required_vars=(
 for required_var in "${required_vars[@]}"; do
   require_var "$required_var"
 done
+
+kafka_bootstrap_required="${KAFKA_BOOTSTRAP_REQUIRED:-}"
+if [[ -z "${kafka_bootstrap_required}" ]]; then
+  if [[ "${K8S_OVERLAY}" == "staging" ]]; then
+    kafka_bootstrap_required="false"
+  else
+    kafka_bootstrap_required="true"
+  fi
+fi
+
+kafka_bootstrap_timeout="${KAFKA_BOOTSTRAP_WAIT_TIMEOUT:-20m}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
@@ -198,7 +224,14 @@ kubectl apply -k "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
 kubectl -n drovi delete job drovi-db-migrate drovi-kafka-topic-bootstrap --ignore-not-found
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/jobs.yaml"
 wait_for_job_complete drovi-db-migrate 20m
-wait_for_job_complete drovi-kafka-topic-bootstrap 20m
+
+if [[ "${kafka_bootstrap_required}" == "true" ]]; then
+  wait_for_job_complete drovi-kafka-topic-bootstrap "${kafka_bootstrap_timeout}"
+else
+  if ! wait_for_job_complete drovi-kafka-topic-bootstrap "${kafka_bootstrap_timeout}"; then
+    echo "Continuing deployment because KAFKA_BOOTSTRAP_REQUIRED=${kafka_bootstrap_required}" >&2
+  fi
+fi
 
 for deployment in \
   drovi-intelligence-api \
