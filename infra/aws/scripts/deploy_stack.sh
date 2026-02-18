@@ -151,10 +151,20 @@ preflight_cluster() {
     exit 1
   fi
 
-  if ! kubectl -n kube-system get deployment aws-load-balancer-controller >/dev/null 2>&1; then
-    echo "Missing aws-load-balancer-controller deployment in kube-system." >&2
+  if kubectl get ingressclass alb >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if kubectl -n kube-system get deployment aws-load-balancer-controller >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ "${require_ingress_controller}" == "true" ]]; then
+    echo "Missing ALB ingress controller (ingressClass=alb or aws-load-balancer-controller)." >&2
     exit 1
   fi
+
+  echo "Warning: ALB ingress controller not detected; continuing because REQUIRE_INGRESS_CONTROLLER=${require_ingress_controller}." >&2
 }
 
 preflight_kustomize_overlay() {
@@ -233,12 +243,21 @@ fi
 
 kafka_bootstrap_timeout="${KAFKA_BOOTSTRAP_WAIT_TIMEOUT:-20m}"
 min_eks_node_count="${MIN_EKS_NODE_COUNT:-}"
+require_ingress_controller="${REQUIRE_INGRESS_CONTROLLER:-}"
 
 if [[ -z "${min_eks_node_count}" ]]; then
   if [[ "${K8S_OVERLAY}" == "staging" ]]; then
     min_eks_node_count="2"
   else
     min_eks_node_count="3"
+  fi
+fi
+
+if [[ -z "${require_ingress_controller}" ]]; then
+  if [[ "${K8S_OVERLAY}" == "production" ]]; then
+    require_ingress_controller="true"
+  else
+    require_ingress_controller="false"
   fi
 fi
 
