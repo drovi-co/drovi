@@ -51,11 +51,20 @@ spec:
             - /bin/bash
             - -ec
             - |
-              cat > /tmp/client.properties <<PROPS
-              security.protocol=SASL_SSL
-              sasl.mechanism=SCRAM-SHA-512
-              sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
-              PROPS
+              replication_factor="${KAFKA_TOPIC_REPLICATION_FACTOR:-3}"
+              partitions="${KAFKA_TOPIC_PARTITIONS:-3}"
+              security_protocol="${KAFKA_SECURITY_PROTOCOL:-SASL_SSL}"
+              sasl_mechanism="${KAFKA_SASL_MECHANISM:-SCRAM-SHA-512}"
+
+              command_config_args=()
+              if [[ "${security_protocol}" != "PLAINTEXT" ]]; then
+                cat > /tmp/client.properties <<PROPS
+                security.protocol=${security_protocol}
+                sasl.mechanism=${sasl_mechanism}
+                sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
+                PROPS
+                command_config_args=(--command-config /tmp/client.properties)
+              fi
 
               for topic in \
                 raw.connector.events \
@@ -72,9 +81,9 @@ spec:
                 intelligence.pipeline.input.dlq
               do
                 kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP_SERVERS}" \
-                  --command-config /tmp/client.properties \
+                  "${command_config_args[@]}" \
                   --create --if-not-exists \
                   --topic "${topic}" \
-                  --partitions 3 \
-                  --replication-factor 3
+                  --partitions "${partitions}" \
+                  --replication-factor "${replication_factor}"
               done

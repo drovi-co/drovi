@@ -33,6 +33,28 @@ replace_in_tree() {
   find "$K8S_TMP_DIR" -type f -name '*.yaml' -exec sed -i.bak "s|${search}|${safe_replacement}|g" {} +
 }
 
+wait_for_job_complete() {
+  local job_name="$1"
+  local timeout="$2"
+
+  if kubectl -n drovi wait --for=condition=complete "job/${job_name}" --timeout="${timeout}"; then
+    return 0
+  fi
+
+  echo "Job ${job_name} did not reach Complete within ${timeout}. Dumping diagnostics..." >&2
+  kubectl -n drovi get job "${job_name}" -o wide || true
+
+  local pod_name
+  pod_name="$(kubectl -n drovi get pods -l "job-name=${job_name}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -n "${pod_name}" ]]; then
+    kubectl -n drovi logs "${pod_name}" --tail=300 || true
+    kubectl -n drovi describe pod "${pod_name}" || true
+  fi
+
+  exit 1
+}
+
 require_cmd docker
 require_cmd kubectl
 require_cmd mktemp
@@ -175,8 +197,8 @@ kubectl apply -k "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
 
 kubectl -n drovi delete job drovi-db-migrate drovi-kafka-topic-bootstrap --ignore-not-found
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/jobs.yaml"
-kubectl -n drovi wait --for=condition=complete job/drovi-db-migrate --timeout=20m
-kubectl -n drovi wait --for=condition=complete job/drovi-kafka-topic-bootstrap --timeout=20m
+wait_for_job_complete drovi-db-migrate 20m
+wait_for_job_complete drovi-kafka-topic-bootstrap 20m
 
 for deployment in \
   drovi-intelligence-api \

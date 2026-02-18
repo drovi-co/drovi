@@ -7,3 +7,4 @@ data:
   ENVIRONMENT: "development"
   WEB_APP_URL: "https://staging.drovi.co"
   TEMPORAL_ENABLED: "false"
+  KAFKA_TOPIC_REPLICATION_FACTOR: "1"
