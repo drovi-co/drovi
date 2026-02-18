@@ -301,11 +301,13 @@ kubectl -n drovi create secret generic drovi-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -k "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
-# Only force-recycle FalkorDB when it is already crashlooping; avoid unnecessary rescheduling.
+# Recycle FalkorDB only when crashlooping or stuck on an older StatefulSet revision.
 falkordb_pod="$(kubectl -n drovi get pods -l app=falkordb -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
 if [[ -n "${falkordb_pod}" ]]; then
   falkordb_waiting_reason="$(kubectl -n drovi get pod "${falkordb_pod}" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)"
-  if [[ "${falkordb_waiting_reason}" == "CrashLoopBackOff" ]]; then
+  falkordb_pod_revision="$(kubectl -n drovi get pod "${falkordb_pod}" -o jsonpath='{.metadata.labels.controller-revision-hash}' 2>/dev/null || true)"
+  falkordb_update_revision="$(kubectl -n drovi get statefulset falkordb -o jsonpath='{.status.updateRevision}' 2>/dev/null || true)"
+  if [[ "${falkordb_waiting_reason}" == "CrashLoopBackOff" ]] || [[ -n "${falkordb_update_revision}" && "${falkordb_pod_revision}" != "${falkordb_update_revision}" ]]; then
     kubectl -n drovi delete pod "${falkordb_pod}" --ignore-not-found --wait=false || true
   fi
 fi
