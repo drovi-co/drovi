@@ -43,14 +43,14 @@ spec:
               value: "9100"
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: /live
               port: http
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /ready
               port: http
             initialDelaySeconds: 20
             periodSeconds: 10
