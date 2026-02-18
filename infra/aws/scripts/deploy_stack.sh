@@ -80,6 +80,9 @@ dump_deployment_diagnostics() {
     kubectl -n drovi logs "${pod_name}" --all-containers --tail=300 || true
     kubectl -n drovi describe pod "${pod_name}" || true
   done
+
+  kubectl -n drovi get svc falkordb falkordb-client nats || true
+  kubectl -n drovi get endpoints falkordb falkordb-client nats || true
 }
 
 wait_for_job_complete() {
@@ -105,6 +108,31 @@ wait_for_deployment_rollout() {
 
   echo "Deployment ${deployment_name} failed rollout within ${timeout}. Dumping diagnostics..." >&2
   dump_deployment_diagnostics "${deployment_name}"
+  return 1
+}
+
+wait_for_statefulset_rollout() {
+  local statefulset_name="$1"
+  local timeout="$2"
+
+  if kubectl -n drovi rollout status "statefulset/${statefulset_name}" --timeout="${timeout}"; then
+    return 0
+  fi
+
+  echo "StatefulSet ${statefulset_name} failed rollout within ${timeout}. Dumping diagnostics..." >&2
+  kubectl -n drovi get statefulset "${statefulset_name}" -o wide || true
+  kubectl -n drovi describe statefulset "${statefulset_name}" || true
+  kubectl -n drovi get pods -l "app=${statefulset_name}" -o wide || true
+
+  mapfile -t statefulset_pods < <(kubectl -n drovi get pods -l "app=${statefulset_name}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' || true)
+  for pod_name in "${statefulset_pods[@]}"; do
+    if [[ -z "${pod_name}" ]]; then
+      continue
+    fi
+    kubectl -n drovi logs "${pod_name}" --all-containers --tail=300 || true
+    kubectl -n drovi describe pod "${pod_name}" || true
+  done
+
   return 1
 }
 
@@ -258,6 +286,8 @@ kubectl -n drovi create secret generic drovi-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -k "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
+wait_for_statefulset_rollout falkordb 15m
+wait_for_statefulset_rollout nats 10m
 
 kubectl -n drovi delete job drovi-db-migrate drovi-kafka-topic-bootstrap --ignore-not-found
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/jobs.yaml"

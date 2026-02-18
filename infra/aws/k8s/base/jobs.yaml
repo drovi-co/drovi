@@ -58,11 +58,11 @@ spec:
 
               command_config_args=()
               if [[ "${security_protocol}" != "PLAINTEXT" ]]; then
-                cat > /tmp/client.properties <<PROPS
-                security.protocol=${security_protocol}
-                sasl.mechanism=${sasl_mechanism}
-                sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
-                PROPS
+                printf '%s\n' \
+                  "security.protocol=${security_protocol}" \
+                  "sasl.mechanism=${sasl_mechanism}" \
+                  "sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_SASL_USERNAME}\" password=\"${KAFKA_SASL_PASSWORD}\";" \
+                  > /tmp/client.properties
                 command_config_args=(--command-config /tmp/client.properties)
               fi
 

@@ -10,7 +10,7 @@ data:
 
   WEB_APP_URL: "https://app.drovi.co"
 
-  FALKORDB_HOST: "falkordb"
+  FALKORDB_HOST: "falkordb-client"
   FALKORDB_PORT: "6379"
   FALKORDB_APPLY_DEFAULT_FULLTEXT: "true"
 
