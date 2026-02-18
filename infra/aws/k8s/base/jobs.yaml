@@ -5,6 +5,7 @@ metadata:
   namespace: drovi
 spec:
   backoffLimit: 3
+  activeDeadlineSeconds: 1800
   ttlSecondsAfterFinished: 3600
   template:
     spec:
@@ -33,7 +34,8 @@ metadata:
   name: drovi-kafka-topic-bootstrap
   namespace: drovi
 spec:
-  backoffLimit: 6
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
   ttlSecondsAfterFinished: 3600
   template:
     spec:

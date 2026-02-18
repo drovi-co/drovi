@@ -14,5 +14,6 @@ resources:
   - drovi-workers.yaml
   - imperium-api-workers.yaml
   - web-admin-imperium-web.yaml
+  - poddisruptionbudgets.yaml
   - hpa.yaml
   - ingress.yaml

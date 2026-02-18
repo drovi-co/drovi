@@ -1,0 +1,54 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: drovi-intelligence-api
+  namespace: drovi
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: drovi-intelligence-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: imperium-api
+  namespace: drovi
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: imperium-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  namespace: drovi
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: admin
+  namespace: drovi
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: admin
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: imperium-web
+  namespace: drovi
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: imperium-web

@@ -48,7 +48,9 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
           K8S_OVERLAY: ${{ inputs.k8s_overlay }}
+          KAFKA_BOOTSTRAP_REQUIRED: ${{ inputs.environment_name == 'staging' && 'false' || 'true' }}
           KAFKA_BOOTSTRAP_WAIT_TIMEOUT: ${{ inputs.environment_name == 'staging' && '5m' || '20m' }}
+          MIN_EKS_NODE_COUNT: ${{ inputs.environment_name == 'staging' && '2' || '3' }}
 
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}

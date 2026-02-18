@@ -18,6 +18,16 @@ output "eks_cluster_endpoint" {
   value       = module.eks.cluster_endpoint
 }
 
+output "eks_oidc_provider" {
+  description = "EKS OIDC issuer URL."
+  value       = module.eks.oidc_provider
+}
+
+output "eks_oidc_provider_arn" {
+  description = "EKS OIDC provider ARN."
+  value       = module.eks.oidc_provider_arn
+}
+
 output "ecr_repository_urls" {
   description = "Map of ECR repository URLs by logical service image name."
   value       = module.data.ecr_repository_urls
@@ -74,6 +84,16 @@ output "msk_scram_password" {
   description = "MSK SCRAM password (generated unless overridden)."
   value       = local.msk_scram_password
   sensitive   = true
+}
+
+output "drovi_app_iam_role_arn" {
+  description = "IRSA role ARN for drovi-intelligence workloads."
+  value       = aws_iam_role.drovi_app_irsa.arn
+}
+
+output "imperium_iam_role_arn" {
+  description = "IRSA role ARN for imperium workloads."
+  value       = aws_iam_role.imperium_irsa.arn
 }
 
 output "kubeconfig_update_command" {

@@ -136,6 +136,58 @@ wait_for_statefulset_rollout() {
   return 1
 }
 
+preflight_cluster() {
+  local min_node_count="$1"
+  local node_count
+
+  if ! kubectl get nodes >/dev/null 2>&1; then
+    echo "kubectl cannot reach the target cluster." >&2
+    exit 1
+  fi
+
+  node_count="$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "${node_count}" -lt "${min_node_count}" ]]; then
+    echo "Cluster has ${node_count} node(s), below required minimum ${min_node_count} for ${K8S_OVERLAY}." >&2
+    exit 1
+  fi
+
+  if ! kubectl -n kube-system get deployment aws-load-balancer-controller >/dev/null 2>&1; then
+    echo "Missing aws-load-balancer-controller deployment in kube-system." >&2
+    exit 1
+  fi
+}
+
+preflight_kustomize_overlay() {
+  local overlay_path="$1"
+
+  if [[ ! -d "${overlay_path}" ]]; then
+    echo "Kustomize overlay not found: ${overlay_path}" >&2
+    exit 1
+  fi
+
+  if ! kubectl kustomize "${overlay_path}" >/dev/null; then
+    echo "Failed to render kustomize overlay: ${overlay_path}" >&2
+    exit 1
+  fi
+}
+
+assert_no_unreplaced_placeholders() {
+  local manifests_root="$1"
+  local matches_file
+
+  matches_file="$(mktemp)"
+  if grep -R -n -E 'REPLACE_[A-Z0-9_]+' "${manifests_root}" \
+    --include='*.yaml' \
+    --exclude='secrets.template.yaml' \
+    >"${matches_file}"; then
+    echo "Unreplaced manifest placeholders detected:" >&2
+    cat "${matches_file}" >&2
+    rm -f "${matches_file}"
+    exit 1
+  fi
+  rm -f "${matches_file}"
+}
+
 require_cmd docker
 require_cmd kubectl
 require_cmd mktemp
@@ -180,6 +232,22 @@ if [[ -z "${kafka_bootstrap_required}" ]]; then
 fi
 
 kafka_bootstrap_timeout="${KAFKA_BOOTSTRAP_WAIT_TIMEOUT:-20m}"
+min_eks_node_count="${MIN_EKS_NODE_COUNT:-}"
+
+if [[ -z "${min_eks_node_count}" ]]; then
+  if [[ "${K8S_OVERLAY}" == "staging" ]]; then
+    min_eks_node_count="2"
+  else
+    min_eks_node_count="3"
+  fi
+fi
+
+if [[ "${K8S_OVERLAY}" == "production" && "${kafka_bootstrap_required}" != "true" ]]; then
+  echo "Production deployments must enforce KAFKA_BOOTSTRAP_REQUIRED=true." >&2
+  exit 1
+fi
+
+preflight_cluster "${min_eks_node_count}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
@@ -233,6 +301,9 @@ replace_in_tree 'arn:aws:iam::REPLACE_AWS_ACCOUNT_ID:role/REPLACE_IMPERIUM_ROLE'
 replace_in_tree 'arn:aws:acm:REPLACE_REGION:REPLACE_ACCOUNT:certificate/REPLACE_CERT_ID' "$ACM_CERT_ARN"
 
 find "$K8S_TMP_DIR" -type f -name '*.bak' -delete
+
+preflight_kustomize_overlay "$K8S_TMP_DIR/k8s/overlays/${K8S_OVERLAY}"
+assert_no_unreplaced_placeholders "$K8S_TMP_DIR/k8s"
 
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/namespace.yaml"
 
@@ -331,6 +402,14 @@ for deployment in \
   drovi-ingestion-worker \
   drovi-temporal-worker \
   imperium-api \
+  imperium-market-worker \
+  imperium-news-worker \
+  imperium-brief-worker \
+  imperium-alert-worker \
+  imperium-risk-worker \
+  imperium-business-worker \
+  imperium-portfolio-worker \
+  imperium-notify-worker \
   web \
   admin \
   imperium-web

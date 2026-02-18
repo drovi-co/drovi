@@ -252,15 +252,15 @@ resource "aws_db_instance" "postgres" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:00-sun:05:00"
 
-  multi_az                    = var.db_multi_az
-  performance_insights_enabled = true
+  multi_az                        = var.db_multi_az
+  performance_insights_enabled    = true
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
-  deletion_protection     = var.production_mode
-  skip_final_snapshot     = var.db_skip_final_snapshot
+  deletion_protection       = var.production_mode
+  skip_final_snapshot       = var.db_skip_final_snapshot
   final_snapshot_identifier = var.db_skip_final_snapshot ? null : "${var.name_prefix}-postgres-final"
 
-  apply_immediately  = false
+  apply_immediately   = false
   publicly_accessible = false
 
   tags = var.tags
@@ -272,15 +272,15 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "${var.name_prefix}-redis"
-  description                = "Redis for drovi-stack"
-  engine                     = "redis"
-  engine_version             = var.redis_engine_version
-  node_type                  = var.redis_node_type
-  port                       = 6379
-  parameter_group_name       = "default.redis7"
-  subnet_group_name          = aws_elasticache_subnet_group.redis.name
-  security_group_ids         = [aws_security_group.redis.id]
+  replication_group_id = "${var.name_prefix}-redis"
+  description          = "Redis for drovi-stack"
+  engine               = "redis"
+  engine_version       = var.redis_engine_version
+  node_type            = var.redis_node_type
+  port                 = 6379
+  parameter_group_name = "default.redis${split(".", var.redis_engine_version)[0]}"
+  subnet_group_name    = aws_elasticache_subnet_group.redis.name
+  security_group_ids   = [aws_security_group.redis.id]
 
   automatic_failover_enabled = var.redis_replicas_per_node_group > 0
   multi_az_enabled           = var.redis_replicas_per_node_group > 0
@@ -318,6 +318,7 @@ num.partitions=3
 offsets.topic.replication.factor=3
 transaction.state.log.replication.factor=3
 transaction.state.log.min.isr=2
+super.users=User:${var.msk_scram_username}
 EOT
 }
 

@@ -27,18 +27,27 @@ spec:
                 name: drovi-config
             - secretRef:
                 name: drovi-secrets
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 36
+            periodSeconds: 5
+            timeoutSeconds: 2
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 20
             periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /ready
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
           resources:
             requests:
               cpu: "250m"
@@ -91,6 +100,13 @@ spec:
               value: "market"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "5"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -123,6 +139,13 @@ spec:
               value: "news"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "10"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -155,6 +178,13 @@ spec:
               value: "brief"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "30"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -187,6 +217,13 @@ spec:
               value: "alerts"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "5"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -219,6 +256,13 @@ spec:
               value: "risk"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "15"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -251,6 +295,13 @@ spec:
               value: "business"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "20"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -283,6 +334,13 @@ spec:
               value: "portfolio"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "60"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -315,3 +373,10 @@ spec:
               value: "notify"
             - name: IMPERIUM_WORKER_CADENCE_SECONDS
               value: "5"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
