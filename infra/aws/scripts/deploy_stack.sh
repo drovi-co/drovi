@@ -326,10 +326,15 @@ assert_no_unreplaced_placeholders "$K8S_TMP_DIR/k8s"
 
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/namespace.yaml"
 
+effective_redis_url="${REDIS_URL}"
+if [[ "${effective_redis_url}" == redis://* ]] && [[ "${effective_redis_url}" == *".cache.amazonaws.com"* ]]; then
+  effective_redis_url="${effective_redis_url/redis:\/\//rediss://}"
+fi
+
 kubectl -n drovi create secret generic drovi-secrets \
   --from-literal=DATABASE_URL="${DATABASE_URL}" \
   --from-literal=DROVI_DATABASE_URL="${DROVI_DATABASE_URL}" \
-  --from-literal=REDIS_URL="${REDIS_URL}" \
+  --from-literal=REDIS_URL="${effective_redis_url}" \
   --from-literal=KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS}" \
   --from-literal=KAFKA_SASL_USERNAME="${KAFKA_SASL_USERNAME}" \
   --from-literal=KAFKA_SASL_PASSWORD="${KAFKA_SASL_PASSWORD}" \

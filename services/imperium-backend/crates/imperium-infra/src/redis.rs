@@ -1,5 +1,6 @@
 use crate::{config::ImperiumConfig, error::AppError};
 use redis::{aio::ConnectionManager, AsyncCommands};
+use tokio::time::{timeout, Duration};
 
 #[derive(Clone)]
 pub struct ImperiumRedis {
@@ -12,8 +13,11 @@ impl ImperiumRedis {
         let client = redis::Client::open(config.redis_url.as_str()).map_err(|error| {
             AppError::dependency(format!("failed to create redis client: {error}"))
         })?;
-        let manager = ConnectionManager::new(client)
+        let manager = timeout(Duration::from_secs(30), ConnectionManager::new(client))
             .await
+            .map_err(|_| {
+                AppError::dependency("timed out connecting redis after 30s".to_string())
+            })?
             .map_err(|error| AppError::dependency(format!("failed to connect redis: {error}")))?;
 
         Ok(Self {

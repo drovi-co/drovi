@@ -102,6 +102,8 @@ Required environment secrets:
 Tip: `DROVI_APP_IAM_ROLE_ARN` and `IMPERIUM_IAM_ROLE_ARN` are now emitted by Terraform outputs
 (`drovi_app_iam_role_arn`, `imperium_iam_role_arn`) from `infra/aws/terraform`.
 
+For ElastiCache with transit encryption enabled, `REDIS_URL` must use `rediss://`.
+
 ## Operational Defaults
 
 - Kafka security is `SASL_SSL` + SCRAM.
