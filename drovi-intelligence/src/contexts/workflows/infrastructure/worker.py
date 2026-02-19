@@ -10,6 +10,7 @@ in Postgres via activities that enqueue jobs into `background_job`.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import signal
 from datetime import timedelta
 
@@ -322,7 +323,11 @@ async def _run() -> None:
         ):
             await stop_event.wait()
     finally:
-        await client.close()
+        close_client = getattr(client, "close", None)
+        if callable(close_client):
+            maybe_close_result = close_client()
+            if inspect.isawaitable(maybe_close_result):
+                await maybe_close_result
         await close_db_pool()
         await close_db()
         logger.info("Temporal worker stopped")
