@@ -24,7 +24,7 @@ impl Database {
     }
 
     pub async fn ping(&self) -> Result<(), AppError> {
-        sqlx::query_scalar::<_, i64>("SELECT 1")
+        sqlx::query_scalar::<_, i32>("SELECT 1")
             .fetch_one(&self.pool)
             .await
             .map(|_| ())
