@@ -10,6 +10,7 @@ resources:
   - serviceaccounts.yaml
   - falkordb.statefulset.yaml
   - nats.statefulset.yaml
+  - temporal.yaml
   - drovi-intelligence-api.yaml
   - drovi-workers.yaml
   - imperium-api-workers.yaml
