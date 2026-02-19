@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl/scram"
 )
 
 type RawEvent struct {
@@ -51,6 +54,20 @@ func main() {
 	normalizedTopic := getEnv("KAFKA_TOPIC_NORMALIZED_RECORDS", "normalized.records")
 	groupID := getEnv("KAFKA_CONSUMER_GROUP_ID", "drovi-ingestion-worker")
 	logLevel := getEnv("LOG_LEVEL", "INFO")
+	securityProtocol := strings.ToUpper(getEnv("KAFKA_SECURITY_PROTOCOL", "PLAINTEXT"))
+	saslMechanism := strings.ToUpper(getEnv("KAFKA_SASL_MECHANISM", "SCRAM-SHA-512"))
+	saslUsername := getEnv("KAFKA_SASL_USERNAME", "")
+	saslPassword := getEnv("KAFKA_SASL_PASSWORD", "")
+
+	dialer, transport, err := buildKafkaConnConfig(
+		securityProtocol,
+		saslMechanism,
+		saslUsername,
+		saslPassword,
+	)
+	if err != nil {
+		log.Fatalf("failed to configure Kafka connection: %v", err)
+	}
 
 	if strings.EqualFold(logLevel, "DEBUG") {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -63,6 +80,7 @@ func main() {
 		MinBytes:       1,
 		MaxBytes:       10e6,
 		CommitInterval: time.Second,
+		Dialer:         dialer,
 	})
 	defer reader.Close()
 
@@ -72,6 +90,7 @@ func main() {
 		BatchTimeout: 50 * time.Millisecond,
 		RequiredAcks: kafka.RequireOne,
 		Async:        true,
+		Transport:    transport,
 	}
 	defer writer.Close()
 
@@ -218,6 +237,49 @@ func normalizeRawEvent(raw RawEvent, headers []kafka.Header) (*NormalizedRecordE
 	}, nil
 }
 
+func buildKafkaConnConfig(
+	securityProtocol string,
+	saslMechanism string,
+	saslUsername string,
+	saslPassword string,
+) (*kafka.Dialer, *kafka.Transport, error) {
+	dialer := &kafka.Dialer{
+		Timeout:   10 * time.Second,
+		DualStack: true,
+	}
+
+	transport := &kafka.Transport{}
+
+	if strings.Contains(securityProtocol, "SSL") {
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		dialer.TLS = tlsConfig
+		transport.TLS = tlsConfig
+	}
+
+	if strings.HasPrefix(securityProtocol, "SASL") {
+		if saslUsername == "" || saslPassword == "" {
+			return nil, nil, fmt.Errorf("SASL is enabled but credentials are missing")
+		}
+
+		algorithm := scram.SHA512
+		if saslMechanism == "SCRAM-SHA-256" {
+			algorithm = scram.SHA256
+		}
+
+		mechanism, err := scram.Mechanism(algorithm, saslUsername, saslPassword)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to initialize SCRAM mechanism: %w", err)
+		}
+
+		dialer.SASLMechanism = mechanism
+		transport.SASL = mechanism
+	}
+
+	return dialer, transport, nil
+}
+
 func extractContent(payload map[string]interface{}) (string, string) {
 	subject := firstNonEmpty(
 		asString(payload["subject"]),
@@ -274,10 +336,10 @@ func buildIngestMetadata(content, sourceType, sourceID, conversationID, messageI
 	contentHash := buildContentHash(content, fingerprint)
 	priority := computePriority(sourceType, jobType, explicitPriority)
 	return map[string]interface{}{
-		"priority":         priority,
-		"content_hash":     contentHash,
+		"priority":           priority,
+		"content_hash":       contentHash,
 		"source_fingerprint": fingerprint,
-		"job_type":         jobType,
+		"job_type":           jobType,
 	}
 }
 
