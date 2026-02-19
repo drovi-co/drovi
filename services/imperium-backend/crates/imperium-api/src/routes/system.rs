@@ -155,7 +155,10 @@ pub async fn health() -> Json<ApiHealthResponse> {
 pub async fn ready(
     State(state): State<SharedAppState>,
 ) -> Result<Json<ApiReadinessResponse>, AppError> {
-    state.readiness_check().await?;
+    if let Err(error) = state.readiness_check().await {
+        tracing::error!("imperium readiness check failed: {error}");
+        return Err(error);
+    }
 
     Ok(Json(ApiReadinessResponse { ready: true }))
 }

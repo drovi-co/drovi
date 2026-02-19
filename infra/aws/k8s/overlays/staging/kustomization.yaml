@@ -10,5 +10,6 @@ patches:
   - path: replicas.patch.yaml
   - path: hpa.patch.yaml
   - path: resources.patch.yaml
+  - path: imperium-api.staging-probes.patch.yaml
   - path: rollout-strategy.patch.yaml
   - path: falkordb.resources.patch.yaml
