@@ -17,6 +17,7 @@ jobs:
       - name: Upsert ACM DNS validation CNAME in Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ZONE_NAME: drovi.co
           RECORD_NAME: _190debed58e61f0d57ef502f7be7c56a.drovi.co
           RECORD_CONTENT: _c5da1d516c60834bb8709090f467ff92.jkddzztszm.acm-validations.aws
@@ -31,9 +32,19 @@ jobs:
           api_base="https://api.cloudflare.com/client/v4"
           auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
 
-          zone_resp="$(curl -sS -X GET "${api_base}/zones?name=${ZONE_NAME}" \
+          zone_query="${api_base}/zones?name=${ZONE_NAME}"
+          if [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            zone_query="${zone_query}&account.id=${CLOUDFLARE_ACCOUNT_ID}"
+          fi
+
+          zone_resp="$(curl -sS -X GET "${zone_query}" \
             -H "${auth_header}" \
             -H "Content-Type: application/json")"
+          if ! echo "${zone_resp}" | jq -e '.success == true' >/dev/null; then
+            echo "Cloudflare zone lookup failed"
+            echo "${zone_resp}" | jq .
+            exit 1
+          fi
           zone_id="$(echo "${zone_resp}" | jq -r '.result[0].id // empty')"
           if [[ -z "${zone_id}" ]]; then
             echo "Failed to resolve Cloudflare zone id for ${ZONE_NAME}"
@@ -44,6 +55,11 @@ jobs:
           record_resp="$(curl -sS -X GET "${api_base}/zones/${zone_id}/dns_records?type=CNAME&name=${RECORD_NAME}" \
             -H "${auth_header}" \
             -H "Content-Type: application/json")"
+          if ! echo "${record_resp}" | jq -e '.success == true' >/dev/null; then
+            echo "Cloudflare record lookup failed"
+            echo "${record_resp}" | jq .
+            exit 1
+          fi
           record_id="$(echo "${record_resp}" | jq -r '.result[0].id // empty')"
 
           payload="$(jq -nc \
@@ -57,13 +73,21 @@ jobs:
               -H "${auth_header}" \
               -H "Content-Type: application/json" \
               --data "${payload}")"
-            echo "${update_resp}" | jq -e '.success == true' >/dev/null
+            if ! echo "${update_resp}" | jq -e '.success == true' >/dev/null; then
+              echo "Cloudflare record update failed"
+              echo "${update_resp}" | jq .
+              exit 1
+            fi
             echo "Updated existing ACM validation CNAME."
           else
             create_resp="$(curl -sS -X POST "${api_base}/zones/${zone_id}/dns_records" \
               -H "${auth_header}" \
               -H "Content-Type: application/json" \
               --data "${payload}")"
-            echo "${create_resp}" | jq -e '.success == true' >/dev/null
+            if ! echo "${create_resp}" | jq -e '.success == true' >/dev/null; then
+              echo "Cloudflare record create failed"
+              echo "${create_resp}" | jq .
+              exit 1
+            fi
             echo "Created ACM validation CNAME."
           fi
