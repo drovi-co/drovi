@@ -1139,6 +1139,7 @@ class ConnectorScheduler:
         bytes_synced = 0
         streams_completed: list[str] = []
         streams_failed: list[str] = []
+        stream_errors: dict[str, str] = {}
         last_progress_emit = 0  # Track when we last emitted progress
         last_progress_time = datetime.utcnow()  # Track time for periodic updates
 
@@ -1393,6 +1394,7 @@ class ConnectorScheduler:
                     error=str(e),
                 )
                 state.mark_sync_failed(stream.stream_name, str(e))
+                stream_errors[stream.stream_name] = str(e)
                 await state_repo.upsert_stream_state(
                     connection_id=job.connection_id,
                     stream_name=stream.stream_name,
@@ -1411,6 +1413,13 @@ class ConnectorScheduler:
 
         duration = (datetime.utcnow() - start_time).total_seconds()
         status = SyncJobStatus.COMPLETED if not streams_failed else SyncJobStatus.FAILED
+        stream_error_summary = None
+        if streams_failed:
+            details = "; ".join(
+                f"{name}: {stream_errors.get(name, 'unknown error')[:220]}"
+                for name in streams_failed
+            )
+            stream_error_summary = f"Failed streams: {streams_failed}. Details: {details}"
 
         return SyncJobResult(
             job_id=job.job_id,
@@ -1420,7 +1429,7 @@ class ConnectorScheduler:
             duration_seconds=duration,
             streams_completed=streams_completed,
             streams_failed=streams_failed,
-            error_message=f"Failed streams: {streams_failed}" if streams_failed else None,
+            error_message=stream_error_summary,
         )
 
 
