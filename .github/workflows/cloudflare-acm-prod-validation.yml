@@ -87,7 +87,13 @@ jobs:
             mapfile -t conflicting_ids < <(echo "${lookup_resp}" | jq -r '.result[] | select(.type != "CNAME") | .id')
             for record_id in "${conflicting_ids[@]}"; do
               delete_resp="$(cf_api DELETE "/zones/${zone_id}/dns_records/${record_id}")"
-              ensure_success "Cloudflare delete conflicting record ${record_id} for ${fqdn}" "${delete_resp}"
+              if ! echo "${delete_resp}" | jq -e '.success == true' >/dev/null; then
+                if echo "${delete_resp}" | jq -e '.errors[]? | select(.code == 1043)' >/dev/null; then
+                  echo "Skipping ${fqdn}: Cloudflare marks existing record as read-only (code 1043)."
+                  return 0
+                fi
+                ensure_success "Cloudflare delete conflicting record ${record_id} for ${fqdn}" "${delete_resp}"
+              fi
             done
 
             cname_id="$(echo "${lookup_resp}" | jq -r '.result[] | select(.type == "CNAME") | .id' | head -n 1)"
