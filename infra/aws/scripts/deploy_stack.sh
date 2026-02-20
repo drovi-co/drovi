@@ -136,6 +136,38 @@ wait_for_statefulset_rollout() {
   return 1
 }
 
+ensure_temporal_schema() {
+  local table_count
+  local visibility_count
+
+  table_count="$(
+    kubectl -n drovi exec deployment/temporal-postgres -- \
+      psql -U temporal -d temporal -tAc "SELECT count(*) FROM pg_tables WHERE schemaname='public';" \
+      2>/dev/null | tr -d '[:space:]'
+  )"
+  visibility_count="$(
+    kubectl -n drovi exec deployment/temporal-postgres -- \
+      psql -U temporal -d temporal_visibility -tAc "SELECT count(*) FROM pg_tables WHERE schemaname='public';" \
+      2>/dev/null | tr -d '[:space:]'
+  )"
+
+  if [[ "${table_count}" =~ ^[0-9]+$ ]] && [[ "${visibility_count}" =~ ^[0-9]+$ ]] \
+    && [[ "${table_count}" -gt 0 ]] && [[ "${visibility_count}" -gt 0 ]]; then
+    return 0
+  fi
+
+  echo "Bootstrapping Temporal schema (temporal=${table_count:-unknown}, visibility=${visibility_count:-unknown})..." >&2
+  kubectl -n drovi exec deployment/temporal -- sh -lc '
+set -e
+export SQL_PASSWORD="${POSTGRES_PWD}"
+temporal-sql-tool --plugin postgres12 --ep "${POSTGRES_SEEDS}" -u "${POSTGRES_USER}" -p "${DB_PORT}" --db temporal setup-schema -v 0.0
+temporal-sql-tool --plugin postgres12 --ep "${POSTGRES_SEEDS}" -u "${POSTGRES_USER}" -p "${DB_PORT}" --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+temporal-sql-tool --plugin postgres12 --ep "${POSTGRES_SEEDS}" -u "${POSTGRES_USER}" -p "${DB_PORT}" --db temporal_visibility create || true
+temporal-sql-tool --plugin postgres12 --ep "${POSTGRES_SEEDS}" -u "${POSTGRES_USER}" -p "${DB_PORT}" --db temporal_visibility setup-schema -v 0.0
+temporal-sql-tool --plugin postgres12 --ep "${POSTGRES_SEEDS}" -u "${POSTGRES_USER}" -p "${DB_PORT}" --db temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+'
+}
+
 preflight_cluster() {
   local min_node_count="$1"
   local node_count
@@ -179,6 +211,17 @@ preflight_kustomize_overlay() {
     echo "Failed to render kustomize overlay: ${overlay_path}" >&2
     exit 1
   fi
+}
+
+ensure_metrics_server() {
+  if kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1 \
+    && kubectl -n kube-system get deployment metrics-server >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "Installing metrics-server (v0.8.1)..." >&2
+  kubectl apply -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.1/components.yaml"
+  kubectl -n kube-system rollout status deployment/metrics-server --timeout=5m
 }
 
 assert_no_unreplaced_placeholders() {
@@ -267,6 +310,7 @@ if [[ "${K8S_OVERLAY}" == "production" && "${kafka_bootstrap_required}" != "true
 fi
 
 preflight_cluster "${min_eks_node_count}"
+ensure_metrics_server
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
@@ -408,6 +452,9 @@ if [[ -n "${falkordb_pod}" ]]; then
 fi
 wait_for_statefulset_rollout falkordb 15m
 wait_for_statefulset_rollout nats 10m
+wait_for_deployment_rollout temporal-postgres 10m
+wait_for_deployment_rollout temporal 10m
+ensure_temporal_schema
 
 kubectl -n drovi delete job drovi-db-migrate drovi-kafka-topic-bootstrap --ignore-not-found
 kubectl apply -f "$K8S_TMP_DIR/k8s/base/jobs.yaml"

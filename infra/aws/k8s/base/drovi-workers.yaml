@@ -158,9 +158,9 @@ spec:
             exec:
               command: ["python", "-m", "src.contexts.workflows.infrastructure.healthcheck"]
             initialDelaySeconds: 30
-            periodSeconds: 15
-            timeoutSeconds: 10
-            failureThreshold: 5
+            periodSeconds: 20
+            timeoutSeconds: 20
+            failureThreshold: 6
           resources:
             requests:
               cpu: "250m"

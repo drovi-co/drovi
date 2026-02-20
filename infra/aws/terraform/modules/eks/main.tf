@@ -9,7 +9,7 @@ module "eks" {
   cluster_endpoint_public_access_cidrs = var.eks_public_access_cidrs
 
   enable_cluster_creator_admin_permissions = true
-  enable_irsa                               = true
+  enable_irsa                              = true
 
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnet_ids
@@ -26,6 +26,18 @@ module "eks" {
     }
     aws-ebs-csi-driver = {
       most_recent = true
+    }
+  }
+
+  # Allow pod traffic on all ports between nodes (for example, frontend pods on :80).
+  node_security_group_additional_rules = {
+    ingress_all_from_self = {
+      description = "Node-to-node all traffic for pod networking"
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
+      type        = "ingress"
+      self        = true
     }
   }
 
