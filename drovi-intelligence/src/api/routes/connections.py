@@ -801,9 +801,11 @@ async def get_connection_health(
 
     settings = get_settings()
     now = datetime.now(timezone.utc)
-    failure_window_start = now - timedelta(
-        minutes=max(1, int(settings.connector_health_failure_window_minutes))
-    )
+    # sync_job_history.started_at is currently queried as a naive timestamp in production.
+    # Keep health window comparisons naive UTC to avoid asyncpg tz mismatch errors.
+    failure_window_start = (
+        now - timedelta(minutes=max(1, int(settings.connector_health_failure_window_minutes)))
+    ).replace(tzinfo=None)
 
     async with get_db_session() as session:
         connection_result = await session.execute(
