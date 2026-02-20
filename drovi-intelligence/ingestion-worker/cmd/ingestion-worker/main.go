@@ -53,7 +53,7 @@ type NormalizedRecordEvent struct {
 
 var (
 	htmlCommentRe    = regexp.MustCompile(`(?s)<!--.*?-->`)
-	htmlStripBlockRe = regexp.MustCompile(`(?is)<(script|style|head|title|meta|link)[^>]*>.*?</\1>`)
+	htmlStripBlockRe = regexp.MustCompile(`(?is)<(?:script|style|head|title|meta|link)[^>]*>.*?</(?:script|style|head|title|meta|link)>`)
 	htmlBreakRe      = regexp.MustCompile(`(?i)<br\s*/?>`)
 	htmlBlockEndRe   = regexp.MustCompile(`(?i)</(p|div|li|tr|h[1-6]|section|article|blockquote)>`)
 	htmlTagRe        = regexp.MustCompile(`(?s)<[^>]+>`)

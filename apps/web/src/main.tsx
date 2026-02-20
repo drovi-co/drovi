@@ -4,12 +4,14 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 import { I18nProvider, normalizeLocale } from "./i18n";
 import { BackendLocaleSync } from "./i18n/backend-locale-sync";
+import { initDatadogRum } from "./lib/datadog-rum";
 import { queryClient } from "./lib/query-client";
 import { initSentry } from "./lib/sentry";
 import { routeTree } from "./route-tree";
 
-// Initialize Sentry for error tracking
+// Initialize observability SDKs
 initSentry();
+initDatadogRum();
 
 const INITIAL_LOCALE = normalizeLocale(
   typeof window === "undefined"
