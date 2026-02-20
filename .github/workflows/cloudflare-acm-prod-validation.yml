@@ -16,6 +16,7 @@ jobs:
     steps:
       - name: Upsert ACM DNS validation CNAME in Cloudflare
         env:
+          CLOUDFLARE_DNS_API_KEY: ${{ secrets.CLOUDFLARE_DNS_API_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ZONE_NAME: drovi.co
@@ -24,13 +25,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-            echo "CLOUDFLARE_API_TOKEN is missing"
+          cloudflare_credential="${CLOUDFLARE_DNS_API_KEY:-${CLOUDFLARE_API_TOKEN:-}}"
+          if [[ -z "${cloudflare_credential}" ]]; then
+            echo "CLOUDFLARE_DNS_API_KEY/CLOUDFLARE_API_TOKEN is missing"
             exit 1
           fi
 
           api_base="https://api.cloudflare.com/client/v4"
-          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          auth_header="Authorization: Bearer ${cloudflare_credential}"
 
           zone_query="${api_base}/zones?name=${ZONE_NAME}"
           if [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
