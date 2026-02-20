@@ -7,9 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
+	"net/mail"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -47,6 +50,17 @@ type NormalizedRecordEvent struct {
 	ConnectorType  string                 `json:"connector_type,omitempty"`
 	ConnectionID   string                 `json:"connection_id,omitempty"`
 }
+
+var (
+	htmlCommentRe    = regexp.MustCompile(`(?s)<!--.*?-->`)
+	htmlStripBlockRe = regexp.MustCompile(`(?is)<(script|style|head|title|meta|link)[^>]*>.*?</\1>`)
+	htmlBreakRe      = regexp.MustCompile(`(?i)<br\s*/?>`)
+	htmlBlockEndRe   = regexp.MustCompile(`(?i)</(p|div|li|tr|h[1-6]|section|article|blockquote)>`)
+	htmlTagRe        = regexp.MustCompile(`(?s)<[^>]+>`)
+	htmlHintRe       = regexp.MustCompile(`(?i)</?[a-z][^>]*>`)
+	inlineWsRe       = regexp.MustCompile(`[ \t\f\v]+`)
+	multiNlRe        = regexp.MustCompile(`\n{3,}`)
+)
 
 func main() {
 	bootstrapServers := getEnv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
@@ -190,8 +204,8 @@ func normalizeRawEvent(raw RawEvent, headers []kafka.Header) (*NormalizedRecordE
 
 	content, subject := extractContent(contentPayload)
 	conversationID := pickString(contentPayload, "conversation_id", "thread_id", "channel_id", "chat_id", "meeting_id")
-	userEmail := pickString(contentPayload, "sender_email", "owner_email", "author_email", "organizer_email", "from")
-	userName := pickString(contentPayload, "sender_name", "owner_name", "author_name", "organizer_name", "from_name")
+	userEmail, userName := extractSender(contentPayload)
+	recipientEmails, ccEmails := extractParticipants(contentPayload)
 
 	sourceType := defaultSourceType(connectorType, raw.SourceType)
 	messageID := ""
@@ -209,9 +223,28 @@ func normalizeRawEvent(raw RawEvent, headers []kafka.Header) (*NormalizedRecordE
 	priorityHeader := headerValue(headers, "priority")
 	ingest := buildIngestMetadata(content, sourceType, sourceID, conversationID, messageID, jobType, priorityHeader)
 
+	rawMetadata := map[string]interface{}{
+		"sender_email": userEmail,
+		"sender_name":  userName,
+	}
+	if len(recipientEmails) > 0 {
+		rawMetadata["recipient_emails"] = recipientEmails
+		rawMetadata["attendees"] = recipientEmails
+	}
+	if len(ccEmails) > 0 {
+		rawMetadata["cc_emails"] = ccEmails
+	}
+
+	unifiedMetadata := map[string]interface{}{
+		"sender_email":     userEmail,
+		"sender_name":      userName,
+		"recipient_emails": recipientEmails,
+		"cc_emails":        ccEmails,
+	}
+
 	normalized := map[string]interface{}{
 		"content":         content,
-		"metadata":        map[string]interface{}{"raw_event_type": raw.EventType, "raw_payload": payload},
+		"metadata":        map[string]interface{}{"raw_event_type": raw.EventType, "raw_payload": payload, "raw": rawMetadata, "unified": unifiedMetadata},
 		"conversation_id": conversationID,
 		"user_email":      userEmail,
 		"user_name":       userName,
@@ -295,6 +328,8 @@ func extractContent(payload map[string]interface{}) (string, string) {
 		asString(payload["content_text"]),
 		asString(payload["description"]),
 	)
+	subject = sanitizeExtractionText(subject)
+	body = sanitizeExtractionText(body)
 	parts := []string{}
 	if subject != "" {
 		parts = append(parts, "Subject: "+subject)
@@ -429,6 +464,249 @@ func parsePriorityValue(value string) *int {
 		return &mapped
 	}
 	return nil
+}
+
+func sanitizeExtractionText(value string) string {
+	text := strings.TrimSpace(value)
+	if text == "" {
+		return ""
+	}
+
+	if strings.Contains(text, "<") && strings.Contains(text, ">") && htmlHintRe.MatchString(text) {
+		text = htmlCommentRe.ReplaceAllString(text, " ")
+		text = htmlStripBlockRe.ReplaceAllString(text, " ")
+		text = htmlBreakRe.ReplaceAllString(text, "\n")
+		text = htmlBlockEndRe.ReplaceAllString(text, "\n")
+		text = htmlTagRe.ReplaceAllString(text, " ")
+	}
+
+	text = html.UnescapeString(text)
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	text = inlineWsRe.ReplaceAllString(text, " ")
+	text = strings.ReplaceAll(text, " \n", "\n")
+	text = strings.ReplaceAll(text, "\n ", "\n")
+	text = multiNlRe.ReplaceAllString(text, "\n\n")
+	return strings.TrimSpace(text)
+}
+
+func extractSender(payload map[string]interface{}) (string, string) {
+	email := pickString(payload, "sender_email", "owner_email", "author_email", "organizer_email")
+	name := pickString(payload, "sender_name", "owner_name", "author_name", "organizer_name")
+
+	mergeNameEmail := func(value interface{}) {
+		parsedName, parsedEmail := parseNameEmail(value)
+		if email == "" {
+			email = parsedEmail
+		}
+		if name == "" {
+			name = parsedName
+		}
+	}
+
+	if email == "" || name == "" {
+		mergeNameEmail(payload["from"])
+		mergeNameEmail(payload["sender"])
+		mergeNameEmail(payload["author"])
+		mergeNameEmail(payload["organizer"])
+	}
+
+	if headers, ok := payload["headers"].(map[string]interface{}); ok && (email == "" || name == "") {
+		mergeNameEmail(pickHeaderValue(headers, "from"))
+	}
+
+	if email == "" {
+		email = normalizeEmail(pickString(payload, "from"))
+	}
+	return email, strings.TrimSpace(name)
+}
+
+func extractParticipants(payload map[string]interface{}) ([]string, []string) {
+	recipientEmails := collectEmails(
+		payload["recipient_emails"],
+		payload["to_emails"],
+		payload["participants"],
+		payload["attendee_emails"],
+		payload["to"],
+	)
+	ccEmails := collectEmails(
+		payload["cc_emails"],
+		payload["cc"],
+	)
+
+	if headers, ok := payload["headers"].(map[string]interface{}); ok {
+		recipientEmails = appendUniqueEmails(recipientEmails, collectEmails(pickHeaderValue(headers, "to"))...)
+		ccEmails = appendUniqueEmails(ccEmails, collectEmails(pickHeaderValue(headers, "cc"))...)
+	}
+
+	return recipientEmails, ccEmails
+}
+
+func parseNameEmail(value interface{}) (string, string) {
+	switch v := value.(type) {
+	case string:
+		return parseNameEmailString(v)
+	case map[string]interface{}:
+		name := firstNonEmpty(
+			asString(v["name"]),
+			asString(v["display_name"]),
+			asString(v["displayName"]),
+			asString(v["sender_name"]),
+		)
+		email := firstNonEmpty(
+			normalizeEmail(asString(v["email"])),
+			normalizeEmail(asString(v["address"])),
+			normalizeEmail(asString(v["value"])),
+			normalizeEmail(asString(v["sender_email"])),
+		)
+		if email == "" || name == "" {
+			parsedName, parsedEmail := parseNameEmailString(asString(v["from"]))
+			if name == "" {
+				name = parsedName
+			}
+			if email == "" {
+				email = parsedEmail
+			}
+		}
+		return strings.TrimSpace(name), normalizeEmail(email)
+	default:
+		return "", ""
+	}
+}
+
+func parseNameEmailString(value string) (string, string) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", ""
+	}
+	if addr, err := mail.ParseAddress(trimmed); err == nil {
+		return strings.TrimSpace(addr.Name), normalizeEmail(addr.Address)
+	}
+	if addrs, err := mail.ParseAddressList(trimmed); err == nil && len(addrs) > 0 {
+		return strings.TrimSpace(addrs[0].Name), normalizeEmail(addrs[0].Address)
+	}
+	return "", normalizeEmail(trimmed)
+}
+
+func collectEmails(values ...interface{}) []string {
+	result := []string{}
+	for _, value := range values {
+		switch v := value.(type) {
+		case nil:
+			continue
+		case string:
+			result = appendUniqueEmails(result, parseEmailsFromString(v)...)
+		case []string:
+			for _, item := range v {
+				result = appendUniqueEmails(result, parseEmailsFromString(item)...)
+			}
+		case []interface{}:
+			for _, item := range v {
+				result = appendUniqueEmails(result, collectEmails(item)...)
+			}
+		case map[string]interface{}:
+			result = appendUniqueEmails(
+				result,
+				normalizeEmail(asString(v["email"])),
+				normalizeEmail(asString(v["address"])),
+				normalizeEmail(asString(v["value"])),
+			)
+			result = appendUniqueEmails(result, collectEmails(v["to"], v["cc"], v["participants"])...)
+		default:
+			if text := asString(v); text != "" {
+				result = appendUniqueEmails(result, parseEmailsFromString(text)...)
+			}
+		}
+	}
+	return result
+}
+
+func parseEmailsFromString(value string) []string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	result := []string{}
+
+	if addrs, err := mail.ParseAddressList(trimmed); err == nil && len(addrs) > 0 {
+		for _, addr := range addrs {
+			result = appendUniqueEmails(result, addr.Address)
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
+
+	if addr, err := mail.ParseAddress(trimmed); err == nil {
+		return appendUniqueEmails(result, addr.Address)
+	}
+
+	for _, part := range strings.Split(trimmed, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if addr, err := mail.ParseAddress(part); err == nil {
+			result = appendUniqueEmails(result, addr.Address)
+			continue
+		}
+		result = appendUniqueEmails(result, part)
+	}
+
+	return result
+}
+
+func normalizeEmail(value string) string {
+	email := strings.TrimSpace(value)
+	if email == "" {
+		return ""
+	}
+
+	if strings.Contains(email, "<") && strings.Contains(email, ">") {
+		if addr, err := mail.ParseAddress(email); err == nil {
+			email = addr.Address
+		}
+	}
+
+	email = strings.Trim(email, "\"'<> ")
+	email = strings.ToLower(strings.TrimSpace(email))
+	if !strings.Contains(email, "@") {
+		return ""
+	}
+	return email
+}
+
+func appendUniqueEmails(existing []string, candidates ...string) []string {
+	seen := make(map[string]struct{}, len(existing))
+	for _, current := range existing {
+		normalized := normalizeEmail(current)
+		if normalized == "" {
+			continue
+		}
+		seen[normalized] = struct{}{}
+	}
+
+	for _, candidate := range candidates {
+		normalized := normalizeEmail(candidate)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		existing = append(existing, normalized)
+	}
+	return existing
+}
+
+func pickHeaderValue(headers map[string]interface{}, key string) string {
+	for headerKey, value := range headers {
+		if strings.EqualFold(headerKey, key) {
+			return asString(value)
+		}
+	}
+	return ""
 }
 
 func pickString(payload map[string]interface{}, keys ...string) string {

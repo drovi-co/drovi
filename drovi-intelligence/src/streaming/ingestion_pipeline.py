@@ -24,6 +24,7 @@ from src.connectors.definitions.registry import get_connector_definition
 from src.ingestion.priority import compute_ingest_priority
 from src.ingestion.unified_event import build_content_hash, build_source_fingerprint
 from src.identity import IdentitySource, IdentityType, get_identity_graph
+from src.kernel.text import sanitize_extraction_text
 from src.monitoring import get_metrics
 
 logger = structlog.get_logger()
@@ -128,6 +129,8 @@ def _extract_content_from_payload(payload: dict[str, Any]) -> tuple[str, str | N
         or payload.get("description")
         or ""
     )
+    subject = sanitize_extraction_text(str(subject), max_length=400) or ""
+    body_text = sanitize_extraction_text(str(body_text), max_length=20000) or ""
     parts: list[str] = []
     if subject:
         parts.append(f"Subject: {subject}")

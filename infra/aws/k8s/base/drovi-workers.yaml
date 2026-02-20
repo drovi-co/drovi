@@ -30,8 +30,6 @@ spec:
                 secretKeyRef:
                   name: drovi-secrets
                   key: DROVI_DATABASE_URL
-            - name: KAFKA_RAW_EVENT_MODE
-              value: "webhook_only"
             - name: PROMETHEUS_METRICS_PORT
               value: "9101"
           resources:
