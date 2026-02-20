@@ -21,6 +21,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ZONE_NAME: drovi.co
           ALB_DNS_NAME: k8s-drovi-drovipub-d168af91e5-43092597.us-east-1.elb.amazonaws.com
+          STAGING_ALB_DNS_NAME: k8s-drovi-drovipub-b27b459d7c-1590681804.us-east-1.elb.amazonaws.com
           RECORD_NAME: _190debed58e61f0d57ef502f7be7c56a.drovi.co
           RECORD_CONTENT: _c5da1d516c60834bb8709090f467ff92.jkddzztszm.acm-validations.aws
         run: |
@@ -117,4 +118,14 @@ jobs:
             imperium.drovi.co
           do
             upsert_cname_record "${host}" "${ALB_DNS_NAME}" false
+          done
+
+          for host in \
+            api-staging.drovi.co \
+            staging.drovi.co \
+            admin-staging.drovi.co \
+            imperium-api-staging.drovi.co \
+            imperium-staging.drovi.co
+          do
+            upsert_cname_record "${host}" "${STAGING_ALB_DNS_NAME}" false
           done
