@@ -5,6 +5,7 @@ metadata:
   namespace: drovi
 spec:
   backoffLimit: 3
+  activeDeadlineSeconds: 1800
   ttlSecondsAfterFinished: 3600
   template:
     spec:
@@ -33,11 +34,12 @@ metadata:
   name: drovi-kafka-topic-bootstrap
   namespace: drovi
 spec:
-  backoffLimit: 6
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
   ttlSecondsAfterFinished: 3600
   template:
     spec:
-      restartPolicy: OnFailure
+      restartPolicy: Never
       containers:
         - name: kafka-topics
           image: confluentinc/cp-kafka:7.6.0
@@ -51,30 +53,49 @@ spec:
             - /bin/bash
             - -ec
             - |
-              cat > /tmp/client.properties <<PROPS
-              security.protocol=SASL_SSL
-              sasl.mechanism=SCRAM-SHA-512
-              sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
-              PROPS
+              replication_factor="${KAFKA_TOPIC_REPLICATION_FACTOR:-3}"
+              partitions="${KAFKA_TOPIC_PARTITIONS:-3}"
+              security_protocol="${KAFKA_SECURITY_PROTOCOL:-SASL_SSL}"
+              sasl_mechanism="${KAFKA_SASL_MECHANISM:-SCRAM-SHA-512}"
+              raw_topic="${KAFKA_TOPIC_RAW_EVENTS:-raw.connector.events}"
+              normalized_topic="${KAFKA_TOPIC_NORMALIZED_RECORDS:-normalized.records}"
+              pipeline_topic="${KAFKA_TOPIC_PIPELINE_INPUT:-intelligence.pipeline.input}"
+              intelligence_topic="${KAFKA_TOPIC_INTELLIGENCE:-drovi-intelligence}"
+              graph_topic="${KAFKA_TOPIC_GRAPH_CHANGES:-graph.changes}"
+              agent_inbox_topic="${KAFKA_TOPIC_AGENT_INBOX_EVENTS:-agent.inbox.events}"
+              retry_suffix="${KAFKA_RETRY_SUFFIX:-.retry}"
+              dlq_suffix="${KAFKA_DLQ_SUFFIX:-.dlq}"
 
-              for topic in \
-                raw.connector.events \
-                normalized.records \
-                intelligence.pipeline.input \
-                drovi-intelligence \
-                graph.changes \
-                agent.inbox.events \
-                raw.connector.events.retry \
-                normalized.records.retry \
-                intelligence.pipeline.input.retry \
-                raw.connector.events.dlq \
-                normalized.records.dlq \
-                intelligence.pipeline.input.dlq
-              do
+              command_config_args=()
+              if [[ "${security_protocol}" != "PLAINTEXT" ]]; then
+                printf '%s\n' \
+                  "security.protocol=${security_protocol}" \
+                  "sasl.mechanism=${sasl_mechanism}" \
+                  "sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_SASL_USERNAME}\" password=\"${KAFKA_SASL_PASSWORD}\";" \
+                  > /tmp/client.properties
+                command_config_args=(--command-config /tmp/client.properties)
+              fi
+
+              topics=(
+                "${raw_topic}"
+                "${normalized_topic}"
+                "${pipeline_topic}"
+                "${intelligence_topic}"
+                "${graph_topic}"
+                "${agent_inbox_topic}"
+                "${raw_topic}${retry_suffix}"
+                "${normalized_topic}${retry_suffix}"
+                "${pipeline_topic}${retry_suffix}"
+                "${raw_topic}${dlq_suffix}"
+                "${normalized_topic}${dlq_suffix}"
+                "${pipeline_topic}${dlq_suffix}"
+              )
+
+              for topic in "${topics[@]}"; do
                 kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP_SERVERS}" \
-                  --command-config /tmp/client.properties \
+                  "${command_config_args[@]}" \
                   --create --if-not-exists \
                   --topic "${topic}" \
-                  --partitions 3 \
-                  --replication-factor 3
+                  --partitions "${partitions}" \
+                  --replication-factor "${replication_factor}"
               done

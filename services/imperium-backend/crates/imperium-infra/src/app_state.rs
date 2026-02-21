@@ -19,14 +19,20 @@ impl AppState {
     pub async fn bootstrap() -> Result<SharedAppState, AppError> {
         let _ = dotenvy::dotenv();
 
+        tracing::info!("imperium bootstrap: loading config");
         let config = ImperiumConfig::from_env()?;
+        tracing::info!("imperium bootstrap: connecting database");
         let database = Database::connect(&config).await?;
+        tracing::info!("imperium bootstrap: running migrations");
         database.run_migrations().await?;
         let repository = ImperiumRepository::new(database.clone());
 
+        tracing::info!("imperium bootstrap: connecting redis");
         let redis = ImperiumRedis::connect(&config).await?;
+        tracing::info!("imperium bootstrap: connecting nats");
         let nats = ImperiumNats::connect(&config).await?;
 
+        tracing::info!("imperium bootstrap: completed");
         Ok(Arc::new(Self {
             config,
             database,

@@ -6,3 +6,8 @@ metadata:
 data:
   ENVIRONMENT: "development"
   WEB_APP_URL: "https://staging.drovi.co"
+  API_BASE_URL: "https://api-staging.drovi.co"
+  CORS_ORIGINS: '["https://staging.drovi.co","https://admin-staging.drovi.co","https://imperium-staging.drovi.co"]'
+  TEMPORAL_ENABLED: "true"
+  KAFKA_ENABLED: "true"
+  KAFKA_TOPIC_REPLICATION_FACTOR: "1"

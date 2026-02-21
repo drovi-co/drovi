@@ -26,6 +26,7 @@ from src.contexts.uio_truth.infrastructure.console_preaggregates import (
     fetch_console_timeseries_preaggregate,
 )
 from src.db import get_raw_query_pool
+from src.kernel.text import sanitize_extraction_text
 
 logger = structlog.get_logger()
 
@@ -1234,6 +1235,8 @@ async def get_uio_sources(
 
         sources = []
         for row in rows:
+            quoted_text = sanitize_extraction_text(row.get("quoted_text"), max_length=2500)
+
             # Build deep link for Gmail using external message_id
             deep_link = None
             message_external_id = row.get("external_message_id")
@@ -1246,8 +1249,8 @@ async def get_uio_sources(
                 row.get("conversation_title") or
                 row.get("extracted_title")
             )
-            if not subject and row.get("quoted_text"):
-                quoted = row.get("quoted_text", "")
+            if not subject and quoted_text:
+                quoted = quoted_text
                 subject = quoted[:80] + "..." if len(quoted) > 80 else quoted
 
             sources.append(
@@ -1256,7 +1259,7 @@ async def get_uio_sources(
                     source_type=row["source_type"],
                     message_id=row.get("external_message_id"),
                     conversation_id=row.get("external_conversation_id"),
-                    quoted_text=row.get("quoted_text"),
+                    quoted_text=quoted_text,
                     source_timestamp=row.get("source_timestamp") or row.get("sent_at"),
                     sender_name=row.get("sender_name"),
                     sender_email=row.get("sender_email"),
@@ -1421,20 +1424,27 @@ async def get_source_detail(
             except Exception:
                 pass
 
+        quoted_text = sanitize_extraction_text(row.get("quoted_text"), max_length=6000)
+        body_text_clean = sanitize_extraction_text(row.get("body_text"), max_length=20000)
+        snippet_clean = sanitize_extraction_text(
+            row.get("message_snippet") or row.get("conversation_snippet") or quoted_text,
+            max_length=200,
+        )
+
         # Determine best subject
         subject = (
             row.get("message_subject") or
             row.get("conversation_title") or
             row.get("extracted_title")
         )
-        if not subject and row.get("quoted_text"):
-            first_line = row["quoted_text"].split("\n")[0].strip()
+        if not subject and quoted_text:
+            first_line = quoted_text.split("\n")[0].strip()
             subject = first_line[:80] + "..." if len(first_line) > 80 else first_line
         if not subject:
             subject = "Source Evidence"
 
         # Determine best body text
-        body_text = row.get("body_text") or row.get("quoted_text")
+        body_text = body_text_clean or quoted_text
 
         return MessageDetail(
             id=row.get("msg_id") or source_id,
@@ -1447,8 +1457,8 @@ async def get_source_detail(
             subject=subject,
             body_text=body_text,
             body_html=row.get("body_html"),
-            snippet=row.get("message_snippet") or row.get("conversation_snippet") or (row.get("quoted_text") or "")[:200],
-            quoted_text=row.get("quoted_text"),
+            snippet=snippet_clean,
+            quoted_text=quoted_text,
             sent_at=row.get("sent_at"),
             received_at=row.get("msg_received_at") or row.get("source_timestamp") or row.get("added_at"),
             conversation_id=row.get("external_conversation_id"),

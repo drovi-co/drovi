@@ -30,8 +30,6 @@ spec:
                 secretKeyRef:
                   name: drovi-secrets
                   key: DROVI_DATABASE_URL
-            - name: KAFKA_RAW_EVENT_MODE
-              value: "webhook_only"
             - name: PROMETHEUS_METRICS_PORT
               value: "9101"
           resources:
@@ -158,7 +156,9 @@ spec:
             exec:
               command: ["python", "-m", "src.contexts.workflows.infrastructure.healthcheck"]
             initialDelaySeconds: 30
-            periodSeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 20
+            failureThreshold: 6
           resources:
             requests:
               cpu: "250m"

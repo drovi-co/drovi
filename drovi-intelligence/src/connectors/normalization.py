@@ -11,6 +11,7 @@ from typing import Any
 from src.connectors.base.config import ConnectorConfig
 from src.connectors.base.connector import BaseConnector
 from src.connectors.base.records import Record, RecordType
+from src.kernel.text import sanitize_extraction_text
 
 
 @dataclass
@@ -67,6 +68,9 @@ def _fallback_content(record: Record) -> tuple[str, str | None]:
         or data.get("notes")
         or ""
     )
+    subject = sanitize_extraction_text(str(subject), max_length=400) or ""
+    body_text = sanitize_extraction_text(str(body_text), max_length=20000) or ""
+
     parts = []
     if subject:
         parts.append(f"Subject: {subject}")
@@ -92,6 +96,9 @@ def _document_content(record: Record) -> tuple[str, str | None]:
         or data.get("text")
         or ""
     )
+
+    title = sanitize_extraction_text(str(title), max_length=400) or ""
+    body_text = sanitize_extraction_text(str(body_text), max_length=20000) or ""
 
     parts = []
     if title:
@@ -130,6 +137,9 @@ def _event_content(record: Record) -> tuple[str, str | None]:
         or data.get("end_date")
     )
 
+    title = sanitize_extraction_text(str(title), max_length=400) or ""
+    description = sanitize_extraction_text(str(description), max_length=20000) or ""
+
     parts = []
     if title:
         parts.append(f"Event: {title}")
@@ -160,8 +170,8 @@ def normalize_record_for_pipeline(
     if record.record_type == RecordType.MESSAGE and hasattr(connector, "to_unified_message"):
         try:
             unified = connector.to_unified_message(record, config)
-            subject = getattr(unified, "subject", None)
-            body_text = getattr(unified, "body_text", "") or ""
+            subject = sanitize_extraction_text(getattr(unified, "subject", None), max_length=400)
+            body_text = sanitize_extraction_text(getattr(unified, "body_text", "") or "", max_length=20000) or ""
             parts = []
             if subject:
                 parts.append(f"Subject: {subject}")

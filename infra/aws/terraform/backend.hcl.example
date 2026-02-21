@@ -1,0 +1,6 @@
+# Copy to backend.hcl and fill real values.
+bucket         = "drovi-terraform-state"
+key            = "staging/infra/aws/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "drovi-terraform-locks"
+encrypt        = true

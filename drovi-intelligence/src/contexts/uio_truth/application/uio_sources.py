@@ -14,6 +14,9 @@ from sqlalchemy import text
 
 from src.contexts.evidence.application.quotes import segment_hash_from_quote
 from src.contexts.uio_truth.application.persist_envelope import PersistEnvelope
+from src.kernel.text import sanitize_extraction_text
+
+_MAX_QUOTE_CHARS = 4000
 
 
 def _offset_to_text(value: object | None) -> str | None:
@@ -50,6 +53,7 @@ async def insert_uio_source(
       because upstream extraction often emits offsets as integers.
     """
 
+    cleaned_quote = sanitize_extraction_text(quoted_text, max_length=_MAX_QUOTE_CHARS)
     source_id = str(uuid4())
     insert_result = await session.execute(
         text(
@@ -87,10 +91,10 @@ async def insert_uio_source(
             "role": role,
             "conversation_id": envelope.conversation_id,
             "message_id": message_id,
-            "quoted_text": quoted_text,
+            "quoted_text": cleaned_quote,
             "quoted_text_start": _offset_to_text(quoted_text_start),
             "quoted_text_end": _offset_to_text(quoted_text_end),
-            "segment_hash": segment_hash_from_quote(quoted_text),
+            "segment_hash": segment_hash_from_quote(cleaned_quote),
             "extracted_title": extracted_title,
             "extracted_due_date": extracted_due_date,
             "extracted_status": extracted_status,
@@ -154,6 +158,7 @@ async def insert_uio_sources_batch(
         ids.append(source_id)
 
         quoted_text = ins.get("quoted_text") if isinstance(ins, dict) else None
+        cleaned_quote = sanitize_extraction_text(quoted_text if isinstance(quoted_text, str) else None, max_length=_MAX_QUOTE_CHARS)
         params_list.append(
             {
                 "id": source_id,
@@ -163,10 +168,10 @@ async def insert_uio_sources_batch(
                 "role": str(ins.get("role") or "supporting"),
                 "conversation_id": envelope.conversation_id,
                 "message_id": ins.get("message_id"),
-                "quoted_text": quoted_text,
+                "quoted_text": cleaned_quote,
                 "quoted_text_start": _offset_to_text(ins.get("quoted_text_start")),
                 "quoted_text_end": _offset_to_text(ins.get("quoted_text_end")),
-                "segment_hash": segment_hash_from_quote(quoted_text if isinstance(quoted_text, str) else None),
+                "segment_hash": segment_hash_from_quote(cleaned_quote),
                 "extracted_title": ins.get("extracted_title"),
                 "extracted_due_date": ins.get("extracted_due_date"),
                 "extracted_status": ins.get("extracted_status"),

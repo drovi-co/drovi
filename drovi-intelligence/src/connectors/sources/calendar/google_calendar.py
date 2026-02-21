@@ -6,7 +6,7 @@ Extracts calendar events, attendees, and meeting details from Google Calendar.
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -22,6 +22,55 @@ from src.connectors.sources.calendar.google_calendar_definition import CAPABILIT
 logger = structlog.get_logger()
 
 GOOGLE_CALENDAR_BASE_URL = "https://www.googleapis.com/calendar/v3"
+
+
+def _google_error_detail(response: httpx.Response) -> str:
+    """Extract a concise Google API error detail from the response payload."""
+    try:
+        payload = response.json()
+    except Exception:
+        payload = None
+
+    if isinstance(payload, dict):
+        err = payload.get("error")
+        if isinstance(err, dict):
+            message = str(err.get("message") or "").strip()
+            reasons = [
+                str(item.get("reason"))
+                for item in err.get("errors", [])
+                if isinstance(item, dict) and item.get("reason")
+            ]
+            if message and reasons:
+                return f"{message} [reason={','.join(reasons)}]"
+            if message:
+                return message
+        elif isinstance(err, str) and err.strip():
+            return err.strip()
+
+    raw = (response.text or "").strip()
+    return raw[:300] if raw else "no additional details"
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    """Parse ISO datetime strings that may use trailing Z."""
+    if not value:
+        return None
+    candidate = value.strip()
+    if candidate.endswith("Z"):
+        candidate = f"{candidate[:-1]}+00:00"
+    try:
+        return datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
+
+
+def _to_rfc3339_utc(value: datetime) -> str:
+    """Format datetime as strict RFC3339 UTC timestamp."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
 
 
 @dataclass
@@ -108,7 +157,7 @@ class GoogleCalendarConnector(BaseConnector):
                 elif response.status_code == 401:
                     return False, "Invalid or expired access token"
                 else:
-                    return False, f"Google Calendar API error: {response.status_code}"
+                    return False, f"Google Calendar API error: {response.status_code} ({_google_error_detail(response)})"
 
         except Exception as e:
             return False, f"Connection check failed: {str(e)}"
@@ -215,27 +264,25 @@ class GoogleCalendarConnector(BaseConnector):
         backfill_start = sync_params.get("backfill_start")
         backfill_end = sync_params.get("backfill_end")
 
-        if backfill_start:
-            if isinstance(backfill_start, str):
-                try:
-                    backfill_start = datetime.fromisoformat(backfill_start)
-                except ValueError:
-                    backfill_start = None
-        if backfill_end:
-            if isinstance(backfill_end, str):
-                try:
-                    backfill_end = datetime.fromisoformat(backfill_end)
-                except ValueError:
-                    backfill_end = None
+        if isinstance(backfill_start, str):
+            backfill_start = _parse_iso_datetime(backfill_start)
+        if isinstance(backfill_end, str):
+            backfill_end = _parse_iso_datetime(backfill_end)
+
+        now_utc = datetime.now(timezone.utc)
 
         if backfill_start or backfill_end:
-            start_dt = backfill_start or (datetime.utcnow() - timedelta(days=90))
-            end_dt = backfill_end or (datetime.utcnow() + timedelta(days=90))
-            time_min = start_dt.isoformat() + "Z"
-            time_max = end_dt.isoformat() + "Z"
+            start_dt = backfill_start or (now_utc - timedelta(days=90))
+            end_dt = backfill_end or (now_utc + timedelta(days=90))
         else:
-            time_min = (datetime.utcnow() - timedelta(days=90)).isoformat() + "Z"
-            time_max = (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
+            start_dt = now_utc - timedelta(days=90)
+            end_dt = now_utc + timedelta(days=90)
+
+        if start_dt > end_dt:
+            start_dt, end_dt = end_dt, start_dt
+
+        time_min = _to_rfc3339_utc(start_dt)
+        time_max = _to_rfc3339_utc(end_dt)
 
         newest_update = last_sync_time
 
@@ -299,7 +346,10 @@ class GoogleCalendarConnector(BaseConnector):
                 headers={"Authorization": f"Bearer {self._access_token}"},
                 params=params,
             )
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"Google Calendar events API error: {response.status_code} ({_google_error_detail(response)})"
+                )
             data = response.json()
 
             batch = self.create_batch("events", config.connection_id)

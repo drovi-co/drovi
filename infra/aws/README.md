@@ -36,7 +36,8 @@ This directory provides a production-oriented scaffold to deploy the full `drovi
 ```bash
 cd infra/aws/terraform
 cp terraform.tfvars.example terraform.tfvars
-terraform init
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
@@ -97,6 +98,11 @@ Required environment secrets:
 - `INTERNAL_JWT_SECRET`
 - `API_KEY_SALT`
 - Provider secrets as needed (`OPENAI_API_KEY`, `TOGETHER_API_KEY`, etc.)
+
+Tip: `DROVI_APP_IAM_ROLE_ARN` and `IMPERIUM_IAM_ROLE_ARN` are now emitted by Terraform outputs
+(`drovi_app_iam_role_arn`, `imperium_iam_role_arn`) from `infra/aws/terraform`.
+
+For ElastiCache with transit encryption enabled, `REDIS_URL` must use `rediss://`.
 
 ## Operational Defaults
 

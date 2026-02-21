@@ -48,6 +48,10 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
           K8S_OVERLAY: ${{ inputs.k8s_overlay }}
+          KAFKA_BOOTSTRAP_REQUIRED: ${{ inputs.environment_name == 'staging' && 'false' || 'true' }}
+          KAFKA_BOOTSTRAP_WAIT_TIMEOUT: ${{ inputs.environment_name == 'staging' && '5m' || '20m' }}
+          MIN_EKS_NODE_COUNT: ${{ inputs.environment_name == 'staging' && '2' || '3' }}
+          REQUIRE_INGRESS_CONTROLLER: ${{ inputs.environment_name == 'staging' && 'false' || 'true' }}
 
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
@@ -72,7 +76,22 @@ jobs:
 
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TS_INTERNAL_SECRET: ${{ secrets.TS_INTERNAL_SECRET }}
           DROVI_INTERNAL_SERVICE_TOKEN: ${{ secrets.DROVI_INTERNAL_SERVICE_TOKEN }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
+          ADMIN_JWT_SECRET: ${{ secrets.ADMIN_JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SLACK_CLIENT_ID: ${{ secrets.SLACK_CLIENT_ID }}
+          SLACK_CLIENT_SECRET: ${{ secrets.SLACK_CLIENT_SECRET }}
+          NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}
+          NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET }}
           AGENT_INBOX_INBOUND_TOKEN: ${{ secrets.AGENT_INBOX_INBOUND_TOKEN }}
           INTERNAL_JWT_SECRET: ${{ secrets.INTERNAL_JWT_SECRET }}
           API_KEY_SALT: ${{ secrets.API_KEY_SALT }}

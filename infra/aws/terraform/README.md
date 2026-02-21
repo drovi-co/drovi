@@ -33,10 +33,17 @@ Root module responsibilities:
 ```bash
 cd infra/aws/terraform
 cp terraform.tfvars.example terraform.tfvars
-terraform init
+cp backend.hcl.example backend.hcl
+# edit backend.hcl with your S3 bucket + DynamoDB lock table
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
+
+## Remote State (Required)
+
+This stack is configured for an `s3` backend via `backend.tf`.
+Use a dedicated state bucket + DynamoDB lock table per account.
 
 ## Next Steps After Apply
 
@@ -46,9 +53,13 @@ terraform apply
 aws eks update-kubeconfig --region <region> --name <cluster-name>
 ```
 
-2. Build and push all required images to the ECR repos emitted in `ecr_repository_urls`.
-3. Populate Kubernetes secrets from Terraform outputs and provider keys.
-4. Apply Kubernetes manifests from `infra/aws/k8s`.
+2. Set GitHub environment vars from Terraform outputs:
+   - `EKS_CLUSTER_NAME` <- `eks_cluster_name`
+   - `DROVI_APP_IAM_ROLE_ARN` <- `drovi_app_iam_role_arn`
+   - `IMPERIUM_IAM_ROLE_ARN` <- `imperium_iam_role_arn`
+3. Build and push all required images to the ECR repos emitted in `ecr_repository_urls`.
+4. Populate Kubernetes secrets from Terraform outputs and provider keys.
+5. Apply Kubernetes manifests from `infra/aws/k8s`.
 
 ## Notes
 

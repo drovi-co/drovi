@@ -1,0 +1,26 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: drovi-intelligence-api
+  namespace: drovi
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: drovi-worker
+  namespace: drovi
+spec:
+  minReplicas: 1
+  maxReplicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: imperium-api
+  namespace: drovi
+spec:
+  minReplicas: 1
+  maxReplicas: 2

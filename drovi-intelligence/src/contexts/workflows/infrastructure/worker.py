@@ -10,6 +10,7 @@ in Postgres via activities that enqueue jobs into `background_job`.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import signal
 from datetime import timedelta
 
@@ -92,22 +93,43 @@ async def _ensure_system_cron_workflows(*, client: Client, task_queue: str) -> N
         cron_schedule: str,
         input_payload: dict[str, object] | None = None,
     ) -> None:
-        try:
-            await client.start_workflow(
-                workflow_run,
-                input_payload or {},
-                id=workflow_id,
-                task_queue=task_queue,
-                cron_schedule=cron_schedule,
-                execution_timeout=timedelta(days=3650),
-            )
-            logger.info(
-                "Temporal cron workflow started",
-                workflow_id=workflow_id,
-                cron_schedule=cron_schedule,
-            )
-        except WorkflowAlreadyStartedError:
-            return
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await client.start_workflow(
+                    workflow_run,
+                    input_payload or {},
+                    id=workflow_id,
+                    task_queue=task_queue,
+                    cron_schedule=cron_schedule,
+                    execution_timeout=timedelta(days=3650),
+                )
+                logger.info(
+                    "Temporal cron workflow started",
+                    workflow_id=workflow_id,
+                    cron_schedule=cron_schedule,
+                )
+                return
+            except WorkflowAlreadyStartedError:
+                return
+            except Exception as exc:
+                if attempt >= max_attempts:
+                    logger.warning(
+                        "Temporal cron workflow bootstrap failed after retries; continuing worker startup",
+                        workflow_id=workflow_id,
+                        cron_schedule=cron_schedule,
+                        attempts=max_attempts,
+                        error=str(exc),
+                    )
+                    return
+                logger.warning(
+                    "Temporal cron workflow bootstrap attempt failed; retrying",
+                    workflow_id=workflow_id,
+                    cron_schedule=cron_schedule,
+                    attempt=attempt,
+                    error=str(exc),
+                )
+                await asyncio.sleep(attempt * 2)
 
     # Run the sweep frequently; the job plane idempotency key prevents duplicates.
     if settings.scheduler_scheduled_syncs_enabled:
@@ -247,10 +269,16 @@ async def _run() -> None:
 
     # Start system cron workflows before starting the worker so the first run can be picked
     # up immediately when the worker begins polling.
-    await _ensure_system_cron_workflows(
-        client=client,
-        task_queue=settings.temporal_task_queue,
-    )
+    try:
+        await _ensure_system_cron_workflows(
+            client=client,
+            task_queue=settings.temporal_task_queue,
+        )
+    except Exception as exc:
+        logger.warning(
+            "System cron bootstrap raised unexpectedly; continuing worker startup",
+            error=str(exc),
+        )
 
     stop_event = asyncio.Event()
 
@@ -322,7 +350,11 @@ async def _run() -> None:
         ):
             await stop_event.wait()
     finally:
-        await client.close()
+        close_client = getattr(client, "close", None)
+        if callable(close_client):
+            maybe_close_result = close_client()
+            if inspect.isawaitable(maybe_close_result):
+                await maybe_close_result
         await close_db_pool()
         await close_db()
         logger.info("Temporal worker stopped")

@@ -70,6 +70,18 @@ def do_run_migrations(connection: Connection) -> None:
     )
 
     with context.begin_transaction():
+        # Keep schema bootstrap inside Alembic's managed transaction.
+        # Running SQL before `begin_transaction()` starts an implicit transaction
+        # that can be rolled back when the connection closes, causing migrations
+        # to appear successful in logs but leave no persisted tables.
+        context.execute(
+            "CREATE TABLE IF NOT EXISTS alembic_version ("
+            "version_num VARCHAR(128) NOT NULL PRIMARY KEY)"
+        )
+        context.execute(
+            "ALTER TABLE IF EXISTS alembic_version "
+            "ALTER COLUMN version_num TYPE VARCHAR(128)"
+        )
         context.run_migrations()
 
 

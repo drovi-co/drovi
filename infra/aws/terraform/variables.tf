@@ -37,6 +37,11 @@ variable "eks_public_access_cidrs" {
   description = "CIDRs allowed to access EKS public endpoint."
   type        = list(string)
   default     = ["0.0.0.0/0"]
+
+  validation {
+    condition     = var.environment != "production" || !contains(var.eks_public_access_cidrs, "0.0.0.0/0")
+    error_message = "Production must not expose the EKS API publicly to 0.0.0.0/0."
+  }
 }
 
 variable "kubernetes_version" {
@@ -55,18 +60,33 @@ variable "eks_node_min_size" {
   description = "Minimum EKS node count."
   type        = number
   default     = 3
+
+  validation {
+    condition     = var.eks_node_min_size >= 1
+    error_message = "eks_node_min_size must be at least 1."
+  }
 }
 
 variable "eks_node_desired_size" {
   description = "Desired EKS node count."
   type        = number
   default     = 4
+
+  validation {
+    condition     = var.eks_node_desired_size >= var.eks_node_min_size && var.eks_node_desired_size <= var.eks_node_max_size
+    error_message = "eks_node_desired_size must be between eks_node_min_size and eks_node_max_size."
+  }
 }
 
 variable "eks_node_max_size" {
   description = "Maximum EKS node count."
   type        = number
   default     = 10
+
+  validation {
+    condition     = var.eks_node_max_size >= 1
+    error_message = "eks_node_max_size must be at least 1."
+  }
 }
 
 variable "db_instance_class" {
@@ -91,6 +111,11 @@ variable "db_backup_retention_days" {
   description = "Number of days to retain RDS backups."
   type        = number
   default     = 7
+
+  validation {
+    condition     = var.environment != "production" || var.db_backup_retention_days >= 7
+    error_message = "Production requires db_backup_retention_days >= 7."
+  }
 }
 
 variable "db_multi_az" {
@@ -134,6 +159,16 @@ variable "redis_replicas_per_node_group" {
   description = "Replica count for single Redis shard."
   type        = number
   default     = 1
+
+  validation {
+    condition     = var.redis_replicas_per_node_group >= 0
+    error_message = "redis_replicas_per_node_group cannot be negative."
+  }
+
+  validation {
+    condition     = var.environment != "production" || var.redis_replicas_per_node_group >= 1
+    error_message = "Production requires at least one Redis replica per node group."
+  }
 }
 
 variable "redis_auth_token" {
@@ -153,6 +188,11 @@ variable "msk_broker_count" {
   description = "Number of MSK brokers. Should match AZ count for HA."
   type        = number
   default     = 3
+
+  validation {
+    condition     = var.msk_broker_count >= 3
+    error_message = "msk_broker_count must be at least 3 for HA."
+  }
 }
 
 variable "msk_broker_instance_type" {
@@ -201,7 +241,7 @@ variable "evidence_default_retention_days" {
 variable "web_cors_origins" {
   description = "Allowed origins for evidence bucket CORS."
   type        = list(string)
-  default     = [
+  default = [
     "https://app.drovi.co",
     "https://admin.drovi.co",
   ]

@@ -41,20 +41,27 @@ spec:
                   key: DROVI_DATABASE_URL
             - name: PROMETHEUS_METRICS_PORT
               value: "9100"
+          startupProbe:
+            httpGet:
+              path: /live
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: /live
               port: http
-            initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /ready
               port: http
-            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               cpu: "500m"

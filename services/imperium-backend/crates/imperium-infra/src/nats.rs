@@ -1,4 +1,5 @@
 use crate::{config::ImperiumConfig, error::AppError, telemetry::record_nats_publish};
+use tokio::time::{timeout, Duration};
 
 #[derive(Clone)]
 pub struct ImperiumNats {
@@ -7,8 +8,9 @@ pub struct ImperiumNats {
 
 impl ImperiumNats {
     pub async fn connect(config: &ImperiumConfig) -> Result<Self, AppError> {
-        let client = async_nats::connect(config.nats_url.clone())
+        let client = timeout(Duration::from_secs(30), async_nats::connect(config.nats_url.clone()))
             .await
+            .map_err(|_| AppError::dependency("timed out connecting nats after 30s".to_string()))?
             .map_err(|error| AppError::dependency(format!("failed to connect nats: {error}")))?;
 
         Ok(Self { client })

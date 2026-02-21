@@ -52,6 +52,18 @@ lerna-debug.log*
 coverage
 .nyc_output
 
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infra/aws/terraform/terraform.tfvars
+infra/aws/terraform/backend.hcl
+
 # Drovi Intelligence CI artifacts
 drovi-intelligence/.coverage/current.json
 drovi-intelligence/.coverage/current*.json

@@ -4,14 +4,17 @@ kind: Kustomization
 namespace: drovi
 
 resources:
+  - storageclass.gp3.yaml
   - namespace.yaml
   - configmap.yaml
   - serviceaccounts.yaml
   - falkordb.statefulset.yaml
   - nats.statefulset.yaml
+  - temporal.yaml
   - drovi-intelligence-api.yaml
   - drovi-workers.yaml
   - imperium-api-workers.yaml
   - web-admin-imperium-web.yaml
+  - poddisruptionbudgets.yaml
   - hpa.yaml
   - ingress.yaml

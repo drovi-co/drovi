@@ -590,9 +590,11 @@ async def get_pilot_connections(
     async with get_db_session() as session:
         settings = get_settings()
         now = datetime.now(timezone.utc)
-        failure_window_start = now - timedelta(
-            minutes=max(1, int(settings.connector_health_failure_window_minutes))
-        )
+        # sync_job_history.started_at is currently queried as a naive timestamp in production.
+        # Keep health window comparisons naive UTC to avoid asyncpg tz mismatch errors.
+        failure_window_start = (
+            now - timedelta(minutes=max(1, int(settings.connector_health_failure_window_minutes)))
+        ).replace(tzinfo=None)
         is_admin = token.role in ("pilot_owner", "pilot_admin")
         query = (
             select(
@@ -1591,22 +1593,58 @@ async def delete_connection(
 
     **Requires**: Any pilot member
     """
-    from src.db.models.connections import Connection
+    from sqlalchemy.exc import DataError, IntegrityError
+    from src.db.models.connector_webhooks import ConnectorWebhookInbox
+    from src.db.models.connections import Connection, OAuthToken, SyncJobHistory, SyncState
 
     async with get_db_session() as session:
-        if token.role == "pilot_viewer":
-            raise HTTPException(status_code=403, detail="Viewer role cannot delete connections")
+        try:
+            if token.role == "pilot_viewer":
+                raise HTTPException(status_code=403, detail="Viewer role cannot delete connections")
 
-        connection = await _require_connection_access(
-            session,
-            connection_id,
-            token,
-            action="delete",
-        )
+            connection = await _require_connection_access(
+                session,
+                connection_id,
+                token,
+                action="delete",
+            )
 
-        # Delete the connection
-        await session.delete(connection)
-        await session.commit()
+            # Use explicit SQL deletes to avoid ORM relationship nullification
+            # on non-null child foreign keys (oauth_tokens.connection_id, etc.).
+            await session.execute(delete(OAuthToken).where(OAuthToken.connection_id == connection.id))
+            await session.execute(delete(SyncState).where(SyncState.connection_id == connection.id))
+            await session.execute(delete(SyncJobHistory).where(SyncJobHistory.connection_id == connection.id))
+            await session.execute(
+                delete(ConnectorWebhookInbox).where(ConnectorWebhookInbox.connection_id == connection.id)
+            )
+            await session.execute(delete(Connection).where(Connection.id == connection.id))
+            await session.commit()
+        except HTTPException:
+            raise
+        except DataError as exc:
+            await session.rollback()
+            raise HTTPException(status_code=400, detail=f"Invalid connection id: {connection_id}") from exc
+        except IntegrityError as exc:
+            await session.rollback()
+            logger.exception(
+                "Failed to delete connection due to integrity constraint",
+                connection_id=connection_id,
+                org_id=token.org_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=409,
+                detail="Connection cannot be deleted due to dependent records",
+            ) from exc
+        except Exception as exc:
+            await session.rollback()
+            logger.exception(
+                "Failed to delete connection",
+                connection_id=connection_id,
+                org_id=token.org_id,
+                error=str(exc),
+            )
+            raise HTTPException(status_code=500, detail="Failed to delete connection") from exc
 
     logger.info(
         "Connection deleted",

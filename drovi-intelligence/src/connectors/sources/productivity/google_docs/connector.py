@@ -31,6 +31,33 @@ GOOGLE_DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3"
 GOOGLE_DOCS_BASE_URL = "https://docs.googleapis.com/v1"
 
 
+def _google_error_detail(response: httpx.Response) -> str:
+    """Extract a concise Google API error detail from the response payload."""
+    try:
+        payload = response.json()
+    except Exception:
+        payload = None
+
+    if isinstance(payload, dict):
+        err = payload.get("error")
+        if isinstance(err, dict):
+            message = str(err.get("message") or "").strip()
+            reasons = [
+                str(item.get("reason"))
+                for item in err.get("errors", [])
+                if isinstance(item, dict) and item.get("reason")
+            ]
+            if message and reasons:
+                return f"{message} [reason={','.join(reasons)}]"
+            if message:
+                return message
+        elif isinstance(err, str) and err.strip():
+            return err.strip()
+
+    raw = (response.text or "").strip()
+    return raw[:300] if raw else "no additional details"
+
+
 @dataclass
 class GoogleDocument:
     """Represents a Google Drive document."""
@@ -116,8 +143,22 @@ class GoogleDocsConnector(BaseConnector):
                     return True, None
                 elif response.status_code == 401:
                     return False, "Invalid or expired access token"
+                elif response.status_code == 403:
+                    detail = _google_error_detail(response)
+                    detail_lower = detail.lower()
+                    if (
+                        "accessnotconfigured" in detail_lower
+                        or "api has not been used" in detail_lower
+                        or "not enabled" in detail_lower
+                    ):
+                        return (
+                            False,
+                            "Google Drive API is not enabled for this OAuth project. "
+                            "Enable the Google Drive API in Google Cloud Console and reconnect.",
+                        )
+                    return False, f"Google Drive API error: 403 ({detail})"
                 else:
-                    return False, f"Google Drive API error: {response.status_code}"
+                    return False, f"Google Drive API error: {response.status_code} ({_google_error_detail(response)})"
 
         except Exception as e:
             return False, f"Connection check failed: {str(e)}"

@@ -1,0 +1,137 @@
+name: Cloudflare ACM Validation (Prod)
+
+on:
+  push:
+    branches:
+      - aws-staging-deploy-fixes
+    paths:
+      - '.github/workflows/cloudflare-acm-prod-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  upsert-acm-cname:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Upsert ACM DNS validation CNAME in Cloudflare
+        env:
+          CLOUDFLARE_DNS_API_KEY: ${{ secrets.CLOUDFLARE_DNS_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ZONE_NAME: drovi.co
+          ALB_DNS_NAME: k8s-drovi-drovipub-d168af91e5-43092597.us-east-1.elb.amazonaws.com
+          STAGING_ALB_DNS_NAME: k8s-drovi-drovipub-b27b459d7c-1590681804.us-east-1.elb.amazonaws.com
+          RECORD_NAME: _190debed58e61f0d57ef502f7be7c56a.drovi.co
+          RECORD_CONTENT: _c5da1d516c60834bb8709090f467ff92.jkddzztszm.acm-validations.aws
+        run: |
+          set -euo pipefail
+
+          cloudflare_credential="${CLOUDFLARE_DNS_API_KEY:-${CLOUDFLARE_API_TOKEN:-}}"
+          if [[ -z "${cloudflare_credential}" ]]; then
+            echo "CLOUDFLARE_DNS_API_KEY/CLOUDFLARE_API_TOKEN is missing"
+            exit 1
+          fi
+
+          api_base="https://api.cloudflare.com/client/v4"
+          auth_header="Authorization: Bearer ${cloudflare_credential}"
+
+          cf_api() {
+            local method="$1"
+            local path="$2"
+            local data="${3:-}"
+            if [[ -n "${data}" ]]; then
+              curl -sS -X "${method}" "${api_base}${path}" \
+                -H "${auth_header}" \
+                -H "Content-Type: application/json" \
+                --data "${data}"
+            else
+              curl -sS -X "${method}" "${api_base}${path}" \
+                -H "${auth_header}" \
+                -H "Content-Type: application/json"
+            fi
+          }
+
+          ensure_success() {
+            local label="$1"
+            local response_json="$2"
+            if ! echo "${response_json}" | jq -e '.success == true' >/dev/null; then
+              echo "${label} failed"
+              echo "${response_json}" | jq .
+              exit 1
+            fi
+          }
+
+          zone_query="/zones?name=${ZONE_NAME}"
+          if [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            zone_query="${zone_query}&account.id=${CLOUDFLARE_ACCOUNT_ID}"
+          fi
+
+          zone_resp="$(cf_api GET "${zone_query}")"
+          ensure_success "Cloudflare zone lookup" "${zone_resp}"
+          zone_id="$(echo "${zone_resp}" | jq -r '.result[0].id // empty')"
+          if [[ -z "${zone_id}" ]]; then
+            echo "Failed to resolve Cloudflare zone id for ${ZONE_NAME}"
+            echo "${zone_resp}" | jq .
+            exit 1
+          fi
+
+          upsert_cname_record() {
+            local fqdn="$1"
+            local content="$2"
+            local proxied="$3"
+
+            lookup_resp="$(cf_api GET "/zones/${zone_id}/dns_records?name=${fqdn}")"
+            ensure_success "Cloudflare record lookup for ${fqdn}" "${lookup_resp}"
+
+            mapfile -t conflicting_ids < <(echo "${lookup_resp}" | jq -r '.result[] | select(.type != "CNAME") | .id')
+            for record_id in "${conflicting_ids[@]}"; do
+              delete_resp="$(cf_api DELETE "/zones/${zone_id}/dns_records/${record_id}")"
+              if ! echo "${delete_resp}" | jq -e '.success == true' >/dev/null; then
+                if echo "${delete_resp}" | jq -e '.errors[]? | select(.code == 1043)' >/dev/null; then
+                  echo "Skipping ${fqdn}: Cloudflare marks existing record as read-only (code 1043)."
+                  return 0
+                fi
+                ensure_success "Cloudflare delete conflicting record ${record_id} for ${fqdn}" "${delete_resp}"
+              fi
+            done
+
+            cname_id="$(echo "${lookup_resp}" | jq -r '.result[] | select(.type == "CNAME") | .id' | head -n 1)"
+            payload="$(jq -nc \
+              --arg name "${fqdn}" \
+              --arg record_content "${content}" \
+              --argjson proxied "${proxied}" \
+              '{type:"CNAME",name:$name,content:$record_content,ttl:1,proxied:$proxied}')"
+
+            if [[ -n "${cname_id}" ]]; then
+              update_resp="$(cf_api PUT "/zones/${zone_id}/dns_records/${cname_id}" "${payload}")"
+              ensure_success "Cloudflare CNAME update for ${fqdn}" "${update_resp}"
+              echo "Updated CNAME ${fqdn} -> ${content}"
+            else
+              create_resp="$(cf_api POST "/zones/${zone_id}/dns_records" "${payload}")"
+              ensure_success "Cloudflare CNAME create for ${fqdn}" "${create_resp}"
+              echo "Created CNAME ${fqdn} -> ${content}"
+            fi
+          }
+
+          upsert_cname_record "${RECORD_NAME}" "${RECORD_CONTENT}" false
+
+          for host in \
+            api.drovi.co \
+            app.drovi.co \
+            admin.drovi.co \
+            imperium-api.drovi.co \
+            imperium.drovi.co
+          do
+            upsert_cname_record "${host}" "${ALB_DNS_NAME}" false
+          done
+
+          for host in \
+            api-staging.drovi.co \
+            staging.drovi.co \
+            admin-staging.drovi.co \
+            imperium-api-staging.drovi.co \
+            imperium-staging.drovi.co
+          do
+            upsert_cname_record "${host}" "${STAGING_ALB_DNS_NAME}" false
+          done
